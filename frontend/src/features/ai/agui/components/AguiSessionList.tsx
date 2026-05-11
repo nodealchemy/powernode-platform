@@ -93,7 +93,7 @@ export const AguiSessionList: React.FC<AguiSessionListProps> = ({
       {/* Session List */}
       {sessionList.length === 0 ? (
         <div className="text-center py-12">
-          <Radio className="h-10 w-10 text-theme-muted mx-auto mb-3 opacity-50" />
+          <Radio className="h-10 w-10 text-theme-tertiary mx-auto mb-3 opacity-50" />
           <p className="text-theme-secondary text-sm">No AG-UI sessions found.</p>
         </div>
       ) : (
@@ -112,7 +112,7 @@ export const AguiSessionList: React.FC<AguiSessionListProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0">
-                    <StatusIcon className="h-4 w-4 text-theme-muted flex-shrink-0" />
+                    <StatusIcon className="h-4 w-4 text-theme-tertiary flex-shrink-0" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-theme-primary truncate">
@@ -128,14 +128,14 @@ export const AguiSessionList: React.FC<AguiSessionListProps> = ({
                             Agent: {session.agent_id.slice(0, 8)}...
                           </span>
                         )}
-                        <span className="text-xs text-theme-muted">
+                        <span className="text-xs text-theme-tertiary">
                           Seq #{session.sequence_number}
                         </span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs text-theme-muted">
+                    <span className="text-xs text-theme-tertiary">
                       {new Date(session.created_at).toLocaleString()}
                     </span>
                     {canManage && (

@@ -14,7 +14,7 @@ const statusColors: Record<string, string> = {
   pending: 'bg-theme-surface-bg text-theme-secondary',
   reviewing: 'bg-theme-info text-theme-info',
   clean: 'bg-theme-success text-theme-success',
-  dirty: 'bg-theme-error-bg text-theme-error',
+  dirty: 'bg-theme-error text-theme-error',
   stale: 'bg-theme-warning text-theme-warning',
 };
 
@@ -75,7 +75,7 @@ const RunCardExpanded: React.FC<{
                       ? isFailed
                         ? 'bg-theme-error'
                         : 'bg-theme-info animate-pulse'
-                      : 'bg-theme-background-secondary-bg'
+                      : 'bg-theme-background-secondary'
                   }`}
                 />
                 <span className="text-[10px] text-theme-secondary mt-1 block text-center">

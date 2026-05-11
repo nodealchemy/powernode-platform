@@ -83,7 +83,7 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
             <div className="flex items-center gap-3">
               <Shield className={`w-8 h-8 ${statusColor}`} />
               <div>
-                <p className="text-sm text-theme-muted">Status</p>
+                <p className="text-sm text-theme-tertiary">Status</p>
                 <p className={`text-lg font-semibold ${statusColor}`}>
                   {healthSummary?.overall_status || 'Unknown'}
                 </p>
@@ -97,7 +97,7 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
             <div className="flex items-center gap-3">
               <Activity className="w-8 h-8 text-theme-info" />
               <div>
-                <p className="text-sm text-theme-muted">Actions (1h)</p>
+                <p className="text-sm text-theme-tertiary">Actions (1h)</p>
                 <p className="text-lg font-semibold text-theme-primary">
                   {healthSummary?.remediation_count_1h ?? 0}
                 </p>
@@ -111,7 +111,7 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-8 h-8 text-theme-warning" />
               <div>
-                <p className="text-sm text-theme-muted">Success Rate</p>
+                <p className="text-sm text-theme-tertiary">Success Rate</p>
                 <p className="text-lg font-semibold text-theme-primary">
                   {healthSummary?.success_rate ?? 0}%
                 </p>
@@ -123,9 +123,9 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <Clock className="w-8 h-8 text-theme-muted" />
+              <Clock className="w-8 h-8 text-theme-tertiary" />
               <div>
-                <p className="text-sm text-theme-muted">Open Breakers</p>
+                <p className="text-sm text-theme-tertiary">Open Breakers</p>
                 <p className="text-lg font-semibold text-theme-primary">
                   {healthSummary?.active_circuit_breakers ?? 0}
                 </p>

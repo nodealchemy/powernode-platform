@@ -22,7 +22,7 @@ export const AguiSessionDetailPanel: React.FC<AguiSessionDetailPanelProps> = ({
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <Activity className="h-10 w-10 text-theme-muted mx-auto mb-3 opacity-50" />
+          <Activity className="h-10 w-10 text-theme-tertiary mx-auto mb-3 opacity-50" />
           <p className="text-theme-secondary">
             Select a session to view its events and state.
           </p>
@@ -55,7 +55,7 @@ export const AguiSessionDetailPanel: React.FC<AguiSessionDetailPanelProps> = ({
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-4">
       <AguiRunStatus session={session} />
-      <div className="bg-theme-card border border-theme rounded-lg p-4">
+      <div className="bg-theme-surface border border-theme rounded-lg p-4">
         <TabContainer
           tabs={detailTabs}
           activeTab={detailTab}

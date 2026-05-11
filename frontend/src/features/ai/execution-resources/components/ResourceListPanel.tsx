@@ -107,7 +107,7 @@ export function ResourceListPanel({
           value={filters.search || ''}
           onChange={(e) => onFilterChange({ search: e.target.value || undefined })}
           placeholder="Search resources..."
-          className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-theme bg-theme-bg text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+          className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-theme bg-theme-surface text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
         />
       </div>
     </div>

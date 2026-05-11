@@ -19,7 +19,7 @@ const ExecutionRow: React.FC<{ execution: ShadowExecution }> = ({ execution }) =
           <XCircle className="h-4 w-4 text-theme-error" />
         )}
         <span className="text-sm font-medium text-theme-primary">{execution.agent_name}</span>
-        <span className="text-xs text-theme-muted">({execution.action_type})</span>
+        <span className="text-xs text-theme-tertiary">({execution.action_type})</span>
       </div>
       <Badge
         variant={execution.agreed ? 'success' : 'default'}
@@ -28,7 +28,7 @@ const ExecutionRow: React.FC<{ execution: ShadowExecution }> = ({ execution }) =
         {Math.round(execution.agreement_score * 100)}% match
       </Badge>
     </div>
-    <p className="text-xs text-theme-muted">{formatDate(execution.created_at)}</p>
+    <p className="text-xs text-theme-tertiary">{formatDate(execution.created_at)}</p>
   </div>
 );
 
@@ -52,7 +52,7 @@ export const ShadowModeResultsPanel: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="py-6 text-center text-theme-muted">
+          <div className="py-6 text-center text-theme-tertiary">
             <Eye className="w-10 h-10 mx-auto mb-2 opacity-30" />
             <p className="text-sm">No shadow executions recorded</p>
           </div>

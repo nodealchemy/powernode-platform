@@ -303,7 +303,7 @@ export const performanceApi = {
   },
 
   getMetricBackgroundColor(value: number, thresholds: { warn: number; critical: number }): string {
-    if (value >= thresholds.critical) return 'bg-theme-error-background';
+    if (value >= thresholds.critical) return 'bg-theme-error';
     if (value >= thresholds.warn) return 'bg-theme-warning-background';
     return 'bg-theme-success-background';
   },

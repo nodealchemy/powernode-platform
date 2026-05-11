@@ -184,7 +184,7 @@ export const MessageComposer = React.memo<MessageComposerProps>(({
           className={`absolute z-20 right-2 bottom-1.5 h-8 w-8 flex items-center justify-center rounded-full transition-all duration-200 ${
             canSend
               ? 'bg-theme-interactive-primary text-white hover:bg-theme-interactive-primary/90 shadow-sm'
-              : 'bg-theme-muted/20 text-theme-muted cursor-not-allowed'
+              : 'bg-theme-background-secondary/20 text-theme-tertiary cursor-not-allowed'
           }`}
           data-testid="send-button"
           aria-label="Send message"

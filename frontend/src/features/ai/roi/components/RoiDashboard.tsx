@@ -53,7 +53,7 @@ const getTrendIcon = (direction: string) => {
     case 'decreasing':
       return <TrendingDown className="h-4 w-4 text-theme-error" />;
     default:
-      return <BarChart3 className="h-4 w-4 text-theme-muted" />;
+      return <BarChart3 className="h-4 w-4 text-theme-tertiary" />;
   }
 };
 

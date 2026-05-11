@@ -88,7 +88,7 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
                           if (e.target.checked) onCapabilitiesChange([...capabilities, skill.slug]);
                           else onCapabilitiesChange(capabilities.filter(c => c !== skill.slug));
                         }}
-                        className="w-4 h-4 rounded border-theme-interactive-primary text-theme-brand-primary focus:ring-theme-brand-primary"
+                        className="w-4 h-4 rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-brand-primary"
                       />
                       <span className="text-theme-text-primary truncate" title={skill.name}>
                         {skill.name}

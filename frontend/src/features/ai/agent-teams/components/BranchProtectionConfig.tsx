@@ -101,7 +101,7 @@ export const BranchProtectionConfig: React.FC<BranchProtectionConfigProps> = ({ 
                 onChange={(e) => setNewBranch(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Add branch pattern (e.g. release/*)"
-                className="flex-1 px-3 py-1.5 text-sm bg-theme-bg border border-theme rounded-md text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-1 focus:ring-theme-primary"
+                className="flex-1 px-3 py-1.5 text-sm bg-theme-surface border border-theme rounded-md text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-1 focus:ring-theme-primary"
               />
               <button
                 type="button"

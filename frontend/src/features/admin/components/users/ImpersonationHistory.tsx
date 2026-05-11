@@ -68,7 +68,7 @@ export const ImpersonationHistory: React.FC = () => {
     } else if (session.expired) {
       return 'bg-theme-warning-background text-theme-warning';
     } else {
-      return 'bg-theme-error-background text-theme-error';
+      return 'bg-theme-error text-theme-error';
     }
   };
 

@@ -139,7 +139,7 @@ describe('ContainerSbomViewer', () => {
       );
 
       const emptyText = screen.getByText('No SBOM data available');
-      expect(emptyText.parentElement).toHaveClass('text-theme-muted');
+      expect(emptyText.parentElement).toHaveClass('text-theme-tertiary');
     });
   });
 

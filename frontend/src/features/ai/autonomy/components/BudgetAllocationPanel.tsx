@@ -71,7 +71,7 @@ export const BudgetAllocationPanel: React.FC<BudgetAllocationPanelProps> = ({ bu
         />
         <CardContent>
           {budgets.length === 0 ? (
-            <div className="p-8 text-center text-theme-muted">
+            <div className="p-8 text-center text-theme-tertiary">
               <DollarSign className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>No budget allocations configured.</p>
             </div>
@@ -85,9 +85,9 @@ export const BudgetAllocationPanel: React.FC<BudgetAllocationPanelProps> = ({ bu
                     <div className="p-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-theme-muted" />
+                          <DollarSign className="h-4 w-4 text-theme-tertiary" />
                           <span className="text-sm font-medium text-theme-primary">{budget.agent_name}</span>
-                          <span className="text-xs text-theme-muted capitalize">({budget.period_type})</span>
+                          <span className="text-xs text-theme-tertiary capitalize">({budget.period_type})</span>
                           {getAlertBadge(budget.utilization_percentage)}
                         </div>
                         <div className="flex items-center gap-2">
@@ -96,21 +96,21 @@ export const BudgetAllocationPanel: React.FC<BudgetAllocationPanelProps> = ({ bu
                           </span>
                           <button
                             onClick={() => setEditingBudget(budget)}
-                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted hover:text-theme-primary transition-colors"
+                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary hover:text-theme-primary transition-colors"
                             title="Edit budget"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => handleDelete(budget.id)}
-                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted hover:text-theme-error transition-colors"
+                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary hover:text-theme-error transition-colors"
                             title="Delete budget"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => toggleExpand(budget.id)}
-                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted hover:text-theme-primary transition-colors"
+                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary hover:text-theme-primary transition-colors"
                             title={isExpanded ? 'Collapse' : 'View transactions'}
                           >
                             {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -118,19 +118,19 @@ export const BudgetAllocationPanel: React.FC<BudgetAllocationPanelProps> = ({ bu
                         </div>
                       </div>
 
-                      <div className="h-2 rounded-full bg-theme-border overflow-hidden mb-2">
+                      <div className="h-2 rounded-full bg-theme-background-secondary overflow-hidden mb-2">
                         <div
                           className={cn('h-full rounded-full transition-all', getUtilizationColor(budget.utilization_percentage))}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
 
-                      <div className="flex items-center justify-between text-xs text-theme-muted">
+                      <div className="flex items-center justify-between text-xs text-theme-tertiary">
                         <span>Spent: {formatCurrency(budget.spent_cents, budget.currency)}</span>
                         <span>Total: {formatCurrency(budget.total_budget_cents, budget.currency)}</span>
                       </div>
                       {budget.reserved_cents > 0 && (
-                        <div className="text-xs text-theme-muted mt-1">
+                        <div className="text-xs text-theme-tertiary mt-1">
                           Reserved: {formatCurrency(budget.reserved_cents, budget.currency)}
                           {' · '}
                           Remaining: {formatCurrency(budget.remaining_cents, budget.currency)}

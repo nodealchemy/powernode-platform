@@ -21,7 +21,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ costAnalysis, rankin
           <h3 className="text-lg font-semibold text-theme-primary mb-4">Cost Analysis</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {Object.entries(costAnalysis).filter(([, value]) => typeof value === 'number').slice(0, 6).map(([key, value]) => (
-              <div key={key} className="p-3 bg-theme-bg rounded-lg">
+              <div key={key} className="p-3 bg-theme-surface rounded-lg">
                 <p className="text-xs text-theme-secondary">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
                 <p className="text-lg font-semibold text-theme-primary">
                   {key.includes('usd') || key.includes('cost') || key.includes('savings')
@@ -40,7 +40,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ costAnalysis, rankin
           <h3 className="text-lg font-semibold text-theme-primary mb-4">Provider Rankings</h3>
           <div className="space-y-3">
             {rankings.map((ranking, idx) => (
-              <div key={ranking.provider_id || idx} className="flex items-center justify-between p-3 bg-theme-bg rounded-lg">
+              <div key={ranking.provider_id || idx} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
                 <div className="flex items-center gap-3">
                   <span className="text-lg font-bold text-theme-info">#{idx + 1}</span>
                   <span className="text-sm font-medium text-theme-primary">{ranking.provider_name || ranking.provider_id}</span>
@@ -62,7 +62,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ costAnalysis, rankin
           <h3 className="text-lg font-semibold text-theme-primary mb-4">Recommendations</h3>
           <div className="space-y-3">
             {recommendations.map((rec, idx) => (
-              <div key={idx} className="flex items-start gap-3 p-3 bg-theme-bg rounded-lg">
+              <div key={idx} className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg">
                 <Lightbulb size={16} className="text-theme-warning mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-theme-primary">{rec.title}</p>

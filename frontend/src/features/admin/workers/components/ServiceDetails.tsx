@@ -252,7 +252,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                   {details.recent_activities.slice(0, 5).map((activity) => (
                     <div key={activity.id} className="flex items-center justify-between py-2 border-b border-theme last:border-0">
                       <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${activity.successful ? 'bg-theme-success-solid' : 'bg-theme-danger-solid'}`}></div>
+                        <div className={`w-2 h-2 rounded-full ${activity.successful ? 'bg-theme-success' : 'bg-theme-danger'}`}></div>
                         <div>
                           <div className="text-sm font-medium text-theme-primary">{activity.action}</div>
                           <div className="text-xs text-theme-secondary">

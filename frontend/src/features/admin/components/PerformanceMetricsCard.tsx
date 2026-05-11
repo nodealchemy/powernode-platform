@@ -37,7 +37,7 @@ export const PerformanceMetricsCard: React.FC<PerformanceMetricsCardProps> = ({
     },
     critical: {
       border: 'border-theme-error',
-      background: 'bg-theme-error-background',
+      background: 'bg-theme-error',
       text: 'text-theme-error',
       iconBg: 'bg-theme-error bg-opacity-20'
     }

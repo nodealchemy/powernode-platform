@@ -53,7 +53,7 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
                   className={`h-0.5 flex-shrink-0 w-6 ${
                     state === 'completed' ? 'bg-theme-success' :
                     state === 'active' ? 'bg-theme-info' :
-                    'bg-theme-border'
+                    'bg-theme-background-secondary'
                   }`}
                 />
               )}

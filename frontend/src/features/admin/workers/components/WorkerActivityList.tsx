@@ -95,13 +95,13 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
       );
     } else if (activity.failed) {
       return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-error-background text-theme-error">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-error text-theme-error">
           Failed
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-info-background text-theme-info">
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-info text-theme-info">
         Pending
       </span>
     );
@@ -118,7 +118,7 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
   if (error) {
     return (
       <div className="text-center py-8">
-        <div className="bg-theme-error-background rounded-lg p-4 max-w-md mx-auto">
+        <div className="bg-theme-error rounded-lg p-4 max-w-md mx-auto">
           <p className="text-theme-error font-medium">Error Loading Activities</p>
           <p className="text-theme-error text-sm mt-1">{error}</p>
           <button
@@ -278,7 +278,7 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
                       )}
                       
                       {activity.error_message && (
-                        <div className="text-xs text-theme-error mt-2 p-2 bg-theme-error-background rounded">
+                        <div className="text-xs text-theme-error mt-2 p-2 bg-theme-error rounded">
                           {activity.error_message}
                         </div>
                       )}
@@ -291,7 +291,7 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
                     activity.response_status >= 200 && activity.response_status < 300
                       ? 'bg-theme-success-background text-theme-success'
                       : activity.response_status >= 400
-                      ? 'bg-theme-error-background text-theme-error'
+                      ? 'bg-theme-error text-theme-error'
                       : 'bg-theme-warning-background text-theme-warning'
                   }`}>
                     {activity.response_status}

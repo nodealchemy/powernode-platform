@@ -49,7 +49,7 @@ export const AguiTextStream: React.FC<AguiTextStreamProps> = ({ events }) => {
   if (messages.length === 0) {
     return (
       <div className="text-center py-8">
-        <MessageSquare className="h-8 w-8 text-theme-muted mx-auto mb-2 opacity-50" />
+        <MessageSquare className="h-8 w-8 text-theme-tertiary mx-auto mb-2 opacity-50" />
         <p className="text-sm text-theme-secondary">No text messages yet.</p>
       </div>
     );
@@ -70,7 +70,7 @@ export const AguiTextStream: React.FC<AguiTextStreamProps> = ({ events }) => {
             <span className="text-xs font-medium text-theme-secondary capitalize">
               {msg.role}
             </span>
-            <span className="text-xs text-theme-muted">
+            <span className="text-xs text-theme-tertiary">
               {new Date(msg.timestamp).toLocaleTimeString()}
             </span>
           </div>

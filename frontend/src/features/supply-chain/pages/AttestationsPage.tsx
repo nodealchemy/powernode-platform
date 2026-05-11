@@ -60,7 +60,7 @@ export const AttestationsPage: React.FC = () => {
       render: (item) => (
         <div className="flex flex-col">
           <span className="font-medium text-theme-primary">{item.subject_name}</span>
-          <code className="text-xs text-theme-muted">
+          <code className="text-xs text-theme-tertiary">
             {truncateDigest(item.subject_digest)}
           </code>
         </div>
@@ -79,7 +79,7 @@ export const AttestationsPage: React.FC = () => {
       key: 'slsa_level',
       header: 'SLSA Level',
       render: (item) => {
-        if (!item.slsa_level) return <span className="text-theme-muted">-</span>;
+        if (!item.slsa_level) return <span className="text-theme-tertiary">-</span>;
         const levelColors = {
           1: 'secondary' as const,
           2: 'warning' as const,
@@ -100,7 +100,7 @@ export const AttestationsPage: React.FC = () => {
           {item.signed ? (
             <Check className="w-5 h-5 text-theme-success" />
           ) : (
-            <X className="w-5 h-5 text-theme-muted" />
+            <X className="w-5 h-5 text-theme-tertiary" />
           )}
         </div>
       ),
@@ -120,7 +120,7 @@ export const AttestationsPage: React.FC = () => {
           {item.rekor_logged ? (
             <Check className="w-5 h-5 text-theme-success" />
           ) : (
-            <X className="w-5 h-5 text-theme-muted" />
+            <X className="w-5 h-5 text-theme-tertiary" />
           )}
         </div>
       ),

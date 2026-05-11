@@ -164,30 +164,30 @@ export const AttestationDetailPage: React.FC = () => {
         <h2 className="text-lg font-semibold text-theme-primary mb-4">Attestation Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <span className="text-sm font-medium text-theme-muted">Attestation ID</span>
-            <code className="text-xs text-theme-muted bg-theme-muted px-2 py-1 rounded block mt-1">
+            <span className="text-sm font-medium text-theme-tertiary">Attestation ID</span>
+            <code className="text-xs text-theme-tertiary bg-theme-background-secondary px-2 py-1 rounded block mt-1">
               {attestation.attestation_id}
             </code>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Type</span>
+            <span className="text-sm font-medium text-theme-tertiary">Type</span>
             <div className="mt-1">
               <Badge variant="info">{getTypeLabel(attestation.attestation_type)}</Badge>
             </div>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Subject Name</span>
+            <span className="text-sm font-medium text-theme-tertiary">Subject Name</span>
             <p className="text-theme-primary mt-1">{attestation.subject_name}</p>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Subject Digest</span>
-            <code className="text-xs text-theme-muted bg-theme-muted px-2 py-1 rounded block mt-1">
+            <span className="text-sm font-medium text-theme-tertiary">Subject Digest</span>
+            <code className="text-xs text-theme-tertiary bg-theme-background-secondary px-2 py-1 rounded block mt-1">
               {attestation.subject_digest}
             </code>
           </div>
           {attestation.slsa_level && (
             <div>
-              <span className="text-sm font-medium text-theme-muted">SLSA Level</span>
+              <span className="text-sm font-medium text-theme-tertiary">SLSA Level</span>
               <div className="mt-1">
                 <Badge
                   variant={
@@ -202,13 +202,13 @@ export const AttestationDetailPage: React.FC = () => {
             </div>
           )}
           <div>
-            <span className="text-sm font-medium text-theme-muted">Verification Status</span>
+            <span className="text-sm font-medium text-theme-tertiary">Verification Status</span>
             <div className="mt-1">
               <StatusBadge status={attestation.verification_status} />
             </div>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Signed</span>
+            <span className="text-sm font-medium text-theme-tertiary">Signed</span>
             <div className="mt-1">
               <Badge variant={attestation.signed ? 'success' : 'secondary'}>
                 {attestation.signed ? 'Yes' : 'No'}
@@ -216,7 +216,7 @@ export const AttestationDetailPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Rekor Logged</span>
+            <span className="text-sm font-medium text-theme-tertiary">Rekor Logged</span>
             <div className="mt-1">
               <Badge variant={attestation.rekor_logged ? 'success' : 'secondary'}>
                 {attestation.rekor_logged ? 'Yes' : 'No'}
@@ -224,11 +224,11 @@ export const AttestationDetailPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Created</span>
+            <span className="text-sm font-medium text-theme-tertiary">Created</span>
             <p className="text-theme-primary mt-1">{formatDateTime(attestation.created_at)}</p>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Updated</span>
+            <span className="text-sm font-medium text-theme-tertiary">Updated</span>
             <p className="text-theme-primary mt-1">{formatDateTime(attestation.updated_at)}</p>
           </div>
         </div>
@@ -239,15 +239,15 @@ export const AttestationDetailPage: React.FC = () => {
           <h2 className="text-lg font-semibold text-theme-primary mb-4">Signing Key</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <span className="text-sm font-medium text-theme-muted">Name</span>
+              <span className="text-sm font-medium text-theme-tertiary">Name</span>
               <p className="text-theme-primary mt-1">{attestation.signing_key.name}</p>
             </div>
             <div>
-              <span className="text-sm font-medium text-theme-muted">Key Type</span>
+              <span className="text-sm font-medium text-theme-tertiary">Key Type</span>
               <p className="text-theme-primary mt-1">{attestation.signing_key.key_type}</p>
             </div>
             <div>
-              <span className="text-sm font-medium text-theme-muted">Default Key</span>
+              <span className="text-sm font-medium text-theme-tertiary">Default Key</span>
               <div className="mt-1">
                 <Badge variant={attestation.signing_key.is_default ? 'success' : 'secondary'}>
                   {attestation.signing_key.is_default ? 'Yes' : 'No'}
@@ -264,7 +264,7 @@ export const AttestationDetailPage: React.FC = () => {
     if (!attestation.build_provenance) {
       return (
         <Card className="p-6">
-          <div className="text-center py-12 text-theme-muted">
+          <div className="text-center py-12 text-theme-tertiary">
             <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>No build provenance data available</p>
           </div>
@@ -280,13 +280,13 @@ export const AttestationDetailPage: React.FC = () => {
           <h2 className="text-lg font-semibold text-theme-primary mb-4">Builder Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <span className="text-sm font-medium text-theme-muted">Builder ID</span>
-              <code className="text-xs text-theme-muted bg-theme-muted px-2 py-1 rounded block mt-1">
+              <span className="text-sm font-medium text-theme-tertiary">Builder ID</span>
+              <code className="text-xs text-theme-tertiary bg-theme-background-secondary px-2 py-1 rounded block mt-1">
                 {build_provenance.builder_id}
               </code>
             </div>
             <div>
-              <span className="text-sm font-medium text-theme-muted">Build Type</span>
+              <span className="text-sm font-medium text-theme-tertiary">Build Type</span>
               <p className="text-theme-primary mt-1">{build_provenance.build_type}</p>
             </div>
           </div>
@@ -297,15 +297,15 @@ export const AttestationDetailPage: React.FC = () => {
             <h2 className="text-lg font-semibold text-theme-primary mb-4">Materials</h2>
             <div className="space-y-3">
               {build_provenance.materials.map((material, index) => (
-                <div key={index} className="p-3 bg-theme-muted rounded-lg">
+                <div key={index} className="p-3 bg-theme-background-secondary rounded-lg">
                   <div className="text-sm font-medium text-theme-primary mb-2">
                     {material.uri}
                   </div>
                   <div className="space-y-1">
                     {Object.entries(material.digest).map(([algo, hash]) => (
                       <div key={algo} className="flex items-center gap-2">
-                        <span className="text-xs text-theme-muted uppercase">{algo}:</span>
-                        <code className="text-xs text-theme-muted">{hash}</code>
+                        <span className="text-xs text-theme-tertiary uppercase">{algo}:</span>
+                        <code className="text-xs text-theme-tertiary">{hash}</code>
                       </div>
                     ))}
                   </div>
@@ -317,7 +317,7 @@ export const AttestationDetailPage: React.FC = () => {
 
         <Card className="p-6">
           <h2 className="text-lg font-semibold text-theme-primary mb-4">Invocation Details</h2>
-          <pre className="text-xs text-theme-muted bg-theme-muted p-4 rounded-lg overflow-x-auto">
+          <pre className="text-xs text-theme-tertiary bg-theme-background-secondary p-4 rounded-lg overflow-x-auto">
             {JSON.stringify(build_provenance.invocation, null, 2)}
           </pre>
         </Card>
@@ -329,7 +329,7 @@ export const AttestationDetailPage: React.FC = () => {
     if (!attestation.verification_logs || attestation.verification_logs.length === 0) {
       return (
         <Card className="p-6">
-          <div className="text-center py-12 text-theme-muted">
+          <div className="text-center py-12 text-theme-tertiary">
             <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>No verification history available</p>
           </div>
@@ -342,10 +342,10 @@ export const AttestationDetailPage: React.FC = () => {
         <h2 className="text-lg font-semibold text-theme-primary mb-4">Verification Log</h2>
         <div className="space-y-3">
           {attestation.verification_logs.map((log, index) => (
-            <div key={index} className="p-4 bg-theme-muted rounded-lg">
+            <div key={index} className="p-4 bg-theme-background-secondary rounded-lg">
               <div className="flex items-start justify-between mb-2">
                 <StatusBadge status={log.status} />
-                <span className="text-sm text-theme-muted">
+                <span className="text-sm text-theme-tertiary">
                   {formatDateTime(log.verified_at)}
                 </span>
               </div>

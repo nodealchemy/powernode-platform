@@ -252,9 +252,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         <div className="relative group mb-6">
           {/* Terminal-style dots */}
           <div className="flex items-center space-x-2 px-4 py-2 bg-theme-background-secondary rounded-t-xl border-b border-theme">
-            <div className="w-3 h-3 bg-theme-danger-solid rounded-full opacity-80"></div>
-            <div className="w-3 h-3 bg-theme-warning-solid rounded-full opacity-80"></div>
-            <div className="w-3 h-3 bg-theme-success-solid rounded-full opacity-80"></div>
+            <div className="w-3 h-3 bg-theme-danger rounded-full opacity-80"></div>
+            <div className="w-3 h-3 bg-theme-warning rounded-full opacity-80"></div>
+            <div className="w-3 h-3 bg-theme-success rounded-full opacity-80"></div>
           </div>
           <pre className={`
             p-4 rounded-b-xl overflow-x-auto
@@ -307,7 +307,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       hr: () => (
         <div className="my-8 flex items-center">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-theme-tertiary to-transparent"></div>
-          <div className="mx-4 w-2 h-2 bg-theme-link rounded-full"></div>
+          <div className="mx-4 w-2 h-2 bg-theme-info rounded-full"></div>
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-theme-tertiary to-transparent"></div>
         </div>
       ),

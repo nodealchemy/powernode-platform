@@ -85,7 +85,7 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
         )}
 
         {error && (
-          <div className="mt-2 p-2 bg-theme-error-background border border-theme-error rounded text-xs text-theme-error">
+          <div className="mt-2 p-2 bg-theme-error border border-theme-error rounded text-xs text-theme-error">
             {error}
           </div>
         )}

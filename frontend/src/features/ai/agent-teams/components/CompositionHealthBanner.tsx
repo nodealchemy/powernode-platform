@@ -120,7 +120,7 @@ export const CompositionHealthBanner: React.FC<CompositionHealthBannerProps> = (
             <div
               className={`h-2 rounded-full transition-all duration-300 ${
                 isOptimalRange ? 'bg-theme-success' :
-                health.workers_per_lead > 9 ? 'bg-theme-danger-solid' :
+                health.workers_per_lead > 9 ? 'bg-theme-danger' :
                 'bg-theme-warning'
               }`}
               style={{ width: `${ratioPercentage}%` }}

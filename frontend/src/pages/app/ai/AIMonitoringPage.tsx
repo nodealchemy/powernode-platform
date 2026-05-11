@@ -381,7 +381,7 @@ export const AIMonitoringPage: React.FC = () => {
           <CardContent className="text-center py-8">
             <AlertTriangle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">Access Denied</h3>
-            <p className="text-theme-muted">
+            <p className="text-theme-tertiary">
               You don't have permission to view AI monitoring data.
             </p>
           </CardContent>

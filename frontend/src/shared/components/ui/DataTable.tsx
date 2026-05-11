@@ -60,7 +60,7 @@ export const DataTable = <T extends Record<string, any>>({
     if (!emptyState) {
       return (
         <tr>
-          <td colSpan={columns.length} className="px-6 py-12 text-center text-theme-muted">
+          <td colSpan={columns.length} className="px-6 py-12 text-center text-theme-tertiary">
             No data available
           </td>
         </tr>
@@ -74,12 +74,12 @@ export const DataTable = <T extends Record<string, any>>({
         <td colSpan={columns.length} className="px-6 py-12">
           <div className="text-center">
             {IconComponent && (
-              <IconComponent className="h-12 w-12 text-theme-muted mx-auto mb-4 opacity-50" />
+              <IconComponent className="h-12 w-12 text-theme-tertiary mx-auto mb-4 opacity-50" />
             )}
             <h3 className="text-lg font-medium text-theme-primary mb-2">
               {emptyState.title}
             </h3>
-            <p className="text-theme-muted mb-4">
+            <p className="text-theme-tertiary mb-4">
               {emptyState.description}
             </p>
             {emptyState.action && (
@@ -109,7 +109,7 @@ export const DataTable = <T extends Record<string, any>>({
 
     return (
       <div className="flex items-center justify-between px-6 py-3 bg-theme-surface">
-        <div className="text-sm text-theme-muted">
+        <div className="text-sm text-theme-tertiary">
           Showing {((current_page - 1) * pagination.per_page) + 1} to{' '}
           {Math.min(current_page * pagination.per_page, pagination.total_count)} of{' '}
           {pagination.total_count} results
@@ -124,7 +124,7 @@ export const DataTable = <T extends Record<string, any>>({
             <ChevronLeft className="h-4 w-4" />
             Previous
           </Button>
-          <span className="text-sm text-theme-muted">
+          <span className="text-sm text-theme-tertiary">
             Page {current_page} of {total_pages}
           </span>
           <Button
@@ -164,7 +164,7 @@ export const DataTable = <T extends Record<string, any>>({
                 <td colSpan={columns.length} className="px-6 py-12 text-center">
                   <div className="flex items-center justify-center">
                     <Loader2 className="h-6 w-6 animate-spin text-theme-primary" />
-                    <span className="ml-2 text-theme-muted">Loading...</span>
+                    <span className="ml-2 text-theme-tertiary">Loading...</span>
                   </div>
                 </td>
               </tr>

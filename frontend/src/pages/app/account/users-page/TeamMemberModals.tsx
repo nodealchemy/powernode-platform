@@ -22,7 +22,7 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
   >
     <div className="space-y-4">
       {formErrors.length > 0 && (
-        <div className="bg-theme-error-background border border-theme-error-border text-theme-error px-4 py-3 rounded">
+        <div className="bg-theme-error border border-theme-error-border text-theme-error px-4 py-3 rounded">
           <ul className="list-disc list-inside">
             {formErrors.map((error, index) => (
               <li key={index}>{error}</li>
@@ -55,7 +55,7 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
         onChange={(value: string) => onFormChange('phone', value)}
       />
 
-      <div className="bg-theme-info-background border border-theme-info-border rounded-lg p-4">
+      <div className="bg-theme-info border border-theme-info-border rounded-lg p-4">
         <div className="flex items-center space-x-3">
           <Settings className="h-5 w-5 text-theme-info flex-shrink-0" />
           <div>
@@ -112,7 +112,7 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
   >
     <div className="space-y-4">
       {formErrors.length > 0 && (
-        <div className="bg-theme-error-background border border-theme-error-border text-theme-error px-4 py-3 rounded">
+        <div className="bg-theme-error border border-theme-error-border text-theme-error px-4 py-3 rounded">
           <ul className="list-disc list-inside">
             {formErrors.map((error, index) => (
               <li key={index}>{error}</li>

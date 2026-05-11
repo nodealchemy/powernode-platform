@@ -26,8 +26,8 @@ const statusConfig: Record<
     defaultLabel: 'Non-Compliant',
   },
   unknown: {
-    bg: 'bg-theme-muted/10',
-    text: 'text-theme-muted',
+    bg: 'bg-theme-background-secondary/10',
+    text: 'text-theme-tertiary',
     icon: HelpCircle,
     defaultLabel: 'Unknown',
   },

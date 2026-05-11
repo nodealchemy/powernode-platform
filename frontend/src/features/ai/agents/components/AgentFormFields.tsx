@@ -135,9 +135,9 @@ export const AgentFormFields: React.FC<AgentFormFieldsProps> = ({
         <label className="flex items-center justify-between p-4 bg-theme-surface border border-theme rounded-lg cursor-pointer hover:bg-theme-surface-hover transition-colors">
           <div className="flex items-center gap-3">
             <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
-              form.values.is_active ? 'bg-theme-success bg-opacity-10' : 'bg-theme-muted bg-opacity-10'
+              form.values.is_active ? 'bg-theme-success bg-opacity-10' : 'bg-theme-background-secondary bg-opacity-10'
             }`}>
-              <Sparkles className={`h-5 w-5 ${form.values.is_active ? 'text-theme-success' : 'text-theme-muted'}`} />
+              <Sparkles className={`h-5 w-5 ${form.values.is_active ? 'text-theme-success' : 'text-theme-tertiary'}`} />
             </div>
             <div>
               <div className="font-medium text-theme-primary">
@@ -158,7 +158,7 @@ export const AgentFormFields: React.FC<AgentFormFieldsProps> = ({
               className="sr-only"
             />
             <div className={`w-11 h-6 rounded-full transition-colors ${
-              form.values.is_active ? 'bg-theme-success' : 'bg-theme-muted'
+              form.values.is_active ? 'bg-theme-success' : 'bg-theme-background-secondary'
             }`}>
               <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
                 form.values.is_active ? 'translate-x-5' : 'translate-x-0'

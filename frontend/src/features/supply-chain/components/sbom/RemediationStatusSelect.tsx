@@ -13,7 +13,7 @@ const statusStyles: Record<RemediationStatus, string> = {
   open: 'bg-theme-error/10 text-theme-error border-theme-error/30',
   in_progress: 'bg-theme-warning/10 text-theme-warning border-theme-warning/30',
   fixed: 'bg-theme-success/10 text-theme-success border-theme-success/30',
-  wont_fix: 'bg-theme-muted/10 text-theme-secondary border-theme',
+  wont_fix: 'bg-theme-background-secondary/10 text-theme-secondary border-theme',
 };
 
 const statusLabels: Record<RemediationStatus, string> = {

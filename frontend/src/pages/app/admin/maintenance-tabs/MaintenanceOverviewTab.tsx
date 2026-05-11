@@ -17,7 +17,7 @@ const getHealthBgColor = (status: string) => {
   switch (status) {
     case 'healthy': return 'bg-theme-success-background';
     case 'warning': return 'bg-theme-warning-background';
-    case 'critical': return 'bg-theme-error-background';
+    case 'critical': return 'bg-theme-error';
     default: return 'bg-theme-surface';
   }
 };
@@ -410,7 +410,7 @@ const RecentBackupsSection: React.FC<RecentBackupsSectionProps> = ({ backups, on
             <span className={`px-2 py-1 rounded text-xs font-medium ${
               backup.status === 'completed' ? 'bg-theme-success-background text-theme-success' :
               backup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning' :
-              'bg-theme-error-background text-theme-error'
+              'bg-theme-error text-theme-error'
             }`}>
               {backup.status}
             </span>

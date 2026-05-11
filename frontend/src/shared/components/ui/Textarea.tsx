@@ -44,7 +44,7 @@ export const Textarea: React.FC<TextareaProps> = ({
         {...props}
       />
       {description && !error && (
-        <p id={`${textareaId}-description`} className="mt-1 text-xs text-theme-muted">
+        <p id={`${textareaId}-description`} className="mt-1 text-xs text-theme-tertiary">
           {description}
         </p>
       )}

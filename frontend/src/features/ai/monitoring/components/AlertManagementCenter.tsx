@@ -46,7 +46,7 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
       case 'high': return 'text-theme-error';
       case 'medium': return 'text-theme-warning';
       case 'low': return 'text-theme-info';
-      default: return 'text-theme-muted';
+      default: return 'text-theme-tertiary';
     }
   };
 
@@ -141,8 +141,8 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
       {/* Filters */}
       <div className="flex items-center gap-4 p-4 bg-theme-surface rounded-lg border border-theme">
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-theme-muted" />
-          <span className="text-sm text-theme-muted">Filters:</span>
+          <Filter className="h-4 w-4 text-theme-tertiary" />
+          <span className="text-sm text-theme-tertiary">Filters:</span>
         </div>
         
         <Select
@@ -166,7 +166,7 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
           <option value="resolved">Resolved</option>
         </Select>
 
-        <div className="ml-auto text-sm text-theme-muted">
+        <div className="ml-auto text-sm text-theme-tertiary">
           Showing {filteredAlerts.length} of {alerts.length} alerts
         </div>
       </div>
@@ -194,7 +194,7 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
                   <div className="flex items-start justify-between">
                     <div>
                       <h4 className="font-medium text-theme-primary">{alert.title}</h4>
-                      <p className="text-sm text-theme-muted mt-1">{alert.message}</p>
+                      <p className="text-sm text-theme-tertiary mt-1">{alert.message}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant={getSeverityBadge(alert.severity)}>
@@ -210,7 +210,7 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
                   </div>
 
                   {/* Alert Metadata */}
-                  <div className="flex items-center gap-4 text-xs text-theme-muted">
+                  <div className="flex items-center gap-4 text-xs text-theme-tertiary">
                     <span>Component: {alert.component}</span>
                     <span>•</span>
                     <span>Created: {new Date(alert.created_at).toLocaleString()}</span>
@@ -261,8 +261,8 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
       {filteredAlerts.length === 0 && !isLoading && (
         <Card>
           <CardContent className="py-8 text-center">
-            <Bell className="h-12 w-12 text-theme-muted mx-auto mb-4" />
-            <p className="text-theme-muted">
+            <Bell className="h-12 w-12 text-theme-tertiary mx-auto mb-4" />
+            <p className="text-theme-tertiary">
               {alerts.length === 0 ? 'No alerts found' : 'No alerts match the selected filters'}
             </p>
           </CardContent>
@@ -279,7 +279,7 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
           <div className="space-y-4">
             <div className="p-4 bg-theme-surface rounded border border-theme">
               <h4 className="font-medium text-theme-primary mb-2">{selectedAlert.title}</h4>
-              <p className="text-sm text-theme-muted">{selectedAlert.message}</p>
+              <p className="text-sm text-theme-tertiary">{selectedAlert.message}</p>
             </div>
 
             <div className="space-y-2">

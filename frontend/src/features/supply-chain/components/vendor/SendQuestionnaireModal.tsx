@@ -80,7 +80,7 @@ export const SendQuestionnaireModal: React.FC<SendQuestionnaireModalProps> = ({
     Security: 'bg-theme-error/10 text-theme-error',
     Privacy: 'bg-theme-info/10 text-theme-info',
     Compliance: 'bg-theme-warning/10 text-theme-warning',
-    General: 'bg-theme-muted/10 text-theme-secondary',
+    General: 'bg-theme-background-secondary/10 text-theme-secondary',
   };
 
   return (
@@ -126,7 +126,7 @@ export const SendQuestionnaireModal: React.FC<SendQuestionnaireModalProps> = ({
                     </Badge>
                   </div>
                   <p className="text-sm text-theme-secondary">{template.description}</p>
-                  <p className="text-xs text-theme-muted mt-2">
+                  <p className="text-xs text-theme-tertiary mt-2">
                     {template.questionCount} questions
                   </p>
                 </button>

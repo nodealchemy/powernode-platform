@@ -114,7 +114,7 @@ export const ConsentManager: React.FC<ConsentManagerProps> = ({
                 onClick={() => handleToggle(type, !consent.granted)}
                 disabled={consent.required || loading}
                 className={`${
-                  consent.granted ? 'bg-theme-success' : 'bg-theme-muted/50'
+                  consent.granted ? 'bg-theme-success' : 'bg-theme-background-secondary/50'
                 } relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   consent.required ? 'opacity-50 cursor-not-allowed' : ''
                 }`}

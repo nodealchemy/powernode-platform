@@ -71,7 +71,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
       case 'critical':
         return <XCircle className="h-4 w-4 text-theme-error" />;
       default:
-        return <Clock className="h-4 w-4 text-theme-muted" />;
+        return <Clock className="h-4 w-4 text-theme-tertiary" />;
     }
   };
 
@@ -109,7 +109,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
         />
         <CardContent className="py-8 text-center">
           <AlertTriangle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
-          <p className="text-theme-muted">No health data available</p>
+          <p className="text-theme-tertiary">No health data available</p>
           <Button onClick={onRefresh} variant="outline" size="sm" className="mt-4">
             <RefreshCw className="h-4 w-4 mr-2" />
             Load Health Data
@@ -144,7 +144,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
           <Badge variant={getHealthStatusBadge(healthData.status)} className="mt-2">
             {healthData.status.charAt(0).toUpperCase() + healthData.status.slice(1)}
           </Badge>
-          <p className="text-sm text-theme-muted mt-1">
+          <p className="text-sm text-theme-tertiary mt-1">
             Updated {formatTimestamp(healthData.timestamp)}
           </p>
         </div>
@@ -163,7 +163,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
                 )}
                 <div>
                   <p className="text-sm font-medium text-theme-primary">AI Providers</p>
-                  <p className="text-xs text-theme-muted">
+                  <p className="text-xs text-theme-tertiary">
                     {healthData.providers.healthy_providers} / {healthData.providers.total_providers} healthy
                   </p>
                 </div>
@@ -186,10 +186,10 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(healthData.system.status)}
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-theme-muted" />
+                  <Users className="h-4 w-4 text-theme-tertiary" />
                   <div>
                     <p className="text-sm font-medium text-theme-primary">AI Agents</p>
-                    <p className="text-xs text-theme-muted">
+                    <p className="text-xs text-theme-tertiary">
                       {healthData.system.active_agents} active
                     </p>
                   </div>
@@ -205,10 +205,10 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(healthData.system.status)}
                 <div className="flex items-center gap-2">
-                  <Workflow className="h-4 w-4 text-theme-muted" />
+                  <Workflow className="h-4 w-4 text-theme-tertiary" />
                   <div>
                     <p className="text-sm font-medium text-theme-primary">Workflows</p>
-                    <p className="text-xs text-theme-muted">
+                    <p className="text-xs text-theme-tertiary">
                       {healthData.system.active_workflows} active, {healthData.system.running_executions} running
                     </p>
                   </div>
@@ -224,10 +224,10 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(healthData.database.status)}
                 <div className="flex items-center gap-2">
-                  <Database className="h-4 w-4 text-theme-muted" />
+                  <Database className="h-4 w-4 text-theme-tertiary" />
                   <div>
                     <p className="text-sm font-medium text-theme-primary">Database</p>
-                    <p className="text-xs text-theme-muted">
+                    <p className="text-xs text-theme-tertiary">
                       {healthData.database.connection_pool
                         ? `${healthData.database.connection_pool.busy} / ${healthData.database.connection_pool.size} connections`
                         : healthData.database.connection || 'Connected'}
@@ -253,10 +253,10 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(healthData.redis.status)}
                 <div className="flex items-center gap-2">
-                  <Server className="h-4 w-4 text-theme-muted" />
+                  <Server className="h-4 w-4 text-theme-tertiary" />
                   <div>
                     <p className="text-sm font-medium text-theme-primary">Redis</p>
-                    <p className="text-xs text-theme-muted">
+                    <p className="text-xs text-theme-tertiary">
                       {healthData.redis.used_memory || 'Connected'}
                       {healthData.redis.connected_clients !== undefined &&
                         `, ${healthData.redis.connected_clients} clients`}
@@ -274,10 +274,10 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(healthData.workers.status)}
                 <div className="flex items-center gap-2">
-                  <HardDrive className="h-4 w-4 text-theme-muted" />
+                  <HardDrive className="h-4 w-4 text-theme-tertiary" />
                   <div>
                     <p className="text-sm font-medium text-theme-primary">Workers</p>
-                    <p className="text-xs text-theme-muted">
+                    <p className="text-xs text-theme-tertiary">
                       {healthData.workers.recent_completions} completed, {healthData.workers.estimated_backlog} backlog
                     </p>
                   </div>
@@ -304,25 +304,25 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
             <h4 className="text-sm font-medium text-theme-primary">Circuit Breakers</h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme">
-                <span className="text-sm text-theme-muted">Healthy</span>
+                <span className="text-sm text-theme-tertiary">Healthy</span>
                 <Badge variant="success" size="sm">
                   {healthData.circuit_breakers.healthy}
                 </Badge>
               </div>
               <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme">
-                <span className="text-sm text-theme-muted">Degraded</span>
+                <span className="text-sm text-theme-tertiary">Degraded</span>
                 <Badge variant="warning" size="sm">
                   {healthData.circuit_breakers.degraded}
                 </Badge>
               </div>
               <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme">
-                <span className="text-sm text-theme-muted">Unhealthy</span>
+                <span className="text-sm text-theme-tertiary">Unhealthy</span>
                 <Badge variant="danger" size="sm">
                   {healthData.circuit_breakers.unhealthy}
                 </Badge>
               </div>
               <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme">
-                <span className="text-sm text-theme-muted">Total</span>
+                <span className="text-sm text-theme-tertiary">Total</span>
                 <Badge variant="info" size="sm">
                   {healthData.circuit_breakers.total_services}
                 </Badge>
@@ -333,7 +333,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
 
         {/* Last Updated */}
         <div className="text-center pt-2 border-t border-theme">
-          <p className="text-xs text-theme-muted">
+          <p className="text-xs text-theme-tertiary">
             Last updated: {new Date(healthData.timestamp).toLocaleTimeString()}
           </p>
         </div>

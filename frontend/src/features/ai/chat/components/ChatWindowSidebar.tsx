@@ -221,9 +221,9 @@ export const ChatWindowSidebar: React.FC = () => {
               Chat with Concierge
             </button>
             <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-theme-border" />
+              <div className="flex-1 h-px bg-theme-background-secondary" />
               <span className="text-[10px] text-theme-text-tertiary">or choose an agent</span>
-              <div className="flex-1 h-px bg-theme-border" />
+              <div className="flex-1 h-px bg-theme-background-secondary" />
             </div>
             <AgentSelector
               selectedAgentId={selectedAgentId}

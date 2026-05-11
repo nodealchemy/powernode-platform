@@ -26,7 +26,7 @@ export const AddCredentialForm: React.FC<AddCredentialFormProps> = ({
         <Plus className="h-4 w-4" />
         Add New Credential (Optional)
       </h5>
-      <p className="text-xs text-theme-muted">
+      <p className="text-xs text-theme-tertiary">
         Leave fields blank to update provider without adding credentials.
       </p>
 

@@ -38,7 +38,7 @@ const getCircuitBreakerIcon = (state: string) => {
     case 'closed': return <CheckCircle className="h-4 w-4 text-theme-success" />;
     case 'half_open': return <Clock className="h-4 w-4 text-theme-warning" />;
     case 'open': return <XCircle className="h-4 w-4 text-theme-danger" />;
-    default: return <AlertCircle className="h-4 w-4 text-theme-muted" />;
+    default: return <AlertCircle className="h-4 w-4 text-theme-tertiary" />;
   }
 };
 
@@ -76,14 +76,14 @@ export const ProviderHealthCard: React.FC<ProviderHealthCardProps> = ({
     />
     <CardContent className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-theme-muted">Health Score</span>
+        <span className="text-sm text-theme-tertiary">Health Score</span>
         <span className={cn('font-medium', getHealthScoreColor(provider.health_score))}>
           {provider.health_score.toFixed(1)}%
         </span>
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-theme-muted">Circuit Breaker</span>
+        <span className="text-sm text-theme-tertiary">Circuit Breaker</span>
         <div className="flex items-center gap-1">
           {getCircuitBreakerIcon(provider.circuit_breaker.state)}
           <span className="text-sm capitalize">{provider.circuit_breaker.state.replace('_', ' ')}</span>
@@ -92,7 +92,7 @@ export const ProviderHealthCard: React.FC<ProviderHealthCardProps> = ({
 
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-theme-muted">Success Rate</span>
+          <span className="text-theme-tertiary">Success Rate</span>
           <span className={provider.performance.success_rate >= 95 ? 'text-theme-success' : provider.performance.success_rate >= 90 ? 'text-theme-warning' : 'text-theme-danger'}>
             {provider.performance.success_rate.toFixed(1)}%
           </span>
@@ -102,23 +102,23 @@ export const ProviderHealthCard: React.FC<ProviderHealthCardProps> = ({
 
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div>
-          <span className="text-theme-muted block">Avg Response</span>
+          <span className="text-theme-tertiary block">Avg Response</span>
           <span className="font-medium">{formatLatency(provider.performance.avg_response_time)}</span>
         </div>
         <div>
-          <span className="text-theme-muted block">Executions</span>
+          <span className="text-theme-tertiary block">Executions</span>
           <span className="font-medium">{provider.usage.executions_count.toLocaleString()}</span>
         </div>
       </div>
 
       <div className="flex items-center justify-between text-sm">
-        <span className="text-theme-muted">Cost ({timeRange})</span>
+        <span className="text-theme-tertiary">Cost ({timeRange})</span>
         <span className="font-medium">{formatCurrency(provider.usage.cost)}</span>
       </div>
 
       {provider.performance.error_rate > 0 && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-theme-muted">Error Rate</span>
+          <span className="text-theme-tertiary">Error Rate</span>
           <span className="text-theme-danger font-medium">{provider.performance.error_rate.toFixed(2)}%</span>
         </div>
       )}

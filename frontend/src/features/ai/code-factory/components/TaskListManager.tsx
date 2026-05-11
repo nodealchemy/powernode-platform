@@ -30,7 +30,7 @@ const tierColors: Record<string, string> = {
   low: 'bg-theme-surface-bg text-theme-secondary',
   standard: 'bg-theme-info text-theme-info',
   high: 'bg-theme-warning text-theme-warning',
-  critical: 'bg-theme-error-bg text-theme-error',
+  critical: 'bg-theme-error text-theme-error',
 };
 
 export const TaskListManager: React.FC<Props> = ({ tasks = [] }) => {

@@ -147,7 +147,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
 
   const ImportanceBar: React.FC<{ value: number }> = ({ value }) => {
     const pct = Math.round(value * 100);
-    const color = pct >= 70 ? 'bg-theme-success-solid' : pct >= 40 ? 'bg-theme-warning-solid' : 'bg-theme-error-solid';
+    const color = pct >= 70 ? 'bg-theme-success' : pct >= 40 ? 'bg-theme-warning' : 'bg-theme-error';
     return (
       <span className="inline-flex items-center gap-1.5">
         <span className="w-20 h-2.5 rounded-full bg-theme-surface-hover inline-block">
@@ -163,17 +163,17 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
       {/* Filters & Sort */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-muted" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-tertiary" />
           <input
             type="text"
             placeholder="Search learnings..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-theme-surface border border-theme text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-theme-surface border border-theme text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           />
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-theme-muted" />
+          <Filter className="w-4 h-4 text-theme-tertiary" />
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
@@ -194,7 +194,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
             <option value="global">Global</option>
           </select>
           <div className="flex items-center gap-1 ml-2">
-            <ArrowUpDown className="w-4 h-4 text-theme-muted" />
+            <ArrowUpDown className="w-4 h-4 text-theme-tertiary" />
             {SORT_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
@@ -202,7 +202,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
                 className={`px-2 py-1 text-xs rounded transition-colors ${
                   sortBy === opt.value
                     ? 'bg-theme-info/20 text-theme-info font-medium'
-                    : 'text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover'
+                    : 'text-theme-tertiary hover:text-theme-primary hover:bg-theme-surface-hover'
                 }`}
               >
                 {opt.label}
@@ -220,12 +220,12 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
       {/* Count + expand toggle */}
       {!loading && learnings.length > 0 && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-theme-muted">
+          <p className="text-xs text-theme-tertiary">
             Showing {learnings.length} of {totalCount.toLocaleString()} learnings
           </p>
           <button
             onClick={() => setIsListExpanded((v) => !v)}
-            className="flex items-center gap-1 text-xs text-theme-muted hover:text-theme-primary transition-colors"
+            className="flex items-center gap-1 text-xs text-theme-tertiary hover:text-theme-primary transition-colors"
             title={isListExpanded ? 'Collapse to fixed viewport' : 'Expand to full height'}
           >
             {isListExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -239,7 +239,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
         <LoadingSpinner />
       ) : learnings.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-theme-muted">
+          <CardContent className="p-8 text-center text-theme-tertiary">
             <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>No learnings found matching your filters.</p>
           </CardContent>
@@ -273,7 +273,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
                   <p className={`text-xs text-theme-secondary mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>
                     {learning.content}
                   </p>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-theme-muted">
+                  <div className="flex items-center gap-4 mt-2 text-xs text-theme-tertiary">
                     <ImportanceBar value={learning.importance_score} />
                     {learning.effectiveness_score !== null && (
                       <span>Effectiveness: {Math.round(learning.effectiveness_score * 100)}%</span>
@@ -283,7 +283,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
                     {learning.tags.length > 0 && (
                       <span className="flex gap-1 flex-wrap">
                         {learning.tags.slice(0, 8).map((tag) => (
-                          <span key={tag} className="px-1.5 py-0.5 rounded bg-theme-surface-hover text-theme-muted">
+                          <span key={tag} className="px-1.5 py-0.5 rounded bg-theme-surface-hover text-theme-tertiary">
                             {tag}
                           </span>
                         ))}
@@ -294,7 +294,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
                 <button
                   onClick={(e) => handleReinforce(e, learning.id)}
                   disabled={reinforcing === learning.id}
-                  className="shrink-0 p-2 rounded-md hover:bg-theme-surface-hover text-theme-muted hover:text-theme-success transition-colors disabled:opacity-50"
+                  className="shrink-0 p-2 rounded-md hover:bg-theme-surface-hover text-theme-tertiary hover:text-theme-success transition-colors disabled:opacity-50"
                   title="Mark as useful"
                 >
                   <ThumbsUp className="w-4 h-4" />

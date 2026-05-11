@@ -285,7 +285,7 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
               <button
                 onClick={handleReject}
                 disabled={!rejectReason.trim()}
-                className="btn-theme btn-theme-primary bg-theme-error hover:bg-theme-error-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-theme btn-theme-primary bg-theme-error hover:bg-theme-error disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Confirm Rejection
               </button>

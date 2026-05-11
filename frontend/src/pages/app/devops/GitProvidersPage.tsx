@@ -722,7 +722,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                           <Loader2 className="w-5 h-5 animate-spin text-theme-primary" />
                         </div>
                       ) : credentials.length === 0 ? (
-                        <div className="text-center py-6 bg-theme-bg rounded-lg border border-dashed border-theme">
+                        <div className="text-center py-6 bg-theme-surface rounded-lg border border-dashed border-theme">
                           <Key className="w-8 h-8 mx-auto text-theme-secondary mb-2" />
                           <p className="text-sm text-theme-secondary">No credentials configured</p>
                           <p className="text-xs text-theme-tertiary mt-1">
@@ -734,7 +734,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                           {credentials.map((credential) => (
                             <div
                               key={credential.id}
-                              className="flex items-center justify-between p-3 bg-theme-bg rounded-lg border border-theme"
+                              className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme"
                             >
                               <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-lg bg-theme-primary/10">

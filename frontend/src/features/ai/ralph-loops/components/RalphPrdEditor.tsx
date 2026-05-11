@@ -107,7 +107,7 @@ export const RalphPrdEditor: React.FC<RalphPrdEditorProps> = ({
             <Button variant="ghost" size="sm" onClick={collapseAll} title="Collapse all">
               <ChevronRight className="w-4 h-4" />
             </Button>
-            <div className="w-px h-4 bg-theme-border-primary" />
+            <div className="w-px h-4 bg-theme-interactive-primary" />
             <Button variant="ghost" size="sm" onClick={handleExportJson}>
               JSON
             </Button>

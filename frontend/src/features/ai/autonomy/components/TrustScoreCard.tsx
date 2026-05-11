@@ -72,7 +72,7 @@ export const TrustScoreCard: React.FC<TrustScoreCardProps> = ({ score }) => {
             <p className="text-2xl font-bold text-theme-primary">
               {Math.round(score.overall_score * 100)}
             </p>
-            <p className="text-xs text-theme-muted">Overall</p>
+            <p className="text-xs text-theme-tertiary">Overall</p>
           </div>
         </div>
 
@@ -82,8 +82,8 @@ export const TrustScoreCard: React.FC<TrustScoreCardProps> = ({ score }) => {
             const pct = Math.round(value * 100);
             return (
               <div key={key} className="flex items-center gap-3">
-                <span className="text-xs text-theme-muted w-24 shrink-0">{label}</span>
-                <div className="flex-1 h-2 rounded-full bg-theme-border overflow-hidden">
+                <span className="text-xs text-theme-tertiary w-24 shrink-0">{label}</span>
+                <div className="flex-1 h-2 rounded-full bg-theme-background-secondary overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${getBarColor(value)}`}
                     style={{ width: `${pct}%` }}
@@ -95,7 +95,7 @@ export const TrustScoreCard: React.FC<TrustScoreCardProps> = ({ score }) => {
           })}
         </div>
 
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-theme text-xs text-theme-muted">
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-theme text-xs text-theme-tertiary">
           <span>{score.evaluation_count} evaluations</span>
           <span>Last: {formatDate(score.last_evaluated_at)}</span>
         </div>

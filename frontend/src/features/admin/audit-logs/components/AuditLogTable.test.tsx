@@ -353,7 +353,7 @@ describe('AuditLogTable', () => {
       const { container } = render(<AuditLogTable logs={criticalLog} />);
 
       // The Risk column badge should have error background
-      expect(container.querySelector('.bg-theme-error-background')).toBeInTheDocument();
+      expect(container.querySelector('.bg-theme-error')).toBeInTheDocument();
     });
 
     it('applies error style for high severity', () => {
@@ -362,7 +362,7 @@ describe('AuditLogTable', () => {
       const highLog = [{ ...mockLogs[0], level: 'high' as any, status: 'success' as const }];
       const { container } = render(<AuditLogTable logs={highLog} />);
 
-      expect(container.querySelector('.bg-theme-error-background')).toBeInTheDocument();
+      expect(container.querySelector('.bg-theme-error')).toBeInTheDocument();
     });
 
     it('applies warning style for medium severity', () => {
@@ -405,7 +405,7 @@ describe('AuditLogTable', () => {
       render(<AuditLogTable {...defaultProps} />);
 
       const errorBadges = screen.getAllByText('error');
-      expect(errorBadges[0].closest('span')).toHaveClass('bg-theme-error-background');
+      expect(errorBadges[0].closest('span')).toHaveClass('bg-theme-error');
     });
 
     it('applies warning style for warning status', () => {

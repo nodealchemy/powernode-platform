@@ -225,7 +225,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
 
               <p className="text-sm text-theme-primary mb-2 line-clamp-2">{execution.objective || 'No objective'}</p>
 
-              <div className="w-full bg-theme-bg rounded-full h-1.5 mb-2">
+              <div className="w-full bg-theme-surface rounded-full h-1.5 mb-2">
                 <div
                   className={`h-1.5 rounded-full transition-all ${
                     execution.status === 'failed' ? 'bg-theme-danger' :
@@ -262,7 +262,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                       {detail?.per_member_costs && detail.per_member_costs.length > 0 ? (
                         <div className="space-y-2">
                           {detail.per_member_costs.map((member, idx) => (
-                            <div key={member.agent_id || idx} className="flex items-center justify-between p-2.5 bg-theme-bg rounded-md border border-theme/50">
+                            <div key={member.agent_id || idx} className="flex items-center justify-between p-2.5 bg-theme-surface rounded-md border border-theme/50">
                               <div className="flex items-center gap-2 min-w-0">
                                 <StatusIcon status={member.status} />
                                 <span className="text-sm text-theme-primary truncate">{member.agent_name}</span>
@@ -286,7 +286,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                       {detail?.input_context && Object.keys(detail.input_context).length > 0 && (
                         <div>
                           <h4 className="text-sm font-medium text-theme-primary mb-1.5">Input</h4>
-                          <div className="bg-theme-bg rounded-md p-2.5 border border-theme/50 max-h-32 overflow-y-auto">
+                          <div className="bg-theme-surface rounded-md p-2.5 border border-theme/50 max-h-32 overflow-y-auto">
                             {detail.input_context.task ? (
                               <p className="text-xs text-theme-secondary whitespace-pre-wrap">{String(detail.input_context.task)}</p>
                             ) : (
@@ -305,16 +305,16 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                               <span className="flex items-center gap-2"><CheckCircle size={14} className="text-theme-success" />Output</span>
                               <div className="flex items-center gap-1">
                                 {mdContent && (
-                                  <button onClick={(e) => { e.stopPropagation(); downloadContent(mdContent, `${execution.execution_id}-output.md`, 'text/markdown'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors" title="Download as Markdown">
+                                  <button onClick={(e) => { e.stopPropagation(); downloadContent(mdContent, `${execution.execution_id}-output.md`, 'text/markdown'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-surface border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors" title="Download as Markdown">
                                     <FileText size={12} />.md
                                   </button>
                                 )}
-                                <button onClick={(e) => { e.stopPropagation(); downloadContent(JSON.stringify(outputResult, null, 2), `${execution.execution_id}-output.json`, 'application/json'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors" title="Download as JSON">
+                                <button onClick={(e) => { e.stopPropagation(); downloadContent(JSON.stringify(outputResult, null, 2), `${execution.execution_id}-output.json`, 'application/json'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-surface border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors" title="Download as JSON">
                                   <FileJson size={12} />.json
                                 </button>
                               </div>
                             </h4>
-                            <div className="bg-theme-bg rounded-md border border-theme/50 max-h-[480px] overflow-y-auto">
+                            <div className="bg-theme-surface rounded-md border border-theme/50 max-h-[480px] overflow-y-auto">
                               {mdContent ? (
                                 <div className="p-3">
                                   <MarkdownRenderer content={mdContent} variant="admin" maxWidth="none" fontSize="sm" enableAdvancedFeatures={false} className="execution-output-md" />
@@ -339,30 +339,30 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                       <div>
                         <h4 className="text-sm font-medium text-theme-primary mb-1.5">Details</h4>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                          <div className="bg-theme-surface rounded p-2 border border-theme/50">
                             <span className="text-theme-secondary block">Execution ID</span>
                             <span className="text-theme-primary font-mono">{execution.execution_id}</span>
                           </div>
-                          <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                          <div className="bg-theme-surface rounded p-2 border border-theme/50">
                             <span className="text-theme-secondary block">Duration</span>
                             <span className="text-theme-primary">{formatDuration(execution.duration_ms)}</span>
                           </div>
-                          <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                          <div className="bg-theme-surface rounded p-2 border border-theme/50">
                             <span className="text-theme-secondary block">Total Tokens</span>
                             <span className="text-theme-primary">{(execution.total_tokens_used || 0).toLocaleString()}</span>
                           </div>
-                          <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                          <div className="bg-theme-surface rounded p-2 border border-theme/50">
                             <span className="text-theme-secondary block">Total Cost</span>
                             <span className="text-theme-primary">{formatCost(execution.total_cost_usd)}</span>
                           </div>
                           {execution.started_at && (
-                            <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                            <div className="bg-theme-surface rounded p-2 border border-theme/50">
                               <span className="text-theme-secondary block">Started</span>
                               <span className="text-theme-primary">{new Date(execution.started_at).toLocaleString()}</span>
                             </div>
                           )}
                           {execution.completed_at && (
-                            <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                            <div className="bg-theme-surface rounded p-2 border border-theme/50">
                               <span className="text-theme-secondary block">Completed</span>
                               <span className="text-theme-primary">{new Date(execution.completed_at).toLocaleString()}</span>
                             </div>
@@ -379,7 +379,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                         </h4>
                         <div className="space-y-2">
                           {execTasks.map(task => (
-                            <div key={task.id} className="flex items-center justify-between p-2.5 bg-theme-bg rounded-md border border-theme/50">
+                            <div key={task.id} className="flex items-center justify-between p-2.5 bg-theme-surface rounded-md border border-theme/50">
                               <div className="flex items-center gap-2 min-w-0">
                                 <StatusIcon status={task.status} />
                                 <span className="text-xs text-theme-primary truncate">{task.description || task.task_type || 'Task'}</span>
@@ -404,7 +404,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                         </h4>
                         <div className="space-y-1.5 max-h-48 overflow-y-auto">
                           {execMessages.map(msg => (
-                            <div key={msg.id} className="flex items-start gap-2 text-xs p-2 bg-theme-bg rounded-md border border-theme/50">
+                            <div key={msg.id} className="flex items-start gap-2 text-xs p-2 bg-theme-surface rounded-md border border-theme/50">
                               <div className="flex items-center gap-1 shrink-0">
                                 <span className="font-medium text-theme-info">{msg.from_role_name || 'System'}</span>
                                 {msg.to_role_name && (

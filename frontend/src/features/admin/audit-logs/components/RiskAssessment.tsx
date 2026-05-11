@@ -212,7 +212,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
               <div className="absolute inset-0 flex justify-between px-1">
                 <div className="w-0.5 h-4 bg-theme-background opacity-50" style={{ marginLeft: '40%' }} />
                 <div className="w-0.5 h-4 bg-theme-background opacity-50" style={{ marginLeft: '60%' }} />
-                <div className="w-0.5 h-4 bg-theme-background opacity-50" style={{ marginLeft: '80%' }} />
+                <div className="w-0.5 h-4 bg-theme-surface opacity-50" style={{ marginLeft: '80%' }} />
               </div>
             </div>
           </div>

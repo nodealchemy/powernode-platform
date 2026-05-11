@@ -653,7 +653,7 @@ describe('ContainerImagesPage', () => {
       );
 
       const criticalSpan = screen.getByTestId('cell-0-critical').querySelector('span');
-      expect(criticalSpan).toHaveClass('text-theme-muted');
+      expect(criticalSpan).toHaveClass('text-theme-tertiary');
     });
   });
 

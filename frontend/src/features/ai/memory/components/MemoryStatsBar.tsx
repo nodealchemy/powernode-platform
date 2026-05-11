@@ -87,7 +87,7 @@ export const MemoryStatsBar: React.FC<MemoryStatsBarProps> = ({ stats, loading, 
                   <p className="text-sm text-theme-tertiary">{card.label}</p>
                   <p className="text-2xl font-semibold text-theme-primary">{card.value}</p>
                   {card.subtitle && (
-                    <p className="text-xs text-theme-muted mt-0.5">{card.subtitle}</p>
+                    <p className="text-xs text-theme-tertiary mt-0.5">{card.subtitle}</p>
                   )}
                 </div>
                 <div className={`h-10 w-10 ${card.bgColor} rounded-lg flex items-center justify-center`}>

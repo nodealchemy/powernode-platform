@@ -124,7 +124,7 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
       case 'healthy': return 'text-theme-success';
       case 'degraded': return 'text-theme-warning';
       case 'critical': return 'text-theme-danger';
-      default: return 'text-theme-muted';
+      default: return 'text-theme-tertiary';
     }
   };
 

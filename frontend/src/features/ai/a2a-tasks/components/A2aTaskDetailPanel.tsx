@@ -13,8 +13,8 @@ export const A2aTaskDetailPanel: React.FC<A2aTaskDetailPanelProps> = ({ taskId, 
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <Activity className="h-12 w-12 text-theme-muted mx-auto mb-3" />
-          <p className="text-sm text-theme-muted">Select a task to view details</p>
+          <Activity className="h-12 w-12 text-theme-tertiary mx-auto mb-3" />
+          <p className="text-sm text-theme-tertiary">Select a task to view details</p>
         </div>
       </div>
     );

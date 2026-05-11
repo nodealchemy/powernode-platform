@@ -21,7 +21,7 @@ export const McpAppsPage: React.FC = () => {
   if (!canView) {
     return (
       <div className="text-center py-12">
-        <AppWindow className="h-12 w-12 text-theme-muted mx-auto mb-4 opacity-50" />
+        <AppWindow className="h-12 w-12 text-theme-tertiary mx-auto mb-4 opacity-50" />
         <p className="text-theme-secondary">You do not have permission to view MCP Apps.</p>
       </div>
     );
@@ -80,7 +80,7 @@ export const McpAppsPage: React.FC = () => {
         />
       ) : (
         <div className="text-center py-12">
-          <Eye className="h-8 w-8 text-theme-muted mx-auto mb-2 opacity-50" />
+          <Eye className="h-8 w-8 text-theme-tertiary mx-auto mb-2 opacity-50" />
           <p className="text-sm text-theme-secondary">Select an app from the gallery to preview.</p>
         </div>
       ),

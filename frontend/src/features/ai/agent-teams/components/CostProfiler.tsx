@@ -91,9 +91,9 @@ export const CostProfiler: React.FC<CostProfilerProps> = ({
                 <div key={member.agent_id} className="px-4 py-2 flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                      member.status === 'completed' ? 'bg-theme-success-solid' :
-                      member.status === 'failed' ? 'bg-theme-danger-solid' :
-                      'bg-theme-muted'
+                      member.status === 'completed' ? 'bg-theme-success' :
+                      member.status === 'failed' ? 'bg-theme-danger' :
+                      'bg-theme-background-secondary'
                     }`} />
                     <span className="text-sm text-theme-primary truncate">{member.agent_name}</span>
                   </div>

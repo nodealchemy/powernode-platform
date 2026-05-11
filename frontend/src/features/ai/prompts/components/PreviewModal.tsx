@@ -16,7 +16,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ template, preview, o
   );
 
   return (
-    <div className="fixed inset-0 bg-theme-bg/80 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-theme-surface/80 flex items-center justify-center z-50 p-4">
       <div className="bg-theme-surface rounded-lg border border-theme w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-4 border-b border-theme flex items-center justify-between">
           <h3 className="font-medium text-theme-primary">Preview: {template.name}</h3>

@@ -31,7 +31,7 @@ const TrendIcon: React.FC<{ trend: string }> = ({ trend }) => {
     case 'declining':
       return <TrendingDown className="w-4 h-4 text-theme-error" />;
     default:
-      return <Minus className="w-4 h-4 text-theme-muted" />;
+      return <Minus className="w-4 h-4 text-theme-tertiary" />;
   }
 };
 
@@ -71,19 +71,19 @@ export const TrajectoryInsights: React.FC = () => {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-sm text-theme-muted">Hit Rate</p>
+                <p className="text-sm text-theme-tertiary">Hit Rate</p>
                 <p className="text-xl font-bold text-theme-primary">{cacheMetrics.hit_rate}%</p>
               </div>
               <div>
-                <p className="text-sm text-theme-muted">Hits</p>
+                <p className="text-sm text-theme-tertiary">Hits</p>
                 <p className="text-xl font-bold text-theme-success">{cacheMetrics.hits}</p>
               </div>
               <div>
-                <p className="text-sm text-theme-muted">Misses</p>
+                <p className="text-sm text-theme-tertiary">Misses</p>
                 <p className="text-xl font-bold text-theme-warning">{cacheMetrics.misses}</p>
               </div>
               <div>
-                <p className="text-sm text-theme-muted">Est. Savings</p>
+                <p className="text-sm text-theme-tertiary">Est. Savings</p>
                 <p className="text-xl font-bold text-theme-primary">${cacheMetrics.estimated_savings_usd}</p>
               </div>
             </div>
@@ -95,7 +95,7 @@ export const TrajectoryInsights: React.FC = () => {
         <CardHeader title="Agent Quality Trends" />
         <CardContent>
           {agentTrends.length === 0 ? (
-            <div className="text-center py-8 text-theme-muted">
+            <div className="text-center py-8 text-theme-tertiary">
               <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="text-sm">No evaluation data available yet</p>
             </div>
@@ -110,19 +110,19 @@ export const TrajectoryInsights: React.FC = () => {
                     <TrendIcon trend={agent.trend} />
                     <div>
                       <p className="text-sm font-medium text-theme-primary">{agent.agent_name}</p>
-                      <p className="text-xs text-theme-muted">{agent.count} evaluations</p>
+                      <p className="text-xs text-theme-tertiary">{agent.count} evaluations</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-xs">
                     {agent.average_correctness !== null && (
                       <div className="text-center">
-                        <p className="text-theme-muted">Correct</p>
+                        <p className="text-theme-tertiary">Correct</p>
                         <p className="font-medium text-theme-primary">{agent.average_correctness}/5</p>
                       </div>
                     )}
                     {agent.average_helpfulness !== null && (
                       <div className="text-center">
-                        <p className="text-theme-muted">Helpful</p>
+                        <p className="text-theme-tertiary">Helpful</p>
                         <p className="font-medium text-theme-primary">{agent.average_helpfulness}/5</p>
                       </div>
                     )}

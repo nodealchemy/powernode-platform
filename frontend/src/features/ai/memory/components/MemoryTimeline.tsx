@@ -232,13 +232,13 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
           {Object.entries(groupedMemories).map(([date, dayMemories]) => (
             <div key={date}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="h-px flex-1 bg-theme-border" />
-                <span className="text-sm font-medium text-theme-muted px-2">{date}</span>
-                <div className="h-px flex-1 bg-theme-border" />
+                <div className="h-px flex-1 bg-theme-background-secondary" />
+                <span className="text-sm font-medium text-theme-tertiary px-2">{date}</span>
+                <div className="h-px flex-1 bg-theme-background-secondary" />
               </div>
 
               <div className="space-y-3 relative">
-                <div className="absolute left-4 top-0 bottom-0 w-px bg-theme-border" />
+                <div className="absolute left-4 top-0 bottom-0 w-px bg-theme-background-secondary" />
 
                 {dayMemories.map((entry, idx) => {
                   const config = TIER_CONFIG[tier] || TIER_CONFIG.short_term;
@@ -323,7 +323,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                                   </div>
                                 )}
 
-                                <div className="flex flex-wrap items-center gap-3 text-xs text-theme-muted">
+                                <div className="flex flex-wrap items-center gap-3 text-xs text-theme-tertiary">
                                   {entry.confidence_score !== undefined && (
                                     <span>Confidence: {Math.round(entry.confidence_score * 100)}%</span>
                                   )}
@@ -340,7 +340,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                               </div>
                             )}
 
-                            <div className="flex items-center gap-4 mt-2 text-xs text-theme-muted">
+                            <div className="flex items-center gap-4 mt-2 text-xs text-theme-tertiary">
                               {entry.created_at && (
                                 <span className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
@@ -401,7 +401,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
             </div>
           )}
           {!hasMore && entries.length > 0 && (
-            <p className="text-center text-sm text-theme-muted py-2">
+            <p className="text-center text-sm text-theme-tertiary py-2">
               All {totalCount} entries loaded
             </p>
           )}

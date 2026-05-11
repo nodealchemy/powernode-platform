@@ -37,7 +37,7 @@ export const VariablesTab: React.FC<VariablesTabProps> = ({
       ) : (
         <div className="space-y-3">
           {variables.map((variable, i) => (
-            <div key={i} className="bg-theme-bg border border-theme rounded-lg p-3">
+            <div key={i} className="bg-theme-surface border border-theme rounded-lg p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 grid grid-cols-3 gap-3">
                   <div>

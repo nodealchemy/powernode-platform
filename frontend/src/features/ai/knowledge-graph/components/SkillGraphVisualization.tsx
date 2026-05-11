@@ -66,7 +66,7 @@ function SkillGraphNode({ data }: { data: SkillGraphNodeData }) {
 
   return (
     <div className="px-3 py-2 rounded-lg border-2 border-theme bg-theme-surface shadow min-w-[200px] max-w-[240px]">
-      <Handle type="target" position={Position.Top} className="!bg-theme-border" />
+      <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <div className="flex items-center gap-2">
         <span className="text-lg flex-shrink-0">{icon}</span>
         <div className="min-w-0 flex-1">
@@ -84,7 +84,7 @@ function SkillGraphNode({ data }: { data: SkillGraphNodeData }) {
           </span>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-border" />
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-background-secondary" />
     </div>
   );
 }

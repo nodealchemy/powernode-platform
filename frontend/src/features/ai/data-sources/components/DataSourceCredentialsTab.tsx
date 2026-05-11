@@ -39,7 +39,7 @@ export const DataSourceCredentialsTab: React.FC<DataSourceCredentialsTabProps> =
                   <div className={`h-3 w-3 rounded-full ${
                     credential.last_test_status === 'success' ? 'bg-theme-success' :
                     credential.last_test_status === 'failed' ? 'bg-theme-error' :
-                    'bg-theme-muted'
+                    'bg-theme-background-secondary'
                   }`} />
                   <div>
                     <p className="text-sm font-medium text-theme-primary">
@@ -50,7 +50,7 @@ export const DataSourceCredentialsTab: React.FC<DataSourceCredentialsTabProps> =
                         </span>
                       )}
                     </p>
-                    <div className="flex items-center gap-4 text-xs text-theme-muted">
+                    <div className="flex items-center gap-4 text-xs text-theme-tertiary">
                       <span>
                         Status: {credential.last_test_status || 'untested'}
                       </span>
@@ -80,12 +80,12 @@ export const DataSourceCredentialsTab: React.FC<DataSourceCredentialsTabProps> =
           </div>
         ) : (
           <div className="text-center py-8">
-            <Key className="h-8 w-8 mx-auto text-theme-muted mb-2" />
-            <p className="text-sm text-theme-muted">
+            <Key className="h-8 w-8 mx-auto text-theme-tertiary mb-2" />
+            <p className="text-sm text-theme-tertiary">
               No credentials configured for this data source
             </p>
             {canManageDataSources && (
-              <p className="text-sm text-theme-muted mt-1">
+              <p className="text-sm text-theme-tertiary mt-1">
                 Click &quot;Manage Credentials&quot; to add credentials
               </p>
             )}

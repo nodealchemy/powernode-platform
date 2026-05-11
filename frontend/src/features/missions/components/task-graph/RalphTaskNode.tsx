@@ -38,7 +38,7 @@ const RalphTaskNode: React.FC<NodeProps> = ({ data }) => {
 
   return (
     <div className={`px-3 py-2 rounded-lg border min-w-[180px] max-w-[240px] ${colorClass}`}>
-      <Handle type="target" position={Position.Top} className="!bg-theme-border" />
+      <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <div className="flex items-center gap-2 mb-1">
         <Icon className="w-3.5 h-3.5 flex-shrink-0" />
         <span className="text-xs font-medium truncate">{nodeData.task_key}</span>
@@ -49,7 +49,7 @@ const RalphTaskNode: React.FC<NodeProps> = ({ data }) => {
       {nodeData.executor_name && (
         <p className="text-[10px] mt-1 opacity-60 truncate">{nodeData.executor_name}</p>
       )}
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-border" />
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-background-secondary" />
     </div>
   );
 };

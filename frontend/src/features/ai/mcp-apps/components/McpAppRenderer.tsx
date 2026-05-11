@@ -39,8 +39,8 @@ export const McpAppRenderer: React.FC<McpAppRendererProps> = ({
 
   if (!renderResult && !renderApp.isPending) {
     return (
-      <div className="bg-theme-card border border-theme rounded-lg p-8 text-center">
-        <Shield className="h-10 w-10 text-theme-muted mx-auto mb-3 opacity-50" />
+      <div className="bg-theme-surface border border-theme rounded-lg p-8 text-center">
+        <Shield className="h-10 w-10 text-theme-tertiary mx-auto mb-3 opacity-50" />
         <h4 className="text-sm font-medium text-theme-primary mb-2">
           Sandboxed Renderer
         </h4>
@@ -57,7 +57,7 @@ export const McpAppRenderer: React.FC<McpAppRendererProps> = ({
 
   if (renderApp.isPending) {
     return (
-      <div className="bg-theme-card border border-theme rounded-lg p-8 text-center">
+      <div className="bg-theme-surface border border-theme rounded-lg p-8 text-center">
         <LoadingSpinner size="sm" className="mb-2" />
         <p className="text-sm text-theme-secondary">Rendering app...</p>
       </div>
@@ -66,7 +66,7 @@ export const McpAppRenderer: React.FC<McpAppRendererProps> = ({
 
   if (renderApp.isError) {
     return (
-      <div className="bg-theme-card border border-theme rounded-lg p-8 text-center">
+      <div className="bg-theme-surface border border-theme rounded-lg p-8 text-center">
         <p className="text-sm text-theme-error mb-3">Failed to render app.</p>
         <Button variant="secondary" size="sm" onClick={handleRender}>
           Retry
@@ -76,11 +76,11 @@ export const McpAppRenderer: React.FC<McpAppRendererProps> = ({
   }
 
   return (
-    <div className="bg-theme-card border border-theme rounded-lg overflow-hidden">
+    <div className="bg-theme-surface border border-theme rounded-lg overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 bg-theme-surface border-b border-theme">
         <div className="flex items-center gap-2">
-          <Shield className="h-4 w-4 text-theme-muted" />
+          <Shield className="h-4 w-4 text-theme-tertiary" />
           <span className="text-xs font-medium text-theme-primary">{appName}</span>
           {renderResult?.instance_id && (
             <Badge variant="outline" size="xs">

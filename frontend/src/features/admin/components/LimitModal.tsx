@@ -55,7 +55,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({ isOpen, plan, feature, c
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Errors */}
           {errors.length > 0 && (
-            <div className="bg-theme-error-background border border-theme-error rounded-lg p-4">
+            <div className="bg-theme-error border border-theme-error rounded-lg p-4">
               <ul className="list-disc list-inside text-sm text-theme-error space-y-1">
                 {errors.map((error, index) => (
                   <li key={index}>{error}</li>

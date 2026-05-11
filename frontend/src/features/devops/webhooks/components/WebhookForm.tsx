@@ -416,7 +416,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
         </div>
 
         {/* Info Box */}
-        <div className="bg-theme-info-background border border-theme-info-border rounded-lg p-4">
+        <div className="bg-theme-info border border-theme-info-border rounded-lg p-4">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-theme-info flex-shrink-0 mt-0.5" />
             <div className="text-sm text-theme-secondary">

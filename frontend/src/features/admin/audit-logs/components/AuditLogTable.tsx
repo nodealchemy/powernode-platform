@@ -42,8 +42,8 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-theme-error-background text-theme-error';
-      case 'high': return 'bg-theme-error-background text-theme-error';
+      case 'critical': return 'bg-theme-error text-theme-error';
+      case 'high': return 'bg-theme-error text-theme-error';
       case 'medium': return 'bg-theme-warning-background text-theme-warning';
       case 'low': return 'bg-theme-success-background text-theme-success';
       default: return 'bg-theme-surface text-theme-secondary';
@@ -54,7 +54,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
     switch (status) {
       case 'success': return 'bg-theme-success-background text-theme-success';
       case 'warning': return 'bg-theme-warning-background text-theme-warning';
-      case 'error': return 'bg-theme-error-background text-theme-error';
+      case 'error': return 'bg-theme-error text-theme-error';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -328,7 +328,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                                         <div className="text-theme-secondary text-xs font-medium mb-1">{key}</div>
                                         <div className="flex items-center gap-2 text-xs">
                                           {oldVal !== undefined && (
-                                            <span className="bg-theme-error-background text-theme-error px-2 py-0.5 rounded">
+                                            <span className="bg-theme-error text-theme-error px-2 py-0.5 rounded">
                                               {formatValue(oldVal)}
                                             </span>
                                           )}

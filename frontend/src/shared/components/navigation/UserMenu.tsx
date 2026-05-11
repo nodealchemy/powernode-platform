@@ -176,7 +176,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
             <div className="border-t border-theme my-1"></div>
             <button
               onClick={handleLogout}
-              className="w-full flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error-background transition-colors duration-150"
+              className="w-full flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error transition-colors duration-150"
             >
               <div className="mr-3 h-4 w-4 text-theme-error">
                 {(() => {

@@ -378,7 +378,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({
       case 'warning':
         return 'border-theme-warning-border bg-theme-warning-background';
       case 'error':
-        return 'border-theme-error-border bg-theme-error-background';
+        return 'border-theme-error-border bg-theme-error';
       case 'success':
         return 'border-theme-success-border bg-theme-success-background';
       default:

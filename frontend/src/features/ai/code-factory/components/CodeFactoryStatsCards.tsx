@@ -21,7 +21,7 @@ const STEPS = ['Preflight', 'Review', 'Remediation', 'Verify', 'Evidence', 'Comp
 const severityColors: Record<string, string> = {
   low: 'bg-theme-surface-bg text-theme-secondary',
   medium: 'bg-theme-warning text-theme-warning',
-  high: 'bg-theme-error-bg text-theme-error',
+  high: 'bg-theme-error text-theme-error',
   critical: 'bg-theme-danger/20 text-theme-danger',
 };
 
@@ -38,7 +38,7 @@ const MiniProgressBar: React.FC<{ status: string }> = ({ status }) => {
               ? 'bg-theme-success'
               : idx === i
               ? isFailed ? 'bg-theme-error' : 'bg-theme-info'
-              : 'bg-theme-background-secondary-bg'
+              : 'bg-theme-background-secondary'
           }`}
         />
       ))}
@@ -242,7 +242,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                 {slaRate.toFixed(1)}%
               </span>
             </div>
-            <div className="h-2 bg-theme-background-secondary-bg rounded-full overflow-hidden">
+            <div className="h-2 bg-theme-background-secondary rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
                   slaRate >= 90 ? 'bg-theme-success' : slaRate >= 70 ? 'bg-theme-warning' : 'bg-theme-error'
@@ -258,7 +258,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                 {slaCompliance.past_sla_count} gap(s) past SLA
               </div>
               {slaCompliance.past_sla_gaps.slice(0, 5).map((g) => (
-                <div key={g.id} className="flex items-center gap-2 bg-theme-error-bg rounded px-2 py-1.5">
+                <div key={g.id} className="flex items-center gap-2 bg-theme-error rounded px-2 py-1.5">
                   <span className="text-xs font-mono text-theme-primary">{g.incident_id}</span>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] ${severityColors[g.severity] || ''}`}>
                     {g.severity}

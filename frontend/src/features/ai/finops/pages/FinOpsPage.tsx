@@ -17,7 +17,7 @@ export const FinOpsContent: React.FC = () => {
   if (!canView) {
     return (
       <div className="text-center py-12">
-        <DollarSign className="h-12 w-12 text-theme-muted mx-auto mb-4 opacity-50" />
+        <DollarSign className="h-12 w-12 text-theme-tertiary mx-auto mb-4 opacity-50" />
         <p className="text-theme-secondary">You do not have permission to view FinOps data.</p>
       </div>
     );

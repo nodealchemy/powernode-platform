@@ -154,10 +154,10 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
       <div className="space-y-4 overflow-hidden">
         {/* Header Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Card><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-theme-muted">Status</p>{getHealthStatusBadge(dataSource.health_status)}</div><Activity className="h-5 w-5 text-theme-muted" /></div></CardContent></Card>
-          <Card><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-theme-muted">Type</p><Badge variant="outline" size="sm">{getSourceTypeLabel(dataSource.source_type)}</Badge></div><Database className="h-5 w-5 text-theme-muted" /></div></CardContent></Card>
-          <Card><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-theme-muted">Priority</p><p className="text-lg font-semibold text-theme-primary">#{dataSource.priority_order}</p></div><Activity className="h-5 w-5 text-theme-muted" /></div></CardContent></Card>
-          <Card><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-theme-muted">Credentials</p><p className="text-lg font-semibold text-theme-primary">{dataSource.credential_count}</p></div><Key className="h-5 w-5 text-theme-muted" /></div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-theme-tertiary">Status</p>{getHealthStatusBadge(dataSource.health_status)}</div><Activity className="h-5 w-5 text-theme-tertiary" /></div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-theme-tertiary">Type</p><Badge variant="outline" size="sm">{getSourceTypeLabel(dataSource.source_type)}</Badge></div><Database className="h-5 w-5 text-theme-tertiary" /></div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-theme-tertiary">Priority</p><p className="text-lg font-semibold text-theme-primary">#{dataSource.priority_order}</p></div><Activity className="h-5 w-5 text-theme-tertiary" /></div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-theme-tertiary">Credentials</p><p className="text-lg font-semibold text-theme-primary">{dataSource.credential_count}</p></div><Key className="h-5 w-5 text-theme-tertiary" /></div></CardContent></Card>
         </div>
 
         {/* Warning Messages */}

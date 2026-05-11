@@ -84,7 +84,7 @@ export const PageViewPage: React.FC = () => {
           </p>
           <button
             onClick={() => loadPage?.()}
-            className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
           >
             <span>Try Again</span>
           </button>

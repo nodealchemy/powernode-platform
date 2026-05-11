@@ -23,7 +23,7 @@ const QuotaBar: React.FC<QuotaBarProps> = ({ label, current, limit, pct }) => {
     <div className="space-y-1">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-theme-primary">{label}</span>
-        <span className="text-sm text-theme-muted">
+        <span className="text-sm text-theme-tertiary">
           {current.toLocaleString()}
           {limit ? ` / ${limit.toLocaleString()}` : ''}
           {percentage > 0 ? ` (${Math.round(percentage)}%)` : ''}
@@ -48,7 +48,7 @@ export const DataSourceQuotaTab: React.FC<DataSourceQuotaTabProps> = ({ dataSour
       <Card>
         <CardHeader title="Quota & Usage" />
         <CardContent>
-          <p className="text-theme-muted text-center py-8">
+          <p className="text-theme-tertiary text-center py-8">
             No quota or rate limits configured for this data source.
           </p>
         </CardContent>
@@ -85,7 +85,7 @@ export const DataSourceQuotaTab: React.FC<DataSourceQuotaTabProps> = ({ dataSour
               <div className="pt-2 border-t border-theme">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-theme-primary">Bandwidth Today</span>
-                  <span className="text-sm text-theme-muted">
+                  <span className="text-sm text-theme-tertiary">
                     {(quota.usage.bandwidth_today / (1024 * 1024)).toFixed(2)} MB
                   </span>
                 </div>
@@ -104,7 +104,7 @@ export const DataSourceQuotaTab: React.FC<DataSourceQuotaTabProps> = ({ dataSour
               {Object.entries(rateLimits).map(([key, value]) => (
                 <div key={key} className="text-center p-3 bg-theme-surface-secondary rounded-lg">
                   <p className="text-lg font-semibold text-theme-primary">{value.toLocaleString()}</p>
-                  <p className="text-xs text-theme-muted">{key.replace(/_/g, ' ')}</p>
+                  <p className="text-xs text-theme-tertiary">{key.replace(/_/g, ' ')}</p>
                 </div>
               ))}
             </div>

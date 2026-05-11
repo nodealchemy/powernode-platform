@@ -23,7 +23,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   >
     <div className="space-y-6 p-1">
       {formErrors.length > 0 && (
-        <div className="bg-theme-error-background border border-theme-error-border text-theme-error px-4 py-3 rounded">
+        <div className="bg-theme-error border border-theme-error-border text-theme-error px-4 py-3 rounded">
           <ul className="list-disc list-inside">
             {formErrors.map((error, index) => (
               <li key={index}>{error}</li>

@@ -198,7 +198,7 @@ export const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHo
     }
     if (host.match(/^\d+\.\d+\.\d+\.\d+$/)) {
       return (
-        <span className="ml-2 px-2 py-1 text-xs bg-theme-muted/50 text-theme-secondary rounded">
+        <span className="ml-2 px-2 py-1 text-xs bg-theme-background-secondary/50 text-theme-secondary rounded">
           IP
         </span>
       );

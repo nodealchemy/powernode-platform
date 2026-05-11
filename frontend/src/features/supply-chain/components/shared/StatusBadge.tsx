@@ -29,8 +29,8 @@ const statusConfig: Record<StatusType, { bg: string; text: string; label: string
     label: 'Verified',
   },
   unverified: {
-    bg: 'bg-theme-muted/10',
-    text: 'text-theme-muted',
+    bg: 'bg-theme-background-secondary/10',
+    text: 'text-theme-tertiary',
     label: 'Unverified',
   },
   quarantined: {
@@ -44,8 +44,8 @@ const statusConfig: Record<StatusType, { bg: string; text: string; label: string
     label: 'Active',
   },
   inactive: {
-    bg: 'bg-theme-muted/10',
-    text: 'text-theme-muted',
+    bg: 'bg-theme-background-secondary/10',
+    text: 'text-theme-tertiary',
     label: 'Inactive',
   },
   pending: {
@@ -59,8 +59,8 @@ const statusConfig: Record<StatusType, { bg: string; text: string; label: string
     label: 'Error',
   },
   draft: {
-    bg: 'bg-theme-muted/10',
-    text: 'text-theme-muted',
+    bg: 'bg-theme-background-secondary/10',
+    text: 'text-theme-tertiary',
     label: 'Draft',
   },
   completed: {
@@ -94,8 +94,8 @@ const statusConfig: Record<StatusType, { bg: string; text: string; label: string
     label: 'Suspended',
   },
   queued: {
-    bg: 'bg-theme-muted/10',
-    text: 'text-theme-muted',
+    bg: 'bg-theme-background-secondary/10',
+    text: 'text-theme-tertiary',
     label: 'Queued',
   },
 };

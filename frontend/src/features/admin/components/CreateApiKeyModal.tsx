@@ -93,7 +93,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
           <div className="px-6 py-4 space-y-6">
             {/* Errors */}
             {errors.length > 0 && (
-              <div className="bg-theme-error-background border border-theme-error rounded-lg p-4">
+              <div className="bg-theme-error border border-theme-error rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <AlertTriangle className="w-5 h-5 text-theme-error" />
                   <span className="font-medium text-theme-error">Please fix the following errors:</span>

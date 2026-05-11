@@ -139,7 +139,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                   </span>
                   <Link
                     to="/app"
-                    className="inline-flex items-center space-x-2 px-4 py-2 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-lg transition-all duration-200 text-sm shadow-lg"
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-theme-info hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-lg transition-all duration-200 text-sm shadow-lg"
                   >
                     <User className="w-4 h-4" />
                     <span>Dashboard</span>
@@ -155,7 +155,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                   </Link>
                   <Link
                     to="/plans"
-                    className="inline-flex items-center space-x-2 px-4 py-2 md:px-6 md:py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-lg md:rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl text-sm"
+                    className="inline-flex items-center space-x-2 px-4 py-2 md:px-6 md:py-3 bg-theme-info hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-lg md:rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl text-sm"
                   >
                     <span>Get Started</span>
                   </Link>
@@ -378,7 +378,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
 
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-2 bg-theme-surface px-3 py-2 rounded-full">
-                  <div className="w-2 h-2 bg-theme-success-solid rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-theme-success rounded-full animate-pulse"></div>
                   <span className="text-xs text-theme-secondary font-medium">All systems operational</span>
                 </div>
                 <div className="flex items-center space-x-2 text-xs text-theme-tertiary">

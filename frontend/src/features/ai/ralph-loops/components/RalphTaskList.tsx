@@ -100,7 +100,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
           isOpen={true}
           onClose={() => setConfiguringTask(null)}
           title="Configure Task"
-          icon={<Settings className="w-5 h-5 text-theme-brand-primary" />}
+          icon={<Settings className="w-5 h-5 text-theme-interactive-primary" />}
           size="lg"
         >
           {(() => {
@@ -111,7 +111,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
             if (isLoadingTask || !configTask) {
               return (
                 <div className="flex items-center justify-center p-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-theme-brand-primary" />
+                  <Loader2 className="w-6 h-6 animate-spin text-theme-interactive-primary" />
                   <span className="ml-2 text-theme-secondary">Loading task details...</span>
                 </div>
               );
@@ -140,7 +140,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
           })()}
           {savingConfig && (
             <div className="flex items-center justify-center p-4 border-t border-theme-interactive-primary">
-              <Loader2 className="w-5 h-5 animate-spin text-theme-brand-primary" />
+              <Loader2 className="w-5 h-5 animate-spin text-theme-interactive-primary" />
               <span className="ml-2 text-sm text-theme-secondary">Saving changes...</span>
             </div>
           )}

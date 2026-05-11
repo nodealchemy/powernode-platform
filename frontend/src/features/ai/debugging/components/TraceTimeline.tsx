@@ -27,7 +27,7 @@ export const TraceTimeline: React.FC<TraceTimelineProps> = ({
           className="flex items-center gap-2 py-1"
           style={{ paddingLeft: `${span.depth * 16}px` }}
         >
-          <div className="w-32 text-xs text-theme-muted truncate">{span.name}</div>
+          <div className="w-32 text-xs text-theme-tertiary truncate">{span.name}</div>
           <div className="flex-1 relative h-6 bg-theme-surface rounded">
             <div
               className={cn(
@@ -42,7 +42,7 @@ export const TraceTimeline: React.FC<TraceTimelineProps> = ({
               <StatusIcon className={cn('h-3 w-3', statusConfig[span.status]?.color)} />
             </div>
           </div>
-          <div className="w-16 text-xs text-theme-muted text-right">
+          <div className="w-16 text-xs text-theme-tertiary text-right">
             {formatDuration(span.duration_ms)}
           </div>
         </div>

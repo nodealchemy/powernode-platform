@@ -41,7 +41,7 @@ const DetailValue: React.FC<{ value: unknown }> = ({ value }) => {
 };
 
 const DetailSection: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
-  <div className="bg-theme-bg rounded-lg p-3">
+  <div className="bg-theme-surface rounded-lg p-3">
     <h4 className="flex items-center gap-1.5 text-xs font-semibold text-theme-secondary uppercase tracking-wide mb-2.5">
       {icon} {title}
     </h4>

@@ -137,7 +137,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-64">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-muted" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-tertiary" />
                 <Input
                   placeholder="Semantic search..."
                   value={searchQuery}
@@ -149,7 +149,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-theme-muted" />
+              <Filter className="h-4 w-4 text-theme-tertiary" />
               <Select
                 value={memoryTypeFilter}
                 onChange={(value) => setMemoryTypeFilter(value as MemoryType | '')}
@@ -201,14 +201,14 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
         {Object.entries(groupedMemories).map(([date, dayMemories]) => (
           <div key={date}>
             <div className="flex items-center gap-3 mb-3">
-              <div className="h-px flex-1 bg-theme-border" />
-              <span className="text-sm font-medium text-theme-muted px-2">{date}</span>
-              <div className="h-px flex-1 bg-theme-border" />
+              <div className="h-px flex-1 bg-theme-background-secondary" />
+              <span className="text-sm font-medium text-theme-tertiary px-2">{date}</span>
+              <div className="h-px flex-1 bg-theme-background-secondary" />
             </div>
 
             <div className="space-y-3 relative">
               {/* Timeline line */}
-              <div className="absolute left-4 top-0 bottom-0 w-px bg-theme-border" />
+              <div className="absolute left-4 top-0 bottom-0 w-px bg-theme-background-secondary" />
 
               {dayMemories.map((memory) => {
                 const config = memoryTypeConfig[memory.memory_type];
@@ -254,7 +254,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                             <p className="text-sm text-theme-secondary mt-1 line-clamp-2">
                               {getContentPreview(memory)}
                             </p>
-                            <div className="flex items-center gap-4 mt-2 text-xs text-theme-muted">
+                            <div className="flex items-center gap-4 mt-2 text-xs text-theme-tertiary">
                               <span className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 {formatDate(memory.created_at)}

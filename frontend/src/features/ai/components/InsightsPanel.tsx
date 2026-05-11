@@ -38,7 +38,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
                 key={index}
                 className={`p-3 rounded-lg border ${
                   insight.severity === 'critical'
-                    ? 'bg-theme-error-background border-theme-error'
+                    ? 'bg-theme-error border-theme-error'
                     : insight.severity === 'warning'
                     ? 'bg-theme-warning-background border-theme-warning'
                     : 'bg-theme-surface border-theme'

@@ -27,7 +27,7 @@ const getStatusIcon = (status: DiagramExecutionState['status']) => {
     case 'completed': return <CheckCircle className="text-theme-success" size={18} />;
     case 'failed': return <XCircle className="text-theme-danger" size={18} />;
     case 'cancelled': return <StopCircle className="text-theme-secondary" size={18} />;
-    default: return <Clock className="text-theme-muted" size={18} />;
+    default: return <Clock className="text-theme-tertiary" size={18} />;
   }
 };
 
@@ -114,7 +114,7 @@ export const DiagramControls: React.FC<DiagramControlsProps> = ({
             </div>
           )}
           <div className="flex items-center gap-1.5">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-theme-success-solid' : 'bg-theme-danger-solid'}`} />
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-theme-success' : 'bg-theme-danger'}`} />
             <span className="text-[10px] text-theme-secondary">
               {isConnected ? 'Live' : 'Disconnected'}
             </span>

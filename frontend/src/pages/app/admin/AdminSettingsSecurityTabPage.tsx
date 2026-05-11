@@ -159,7 +159,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
   const getScoreBgColor = (score: number) => {
     if (score >= 90) return 'bg-theme-success-background';
     if (score >= 70) return 'bg-theme-warning-background';
-    return 'bg-theme-error-background';
+    return 'bg-theme-error';
   };
 
   return (
@@ -223,7 +223,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
           </div>
 
           {/* Quick Security Recommendations */}
-          <div className="p-4 bg-theme-info-background border border-theme-info rounded-lg">
+          <div className="p-4 bg-theme-info border border-theme-info rounded-lg">
             <h4 className="flex items-center gap-2 font-medium text-theme-info mb-2">
               <AlertTriangle className="w-5 h-5" />
               Security Recommendations

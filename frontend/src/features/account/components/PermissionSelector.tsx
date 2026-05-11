@@ -102,11 +102,11 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'read': return 'text-theme-info bg-theme-info-background';
+      case 'read': return 'text-theme-info bg-theme-info';
       case 'create': return 'text-theme-success bg-theme-success-background';
       case 'update': return 'text-theme-warning bg-theme-warning-background';
-      case 'delete': return 'text-theme-error bg-theme-error-background';
-      case 'export': return 'text-theme-info bg-theme-info-background';
+      case 'delete': return 'text-theme-error bg-theme-error';
+      case 'export': return 'text-theme-info bg-theme-info';
       case 'global': return 'text-theme-warning bg-theme-warning-background';
       default: return 'text-theme-secondary bg-theme-background-secondary';
     }
@@ -225,7 +225,7 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
                       <div
                         key={permission.id}
                         className={`flex items-center justify-between p-3 pl-8 hover:bg-theme-surface-hover cursor-pointer transition-colors ${
-                          isSelected ? 'bg-theme-info-background' : ''
+                          isSelected ? 'bg-theme-info' : ''
                         }`}
                         onClick={() => handlePermissionToggle(permission.id)}
                       >

@@ -17,7 +17,7 @@ function getStatusBadge(status: ProposalStatus) {
     case 'rejected': return { class: 'text-theme-error bg-theme-error/10', icon: XCircle };
     case 'pending_review': return { class: 'text-theme-warning bg-theme-warning/10', icon: Clock };
     case 'implemented': return { class: 'text-theme-info bg-theme-info/10', icon: CheckCircle };
-    case 'withdrawn': return { class: 'text-theme-muted bg-theme-surface', icon: XCircle };
+    case 'withdrawn': return { class: 'text-theme-tertiary bg-theme-surface', icon: XCircle };
     default: return { class: 'text-theme-secondary bg-theme-surface', icon: Clock };
   }
 }
@@ -27,7 +27,7 @@ function getPriorityColor(priority: string): string {
     case 'critical': return 'text-theme-error';
     case 'high': return 'text-theme-warning';
     case 'medium': return 'text-theme-info';
-    default: return 'text-theme-muted';
+    default: return 'text-theme-tertiary';
   }
 }
 
@@ -75,7 +75,7 @@ const ProposalCard: React.FC<{
               </span>
               <span className={`text-xs shrink-0 ${getPriorityColor(proposal.priority)}`}>{proposal.priority}</span>
             </div>
-            <div className="flex items-center gap-3 text-xs text-theme-muted mt-0.5">
+            <div className="flex items-center gap-3 text-xs text-theme-tertiary mt-0.5">
               <span>{proposal.proposal_type}</span>
               {proposal.agent?.name && <span>by {proposal.agent.name}</span>}
               <span>{new Date(proposal.created_at).toLocaleDateString()}</span>
@@ -86,7 +86,7 @@ const ProposalCard: React.FC<{
               )}
             </div>
           </div>
-          <ChevronDown className={`h-4 w-4 text-theme-muted shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-4 w-4 text-theme-tertiary shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </div>
       </div>
 
@@ -127,7 +127,7 @@ const ProposalCard: React.FC<{
           )}
 
           {/* Metadata */}
-          <div className="flex flex-wrap gap-4 text-xs text-theme-muted">
+          <div className="flex flex-wrap gap-4 text-xs text-theme-tertiary">
             {proposal.review_deadline && <span>Review deadline: {new Date(proposal.review_deadline).toLocaleString()}</span>}
             {proposal.reviewed_by?.email && <span>Reviewed by: {proposal.reviewed_by.email}</span>}
             {proposal.reviewed_at && <span>Reviewed: {new Date(proposal.reviewed_at).toLocaleString()}</span>}
@@ -162,7 +162,7 @@ const ProposalCard: React.FC<{
           )}
 
           {!isPending && (
-            <p className="text-xs text-theme-muted italic">
+            <p className="text-xs text-theme-tertiary italic">
               {proposal.status === 'withdrawn' ? 'This proposal was withdrawn.' : `This proposal has been ${proposal.status}.`}
             </p>
           )}
@@ -286,7 +286,7 @@ export const ProposalsPanel: React.FC = () => {
 
       {safeProposals.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-theme-muted">
+          <CardContent className="p-8 text-center text-theme-tertiary">
             <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>No proposals found. Autonomous agents create proposals when they identify improvements.</p>
           </CardContent>

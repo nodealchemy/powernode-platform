@@ -87,7 +87,7 @@ export const ContextInjectionPreview: React.FC<ContextInjectionPreviewProps> = (
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Enter a task or query for relevant context..."
           />
-          <p className="text-xs text-theme-muted mt-1">
+          <p className="text-xs text-theme-tertiary mt-1">
             Provide a query to get contextually relevant memories
           </p>
         </div>
@@ -167,7 +167,7 @@ export const ContextInjectionPreview: React.FC<ContextInjectionPreviewProps> = (
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <h4 className="text-sm font-medium text-theme-secondary">Generated Context</h4>
-                <p className="text-xs text-theme-muted">
+                <p className="text-xs text-theme-tertiary">
                   ~{response.token_estimate} tokens
                 </p>
               </div>
@@ -183,19 +183,19 @@ export const ContextInjectionPreview: React.FC<ContextInjectionPreviewProps> = (
                 <div className="text-sm font-medium text-theme-primary">
                   {response.breakdown.factual}
                 </div>
-                <div className="text-xs text-theme-muted">Factual</div>
+                <div className="text-xs text-theme-tertiary">Factual</div>
               </div>
               <div className="p-2 bg-theme-warning/10 rounded text-center">
                 <div className="text-sm font-medium text-theme-primary">
                   {response.breakdown.experiential}
                 </div>
-                <div className="text-xs text-theme-muted">Experiential</div>
+                <div className="text-xs text-theme-tertiary">Experiential</div>
               </div>
               <div className="p-2 bg-theme-success/10 rounded text-center">
                 <div className="text-sm font-medium text-theme-primary">
                   {response.breakdown.working}
                 </div>
-                <div className="text-xs text-theme-muted">Working</div>
+                <div className="text-xs text-theme-tertiary">Working</div>
               </div>
             </div>
 

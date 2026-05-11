@@ -282,7 +282,7 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
             isOpen={showScheduleConfigModal}
             onClose={() => setShowScheduleConfigModal(false)}
             title="Configure Schedule"
-            icon={<Calendar className="w-5 h-5 text-theme-brand-primary" />}
+            icon={<Calendar className="w-5 h-5 text-theme-interactive-primary" />}
             size="lg"
           >
             <RalphLoopScheduleConfig

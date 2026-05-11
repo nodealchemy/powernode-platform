@@ -48,7 +48,7 @@ export const ProviderCredentialsTab: React.FC<ProviderCredentialsTabProps> = ({
                         </span>
                       )}
                     </p>
-                    <div className="flex items-center gap-4 text-xs text-theme-muted">
+                    <div className="flex items-center gap-4 text-xs text-theme-tertiary">
                       <span>Status: {credential.health_status}</span>
                       {credential.last_used_at && (
                         <span>Last used: {new Date(credential.last_used_at).toLocaleDateString()}</span>
@@ -73,12 +73,12 @@ export const ProviderCredentialsTab: React.FC<ProviderCredentialsTabProps> = ({
           </div>
         ) : (
           <div className="text-center py-8">
-            <Key className="h-8 w-8 mx-auto text-theme-muted mb-2" />
-            <p className="text-sm text-theme-muted">
+            <Key className="h-8 w-8 mx-auto text-theme-tertiary mb-2" />
+            <p className="text-sm text-theme-tertiary">
               No credentials configured for this provider
             </p>
             {canManageProviders && (
-              <p className="text-sm text-theme-muted mt-1">
+              <p className="text-sm text-theme-tertiary mt-1">
                 Click &quot;Manage Credentials&quot; to add credentials
               </p>
             )}

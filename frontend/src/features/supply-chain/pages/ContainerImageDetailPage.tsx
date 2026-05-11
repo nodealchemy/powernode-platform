@@ -152,31 +152,31 @@ export const ContainerImageDetailPage: React.FC = () => {
         <h2 className="text-lg font-semibold text-theme-primary mb-4">Image Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <span className="text-sm font-medium text-theme-muted">Registry</span>
+            <span className="text-sm font-medium text-theme-tertiary">Registry</span>
             <p className="text-theme-primary mt-1">{image.registry}</p>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Repository</span>
+            <span className="text-sm font-medium text-theme-tertiary">Repository</span>
             <p className="text-theme-primary mt-1">{image.repository}</p>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Tag</span>
+            <span className="text-sm font-medium text-theme-tertiary">Tag</span>
             <p className="text-theme-primary mt-1">{image.tag}</p>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Digest</span>
-            <code className="text-xs text-theme-muted bg-theme-muted px-2 py-1 rounded block mt-1">
+            <span className="text-sm font-medium text-theme-tertiary">Digest</span>
+            <code className="text-xs text-theme-tertiary bg-theme-background-secondary px-2 py-1 rounded block mt-1">
               {image.digest}
             </code>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Status</span>
+            <span className="text-sm font-medium text-theme-tertiary">Status</span>
             <div className="mt-1">
               <StatusBadge status={image.status} />
             </div>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Deployed</span>
+            <span className="text-sm font-medium text-theme-tertiary">Deployed</span>
             <div className="mt-1">
               <Badge variant={image.is_deployed ? 'success' : 'secondary'}>
                 {image.is_deployed ? 'Yes' : 'No'}
@@ -184,11 +184,11 @@ export const ContainerImageDetailPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Last Scanned</span>
+            <span className="text-sm font-medium text-theme-tertiary">Last Scanned</span>
             <p className="text-theme-primary mt-1">{formatDateTimeOptional(image.last_scanned_at)}</p>
           </div>
           <div>
-            <span className="text-sm font-medium text-theme-muted">Created</span>
+            <span className="text-sm font-medium text-theme-tertiary">Created</span>
             <p className="text-theme-primary mt-1">{formatDateTimeOptional(image.created_at)}</p>
           </div>
         </div>
@@ -201,25 +201,25 @@ export const ContainerImageDetailPage: React.FC = () => {
             <div className="text-3xl font-bold text-theme-error">
               {image.critical_vuln_count}
             </div>
-            <div className="text-sm text-theme-muted mt-1">Critical</div>
+            <div className="text-sm text-theme-tertiary mt-1">Critical</div>
           </div>
           <div className="text-center p-4 bg-theme-warning/10 rounded-lg">
             <div className="text-3xl font-bold text-theme-warning">
               {image.high_vuln_count}
             </div>
-            <div className="text-sm text-theme-muted mt-1">High</div>
+            <div className="text-sm text-theme-tertiary mt-1">High</div>
           </div>
           <div className="text-center p-4 bg-theme-info/10 rounded-lg">
             <div className="text-3xl font-bold text-theme-info">
               {image.medium_vuln_count}
             </div>
-            <div className="text-sm text-theme-muted mt-1">Medium</div>
+            <div className="text-sm text-theme-tertiary mt-1">Medium</div>
           </div>
           <div className="text-center p-4 bg-theme-success/10 rounded-lg">
             <div className="text-3xl font-bold text-theme-success">
               {image.low_vuln_count}
             </div>
-            <div className="text-sm text-theme-muted mt-1">Low</div>
+            <div className="text-sm text-theme-tertiary mt-1">Low</div>
           </div>
         </div>
       </Card>
@@ -231,14 +231,14 @@ export const ContainerImageDetailPage: React.FC = () => {
             {image.scans.map((scan) => (
               <div
                 key={scan.id}
-                className="flex items-center justify-between p-3 bg-theme-muted rounded-lg"
+                className="flex items-center justify-between p-3 bg-theme-background-secondary rounded-lg"
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
                     <span className="font-medium text-theme-primary">{scan.scanner}</span>
                     <StatusBadge status={scan.status as 'pending' | 'running' | 'completed' | 'failed'} size="sm" />
                   </div>
-                  <div className="text-sm text-theme-muted mt-1">
+                  <div className="text-sm text-theme-tertiary mt-1">
                     {formatDateTimeOptional(scan.started_at)} - {formatDateTimeOptional(scan.completed_at)}
                   </div>
                 </div>

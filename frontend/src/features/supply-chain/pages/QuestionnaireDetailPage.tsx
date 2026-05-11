@@ -148,7 +148,7 @@ export const QuestionnaireDetailPage: React.FC = () => {
               {progressPercent}%
             </span>
           </div>
-          <div className="w-full bg-theme-muted rounded-full h-3 mb-2">
+          <div className="w-full bg-theme-background-secondary rounded-full h-3 mb-2">
             <div
               className="h-3 rounded-full bg-theme-interactive-primary transition-all"
               style={{ width: `${progressPercent}%` }}
@@ -172,7 +172,7 @@ export const QuestionnaireDetailPage: React.FC = () => {
               return (
                 <div
                   key={index}
-                  className="p-4 bg-theme-muted rounded-lg"
+                  className="p-4 bg-theme-background-secondary rounded-lg"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -181,7 +181,7 @@ export const QuestionnaireDetailPage: React.FC = () => {
                       ) : isStarted ? (
                         <Clock className="w-5 h-5 text-theme-warning" />
                       ) : (
-                        <AlertCircle className="w-5 h-5 text-theme-muted" />
+                        <AlertCircle className="w-5 h-5 text-theme-tertiary" />
                       )}
                       <span className="font-medium text-theme-primary">{section.name}</span>
                     </div>

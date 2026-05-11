@@ -14,7 +14,7 @@ function getStatusIcon(status: GoalStatus) {
     case 'failed': case 'abandoned': return <XCircle className="h-4 w-4 text-theme-error" />;
     case 'paused': return <Pause className="h-4 w-4 text-theme-warning" />;
     case 'active': return <Target className="h-4 w-4 text-theme-info" />;
-    default: return <Clock className="h-4 w-4 text-theme-muted" />;
+    default: return <Clock className="h-4 w-4 text-theme-tertiary" />;
   }
 }
 
@@ -196,10 +196,10 @@ const GoalCard: React.FC<{
           <div className="flex items-center gap-2">
             <h4 className="font-medium text-theme-primary truncate">{goal.title}</h4>
             <span className={`px-2 py-0.5 text-xs rounded ${getStatusBadgeClass(goal.status)}`}>{goal.status}</span>
-            <span className="px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-muted">{goal.goal_type.replace('_', ' ')}</span>
-            <span className="text-xs text-theme-muted">{getPriorityLabel(goal.priority)}</span>
+            <span className="px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-tertiary">{goal.goal_type.replace('_', ' ')}</span>
+            <span className="text-xs text-theme-tertiary">{getPriorityLabel(goal.priority)}</span>
           </div>
-          <div className="flex items-center gap-3 text-xs text-theme-muted mt-0.5">
+          <div className="flex items-center gap-3 text-xs text-theme-tertiary mt-0.5">
             {goal.agent?.name && <span>{goal.agent.name}</span>}
             {goal.deadline && <span>Due {new Date(goal.deadline).toLocaleDateString()}</span>}
           </div>
@@ -210,10 +210,10 @@ const GoalCard: React.FC<{
             <div className="flex-1 h-1.5 bg-theme-surface/20 rounded-full overflow-hidden">
               <div className="h-full bg-theme-info rounded-full" style={{ width: `${Math.round(goal.progress * 100)}%` }} />
             </div>
-            <span className="text-xs text-theme-muted">{Math.round(goal.progress * 100)}%</span>
+            <span className="text-xs text-theme-tertiary">{Math.round(goal.progress * 100)}%</span>
           </div>
         )}
-        <ChevronDown className={`h-4 w-4 text-theme-muted shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-theme-tertiary shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
       </div>
 
       {/* Expanded detail */}
@@ -241,7 +241,7 @@ const GoalCard: React.FC<{
 
               {/* Progress */}
               <div>
-                <div className="flex items-center justify-between text-sm text-theme-muted mb-1">
+                <div className="flex items-center justify-between text-sm text-theme-tertiary mb-1">
                   <span>Progress</span>
                   <span>{Math.round(goal.progress * 100)}%</span>
                 </div>
@@ -261,7 +261,7 @@ const GoalCard: React.FC<{
               )}
 
               {/* Timestamps */}
-              <div className="flex gap-4 text-xs text-theme-muted">
+              <div className="flex gap-4 text-xs text-theme-tertiary">
                 <span>Created {new Date(goal.created_at).toLocaleString()}</span>
                 <span>Updated {new Date(goal.updated_at).toLocaleString()}</span>
                 {goal.deadline && <span>Deadline {new Date(goal.deadline).toLocaleDateString()}</span>}
@@ -347,7 +347,7 @@ export const GoalsPanel: React.FC = () => {
             <option value="failed">Failed</option>
             <option value="abandoned">Abandoned</option>
           </select>
-          <span className="text-sm text-theme-muted">{safeGoals.length} goal{safeGoals.length !== 1 ? 's' : ''}</span>
+          <span className="text-sm text-theme-tertiary">{safeGoals.length} goal{safeGoals.length !== 1 ? 's' : ''}</span>
         </div>
         <button
           onClick={() => setShowCreate(prev => !prev)}
@@ -370,7 +370,7 @@ export const GoalsPanel: React.FC = () => {
       {/* Goal list */}
       {safeGoals.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-theme-muted">
+          <CardContent className="p-8 text-center text-theme-tertiary">
             <Target className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>No goals found. Create one or wait for agents to set goals during duty cycles.</p>
           </CardContent>

@@ -14,7 +14,7 @@ interface A2aTaskListPanelProps {
 }
 
 const statusIconMap: Record<string, string> = {
-  pending: 'text-theme-muted',
+  pending: 'text-theme-tertiary',
   active: 'text-theme-info',
   completed: 'text-theme-success',
   failed: 'text-theme-danger',
@@ -125,20 +125,20 @@ export const A2aTaskListPanel: React.FC<A2aTaskListPanelProps> = ({
   const search = (
     <div className="px-3 py-2 border-b border-theme">
       <div className="relative">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-theme-muted" />
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-theme-tertiary" />
         <input
           type="text"
           placeholder="Search tasks..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-surface-dark border border-theme rounded text-theme-primary placeholder:text-theme-muted focus:outline-none focus:border-theme-interactive-primary"
+          className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-surface-dark border border-theme rounded text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:border-theme-interactive-primary"
         />
       </div>
     </div>
   );
 
   const footer = (
-    <div className="px-3 py-2 border-t border-theme text-xs text-theme-muted flex items-center gap-3">
+    <div className="px-3 py-2 border-t border-theme text-xs text-theme-tertiary flex items-center gap-3">
       <span>{stats.total} total</span>
       <span>{stats.active} active</span>
       <span>{stats.completed} completed</span>
@@ -148,7 +148,7 @@ export const A2aTaskListPanel: React.FC<A2aTaskListPanelProps> = ({
   const collapsedContent = (
     <>
       {filteredTasks.slice(0, 10).map((task) => {
-        const color = statusIconMap[task.status] || 'text-theme-muted';
+        const color = statusIconMap[task.status] || 'text-theme-tertiary';
         return (
           <button
             key={task.id}
@@ -183,7 +183,7 @@ export const A2aTaskListPanel: React.FC<A2aTaskListPanelProps> = ({
           <Loading size="sm" message="Loading..." />
         </div>
       ) : filteredTasks.length === 0 ? (
-        <div className="px-3 py-8 text-center text-xs text-theme-muted">
+        <div className="px-3 py-8 text-center text-xs text-theme-tertiary">
           No tasks found
         </div>
       ) : (

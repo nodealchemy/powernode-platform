@@ -11,7 +11,7 @@ interface SpanDetailPanelProps {
 export const SpanDetailPanel: React.FC<SpanDetailPanelProps> = ({ selectedSpan }) => {
   if (!selectedSpan) {
     return (
-      <div className="flex items-center justify-center h-64 text-theme-muted">
+      <div className="flex items-center justify-center h-64 text-theme-tertiary">
         <p className="text-sm">Select a span to view details</p>
       </div>
     );
@@ -31,7 +31,7 @@ export const SpanDetailPanel: React.FC<SpanDetailPanelProps> = ({ selectedSpan }
 
       <div className="grid grid-cols-4 gap-4">
         <div className="p-3 bg-theme-surface rounded">
-          <div className="flex items-center gap-1 text-xs text-theme-muted mb-1">
+          <div className="flex items-center gap-1 text-xs text-theme-tertiary mb-1">
             <Clock className="h-3 w-3" />
             Duration
           </div>
@@ -40,7 +40,7 @@ export const SpanDetailPanel: React.FC<SpanDetailPanelProps> = ({ selectedSpan }
           </div>
         </div>
         <div className="p-3 bg-theme-surface rounded">
-          <div className="flex items-center gap-1 text-xs text-theme-muted mb-1">
+          <div className="flex items-center gap-1 text-xs text-theme-tertiary mb-1">
             <Hash className="h-3 w-3" />
             Tokens
           </div>
@@ -49,7 +49,7 @@ export const SpanDetailPanel: React.FC<SpanDetailPanelProps> = ({ selectedSpan }
           </div>
         </div>
         <div className="p-3 bg-theme-surface rounded">
-          <div className="flex items-center gap-1 text-xs text-theme-muted mb-1">
+          <div className="flex items-center gap-1 text-xs text-theme-tertiary mb-1">
             <DollarSign className="h-3 w-3" />
             Cost
           </div>
@@ -58,7 +58,7 @@ export const SpanDetailPanel: React.FC<SpanDetailPanelProps> = ({ selectedSpan }
           </div>
         </div>
         <div className="p-3 bg-theme-surface rounded">
-          <div className="text-xs text-theme-muted mb-1">Type</div>
+          <div className="text-xs text-theme-tertiary mb-1">Type</div>
           <div className="text-lg font-semibold text-theme-primary capitalize">
             {selectedSpan.type.replace('_', ' ')}
           </div>
@@ -78,7 +78,7 @@ export const SpanDetailPanel: React.FC<SpanDetailPanelProps> = ({ selectedSpan }
       <div className="grid grid-cols-2 gap-4">
         {selectedSpan.input && (
           <div>
-            <h4 className="text-sm font-medium text-theme-muted mb-2">Input</h4>
+            <h4 className="text-sm font-medium text-theme-tertiary mb-2">Input</h4>
             <pre className="text-xs bg-theme-surface p-3 rounded overflow-auto max-h-48">
               {JSON.stringify(selectedSpan.input, null, 2)}
             </pre>
@@ -86,7 +86,7 @@ export const SpanDetailPanel: React.FC<SpanDetailPanelProps> = ({ selectedSpan }
         )}
         {selectedSpan.output && (
           <div>
-            <h4 className="text-sm font-medium text-theme-muted mb-2">Output</h4>
+            <h4 className="text-sm font-medium text-theme-tertiary mb-2">Output</h4>
             <pre className="text-xs bg-theme-surface p-3 rounded overflow-auto max-h-48">
               {JSON.stringify(selectedSpan.output, null, 2)}
             </pre>
@@ -96,18 +96,18 @@ export const SpanDetailPanel: React.FC<SpanDetailPanelProps> = ({ selectedSpan }
 
       {selectedSpan.events.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-theme-muted mb-2">Events</h4>
+          <h4 className="text-sm font-medium text-theme-tertiary mb-2">Events</h4>
           <div className="space-y-2">
             {selectedSpan.events.map((event, i) => (
               <div key={i} className="p-2 bg-theme-surface rounded text-xs">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium">{event.name}</span>
-                  <span className="text-theme-muted">
+                  <span className="text-theme-tertiary">
                     {new Date(event.timestamp).toLocaleTimeString()}
                   </span>
                 </div>
                 {Object.keys(event.data).length > 0 && (
-                  <pre className="text-theme-muted">{JSON.stringify(event.data, null, 2)}</pre>
+                  <pre className="text-theme-tertiary">{JSON.stringify(event.data, null, 2)}</pre>
                 )}
               </div>
             ))}

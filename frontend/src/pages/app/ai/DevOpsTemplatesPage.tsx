@@ -719,28 +719,28 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
 
             {/* Metadata grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-theme-bg border border-theme rounded-lg p-3">
+              <div className="bg-theme-surface border border-theme rounded-lg p-3">
                 <div className="flex items-center gap-2 text-theme-secondary mb-1">
                   <Tag size={12} />
                   <span className="text-xs">Category</span>
                 </div>
                 <p className="text-sm font-medium text-theme-primary">{detailModal.template.category.replace('_', ' ')}</p>
               </div>
-              <div className="bg-theme-bg border border-theme rounded-lg p-3">
+              <div className="bg-theme-surface border border-theme rounded-lg p-3">
                 <div className="flex items-center gap-2 text-theme-secondary mb-1">
                   <Code size={12} />
                   <span className="text-xs">Type</span>
                 </div>
                 <p className="text-sm font-medium text-theme-primary">{detailModal.template.template_type.replace('_', ' ')}</p>
               </div>
-              <div className="bg-theme-bg border border-theme rounded-lg p-3">
+              <div className="bg-theme-surface border border-theme rounded-lg p-3">
                 <div className="flex items-center gap-2 text-theme-secondary mb-1">
                   <Download size={12} />
                   <span className="text-xs">Installs</span>
                 </div>
                 <p className="text-sm font-medium text-theme-primary">{detailModal.template.installation_count}</p>
               </div>
-              <div className="bg-theme-bg border border-theme rounded-lg p-3">
+              <div className="bg-theme-surface border border-theme rounded-lg p-3">
                 <div className="flex items-center gap-2 text-theme-secondary mb-1">
                   <Clock size={12} />
                   <span className="text-xs">Published</span>
@@ -802,7 +802,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
             {detailModal.template.variables && detailModal.template.variables.length > 0 && (
               <div>
                 <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Variables</h4>
-                <div className="bg-theme-bg border border-theme rounded-lg divide-y divide-theme">
+                <div className="bg-theme-surface border border-theme rounded-lg divide-y divide-theme">
                   {(detailModal.template.variables as Array<{ name: string; default?: string; description?: string }>).map((variable, i) => (
                     <div key={i} className="px-3 py-2 flex items-center justify-between">
                       <div>
@@ -826,7 +826,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
             {detailModal.template.workflow_definition && (
               <div>
                 <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Workflow Pipeline</h4>
-                <div className="bg-theme-bg border border-theme rounded-lg p-4">
+                <div className="bg-theme-surface border border-theme rounded-lg p-4">
                   {(detailModal.template.workflow_definition as { nodes?: Array<{ id: string; type: string; label: string }> }).nodes ? (
                     <div className="flex flex-wrap items-center gap-2">
                       {((detailModal.template.workflow_definition as { nodes: Array<{ id: string; type: string; label: string }> }).nodes).map((node, i, arr) => {
@@ -868,7 +868,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
             {detailModal.template.usage_guide && (
               <div>
                 <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Usage Guide</h4>
-                <div className="bg-theme-bg border border-theme rounded-lg p-4 text-sm text-theme-primary prose prose-sm max-w-none">
+                <div className="bg-theme-surface border border-theme rounded-lg p-4 text-sm text-theme-primary prose prose-sm max-w-none">
                   <pre className="whitespace-pre-wrap font-sans text-sm">{detailModal.template.usage_guide}</pre>
                 </div>
               </div>
@@ -880,7 +880,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                 {detailModal.template.input_schema && Object.keys(detailModal.template.input_schema).length > 0 && (
                   <div>
                     <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Input Schema</h4>
-                    <div className="bg-theme-bg border border-theme rounded-lg p-3">
+                    <div className="bg-theme-surface border border-theme rounded-lg p-3">
                       {Object.entries(detailModal.template.input_schema).map(([key, val]) => (
                         <div key={key} className="flex items-start justify-between py-1">
                           <span className="text-xs font-mono text-theme-primary">{key}</span>
@@ -893,7 +893,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                 {detailModal.template.output_schema && Object.keys(detailModal.template.output_schema).length > 0 && (
                   <div>
                     <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Output Schema</h4>
-                    <div className="bg-theme-bg border border-theme rounded-lg p-3">
+                    <div className="bg-theme-surface border border-theme rounded-lg p-3">
                       {Object.entries(detailModal.template.output_schema).map(([key, val]) => (
                         <div key={key} className="flex items-start justify-between py-1">
                           <span className="text-xs font-mono text-theme-primary">{key}</span>

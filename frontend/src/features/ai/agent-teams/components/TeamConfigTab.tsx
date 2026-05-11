@@ -32,7 +32,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
           {open ? <ChevronDown size={16} className="text-theme-secondary" /> : <ChevronRight size={16} className="text-theme-secondary" />}
           {icon}
           <span className="text-sm font-medium text-theme-primary">{title}</span>
-          <span className="text-xs text-theme-secondary bg-theme-bg px-1.5 py-0.5 rounded">{count}</span>
+          <span className="text-xs text-theme-secondary bg-theme-surface px-1.5 py-0.5 rounded">{count}</span>
         </div>
       </button>
       {open && <div className="border-t border-theme">{children}</div>}

@@ -703,7 +703,7 @@ const SbomDetailPageContent: React.FC = () => {
       ) : compliance ? (
         <ComplianceStatusCard compliance={compliance} />
       ) : (
-        <div className="text-center py-12 text-theme-muted">
+        <div className="text-center py-12 text-theme-tertiary">
           <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>Compliance data not available</p>
         </div>
@@ -722,7 +722,7 @@ const SbomDetailPageContent: React.FC = () => {
             </Button>
           </div>
           {diffs.length === 0 ? (
-            <div className="text-center py-12 text-theme-muted">
+            <div className="text-center py-12 text-theme-tertiary">
               <GitCompare className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No diffs created yet</p>
               <p className="text-sm mt-2">Compare this SBOM with another version to track changes</p>

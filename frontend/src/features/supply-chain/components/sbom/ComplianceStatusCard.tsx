@@ -70,7 +70,7 @@ export const ComplianceStatusCard: React.FC<ComplianceStatusCardProps> = ({ comp
           </span>
         </div>
 
-        <div className="w-full bg-theme-muted rounded-full h-3 mb-4">
+        <div className="w-full bg-theme-background-secondary rounded-full h-3 mb-4">
           <div
             className={`h-3 rounded-full transition-all ${
               compliance.completeness_score >= 80 ? 'bg-theme-success' :

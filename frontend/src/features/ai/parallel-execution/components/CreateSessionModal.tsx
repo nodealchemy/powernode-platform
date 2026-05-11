@@ -57,7 +57,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="New Parallel Execution Session"
-      icon={<GitBranch className="w-5 h-5 text-theme-brand-primary" />}
+      icon={<GitBranch className="w-5 h-5 text-theme-interactive-primary" />}
       size="md"
       footer={
         <>

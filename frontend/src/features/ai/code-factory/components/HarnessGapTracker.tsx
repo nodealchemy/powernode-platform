@@ -14,12 +14,12 @@ interface Props {
 const severityColors: Record<string, string> = {
   low: 'bg-theme-surface-bg text-theme-secondary',
   medium: 'bg-theme-warning text-theme-warning',
-  high: 'bg-theme-error-bg text-theme-error',
+  high: 'bg-theme-error text-theme-error',
   critical: 'bg-theme-danger/20 text-theme-danger',
 };
 
 const statusColors: Record<string, string> = {
-  open: 'bg-theme-error-bg text-theme-error',
+  open: 'bg-theme-error text-theme-error',
   in_progress: 'bg-theme-info text-theme-info',
   case_added: 'bg-theme-info/10 text-theme-info',
   verified: 'bg-theme-success text-theme-success',
@@ -213,7 +213,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                         <div className="text-xs text-theme-primary">{new Date(gap.created_at).toLocaleDateString()}</div>
                       </div>
                       {gap.sla_deadline && (
-                        <div className={`rounded p-2 ${sla?.overdue ? 'bg-theme-error-bg' : 'bg-theme-surface-bg'}`}>
+                        <div className={`rounded p-2 ${sla?.overdue ? 'bg-theme-error' : 'bg-theme-surface-bg'}`}>
                           <div className="text-[10px] text-theme-secondary">SLA Deadline</div>
                           <div className={`text-xs ${sla?.overdue ? 'text-theme-error font-medium' : 'text-theme-primary'}`}>
                             {new Date(gap.sla_deadline).toLocaleString()}

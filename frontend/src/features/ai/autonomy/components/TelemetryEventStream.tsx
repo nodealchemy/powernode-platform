@@ -21,7 +21,7 @@ const formatDate = (dateStr: string): string => {
 const EventRow: React.FC<{ event: TelemetryEvent }> = ({ event }) => (
   <div className="flex items-start gap-3 py-2 border-b border-theme last:border-0">
     <div className="mt-1">
-      <ArrowRight className="h-3 w-3 text-theme-muted" />
+      <ArrowRight className="h-3 w-3 text-theme-tertiary" />
     </div>
     <div className="flex-1 min-w-0">
       <div className="flex items-center gap-2 flex-wrap">
@@ -35,7 +35,7 @@ const EventRow: React.FC<{ event: TelemetryEvent }> = ({ event }) => (
           </span>
         )}
       </div>
-      <p className="text-xs text-theme-muted mt-0.5">
+      <p className="text-xs text-theme-tertiary mt-0.5">
         #{event.sequence_number} | {formatDate(event.created_at)}
       </p>
     </div>
@@ -58,7 +58,7 @@ export const TelemetryEventStream: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="py-6 text-center text-theme-muted">
+          <div className="py-6 text-center text-theme-tertiary">
             <Radio className="w-10 h-10 mx-auto mb-2 opacity-30" />
             <p className="text-sm">No telemetry events recorded</p>
           </div>

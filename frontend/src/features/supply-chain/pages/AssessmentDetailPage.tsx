@@ -129,25 +129,25 @@ export const AssessmentDetailPage: React.FC = () => {
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-theme-primary mb-4">Assessment Scores</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-theme-muted rounded-lg">
+            <div className="text-center p-4 bg-theme-background-secondary rounded-lg">
               <p className={`text-3xl font-bold ${getScoreColor(mockAssessment.overall_score)}`}>
                 {mockAssessment.overall_score}
               </p>
               <p className="text-sm text-theme-secondary mt-1">Overall</p>
             </div>
-            <div className="text-center p-4 bg-theme-muted rounded-lg">
+            <div className="text-center p-4 bg-theme-background-secondary rounded-lg">
               <p className={`text-3xl font-bold ${getScoreColor(mockAssessment.security_score)}`}>
                 {mockAssessment.security_score}
               </p>
               <p className="text-sm text-theme-secondary mt-1">Security</p>
             </div>
-            <div className="text-center p-4 bg-theme-muted rounded-lg">
+            <div className="text-center p-4 bg-theme-background-secondary rounded-lg">
               <p className={`text-3xl font-bold ${getScoreColor(mockAssessment.compliance_score)}`}>
                 {mockAssessment.compliance_score}
               </p>
               <p className="text-sm text-theme-secondary mt-1">Compliance</p>
             </div>
-            <div className="text-center p-4 bg-theme-muted rounded-lg">
+            <div className="text-center p-4 bg-theme-background-secondary rounded-lg">
               <p className={`text-3xl font-bold ${getScoreColor(mockAssessment.operational_score)}`}>
                 {mockAssessment.operational_score}
               </p>
@@ -198,7 +198,7 @@ export const AssessmentDetailPage: React.FC = () => {
             {mockAssessment.findings.map((finding) => (
               <div
                 key={finding.id}
-                className="p-4 bg-theme-muted rounded-lg border border-theme"
+                className="p-4 bg-theme-background-secondary rounded-lg border border-theme"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">

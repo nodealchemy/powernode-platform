@@ -553,7 +553,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                       </div>
                       <div className="space-y-4">
                         {queryResult.chunks.map((chunk, idx) => (
-                          <div key={chunk.chunk_id} className="p-4 bg-theme-bg rounded-lg">
+                          <div key={chunk.chunk_id} className="p-4 bg-theme-surface rounded-lg">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-xs font-medium text-theme-info">#{idx + 1}</span>
                               <span className="text-xs text-theme-secondary">Score: {(chunk.score * 100).toFixed(1)}%</span>
@@ -571,7 +571,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                       <h3 className="text-lg font-semibold text-theme-primary mb-4">Recent Queries</h3>
                       <div className="space-y-3">
                         {queryHistory.slice(0, 10).map(q => (
-                          <div key={q.id} className="flex items-center justify-between p-3 bg-theme-bg rounded-lg">
+                          <div key={q.id} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
                             <div className="flex items-center gap-3">
                               <MessageSquare size={14} className="text-theme-info" />
                               <span className="text-sm text-theme-primary">{q.query_text}</span>

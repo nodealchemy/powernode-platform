@@ -125,7 +125,7 @@ export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange 
         <div className="bg-theme-background rounded-lg border border-theme p-6">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-medium text-theme-secondary">Compliance Events</div>
-            <div className="p-1 bg-theme-link-background rounded">
+            <div className="p-1 bg-theme-info rounded">
               <Activity className="w-4 h-4 text-theme-link" />
             </div>
           </div>

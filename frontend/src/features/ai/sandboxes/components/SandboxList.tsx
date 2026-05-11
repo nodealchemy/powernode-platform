@@ -96,7 +96,7 @@ export const SandboxList: React.FC<SandboxListProps> = ({ refreshKey }) => {
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <Filter className="w-4 h-4 text-theme-muted" />
+            <Filter className="w-4 h-4 text-theme-tertiary" />
             <div className="flex flex-wrap gap-2">
               {STATUS_FILTERS.map((f) => (
                 <button

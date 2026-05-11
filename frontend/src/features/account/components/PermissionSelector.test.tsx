@@ -387,7 +387,7 @@ describe('PermissionSelector', () => {
       );
 
       const permissionRow = screen.getByText('users.read').closest('div[class*="cursor-pointer"]');
-      expect(permissionRow).toHaveClass('bg-theme-info-background');
+      expect(permissionRow).toHaveClass('bg-theme-info');
     });
   });
 });

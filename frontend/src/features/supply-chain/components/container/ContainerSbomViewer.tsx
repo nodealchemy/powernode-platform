@@ -53,7 +53,7 @@ export const ContainerSbomViewer: React.FC<ContainerSbomViewerProps> = ({
   if (!sbom) {
     return (
       <Card className="p-6">
-        <div className="text-center py-12 text-theme-muted">
+        <div className="text-center py-12 text-theme-tertiary">
           <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>No SBOM data available</p>
         </div>
@@ -83,7 +83,7 @@ export const ContainerSbomViewer: React.FC<ContainerSbomViewerProps> = ({
               <span className="font-medium text-theme-primary">{sbom.component_count}</span> components
             </span>
           </div>
-          <span className="text-sm text-theme-muted">
+          <span className="text-sm text-theme-tertiary">
             Generated: {formatDateTime(sbom.generated_at)}
           </span>
         </div>
@@ -120,7 +120,7 @@ export const ContainerSbomViewer: React.FC<ContainerSbomViewerProps> = ({
       <Card className="p-0">
         <div className="max-h-96 overflow-y-auto">
           {filteredComponents.length === 0 ? (
-            <div className="text-center py-8 text-theme-muted">
+            <div className="text-center py-8 text-theme-tertiary">
               No components match your filters
             </div>
           ) : (

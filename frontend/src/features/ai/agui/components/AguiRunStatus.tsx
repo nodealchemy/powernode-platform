@@ -50,7 +50,7 @@ export const AguiRunStatus: React.FC<AguiRunStatusProps> = ({ session }) => {
   const Icon = config.icon;
 
   return (
-    <div className="bg-theme-card border border-theme rounded-lg p-4">
+    <div className="bg-theme-surface border border-theme rounded-lg p-4">
       <div className="flex items-center gap-3 mb-3">
         <div className={`h-10 w-10 rounded-lg flex items-center justify-center bg-theme-surface`}>
           <Icon className="h-5 w-5 text-theme-interactive-primary" />

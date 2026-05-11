@@ -66,7 +66,7 @@ export const MemoryTierTabs: React.FC<MemoryTierTabsProps> = ({
                 'px-1.5 py-0.5 text-xs rounded-full',
                 isActive
                   ? 'bg-theme-primary/10 text-theme-primary'
-                  : 'bg-theme-surface text-theme-muted'
+                  : 'bg-theme-surface text-theme-tertiary'
               )}
             >
               {count}

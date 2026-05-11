@@ -175,7 +175,7 @@ export const UsageDashboard: React.FC = () => {
               <div className="flex items-center justify-between mb-2">
                 <span className="font-medium text-theme-primary">{meter.name}</span>
                 {meter.quota_exceeded && (
-                  <span className="px-2 py-1 text-xs font-medium rounded bg-theme-error-background text-theme-error">
+                  <span className="px-2 py-1 text-xs font-medium rounded bg-theme-error text-theme-error">
                     Exceeded
                   </span>
                 )}

@@ -90,7 +90,7 @@ export const AguiEventLog: React.FC<AguiEventLogProps> = ({ events }) => {
       <div className="max-h-[500px] overflow-y-auto space-y-1 pr-1">
         {filteredEvents.length === 0 ? (
           <div className="text-center py-8">
-            <List className="h-8 w-8 text-theme-muted mx-auto mb-2 opacity-50" />
+            <List className="h-8 w-8 text-theme-tertiary mx-auto mb-2 opacity-50" />
             <p className="text-sm text-theme-secondary">No events match the selected filters.</p>
           </div>
         ) : (
@@ -101,7 +101,7 @@ export const AguiEventLog: React.FC<AguiEventLogProps> = ({ events }) => {
             return (
               <div
                 key={event.sequence}
-                className="border border-theme rounded bg-theme-card"
+                className="border border-theme rounded bg-theme-surface"
               >
                 <button
                   type="button"
@@ -109,11 +109,11 @@ export const AguiEventLog: React.FC<AguiEventLogProps> = ({ events }) => {
                   onClick={() => setExpandedSeq(isExpanded ? null : event.sequence)}
                 >
                   {isExpanded ? (
-                    <ChevronDown className="h-3 w-3 text-theme-muted flex-shrink-0" />
+                    <ChevronDown className="h-3 w-3 text-theme-tertiary flex-shrink-0" />
                   ) : (
-                    <ChevronRight className="h-3 w-3 text-theme-muted flex-shrink-0" />
+                    <ChevronRight className="h-3 w-3 text-theme-tertiary flex-shrink-0" />
                   )}
-                  <span className="text-xs font-mono text-theme-muted w-8 text-right flex-shrink-0">
+                  <span className="text-xs font-mono text-theme-tertiary w-8 text-right flex-shrink-0">
                     #{event.sequence}
                   </span>
                   <Badge variant={variant} size="xs">
@@ -125,7 +125,7 @@ export const AguiEventLog: React.FC<AguiEventLogProps> = ({ events }) => {
                       {event.content.length > 60 ? '...' : ''}
                     </span>
                   )}
-                  <span className="text-xs text-theme-muted flex-shrink-0 ml-auto">
+                  <span className="text-xs text-theme-tertiary flex-shrink-0 ml-auto">
                     {new Date(event.timestamp).toLocaleTimeString()}
                   </span>
                 </button>

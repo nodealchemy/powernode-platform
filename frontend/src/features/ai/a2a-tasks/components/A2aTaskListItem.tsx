@@ -26,7 +26,7 @@ const statusIconMap: Record<string, React.FC<{ className?: string }>> = {
 };
 
 const statusColorMap: Record<string, string> = {
-  pending: 'text-theme-muted',
+  pending: 'text-theme-tertiary',
   active: 'text-theme-info',
   completed: 'text-theme-success',
   failed: 'text-theme-danger',
@@ -44,7 +44,7 @@ function timeAgo(timestamp: string): string {
 
 export const A2aTaskListItem: React.FC<A2aTaskListItemProps> = ({ task, isSelected, onClick }) => {
   const StatusIcon = statusIconMap[task.status] || Clock;
-  const statusColor = statusColorMap[task.status] || 'text-theme-muted';
+  const statusColor = statusColorMap[task.status] || 'text-theme-tertiary';
 
   return (
     <button
@@ -67,7 +67,7 @@ export const A2aTaskListItem: React.FC<A2aTaskListItemProps> = ({ task, isSelect
         <span className="font-mono text-xs text-theme-primary truncate">
           {task.task_id.substring(0, 8)}
         </span>
-        <span className="ml-auto text-xs text-theme-muted whitespace-nowrap">
+        <span className="ml-auto text-xs text-theme-tertiary whitespace-nowrap">
           {timeAgo(task.created_at)}
         </span>
       </div>
@@ -75,7 +75,7 @@ export const A2aTaskListItem: React.FC<A2aTaskListItemProps> = ({ task, isSelect
         <span className="font-mono truncate max-w-[80px]">
           {task.from_agent_id?.substring(0, 8) || 'Unknown'}
         </span>
-        <ArrowRight className="h-3 w-3 shrink-0 text-theme-muted" />
+        <ArrowRight className="h-3 w-3 shrink-0 text-theme-tertiary" />
         <span className="font-mono truncate max-w-[80px]">
           {task.to_agent_id?.substring(0, 8) || 'Unknown'}
         </span>

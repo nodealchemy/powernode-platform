@@ -48,7 +48,7 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({
       {!jsonErrors.workflow_definition && workflowDefinition && (
         <div>
           <label className="block text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Pipeline Preview</label>
-          <div className="bg-theme-bg border border-theme rounded-lg p-4">
+          <div className="bg-theme-surface border border-theme rounded-lg p-4">
             {(workflowDefinition as { nodes?: Array<{ id: string; type: string; label: string }> }).nodes?.length ? (
               <div className="flex flex-wrap items-center gap-2">
                 {((workflowDefinition as { nodes: Array<{ id: string; type: string; label: string }> }).nodes).map((node, i, arr) => {

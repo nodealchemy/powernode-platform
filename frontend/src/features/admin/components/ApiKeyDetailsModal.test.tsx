@@ -398,7 +398,7 @@ describe('ApiKeyDetailsModal', () => {
       render(<ApiKeyDetailsModal {...defaultProps} />);
 
       const errorBadge = screen.getByText('404');
-      expect(errorBadge).toHaveClass('bg-theme-error-background');
+      expect(errorBadge).toHaveClass('bg-theme-error');
     });
   });
 });

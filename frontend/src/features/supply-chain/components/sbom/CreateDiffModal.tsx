@@ -115,8 +115,8 @@ export const CreateDiffModal: React.FC<CreateDiffModalProps> = ({
                     <p className="font-medium text-theme-primary">{sbom.name}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-theme-secondary">v{sbom.version}</span>
-                      <span className="text-xs text-theme-muted">•</span>
-                      <span className="text-xs text-theme-muted">{formatDate(sbom.created_at)}</span>
+                      <span className="text-xs text-theme-tertiary">•</span>
+                      <span className="text-xs text-theme-tertiary">{formatDate(sbom.created_at)}</span>
                     </div>
                   </button>
                 ))

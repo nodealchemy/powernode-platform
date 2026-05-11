@@ -183,7 +183,7 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
                           {(() => {
                             const config = executionTypeConfig[details.execution_type];
                             const Icon = config?.icon || Bot;
-                            return <Icon className="w-4 h-4 text-theme-brand-primary" />;
+                            return <Icon className="w-4 h-4 text-theme-interactive-primary" />;
                           })()}
                           <span className="text-theme-text-primary font-medium">
                             {executionTypeConfig[details.execution_type]?.label || details.execution_type}

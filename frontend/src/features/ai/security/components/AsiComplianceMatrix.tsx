@@ -54,7 +54,7 @@ const ComplianceRow: React.FC<{ item: AsiComplianceItem }> = ({ item }) => {
       )}
 
       {/* Progress Bar */}
-      <div className="w-full bg-theme-bg rounded-full h-2 mb-2">
+      <div className="w-full bg-theme-surface rounded-full h-2 mb-2">
         <div
           className={`h-2 rounded-full ${getProgressBarColor(item.score)}`}
           style={{ width: `${Math.min(item.score, 100)}%` }}
@@ -67,7 +67,7 @@ const ComplianceRow: React.FC<{ item: AsiComplianceItem }> = ({ item }) => {
           Controls: {item.controls_met} / {item.controls_total}
         </span>
         {item.last_assessed_at && (
-          <span className="text-xs text-theme-muted">
+          <span className="text-xs text-theme-tertiary">
             Last assessed: {new Date(item.last_assessed_at).toLocaleDateString()}
           </span>
         )}
@@ -88,7 +88,7 @@ export const AsiComplianceMatrix: React.FC = () => {
   if (matrix.length === 0) {
     return (
       <div className="text-center py-12">
-        <CheckCircle className="h-12 w-12 text-theme-muted mx-auto mb-4 opacity-50" />
+        <CheckCircle className="h-12 w-12 text-theme-tertiary mx-auto mb-4 opacity-50" />
         <p className="text-theme-secondary">No compliance data available.</p>
         <p className="text-sm text-theme-tertiary mt-1">
           Run a compliance assessment to see ASI01-ASI10 coverage.

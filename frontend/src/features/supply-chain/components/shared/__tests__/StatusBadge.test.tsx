@@ -21,20 +21,20 @@ type StatusType =
 describe('StatusBadge', () => {
   const statuses: Array<{ status: StatusType; label: string; bg: string; text: string }> = [
     { status: 'verified', label: 'Verified', bg: 'bg-theme-success/10', text: 'text-theme-success' },
-    { status: 'unverified', label: 'Unverified', bg: 'bg-theme-muted/10', text: 'text-theme-muted' },
+    { status: 'unverified', label: 'Unverified', bg: 'bg-theme-background-secondary/10', text: 'text-theme-tertiary' },
     { status: 'quarantined', label: 'Quarantined', bg: 'bg-theme-error/10', text: 'text-theme-error' },
     { status: 'active', label: 'Active', bg: 'bg-theme-success/10', text: 'text-theme-success' },
-    { status: 'inactive', label: 'Inactive', bg: 'bg-theme-muted/10', text: 'text-theme-muted' },
+    { status: 'inactive', label: 'Inactive', bg: 'bg-theme-background-secondary/10', text: 'text-theme-tertiary' },
     { status: 'pending', label: 'Pending', bg: 'bg-theme-warning/10', text: 'text-theme-warning' },
     { status: 'error', label: 'Error', bg: 'bg-theme-error/10', text: 'text-theme-error' },
-    { status: 'draft', label: 'Draft', bg: 'bg-theme-muted/10', text: 'text-theme-muted' },
+    { status: 'draft', label: 'Draft', bg: 'bg-theme-background-secondary/10', text: 'text-theme-tertiary' },
     { status: 'completed', label: 'Completed', bg: 'bg-theme-success/10', text: 'text-theme-success' },
     { status: 'failed', label: 'Failed', bg: 'bg-theme-error/10', text: 'text-theme-error' },
     { status: 'expired', label: 'Expired', bg: 'bg-theme-warning/10', text: 'text-theme-warning' },
     { status: 'running', label: 'Running', bg: 'bg-theme-info/10', text: 'text-theme-info' },
     { status: 'in_progress', label: 'In Progress', bg: 'bg-theme-info/10', text: 'text-theme-info' },
     { status: 'suspended', label: 'Suspended', bg: 'bg-theme-error/10', text: 'text-theme-error' },
-    { status: 'queued', label: 'Queued', bg: 'bg-theme-muted/10', text: 'text-theme-muted' },
+    { status: 'queued', label: 'Queued', bg: 'bg-theme-background-secondary/10', text: 'text-theme-tertiary' },
   ];
 
   describe('rendering all status types', () => {
@@ -100,8 +100,8 @@ describe('StatusBadge', () => {
     it('applies muted colors for unverified status', () => {
       const { container } = render(<StatusBadge status="unverified" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-muted/10');
-      expect(badge).toHaveClass('text-theme-muted');
+      expect(badge).toHaveClass('bg-theme-background-secondary/10');
+      expect(badge).toHaveClass('text-theme-tertiary');
     });
   });
 

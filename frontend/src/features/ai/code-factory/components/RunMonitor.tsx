@@ -58,7 +58,7 @@ export const RunMonitor: React.FC<Props> = ({ reviewState }) => {
                     ? isFailed
                       ? 'bg-theme-error'
                       : 'bg-theme-info animate-pulse'
-                    : 'bg-theme-background-secondary-bg'
+                    : 'bg-theme-background-secondary'
                 }`}
               />
               <span className="text-[10px] text-theme-secondary mt-1 block text-center">

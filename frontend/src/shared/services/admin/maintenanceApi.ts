@@ -327,7 +327,7 @@ class MaintenanceApiService {
     switch (status) {
       case 'healthy': return 'bg-theme-success-background';
       case 'warning': return 'bg-theme-warning-background';
-      case 'critical': return 'bg-theme-error-background';
+      case 'critical': return 'bg-theme-error';
       default: return 'bg-theme-background-secondary';
     }
   }

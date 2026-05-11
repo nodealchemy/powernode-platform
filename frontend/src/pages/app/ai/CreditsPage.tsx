@@ -282,7 +282,7 @@ export const CreditsContent: React.FC = () => {
                   <h3 className="text-lg font-semibold text-theme-primary mb-4">Usage Analytics</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {Object.entries(usageAnalytics).filter(([key]) => typeof usageAnalytics[key as keyof UsageAnalytics] === 'number').slice(0, 6).map(([key, value]) => (
-                      <div key={key} className="p-3 bg-theme-bg rounded-lg">
+                      <div key={key} className="p-3 bg-theme-surface rounded-lg">
                         <p className="text-xs text-theme-secondary">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
                         <p className="text-lg font-semibold text-theme-primary">{typeof value === 'number' ? value.toLocaleString() : String(value)}</p>
                       </div>
@@ -307,7 +307,7 @@ export const CreditsContent: React.FC = () => {
                 ) : (
                   <div className="space-y-3">
                     {transactions.slice(0, 5).map(tx => (
-                      <div key={tx.id} className="flex items-center justify-between p-3 bg-theme-bg rounded-lg">
+                      <div key={tx.id} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
                         <div className="flex items-center gap-3">
                           <span className={`px-2 py-1 text-xs rounded ${getTransactionTypeColor(tx.transaction_type)}`}>
                             {tx.transaction_type}
@@ -417,7 +417,7 @@ export const CreditsContent: React.FC = () => {
                 <div className="bg-theme-surface border border-theme rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-theme bg-theme-bg">
+                      <tr className="border-b border-theme bg-theme-surface">
                         <th className="px-4 py-3 text-left text-xs font-medium text-theme-secondary uppercase">Type</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-theme-secondary uppercase">Description</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-theme-secondary uppercase">Amount</th>

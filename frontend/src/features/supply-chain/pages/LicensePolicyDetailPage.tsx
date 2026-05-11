@@ -168,11 +168,11 @@ export const LicensePolicyDetailPage: React.FC = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <span className="text-sm font-medium text-theme-muted">Policy Type</span>
+                  <span className="text-sm font-medium text-theme-tertiary">Policy Type</span>
                   <p className="text-theme-primary mt-1">{POLICY_TYPE_LABELS[policy.policy_type]}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-theme-muted">Enforcement Level</span>
+                  <span className="text-sm font-medium text-theme-tertiary">Enforcement Level</span>
                   <p className={`mt-1 ${
                     policy.enforcement_level === 'block' ? 'text-theme-error' :
                     policy.enforcement_level === 'warn' ? 'text-theme-warning' :
@@ -182,18 +182,18 @@ export const LicensePolicyDetailPage: React.FC = () => {
                   </p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-theme-muted">Created</span>
+                  <span className="text-sm font-medium text-theme-tertiary">Created</span>
                   <p className="text-theme-primary mt-1">{formatDateTime(policy.created_at)}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-theme-muted">Last Updated</span>
+                  <span className="text-sm font-medium text-theme-tertiary">Last Updated</span>
                   <p className="text-theme-primary mt-1">{formatDateTime(policy.updated_at)}</p>
                 </div>
               </div>
 
               {policy.description && (
                 <div>
-                  <span className="text-sm font-medium text-theme-muted">Description</span>
+                  <span className="text-sm font-medium text-theme-tertiary">Description</span>
                   <p className="text-theme-primary mt-1">{policy.description}</p>
                 </div>
               )}
@@ -297,7 +297,7 @@ export const LicensePolicyDetailPage: React.FC = () => {
                       <p className="text-sm text-theme-tertiary mt-1">{exception.reason}</p>
                     </div>
                     {exception.expires_at && (
-                      <span className="text-xs text-theme-muted">
+                      <span className="text-xs text-theme-tertiary">
                         Expires: {formatDateTime(exception.expires_at)}
                       </span>
                     )}
@@ -346,7 +346,7 @@ const RestrictionRow: React.FC<RestrictionRowProps> = ({ label, enabled }) => (
     {enabled ? (
       <CheckCircle className="w-5 h-5 text-theme-success" />
     ) : (
-      <XCircle className="w-5 h-5 text-theme-muted" />
+      <XCircle className="w-5 h-5 text-theme-tertiary" />
     )}
   </div>
 );

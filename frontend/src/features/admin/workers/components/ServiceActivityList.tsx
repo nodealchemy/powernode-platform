@@ -218,7 +218,7 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
         </div>
         
         {error && (
-          <div className="p-4 bg-theme-error-background border-b border-theme-error">
+          <div className="p-4 bg-theme-error border-b border-theme-error">
             <p className="text-theme-error text-sm">{error}</p>
             <button
               onClick={loadActivities}
@@ -272,7 +272,7 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-2 ${activity.successful ? 'bg-theme-success-solid' : 'bg-theme-danger-solid'}`}></div>
+                        <div className={`w-2 h-2 rounded-full mr-2 ${activity.successful ? 'bg-theme-success' : 'bg-theme-danger'}`}></div>
                         <span className="text-sm text-theme-primary">
                           {activity.successful ? 'Success' : 'Failed'}
                         </span>

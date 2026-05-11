@@ -16,7 +16,7 @@ const categoryColors: Record<string, { bg: string; text: string }> = {
   transformation: { bg: 'bg-theme-warning/10', text: 'text-theme-warning' },
   communication: { bg: 'bg-theme-primary/10', text: 'text-theme-primary' },
   integration: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary' },
-  default: { bg: 'bg-theme-muted/10', text: 'text-theme-muted' },
+  default: { bg: 'bg-theme-background-secondary/10', text: 'text-theme-tertiary' },
 };
 
 export const CapabilityBadge: React.FC<CapabilityBadgeProps> = ({
@@ -38,7 +38,7 @@ export const CapabilityBadge: React.FC<CapabilityBadgeProps> = ({
         {skill.name || skill.id || 'Unnamed Skill'}
       </Badge>
       {showDescription && skill.description && (
-        <span className="text-xs text-theme-muted truncate max-w-48">
+        <span className="text-xs text-theme-tertiary truncate max-w-48">
           {skill.description}
         </span>
       )}
@@ -80,7 +80,7 @@ export const CapabilityList: React.FC<CapabilityListProps> = ({
         <CapabilityBadge key={skill.id} skill={skill} />
       ))}
       {!showAll && hiddenCount > 0 && (
-        <Badge variant="outline" size="sm" className="text-theme-muted">
+        <Badge variant="outline" size="sm" className="text-theme-tertiary">
           +{hiddenCount} more
         </Badge>
       )}

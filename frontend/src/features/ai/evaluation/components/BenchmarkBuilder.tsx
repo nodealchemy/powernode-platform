@@ -152,7 +152,7 @@ export const BenchmarkBuilder: React.FC = () => {
 
       {benchmarks.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-theme-muted">
+          <CardContent className="p-8 text-center text-theme-tertiary">
             <RefreshCw className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>No benchmarks created yet. Create one to start tracking agent quality over time.</p>
           </CardContent>
@@ -176,7 +176,7 @@ export const BenchmarkBuilder: React.FC = () => {
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-theme-muted mt-1">
+                    <div className="flex items-center gap-4 text-xs text-theme-tertiary mt-1">
                       {bench.latest_score !== null && (
                         <span>Latest Score: {bench.latest_score}</span>
                       )}
@@ -188,7 +188,7 @@ export const BenchmarkBuilder: React.FC = () => {
                     {bench.thresholds && Object.keys(bench.thresholds).length > 0 && (
                       <div className="flex items-center gap-2 mt-2">
                         {Object.entries(bench.thresholds).map(([key, val]) => (
-                          <span key={key} className="text-xs px-1.5 py-0.5 rounded bg-theme-surface-hover text-theme-muted">
+                          <span key={key} className="text-xs px-1.5 py-0.5 rounded bg-theme-surface-hover text-theme-tertiary">
                             {key}: {val}
                           </span>
                         ))}
@@ -211,7 +211,7 @@ export const BenchmarkBuilder: React.FC = () => {
                       </button>
                     )}
                     <button
-                      className="p-1.5 rounded-md hover:bg-theme-surface-hover text-theme-muted"
+                      className="p-1.5 rounded-md hover:bg-theme-surface-hover text-theme-tertiary"
                       title={bench.status === 'active' ? 'Pause' : 'Archive'}
                     >
                       {bench.status === 'active' ? (

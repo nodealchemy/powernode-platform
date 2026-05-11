@@ -44,7 +44,7 @@ export const TeamActivityCard: React.FC = () => {
             <div className="text-sm text-theme-secondary">Active Teams</div>
           </div>
         </div>
-        <ArrowRight className="h-4 w-4 text-theme-muted" />
+        <ArrowRight className="h-4 w-4 text-theme-tertiary" />
       </div>
 
       <div className="space-y-2">

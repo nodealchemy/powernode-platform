@@ -70,7 +70,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
     switch (status) {
       case 'active': return 'bg-theme-success-background text-theme-success';
       case 'suspended': return 'bg-theme-warning-background text-theme-warning';
-      case 'revoked': return 'bg-theme-error-background text-theme-error';
+      case 'revoked': return 'bg-theme-error text-theme-error';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -262,7 +262,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
                         </span>
                       ))}
                       {worker.roles.length > 2 && (
-                        <span className="px-2 py-1 bg-theme-info-background text-theme-info text-xs rounded-full">
+                        <span className="px-2 py-1 bg-theme-info text-theme-info text-xs rounded-full">
                           +{worker.roles.length - 2}
                         </span>
                       )}

@@ -33,9 +33,9 @@ export const CapabilityMatrixViewer: React.FC = () => {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-theme">
-                <th className="text-left py-2 px-2 text-theme-muted font-medium">Action</th>
+                <th className="text-left py-2 px-2 text-theme-tertiary font-medium">Action</th>
                 {TIER_ORDER.map(tier => (
-                  <th key={tier} className="text-center py-2 px-2 text-theme-muted font-medium capitalize">
+                  <th key={tier} className="text-center py-2 px-2 text-theme-tertiary font-medium capitalize">
                     {tier}
                   </th>
                 ))}
@@ -63,7 +63,7 @@ export const CapabilityMatrixViewer: React.FC = () => {
           </table>
         </div>
         {actionTypes.length === 0 && (
-          <div className="py-6 text-center text-theme-muted">
+          <div className="py-6 text-center text-theme-tertiary">
             <ShieldCheck className="w-10 h-10 mx-auto mb-2 opacity-30" />
             <p className="text-sm">No capability matrix configured</p>
           </div>

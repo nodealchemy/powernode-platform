@@ -160,14 +160,14 @@ export const TwoFactorSettings: React.FC = () => {
           {status?.enabled ? (
             <button
               onClick={() => setShowDisableConfirm(true)}
-              className="btn-theme btn-theme-outline border-theme-error text-theme-error hover:bg-theme-error-background text-sm"
+              className="btn-theme btn-theme-outline border-theme-error text-theme-error hover:bg-theme-error text-sm"
             >
               Disable
             </button>
           ) : (
             <button
               onClick={() => setShowSetup(true)}
-              className="px-4 py-2 text-sm bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-hover"
+              className="px-4 py-2 text-sm bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover"
             >
               Enable 2FA
             </button>
@@ -195,7 +195,7 @@ export const TwoFactorSettings: React.FC = () => {
                 <button
                   onClick={handleRegenerateBackupCodes}
                   disabled={isRegenerating}
-                  className="px-3 py-1 text-xs bg-theme-interactive-primary text-white rounded hover:bg-theme-interactive-hover disabled:opacity-50"
+                  className="px-3 py-1 text-xs bg-theme-interactive-primary text-white rounded hover:bg-theme-interactive-primary-hover disabled:opacity-50"
                 >
                   {isRegenerating ? 'Regenerating...' : 'Regenerate'}
                 </button>
@@ -286,7 +286,7 @@ export const TwoFactorSettings: React.FC = () => {
             <button
               onClick={handleRegenerateBackupCodes}
               disabled={isRegenerating}
-              className="flex-1 px-4 py-2 bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-hover disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50"
             >
               {isRegenerating ? 'Regenerating...' : 'Regenerate'}
             </button>

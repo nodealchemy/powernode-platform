@@ -240,7 +240,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
               </p>
 
               {/* Progress bar */}
-              <div className="w-full bg-theme-bg rounded-full h-1.5 mb-2">
+              <div className="w-full bg-theme-surface rounded-full h-1.5 mb-2">
                 <div
                   className={`h-1.5 rounded-full transition-all ${
                     execution.status === 'failed' ? 'bg-theme-danger' :
@@ -306,7 +306,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                           {detail.per_member_costs.map((member, idx) => (
                             <div
                               key={member.agent_id || idx}
-                              className="flex items-center justify-between p-2.5 bg-theme-bg rounded-md border border-theme/50"
+                              className="flex items-center justify-between p-2.5 bg-theme-surface rounded-md border border-theme/50"
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <StatusIcon status={member.status} />
@@ -336,7 +336,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                       {detail?.input_context && Object.keys(detail.input_context).length > 0 && (
                         <div>
                           <h4 className="text-sm font-medium text-theme-primary mb-1.5">Input</h4>
-                          <div className="bg-theme-bg rounded-md p-2.5 border border-theme/50 max-h-32 overflow-y-auto">
+                          <div className="bg-theme-surface rounded-md p-2.5 border border-theme/50 max-h-32 overflow-y-auto">
                             {detail.input_context.task ? (
                               <p className="text-xs text-theme-secondary whitespace-pre-wrap">
                                 {String(detail.input_context.task)}
@@ -368,7 +368,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                                       e.stopPropagation();
                                       downloadContent(mdContent, `${execution.execution_id}-output.md`, 'text/markdown');
                                     }}
-                                    className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors"
+                                    className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-surface border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors"
                                     title="Download as Markdown"
                                   >
                                     <FileText size={12} />
@@ -380,7 +380,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                                     e.stopPropagation();
                                     downloadContent(JSON.stringify(outputResult, null, 2), `${execution.execution_id}-output.json`, 'application/json');
                                   }}
-                                  className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors"
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-surface border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors"
                                   title="Download as JSON"
                                 >
                                   <FileJson size={12} />
@@ -388,7 +388,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                                 </button>
                               </div>
                             </h4>
-                            <div className="bg-theme-bg rounded-md border border-theme/50 max-h-[480px] overflow-y-auto">
+                            <div className="bg-theme-surface rounded-md border border-theme/50 max-h-[480px] overflow-y-auto">
                               {mdContent ? (
                                 <div className="p-3">
                                   <MarkdownRenderer
@@ -429,30 +429,30 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                       <div>
                         <h4 className="text-sm font-medium text-theme-primary mb-1.5">Details</h4>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                          <div className="bg-theme-surface rounded p-2 border border-theme/50">
                             <span className="text-theme-secondary block">Execution ID</span>
                             <span className="text-theme-primary font-mono">{execution.execution_id}</span>
                           </div>
-                          <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                          <div className="bg-theme-surface rounded p-2 border border-theme/50">
                             <span className="text-theme-secondary block">Duration</span>
                             <span className="text-theme-primary">{formatDuration(execution.duration_ms)}</span>
                           </div>
-                          <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                          <div className="bg-theme-surface rounded p-2 border border-theme/50">
                             <span className="text-theme-secondary block">Total Tokens</span>
                             <span className="text-theme-primary">{(execution.total_tokens_used || 0).toLocaleString()}</span>
                           </div>
-                          <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                          <div className="bg-theme-surface rounded p-2 border border-theme/50">
                             <span className="text-theme-secondary block">Total Cost</span>
                             <span className="text-theme-primary">{formatCost(execution.total_cost_usd)}</span>
                           </div>
                           {execution.started_at && (
-                            <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                            <div className="bg-theme-surface rounded p-2 border border-theme/50">
                               <span className="text-theme-secondary block">Started</span>
                               <span className="text-theme-primary">{new Date(execution.started_at).toLocaleString()}</span>
                             </div>
                           )}
                           {execution.completed_at && (
-                            <div className="bg-theme-bg rounded p-2 border border-theme/50">
+                            <div className="bg-theme-surface rounded p-2 border border-theme/50">
                               <span className="text-theme-secondary block">Completed</span>
                               <span className="text-theme-primary">{new Date(execution.completed_at).toLocaleString()}</span>
                             </div>
@@ -470,7 +470,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                           {detail.tasks.map(task => (
-                            <div key={task.id} className="flex items-center gap-2 p-2 bg-theme-bg rounded border border-theme/50">
+                            <div key={task.id} className="flex items-center gap-2 p-2 bg-theme-surface rounded border border-theme/50">
                               <StatusIcon status={task.status} />
                               <span className="text-xs text-theme-primary truncate flex-1">
                                 {task.title || task.assigned_to || task.id.slice(0, 8)}
@@ -492,7 +492,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                         </h4>
                         <div className="space-y-1.5 max-h-40 overflow-y-auto">
                           {detail.messages.slice(0, 10).map(msg => (
-                            <div key={msg.id} className="flex gap-2 text-xs p-1.5 bg-theme-bg rounded border border-theme/50">
+                            <div key={msg.id} className="flex gap-2 text-xs p-1.5 bg-theme-surface rounded border border-theme/50">
                               {msg.sender && (
                                 <span className="text-theme-info font-medium shrink-0">{msg.sender}:</span>
                               )}

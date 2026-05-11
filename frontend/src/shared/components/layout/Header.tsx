@@ -196,7 +196,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
                       
                       <Link
                         to="/app/admin/settings"
-                        className="flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error-background transition-colors duration-150"
+                        className="flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error transition-colors duration-150"
                         onClick={() => setShowUserMenu(false)}
                       >
                         <svg className="mr-3 h-4 w-4 text-theme-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -208,7 +208,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
                       
                       <Link
                         to="/app/account/users"
-                        className="flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error-background transition-colors duration-150"
+                        className="flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error transition-colors duration-150"
                         onClick={() => setShowUserMenu(false)}
                       >
                         <svg className="mr-3 h-4 w-4 text-theme-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -243,7 +243,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
                     onClick={() => {
                       setShowUserMenu(false);
                       onLogout();
-                    }}className="w-full flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error-background transition-colors duration-150"
+                    }}className="w-full flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error transition-colors duration-150"
                   >
                     <svg className="mr-3 h-4 w-4 text-theme-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

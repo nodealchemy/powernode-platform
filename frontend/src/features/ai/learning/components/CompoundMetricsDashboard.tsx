@@ -42,7 +42,7 @@ const ScoreGauge: React.FC<{ score: number; label: string }> = ({ score, label }
           <span className={`text-lg font-bold ${getColor()}`}>{percentage}%</span>
         </div>
       </div>
-      <span className="text-xs text-theme-muted mt-1">{label}</span>
+      <span className="text-xs text-theme-tertiary mt-1">{label}</span>
     </div>
   );
 };
@@ -86,7 +86,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
           <CardContent className="p-4 flex items-center gap-3">
             <Zap className="w-8 h-8 text-theme-primary" />
             <div>
-              <p className="text-sm text-theme-muted">Active</p>
+              <p className="text-sm text-theme-tertiary">Active</p>
               <p className="text-2xl font-bold text-theme-primary">{metrics.active_learnings}</p>
             </div>
           </CardContent>
@@ -95,7 +95,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
           <CardContent className="p-4 flex items-center gap-3">
             <BarChart3 className="w-8 h-8 text-theme-info" />
             <div>
-              <p className="text-sm text-theme-muted">Total</p>
+              <p className="text-sm text-theme-tertiary">Total</p>
               <p className="text-2xl font-bold text-theme-primary">{metrics.total_learnings}</p>
             </div>
           </CardContent>
@@ -104,7 +104,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
           <CardContent className="p-4 flex items-center gap-3">
             <Target className="w-8 h-8 text-theme-warning" />
             <div>
-              <p className="text-sm text-theme-muted">Avg Importance</p>
+              <p className="text-sm text-theme-tertiary">Avg Importance</p>
               <p className="text-2xl font-bold text-theme-primary">{(metrics.avg_importance * 100).toFixed(0)}%</p>
             </div>
           </CardContent>
@@ -113,7 +113,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
           <CardContent className="p-4 flex items-center gap-3">
             <TrendingUp className="w-8 h-8 text-theme-success" />
             <div>
-              <p className="text-sm text-theme-muted">Avg Effectiveness</p>
+              <p className="text-sm text-theme-tertiary">Avg Effectiveness</p>
               <p className="text-2xl font-bold text-theme-primary">
                 {metrics.avg_effectiveness !== null ? `${(metrics.avg_effectiveness * 100).toFixed(0)}%` : 'N/A'}
               </p>
@@ -146,7 +146,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
           <CardContent className="p-8 text-center">
             <Award className="w-12 h-12 mx-auto mb-4 text-theme-warning opacity-40" />
             <p className="text-theme-primary font-medium mb-2">No compound learnings yet</p>
-            <p className="text-sm text-theme-muted max-w-md mx-auto mb-4">
+            <p className="text-sm text-theme-tertiary max-w-md mx-auto mb-4">
               Learnings are automatically extracted when agent teams execute tasks.
               Each execution can produce insights across several categories:
             </p>
@@ -156,7 +156,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
               <Badge variant="warning">discoveries</Badge>
               <Badge variant="danger">failure modes</Badge>
             </div>
-            <p className="text-xs text-theme-muted max-w-sm mx-auto">
+            <p className="text-xs text-theme-tertiary max-w-sm mx-auto">
               As learnings accumulate, their effectiveness is tracked and the most impactful
               ones are promoted across teams to improve future executions.
             </p>

@@ -315,7 +315,7 @@ export const RateLimitingSettings: React.FC = () => {
         {/* Global Enable/Disable */}
         <div className="flex items-center justify-between p-4 bg-theme-surface-subtle rounded-lg mb-6">
           <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${config.enabled ? 'bg-theme-success-solid' : 'bg-theme-danger-solid'}`}></div>
+            <div className={`w-3 h-3 rounded-full ${config.enabled ? 'bg-theme-success' : 'bg-theme-danger'}`}></div>
             <div>
               <h3 className="font-medium text-theme-primary">Rate Limiting Status</h3>
               <p className="text-sm text-theme-secondary">
@@ -331,7 +331,7 @@ export const RateLimitingSettings: React.FC = () => {
               className="sr-only"
             />
             <div className={`relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full ${
-              config.enabled ? 'bg-theme-success' : 'bg-theme-muted/50'
+              config.enabled ? 'bg-theme-success' : 'bg-theme-background-secondary/50'
             }`}>
               <div className={`absolute left-0 top-0 bg-white w-6 h-6 rounded-full shadow transition-transform duration-200 ease-in-out ${
                 config.enabled ? 'transform translate-x-4' : ''
@@ -430,17 +430,17 @@ export const RateLimitingSettings: React.FC = () => {
               <h4 className="font-medium text-theme-primary mb-3">Recent Violations</h4>
               <div className="space-y-3">
                 {stats.recent_violations.map((violation, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-theme-error-background border border-theme-error rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-4 bg-theme-error border border-theme-error rounded-lg">
                     <div className="flex items-center gap-3">
                       <AlertTriangle className="w-5 h-5 text-theme-error" />
                       <div>
                         <p className="font-medium text-theme-error">{violation.endpoint}</p>
-                        <p className="text-sm text-theme-error-dark">{violation.identifier}</p>
+                        <p className="text-sm text-theme-error">{violation.identifier}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-theme-error">{violation.count}/{violation.limit}</p>
-                      <p className="text-sm text-theme-error-dark">{new Date(violation.timestamp).toLocaleTimeString()}</p>
+                      <p className="text-sm text-theme-error">{new Date(violation.timestamp).toLocaleTimeString()}</p>
                     </div>
                     <Button
                       onClick={() => clearLimitsForUser(violation.identifier)}

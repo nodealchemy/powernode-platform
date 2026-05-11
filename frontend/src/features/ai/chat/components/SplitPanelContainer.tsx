@@ -153,7 +153,7 @@ export const SplitPanelContainer: React.FC = () => {
             {/* Divider between panels */}
             {i < panels.length - 1 && (
               <div
-                className="w-1 flex-shrink-0 cursor-col-resize bg-theme-border hover:bg-theme-interactive-primary active:bg-theme-interactive-primary transition-colors"
+                className="w-1 flex-shrink-0 cursor-col-resize bg-theme-background-secondary hover:bg-theme-interactive-primary active:bg-theme-interactive-primary transition-colors"
                 onMouseDown={(e) => handleDragStart(i, e)}
                 onDoubleClick={handleDoubleClickDivider}
                 title="Drag to resize, double-click to equalize"

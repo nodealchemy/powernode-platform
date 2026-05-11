@@ -310,7 +310,7 @@ export function ContextBrowser({
 
       {/* Clone Modal */}
       {cloneTargetId && (
-        <div className="fixed inset-0 bg-theme-bg/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-theme-surface/80 flex items-center justify-center z-50 p-4">
           <div className="bg-theme-surface rounded-lg border border-theme w-full max-w-md p-6">
             <h3 className="text-lg font-medium text-theme-primary mb-4">Clone Context</h3>
             <div className="mb-4">

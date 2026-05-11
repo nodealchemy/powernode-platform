@@ -74,9 +74,9 @@ export const ViolationList: React.FC = () => {
       render: (item) => (
         <div className="flex items-center gap-2">
           {expandedId === item.id ? (
-            <ChevronDown className="h-4 w-4 text-theme-muted flex-shrink-0" />
+            <ChevronDown className="h-4 w-4 text-theme-tertiary flex-shrink-0" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-theme-muted flex-shrink-0" />
+            <ChevronRight className="h-4 w-4 text-theme-tertiary flex-shrink-0" />
           )}
           <span className="text-theme-primary truncate max-w-xs">{item.description}</span>
         </div>
@@ -187,7 +187,7 @@ export const ViolationList: React.FC = () => {
               ))}
             </ul>
             {expanded.resolved_at && (
-              <p className="text-xs text-theme-muted">
+              <p className="text-xs text-theme-tertiary">
                 Resolved at: {new Date(expanded.resolved_at).toLocaleString()}
               </p>
             )}

@@ -209,7 +209,7 @@ export const ProxySettingsTab: React.FC = () => {
               <button
                 onClick={handleEnableToggle}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  config.enabled ? 'bg-theme-success' : 'bg-theme-muted'
+                  config.enabled ? 'bg-theme-success' : 'bg-theme-background-secondary'
                 }`}
               >
                 <span

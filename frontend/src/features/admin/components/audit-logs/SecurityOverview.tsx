@@ -63,10 +63,10 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
 
   const getColorClasses = (color: string) => {
     switch (color) {
-      case 'red': return 'bg-theme-error-background text-theme-error';
+      case 'red': return 'bg-theme-error text-theme-error';
       case 'yellow': return 'bg-theme-warning-background text-theme-warning';
       case 'orange': return 'bg-theme-warning-background text-theme-warning';
-      case 'purple': return 'bg-theme-info-background text-theme-info';
+      case 'purple': return 'bg-theme-info text-theme-info';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -147,8 +147,8 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
             <h4 className="text-lg font-semibold text-theme-primary">Recent Security Events</h4>
           </div>
           <div className="space-y-3">
-            <div className="flex items-start gap-3 p-3 bg-theme-error-background rounded-lg border border-theme-error">
-              <div className="p-1 bg-theme-error-background rounded">
+            <div className="flex items-start gap-3 p-3 bg-theme-error rounded-lg border border-theme-error">
+              <div className="p-1 bg-theme-error rounded">
                 <AlertTriangle className="w-3 h-3 text-theme-error" />
               </div>
               <div className="flex-1">
@@ -169,8 +169,8 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
               </div>
             </div>
             
-            <div className="flex items-start gap-3 p-3 bg-theme-info-background rounded-lg border border-theme-info">
-              <div className="p-1 bg-theme-info-background rounded">
+            <div className="flex items-start gap-3 p-3 bg-theme-info rounded-lg border border-theme-info">
+              <div className="p-1 bg-theme-info rounded">
                 <Users className="w-3 h-3 text-theme-info" />
               </div>
               <div className="flex-1">

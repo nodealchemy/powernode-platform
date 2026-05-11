@@ -55,7 +55,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
     <div className="flex flex-wrap items-center gap-4 mb-6">
       <div className="flex-1 min-w-48 max-w-sm">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-muted" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-tertiary" />
           <Input
             placeholder="Search teams..."
             value={teamSearchQuery}

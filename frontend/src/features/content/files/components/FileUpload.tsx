@@ -284,7 +284,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                   {/* Progress Bar */}
                   {uploadingFile.status === 'uploading' && (
                     <div
-                      className="mt-2 w-full bg-theme-border dark:bg-theme-surface rounded-full h-1.5"
+                      className="mt-2 w-full bg-theme-background-secondary dark:bg-theme-surface rounded-full h-1.5"
                       role="progressbar"
                       aria-valuenow={uploadingFile.progress}
                       aria-valuemin={0}

@@ -47,7 +47,7 @@ export const ContainerImagesPage: React.FC = () => {
   };
 
   const getVulnCountClasses = (count: number, severity: 'critical' | 'high' | 'medium' | 'low') => {
-    if (count === 0) return 'text-theme-muted';
+    if (count === 0) return 'text-theme-tertiary';
 
     const severityClasses = {
       critical: 'text-theme-error font-semibold',
@@ -68,7 +68,7 @@ export const ContainerImagesPage: React.FC = () => {
           <span className="font-medium text-theme-primary">
             {item.registry}/{item.repository}
           </span>
-          <span className="text-sm text-theme-muted">{item.tag}</span>
+          <span className="text-sm text-theme-tertiary">{item.tag}</span>
         </div>
       ),
     },
@@ -76,7 +76,7 @@ export const ContainerImagesPage: React.FC = () => {
       key: 'digest',
       header: 'Digest',
       render: (item) => (
-        <code className="text-xs text-theme-muted bg-theme-muted px-2 py-1 rounded">
+        <code className="text-xs text-theme-tertiary bg-theme-background-secondary px-2 py-1 rounded">
           {truncateDigest(item.digest)}
         </code>
       ),
@@ -126,7 +126,7 @@ export const ContainerImagesPage: React.FC = () => {
       key: 'deployed',
       header: 'Deployed',
       render: (item) => (
-        <span className={item.is_deployed ? 'text-theme-success' : 'text-theme-muted'}>
+        <span className={item.is_deployed ? 'text-theme-success' : 'text-theme-tertiary'}>
           {item.is_deployed ? 'Yes' : 'No'}
         </span>
       ),

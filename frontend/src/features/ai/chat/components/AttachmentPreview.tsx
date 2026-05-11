@@ -87,7 +87,7 @@ const AttachmentItem: React.FC<{
       {onRemove && (
         <button
           onClick={() => onRemove(index)}
-          className="flex-shrink-0 p-0.5 rounded hover:bg-theme-error-background text-theme-text-tertiary hover:text-theme-error transition-colors"
+          className="flex-shrink-0 p-0.5 rounded hover:bg-theme-error text-theme-text-tertiary hover:text-theme-error transition-colors"
         >
           <X className="h-3 w-3" />
         </button>

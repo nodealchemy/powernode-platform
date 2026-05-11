@@ -44,7 +44,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon: Icon, iconColor
   <Card className="p-4">
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm text-theme-muted">{label}</p>
+        <p className="text-sm text-theme-tertiary">{label}</p>
         <p className="text-2xl font-semibold text-theme-primary">{value}</p>
       </div>
       <div className="h-10 w-10 bg-opacity-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--theme-bg-secondary)' }}>
@@ -78,7 +78,7 @@ const KillSwitchStatusBar: React.FC = () => {
         <p className="text-sm font-medium text-theme-error">AI Activity Suspended</p>
         {status.reason && <p className="text-xs text-theme-secondary">{status.reason}</p>}
       </div>
-      <span className="text-xs text-theme-muted">Since {new Date(status.halted_since!).toLocaleString()}</span>
+      <span className="text-xs text-theme-tertiary">Since {new Date(status.halted_since!).toLocaleString()}</span>
     </div>
   );
 };
@@ -111,7 +111,7 @@ const TrustScoresTab: React.FC<{ trustScores: TrustScore[] }> = ({ trustScores }
       </div>
     ) : (
       <Card>
-        <CardContent className="p-8 text-center text-theme-muted">
+        <CardContent className="p-8 text-center text-theme-tertiary">
           <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p>No trust scores available. Agents need evaluations to build trust scores.</p>
         </CardContent>
@@ -136,7 +136,7 @@ const LineageTab: React.FC<{
         <CardHeader title="Agent Lineage" />
         <CardContent>
           <div className="mb-4">
-            <label className="block text-sm text-theme-muted mb-1">Filter by Agent (optional)</label>
+            <label className="block text-sm text-theme-tertiary mb-1">Filter by Agent (optional)</label>
             <select
               className="w-full max-w-xs rounded-md border border-theme bg-theme-surface text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
               value={selectedAgentId}
@@ -155,10 +155,10 @@ const LineageTab: React.FC<{
             singleLineage ? (
               <AgentLineageTree root={singleLineage} />
             ) : (
-              <p className="text-sm text-theme-muted py-4 text-center">Loading lineage...</p>
+              <p className="text-sm text-theme-tertiary py-4 text-center">Loading lineage...</p>
             )
           ) : forestLoading ? (
-            <p className="text-sm text-theme-muted py-4 text-center">Loading lineage forest...</p>
+            <p className="text-sm text-theme-tertiary py-4 text-center">Loading lineage forest...</p>
           ) : forest && forest.trees.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {forest.trees.map((tree) => (
@@ -168,7 +168,7 @@ const LineageTab: React.FC<{
               ))}
             </div>
           ) : (
-            <p className="text-sm text-theme-muted py-4 text-center">
+            <p className="text-sm text-theme-tertiary py-4 text-center">
               No lineage trees found. Agent lineage is created when agents are organized into team hierarchies.
             </p>
           )}

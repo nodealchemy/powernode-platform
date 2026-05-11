@@ -64,7 +64,7 @@ const statusIcons: Record<string, { icon: string; color: string }> = {
   completed: { icon: '\u2713', color: 'text-theme-success bg-theme-success' },
   active: { icon: '\u25CF', color: 'text-theme-info bg-theme-info/10' },
   pending: { icon: '\u25CB', color: 'text-theme-secondary bg-theme-surface-bg' },
-  failed: { icon: '\u2717', color: 'text-theme-error bg-theme-error-bg' },
+  failed: { icon: '\u2717', color: 'text-theme-error bg-theme-error' },
 };
 
 export const RunStepTimeline: React.FC<Props> = ({ reviewState }) => {
@@ -85,7 +85,7 @@ export const RunStepTimeline: React.FC<Props> = ({ reviewState }) => {
                   {icon}
                 </span>
                 {idx < steps.length - 1 && (
-                  <div className={`w-px h-6 ${step.status === 'completed' ? 'bg-theme-success' : 'bg-theme-border'}`} />
+                  <div className={`w-px h-6 ${step.status === 'completed' ? 'bg-theme-success' : 'bg-theme-background-secondary'}`} />
                 )}
               </div>
               <div className="flex-1 min-w-0 pb-1">

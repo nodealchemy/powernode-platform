@@ -52,12 +52,12 @@ export const ProviderCostTracking: React.FC<ProviderCostTrackingProps> = ({ aggr
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-theme-muted">Health Score</p>
+                <p className="text-xs text-theme-tertiary">Health Score</p>
                 <p className={cn('text-2xl font-bold', getHealthScoreColor(aggregateStats.avgHealthScore))}>
                   {aggregateStats.avgHealthScore.toFixed(1)}%
                 </p>
               </div>
-              <Activity className="h-8 w-8 text-theme-muted" />
+              <Activity className="h-8 w-8 text-theme-tertiary" />
             </div>
           </CardContent>
         </Card>
@@ -65,12 +65,12 @@ export const ProviderCostTracking: React.FC<ProviderCostTrackingProps> = ({ aggr
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-theme-muted">Success Rate</p>
+                <p className="text-xs text-theme-tertiary">Success Rate</p>
                 <p className={cn('text-2xl font-bold', aggregateStats.avgSuccessRate >= 95 ? 'text-theme-success' : 'text-theme-warning')}>
                   {aggregateStats.avgSuccessRate.toFixed(1)}%
                 </p>
               </div>
-              <CheckCircle className="h-8 w-8 text-theme-muted" />
+              <CheckCircle className="h-8 w-8 text-theme-tertiary" />
             </div>
           </CardContent>
         </Card>
@@ -78,10 +78,10 @@ export const ProviderCostTracking: React.FC<ProviderCostTrackingProps> = ({ aggr
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-theme-muted">Avg Latency</p>
+                <p className="text-xs text-theme-tertiary">Avg Latency</p>
                 <p className="text-2xl font-bold text-theme-primary">{formatLatency(aggregateStats.avgLatency)}</p>
               </div>
-              <Clock className="h-8 w-8 text-theme-muted" />
+              <Clock className="h-8 w-8 text-theme-tertiary" />
             </div>
           </CardContent>
         </Card>
@@ -89,10 +89,10 @@ export const ProviderCostTracking: React.FC<ProviderCostTrackingProps> = ({ aggr
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-theme-muted">Executions</p>
+                <p className="text-xs text-theme-tertiary">Executions</p>
                 <p className="text-2xl font-bold text-theme-primary">{aggregateStats.totalExecutions.toLocaleString()}</p>
               </div>
-              <Hash className="h-8 w-8 text-theme-muted" />
+              <Hash className="h-8 w-8 text-theme-tertiary" />
             </div>
           </CardContent>
         </Card>
@@ -100,10 +100,10 @@ export const ProviderCostTracking: React.FC<ProviderCostTrackingProps> = ({ aggr
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-theme-muted">Total Cost</p>
+                <p className="text-xs text-theme-tertiary">Total Cost</p>
                 <p className="text-2xl font-bold text-theme-primary">{formatCurrency(aggregateStats.totalCost)}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-theme-muted" />
+              <DollarSign className="h-8 w-8 text-theme-tertiary" />
             </div>
           </CardContent>
         </Card>
@@ -111,12 +111,12 @@ export const ProviderCostTracking: React.FC<ProviderCostTrackingProps> = ({ aggr
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-theme-muted">Active Alerts</p>
+                <p className="text-xs text-theme-tertiary">Active Alerts</p>
                 <p className={cn('text-2xl font-bold', aggregateStats.totalAlerts > 0 ? 'text-theme-danger' : 'text-theme-success')}>
                   {aggregateStats.totalAlerts}
                 </p>
               </div>
-              <AlertTriangle className="h-8 w-8 text-theme-muted" />
+              <AlertTriangle className="h-8 w-8 text-theme-tertiary" />
             </div>
           </CardContent>
         </Card>
@@ -132,34 +132,34 @@ export const ProviderCostTracking: React.FC<ProviderCostTrackingProps> = ({ aggr
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-theme-success" />
-              <span className="text-sm text-theme-muted">Healthy</span>
+              <span className="text-sm text-theme-tertiary">Healthy</span>
               <span className="font-semibold text-theme-primary">{aggregateStats.healthyCount}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-theme-warning" />
-              <span className="text-sm text-theme-muted">Degraded</span>
+              <span className="text-sm text-theme-tertiary">Degraded</span>
               <span className="font-semibold text-theme-primary">{aggregateStats.degradedCount}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-theme-danger" />
-              <span className="text-sm text-theme-muted">Unhealthy</span>
+              <span className="text-sm text-theme-tertiary">Unhealthy</span>
               <span className="font-semibold text-theme-primary">{aggregateStats.unhealthyCount}</span>
             </div>
           </div>
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-theme-success" />
-              <span className="text-sm text-theme-muted">Closed</span>
+              <span className="text-sm text-theme-tertiary">Closed</span>
               <span className="font-semibold text-theme-primary">{aggregateStats.circuitBreakersClosed}</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-theme-warning" />
-              <span className="text-sm text-theme-muted">Half Open</span>
+              <span className="text-sm text-theme-tertiary">Half Open</span>
               <span className="font-semibold text-theme-primary">{aggregateStats.circuitBreakersHalfOpen}</span>
             </div>
             <div className="flex items-center gap-2">
               <XCircle className="h-4 w-4 text-theme-danger" />
-              <span className="text-sm text-theme-muted">Open</span>
+              <span className="text-sm text-theme-tertiary">Open</span>
               <span className="font-semibold text-theme-primary">{aggregateStats.circuitBreakersOpen}</span>
             </div>
           </div>

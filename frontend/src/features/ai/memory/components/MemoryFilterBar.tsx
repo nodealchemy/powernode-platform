@@ -85,7 +85,7 @@ export const MemoryFilterBar: React.FC<MemoryFilterBarProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-64">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-muted" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-tertiary" />
               <Input
                 placeholder="Search memories..."
                 value={localSearch}
@@ -99,7 +99,7 @@ export const MemoryFilterBar: React.FC<MemoryFilterBarProps> = ({
                     setLocalSearch('');
                     onSearchChange('');
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-primary"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-tertiary hover:text-theme-primary"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -124,7 +124,7 @@ export const MemoryFilterBar: React.FC<MemoryFilterBarProps> = ({
             </Button>
           )}
 
-          <span className="text-sm text-theme-muted whitespace-nowrap">
+          <span className="text-sm text-theme-tertiary whitespace-nowrap">
             {totalCount} {totalCount === 1 ? 'entry' : 'entries'}
           </span>
 

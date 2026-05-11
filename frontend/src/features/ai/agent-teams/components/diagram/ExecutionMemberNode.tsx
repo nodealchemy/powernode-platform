@@ -12,7 +12,7 @@ const statusBorderClass: Record<string, string> = {
 };
 
 const statusIcon: Record<string, React.ReactNode> = {
-  idle: <Clock className="h-3 w-3 text-theme-muted" />,
+  idle: <Clock className="h-3 w-3 text-theme-tertiary" />,
   running: <Loader className="h-3 w-3 text-theme-info animate-spin" />,
   completed: <CheckCircle className="h-3 w-3 text-theme-success" />,
   failed: <XCircle className="h-3 w-3 text-theme-danger" />,
@@ -30,10 +30,10 @@ function ExecutionMemberNode({ data }: { data: ExecutionMemberNodeData }) {
     <div
       className={`px-4 py-3 rounded-lg border-2 bg-theme-surface shadow-lg min-w-[160px] max-w-[200px] ${borderClass}`}
     >
-      <Handle type="target" position={Position.Top} className="!bg-theme-border" />
-      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-border" />
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-border" />
-      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-border" />
+      <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
+      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-background-secondary" />
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-background-secondary" />
+      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-background-secondary" />
 
       <div className="flex items-center gap-2">
         {data.isLead ? (
@@ -81,8 +81,8 @@ function ExecutionOutputNode({ data }: { data: ExecutionMemberNodeData }) {
 
   return (
     <div className={`px-3 py-2 rounded-full border ${colors.border} ${colors.bg} shadow min-w-[80px] flex items-center justify-center gap-1.5`}>
-      <Handle type="target" position={Position.Top} className="!bg-theme-border" />
-      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-border" />
+      <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
+      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-background-secondary" />
       <Flag className={`h-3.5 w-3.5 ${colors.text}`} />
       <span className={`text-xs font-medium ${colors.text}`}>{data.memberName}</span>
     </div>

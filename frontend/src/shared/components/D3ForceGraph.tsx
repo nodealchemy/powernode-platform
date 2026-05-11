@@ -76,7 +76,7 @@ const GraphNode: React.FC<{
     return <>{data.customRenderer(data)}</>;
   }
 
-  const bgColor = data.enabled !== false ? 'bg-theme-interactive-primary' : 'bg-theme-muted';
+  const bgColor = data.enabled !== false ? 'bg-theme-interactive-primary' : 'bg-theme-background-secondary';
   const textColor = 'text-white';
 
   return (

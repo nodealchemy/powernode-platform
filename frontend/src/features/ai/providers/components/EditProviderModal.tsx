@@ -89,7 +89,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
               <Key className="h-4 w-4" />
               Credentials Management
             </h4>
-            <p className="text-sm text-theme-muted mt-1">
+            <p className="text-sm text-theme-tertiary mt-1">
               Manage API credentials for this provider. Existing credentials are listed below, and you can add a new credential using the form.
             </p>
           </div>

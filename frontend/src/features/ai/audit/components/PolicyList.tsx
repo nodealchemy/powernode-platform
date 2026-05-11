@@ -133,7 +133,7 @@ export const PolicyList: React.FC = () => {
             {isActive ? (
               <ToggleRight className="h-4 w-4 text-theme-success" />
             ) : (
-              <ToggleLeft className="h-4 w-4 text-theme-muted" />
+              <ToggleLeft className="h-4 w-4 text-theme-tertiary" />
             )}
           </Button>
         );

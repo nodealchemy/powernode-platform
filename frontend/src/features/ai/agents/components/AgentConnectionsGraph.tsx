@@ -77,7 +77,7 @@ function PeerAgentNode({ data }: { data: ConnectionNodeData }) {
   const statusColor = data.status === 'active' ? 'text-theme-success' : 'text-theme-tertiary';
   return (
     <div className="px-3 py-2 rounded-lg border border-theme bg-theme-surface shadow min-w-[120px]">
-      <Handle type="target" position={Position.Top} className="!bg-theme-border" />
+      <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <div className="flex items-center gap-2">
         <Bot className={`h-4 w-4 ${statusColor}`} />
         <div>
@@ -85,7 +85,7 @@ function PeerAgentNode({ data }: { data: ConnectionNodeData }) {
           <div className="text-[10px] text-theme-tertiary">{String(data.metadata?.agent_type || 'peer')}</div>
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-border" />
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-background-secondary" />
     </div>
   );
 }
@@ -94,7 +94,7 @@ function PeerAgentNode({ data }: { data: ConnectionNodeData }) {
 function TeamNode({ data }: { data: ConnectionNodeData }) {
   return (
     <div className="px-3 py-2 rounded-lg border border-theme bg-theme-surface shadow min-w-[120px]">
-      <Handle type="target" position={Position.Top} className="!bg-theme-border" />
+      <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <div className="flex items-center gap-2">
         <Users className="h-4 w-4 text-theme-info" />
         <div>
@@ -104,7 +104,7 @@ function TeamNode({ data }: { data: ConnectionNodeData }) {
           </div>
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-border" />
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-background-secondary" />
     </div>
   );
 }
@@ -113,7 +113,7 @@ function TeamNode({ data }: { data: ConnectionNodeData }) {
 function McpServerNode({ data }: { data: ConnectionNodeData }) {
   return (
     <div className="px-3 py-2 rounded-lg border border-theme bg-theme-surface shadow min-w-[120px]">
-      <Handle type="target" position={Position.Top} className="!bg-theme-border" />
+      <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <div className="flex items-center gap-2">
         <Server className="h-4 w-4 text-theme-warning" />
         <div>
@@ -121,7 +121,7 @@ function McpServerNode({ data }: { data: ConnectionNodeData }) {
           <div className="text-[10px] text-theme-tertiary">MCP Server</div>
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-border" />
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-background-secondary" />
     </div>
   );
 }
@@ -130,7 +130,7 @@ function McpServerNode({ data }: { data: ConnectionNodeData }) {
 function MemoryPoolNode({ data }: { data: ConnectionNodeData }) {
   return (
     <div className="px-3 py-2 rounded-lg border border-theme bg-theme-surface shadow min-w-[120px]">
-      <Handle type="target" position={Position.Top} className="!bg-theme-border" />
+      <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <div className="flex items-center gap-2">
         <Database className="h-4 w-4 text-theme-success" />
         <div>
@@ -138,7 +138,7 @@ function MemoryPoolNode({ data }: { data: ConnectionNodeData }) {
           <div className="text-[10px] text-theme-tertiary">Memory Pool</div>
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-border" />
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-background-secondary" />
     </div>
   );
 }

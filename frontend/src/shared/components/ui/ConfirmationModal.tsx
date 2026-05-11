@@ -38,8 +38,8 @@ const variantConfig = {
   },
   default: {
     icon: HelpCircle,
-    iconBg: 'bg-theme-muted/10',
-    iconColor: 'text-theme-muted',
+    iconBg: 'bg-theme-background-secondary/10',
+    iconColor: 'text-theme-tertiary',
     confirmVariant: 'primary' as const
   }
 };

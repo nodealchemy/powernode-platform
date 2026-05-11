@@ -38,7 +38,7 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
               <div className="text-sm text-theme-secondary">AI Providers</div>
             </div>
           </div>
-          <ArrowRight className="h-4 w-4 text-theme-muted" />
+          <ArrowRight className="h-4 w-4 text-theme-tertiary" />
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
@@ -66,7 +66,7 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
               <div className="text-sm text-theme-secondary">AI Agents</div>
             </div>
           </div>
-          <ArrowRight className="h-4 w-4 text-theme-muted" />
+          <ArrowRight className="h-4 w-4 text-theme-tertiary" />
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
@@ -95,7 +95,7 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
               <div className="text-sm text-theme-secondary">Executions</div>
             </div>
           </div>
-          <ArrowRight className="h-4 w-4 text-theme-muted" />
+          <ArrowRight className="h-4 w-4 text-theme-tertiary" />
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">

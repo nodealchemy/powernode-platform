@@ -17,40 +17,40 @@ export const DataSourceOverviewTab: React.FC<DataSourceOverviewTabProps> = ({ da
         <CardHeader title="Data Source Information" />
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-theme-muted">Name</label>
+            <label className="text-sm font-medium text-theme-tertiary">Name</label>
             <p className="mt-1 text-theme-primary">{dataSource.name}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-theme-muted">Slug</label>
+            <label className="text-sm font-medium text-theme-tertiary">Slug</label>
             <p className="mt-1 text-theme-primary">{dataSource.slug}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-theme-muted">Source Type</label>
+            <label className="text-sm font-medium text-theme-tertiary">Source Type</label>
             <p className="mt-1 text-theme-primary">
               {SOURCE_TYPE_LABELS[dataSource.source_type] || dataSource.source_type}
             </p>
           </div>
           <div>
-            <label className="text-sm font-medium text-theme-muted">Description</label>
+            <label className="text-sm font-medium text-theme-tertiary">Description</label>
             <p className="mt-1 text-theme-primary break-words">{dataSource.description || 'No description'}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-theme-muted">Base URL</label>
+            <label className="text-sm font-medium text-theme-tertiary">Base URL</label>
             <p className="mt-1 text-theme-primary font-mono text-xs break-all overflow-hidden">
               {dataSource.api_base_url || 'Not configured'}
             </p>
           </div>
           <div>
-            <label className="text-sm font-medium text-theme-muted">Active</label>
+            <label className="text-sm font-medium text-theme-tertiary">Active</label>
             <p className="mt-1 text-theme-primary">{dataSource.is_active ? 'Yes' : 'No'}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-theme-muted">Requires Auth</label>
+            <label className="text-sm font-medium text-theme-tertiary">Requires Auth</label>
             <p className="mt-1 text-theme-primary">{dataSource.requires_auth ? 'Yes' : 'No'}</p>
           </div>
           {dataSource.last_health_check_at && (
             <div>
-              <label className="text-sm font-medium text-theme-muted">Last Health Check</label>
+              <label className="text-sm font-medium text-theme-tertiary">Last Health Check</label>
               <p className="mt-1 text-theme-primary">
                 {new Date(dataSource.last_health_check_at).toLocaleString()}
               </p>
@@ -73,7 +73,7 @@ export const DataSourceOverviewTab: React.FC<DataSourceOverviewTabProps> = ({ da
                 ))}
               </div>
             ) : (
-              <p className="text-theme-muted">No capabilities defined for this data source.</p>
+              <p className="text-theme-tertiary">No capabilities defined for this data source.</p>
             )}
           </CardContent>
         </Card>
@@ -96,7 +96,7 @@ export const DataSourceOverviewTab: React.FC<DataSourceOverviewTabProps> = ({ da
           <CardContent className="space-y-4">
             {dataSource.documentation_url ? (
               <div>
-                <label className="text-sm font-medium text-theme-muted">Documentation</label>
+                <label className="text-sm font-medium text-theme-tertiary">Documentation</label>
                 <div className="mt-1">
                   <Button
                     variant="outline"
@@ -110,7 +110,7 @@ export const DataSourceOverviewTab: React.FC<DataSourceOverviewTabProps> = ({ da
                 </div>
               </div>
             ) : (
-              <p className="text-theme-muted">No external links available</p>
+              <p className="text-theme-tertiary">No external links available</p>
             )}
           </CardContent>
         </Card>

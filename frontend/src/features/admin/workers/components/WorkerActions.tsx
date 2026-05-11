@@ -54,7 +54,7 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
       label: 'Delete Workers',
       icon: Trash2,
       description: 'Permanently delete selected workers',
-      color: 'text-theme-error hover:bg-theme-error-background'
+      color: 'text-theme-error hover:bg-theme-error'
     }
   ];
 
@@ -125,7 +125,7 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
             <div className="mb-6">
               {showConfirm === 'delete' && (
                 <div className="space-y-3">
-                  <div className="p-3 bg-theme-error-background rounded-lg">
+                  <div className="p-3 bg-theme-error rounded-lg">
                     <div className="flex items-center gap-2 text-theme-error font-medium">
                       <Trash2 className="w-4 h-4" />
                       <span>Permanent Deletion Warning</span>

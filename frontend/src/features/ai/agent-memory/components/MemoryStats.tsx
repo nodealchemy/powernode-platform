@@ -79,7 +79,7 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
         {/* Total count */}
         <div className="text-center p-4 bg-theme-surface rounded-lg">
           <div className="text-3xl font-bold text-theme-primary">{stats.total_entries}</div>
-          <div className="text-sm text-theme-muted">Total Memories</div>
+          <div className="text-sm text-theme-tertiary">Total Memories</div>
         </div>
 
         {/* By type breakdown */}
@@ -91,21 +91,21 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_type.factual}
               </div>
-              <div className="text-xs text-theme-muted">Factual</div>
+              <div className="text-xs text-theme-tertiary">Factual</div>
             </div>
             <div className="p-3 bg-theme-warning/10 rounded-lg text-center">
               <Lightbulb className="h-5 w-5 text-theme-warning mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_type.experiential}
               </div>
-              <div className="text-xs text-theme-muted">Experiential</div>
+              <div className="text-xs text-theme-tertiary">Experiential</div>
             </div>
             <div className="p-3 bg-theme-success/10 rounded-lg text-center">
               <Activity className="h-5 w-5 text-theme-success mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_type.working}
               </div>
-              <div className="text-xs text-theme-muted">Working</div>
+              <div className="text-xs text-theme-tertiary">Working</div>
             </div>
           </div>
         </div>
@@ -119,21 +119,21 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_outcome.success}
               </div>
-              <div className="text-xs text-theme-muted">Success</div>
+              <div className="text-xs text-theme-tertiary">Success</div>
             </div>
             <div className="p-3 bg-theme-danger/10 rounded-lg text-center">
               <XCircle className="h-5 w-5 text-theme-danger mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_outcome.failure}
               </div>
-              <div className="text-xs text-theme-muted">Failure</div>
+              <div className="text-xs text-theme-tertiary">Failure</div>
             </div>
-            <div className="p-3 bg-theme-muted/10 rounded-lg text-center">
-              <HelpCircle className="h-5 w-5 text-theme-muted mx-auto mb-1" />
+            <div className="p-3 bg-theme-background-secondary/10 rounded-lg text-center">
+              <HelpCircle className="h-5 w-5 text-theme-tertiary mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_outcome.unknown}
               </div>
-              <div className="text-xs text-theme-muted">Unknown</div>
+              <div className="text-xs text-theme-tertiary">Unknown</div>
             </div>
           </div>
         </div>

@@ -58,7 +58,7 @@ export const AguiToolCallPanel: React.FC<AguiToolCallPanelProps> = ({ events }) 
   if (toolCalls.length === 0) {
     return (
       <div className="text-center py-8">
-        <Wrench className="h-8 w-8 text-theme-muted mx-auto mb-2 opacity-50" />
+        <Wrench className="h-8 w-8 text-theme-tertiary mx-auto mb-2 opacity-50" />
         <p className="text-sm text-theme-secondary">No tool calls yet.</p>
       </div>
     );
@@ -80,7 +80,7 @@ export const AguiToolCallPanel: React.FC<AguiToolCallPanelProps> = ({ events }) 
               onClick={() => setExpandedId(isExpanded ? null : call.toolCallId)}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <Wrench className="h-3.5 w-3.5 text-theme-muted flex-shrink-0" />
+                <Wrench className="h-3.5 w-3.5 text-theme-tertiary flex-shrink-0" />
                 <span className="text-sm font-medium text-theme-primary truncate">
                   {call.name}
                 </span>
@@ -95,13 +95,13 @@ export const AguiToolCallPanel: React.FC<AguiToolCallPanelProps> = ({ events }) 
                 )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-xs text-theme-muted">
+                <span className="text-xs text-theme-tertiary">
                   {new Date(call.timestamp).toLocaleTimeString()}
                 </span>
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-theme-muted" />
+                  <ChevronDown className="h-4 w-4 text-theme-tertiary" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-theme-muted" />
+                  <ChevronRight className="h-4 w-4 text-theme-tertiary" />
                 )}
               </div>
             </button>
@@ -110,7 +110,7 @@ export const AguiToolCallPanel: React.FC<AguiToolCallPanelProps> = ({ events }) 
                 {call.args && (
                   <div>
                     <p className="text-xs font-medium text-theme-secondary mb-1">Arguments</p>
-                    <pre className="text-xs text-theme-primary bg-theme-bg rounded p-2 overflow-x-auto max-h-40">
+                    <pre className="text-xs text-theme-primary bg-theme-surface rounded p-2 overflow-x-auto max-h-40">
                       {formatJson(call.args)}
                     </pre>
                   </div>
@@ -118,7 +118,7 @@ export const AguiToolCallPanel: React.FC<AguiToolCallPanelProps> = ({ events }) 
                 {call.result !== null && (
                   <div>
                     <p className="text-xs font-medium text-theme-secondary mb-1">Result</p>
-                    <pre className="text-xs text-theme-primary bg-theme-bg rounded p-2 overflow-x-auto max-h-40">
+                    <pre className="text-xs text-theme-primary bg-theme-surface rounded p-2 overflow-x-auto max-h-40">
                       {formatJson(call.result)}
                     </pre>
                   </div>

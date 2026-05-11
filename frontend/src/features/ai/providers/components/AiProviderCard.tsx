@@ -151,7 +151,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
     switch (status) {
       case 'healthy': return 'text-theme-success';
       case 'unhealthy': return 'text-theme-danger';
-      case 'inactive': return 'text-theme-muted';
+      case 'inactive': return 'text-theme-tertiary';
       default: return 'text-theme-warning';
     }
   };

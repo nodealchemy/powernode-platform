@@ -68,7 +68,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
             </label>
           )}
           {description && (
-            <p id={`${checkboxId}-description`} className="text-sm text-theme-muted">
+            <p id={`${checkboxId}-description`} className="text-sm text-theme-tertiary">
               {description}
             </p>
           )}

@@ -264,7 +264,7 @@ export const MemoryExplorerContent: React.FC<MemoryExplorerContentProps> = ({ on
                 </div>
               )}
               {!hasMore && entries.length > 0 && (
-                <p className="text-center text-sm text-theme-muted py-2">
+                <p className="text-center text-sm text-theme-tertiary py-2">
                   All {totalCount} entries loaded
                 </p>
               )}

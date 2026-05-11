@@ -21,7 +21,7 @@ function getPolicyColor(policy: InterventionPolicyAction): string {
     case 'notify_and_proceed': return 'text-theme-info bg-theme-info/10';
     case 'require_approval': return 'text-theme-warning bg-theme-warning/10';
     case 'block': return 'text-theme-error bg-theme-error/10';
-    case 'silent': return 'text-theme-muted bg-theme-surface';
+    case 'silent': return 'text-theme-tertiary bg-theme-surface';
     default: return 'text-theme-secondary bg-theme-surface';
   }
 }
@@ -106,7 +106,7 @@ const PolicyForm: React.FC<{
         </select>
       </div>
       <div className="flex gap-3 items-center">
-        <label className="text-sm text-theme-muted">Priority:</label>
+        <label className="text-sm text-theme-tertiary">Priority:</label>
         <input
           type="number"
           value={form.priority}
@@ -128,7 +128,7 @@ const PolicyForm: React.FC<{
       </div>
       {/* Channels */}
       <div className="flex items-center gap-2">
-        <span className="text-sm text-theme-muted">Channels:</span>
+        <span className="text-sm text-theme-tertiary">Channels:</span>
         {CHANNELS.map(ch => (
           <label key={ch} className="flex items-center gap-1 text-xs text-theme-secondary">
             <input
@@ -143,7 +143,7 @@ const PolicyForm: React.FC<{
       </div>
       {/* Conditions builder */}
       <div>
-        <span className="text-sm text-theme-muted">Conditions:</span>
+        <span className="text-sm text-theme-tertiary">Conditions:</span>
         <div className="flex gap-2 mt-1">
           <input type="text" value={condKey} onChange={(e) => setCondKey(e.target.value)} placeholder="Key" className="w-32 px-2 py-1 text-xs rounded border border-theme bg-theme-surface text-theme-primary" />
           <input type="text" value={condVal} onChange={(e) => setCondVal(e.target.value)} placeholder="Value" className="flex-1 px-2 py-1 text-xs rounded border border-theme bg-theme-surface text-theme-primary" />
@@ -234,11 +234,11 @@ const PolicyCard: React.FC<{
             <span className={`px-2 py-0.5 text-xs rounded font-medium ${getPolicyColor(policy.policy)}`}>
               {policy.policy.replace(/_/g, ' ')}
             </span>
-            <span className="px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-muted">{policy.scope}</span>
+            <span className="px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-tertiary">{policy.scope}</span>
             <span className="text-xs text-theme-primary">{policy.action_category}</span>
-            <span className="text-xs text-theme-muted">P{policy.priority}</span>
+            <span className="text-xs text-theme-tertiary">P{policy.priority}</span>
           </div>
-          <div className="flex items-center gap-3 text-xs text-theme-muted mt-0.5">
+          <div className="flex items-center gap-3 text-xs text-theme-tertiary mt-0.5">
             {policy.agent?.name && <span>Agent: {policy.agent.name}</span>}
           </div>
         </div>
@@ -247,9 +247,9 @@ const PolicyCard: React.FC<{
           className="shrink-0"
           title={policy.is_active ? 'Disable' : 'Enable'}
         >
-          {policy.is_active ? <ToggleRight className="h-5 w-5 text-theme-success" /> : <ToggleLeft className="h-5 w-5 text-theme-muted" />}
+          {policy.is_active ? <ToggleRight className="h-5 w-5 text-theme-success" /> : <ToggleLeft className="h-5 w-5 text-theme-tertiary" />}
         </button>
-        <ChevronDown className={`h-4 w-4 text-theme-muted shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-theme-tertiary shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
       </div>
 
       {/* Expanded detail */}
@@ -302,7 +302,7 @@ const PolicyCard: React.FC<{
               )}
 
               {/* Timestamps */}
-              <div className="flex gap-4 text-xs text-theme-muted">
+              <div className="flex gap-4 text-xs text-theme-tertiary">
                 <span>Created {new Date(policy.created_at).toLocaleString()}</span>
                 <span>Updated {new Date(policy.updated_at).toLocaleString()}</span>
               </div>
@@ -433,7 +433,7 @@ export const InterventionPoliciesPanel: React.FC = () => {
           const count = safePolicies.filter(p => p.policy === policyType).length;
           return (
             <Card key={policyType} className="p-3">
-              <p className="text-xs text-theme-muted capitalize">{policyType.replace(/_/g, ' ')}</p>
+              <p className="text-xs text-theme-tertiary capitalize">{policyType.replace(/_/g, ' ')}</p>
               <p className="text-lg font-semibold text-theme-primary">{count}</p>
             </Card>
           );
@@ -473,7 +473,7 @@ export const InterventionPoliciesPanel: React.FC = () => {
       {/* Policy list */}
       {safePolicies.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-theme-muted">
+          <CardContent className="p-8 text-center text-theme-tertiary">
             <Settings className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>No intervention policies configured. Default capability matrix rules apply.</p>
           </CardContent>

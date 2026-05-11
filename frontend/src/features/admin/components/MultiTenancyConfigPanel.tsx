@@ -298,7 +298,7 @@ export const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = (
         <button
           onClick={handleToggleEnabled}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            config.enabled ? 'bg-theme-success' : 'bg-theme-muted'
+            config.enabled ? 'bg-theme-success' : 'bg-theme-background-secondary'
           }`}
         >
           <span
@@ -336,8 +336,8 @@ export const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = (
               <ul className="space-y-1">
                 <li>• <code className="font-mono bg-theme-background px-1 rounded">*.customers.example.com</code> - All customer subdomains</li>
                 <li>• <code className="font-mono bg-theme-background px-1 rounded">*.saas.myapp.com</code> - SaaS tenant subdomains</li>
-                <li>• <code className="font-mono bg-theme-background px-1 rounded">tenant-*.example.com</code> - Prefix pattern matching</li>
-                <li>• <code className="font-mono bg-theme-background px-1 rounded">specific.example.com</code> - Exact domain match</li>
+                <li>• <code className="font-mono bg-theme-surface px-1 rounded">tenant-*.example.com</code> - Prefix pattern matching</li>
+                <li>• <code className="font-mono bg-theme-surface px-1 rounded">specific.example.com</code> - Exact domain match</li>
               </ul>
             </div>
           </div>

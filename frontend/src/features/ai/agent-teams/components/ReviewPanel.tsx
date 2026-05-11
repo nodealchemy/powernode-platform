@@ -136,7 +136,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
             />
             <div
               className={`h-2 rounded-full transition-all ${
-                qualityPercent >= qualityThreshold * 100 ? 'bg-theme-success' : 'bg-theme-danger-solid'
+                qualityPercent >= qualityThreshold * 100 ? 'bg-theme-success' : 'bg-theme-danger'
               }`}
               style={{ width: `${Math.min(qualityPercent, 100)}%` }}
             />

@@ -117,7 +117,7 @@ export const AdminMetricsGrid: React.FC<AdminMetricsGridProps> = ({
     switch (status) {
       case 'critical':
         return {
-          bg: 'bg-theme-error-background',
+          bg: 'bg-theme-error',
           border: 'border-theme-error',
           text: 'text-theme-error',
           iconBg: 'bg-theme-error bg-opacity-20',

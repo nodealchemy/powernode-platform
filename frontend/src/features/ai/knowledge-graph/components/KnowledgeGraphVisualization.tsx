@@ -90,7 +90,7 @@ function KGNode({ data }: { data: KGNodeData }) {
 
   return (
     <div className={`px-3 py-2 rounded-lg border-2 ${borderClass} bg-theme-surface shadow min-w-[120px] max-w-[180px]`}>
-      <Handle type="target" position={Position.Top} className="!bg-theme-border" />
+      <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <div className="flex items-center gap-2">
         <Icon className={`h-4 w-4 ${colorClass} flex-shrink-0`} />
         <div className="min-w-0">
@@ -101,7 +101,7 @@ function KGNode({ data }: { data: KGNodeData }) {
           )}
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-border" />
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-background-secondary" />
     </div>
   );
 }

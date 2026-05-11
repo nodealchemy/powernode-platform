@@ -364,7 +364,7 @@ export const SystemUserManagement: React.FC = () => {
                       )}
                       <button
                         onClick={() => handleImpersonateUser(user.id)}
-                        className="text-theme-info hover:text-theme-info-hover text-sm"
+                        className="text-theme-info hover:text-theme-info text-sm"
                         title="Impersonate User"
                       >
                         Impersonate

@@ -117,7 +117,7 @@ export const CommunicationConfigCard: React.FC<ConfigurationCardsProps> = ({ set
         <span className={`text-xs px-2 py-1 rounded font-medium ${
           settingsSummary?.smtp_settings?.host
             ? 'bg-theme-success-background text-theme-success'
-            : 'bg-theme-error-background text-theme-error'
+            : 'bg-theme-error text-theme-error'
         }`}>
           {settingsSummary?.smtp_settings?.host ? 'Configured' : 'Missing'}
         </span>

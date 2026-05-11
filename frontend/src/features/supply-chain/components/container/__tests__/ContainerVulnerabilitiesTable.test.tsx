@@ -265,7 +265,7 @@ describe('ContainerVulnerabilitiesTable', () => {
 
       const noFixElements = screen.getAllByText('No fix available');
       noFixElements.forEach((element) => {
-        expect(element).toHaveClass('text-theme-muted');
+        expect(element).toHaveClass('text-theme-tertiary');
       });
     });
   });
@@ -311,7 +311,7 @@ describe('ContainerVulnerabilitiesTable', () => {
 
       const dashes = screen.getAllByText('-');
       dashes.forEach((dash) => {
-        expect(dash).toHaveClass('text-theme-muted', 'text-sm');
+        expect(dash).toHaveClass('text-theme-tertiary', 'text-sm');
       });
     });
   });

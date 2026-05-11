@@ -129,8 +129,8 @@ describe('ComplianceBadge', () => {
     it('applies muted colors for unknown status', () => {
       const { container } = render(<ComplianceBadge status="unknown" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-muted/10');
-      expect(badge).toHaveClass('text-theme-muted');
+      expect(badge).toHaveClass('bg-theme-background-secondary/10');
+      expect(badge).toHaveClass('text-theme-tertiary');
     });
 
     it('applies info colors for pending status', () => {

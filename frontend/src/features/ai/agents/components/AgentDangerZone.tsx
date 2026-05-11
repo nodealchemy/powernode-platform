@@ -19,7 +19,7 @@ export const AgentDangerZone: React.FC<AgentDangerZoneProps> = ({
   if (!showDeleteConfirm) return null;
 
   return (
-    <div className="bg-theme-error-background border border-theme-error rounded-lg p-4">
+    <div className="bg-theme-error border border-theme-error rounded-lg p-4">
       <h5 className="font-semibold text-theme-error mb-2">Confirm Deletion</h5>
       <p className="text-sm text-theme-secondary mb-4">
         Are you sure you want to delete &quot;{agentName}&quot;? This action cannot be undone.

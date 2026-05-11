@@ -113,7 +113,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex-1 min-w-64">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-muted" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-tertiary" />
             <Input
               placeholder="Search agent cards..."
               value={searchQuery}
@@ -124,7 +124,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-theme-muted" />
+          <Filter className="h-4 w-4 text-theme-tertiary" />
           <Select
             value={visibilityFilter}
             onChange={(value) => setVisibilityFilter(value)}
@@ -188,7 +188,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
       </div>
 
       {/* Stats bar */}
-      <div className="flex items-center justify-between text-sm text-theme-muted">
+      <div className="flex items-center justify-between text-sm text-theme-tertiary">
         <span>{totalCount} agent card{totalCount !== 1 ? 's' : ''}</span>
       </div>
 
@@ -227,7 +227,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
                         <h3 className="font-semibold text-theme-primary group-hover:text-theme-info transition-colors">
                           {card.name}
                         </h3>
-                        <div className="flex items-center gap-2 text-xs text-theme-muted">
+                        <div className="flex items-center gap-2 text-xs text-theme-tertiary">
                           <VisibilityIcon className="h-3 w-3" />
                           <span className="capitalize">{card.visibility}</span>
                           {card.protocol_version && (
@@ -258,7 +258,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
                   )}
 
                   {/* Metrics */}
-                  <div className="flex items-center gap-4 text-xs text-theme-muted border-t border-theme pt-3 mt-3">
+                  <div className="flex items-center gap-4 text-xs text-theme-tertiary border-t border-theme pt-3 mt-3">
                     <div className="flex items-center gap-1">
                       <CheckCircle className="h-3 w-3" />
                       <span>{card.task_count || 0} tasks</span>

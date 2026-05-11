@@ -46,7 +46,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
     switch (status) {
       case 'active': return 'bg-theme-success-background text-theme-success';
       case 'suspended': return 'bg-theme-warning-background text-theme-warning';
-      case 'revoked': return 'bg-theme-error-background text-theme-error';
+      case 'revoked': return 'bg-theme-error text-theme-error';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -164,7 +164,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                     onDelete();
                     setShowActions(false);
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-error hover:bg-theme-error-background transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-error hover:bg-theme-error transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete Worker
@@ -237,7 +237,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                   </span>
                 ))}
                 {worker.roles.length > 3 && (
-                  <span className="px-2 py-1 bg-theme-info-background text-theme-info text-xs rounded-full">
+                  <span className="px-2 py-1 bg-theme-info text-theme-info text-xs rounded-full">
                     +{worker.roles.length - 3} more
                   </span>
                 )}
@@ -261,7 +261,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                   </span>
                 ))}
                 {worker.permissions.length > 2 && (
-                  <span className="px-2 py-1 bg-theme-info-background text-theme-info text-xs rounded-full">
+                  <span className="px-2 py-1 bg-theme-info text-theme-info text-xs rounded-full">
                     +{worker.permissions.length - 2} more
                   </span>
                 )}

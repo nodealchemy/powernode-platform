@@ -84,14 +84,14 @@ export const McpAppGallery: React.FC<McpAppGalleryProps> = ({
       {/* Search */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-muted" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-tertiary" />
           <input
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleSearchKeyDown}
             placeholder="Search apps..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-theme rounded-lg bg-theme-bg text-theme-primary placeholder:text-theme-muted focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-theme rounded-lg bg-theme-surface text-theme-primary placeholder:text-theme-tertiary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
           />
         </div>
         <Button variant="secondary" size="sm" onClick={handleSearch}>
@@ -146,7 +146,7 @@ export const McpAppGallery: React.FC<McpAppGalleryProps> = ({
       {/* App Grid */}
       {appList.length === 0 ? (
         <div className="text-center py-12">
-          <AppWindow className="h-10 w-10 text-theme-muted mx-auto mb-3 opacity-50" />
+          <AppWindow className="h-10 w-10 text-theme-tertiary mx-auto mb-3 opacity-50" />
           <p className="text-theme-secondary text-sm">No MCP apps found.</p>
         </div>
       ) : (
@@ -184,7 +184,7 @@ export const McpAppGallery: React.FC<McpAppGalleryProps> = ({
                   </p>
                 )}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-theme-muted">v{app.version}</span>
+                  <span className="text-xs text-theme-tertiary">v{app.version}</span>
                   <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"

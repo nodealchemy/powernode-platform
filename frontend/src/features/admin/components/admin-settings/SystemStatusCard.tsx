@@ -26,7 +26,7 @@ const statusConfig = {
   },
   error: {
     color: 'text-theme-error',
-    bgColor: 'bg-theme-error-background',
+    bgColor: 'bg-theme-error',
     borderColor: 'border-theme-error-border',
     icon: 'X'
   },

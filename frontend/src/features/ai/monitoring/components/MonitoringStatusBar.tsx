@@ -46,8 +46,8 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
 
         {systemHealth && (
           <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-theme-muted" />
-            <span className="text-sm text-theme-muted">System Health:</span>
+            <Activity className="h-4 w-4 text-theme-tertiary" />
+            <span className="text-sm text-theme-tertiary">System Health:</span>
             <span className={`text-sm font-medium ${getHealthScoreColor(systemHealth.health_score)}`}>
               {systemHealth.health_score.toFixed(1)}%
             </span>
@@ -59,8 +59,8 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
 
         {lastUpdate && (
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-theme-muted" />
-            <span className="text-sm text-theme-muted">
+            <Clock className="h-4 w-4 text-theme-tertiary" />
+            <span className="text-sm text-theme-tertiary">
               Updated {formatLastUpdate(lastUpdate)}
             </span>
           </div>

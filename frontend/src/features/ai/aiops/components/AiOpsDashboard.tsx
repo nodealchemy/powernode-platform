@@ -120,7 +120,7 @@ const getStatusIcon = (status: string) => {
     case 'healthy': return <CheckCircle2 className="h-4 w-4 text-theme-success" />;
     case 'degraded': return <AlertTriangle className="h-4 w-4 text-theme-warning" />;
     case 'critical': return <XCircle className="h-4 w-4 text-theme-error" />;
-    default: return <Clock className="h-4 w-4 text-theme-muted" />;
+    default: return <Clock className="h-4 w-4 text-theme-tertiary" />;
   }
 };
 
@@ -341,7 +341,7 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
         ) : (
           <div className="space-y-3">
             {dashboardData.recent_errors.slice(0, 5).map((error, index) => (
-              <div key={index} className="p-3 bg-theme-error-background rounded-lg border border-theme-error">
+              <div key={index} className="p-3 bg-theme-error rounded-lg border border-theme-error">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-medium text-theme-error">{error.error_type}</p>

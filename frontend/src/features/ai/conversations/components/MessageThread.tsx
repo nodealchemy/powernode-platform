@@ -23,7 +23,7 @@ const formatCurrency = (amount: number) =>
 
 export const MessageThread: React.FC<MessageThreadProps> = ({ messages, conversation }) => {
   if (!messages || messages.length === 0) {
-    return <p className="text-theme-muted">No messages found in this conversation.</p>;
+    return <p className="text-theme-tertiary">No messages found in this conversation.</p>;
   }
 
   return (
@@ -42,7 +42,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({ messages, conversa
               {message.sender_type === 'user' ? (
                 <User className="h-4 w-4 text-theme-primary" />
               ) : (
-                <Bot className="h-4 w-4 text-theme-muted" />
+                <Bot className="h-4 w-4 text-theme-tertiary" />
               )}
             </div>
             <span className="text-sm font-medium text-theme-primary">
@@ -50,13 +50,13 @@ export const MessageThread: React.FC<MessageThreadProps> = ({ messages, conversa
                 ? message.sender_info?.name || 'User'
                 : conversation.ai_agent?.name || 'AI Assistant'}
             </span>
-            <span className="text-xs text-theme-muted">
+            <span className="text-xs text-theme-tertiary">
               {formatDate(message.created_at, 'time')}
             </span>
           </div>
           <p className="text-theme-primary text-sm">{message.content}</p>
           {message.metadata?.tokens_used && (
-            <div className="mt-2 text-xs text-theme-muted">
+            <div className="mt-2 text-xs text-theme-tertiary">
               Tokens: {message.metadata.tokens_used}
               {message.metadata?.cost_estimate && (
                 <> &bull; Cost: {formatCurrency(message.metadata.cost_estimate)}</>

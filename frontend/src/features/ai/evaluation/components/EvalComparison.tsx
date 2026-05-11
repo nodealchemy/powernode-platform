@@ -58,7 +58,7 @@ export const EvalComparison: React.FC = () => {
         <CardHeader title="Select Agents to Compare" />
         <CardContent>
           {trends.length === 0 ? (
-            <p className="text-sm text-theme-muted text-center py-4">No agents with evaluation data</p>
+            <p className="text-sm text-theme-tertiary text-center py-4">No agents with evaluation data</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {trends.map((t) => (
@@ -87,7 +87,7 @@ export const EvalComparison: React.FC = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-theme">
-                    <th className="text-left py-2 px-3 text-theme-muted font-medium">Dimension</th>
+                    <th className="text-left py-2 px-3 text-theme-tertiary font-medium">Dimension</th>
                     {compared.map((agent) => (
                       <th key={agent.agent_id} className="text-center py-2 px-3 text-theme-primary font-medium">
                         {agent.agent_name}
@@ -112,7 +112,7 @@ export const EvalComparison: React.FC = () => {
                                   {isBest && <span className="text-xs ml-1">★</span>}
                                 </span>
                               ) : (
-                                <span className="text-theme-muted">-</span>
+                                <span className="text-theme-tertiary">-</span>
                               )}
                             </td>
                           );
@@ -134,9 +134,9 @@ export const EvalComparison: React.FC = () => {
                     ))}
                   </tr>
                   <tr>
-                    <td className="py-2 px-3 text-theme-muted">Evaluations</td>
+                    <td className="py-2 px-3 text-theme-tertiary">Evaluations</td>
                     {compared.map((agent) => (
-                      <td key={agent.agent_id} className="text-center py-2 px-3 text-theme-muted">
+                      <td key={agent.agent_id} className="text-center py-2 px-3 text-theme-tertiary">
                         {agent.count}
                       </td>
                     ))}
@@ -150,7 +150,7 @@ export const EvalComparison: React.FC = () => {
 
       {compared.length < 2 && trends.length >= 2 && (
         <Card>
-          <CardContent className="p-8 text-center text-theme-muted">
+          <CardContent className="p-8 text-center text-theme-tertiary">
             <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>Select at least 2 agents to compare their evaluation scores side-by-side.</p>
           </CardContent>

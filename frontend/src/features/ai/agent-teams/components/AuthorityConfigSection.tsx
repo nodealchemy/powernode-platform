@@ -64,7 +64,7 @@ export const AuthorityConfigSection: React.FC<AuthorityConfigSectionProps> = ({ 
         {AUTHORITY_LEVELS.map(({ level, label, roles }) => (
           <div
             key={level}
-            className="flex items-start gap-3 px-3 py-2 bg-theme-bg rounded-md"
+            className="flex items-start gap-3 px-3 py-2 bg-theme-surface rounded-md"
           >
             <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-theme-primary/10 text-theme-primary text-xs font-bold">
               {level}

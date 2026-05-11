@@ -97,7 +97,7 @@ export const MaintenanceModeControl: React.FC<MaintenanceModeControlProps> = ({ 
 
         {/* Active Maintenance Alert */}
         {status.mode && (
-          <div className="p-4 bg-theme-error-background border border-theme-error rounded-lg">
+          <div className="p-4 bg-theme-error border border-theme-error rounded-lg">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-theme-error" />
               <h4 className="font-medium text-theme-error">Maintenance Mode Active</h4>
@@ -110,7 +110,7 @@ export const MaintenanceModeControl: React.FC<MaintenanceModeControlProps> = ({ 
 
         {/* Scheduled Maintenance */}
         {(status.scheduled_start || scheduled) && (
-          <div className="p-4 bg-theme-info-background border border-theme-info rounded-lg">
+          <div className="p-4 bg-theme-info border border-theme-info rounded-lg">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-5 h-5 text-theme-info" />
               <h4 className="font-medium text-theme-info">Scheduled Maintenance</h4>
@@ -392,7 +392,7 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
               <span className={`px-2 py-1 rounded text-xs font-medium ${
                 latestBackup.status === 'completed' ? 'bg-theme-success-background text-theme-success' :
                 latestBackup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning' :
-                'bg-theme-error-background text-theme-error'
+                'bg-theme-error text-theme-error'
               }`}>
                 {latestBackup.status}
               </span>
@@ -452,7 +452,7 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         backup.status === 'completed' ? 'bg-theme-success-background text-theme-success' :
                         backup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning' :
-                        'bg-theme-error-background text-theme-error'
+                        'bg-theme-error text-theme-error'
                       }`}>
                         {backup.status}
                       </span>

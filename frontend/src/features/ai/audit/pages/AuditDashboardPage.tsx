@@ -29,7 +29,7 @@ export const AuditDashboardPage: React.FC = () => {
         ]}
       >
         <div className="text-center py-12">
-          <Shield className="h-12 w-12 text-theme-muted mx-auto mb-4 opacity-50" />
+          <Shield className="h-12 w-12 text-theme-tertiary mx-auto mb-4 opacity-50" />
           <p className="text-theme-secondary">You do not have permission to view audit data.</p>
         </div>
       </PageContainer>

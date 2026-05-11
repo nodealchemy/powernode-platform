@@ -91,7 +91,7 @@ export const TopThreats: React.FC<TopThreatsProps> = ({ timeRange }) => {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'text-theme-error bg-theme-error-background border-theme-error';
+      case 'critical': return 'text-theme-error bg-theme-error border-theme-error';
       case 'high': return 'text-theme-warning bg-theme-warning-background border-theme-warning';
       case 'medium': return 'text-theme-warning bg-theme-warning-background border-theme-warning';
       case 'low': return 'text-theme-success bg-theme-success-background border-theme-success';
@@ -127,7 +127,7 @@ export const TopThreats: React.FC<TopThreatsProps> = ({ timeRange }) => {
   return (
     <div className="bg-theme-background rounded-lg border border-theme p-6">
       <div className="flex items-center gap-2 mb-6">
-        <div className="p-1 bg-theme-error-background rounded">
+        <div className="p-1 bg-theme-error rounded">
           <AlertTriangle className="w-4 h-4 text-theme-error" />
         </div>
         <div>

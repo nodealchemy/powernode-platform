@@ -22,7 +22,7 @@ function getSeverityBadgeClass(severity: string): string {
     case 'critical': return 'text-theme-error bg-theme-error/10';
     case 'high': return 'text-theme-warning bg-theme-warning/10';
     case 'medium': return 'text-theme-info bg-theme-info/10';
-    default: return 'text-theme-muted bg-theme-surface';
+    default: return 'text-theme-tertiary bg-theme-surface';
   }
 }
 
@@ -71,9 +71,9 @@ const EscalationCard: React.FC<{
             <h4 className="font-medium text-theme-primary truncate">{escalation.title}</h4>
             <span className={`px-2 py-0.5 text-xs rounded ${statusBadge.class}`}>{statusBadge.label}</span>
             <span className={`px-1.5 py-0.5 text-xs rounded ${getSeverityBadgeClass(escalation.severity)}`}>{escalation.severity}</span>
-            <span className="px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-muted">{escalation.escalation_type.replace('_', ' ')}</span>
+            <span className="px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-tertiary">{escalation.escalation_type.replace('_', ' ')}</span>
           </div>
-          <div className="flex items-center gap-3 text-xs text-theme-muted mt-0.5">
+          <div className="flex items-center gap-3 text-xs text-theme-tertiary mt-0.5">
             {escalation.agent?.name && <span>from {escalation.agent.name}</span>}
             <span>Level {escalation.current_level}</span>
             {escalation.next_escalation_at && isActive && (
@@ -83,7 +83,7 @@ const EscalationCard: React.FC<{
             )}
           </div>
         </div>
-        <ChevronDown className={`h-4 w-4 text-theme-muted shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-theme-tertiary shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
       </div>
 
       {/* Expanded detail */}
@@ -105,7 +105,7 @@ const EscalationCard: React.FC<{
           )}
 
           {/* Escalation chain */}
-          <div className="flex items-center gap-2 text-xs text-theme-muted">
+          <div className="flex items-center gap-2 text-xs text-theme-tertiary">
             <span className="font-medium text-theme-primary">Escalation Chain:</span>
             {Array.from({ length: escalation.current_level }, (_, i) => (
               <span key={i} className={`px-1.5 py-0.5 rounded ${i + 1 === escalation.current_level ? 'bg-theme-warning/20 text-theme-warning font-medium' : 'bg-theme-surface'}`}>
@@ -113,14 +113,14 @@ const EscalationCard: React.FC<{
               </span>
             ))}
             {escalation.next_escalation_at && isActive && (
-              <span className="px-1.5 py-0.5 rounded bg-theme-surface border border-dashed border-theme text-theme-muted">
+              <span className="px-1.5 py-0.5 rounded bg-theme-surface border border-dashed border-theme text-theme-tertiary">
                 L{escalation.current_level + 1}?
               </span>
             )}
           </div>
 
           {/* Metadata */}
-          <div className="flex flex-wrap gap-4 text-xs text-theme-muted">
+          <div className="flex flex-wrap gap-4 text-xs text-theme-tertiary">
             {escalation.escalated_to?.email && <span>Escalated to: {escalation.escalated_to.email}</span>}
             {escalation.timeout_hours && <span>Timeout: {escalation.timeout_hours}h</span>}
             {escalation.next_escalation_at && isActive && (
@@ -164,7 +164,7 @@ const EscalationCard: React.FC<{
               </div>
             </div>
           ) : (
-            <p className="text-xs text-theme-muted italic">
+            <p className="text-xs text-theme-tertiary italic">
               Resolved escalations cannot be reopened.
             </p>
           )}
@@ -230,7 +230,7 @@ export const EscalationsPanel: React.FC = () => {
 
       {safeEscalations.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-theme-muted">
+          <CardContent className="p-8 text-center text-theme-tertiary">
             <AlertOctagon className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>No escalations found. Agents escalate when they encounter issues they cannot resolve.</p>
           </CardContent>

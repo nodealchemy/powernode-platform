@@ -155,7 +155,7 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
       case 'task.error':
         return 'text-theme-danger';
       case 'connection':
-        return 'text-theme-muted';
+        return 'text-theme-tertiary';
       default:
         return 'text-theme-secondary';
     }
@@ -173,7 +173,7 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
     <Card className={className}>
       <CardHeader
         title="Event Stream"
-        icon={connected ? <Wifi className="h-5 w-5 text-theme-success" /> : <WifiOff className="h-5 w-5 text-theme-muted" />}
+        icon={connected ? <Wifi className="h-5 w-5 text-theme-success" /> : <WifiOff className="h-5 w-5 text-theme-tertiary" />}
         action={
           <div className="flex items-center gap-2">
             <Badge variant={connected ? 'success' : 'outline'} size="sm">
@@ -221,14 +221,14 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
                 {progress.current} / {progress.total}
               </span>
             </div>
-            <div className="h-2 bg-theme-muted/20 rounded-full overflow-hidden">
+            <div className="h-2 bg-theme-background-secondary/20 rounded-full overflow-hidden">
               <div
                 className="h-full bg-theme-primary transition-all duration-300"
                 style={{ width: `${(progress.current / progress.total) * 100}%` }}
               />
             </div>
             {progress.message && (
-              <p className="text-xs text-theme-muted mt-1">{progress.message}</p>
+              <p className="text-xs text-theme-tertiary mt-1">{progress.message}</p>
             )}
           </div>
         )}
@@ -255,7 +255,7 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
         {/* Events list */}
         <div className="h-64 overflow-y-auto space-y-1 font-mono text-xs">
           {events.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-theme-muted">
+            <div className="h-full flex items-center justify-center text-theme-tertiary">
               {connected ? 'Waiting for events...' : 'Not connected'}
             </div>
           ) : (
@@ -272,7 +272,7 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={cn('font-medium', color)}>{event.type}</span>
-                      <span className="text-theme-muted">{formatTime(event.timestamp)}</span>
+                      <span className="text-theme-tertiary">{formatTime(event.timestamp)}</span>
                     </div>
                     <pre className="text-theme-secondary whitespace-pre-wrap break-all">
                       {typeof event.data === 'object'

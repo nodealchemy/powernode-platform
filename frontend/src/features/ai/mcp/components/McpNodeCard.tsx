@@ -28,7 +28,7 @@ const statusDotColor: Record<string, string> = {
   active: 'bg-theme-success',
   connected: 'bg-theme-success',
   healthy: 'bg-theme-success',
-  inactive: 'bg-theme-muted',
+  inactive: 'bg-theme-background-secondary',
   disconnected: 'bg-theme-warning',
   connecting: 'bg-theme-warning',
   error: 'bg-theme-danger',
@@ -46,7 +46,7 @@ export const McpNodeCard: React.FC<McpNodeCardProps> = ({
 }) => {
   const config = variantConfig[variant];
   const Icon = config.icon;
-  const dotColor = statusDotColor[status] || 'bg-theme-muted';
+  const dotColor = statusDotColor[status] || 'bg-theme-background-secondary';
 
   return (
     <button
@@ -68,7 +68,7 @@ export const McpNodeCard: React.FC<McpNodeCardProps> = ({
       </div>
       {metric && (
         <div className="mt-1 pl-[22px]">
-          <span className="text-[10px] text-theme-muted">
+          <span className="text-[10px] text-theme-tertiary">
             {metric}{metricLabel ? ` ${metricLabel}` : ''}
           </span>
         </div>

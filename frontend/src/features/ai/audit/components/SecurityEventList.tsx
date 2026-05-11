@@ -102,7 +102,7 @@ export const SecurityEventList: React.FC = () => {
       header: 'IP Address',
       width: '130px',
       render: (item) => (
-        <span className="text-theme-muted text-xs font-mono">{item.ip_address || '--'}</span>
+        <span className="text-theme-tertiary text-xs font-mono">{item.ip_address || '--'}</span>
       ),
     },
   ];

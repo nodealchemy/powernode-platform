@@ -34,7 +34,7 @@ const statusConfig: Record<
   string,
   { icon: React.FC<{ className?: string }>; variant: 'success' | 'danger' | 'warning' | 'info' | 'outline'; label: string; color: string }
 > = {
-  submitted: { icon: Clock, variant: 'outline', label: 'Submitted', color: 'text-theme-muted' },
+  submitted: { icon: Clock, variant: 'outline', label: 'Submitted', color: 'text-theme-tertiary' },
   working: { icon: Loader2, variant: 'info', label: 'Working', color: 'text-theme-info' },
   completed: { icon: CheckCircle, variant: 'success', label: 'Completed', color: 'text-theme-success' },
   failed: { icon: XCircle, variant: 'danger', label: 'Failed', color: 'text-theme-danger' },
@@ -196,7 +196,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                   statusState === 'failed' && 'bg-theme-danger/10',
                   statusState === 'working' && 'bg-theme-info/10',
                   ['submitted', 'canceled', 'input-required'].includes(statusState) &&
-                    'bg-theme-muted/10'
+                    'bg-theme-background-secondary/10'
                 )}
               >
                 <StatusIcon
@@ -216,7 +216,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                     {config.label}
                   </Badge>
                 </div>
-                <p className="text-sm text-theme-muted">Task ID: {task.id}</p>
+                <p className="text-sm text-theme-tertiary">Task ID: {task.id}</p>
               </div>
             </div>
 
@@ -284,7 +284,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               {task.error.message || 'Unknown error'}
             </p>
             {task.error.code && (
-              <p className="text-xs text-theme-muted mt-1">Code: {task.error.code}</p>
+              <p className="text-xs text-theme-tertiary mt-1">Code: {task.error.code}</p>
             )}
           </CardContent>
         </Card>
@@ -312,7 +312,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               <CardContent className="space-y-4">
                 {getMessageText() && (
                   <div>
-                    <p className="text-xs text-theme-muted mb-2">Text:</p>
+                    <p className="text-xs text-theme-tertiary mb-2">Text:</p>
                     <p className="text-sm text-theme-primary whitespace-pre-wrap">
                       {getMessageText()}
                     </p>
@@ -320,7 +320,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                 )}
                 {getMessageData() && (
                   <div>
-                    <p className="text-xs text-theme-muted mb-2">Data:</p>
+                    <p className="text-xs text-theme-tertiary mb-2">Data:</p>
                     <pre className="bg-theme-surface-dark p-4 rounded-lg text-xs overflow-x-auto max-h-64">
                       <code className="text-theme-primary">
                         {JSON.stringify(getMessageData(), null, 2)}
@@ -329,7 +329,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                   </div>
                 )}
                 {!getMessageText() && !getMessageData() && (
-                  <p className="text-sm text-theme-muted">No message content</p>
+                  <p className="text-sm text-theme-tertiary">No message content</p>
                 )}
               </CardContent>
             )}
@@ -378,13 +378,13 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                       className="p-3 bg-theme-surface rounded-lg flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5 text-theme-muted" />
+                        <FileText className="h-5 w-5 text-theme-tertiary" />
                         <div>
                           <div className="font-medium text-theme-primary">
                             {artifact.name || `Artifact ${idx + 1}`}
                           </div>
                           {artifact.mimeType && (
-                            <div className="text-xs text-theme-muted">{artifact.mimeType}</div>
+                            <div className="text-xs text-theme-tertiary">{artifact.mimeType}</div>
                           )}
                         </div>
                       </div>

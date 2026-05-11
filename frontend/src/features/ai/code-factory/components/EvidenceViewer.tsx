@@ -9,7 +9,7 @@ const statusBadge: Record<string, string> = {
   pending: 'bg-theme-surface-bg text-theme-secondary',
   captured: 'bg-theme-info text-theme-info',
   verified: 'bg-theme-success text-theme-success',
-  failed: 'bg-theme-error-bg text-theme-error',
+  failed: 'bg-theme-error text-theme-error',
 };
 
 interface ManifestWithContext extends EvidenceManifest {

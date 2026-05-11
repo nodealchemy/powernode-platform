@@ -84,7 +84,7 @@ export const RecommendationsDashboard: React.FC = () => {
             <CardContent className="p-4 flex items-center gap-3">
               <Lightbulb className="w-8 h-8 text-theme-warning" />
               <div>
-                <p className="text-sm text-theme-muted">Pending</p>
+                <p className="text-sm text-theme-tertiary">Pending</p>
                 <p className="text-2xl font-bold text-theme-primary">{pending.length}</p>
               </div>
             </CardContent>
@@ -93,7 +93,7 @@ export const RecommendationsDashboard: React.FC = () => {
             <CardContent className="p-4 flex items-center gap-3">
               <CheckCircle className="w-8 h-8 text-theme-success" />
               <div>
-                <p className="text-sm text-theme-muted">Applied</p>
+                <p className="text-sm text-theme-tertiary">Applied</p>
                 <p className="text-2xl font-bold text-theme-primary">{applied.length}</p>
               </div>
             </CardContent>
@@ -102,7 +102,7 @@ export const RecommendationsDashboard: React.FC = () => {
             <CardContent className="p-4 flex items-center gap-3">
               <TrendingUp className="w-8 h-8 text-theme-info" />
               <div>
-                <p className="text-sm text-theme-muted">Total</p>
+                <p className="text-sm text-theme-tertiary">Total</p>
                 <p className="text-2xl font-bold text-theme-primary">{recommendations.length}</p>
               </div>
             </CardContent>
@@ -135,7 +135,7 @@ export const RecommendationsDashboard: React.FC = () => {
                             'Review this recommendation'}
                         </p>
                         {(rec.evidence as Record<string, string>)?.current_provider && (
-                          <div className="flex items-center gap-2 mt-2 text-xs text-theme-muted">
+                          <div className="flex items-center gap-2 mt-2 text-xs text-theme-tertiary">
                             <span>{(rec.evidence as Record<string, string>).current_provider}</span>
                             <ArrowRight className="w-3 h-3" />
                             <span>{(rec.evidence as Record<string, string>).recommended_provider}</span>
@@ -166,7 +166,7 @@ export const RecommendationsDashboard: React.FC = () => {
 
         {pending.length === 0 && (
           <Card>
-            <CardContent className="p-8 text-center text-theme-muted">
+            <CardContent className="p-8 text-center text-theme-tertiary">
               <Lightbulb className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>No pending recommendations. The system will generate new ones during the next analysis cycle.</p>
             </CardContent>

@@ -19,7 +19,7 @@ const getStatusIcon = (status: string) => {
     case 'timeout':
       return <AlertTriangle className="text-theme-warning" size={14} />;
     default:
-      return <Clock className="text-theme-muted" size={14} />;
+      return <Clock className="text-theme-tertiary" size={14} />;
   }
 };
 

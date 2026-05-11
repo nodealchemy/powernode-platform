@@ -19,7 +19,7 @@ const ScoreBar: React.FC<{ score: number | null; label: string }> = ({ score, la
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-theme-muted w-24">{label}</span>
+      <span className="text-xs text-theme-tertiary w-24">{label}</span>
       <div className="flex-1 h-2 bg-theme-surface-hover rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${width}%` }} />
       </div>
@@ -78,7 +78,7 @@ export const EvalResultsViewer: React.FC<EvalResultsViewerProps> = ({ agentId })
         <CardHeader title="Score Averages" />
         <CardContent>
           {results.length === 0 ? (
-            <p className="text-sm text-theme-muted text-center py-4">No evaluation results yet</p>
+            <p className="text-sm text-theme-tertiary text-center py-4">No evaluation results yet</p>
           ) : (
             <div className="space-y-3">
               {SCORE_DIMENSIONS.map((dim) => (
@@ -93,7 +93,7 @@ export const EvalResultsViewer: React.FC<EvalResultsViewerProps> = ({ agentId })
         <CardHeader title={`Results (${filteredResults.length})`} />
         <CardContent>
           <div className="flex items-center gap-2 mb-4">
-            <Filter className="w-4 h-4 text-theme-muted" />
+            <Filter className="w-4 h-4 text-theme-tertiary" />
             <select
               value={selectedDimension}
               onChange={(e) => setSelectedDimension(e.target.value as ScoreDimension | 'all')}
@@ -107,7 +107,7 @@ export const EvalResultsViewer: React.FC<EvalResultsViewerProps> = ({ agentId })
           </div>
 
           {filteredResults.length === 0 ? (
-            <div className="text-center py-8 text-theme-muted">
+            <div className="text-center py-8 text-theme-tertiary">
               <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="text-sm">No results match the filter</p>
             </div>
@@ -126,11 +126,11 @@ export const EvalResultsViewer: React.FC<EvalResultsViewerProps> = ({ agentId })
                       }>
                         Avg: {result.average?.toFixed(1) ?? 'N/A'}
                       </Badge>
-                      <span className="text-xs text-theme-muted">
+                      <span className="text-xs text-theme-tertiary">
                         {result.evaluator_model}
                       </span>
                     </div>
-                    <span className="text-xs text-theme-muted">
+                    <span className="text-xs text-theme-tertiary">
                       {new Date(result.created_at).toLocaleDateString()}
                     </span>
                   </div>
@@ -138,7 +138,7 @@ export const EvalResultsViewer: React.FC<EvalResultsViewerProps> = ({ agentId })
                     {SCORE_DIMENSIONS.map((dim) => (
                       result[dim] !== null && (
                         <div key={dim} className="text-center">
-                          <p className="text-xs text-theme-muted">{DIMENSION_LABELS[dim]}</p>
+                          <p className="text-xs text-theme-tertiary">{DIMENSION_LABELS[dim]}</p>
                           <p className="text-sm font-medium text-theme-primary">{result[dim]}/5</p>
                         </div>
                       )

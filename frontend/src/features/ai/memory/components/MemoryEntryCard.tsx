@@ -88,7 +88,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
         </div>
 
         {/* Metadata row */}
-        <div className="flex items-center gap-4 mt-3 text-xs text-theme-muted">
+        <div className="flex items-center gap-4 mt-3 text-xs text-theme-tertiary">
           {entry.access_count !== undefined && entry.access_count > 0 && (
             <span className="flex items-center gap-1">
               <Hash className="h-3 w-3" />

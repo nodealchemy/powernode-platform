@@ -184,7 +184,7 @@ export const EnhancedSelect: React.FC<EnhancedSelectProps> = ({
                       <div>
                         <div className="font-medium">{option.label}</div>
                         {option.description && (
-                          <div className="text-sm text-theme-muted group-hover:text-theme-secondary">{option.description}</div>
+                          <div className="text-sm text-theme-tertiary group-hover:text-theme-secondary">{option.description}</div>
                         )}
                       </div>
                     )}

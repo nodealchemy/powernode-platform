@@ -31,18 +31,18 @@ export const DomainChangeNotice: React.FC<DomainChangeNoticeProps> = ({ onDismis
           <h3 className="text-sm font-medium text-theme-warning-foreground mb-1">
             {title}
           </h3>
-          <p className="text-sm text-theme-muted-foreground mb-2">
+          <p className="text-sm text-theme-tertiary mb-2">
             {message}
           </p>
           {previousDomain && (
-            <p className="text-xs text-theme-muted-foreground">
+            <p className="text-xs text-theme-tertiary">
               Previous domain: {previousDomain}
             </p>
           )}
         </div>
         <button
           onClick={handleDismiss}
-          className="ml-4 text-theme-muted-foreground hover:text-theme-foreground transition-colors"
+          className="ml-4 text-theme-tertiary hover:text-theme-primary transition-colors"
           aria-label="Dismiss notice"
         >
           <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

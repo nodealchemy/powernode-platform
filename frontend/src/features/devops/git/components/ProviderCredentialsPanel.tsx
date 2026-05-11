@@ -177,7 +177,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
               {credentials.map((credential) => (
                 <div
                   key={credential.id}
-                  className="bg-theme-bg rounded-lg border border-theme p-4"
+                  className="bg-theme-surface rounded-lg border border-theme p-4"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">

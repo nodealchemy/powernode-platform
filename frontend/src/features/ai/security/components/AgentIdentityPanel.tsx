@@ -38,32 +38,32 @@ export const AgentIdentityPanel: React.FC<AgentIdentityPanelProps> = ({ identity
     {
       label: 'Key Fingerprint',
       value: <span className="font-mono text-xs">{identity.key_fingerprint}</span>,
-      icon: <Fingerprint className="h-4 w-4 text-theme-muted" />,
+      icon: <Fingerprint className="h-4 w-4 text-theme-tertiary" />,
     },
     {
       label: 'Algorithm',
       value: identity.algorithm,
-      icon: <Key className="h-4 w-4 text-theme-muted" />,
+      icon: <Key className="h-4 w-4 text-theme-tertiary" />,
     },
     {
       label: 'Agent URI',
       value: identity.agent_uri || '--',
-      icon: <ShieldCheck className="h-4 w-4 text-theme-muted" />,
+      icon: <ShieldCheck className="h-4 w-4 text-theme-tertiary" />,
     },
     {
       label: 'Expires At',
       value: identity.expires_at ? new Date(identity.expires_at).toLocaleString() : 'Never',
-      icon: <Clock className="h-4 w-4 text-theme-muted" />,
+      icon: <Clock className="h-4 w-4 text-theme-tertiary" />,
     },
     {
       label: 'Last Rotated',
       value: identity.rotated_at ? new Date(identity.rotated_at).toLocaleString() : 'Never',
-      icon: <Clock className="h-4 w-4 text-theme-muted" />,
+      icon: <Clock className="h-4 w-4 text-theme-tertiary" />,
     },
     {
       label: 'Rotation Overlap Until',
       value: identity.rotation_overlap_until ? new Date(identity.rotation_overlap_until).toLocaleString() : '--',
-      icon: <Clock className="h-4 w-4 text-theme-muted" />,
+      icon: <Clock className="h-4 w-4 text-theme-tertiary" />,
     },
   ];
 
@@ -93,7 +93,7 @@ export const AgentIdentityPanel: React.FC<AgentIdentityPanelProps> = ({ identity
       {/* Info Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {infoRows.map((row) => (
-          <div key={row.label} className="flex items-start gap-3 p-3 bg-theme-bg rounded-lg">
+          <div key={row.label} className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg">
             <div className="mt-0.5">{row.icon}</div>
             <div>
               <p className="text-xs text-theme-tertiary">{row.label}</p>
@@ -122,7 +122,7 @@ export const AgentIdentityPanel: React.FC<AgentIdentityPanelProps> = ({ identity
       {identity.attestation_claims && Object.keys(identity.attestation_claims).length > 0 && (
         <div className="mb-6">
           <h4 className="text-sm font-medium text-theme-primary mb-2">Attestation Claims</h4>
-          <div className="bg-theme-bg rounded-lg p-3">
+          <div className="bg-theme-surface rounded-lg p-3">
             <pre className="text-xs text-theme-secondary overflow-x-auto whitespace-pre-wrap">
               {JSON.stringify(identity.attestation_claims, null, 2)}
             </pre>

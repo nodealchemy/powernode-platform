@@ -43,7 +43,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({ channel 
 
   if (!channel) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-theme-bg">
+      <div className="flex-1 flex items-center justify-center bg-theme-surface">
         <div className="text-center">
           <MessageSquare className="w-12 h-12 mx-auto text-theme-secondary/30 mb-3" />
           <p className="text-sm text-theme-secondary">Select a channel to view details</p>
@@ -54,7 +54,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({ channel 
 
   if (selectedSession) {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden bg-theme-bg">
+      <div className="flex-1 flex flex-col overflow-hidden bg-theme-surface">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-theme bg-theme-surface">
           <Button variant="ghost" size="sm" onClick={handleBackFromMessages}>
             <ArrowLeft className="w-4 h-4" />
@@ -80,7 +80,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({ channel 
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-theme-bg">
+    <div className="flex-1 flex flex-col overflow-hidden bg-theme-surface">
       <div className="flex items-center justify-between px-4 py-3 border-b border-theme bg-theme-surface">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

@@ -213,7 +213,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
             : isArmed
               ? 'bg-theme-error text-white font-medium'
               : item.danger
-                ? 'text-theme-error hover:bg-theme-error-background'
+                ? 'text-theme-error hover:bg-theme-error'
                 : 'text-theme-primary hover:bg-theme-surface-hover'
           }
         `}

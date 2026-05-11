@@ -44,7 +44,7 @@ export const Input: React.FC<InputProps> = ({
         {...props}
       />
       {description && !error && (
-        <p id={`${inputId}-description`} className="mt-1 text-xs text-theme-muted">
+        <p id={`${inputId}-description`} className="mt-1 text-xs text-theme-tertiary">
           {description}
         </p>
       )}

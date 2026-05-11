@@ -93,7 +93,7 @@ export const getStatusColor = (status?: string): string => {
     case 'archived':
     case 'inactive':
     case 'skipped':
-      return 'text-theme-muted bg-theme-muted/20';
+      return 'text-theme-tertiary bg-theme-background-secondary/20';
     case 'error':
     case 'failed':
     case 'rejected':

@@ -55,8 +55,8 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
           icon={<Server className="h-5 w-5" />}
         />
         <CardContent className="py-8 text-center">
-          <Server className="h-12 w-12 text-theme-muted mx-auto mb-4" />
-          <p className="text-theme-muted">No resource data available</p>
+          <Server className="h-12 w-12 text-theme-tertiary mx-auto mb-4" />
+          <p className="text-theme-tertiary">No resource data available</p>
           <Button onClick={onRefresh} variant="outline" size="sm" className="mt-4">
             <RefreshCw className="h-4 w-4 mr-2" />
             Load Resource Data
@@ -93,7 +93,7 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Cpu className="h-4 w-4 text-theme-muted" />
+                <Cpu className="h-4 w-4 text-theme-tertiary" />
                 <span className="text-sm text-theme-primary">CPU Usage</span>
               </div>
               <span className={`text-sm font-medium ${getUtilizationColor(resourceData.system.cpu_usage)}`}>
@@ -104,7 +104,7 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <MemoryStick className="h-4 w-4 text-theme-muted" />
+                <MemoryStick className="h-4 w-4 text-theme-tertiary" />
                 <span className="text-sm text-theme-primary">Memory Usage</span>
               </div>
               <span className={`text-sm font-medium ${getUtilizationColor(resourceData.system.memory_usage)}`}>
@@ -115,7 +115,7 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <HardDrive className="h-4 w-4 text-theme-muted" />
+                <HardDrive className="h-4 w-4 text-theme-tertiary" />
                 <span className="text-sm text-theme-primary">Disk Usage</span>
               </div>
               <span className={`text-sm font-medium ${getUtilizationColor(resourceData.system.disk_usage)}`}>
@@ -126,7 +126,7 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Wifi className="h-4 w-4 text-theme-muted" />
+                <Wifi className="h-4 w-4 text-theme-tertiary" />
                 <span className="text-sm text-theme-primary">Network Usage</span>
               </div>
               <span className={`text-sm font-medium ${getUtilizationColor(resourceData.system.network_usage)}`}>
@@ -146,10 +146,10 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <h5 className="text-xs font-medium text-theme-muted">Connection Pool</h5>
+              <h5 className="text-xs font-medium text-theme-tertiary">Connection Pool</h5>
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-theme-muted">Used</span>
+                  <span className="text-theme-tertiary">Used</span>
                   <span className="font-medium">
                     {resourceData.database.connection_pool.used} / {resourceData.database.connection_pool.size}
                   </span>
@@ -162,10 +162,10 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
             </div>
 
             <div className="space-y-2">
-              <h5 className="text-xs font-medium text-theme-muted">Storage</h5>
+              <h5 className="text-xs font-medium text-theme-tertiary">Storage</h5>
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-theme-muted">Used</span>
+                  <span className="text-theme-tertiary">Used</span>
                   <span className="font-medium">
                     {((resourceData.database.storage_usage.used_size / resourceData.database.storage_usage.total_size) * 100).toFixed(1)}%
                   </span>
@@ -183,19 +183,19 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
               <div className="font-medium text-theme-primary">
                 {resourceData.database.query_performance.avg_query_time.toFixed(1)}ms
               </div>
-              <div className="text-theme-muted">Avg Query Time</div>
+              <div className="text-theme-tertiary">Avg Query Time</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
               <div className="font-medium text-theme-warning">
                 {resourceData.database.query_performance.slow_queries}
               </div>
-              <div className="text-theme-muted">Slow Queries</div>
+              <div className="text-theme-tertiary">Slow Queries</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
               <div className="font-medium text-theme-error">
                 {resourceData.database.query_performance.deadlocks}
               </div>
-              <div className="text-theme-muted">Deadlocks</div>
+              <div className="text-theme-tertiary">Deadlocks</div>
             </div>
           </div>
         </div>
@@ -207,7 +207,7 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-theme-muted">Memory Usage</span>
+                <span className="text-theme-tertiary">Memory Usage</span>
                 <span className="font-medium">
                   {((resourceData.redis.memory_usage.used / resourceData.redis.memory_usage.limit) * 100).toFixed(1)}%
                 </span>
@@ -220,7 +220,7 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
 
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-theme-muted">Hit Rate</span>
+                <span className="text-theme-tertiary">Hit Rate</span>
                 <span className={`font-medium ${resourceData.redis.hit_rate >= 95 ? 'text-theme-success' : resourceData.redis.hit_rate >= 85 ? 'text-theme-warning' : 'text-theme-error'}`}>
                   {resourceData.redis.hit_rate.toFixed(1)}%
                 </span>
@@ -230,7 +230,7 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
           </div>
 
           <div className="flex items-center justify-between text-sm">
-            <span className="text-theme-muted">Active Connections</span>
+            <span className="text-theme-tertiary">Active Connections</span>
             <span className="font-medium">{resourceData.redis.connection_count}</span>
           </div>
         </div>
@@ -244,29 +244,29 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
               <div className="font-medium text-theme-success">
                 {resourceData.sidekiq.worker_utilization.busy}
               </div>
-              <div className="text-xs text-theme-muted">Busy</div>
+              <div className="text-xs text-theme-tertiary">Busy</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
               <div className="font-medium text-theme-info">
                 {resourceData.sidekiq.worker_utilization.idle}
               </div>
-              <div className="text-xs text-theme-muted">Idle</div>
+              <div className="text-xs text-theme-tertiary">Idle</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
               <div className="font-medium text-theme-error">
                 {resourceData.sidekiq.failed_jobs}
               </div>
-              <div className="text-xs text-theme-muted">Failed Jobs</div>
+              <div className="text-xs text-theme-tertiary">Failed Jobs</div>
             </div>
           </div>
 
           {Object.keys(resourceData.sidekiq.queue_sizes).length > 0 && (
             <div className="space-y-2">
-              <h5 className="text-xs font-medium text-theme-muted">Queue Sizes</h5>
+              <h5 className="text-xs font-medium text-theme-tertiary">Queue Sizes</h5>
               <div className="grid grid-cols-2 gap-2">
                 {Object.entries(resourceData.sidekiq.queue_sizes).slice(0, 4).map(([queue, size]) => (
                   <div key={queue} className="flex items-center justify-between text-xs">
-                    <span className="text-theme-muted truncate">{queue}</span>
+                    <span className="text-theme-tertiary truncate">{queue}</span>
                     <span className="font-medium">{size}</span>
                   </div>
                 ))}
@@ -284,19 +284,19 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
               <div className="font-medium text-theme-primary">
                 {resourceData.actioncable.connection_count}
               </div>
-              <div className="text-xs text-theme-muted">Connections</div>
+              <div className="text-xs text-theme-tertiary">Connections</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
               <div className="font-medium text-theme-info">
                 {resourceData.actioncable.subscription_count}
               </div>
-              <div className="text-xs text-theme-muted">Subscriptions</div>
+              <div className="text-xs text-theme-tertiary">Subscriptions</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
               <div className="font-medium text-theme-success">
                 {resourceData.actioncable.message_throughput.toFixed(1)}/s
               </div>
-              <div className="text-xs text-theme-muted">Messages</div>
+              <div className="text-xs text-theme-tertiary">Messages</div>
             </div>
           </div>
         </div>

@@ -64,7 +64,7 @@ export const SignAttestationModal: React.FC<SignAttestationModalProps> = ({
                 <LoadingSpinner size="md" />
               </div>
             ) : signingKeys.length === 0 ? (
-              <div className="text-center py-4 text-theme-muted">
+              <div className="text-center py-4 text-theme-tertiary">
                 <p>No signing keys available</p>
                 <p className="text-sm mt-1">A default key will be used if available</p>
               </div>
@@ -103,7 +103,7 @@ export const SignAttestationModal: React.FC<SignAttestationModalProps> = ({
                         <p className="font-medium text-theme-primary">{key.name}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-theme-secondary uppercase">{key.key_type}</span>
-                          <code className="text-xs text-theme-muted">
+                          <code className="text-xs text-theme-tertiary">
                             {key.fingerprint.substring(0, 16)}...
                           </code>
                         </div>

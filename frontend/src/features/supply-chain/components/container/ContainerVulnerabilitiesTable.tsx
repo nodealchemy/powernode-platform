@@ -91,7 +91,7 @@ export const ContainerVulnerabilitiesTable: React.FC<ContainerVulnerabilitiesTab
       key: 'fixed_version',
       header: 'Fixed In',
       render: (item) => (
-        <span className={item.fixed_version ? 'text-theme-success' : 'text-theme-muted'}>
+        <span className={item.fixed_version ? 'text-theme-success' : 'text-theme-tertiary'}>
           {item.fixed_version || 'No fix available'}
         </span>
       ),
@@ -105,7 +105,7 @@ export const ContainerVulnerabilitiesTable: React.FC<ContainerVulnerabilitiesTab
             Available
           </Badge>
         ) : (
-          <span className="text-theme-muted text-sm">-</span>
+          <span className="text-theme-tertiary text-sm">-</span>
         ),
     },
   ];

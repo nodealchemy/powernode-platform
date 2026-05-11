@@ -59,7 +59,7 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-theme-muted mb-1">ID</label>
+              <label className="block text-xs text-theme-tertiary mb-1">ID</label>
               <Input
                 value={skill.id}
                 onChange={(e) => onSkillChange(index, 'id', e.target.value)}
@@ -67,7 +67,7 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs text-theme-muted mb-1">Name</label>
+              <label className="block text-xs text-theme-tertiary mb-1">Name</label>
               <Input
                 value={skill.name}
                 onChange={(e) => onSkillChange(index, 'name', e.target.value)}
@@ -77,7 +77,7 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs text-theme-muted mb-1">Description</label>
+            <label className="block text-xs text-theme-tertiary mb-1">Description</label>
             <Input
               value={skill.description}
               onChange={(e) => onSkillChange(index, 'description', e.target.value)}
@@ -86,7 +86,7 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs text-theme-muted mb-1">Tags (comma-separated)</label>
+            <label className="block text-xs text-theme-tertiary mb-1">Tags (comma-separated)</label>
             <Input
               value={skill.tags}
               onChange={(e) => onSkillChange(index, 'tags', e.target.value)}
@@ -96,7 +96,7 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-theme-muted mb-1">Input Schema (JSON)</label>
+              <label className="block text-xs text-theme-tertiary mb-1">Input Schema (JSON)</label>
               <textarea
                 value={skill.inputSchema}
                 onChange={(e) => onSkillChange(index, 'inputSchema', e.target.value)}
@@ -106,7 +106,7 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs text-theme-muted mb-1">Output Schema (JSON)</label>
+              <label className="block text-xs text-theme-tertiary mb-1">Output Schema (JSON)</label>
               <textarea
                 value={skill.outputSchema}
                 onChange={(e) => onSkillChange(index, 'outputSchema', e.target.value)}

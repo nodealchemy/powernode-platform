@@ -41,7 +41,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
       category: 'User & Team Management',
       permissions: ['user.read', 'user.edit_self', 'user.delete_self', 'team.read', 'team.invite', 'team.remove', 'team.assign_roles'],
       description: 'User profiles and team collaboration',
-      color: 'bg-theme-info-background text-theme-info'
+      color: 'bg-theme-info text-theme-info'
     },
     {
       category: 'Billing & Subscriptions',
@@ -77,7 +77,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
       category: 'Admin Operations',
       permissions: ['admin.access', 'admin.user.read', 'admin.user.create', 'admin.account.read', 'admin.billing.read', 'admin.settings.read', 'admin.audit.read'],
       description: 'Administrative functions and oversight',
-      color: 'bg-theme-error-background text-theme-error'
+      color: 'bg-theme-error text-theme-error'
     },
     {
       category: 'System & Workers',
@@ -253,11 +253,11 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
   const getRoleTypeBadge = (roleType: string) => {
     switch (roleType) {
       case 'user':
-        return { className: 'bg-theme-info-background text-theme-info', label: 'USER' };
+        return { className: 'bg-theme-info text-theme-info', label: 'USER' };
       case 'admin':
         return { className: 'bg-theme-warning-background text-theme-warning', label: 'ADMIN' };
       case 'system':
-        return { className: 'bg-theme-error-background text-theme-error', label: 'SYSTEM' };
+        return { className: 'bg-theme-error text-theme-error', label: 'SYSTEM' };
       default:
         return { className: 'bg-theme-surface text-theme-secondary', label: 'UNKNOWN' };
     }
@@ -274,7 +274,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
         </div>
 
         {/* Role Type Information */}
-        <div className="mb-4 p-3 bg-theme-info-background/30 border border-theme-info rounded-lg">
+        <div className="mb-4 p-3 bg-theme-info/30 border border-theme-info rounded-lg">
           <div className="text-sm text-theme-info">
             <strong>Role Restrictions:</strong> {isSystemWorker ? 'System workers' : 'Account workers'} can only be assigned 
             {isSystemWorker ? ' system and admin roles' : ' specific user roles and task worker role'} based on their worker type.
@@ -348,7 +348,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
                           {!showAllPermissions && inheritedPermissions.length > 5 && (
                             <button
                               onClick={() => setShowAllPermissions(true)}
-                              className="px-2 py-1 bg-theme-info-background text-theme-info text-xs rounded-full hover:bg-theme-info-background/80"
+                              className="px-2 py-1 bg-theme-info text-theme-info text-xs rounded-full hover:bg-theme-info/80"
                             >
                               +{inheritedPermissions.length - 5} more
                             </button>
@@ -459,7 +459,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
           })}
 
           {/* Information Box for Role-Based Permissions */}
-          <div className="border border-theme-info rounded-lg bg-theme-info-background">
+          <div className="border border-theme-info rounded-lg bg-theme-info">
             <div className="flex items-start gap-3 p-4">
               <div className="p-1">
                 <Shield className="w-5 h-5 text-theme-info" />

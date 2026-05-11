@@ -21,10 +21,10 @@ const ApprovalGateNode: React.FC<NodeProps> = ({ data }) => {
 
   return (
     <div className={`px-3 py-2 rounded-lg border-2 border-dashed min-w-[160px] text-center ${colorClass}`}>
-      <Handle type="target" position={Position.Top} className="!bg-theme-border" />
+      <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <ShieldCheck className="w-5 h-5 mx-auto mb-1" />
       <span className="text-xs font-medium">{nodeData.label || nodeData.task_key}</span>
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-border" />
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-background-secondary" />
     </div>
   );
 };

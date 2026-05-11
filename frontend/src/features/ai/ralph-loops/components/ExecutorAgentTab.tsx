@@ -75,7 +75,7 @@ export const ExecutorAgentTab: React.FC<ExecutorAgentTabProps> = ({
                       if (e.target.checked) onTaskDependenciesChange([...taskDependencies, key]);
                       else onTaskDependenciesChange(taskDependencies.filter(d => d !== key));
                     }}
-                    className="w-4 h-4 rounded border-theme-interactive-primary text-theme-brand-primary focus:ring-theme-brand-primary"
+                    className="w-4 h-4 rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-brand-primary"
                   />
                   <span className="font-mono text-sm text-theme-text-primary">{key}</span>
                 </label>

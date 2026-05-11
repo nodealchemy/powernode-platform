@@ -53,7 +53,7 @@ function renderDetailContent(resource: ExecutionResource, detail: ResourceDetail
 export function ResourceDetailPanel({ resource, detailResource, detailLoading }: ResourceDetailPanelProps) {
   if (!resource) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-theme-bg">
+      <div className="flex-1 flex items-center justify-center bg-theme-surface">
         <div className="text-center text-theme-tertiary">
           <FolderOutput className="w-10 h-10 mx-auto mb-3 opacity-40" />
           <p className="text-sm">Select a resource to view details</p>
@@ -63,7 +63,7 @@ export function ResourceDetailPanel({ resource, detailResource, detailLoading }:
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 bg-theme-bg">
+    <div className="flex-1 overflow-y-auto p-6 bg-theme-surface">
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-theme-primary">{resource.name}</h2>
         <div className="flex items-center gap-2 mt-1">

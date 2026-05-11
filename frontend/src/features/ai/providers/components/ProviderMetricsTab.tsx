@@ -21,7 +21,7 @@ export const ProviderMetricsTab: React.FC<ProviderMetricsTabProps> = ({ provider
             ))}
           </div>
         ) : (
-          <p className="text-theme-muted">No capabilities defined for this provider.</p>
+          <p className="text-theme-tertiary">No capabilities defined for this provider.</p>
         )}
       </CardContent>
     </Card>

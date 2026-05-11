@@ -51,8 +51,8 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
   if (!content && isStreaming) {
     return (
       <div className={cn('flex items-center gap-2 p-4', className)}>
-        <Loader2 className="h-4 w-4 animate-spin text-theme-muted" />
-        <span className="text-sm text-theme-muted">AI is thinking...</span>
+        <Loader2 className="h-4 w-4 animate-spin text-theme-tertiary" />
+        <span className="text-sm text-theme-tertiary">AI is thinking...</span>
       </div>
     );
   }
@@ -122,7 +122,7 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
       </div>
 
       {showMetrics && (
-        <div className="flex items-center gap-4 text-xs text-theme-muted pt-2 border-t border-theme">
+        <div className="flex items-center gap-4 text-xs text-theme-tertiary pt-2 border-t border-theme">
           {tokenCount > 0 && (
             <span>{tokenCount} tokens</span>
           )}

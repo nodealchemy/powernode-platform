@@ -53,7 +53,7 @@ export const ExecutorManualTab: React.FC<ExecutorManualTabProps> = ({
       <button
         type="button"
         onClick={onToggleAdvanced}
-        className="text-sm text-theme-brand-primary hover:underline"
+        className="text-sm text-theme-interactive-primary hover:underline"
       >
         {showAdvanced ? 'Hide' : 'Show'} Advanced Options
       </button>

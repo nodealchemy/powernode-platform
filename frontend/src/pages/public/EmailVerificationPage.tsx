@@ -107,7 +107,7 @@ const EmailVerificationPage: React.FC = () => {
             <h2 className="mt-6 text-3xl font-bold text-theme-primary">
               Invalid Verification Link
             </h2>
-            <p className="mt-2 text-theme-muted">
+            <p className="mt-2 text-theme-tertiary">
               This verification link appears to be invalid or incomplete.
             </p>
           </div>
@@ -121,7 +121,7 @@ const EmailVerificationPage: React.FC = () => {
             </button>
             <button
               onClick={() => navigate('/login')}
-              className="text-theme-muted hover:text-theme-primary text-sm"
+              className="text-theme-tertiary hover:text-theme-primary text-sm"
             >
               Back to Login
             </button>
@@ -141,7 +141,7 @@ const EmailVerificationPage: React.FC = () => {
             <h2 className="mt-6 text-3xl font-bold text-theme-primary">
               Verifying Email
             </h2>
-            <p className="mt-2 text-theme-muted">
+            <p className="mt-2 text-theme-tertiary">
               Please wait while we verify your email address...
             </p>
           </div>
@@ -155,11 +155,11 @@ const EmailVerificationPage: React.FC = () => {
                 <h2 className="mt-6 text-3xl font-bold text-theme-primary">
                   Email Verified!
                 </h2>
-                <p className="mt-2 text-theme-muted">
+                <p className="mt-2 text-theme-tertiary">
                   {verificationResult.message}
                 </p>
                 {verificationResult.user && (
-                  <p className="mt-1 text-sm text-theme-muted">
+                  <p className="mt-1 text-sm text-theme-tertiary">
                     <strong>{verificationResult.user.email}</strong> has been successfully verified.
                   </p>
                 )}
@@ -180,7 +180,7 @@ const EmailVerificationPage: React.FC = () => {
                 <h2 className="mt-6 text-3xl font-bold text-theme-primary">
                   Verification Failed
                 </h2>
-                <p className="mt-2 text-theme-muted">
+                <p className="mt-2 text-theme-tertiary">
                   {verificationResult.message}
                 </p>
                 <div className="mt-8 flex flex-col space-y-3">
@@ -193,7 +193,7 @@ const EmailVerificationPage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => navigate('/login')}
-                    className="text-theme-muted hover:text-theme-primary text-sm"
+                    className="text-theme-tertiary hover:text-theme-primary text-sm"
                   >
                     Back to Login
                   </button>

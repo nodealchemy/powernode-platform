@@ -258,7 +258,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
                   <button
                     type="button"
                     onClick={() => setConfirmAction('delete')}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-error hover:bg-theme-error-background transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-error hover:bg-theme-error transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" /> Delete
                   </button>

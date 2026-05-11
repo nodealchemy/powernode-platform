@@ -37,7 +37,7 @@ export const LoopSettingsModal: React.FC<LoopSettingsModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Loop Settings"
-      icon={<Settings className="w-5 h-5 text-theme-brand-primary" />}
+      icon={<Settings className="w-5 h-5 text-theme-interactive-primary" />}
       size="md"
       footer={
         <>

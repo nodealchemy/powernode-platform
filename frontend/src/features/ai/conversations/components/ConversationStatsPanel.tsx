@@ -63,10 +63,10 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-theme-muted">Status</p>
+                <p className="text-sm text-theme-tertiary">Status</p>
                 {renderStatusBadge(conversation.status)}
               </div>
-              <Activity className="h-5 w-5 text-theme-muted" />
+              <Activity className="h-5 w-5 text-theme-tertiary" />
             </div>
           </CardContent>
         </Card>
@@ -74,12 +74,12 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-theme-muted">Messages</p>
+                <p className="text-sm text-theme-tertiary">Messages</p>
                 <p className="text-lg font-semibold text-theme-primary">
                   {conversation.metadata?.total_messages || conversation.message_count || 0}
                 </p>
               </div>
-              <MessageCircle className="h-5 w-5 text-theme-muted" />
+              <MessageCircle className="h-5 w-5 text-theme-tertiary" />
             </div>
           </CardContent>
         </Card>
@@ -87,12 +87,12 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-theme-muted">Total Cost</p>
+                <p className="text-sm text-theme-tertiary">Total Cost</p>
                 <p className="text-lg font-semibold text-theme-primary">
                   {formatCurrency(conversation.metadata?.total_cost || 0)}
                 </p>
               </div>
-              <DollarSign className="h-5 w-5 text-theme-muted" />
+              <DollarSign className="h-5 w-5 text-theme-tertiary" />
             </div>
           </CardContent>
         </Card>
@@ -100,12 +100,12 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-theme-muted">Tokens Used</p>
+                <p className="text-sm text-theme-tertiary">Tokens Used</p>
                 <p className="text-lg font-semibold text-theme-primary">
                   {(conversation.metadata?.total_tokens || 0).toLocaleString()}
                 </p>
               </div>
-              <BarChart3 className="h-5 w-5 text-theme-muted" />
+              <BarChart3 className="h-5 w-5 text-theme-tertiary" />
             </div>
           </CardContent>
         </Card>
@@ -120,9 +120,9 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
           <CardHeader title="Conversation Information" />
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-theme-muted">AI Agent</label>
+              <label className="text-sm font-medium text-theme-tertiary">AI Agent</label>
               <div className="mt-1 flex items-center gap-2">
-                <Bot className="h-4 w-4 text-theme-muted" />
+                <Bot className="h-4 w-4 text-theme-tertiary" />
                 <span className="text-theme-primary">{conversation.ai_agent?.name || 'Unknown Agent'}</span>
                 {conversation.ai_agent?.agent_type && (
                   <Badge variant="outline" size="sm">
@@ -132,17 +132,17 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-theme-muted">Status</label>
+              <label className="text-sm font-medium text-theme-tertiary">Status</label>
               <p className="mt-1 text-theme-primary capitalize">{conversation.status}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-theme-muted">Created</label>
+              <label className="text-sm font-medium text-theme-tertiary">Created</label>
               <p className="mt-1 text-theme-primary">
                 {formatDate(conversation.created_at, 'date')} at {formatDate(conversation.created_at, 'time')}
               </p>
             </div>
             <div>
-              <label className="text-sm font-medium text-theme-muted">Last Activity</label>
+              <label className="text-sm font-medium text-theme-tertiary">Last Activity</label>
               <p className="mt-1 text-theme-primary">
                 {formatDate(conversation.metadata?.last_activity || conversation.updated_at)}
               </p>
@@ -153,19 +153,19 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
           <CardHeader title="Usage Statistics" />
           <CardContent className="space-y-4">
             <div className="flex justify-between">
-              <span className="text-theme-muted">Total Messages:</span>
+              <span className="text-theme-tertiary">Total Messages:</span>
               <span className="font-medium text-theme-primary">
                 {conversation.metadata?.total_messages || conversation.message_count || 0}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-theme-muted">Total Tokens:</span>
+              <span className="text-theme-tertiary">Total Tokens:</span>
               <span className="font-medium text-theme-primary">
                 {(conversation.metadata?.total_tokens || 0).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-theme-muted">Total Cost:</span>
+              <span className="text-theme-tertiary">Total Cost:</span>
               <span className="font-medium text-theme-primary">
                 {formatCurrency(conversation.metadata?.total_cost || 0)}
               </span>
@@ -173,13 +173,13 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
             {stats && (
               <>
                 <div className="flex justify-between">
-                  <span className="text-theme-muted">Avg Response Time:</span>
+                  <span className="text-theme-tertiary">Avg Response Time:</span>
                   <span className="font-medium text-theme-primary">
                     {stats.avg_response_time ? `${stats.avg_response_time}ms` : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-theme-muted">Duration:</span>
+                  <span className="text-theme-tertiary">Duration:</span>
                   <span className="font-medium text-theme-primary">
                     {stats.duration_minutes ? `${Math.round(stats.duration_minutes)} min` : 'N/A'}
                   </span>
@@ -199,15 +199,15 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
           <h4 className="font-medium text-theme-primary">Message Statistics</h4>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-theme-muted">Total Messages:</span>
+              <span className="text-theme-tertiary">Total Messages:</span>
               <span className="text-theme-primary">{stats.message_count}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-theme-muted">User Messages:</span>
+              <span className="text-theme-tertiary">User Messages:</span>
               <span className="text-theme-primary">{stats.user_message_count}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-theme-muted">AI Responses:</span>
+              <span className="text-theme-tertiary">AI Responses:</span>
               <span className="text-theme-primary">{stats.ai_response_count}</span>
             </div>
           </div>
@@ -216,21 +216,21 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
           <h4 className="font-medium text-theme-primary">Performance</h4>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-theme-muted">Avg Response Time:</span>
+              <span className="text-theme-tertiary">Avg Response Time:</span>
               <span className="text-theme-primary">
                 {stats.avg_response_time ? `${stats.avg_response_time}ms` : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-theme-muted">Total Tokens:</span>
+              <span className="text-theme-tertiary">Total Tokens:</span>
               <span className="text-theme-primary">{stats.total_tokens?.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-theme-muted">Total Cost:</span>
+              <span className="text-theme-tertiary">Total Cost:</span>
               <span className="text-theme-primary">{formatCurrency(stats.total_cost || 0)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-theme-muted">Duration:</span>
+              <span className="text-theme-tertiary">Duration:</span>
               <span className="text-theme-primary">
                 {stats.duration_minutes ? `${Math.round(stats.duration_minutes)} minutes` : 'N/A'}
               </span>
@@ -239,7 +239,7 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
         </div>
       </div>
     ) : (
-      <p className="text-theme-muted">No detailed statistics available for this conversation.</p>
+      <p className="text-theme-tertiary">No detailed statistics available for this conversation.</p>
     );
   }
 
@@ -247,24 +247,24 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
     return (
       <div className="space-y-4">
         <div>
-          <label className="text-sm font-medium text-theme-muted">Conversation ID</label>
+          <label className="text-sm font-medium text-theme-tertiary">Conversation ID</label>
           <p className="mt-1 text-theme-primary font-mono text-sm">{conversation.id}</p>
         </div>
         <div>
-          <label className="text-sm font-medium text-theme-muted">AI Agent ID</label>
+          <label className="text-sm font-medium text-theme-tertiary">AI Agent ID</label>
           <p className="mt-1 text-theme-primary font-mono text-sm">{conversation.ai_agent?.id || 'N/A'}</p>
         </div>
         <div>
-          <label className="text-sm font-medium text-theme-muted">Created At</label>
+          <label className="text-sm font-medium text-theme-tertiary">Created At</label>
           <p className="mt-1 text-theme-primary">{formatDate(conversation.created_at)}</p>
         </div>
         <div>
-          <label className="text-sm font-medium text-theme-muted">Last Updated</label>
+          <label className="text-sm font-medium text-theme-tertiary">Last Updated</label>
           <p className="mt-1 text-theme-primary">{formatDate(conversation.updated_at)}</p>
         </div>
         {conversation.metadata && Object.keys(conversation.metadata).length > 0 && (
           <div>
-            <label className="text-sm font-medium text-theme-muted">Additional Metadata</label>
+            <label className="text-sm font-medium text-theme-tertiary">Additional Metadata</label>
             <pre className="mt-1 text-xs bg-theme-surface p-3 rounded border text-theme-primary overflow-x-auto">
               {JSON.stringify(conversation.metadata, null, 2)}
             </pre>

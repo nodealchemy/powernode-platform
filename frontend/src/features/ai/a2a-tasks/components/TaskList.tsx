@@ -121,7 +121,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-64">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-muted" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-tertiary" />
                 <Input
                   placeholder="Search by task ID or agent..."
                   value={searchQuery}
@@ -132,7 +132,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
             </div>
 
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-theme-muted" />
+              <Filter className="h-4 w-4 text-theme-tertiary" />
               <Select
                 value={statusFilter}
                 onChange={(value) => setStatusFilter(value)}
@@ -157,7 +157,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
       </Card>
 
       {/* Stats bar */}
-      <div className="flex items-center justify-between text-sm text-theme-muted">
+      <div className="flex items-center justify-between text-sm text-theme-tertiary">
         <span>
           {filteredTasks.length} of {totalCount} task{totalCount !== 1 ? 's' : ''}
         </span>
@@ -198,7 +198,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
                           task.status === 'completed' && 'text-theme-success',
                           task.status === 'failed' && 'text-theme-danger',
                           task.status === 'cancelled' && 'text-theme-warning',
-                          task.status === 'pending' && 'text-theme-muted',
+                          task.status === 'pending' && 'text-theme-tertiary',
                           task.status === 'input_required' && 'text-theme-warning'
                         )}
                       />
@@ -215,7 +215,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
                       <span className="font-medium font-mono text-xs">
                         {task.from_agent_id?.substring(0, 8) || 'Unknown'}...
                       </span>
-                      <ArrowRight className="h-4 w-4 text-theme-muted" />
+                      <ArrowRight className="h-4 w-4 text-theme-tertiary" />
                       <span className="font-medium font-mono text-xs">
                         {task.to_agent_id?.substring(0, 8) || 'Unknown'}...
                       </span>
@@ -229,7 +229,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
                     )}
 
                     {/* Metadata */}
-                    <div className="flex items-center gap-4 text-xs text-theme-muted">
+                    <div className="flex items-center gap-4 text-xs text-theme-tertiary">
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {formatTime(task.created_at)}

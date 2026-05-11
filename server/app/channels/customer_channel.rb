@@ -101,7 +101,10 @@ class CustomerChannel < ApplicationCable::Channel
   private
 
   def admin_user?
-    current_user&.admin_or_owner?
+    # User#admin_or_owner? was never defined — User exposes admin? and owner?
+    # separately. Either role qualifies as the "admin" tier for this channel.
+    return false unless current_user
+    current_user.admin? || current_user.owner?
   end
 
   def build_search_query(search_query, filters = {})

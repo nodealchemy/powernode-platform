@@ -95,7 +95,7 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
         {/* Total count */}
         <div className="text-center p-4 bg-theme-surface rounded-lg">
           <div className="text-3xl font-bold text-theme-primary">{totalEntries}</div>
-          <div className="text-sm text-theme-muted">Total Memories</div>
+          <div className="text-sm text-theme-tertiary">Total Memories</div>
         </div>
 
         {/* By tier breakdown */}
@@ -113,7 +113,7 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.working.count}
               </div>
-              <div className="text-xs text-theme-muted">Working</div>
+              <div className="text-xs text-theme-tertiary">Working</div>
             </div>
             <div
               className={cn(
@@ -126,8 +126,8 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.short_term.total}
               </div>
-              <div className="text-xs text-theme-muted">Short-Term</div>
-              <div className="text-xs text-theme-muted">
+              <div className="text-xs text-theme-tertiary">Short-Term</div>
+              <div className="text-xs text-theme-tertiary">
                 {stats.short_term.active} active / {stats.short_term.expired} expired
               </div>
             </div>
@@ -142,8 +142,8 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.long_term.total}
               </div>
-              <div className="text-xs text-theme-muted">Long-Term</div>
-              <div className="text-xs text-theme-muted">
+              <div className="text-xs text-theme-tertiary">Long-Term</div>
+              <div className="text-xs text-theme-tertiary">
                 {stats.long_term.active} active
               </div>
             </div>
@@ -158,8 +158,8 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.shared.total}
               </div>
-              <div className="text-xs text-theme-muted">Shared</div>
-              <div className="text-xs text-theme-muted">
+              <div className="text-xs text-theme-tertiary">Shared</div>
+              <div className="text-xs text-theme-tertiary">
                 {stats.shared.with_embedding} with embedding
               </div>
             </div>

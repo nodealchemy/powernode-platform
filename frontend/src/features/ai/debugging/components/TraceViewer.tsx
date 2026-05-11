@@ -96,23 +96,23 @@ export const TraceViewer: React.FC<TraceViewerProps> = ({ trace, className }) =>
         <CardContent>
           <div className="grid grid-cols-5 gap-4 text-sm">
             <div>
-              <span className="text-theme-muted">Duration</span>
+              <span className="text-theme-tertiary">Duration</span>
               <p className="font-medium text-theme-primary">{formatDuration(trace.duration_ms)}</p>
             </div>
             <div>
-              <span className="text-theme-muted">Spans</span>
+              <span className="text-theme-tertiary">Spans</span>
               <p className="font-medium text-theme-primary">{trace.summary.total_spans}</p>
             </div>
             <div>
-              <span className="text-theme-muted">LLM Calls</span>
+              <span className="text-theme-tertiary">LLM Calls</span>
               <p className="font-medium text-theme-primary">{trace.summary.llm_calls}</p>
             </div>
             <div>
-              <span className="text-theme-muted">Total Tokens</span>
+              <span className="text-theme-tertiary">Total Tokens</span>
               <p className="font-medium text-theme-primary">{trace.summary.total_tokens.toLocaleString()}</p>
             </div>
             <div>
-              <span className="text-theme-muted">Total Cost</span>
+              <span className="text-theme-tertiary">Total Cost</span>
               <p className="font-medium text-theme-primary">{formatCost(trace.summary.total_cost)}</p>
             </div>
           </div>
@@ -141,7 +141,7 @@ export const TraceViewer: React.FC<TraceViewerProps> = ({ trace, className }) =>
           <CardContent className="p-0 h-full overflow-auto">
             {viewMode === 'tree' ? (
               <div className="min-w-max">
-                <div className="flex items-center gap-2 px-3 py-2 bg-theme-surface border-b border-theme sticky top-0 text-xs text-theme-muted font-medium">
+                <div className="flex items-center gap-2 px-3 py-2 bg-theme-surface border-b border-theme sticky top-0 text-xs text-theme-tertiary font-medium">
                   <span className="w-5" />
                   <span className="w-4" />
                   <span className="w-4" />

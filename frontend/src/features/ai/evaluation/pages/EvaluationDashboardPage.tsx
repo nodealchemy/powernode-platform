@@ -25,7 +25,7 @@ export const EvaluationContent: React.FC = () => {
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === tab.id
                 ? 'border-theme-primary text-theme-primary'
-                : 'border-transparent text-theme-muted hover:text-theme-secondary'
+                : 'border-transparent text-theme-tertiary hover:text-theme-secondary'
             }`}
           >
             {tab.label}

@@ -62,7 +62,7 @@ export const McpToolLog: React.FC<McpToolLogProps> = ({ entries, className }) =>
     <div className={cn('flex flex-col border-t border-theme', className)}>
       <div className="flex items-center justify-between px-3 py-1.5 bg-theme-surface border-b border-theme">
         <span className="text-xs font-medium text-theme-secondary">Tool Log</span>
-        <span className="text-[10px] text-theme-muted">
+        <span className="text-[10px] text-theme-tertiary">
           {displayEntries.length} entries
         </span>
       </div>
@@ -73,13 +73,13 @@ export const McpToolLog: React.FC<McpToolLogProps> = ({ entries, className }) =>
         style={{ maxHeight: 160 }}
       >
         {displayEntries.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-theme-muted">
+          <div className="px-3 py-4 text-center text-xs text-theme-tertiary">
             No tool executions yet
           </div>
         ) : (
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-theme-surface">
-              <tr className="text-theme-muted">
+              <tr className="text-theme-tertiary">
                 <th className="text-left px-3 py-1 font-normal">Time</th>
                 <th className="text-left px-2 py-1 font-normal">Server</th>
                 <th className="text-left px-2 py-1 font-normal">Tool</th>
@@ -95,7 +95,7 @@ export const McpToolLog: React.FC<McpToolLogProps> = ({ entries, className }) =>
                     key={entry.id}
                     className="border-t border-theme/50 hover:bg-theme-surface-hover transition-colors"
                   >
-                    <td className="px-3 py-1 text-theme-muted whitespace-nowrap">
+                    <td className="px-3 py-1 text-theme-tertiary whitespace-nowrap">
                       {formatTime(entry.timestamp)}
                     </td>
                     <td className="px-2 py-1 text-theme-secondary truncate max-w-[120px]">
@@ -107,7 +107,7 @@ export const McpToolLog: React.FC<McpToolLogProps> = ({ entries, className }) =>
                     <td className="px-2 py-1">
                       <Badge variant={badge.variant} size="xs">{badge.label}</Badge>
                     </td>
-                    <td className="px-3 py-1 text-right text-theme-muted whitespace-nowrap">
+                    <td className="px-3 py-1 text-right text-theme-tertiary whitespace-nowrap">
                       {formatDuration(entry.durationMs)}
                     </td>
                   </tr>

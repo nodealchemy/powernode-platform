@@ -216,7 +216,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
               <div className="text-2xl font-bold text-theme-primary">{activityStats.totalRequests.toLocaleString()}</div>
               <div className="text-sm text-theme-secondary">Total Requests</div>
             </div>
-            <div className="p-2 bg-theme-info-background rounded-lg">
+            <div className="p-2 bg-theme-info rounded-lg">
               <Activity className="w-5 h-5 text-theme-info" />
             </div>
           </div>
@@ -267,7 +267,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
               <div className="text-2xl font-bold text-theme-primary">{activityStats.errorCount}</div>
               <div className="text-sm text-theme-secondary">Errors</div>
             </div>
-            <div className="p-2 bg-theme-error-background rounded-lg">
+            <div className="p-2 bg-theme-error rounded-lg">
               <AlertTriangle className="w-5 h-5 text-theme-error" />
             </div>
           </div>
@@ -318,7 +318,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
             activityStats.topEndpoints.map((endpoint, index) => (
               <div key={endpoint.endpoint} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-theme-info-background text-theme-info text-xs font-semibold flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-theme-info text-theme-info text-xs font-semibold flex items-center justify-center">
                     {index + 1}
                   </div>
                   <code className="text-sm font-mono text-theme-primary">{endpoint.endpoint}</code>

@@ -127,7 +127,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
             <span>Requests: {service.request_count}</span>
             {service.active_recently ? (
               <span className="flex items-center gap-1 text-theme-success">
-                <div className="w-2 h-2 bg-theme-success-solid rounded-full"></div>
+                <div className="w-2 h-2 bg-theme-success rounded-full"></div>
                 Active
               </span>
             ) : (

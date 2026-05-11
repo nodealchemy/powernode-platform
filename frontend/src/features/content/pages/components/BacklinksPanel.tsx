@@ -144,7 +144,7 @@ export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({ pageId, pageTitl
                   <div className="flex items-center space-x-2">
                     <div className="w-16 h-1.5 rounded-full bg-theme-surface overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-theme-success-solid"
+                        className="h-full rounded-full bg-theme-success"
                         style={{ width: `${Math.round(rp.similarity * 100)}%` }}
                       />
                     </div>

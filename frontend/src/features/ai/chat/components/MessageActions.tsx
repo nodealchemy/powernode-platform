@@ -149,7 +149,7 @@ export const MessageActions: React.FC<MessageActionsProps> = ({
                 setShowMenu(false);
                 onDelete();
               }}
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-theme-error hover:bg-theme-error-background"
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-theme-error hover:bg-theme-error"
             >
               {message.deleted_at ? (
                 <>

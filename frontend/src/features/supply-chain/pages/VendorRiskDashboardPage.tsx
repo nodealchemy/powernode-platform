@@ -114,7 +114,7 @@ export const VendorRiskDashboardPage: React.FC = () => {
           <h3 className="text-lg font-semibold text-theme-primary mb-4">Critical Risk Vendors</h3>
           <div className="text-center py-8">
             <Shield className="w-12 h-12 text-theme-success mx-auto mb-3 opacity-50" />
-            <p className="text-theme-muted">No critical risk vendors</p>
+            <p className="text-theme-tertiary">No critical risk vendors</p>
           </div>
         </div>
       );
@@ -181,8 +181,8 @@ export const VendorRiskDashboardPage: React.FC = () => {
           </div>
         ) : (
           <div className="text-center py-8">
-            <FileWarning className="w-12 h-12 text-theme-muted mx-auto mb-3 opacity-50" />
-            <p className="text-theme-muted">No upcoming assessments scheduled</p>
+            <FileWarning className="w-12 h-12 text-theme-tertiary mx-auto mb-3 opacity-50" />
+            <p className="text-theme-tertiary">No upcoming assessments scheduled</p>
           </div>
         )}
       </div>

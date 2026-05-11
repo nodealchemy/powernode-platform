@@ -77,7 +77,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-theme-muted">Total Messages</p>
+                <p className="text-sm text-theme-tertiary">Total Messages</p>
                 <p className="text-2xl font-bold text-theme-primary">
                   {totalMessages.toLocaleString()}
                 </p>
@@ -91,7 +91,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-theme-muted">Avg Response Time</p>
+                <p className="text-sm text-theme-tertiary">Avg Response Time</p>
                 <p className="text-2xl font-bold text-theme-primary">
                   {avgResponseTime.toFixed(0)}ms
                 </p>
@@ -105,7 +105,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-theme-muted">Success Rate</p>
+                <p className="text-sm text-theme-tertiary">Success Rate</p>
                 <p className="text-2xl font-bold text-theme-primary">
                   {avgSuccessRate.toFixed(1)}%
                 </p>
@@ -119,7 +119,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-theme-muted">Total Cost</p>
+                <p className="text-sm text-theme-tertiary">Total Cost</p>
                 <p className="text-2xl font-bold text-theme-primary">
                   ${totalCost.toFixed(4)}
                 </p>
@@ -143,7 +143,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
               {/* Health Score */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-theme-muted">Health Score</span>
+                  <span className="text-theme-tertiary">Health Score</span>
                   <span className={`font-medium ${conversation.health_score >= 90 ? 'text-theme-success' : conversation.health_score >= 70 ? 'text-theme-warning' : 'text-theme-error'}`}>
                     {conversation.health_score.toFixed(1)}%
                   </span>
@@ -157,32 +157,32 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
                   <div className="font-medium text-theme-primary">
                     {conversation.participants.human_messages}
                   </div>
-                  <div className="text-xs text-theme-muted">Human</div>
+                  <div className="text-xs text-theme-tertiary">Human</div>
                 </div>
                 <div className="text-center p-2 bg-theme-surface rounded">
                   <div className="font-medium text-theme-success">
                     {conversation.participants.ai_messages}
                   </div>
-                  <div className="text-xs text-theme-muted">AI</div>
+                  <div className="text-xs text-theme-tertiary">AI</div>
                 </div>
                 <div className="text-center p-2 bg-theme-surface rounded">
                   <div className="font-medium text-theme-info">
                     {conversation.participants.system_messages}
                   </div>
-                  <div className="text-xs text-theme-muted">System</div>
+                  <div className="text-xs text-theme-tertiary">System</div>
                 </div>
               </div>
 
               {/* Performance Metrics */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-theme-muted block">Avg Response</span>
+                  <span className="text-theme-tertiary block">Avg Response</span>
                   <span className="font-medium">
                     {conversation.performance.avg_response_time.toFixed(0)}ms
                   </span>
                 </div>
                 <div>
-                  <span className="text-theme-muted block">Throughput</span>
+                  <span className="text-theme-tertiary block">Throughput</span>
                   <span className="font-medium">
                     {conversation.performance.message_throughput.toFixed(1)}/min
                   </span>
@@ -192,13 +192,13 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
               {/* Usage Stats */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-theme-muted block">Total Messages</span>
+                  <span className="text-theme-tertiary block">Total Messages</span>
                   <span className="font-medium">
                     {conversation.usage.messages_count}
                   </span>
                 </div>
                 <div>
-                  <span className="text-theme-muted block">Tokens</span>
+                  <span className="text-theme-tertiary block">Tokens</span>
                   <span className="font-medium">
                     {conversation.usage.total_tokens.toLocaleString()}
                   </span>
@@ -207,7 +207,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
 
               {/* Cost */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-theme-muted">Total Cost</span>
+                <span className="text-theme-tertiary">Total Cost</span>
                 <span className="font-medium">
                   ${conversation.usage.total_cost.toFixed(4)}
                 </span>
@@ -216,11 +216,11 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
               {/* Agent Usage */}
               {conversation.agent_usage.length > 0 && (
                 <div className="space-y-2">
-                  <span className="text-sm text-theme-muted">Agent Usage</span>
+                  <span className="text-sm text-theme-tertiary">Agent Usage</span>
                   <div className="space-y-1">
                     {conversation.agent_usage.slice(0, 2).map((agent, index) => (
                       <div key={index} className="flex items-center justify-between text-xs">
-                        <span className="text-theme-muted truncate">{agent.agent_name}</span>
+                        <span className="text-theme-tertiary truncate">{agent.agent_name}</span>
                         <span className="font-medium">{agent.message_count}</span>
                       </div>
                     ))}
@@ -230,7 +230,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
 
               {/* Last Activity */}
               {conversation.last_activity && (
-                <div className="flex items-center gap-2 text-xs text-theme-muted">
+                <div className="flex items-center gap-2 text-xs text-theme-tertiary">
                   <Clock className="h-3 w-3" />
                   <span>Last: {new Date(conversation.last_activity).toLocaleTimeString()}</span>
                 </div>
@@ -243,8 +243,8 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
       {conversations.length === 0 && !isLoading && (
         <Card>
           <CardContent className="py-8 text-center">
-            <MessageCircle className="h-12 w-12 text-theme-muted mx-auto mb-4" />
-            <p className="text-theme-muted">No conversations found for the selected time range</p>
+            <MessageCircle className="h-12 w-12 text-theme-tertiary mx-auto mb-4" />
+            <p className="text-theme-tertiary">No conversations found for the selected time range</p>
           </CardContent>
         </Card>
       )}

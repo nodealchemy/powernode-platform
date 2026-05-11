@@ -169,7 +169,7 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
         {/* Filters */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-theme-muted" />
+            <Filter className="h-4 w-4 text-theme-tertiary" />
             <Select
               value={typeFilter}
               onChange={(value) => setTypeFilter(value)}
@@ -234,7 +234,7 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
                   </div>
                 </div>
 
-                <div className="grid grid-cols-5 gap-4 text-xs text-theme-muted">
+                <div className="grid grid-cols-5 gap-4 text-xs text-theme-tertiary">
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {formatTime(trace.started_at)}

@@ -11,11 +11,11 @@ interface AuditLogMetricsProps {
 }
 
 const colorMap = {
-  blue: 'text-theme-link bg-theme-link-background',
+  blue: 'text-theme-link bg-theme-info',
   green: 'text-theme-success bg-theme-success-background',
-  red: 'text-theme-error bg-theme-error-background',
+  red: 'text-theme-error bg-theme-error',
   yellow: 'text-theme-warning bg-theme-warning-background',
-  purple: 'text-theme-info bg-theme-info-background'
+  purple: 'text-theme-info bg-theme-info'
 };
 
 export const AuditLogMetrics: React.FC<AuditLogMetricsProps> = ({

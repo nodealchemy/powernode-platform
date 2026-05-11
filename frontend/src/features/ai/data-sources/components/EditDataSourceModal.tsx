@@ -310,7 +310,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
                       <div className={`h-3 w-3 rounded-full ${
                         credential.last_test_status === 'success' ? 'bg-theme-success' :
                         credential.last_test_status === 'failed' ? 'bg-theme-error' :
-                        'bg-theme-muted'
+                        'bg-theme-background-secondary'
                       }`} />
                       <div>
                         <p className="text-sm font-medium text-theme-primary">
@@ -319,7 +319,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
                             <span className="ml-2 px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">Default</span>
                           )}
                         </p>
-                        <div className="flex items-center gap-4 text-xs text-theme-muted">
+                        <div className="flex items-center gap-4 text-xs text-theme-tertiary">
                           {credential.is_active ? (
                             <Badge variant="success" size="sm">Active</Badge>
                           ) : (

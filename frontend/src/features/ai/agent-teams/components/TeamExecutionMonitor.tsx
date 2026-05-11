@@ -173,7 +173,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
       case 'failed':
         return <XCircle className="text-theme-danger" size={20} />;
       default:
-        return <Clock className="text-theme-muted" size={20} />;
+        return <Clock className="text-theme-tertiary" size={20} />;
     }
   };
 
@@ -217,7 +217,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
       case 'failed':
         return <XCircle className="text-theme-danger" size={14} />;
       default:
-        return <Clock className="text-theme-muted" size={14} />;
+        return <Clock className="text-theme-tertiary" size={14} />;
     }
   };
 
@@ -249,7 +249,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
           )}
 
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-theme-success-solid' : 'bg-theme-danger-solid'}`} />
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-theme-success' : 'bg-theme-danger'}`} />
             <span className="text-xs text-theme-secondary">
               {isConnected ? 'Live' : 'Disconnected'}
             </span>

@@ -167,7 +167,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
         )}
 
         {/* Metadata */}
-        <div className="flex items-center gap-4 mt-3 text-xs text-theme-muted">
+        <div className="flex items-center gap-4 mt-3 text-xs text-theme-tertiary">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             {formatDateTime(memory.created_at)}
@@ -275,19 +275,19 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
             {/* Additional details */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <span className="text-xs text-theme-muted">Source Type</span>
+                <span className="text-xs text-theme-tertiary">Source Type</span>
                 <div className="text-theme-primary">{memory.source_type || 'N/A'}</div>
               </div>
               <div>
-                <span className="text-xs text-theme-muted">Version</span>
+                <span className="text-xs text-theme-tertiary">Version</span>
                 <div className="text-theme-primary">{memory.version}</div>
               </div>
               <div>
-                <span className="text-xs text-theme-muted">Decay Rate</span>
+                <span className="text-xs text-theme-tertiary">Decay Rate</span>
                 <div className="text-theme-primary">{memory.decay_rate}</div>
               </div>
               <div>
-                <span className="text-xs text-theme-muted">Last Accessed</span>
+                <span className="text-xs text-theme-tertiary">Last Accessed</span>
                 <div className="text-theme-primary">
                   {memory.last_accessed_at
                     ? formatDateTime(memory.last_accessed_at)

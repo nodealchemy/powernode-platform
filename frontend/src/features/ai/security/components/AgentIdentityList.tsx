@@ -201,7 +201,7 @@ export const AgentIdentityList: React.FC<AgentIdentityListProps> = ({ onProvisio
             value={agentIdFilter}
             onChange={(e) => { setAgentIdFilter(e.target.value); setFilters((prev) => ({ ...prev, page: 1 })); }}
             placeholder="Filter by agent ID..."
-            className="text-sm px-2 py-1 rounded border border-theme bg-theme-bg text-theme-primary placeholder:text-theme-muted w-48"
+            className="text-sm px-2 py-1 rounded border border-theme bg-theme-surface text-theme-primary placeholder:text-theme-tertiary w-48"
           />
         </div>
 

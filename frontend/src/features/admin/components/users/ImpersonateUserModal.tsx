@@ -136,7 +136,7 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
                     key={user.id}
                     className={`p-3 border-b border-theme last:border-b-0 cursor-pointer transition-colors ${
                       selectedUser?.id === user.id
-                        ? 'bg-theme-interactive-background border-theme-interactive-primary'
+                        ? 'bg-theme-interactive-primary border-theme-interactive-primary'
                         : 'hover:bg-theme-surface-hover'
                     }`}
                     onClick={() => setSelectedUser(user)}

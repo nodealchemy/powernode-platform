@@ -26,7 +26,7 @@ export const RoiComparisonTable: React.FC<RoiComparisonTableProps> = ({
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold ${
                   index === 0 ? 'bg-theme-success' :
-                  index === 1 ? 'bg-theme-info' : 'bg-theme-muted'
+                  index === 1 ? 'bg-theme-info' : 'bg-theme-background-secondary'
                 }`}>
                   {index + 1}
                 </div>

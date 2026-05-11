@@ -250,7 +250,7 @@ export const LicenseViolationDetailPage: React.FC = () => {
             Activity History
           </h3>
           <div className="space-y-4">
-            <div className="flex items-start gap-3 p-3 bg-theme-muted rounded-lg">
+            <div className="flex items-start gap-3 p-3 bg-theme-background-secondary rounded-lg">
               <AlertTriangle className="w-5 h-5 text-theme-warning flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium text-theme-primary">Violation Detected</p>
@@ -260,7 +260,7 @@ export const LicenseViolationDetailPage: React.FC = () => {
               </div>
             </div>
             {violation.resolved_at && (
-              <div className="flex items-start gap-3 p-3 bg-theme-muted rounded-lg">
+              <div className="flex items-start gap-3 p-3 bg-theme-background-secondary rounded-lg">
                 <CheckCircle className="w-5 h-5 text-theme-success flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-theme-primary">

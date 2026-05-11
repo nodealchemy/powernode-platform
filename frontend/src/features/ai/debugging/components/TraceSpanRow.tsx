@@ -56,7 +56,7 @@ export const spanTypeIcons: Record<string, React.FC<{ className?: string }>> = {
 };
 
 export const statusConfig: Record<string, { icon: React.FC<{ className?: string }>; color: string; bgColor: string }> = {
-  pending: { icon: Clock, color: 'text-theme-muted', bgColor: 'bg-theme-muted/10' },
+  pending: { icon: Clock, color: 'text-theme-tertiary', bgColor: 'bg-theme-background-secondary/10' },
   running: { icon: Loader2, color: 'text-theme-info', bgColor: 'bg-theme-info/10' },
   completed: { icon: CheckCircle, color: 'text-theme-success', bgColor: 'bg-theme-success/10' },
   failed: { icon: XCircle, color: 'text-theme-danger', bgColor: 'bg-theme-danger/10' },
@@ -115,9 +115,9 @@ export const TraceSpanRow: React.FC<TraceSpanRowProps> = ({
         >
           {hasChildren ? (
             isExpanded ? (
-              <ChevronDown className="h-4 w-4 text-theme-muted" />
+              <ChevronDown className="h-4 w-4 text-theme-tertiary" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-theme-muted" />
+              <ChevronRight className="h-4 w-4 text-theme-tertiary" />
             )
           ) : (
             <span className="w-4" />
@@ -132,7 +132,7 @@ export const TraceSpanRow: React.FC<TraceSpanRowProps> = ({
           )}
         />
 
-        <SpanIcon className="h-4 w-4 text-theme-muted" />
+        <SpanIcon className="h-4 w-4 text-theme-tertiary" />
 
         <span className="flex-1 text-sm text-theme-primary truncate">
           {span.name}
@@ -142,18 +142,18 @@ export const TraceSpanRow: React.FC<TraceSpanRowProps> = ({
           {span.type}
         </Badge>
 
-        <span className="text-xs text-theme-muted w-16 text-right">
+        <span className="text-xs text-theme-tertiary w-16 text-right">
           {formatDuration(span.duration_ms)}
         </span>
 
         {span.tokens.total > 0 && (
-          <span className="text-xs text-theme-muted w-16 text-right">
+          <span className="text-xs text-theme-tertiary w-16 text-right">
             {span.tokens.total} tok
           </span>
         )}
 
         {span.cost > 0 && (
-          <span className="text-xs text-theme-muted w-20 text-right">
+          <span className="text-xs text-theme-tertiary w-20 text-right">
             {formatCost(span.cost)}
           </span>
         )}

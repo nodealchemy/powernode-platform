@@ -145,11 +145,11 @@ export const versionApi = {
     if (parsed.prerelease?.includes('dev')) {
       return 'bg-theme-warning-background text-theme-warning';
     } else if (parsed.prerelease?.includes('alpha')) {
-      return 'bg-theme-error-background text-theme-error';
+      return 'bg-theme-error text-theme-error';
     } else if (parsed.prerelease?.includes('beta')) {
       return 'bg-theme-warning-background text-theme-warning';
     } else if (parsed.prerelease?.includes('rc')) {
-      return 'bg-theme-info-background text-theme-info';
+      return 'bg-theme-info text-theme-info';
     } else {
       return 'bg-theme-success-background text-theme-success';
     }

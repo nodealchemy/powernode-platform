@@ -35,10 +35,10 @@ const ApprovalCard: React.FC<{ request: ApprovalRequest }> = ({ request }) => {
             </span>
           </div>
           {request.agent_name && (
-            <p className="text-xs text-theme-muted">Agent: {request.agent_name}</p>
+            <p className="text-xs text-theme-tertiary">Agent: {request.agent_name}</p>
           )}
           {request.description && (
-            <p className="text-xs text-theme-muted mt-1">{request.description}</p>
+            <p className="text-xs text-theme-tertiary mt-1">{request.description}</p>
           )}
         </div>
         <Badge
@@ -49,7 +49,7 @@ const ApprovalCard: React.FC<{ request: ApprovalRequest }> = ({ request }) => {
         </Badge>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-theme-muted">
+      <div className="flex items-center justify-between text-xs text-theme-tertiary">
         <span>Created: {formatDate(request.created_at)}</span>
         {request.expires_at && <span>Expires: {formatDate(request.expires_at)}</span>}
       </div>
@@ -96,7 +96,7 @@ export const ApprovalQueuePanel: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="py-6 text-center text-theme-muted">
+          <div className="py-6 text-center text-theme-tertiary">
             <Clock className="w-10 h-10 mx-auto mb-2 opacity-30" />
             <p className="text-sm">No pending approvals</p>
           </div>

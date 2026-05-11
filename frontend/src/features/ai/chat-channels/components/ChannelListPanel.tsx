@@ -15,7 +15,7 @@ interface ChannelListPanelProps {
 
 const statusConfig: Record<ChannelStatus, { variant: 'success' | 'danger' | 'warning' | 'outline'; label: string; dot: string }> = {
   active: { variant: 'success', label: 'Connected', dot: 'bg-theme-success' },
-  inactive: { variant: 'outline', label: 'Inactive', dot: 'bg-theme-muted' },
+  inactive: { variant: 'outline', label: 'Inactive', dot: 'bg-theme-background-secondary' },
   error: { variant: 'danger', label: 'Error', dot: 'bg-theme-danger' },
   disconnected: { variant: 'warning', label: 'Disconnected', dot: 'bg-theme-warning' },
 };
@@ -124,20 +124,20 @@ export const ChannelListPanel: React.FC<ChannelListPanelProps> = ({
   const search = (
     <div className="px-3 py-2 border-b border-theme">
       <div className="relative">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-theme-muted" />
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-theme-tertiary" />
         <input
           type="text"
           placeholder="Search channels..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-surface-dark border border-theme rounded text-theme-primary placeholder:text-theme-muted focus:outline-none focus:border-theme-interactive-primary"
+          className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-surface-dark border border-theme rounded text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:border-theme-interactive-primary"
         />
       </div>
     </div>
   );
 
   const footer = (
-    <div className="px-3 py-2 border-t border-theme text-xs text-theme-muted flex items-center gap-3">
+    <div className="px-3 py-2 border-t border-theme text-xs text-theme-tertiary flex items-center gap-3">
       <span>{stats.total} channels</span>
       <span>{stats.active} connected</span>
     </div>

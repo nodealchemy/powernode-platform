@@ -157,24 +157,24 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
                   onClick={() => setMode(modeKey)}
                   className={cn(
                     'relative flex flex-col items-center p-3 rounded-lg border-2 transition-all',
-                    'hover:border-theme-brand-primary/50',
+                    'hover:border-theme-interactive-primary/50',
                     isSelected
-                      ? 'border-theme-brand-primary bg-theme-brand-primary/20 ring-2 ring-theme-brand-primary/30'
+                      ? 'border-theme-interactive-primary bg-theme-interactive-primary/20 ring-2 ring-theme-brand-primary/30'
                       : 'border-theme-interactive-primary bg-theme-surface'
                   )}
                 >
                   {isSelected && (
-                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-theme-brand-primary flex items-center justify-center">
+                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-theme-interactive-primary flex items-center justify-center">
                       <Check className="w-2.5 h-2.5 text-white" />
                     </div>
                   )}
                   <Icon className={cn(
                     'w-5 h-5 mb-1',
-                    isSelected ? 'text-theme-brand-primary' : 'text-theme-secondary'
+                    isSelected ? 'text-theme-interactive-primary' : 'text-theme-secondary'
                   )} />
                   <span className={cn(
                     'text-xs font-medium',
-                    isSelected ? 'text-theme-brand-primary' : 'text-theme-text-primary'
+                    isSelected ? 'text-theme-interactive-primary' : 'text-theme-text-primary'
                   )}>
                     {modeConfig.label}
                   </span>

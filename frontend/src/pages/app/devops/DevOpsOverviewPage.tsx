@@ -593,7 +593,7 @@ export function DevOpsOverviewPage() {
                           className="flex-1 flex flex-col items-center justify-end h-full group"
                         >
                           <div
-                            className={`w-full rounded-t-sm bg-theme-success-solid transition-all group-hover:opacity-80 cursor-default ${getActivityBarHeight(week.count, maxCount)}`}
+                            className={`w-full rounded-t-sm bg-theme-success transition-all group-hover:opacity-80 cursor-default ${getActivityBarHeight(week.count, maxCount)}`}
                             title={`Week of ${week.weekLabel}: ${week.count} commit${week.count !== 1 ? 's' : ''}`}
                           />
                         </div>

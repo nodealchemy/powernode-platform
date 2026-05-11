@@ -101,7 +101,7 @@ export const McpSessionsTab: React.FC<McpSessionsTabProps> = ({ onActionsReady }
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleRevoke(session.id)}
-                            className="rounded px-2 py-1 text-xs bg-theme-error text-white hover:bg-theme-error-hover"
+                            className="rounded px-2 py-1 text-xs bg-theme-error text-white hover:bg-theme-error"
                           >
                             Confirm
                           </button>

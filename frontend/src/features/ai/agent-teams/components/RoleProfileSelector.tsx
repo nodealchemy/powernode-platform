@@ -147,7 +147,7 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
                 {selectedProfile.quality_checks.map((check: Record<string, string>, idx: number) => (
                   <li key={idx} className="flex items-center gap-2 text-xs text-theme-secondary">
                     <span className={`w-2 h-2 rounded-full ${
-                      check.severity === 'error' ? 'bg-theme-danger-solid' :
+                      check.severity === 'error' ? 'bg-theme-danger' :
                       check.severity === 'warning' ? 'bg-theme-warning' :
                       'bg-theme-info'
                     }`} />

@@ -12,7 +12,7 @@ function getRatingStars(rating: number, size = 'h-3.5 w-3.5') {
   return Array.from({ length: 5 }, (_, i) => (
     <Star
       key={i}
-      className={`${size} ${i < rating ? 'text-theme-warning fill-current' : 'text-theme-muted'}`}
+      className={`${size} ${i < rating ? 'text-theme-warning fill-current' : 'text-theme-tertiary'}`}
     />
   ));
 }
@@ -41,7 +41,7 @@ const StarInput: React.FC<{ value: number; onChange: (v: number) => void }> = ({
         onClick={() => onChange(i + 1)}
         className="p-0.5"
       >
-        <Star className={`h-5 w-5 ${i < value ? 'text-theme-warning fill-current' : 'text-theme-muted hover:text-theme-warning/50'}`} />
+        <Star className={`h-5 w-5 ${i < value ? 'text-theme-warning fill-current' : 'text-theme-tertiary hover:text-theme-warning/50'}`} />
       </button>
     ))}
   </div>
@@ -78,7 +78,7 @@ const FeedbackForm: React.FC<{
         </select>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-theme-muted">Rating:</span>
+        <span className="text-sm text-theme-tertiary">Rating:</span>
         <StarInput value={rating} onChange={setRating} />
       </div>
       <textarea
@@ -113,10 +113,10 @@ const FeedbackCard: React.FC<{ feedback: AgentFeedback; isExpanded: boolean; onT
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-theme-primary">{feedback.agent?.name || 'Unknown Agent'}</span>
-          <span className="px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-muted">
+          <span className="px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-tertiary">
             {getFeedbackTypeLabel(feedback.feedback_type)}
           </span>
-          <span className="text-xs text-theme-muted">{new Date(feedback.created_at).toLocaleDateString()}</span>
+          <span className="text-xs text-theme-tertiary">{new Date(feedback.created_at).toLocaleDateString()}</span>
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -124,7 +124,7 @@ const FeedbackCard: React.FC<{ feedback: AgentFeedback; isExpanded: boolean; onT
         {feedback.applied_to_trust && (
           <span title="Applied to trust"><ThumbsUp className="h-3.5 w-3.5 text-theme-success" /></span>
         )}
-        <ChevronDown className={`h-4 w-4 text-theme-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-theme-tertiary transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
       </div>
     </div>
 
@@ -134,16 +134,16 @@ const FeedbackCard: React.FC<{ feedback: AgentFeedback; isExpanded: boolean; onT
         {feedback.comment ? (
           <p className="text-sm text-theme-secondary">{feedback.comment}</p>
         ) : (
-          <p className="text-sm text-theme-muted italic">No comment provided.</p>
+          <p className="text-sm text-theme-tertiary italic">No comment provided.</p>
         )}
 
         <div className="flex items-center gap-1">
-          <span className="text-xs text-theme-muted mr-1">Rating:</span>
+          <span className="text-xs text-theme-tertiary mr-1">Rating:</span>
           {getRatingStars(feedback.rating, 'h-4 w-4')}
-          <span className="text-xs text-theme-muted ml-1">({feedback.rating}/5)</span>
+          <span className="text-xs text-theme-tertiary ml-1">({feedback.rating}/5)</span>
         </div>
 
-        <div className="flex flex-wrap gap-4 text-xs text-theme-muted">
+        <div className="flex flex-wrap gap-4 text-xs text-theme-tertiary">
           {feedback.user?.email && <span>Submitted by: {feedback.user.email}</span>}
           {feedback.context_type && <span>Context: {feedback.context_type.split('::').pop()}</span>}
           {feedback.context_id && <span>ID: {feedback.context_id.substring(0, 8)}...</span>}
@@ -155,7 +155,7 @@ const FeedbackCard: React.FC<{ feedback: AgentFeedback; isExpanded: boolean; onT
           )}
         </div>
 
-        <p className="text-xs text-theme-muted italic">Feedback records are immutable once submitted.</p>
+        <p className="text-xs text-theme-tertiary italic">Feedback records are immutable once submitted.</p>
       </div>
     )}
   </div>
@@ -174,22 +174,22 @@ const FeedbackSummary: React.FC<{ feedbacks: AgentFeedback[] }> = ({ feedbacks }
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
       <Card className="p-3">
-        <p className="text-xs text-theme-muted">Total Feedback</p>
+        <p className="text-xs text-theme-tertiary">Total Feedback</p>
         <p className="text-xl font-semibold text-theme-primary">{feedbacks.length}</p>
       </Card>
       <Card className="p-3">
-        <p className="text-xs text-theme-muted">Avg Rating</p>
+        <p className="text-xs text-theme-tertiary">Avg Rating</p>
         <div className="flex items-center gap-1">
           <p className="text-xl font-semibold text-theme-primary">{avgRating.toFixed(1)}</p>
           <Star className="h-4 w-4 text-theme-warning fill-current" />
         </div>
       </Card>
       <Card className="p-3">
-        <p className="text-xs text-theme-muted">Applied to Trust</p>
+        <p className="text-xs text-theme-tertiary">Applied to Trust</p>
         <p className="text-xl font-semibold text-theme-success">{appliedCount}</p>
       </Card>
       <Card className="p-3">
-        <p className="text-xs text-theme-muted">Types</p>
+        <p className="text-xs text-theme-tertiary">Types</p>
         <div className="text-xs text-theme-secondary mt-1">
           {Object.entries(typeBreakdown).map(([type, count]) => (
             <span key={type} className="mr-2">{getFeedbackTypeLabel(type)}: {count}</span>
@@ -264,7 +264,7 @@ export const FeedbackPanel: React.FC = () => {
             <option value="">All types</option>
             {FEEDBACK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
-          <span className="text-sm text-theme-muted">{filteredFeedbacks.length} record{filteredFeedbacks.length !== 1 ? 's' : ''}</span>
+          <span className="text-sm text-theme-tertiary">{filteredFeedbacks.length} record{filteredFeedbacks.length !== 1 ? 's' : ''}</span>
         </div>
         <button
           onClick={() => setShowCreate(prev => !prev)}
@@ -287,7 +287,7 @@ export const FeedbackPanel: React.FC = () => {
       {/* Feedback list */}
       {filteredFeedbacks.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-theme-muted">
+          <CardContent className="p-8 text-center text-theme-tertiary">
             <Star className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>No feedback yet. Submit feedback on agent work to improve trust scores.</p>
           </CardContent>

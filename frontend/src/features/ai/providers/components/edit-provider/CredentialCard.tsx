@@ -31,7 +31,7 @@ const getTestStatusBadge = (credential: AiProviderCredential) => {
   const lastTestStatus = credential.last_test_status;
 
   if (!lastTestAt) {
-    return <span className="text-xs px-2 py-0.5 rounded bg-theme-surface/20 text-theme-muted">Not tested</span>;
+    return <span className="text-xs px-2 py-0.5 rounded bg-theme-surface/20 text-theme-tertiary">Not tested</span>;
   }
   if (lastTestStatus === 'success') {
     return <span className="text-xs px-2 py-0.5 rounded bg-theme-success/20 text-theme-success flex items-center gap-1"><Check className="h-3 w-3" />Passed</span>;
@@ -141,7 +141,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
             )}
             {getTestStatusBadge(credential)}
           </div>
-          <p className="text-xs text-theme-muted mt-1">
+          <p className="text-xs text-theme-tertiary mt-1">
             {credential.is_active ? 'Active' : 'Inactive'} •
             Last used: {credential.last_used_at ? new Date(credential.last_used_at).toLocaleDateString() : 'Never'}
             {lastTestAt && ` • Last tested: ${new Date(lastTestAt).toLocaleDateString()}`}

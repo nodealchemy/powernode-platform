@@ -123,7 +123,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
       return 'border-b border-theme -mb-px';
     }
     if (variant === 'pills') {
-      return 'bg-theme-muted p-1 rounded-lg';
+      return 'bg-theme-background-secondary p-1 rounded-lg';
     }
     return 'bg-theme-background p-1 rounded-lg border border-theme';
   };
@@ -154,7 +154,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
               {tab.icon && renderIcon(tab.icon)}
               <span>{tab.label}</span>
               {tab.badge !== undefined && (
-                <span className="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-theme-badge text-theme-badge-text">
+                <span className="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-theme-background-secondary text-theme-secondary">
                   {tab.badge}
                 </span>
               )}

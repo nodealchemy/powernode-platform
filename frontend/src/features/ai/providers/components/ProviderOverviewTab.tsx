@@ -15,23 +15,23 @@ export const ProviderOverviewTab: React.FC<ProviderOverviewTabProps> = ({ provid
         <CardHeader title="Provider Information" />
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-theme-muted">Name</label>
+            <label className="text-sm font-medium text-theme-tertiary">Name</label>
             <p className="mt-1 text-theme-primary">{provider.name}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-theme-muted">Slug</label>
+            <label className="text-sm font-medium text-theme-tertiary">Slug</label>
             <p className="mt-1 text-theme-primary">{provider.slug}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-theme-muted">Description</label>
+            <label className="text-sm font-medium text-theme-tertiary">Description</label>
             <p className="mt-1 text-theme-primary break-words">{provider.description}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-theme-muted">Base URL</label>
+            <label className="text-sm font-medium text-theme-tertiary">Base URL</label>
             <p className="mt-1 text-theme-primary font-mono text-xs break-all overflow-hidden">{provider.api_base_url}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-theme-muted">Active</label>
+            <label className="text-sm font-medium text-theme-tertiary">Active</label>
             <p className="mt-1 text-theme-primary">{provider.is_active ? 'Yes' : 'No'}</p>
           </div>
         </CardContent>
@@ -42,7 +42,7 @@ export const ProviderOverviewTab: React.FC<ProviderOverviewTabProps> = ({ provid
         <CardContent className="space-y-4">
           {provider.documentation_url && (
             <div>
-              <label className="text-sm font-medium text-theme-muted">Documentation</label>
+              <label className="text-sm font-medium text-theme-tertiary">Documentation</label>
               <div className="mt-1">
                 <Button
                   variant="outline"
@@ -58,7 +58,7 @@ export const ProviderOverviewTab: React.FC<ProviderOverviewTabProps> = ({ provid
           )}
           {provider.status_url && (
             <div>
-              <label className="text-sm font-medium text-theme-muted">Status Page</label>
+              <label className="text-sm font-medium text-theme-tertiary">Status Page</label>
               <div className="mt-1">
                 <Button
                   variant="outline"
@@ -73,7 +73,7 @@ export const ProviderOverviewTab: React.FC<ProviderOverviewTabProps> = ({ provid
             </div>
           )}
           {!provider.documentation_url && !provider.status_url && (
-            <p className="text-theme-muted">No external links available</p>
+            <p className="text-theme-tertiary">No external links available</p>
           )}
         </CardContent>
       </Card>

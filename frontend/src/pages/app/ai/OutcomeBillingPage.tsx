@@ -411,22 +411,22 @@ export const OutcomeBillingContent: React.FC = () => {
                       </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
-                      <div className="p-2 bg-theme-bg rounded">
+                      <div className="p-2 bg-theme-surface rounded">
                         <p className="text-xs text-theme-secondary">Success Target</p>
                         <p className="text-sm font-medium text-theme-primary">{(contract.targets.success_rate * 100).toFixed(1)}%</p>
                       </div>
                       {contract.targets.latency_p95_ms && (
-                        <div className="p-2 bg-theme-bg rounded">
+                        <div className="p-2 bg-theme-surface rounded">
                           <p className="text-xs text-theme-secondary">Latency P95</p>
                           <p className="text-sm font-medium text-theme-primary">{contract.targets.latency_p95_ms}ms</p>
                         </div>
                       )}
-                      <div className="p-2 bg-theme-bg rounded">
+                      <div className="p-2 bg-theme-surface rounded">
                         <p className="text-xs text-theme-secondary">Breach Credit</p>
                         <p className="text-sm font-medium text-theme-primary">{contract.pricing.breach_credit_percentage}%</p>
                       </div>
                       {contract.current_period.success_rate !== null && (
-                        <div className="p-2 bg-theme-bg rounded">
+                        <div className="p-2 bg-theme-surface rounded">
                           <p className="text-xs text-theme-secondary">Current Rate</p>
                           <p className={`text-sm font-medium ${
                             contract.current_period.breached ? 'text-theme-danger' : 'text-theme-success'
@@ -475,7 +475,7 @@ export const OutcomeBillingContent: React.FC = () => {
                 <div className="bg-theme-surface border border-theme rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-theme bg-theme-bg">
+                      <tr className="border-b border-theme bg-theme-surface">
                         <th className="px-4 py-3 text-left">
                           <input
                             type="checkbox"
@@ -600,19 +600,19 @@ export const OutcomeBillingContent: React.FC = () => {
                     </div>
                     {violation.description && <p className="text-sm text-theme-secondary mb-2">{violation.description}</p>}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
-                      <div className="p-2 bg-theme-bg rounded">
+                      <div className="p-2 bg-theme-surface rounded">
                         <p className="text-xs text-theme-secondary">Target</p>
                         <p className="text-sm font-medium text-theme-primary">{(violation.metrics.target * 100).toFixed(1)}%</p>
                       </div>
-                      <div className="p-2 bg-theme-bg rounded">
+                      <div className="p-2 bg-theme-surface rounded">
                         <p className="text-xs text-theme-secondary">Actual</p>
                         <p className="text-sm font-medium text-theme-danger">{(violation.metrics.actual * 100).toFixed(1)}%</p>
                       </div>
-                      <div className="p-2 bg-theme-bg rounded">
+                      <div className="p-2 bg-theme-surface rounded">
                         <p className="text-xs text-theme-secondary">Affected</p>
                         <p className="text-sm font-medium text-theme-primary">{violation.metrics.affected_outcomes} outcomes</p>
                       </div>
-                      <div className="p-2 bg-theme-bg rounded">
+                      <div className="p-2 bg-theme-surface rounded">
                         <p className="text-xs text-theme-secondary">Credit</p>
                         <p className="text-sm font-medium text-theme-warning">${violation.credit.amount_usd.toFixed(2)}</p>
                       </div>
@@ -664,7 +664,7 @@ export const OutcomeBillingContent: React.FC = () => {
                       <h3 className="text-lg font-semibold text-theme-primary mb-4">Contract Performance</h3>
                       <div className="space-y-4">
                         {slaPerformance.contracts_summary.map(contract => (
-                          <div key={contract.id} className="p-4 bg-theme-bg rounded-lg">
+                          <div key={contract.id} className="p-4 bg-theme-surface rounded-lg">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-3">
                                 <h4 className="font-medium text-theme-primary">{contract.name}</h4>
@@ -718,23 +718,23 @@ export const OutcomeBillingContent: React.FC = () => {
                   <div className="bg-theme-surface border border-theme rounded-lg p-6">
                     <h3 className="text-lg font-semibold text-theme-primary mb-4">Billing Overview</h3>
                     <div className="space-y-3">
-                      <div className="flex justify-between p-3 bg-theme-bg rounded-lg">
+                      <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Period</span>
                         <span className="text-sm font-medium text-theme-primary">{summary.period_days} days</span>
                       </div>
-                      <div className="flex justify-between p-3 bg-theme-bg rounded-lg">
+                      <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Total Outcomes</span>
                         <span className="text-sm font-medium text-theme-primary">{summary.total_outcomes}</span>
                       </div>
-                      <div className="flex justify-between p-3 bg-theme-bg rounded-lg">
+                      <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Successful</span>
                         <span className="text-sm font-medium text-theme-success">{summary.successful_outcomes}</span>
                       </div>
-                      <div className="flex justify-between p-3 bg-theme-bg rounded-lg">
+                      <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Failed</span>
                         <span className="text-sm font-medium text-theme-danger">{summary.failed_outcomes}</span>
                       </div>
-                      <div className="flex justify-between p-3 bg-theme-bg rounded-lg">
+                      <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Success Rate</span>
                         <span className="text-sm font-medium text-theme-primary">{(summary.success_rate * 100).toFixed(1)}%</span>
                       </div>
@@ -743,19 +743,19 @@ export const OutcomeBillingContent: React.FC = () => {
                   <div className="bg-theme-surface border border-theme rounded-lg p-6">
                     <h3 className="text-lg font-semibold text-theme-primary mb-4">Revenue & Performance</h3>
                     <div className="space-y-3">
-                      <div className="flex justify-between p-3 bg-theme-bg rounded-lg">
+                      <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Total Revenue</span>
                         <span className="text-sm font-medium text-theme-success">${summary.total_revenue.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between p-3 bg-theme-bg rounded-lg">
+                      <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Pending Revenue</span>
                         <span className="text-sm font-medium text-theme-warning">${summary.pending_revenue.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between p-3 bg-theme-bg rounded-lg">
+                      <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Avg Duration</span>
                         <span className="text-sm font-medium text-theme-primary">{(summary.average_duration_ms / 1000).toFixed(1)}s</span>
                       </div>
-                      <div className="flex justify-between p-3 bg-theme-bg rounded-lg">
+                      <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Avg Quality Score</span>
                         <span className="text-sm font-medium text-theme-primary">{(summary.average_quality_score * 100).toFixed(0)}%</span>
                       </div>

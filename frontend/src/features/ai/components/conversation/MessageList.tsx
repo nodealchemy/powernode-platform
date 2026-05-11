@@ -191,7 +191,7 @@ export const MessageList = React.memo<MessageListProps>(({
       const isResolved = message.metadata?.resolved;
       return (
         <div key={message.id} className="flex justify-center my-4">
-          <div className={`bg-theme-surface border border-theme px-3 py-1 rounded-full text-sm shadow-sm ${isResolved ? 'text-theme-muted/50 line-through' : 'text-theme-muted'}`}>
+          <div className={`bg-theme-surface border border-theme px-3 py-1 rounded-full text-sm shadow-sm ${isResolved ? 'text-theme-tertiary/50 line-through' : 'text-theme-tertiary'}`}>
             {cleanMessageContent(message.content, 'system')}
           </div>
         </div>
@@ -203,7 +203,7 @@ export const MessageList = React.memo<MessageListProps>(({
       return (
         <div key={message.id} className="group flex gap-3 flex-row opacity-50">
           <div className="flex-shrink-0 flex items-start justify-center">
-            <Avatar className="h-8 w-8 flex items-center justify-center bg-theme-surface border border-theme text-theme-muted" aria-hidden="true">
+            <Avatar className="h-8 w-8 flex items-center justify-center bg-theme-surface border border-theme text-theme-tertiary" aria-hidden="true">
               <div className="flex items-center justify-center w-full h-full">
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
               </div>
@@ -211,7 +211,7 @@ export const MessageList = React.memo<MessageListProps>(({
           </div>
           <div className="flex-1 max-w-[85%] sm:max-w-[80%] flex flex-col items-start">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm text-theme-muted italic">This message was deleted</span>
+              <span className="text-sm text-theme-tertiary italic">This message was deleted</span>
               <span className="text-xs text-theme-secondary">{formatTimestamp(message.created_at)}</span>
             </div>
             {canDelete && (
@@ -378,7 +378,7 @@ export const MessageList = React.memo<MessageListProps>(({
               )}
 
               {message.metadata?.tokens_used != null && message.metadata.tokens_used > 0 && (
-                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-theme text-xs text-theme-muted">
+                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-theme text-xs text-theme-tertiary">
                   <span>{message.metadata.tokens_used} tokens</span>
                   {message.metadata?.response_time_ms != null && message.metadata.response_time_ms > 0 && (
                     <span>{message.metadata.response_time_ms}ms</span>
@@ -547,7 +547,7 @@ export const MessageList = React.memo<MessageListProps>(({
         {/* Beginning of conversation indicator */}
         {!hasOlder && messages.length > 0 && !loadingOlder && (
           <div className="flex items-center justify-center py-2">
-            <span className="text-xs text-theme-muted">Beginning of conversation</span>
+            <span className="text-xs text-theme-tertiary">Beginning of conversation</span>
           </div>
         )}
 

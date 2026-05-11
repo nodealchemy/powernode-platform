@@ -459,7 +459,7 @@ export const ProfilePage: React.FC = () => {
             <WebSocketStatusIndicator showDetails={false} />
             {isReceivingUpdate && (
               <div className="flex items-center space-x-2 px-3 py-1 bg-theme-info text-theme-info rounded-md">
-                <div className="animate-pulse w-2 h-2 bg-theme-info-solid rounded-full"></div>
+                <div className="animate-pulse w-2 h-2 bg-theme-info rounded-full"></div>
                 <span className="text-sm">Syncing...</span>
               </div>
             )}

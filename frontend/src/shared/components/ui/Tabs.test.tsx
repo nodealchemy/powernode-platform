@@ -129,7 +129,7 @@ describe('Tabs', () => {
       renderTabs();
 
       const tab2Button = screen.getByText('Tab 2').closest('button');
-      expect(tab2Button).toHaveClass('border-transparent', 'text-theme-muted');
+      expect(tab2Button).toHaveClass('border-transparent', 'text-theme-tertiary');
     });
 
     it('updates styling when tab changes', () => {

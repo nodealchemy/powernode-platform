@@ -458,7 +458,7 @@ describe('LicensePolicyDetailPage', () => {
 
     it('shows x icon for disabled restrictions', () => {
       const { container } = renderComponent();
-      const xIcons = container.querySelectorAll('svg.text-theme-muted');
+      const xIcons = container.querySelectorAll('svg.text-theme-tertiary');
       expect(xIcons.length).toBeGreaterThan(0);
     });
   });

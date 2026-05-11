@@ -85,19 +85,19 @@ export const ProxyTestConnection: React.FC<ProxyTestConnectionProps> = ({ onTest
           <div className="flex space-x-2">
             <button
               onClick={() => handlePresetConfig('nginx')}
-              className="px-3 py-1 text-sm bg-theme-muted text-theme-primary rounded hover:bg-theme-muted/80 transition-colors"
+              className="px-3 py-1 text-sm bg-theme-background-secondary text-theme-primary rounded hover:bg-theme-background-secondary/80 transition-colors"
             >
               Nginx
             </button>
             <button
               onClick={() => handlePresetConfig('traefik')}
-              className="px-3 py-1 text-sm bg-theme-muted text-theme-primary rounded hover:bg-theme-muted/80 transition-colors"
+              className="px-3 py-1 text-sm bg-theme-background-secondary text-theme-primary rounded hover:bg-theme-background-secondary/80 transition-colors"
             >
               Traefik
             </button>
             <button
               onClick={() => handlePresetConfig('cloudflare')}
-              className="px-3 py-1 text-sm bg-theme-muted text-theme-primary rounded hover:bg-theme-muted/80 transition-colors"
+              className="px-3 py-1 text-sm bg-theme-background-secondary text-theme-primary rounded hover:bg-theme-background-secondary/80 transition-colors"
             >
               CloudFlare
             </button>

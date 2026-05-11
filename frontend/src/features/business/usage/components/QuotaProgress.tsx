@@ -28,14 +28,14 @@ export const QuotaProgress: React.FC<QuotaProgressProps> = ({ quotas }) => {
   const getStatusBadge = (quota: UsageQuota) => {
     if (quota.exceeded) {
       return (
-        <span className="px-2 py-1 text-xs font-medium rounded bg-theme-error-background text-theme-error">
+        <span className="px-2 py-1 text-xs font-medium rounded bg-theme-error text-theme-error">
           Exceeded
         </span>
       );
     }
     if (quota.at_critical) {
       return (
-        <span className="px-2 py-1 text-xs font-medium rounded bg-theme-error-background text-theme-error">
+        <span className="px-2 py-1 text-xs font-medium rounded bg-theme-error text-theme-error">
           Critical
         </span>
       );

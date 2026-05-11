@@ -180,7 +180,7 @@ export const MissionsDashboardPanel: React.FC = () => {
                     <span>{phaseLabel(mission.current_phase || 'draft')}</span>
                     {mission.repository && (
                       <>
-                        <span className="text-theme-border">&middot;</span>
+                        <span className="text-theme-tertiary">&middot;</span>
                         <span className="flex items-center gap-1">
                           <GitBranch className="h-3 w-3" />
                           {typeof mission.repository === 'string' ? mission.repository : mission.repository.full_name}
@@ -189,7 +189,7 @@ export const MissionsDashboardPanel: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                <ArrowRight className="h-4 w-4 text-theme-tertiary opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
               </div>
             );
           })}
@@ -205,7 +205,7 @@ export const MissionsDashboardPanel: React.FC = () => {
       ) : (
         <div className="px-6 pb-2">
           <div className="text-center py-6 border border-dashed border-theme rounded-lg">
-            <Rocket className="h-8 w-8 mx-auto mb-2 text-theme-muted" />
+            <Rocket className="h-8 w-8 mx-auto mb-2 text-theme-tertiary" />
             <p className="text-sm text-theme-secondary mb-3">No active missions</p>
             <button
               onClick={() => navigate('/app/ai/missions')}

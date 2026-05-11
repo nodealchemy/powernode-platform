@@ -21,8 +21,8 @@ const BreakerRow: React.FC<{ breaker: CircuitBreaker }> = ({ breaker }) => {
         <Zap className={`h-4 w-4 ${breaker.state === 'open' ? 'text-theme-error' : 'text-theme-success'}`} />
         <div>
           <span className="text-sm font-medium text-theme-primary">{breaker.agent_name}</span>
-          <span className="text-xs text-theme-muted ml-2">({breaker.action_type})</span>
-          <div className="text-xs text-theme-muted mt-0.5">
+          <span className="text-xs text-theme-tertiary ml-2">({breaker.action_type})</span>
+          <div className="text-xs text-theme-tertiary mt-0.5">
             Failures: {breaker.failure_count}/{breaker.failure_threshold}
           </div>
         </div>
@@ -33,7 +33,7 @@ const BreakerRow: React.FC<{ breaker: CircuitBreaker }> = ({ breaker }) => {
           <button
             onClick={() => resetMutation.mutate(breaker.id)}
             disabled={resetMutation.isPending}
-            className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted hover:text-theme-primary"
+            className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary hover:text-theme-primary"
             title="Reset circuit breaker"
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -62,7 +62,7 @@ export const CircuitBreakerStatusPanel: React.FC = () => {
             {closed.map(b => <BreakerRow key={b.id} breaker={b} />)}
           </div>
         ) : (
-          <div className="py-6 text-center text-theme-muted">
+          <div className="py-6 text-center text-theme-tertiary">
             <Zap className="w-10 h-10 mx-auto mb-2 opacity-30" />
             <p className="text-sm">No circuit breakers registered</p>
           </div>

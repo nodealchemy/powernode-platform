@@ -139,7 +139,7 @@ describe('ComplianceStatusCard', () => {
   describe('completeness progress bar', () => {
     it('displays progress bar', () => {
       const { container } = render(<ComplianceStatusCard {...defaultProps} />);
-      const progressBar = container.querySelector('div[class*="bg-theme-muted rounded-full"]');
+      const progressBar = container.querySelector('div[class*="bg-theme-background-secondary rounded-full"]');
       expect(progressBar).toBeInTheDocument();
     });
 

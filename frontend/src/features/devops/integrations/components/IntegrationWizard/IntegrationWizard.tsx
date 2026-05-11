@@ -149,7 +149,7 @@ export function IntegrationWizard() {
               {index < STEPS.length - 1 && (
                 <div
                   className={`flex-1 h-0.5 mx-4 ${
-                    index < currentStepIndex ? 'bg-theme-success' : 'bg-theme-border'
+                    index < currentStepIndex ? 'bg-theme-success' : 'bg-theme-background-secondary'
                   }`}
                 />
               )}

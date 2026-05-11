@@ -145,7 +145,7 @@ export const CreateAttestationModal: React.FC<CreateAttestationModalProps> = ({
               rows={5}
               className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary font-mono text-sm"
             />
-            <p className="mt-1 text-xs text-theme-muted">
+            <p className="mt-1 text-xs text-theme-tertiary">
               Enter the predicate as valid JSON. This contains the attestation-specific data.
             </p>
           </div>

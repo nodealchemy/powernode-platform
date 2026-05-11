@@ -51,7 +51,7 @@ export const ProviderModelsTab: React.FC<ProviderModelsTabProps> = ({
           <p className="text-theme-primary font-medium">
             {provider.model_count ?? 0} model{(provider.model_count ?? 0) !== 1 ? 's' : ''} available
           </p>
-          <p className="text-sm text-theme-muted">
+          <p className="text-sm text-theme-tertiary">
             Models are synced from the provider API
           </p>
         </div>
@@ -70,9 +70,9 @@ export const ProviderModelsTab: React.FC<ProviderModelsTabProps> = ({
                       <Badge variant="outline" size="sm">{model.id}</Badge>
                     </div>
                     {model.description && (
-                      <p className="text-sm text-theme-muted mb-2">{model.description}</p>
+                      <p className="text-sm text-theme-tertiary mb-2">{model.description}</p>
                     )}
-                    <div className="flex flex-wrap gap-2 text-xs text-theme-muted">
+                    <div className="flex flex-wrap gap-2 text-xs text-theme-tertiary">
                       {model.context_length && (
                         <span className="px-2 py-1 bg-theme-surface rounded">
                           Context: {typeof model.context_length === 'string' ? model.context_length : `${model.context_length} tokens`}
@@ -106,9 +106,9 @@ export const ProviderModelsTab: React.FC<ProviderModelsTabProps> = ({
           </div>
         ) : (
           <div className="text-center py-8">
-            <TestTube className="h-8 w-8 text-theme-muted mx-auto mb-2" />
-            <p className="text-theme-muted">No models available</p>
-            <p className="text-sm text-theme-muted">
+            <TestTube className="h-8 w-8 text-theme-tertiary mx-auto mb-2" />
+            <p className="text-theme-tertiary">No models available</p>
+            <p className="text-sm text-theme-tertiary">
               {canManageProviders ? 'Click "Sync Models" to fetch available models' : 'Contact an administrator to sync models'}
             </p>
           </div>

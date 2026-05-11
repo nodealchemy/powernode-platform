@@ -206,7 +206,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
             <LoadingSpinner size="sm" />
             <div className="flex-1">
               <div className="text-sm text-theme-primary mb-1">Uploading document...</div>
-              <div className="w-full bg-theme-bg rounded-full h-2">
+              <div className="w-full bg-theme-surface rounded-full h-2">
                 <div
                   className="bg-theme-interactive-primary h-2 rounded-full transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
@@ -237,7 +237,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
       {/* Empty State */}
       {!loading && files.length === 0 && (
         <div className="text-center py-12 bg-theme-surface rounded-lg border border-theme">
-          <FileText className="w-12 h-12 mx-auto text-theme-muted mb-4" />
+          <FileText className="w-12 h-12 mx-auto text-theme-tertiary mb-4" />
           <h3 className="text-lg font-medium text-theme-primary mb-2">No documents uploaded</h3>
           <p className="text-theme-secondary mb-4">
             Upload compliance documents, risk assessments, or certificates for this vendor.
@@ -273,7 +273,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
                 <div className={`p-2 rounded-lg ${
                   categoryConfig
                     ? `bg-theme-${categoryConfig.color} bg-opacity-10 text-theme-${categoryConfig.color}`
-                    : 'bg-theme-bg text-theme-secondary'
+                    : 'bg-theme-surface text-theme-secondary'
                 }`}>
                   {getFileIcon(file)}
                 </div>
@@ -307,7 +307,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleDownload(file)}
-                    className="p-2 text-theme-secondary hover:text-theme-primary hover:bg-theme-bg rounded-lg transition-colors"
+                    className="p-2 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface rounded-lg transition-colors"
                     title="Download"
                   >
                     <Download className="w-4 h-4" />

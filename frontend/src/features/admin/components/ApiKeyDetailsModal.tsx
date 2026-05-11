@@ -179,7 +179,7 @@ export const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
                           <span className={`text-xs px-2 py-1 rounded ${
                             usage.status_code < 300 ? 'bg-theme-success-background text-theme-success' :
                             usage.status_code < 400 ? 'bg-theme-warning-background text-theme-warning' :
-                            'bg-theme-error-background text-theme-error'
+                            'bg-theme-error text-theme-error'
                           }`}>
                             {usage.status_code}
                           </span>

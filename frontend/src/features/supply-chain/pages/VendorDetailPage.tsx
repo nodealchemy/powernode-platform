@@ -115,7 +115,7 @@ export const VendorDetailPage: React.FC = () => {
                 <ExternalLink className="w-3 h-3" />
               </a>
             ) : (
-              <p className="text-theme-muted">Not specified</p>
+              <p className="text-theme-tertiary">Not specified</p>
             )}
           </div>
         </div>
@@ -143,7 +143,7 @@ export const VendorDetailPage: React.FC = () => {
             </div>
           )}
           {!vendor.handles_pii && !vendor.handles_phi && !vendor.handles_pci && (
-            <p className="text-theme-muted">No sensitive data handling declared</p>
+            <p className="text-theme-tertiary">No sensitive data handling declared</p>
           )}
         </div>
       </div>
@@ -160,7 +160,7 @@ export const VendorDetailPage: React.FC = () => {
             ))}
           </div>
         ) : (
-          <p className="text-theme-muted">No certifications on file</p>
+          <p className="text-theme-tertiary">No certifications on file</p>
         )}
       </div>
 
@@ -254,7 +254,7 @@ export const VendorDetailPage: React.FC = () => {
           </div>
         ))
       ) : (
-        <div className="text-center py-12 text-theme-muted">
+        <div className="text-center py-12 text-theme-tertiary">
           No assessments have been conducted yet
         </div>
       )}
@@ -320,7 +320,7 @@ export const VendorDetailPage: React.FC = () => {
           </div>
         ))
       ) : (
-        <div className="text-center py-12 text-theme-muted">
+        <div className="text-center py-12 text-theme-tertiary">
           No questionnaires have been sent yet
         </div>
       )}
@@ -353,14 +353,14 @@ export const VendorDetailPage: React.FC = () => {
                 </div>
                 <p className="text-theme-primary">{event.message}</p>
               </div>
-              <span className="text-sm text-theme-muted whitespace-nowrap ml-4">
+              <span className="text-sm text-theme-tertiary whitespace-nowrap ml-4">
                 {formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}
               </span>
             </div>
           </div>
         ))
       ) : (
-        <div className="text-center py-12 text-theme-muted">No monitoring events recorded</div>
+        <div className="text-center py-12 text-theme-tertiary">No monitoring events recorded</div>
       )}
     </div>
   );

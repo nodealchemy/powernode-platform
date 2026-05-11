@@ -80,14 +80,14 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
     switch (severity) {
       case 'critical':
         return {
-          color: 'border-theme-error bg-theme-error-background',
+          color: 'border-theme-error bg-theme-error',
           textColor: 'text-theme-error',
           icon: AlertTriangle,
           iconColor: 'text-theme-error'
         };
       case 'high':
         return {
-          color: 'border-theme-error bg-theme-error-background',
+          color: 'border-theme-error bg-theme-error',
           textColor: 'text-theme-error', 
           icon: AlertCircle,
           iconColor: 'text-theme-error'
@@ -101,7 +101,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
         };
       case 'low':
         return {
-          color: 'border-theme-info bg-theme-info-background',
+          color: 'border-theme-info bg-theme-info',
           textColor: 'text-theme-info',
           icon: AlertCircle,
           iconColor: 'text-theme-info'

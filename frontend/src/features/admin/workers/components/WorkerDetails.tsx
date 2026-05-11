@@ -135,7 +135,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
     switch (status) {
       case 'active': return 'bg-theme-success-background text-theme-success';
       case 'suspended': return 'bg-theme-warning-background text-theme-warning';
-      case 'revoked': return 'bg-theme-error-background text-theme-error';
+      case 'revoked': return 'bg-theme-error text-theme-error';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -152,7 +152,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
   if (error) {
     return (
       <div className="text-center py-8">
-        <div className="bg-theme-error-background rounded-lg p-4 max-w-md mx-auto">
+        <div className="bg-theme-error rounded-lg p-4 max-w-md mx-auto">
           <p className="text-theme-error font-medium">Error Loading Worker Details</p>
           <p className="text-theme-error text-sm mt-1">{error}</p>
           <button
@@ -193,7 +193,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                   </span>
                 ))}
                 {currentWorker.permissions.length > 4 && (
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-theme-info-background text-theme-info">
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-theme-info text-theme-info">
                     +{currentWorker.permissions.length - 4} more
                   </span>
                 )}
@@ -365,7 +365,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                   <button
                     onClick={handleTestWorker}
                     disabled={testingWorker}
-                    className="px-4 py-2 bg-theme-info-background text-theme-info rounded hover:bg-theme-info-background/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2 bg-theme-info text-theme-info rounded hover:bg-theme-info/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {testingWorker ? (
                       <>
@@ -402,7 +402,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                 {currentWorker.status !== 'revoked' && (
                   <button
                     onClick={() => setShowConfirmRevoke(true)}
-                    className="px-4 py-2 bg-theme-error-background text-theme-error rounded hover:bg-theme-error-background/80 transition-colors"
+                    className="px-4 py-2 bg-theme-error text-theme-error rounded hover:bg-theme-error/80 transition-colors"
                   >
                     Revoke Worker
                   </button>
@@ -452,7 +452,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
               </button>
               <button
                 onClick={() => handleStatusChange('revoke')}
-                className="px-4 py-2 bg-theme-error-background text-theme-error rounded hover:bg-theme-error-background/80 transition-colors"
+                className="px-4 py-2 bg-theme-error text-theme-error rounded hover:bg-theme-error/80 transition-colors"
               >
                 Revoke Worker
               </button>
@@ -486,7 +486,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                     ? 'bg-theme-success-background text-theme-success'
                     : testResults.status === 'warning'
                     ? 'bg-theme-warning-background text-theme-warning'
-                    : 'bg-theme-error-background text-theme-error'
+                    : 'bg-theme-error text-theme-error'
                 }`}>
                   {testResults.status.toUpperCase()}
                 </span>
@@ -508,7 +508,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
                       status === 'pass'
                         ? 'bg-theme-success-background text-theme-success'
-                        : 'bg-theme-error-background text-theme-error'
+                        : 'bg-theme-error text-theme-error'
                     }`}>
                       {status.toUpperCase()}
                     </span>
@@ -542,7 +542,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
               <button
                 onClick={handleTestWorker}
                 disabled={testingWorker}
-                className="px-4 py-2 bg-theme-info-background text-theme-info rounded hover:bg-theme-info-background/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-theme-info text-theme-info rounded hover:bg-theme-info/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {testingWorker ? 'Testing...' : 'Test Again'}
               </button>

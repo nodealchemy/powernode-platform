@@ -188,7 +188,7 @@ export const VendorsPage: React.FC = () => {
             </Badge>
           )}
           {!vendor.handles_pii && !vendor.handles_phi && !vendor.handles_pci && (
-            <span className="text-theme-muted text-sm">None</span>
+            <span className="text-theme-tertiary text-sm">None</span>
           )}
         </div>
       ),
@@ -202,7 +202,7 @@ export const VendorsPage: React.FC = () => {
             {formatDistanceToNow(new Date(vendor.last_assessment_at), { addSuffix: true })}
           </span>
         ) : (
-          <span className="text-theme-muted text-sm">Never</span>
+          <span className="text-theme-tertiary text-sm">Never</span>
         ),
     },
     {

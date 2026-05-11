@@ -169,7 +169,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                 <h1 className="text-2xl font-bold text-theme-primary">{card.name}</h1>
                 <p className="text-theme-secondary mt-1">{card.description}</p>
                 <div className="flex items-center gap-4 mt-3">
-                  <div className="flex items-center gap-1.5 text-sm text-theme-muted">
+                  <div className="flex items-center gap-1.5 text-sm text-theme-tertiary">
                     <VisibilityIcon className="h-4 w-4" />
                     <span>{visibilityLabel}</span>
                   </div>
@@ -243,7 +243,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                   <CapabilityList skills={card.capabilities.skills} showAll />
                 </div>
               ) : (
-                <p className="text-theme-muted text-sm">No capabilities defined</p>
+                <p className="text-theme-tertiary text-sm">No capabilities defined</p>
               )}
 
               {card.capabilities?.streaming !== undefined && (
@@ -342,7 +342,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                   <div className="text-2xl font-bold text-theme-primary">
                     {card.task_count || 0}
                   </div>
-                  <div className="text-xs text-theme-muted">Tasks Completed</div>
+                  <div className="text-xs text-theme-tertiary">Tasks Completed</div>
                 </div>
                 <div className="text-center p-3 bg-theme-surface rounded-lg">
                   <div className="text-2xl font-bold text-theme-success">
@@ -350,7 +350,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                       ? `${Math.round((card.success_count / card.task_count) * 100)}%`
                       : 'N/A'}
                   </div>
-                  <div className="text-xs text-theme-muted">Success Rate</div>
+                  <div className="text-xs text-theme-tertiary">Success Rate</div>
                 </div>
               </div>
 
@@ -373,7 +373,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
             <CardContent className="space-y-3 text-sm">
               {card.endpoint_url && (
                 <div className="flex items-start gap-2">
-                  <ExternalLink className="h-4 w-4 text-theme-muted mt-0.5" />
+                  <ExternalLink className="h-4 w-4 text-theme-tertiary mt-0.5" />
                   <div>
                     <div className="text-theme-secondary">Endpoint</div>
                     <a
@@ -389,7 +389,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
               )}
 
               <div className="flex items-start gap-2">
-                <Clock className="h-4 w-4 text-theme-muted mt-0.5" />
+                <Clock className="h-4 w-4 text-theme-tertiary mt-0.5" />
                 <div>
                   <div className="text-theme-secondary">Created</div>
                   <div className="text-theme-primary">{formatDateTime(card.created_at)}</div>
@@ -397,7 +397,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
               </div>
 
               <div className="flex items-start gap-2">
-                <Clock className="h-4 w-4 text-theme-muted mt-0.5" />
+                <Clock className="h-4 w-4 text-theme-tertiary mt-0.5" />
                 <div>
                   <div className="text-theme-secondary">Updated</div>
                   <div className="text-theme-primary">{formatDateTime(card.updated_at)}</div>
@@ -406,7 +406,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
 
               {card.ai_agent_id && (
                 <div className="flex items-start gap-2">
-                  <Bot className="h-4 w-4 text-theme-muted mt-0.5" />
+                  <Bot className="h-4 w-4 text-theme-tertiary mt-0.5" />
                   <div>
                     <div className="text-theme-secondary">Linked Agent</div>
                     <div className="text-theme-primary font-mono text-xs">{card.ai_agent_id}</div>

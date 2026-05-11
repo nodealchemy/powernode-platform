@@ -219,7 +219,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         {severity === 'critical' && (
           <button
             onClick={this.handleReload}
-            className="inline-flex items-center px-4 py-2 bg-theme-warning text-white rounded-lg hover:bg-theme-warning-hover transition-colors duration-200"
+            className="inline-flex items-center px-4 py-2 bg-theme-warning text-white rounded-lg hover:bg-theme-warning transition-colors duration-200"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Reload Page

@@ -14,7 +14,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onClick }) =>
 
   return (
     <Card
-      className="cursor-pointer hover:border-theme-brand-primary/50 transition-colors"
+      className="cursor-pointer hover:border-theme-interactive-primary/50 transition-colors"
       onClick={() => onClick(session)}
     >
       <CardContent className="p-4">

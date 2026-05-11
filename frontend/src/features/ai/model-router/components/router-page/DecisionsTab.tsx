@@ -22,7 +22,7 @@ export const DecisionsTab: React.FC<DecisionsTabProps> = ({ decisions, getDecisi
     <div className="bg-theme-surface border border-theme rounded-lg overflow-hidden">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-theme bg-theme-bg">
+          <tr className="border-b border-theme bg-theme-surface">
             <th className="px-4 py-3 text-left text-xs font-medium text-theme-secondary uppercase">Decision</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-theme-secondary uppercase">Strategy</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-theme-secondary uppercase">Provider</th>

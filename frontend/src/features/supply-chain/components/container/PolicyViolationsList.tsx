@@ -63,7 +63,7 @@ export const PolicyViolationsList: React.FC<PolicyViolationsListProps> = ({
   if (!evaluations || evaluations.length === 0) {
     return (
       <Card className="p-6">
-        <div className="text-center py-12 text-theme-muted">
+        <div className="text-center py-12 text-theme-tertiary">
           <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>No policy evaluations available</p>
           {onEvaluate && (
@@ -160,7 +160,7 @@ export const PolicyViolationsList: React.FC<PolicyViolationsListProps> = ({
               </div>
             )}
 
-            <div className="mt-4 text-xs text-theme-muted">
+            <div className="mt-4 text-xs text-theme-tertiary">
               Evaluated: {new Date(evaluation.evaluated_at).toLocaleString()}
             </div>
           </Card>

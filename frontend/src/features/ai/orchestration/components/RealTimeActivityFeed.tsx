@@ -146,7 +146,7 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
       case 'error': return <XCircle className="h-4 w-4 text-theme-danger" />;
       case 'warning': return <AlertCircle className="h-4 w-4 text-theme-warning" />;
       case 'info': return <Activity className="h-4 w-4 text-theme-info" />;
-      default: return <Activity className="h-4 w-4 text-theme-muted" />;
+      default: return <Activity className="h-4 w-4 text-theme-tertiary" />;
     }
   };
 
@@ -202,7 +202,7 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-semibold text-theme-primary">Activity Feed</h3>
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected() ? 'bg-theme-success-solid' : 'bg-theme-danger-solid'}`} />
+            <div className={`w-2 h-2 rounded-full ${isConnected() ? 'bg-theme-success' : 'bg-theme-danger'}`} />
             <span className="text-xs text-theme-secondary">
               {isConnected() ? 'Live' : 'Disconnected'}
             </span>
@@ -303,7 +303,7 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
                 </div>
               </div>
               
-              <div className="flex-shrink-0 text-xs text-theme-muted">
+              <div className="flex-shrink-0 text-xs text-theme-tertiary">
                 {formatTimestamp(activity.timestamp)}
               </div>
             </div>

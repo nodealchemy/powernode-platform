@@ -111,7 +111,7 @@ export const McpAppConfigurator: React.FC<McpAppConfiguratorProps> = ({
             value={formData.name}
             onChange={(e) => handleChange('name', e.target.value)}
             required
-            className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-bg text-theme-primary placeholder:text-theme-muted focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-surface text-theme-primary placeholder:text-theme-tertiary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
             placeholder="My MCP App"
           />
         </div>
@@ -125,7 +125,7 @@ export const McpAppConfigurator: React.FC<McpAppConfiguratorProps> = ({
             value={formData.description || ''}
             onChange={(e) => handleChange('description', e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-bg text-theme-primary placeholder:text-theme-muted focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent resize-none"
+            className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-surface text-theme-primary placeholder:text-theme-tertiary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent resize-none"
             placeholder="What does this app do?"
           />
         </div>
@@ -139,7 +139,7 @@ export const McpAppConfigurator: React.FC<McpAppConfiguratorProps> = ({
             <select
               value={formData.app_type}
               onChange={(e) => handleChange('app_type', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-bg text-theme-primary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+              className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
             >
               {APP_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -155,7 +155,7 @@ export const McpAppConfigurator: React.FC<McpAppConfiguratorProps> = ({
             <select
               value={formData.status || 'draft'}
               onChange={(e) => handleChange('status', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-bg text-theme-primary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+              className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
             >
               {APP_STATUSES.map((status) => (
                 <option key={status} value={status}>
@@ -172,7 +172,7 @@ export const McpAppConfigurator: React.FC<McpAppConfiguratorProps> = ({
               type="text"
               value={formData.version || ''}
               onChange={(e) => handleChange('version', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-bg text-theme-primary placeholder:text-theme-muted focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+              className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-surface text-theme-primary placeholder:text-theme-tertiary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
               placeholder="1.0.0"
               pattern="\d+\.\d+\.\d+"
               title="Semver format: X.Y.Z"
@@ -189,7 +189,7 @@ export const McpAppConfigurator: React.FC<McpAppConfiguratorProps> = ({
             value={formData.html_content || ''}
             onChange={(e) => handleChange('html_content', e.target.value)}
             rows={8}
-            className="w-full px-3 py-2 text-sm font-mono border border-theme rounded-lg bg-theme-bg text-theme-primary placeholder:text-theme-muted focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent resize-y"
+            className="w-full px-3 py-2 text-sm font-mono border border-theme rounded-lg bg-theme-surface text-theme-primary placeholder:text-theme-tertiary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent resize-y"
             placeholder="<html>...</html>"
           />
         </div>

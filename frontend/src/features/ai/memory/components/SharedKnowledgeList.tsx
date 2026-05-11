@@ -23,7 +23,7 @@ type SortDirection = 'asc' | 'desc';
 
 function SortIcon({ field, activeField, direction }: { field: SortField; activeField: SortField; direction: SortDirection }) {
   if (field !== activeField) {
-    return <ChevronDown className="h-3 w-3 text-theme-muted/40 inline ml-0.5" />;
+    return <ChevronDown className="h-3 w-3 text-theme-tertiary/40 inline ml-0.5" />;
   }
   return direction === 'asc'
     ? <ChevronUp className="h-3 w-3 text-theme-primary inline ml-0.5" />
@@ -149,7 +149,7 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
                 >
                   <td className="py-3 px-3">
                     <div className="font-medium text-theme-primary">{entry.title}</div>
-                    <p className="text-xs text-theme-muted mt-0.5 line-clamp-1">{entry.content}</p>
+                    <p className="text-xs text-theme-tertiary mt-0.5 line-clamp-1">{entry.content}</p>
                   </td>
                   <td className="py-3 px-3">
                     <Badge
@@ -177,14 +177,14 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
                       {entry.tags.slice(0, 3).map((tag) => (
                         <span
                           key={tag}
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-muted"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-tertiary"
                         >
                           <Tag className="h-2.5 w-2.5" />
                           {tag}
                         </span>
                       ))}
                       {entry.tags.length > 3 && (
-                        <span className="text-xs text-theme-muted">+{entry.tags.length - 3}</span>
+                        <span className="text-xs text-theme-tertiary">+{entry.tags.length - 3}</span>
                       )}
                     </div>
                   </td>
@@ -194,7 +194,7 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
                         {Math.round(entry.quality_score * 100)}%
                       </span>
                     ) : (
-                      <span className="text-theme-muted">-</span>
+                      <span className="text-theme-tertiary">-</span>
                     )}
                   </td>
                   <td className="py-3 px-3 text-right">
@@ -204,7 +204,7 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
                     {entry.has_embedding ? (
                       <Sparkles className="h-4 w-4 text-theme-success mx-auto" />
                     ) : (
-                      <span className="text-theme-muted text-xs">-</span>
+                      <span className="text-theme-tertiary text-xs">-</span>
                     )}
                   </td>
                 </tr>

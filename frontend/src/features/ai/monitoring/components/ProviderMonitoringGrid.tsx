@@ -45,7 +45,7 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
       case 'closed': return <CheckCircle className="h-4 w-4 text-theme-success" />;
       case 'half_open': return <Clock className="h-4 w-4 text-theme-warning" />;
       case 'open': return <XCircle className="h-4 w-4 text-theme-error" />;
-      default: return <AlertCircle className="h-4 w-4 text-theme-muted" />;
+      default: return <AlertCircle className="h-4 w-4 text-theme-tertiary" />;
     }
   };
 
@@ -87,7 +87,7 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
             <CardContent className="space-y-4">
               {/* Health Score */}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-muted">Health Score</span>
+                <span className="text-sm text-theme-tertiary">Health Score</span>
                 <span className={`font-medium ${provider.health_score >= 90 ? 'text-theme-success' : provider.health_score >= 70 ? 'text-theme-warning' : 'text-theme-error'}`}>
                   {provider.health_score.toFixed(1)}%
                 </span>
@@ -95,7 +95,7 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
 
               {/* Circuit Breaker */}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-muted">Circuit Breaker</span>
+                <span className="text-sm text-theme-tertiary">Circuit Breaker</span>
                 <div className="flex items-center gap-1">
                   {getCircuitBreakerIcon(provider.circuit_breaker.state)}
                   <span className="text-sm capitalize">{provider.circuit_breaker.state}</span>
@@ -105,7 +105,7 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
               {/* Performance Metrics */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-theme-muted">Success Rate</span>
+                  <span className="text-theme-tertiary">Success Rate</span>
                   <span className={provider.performance.success_rate >= 95 ? 'text-theme-success' : provider.performance.success_rate >= 90 ? 'text-theme-warning' : 'text-theme-error'}>
                     {provider.performance.success_rate.toFixed(1)}%
                   </span>
@@ -115,13 +115,13 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
 
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-theme-muted block">Avg Response</span>
+                  <span className="text-theme-tertiary block">Avg Response</span>
                   <span className="font-medium">
                     {provider.performance.avg_response_time.toFixed(0)}ms
                   </span>
                 </div>
                 <div>
-                  <span className="text-theme-muted block">Executions</span>
+                  <span className="text-theme-tertiary block">Executions</span>
                   <span className="font-medium">
                     {provider.usage.executions_count}
                   </span>
@@ -130,7 +130,7 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
 
               {/* Cost */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-theme-muted">Cost ({timeRange})</span>
+                <span className="text-theme-tertiary">Cost ({timeRange})</span>
                 <span className="font-medium">
                   ${provider.usage.cost.toFixed(4)}
                 </span>
@@ -168,8 +168,8 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
       {providers.length === 0 && !isLoading && (
         <Card>
           <CardContent className="py-8 text-center">
-            <Settings className="h-12 w-12 text-theme-muted mx-auto mb-4" />
-            <p className="text-theme-muted">No providers found</p>
+            <Settings className="h-12 w-12 text-theme-tertiary mx-auto mb-4" />
+            <p className="text-theme-tertiary">No providers found</p>
           </CardContent>
         </Card>
       )}

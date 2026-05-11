@@ -168,7 +168,7 @@ class AccountsApiService {
       case 'active':
         return 'text-theme-success bg-theme-success-background border-theme-success-border';
       case 'suspended':
-        return 'text-theme-error bg-theme-error-background border-theme-error-border';
+        return 'text-theme-error bg-theme-error border-theme-error-border';
       case 'cancelled':
         return 'text-theme-secondary bg-theme-surface-hover border-theme';
       default:

@@ -36,10 +36,10 @@ export const ProviderAlertsList: React.FC<ProviderAlertsListProps> = ({ provider
               {cred.status === 'valid' && <CheckCircle className="h-4 w-4 text-theme-success" />}
               {cred.status === 'invalid' && <XCircle className="h-4 w-4 text-theme-danger" />}
               {cred.status === 'expired' && <AlertTriangle className="h-4 w-4 text-theme-warning" />}
-              {cred.status === 'unknown' && <AlertCircle className="h-4 w-4 text-theme-muted" />}
+              {cred.status === 'unknown' && <AlertCircle className="h-4 w-4 text-theme-tertiary" />}
               <div>
                 <p className="font-medium text-theme-primary">{cred.name}</p>
-                <p className="text-xs text-theme-muted">
+                <p className="text-xs text-theme-tertiary">
                   {cred.last_tested
                     ? `Last tested: ${new Date(cred.last_tested).toLocaleString()}`
                     : 'Never tested'}
@@ -95,8 +95,8 @@ export const ProviderAlertsList: React.FC<ProviderAlertsListProps> = ({ provider
               )} />
               <div>
                 <p className="font-medium text-theme-primary">{alert.title}</p>
-                <p className="text-sm text-theme-muted">{alert.message}</p>
-                <p className="text-xs text-theme-muted mt-1">
+                <p className="text-sm text-theme-tertiary">{alert.message}</p>
+                <p className="text-xs text-theme-tertiary mt-1">
                   {new Date(alert.created_at).toLocaleString()}
                 </p>
               </div>

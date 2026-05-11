@@ -16,7 +16,7 @@ interface HealthCorrelationViewProps {
 export const HealthCorrelationView: React.FC<HealthCorrelationViewProps> = ({ correlations }) => {
   if (correlations.length === 0) {
     return (
-      <div className="text-center py-8 text-theme-muted">
+      <div className="text-center py-8 text-theme-tertiary">
         <Link2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
         <p className="text-sm">No cross-system correlations detected</p>
       </div>
@@ -31,7 +31,7 @@ export const HealthCorrelationView: React.FC<HealthCorrelationViewProps> = ({ co
           ? 'text-theme-error'
           : confidencePercent >= 40
             ? 'text-theme-warning'
-            : 'text-theme-muted';
+            : 'text-theme-tertiary';
 
         return (
           <div
@@ -52,7 +52,7 @@ export const HealthCorrelationView: React.FC<HealthCorrelationViewProps> = ({ co
                 <p className="text-xs text-theme-secondary mt-1">
                   {correlation.suggested_cause}
                 </p>
-                <div className="mt-2 flex items-center gap-2 text-xs text-theme-muted">
+                <div className="mt-2 flex items-center gap-2 text-xs text-theme-tertiary">
                   <span>{correlation.correlated_devops_events.length} linked event(s)</span>
                   <span className={confidenceColor}>
                     Confidence: {confidencePercent}%

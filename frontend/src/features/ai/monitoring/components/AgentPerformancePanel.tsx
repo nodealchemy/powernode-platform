@@ -74,7 +74,7 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
             <CardContent className="space-y-4">
               {/* Health Score */}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-muted">Health Score</span>
+                <span className="text-sm text-theme-tertiary">Health Score</span>
                 <span className={`font-medium ${agent.health_score >= 90 ? 'text-theme-success' : agent.health_score >= 70 ? 'text-theme-warning' : 'text-theme-error'}`}>
                   {agent.health_score.toFixed(1)}%
                 </span>
@@ -83,7 +83,7 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
               {/* Performance Metrics */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-theme-muted">Success Rate</span>
+                  <span className="text-theme-tertiary">Success Rate</span>
                   <span className={agent.performance.success_rate >= 95 ? 'text-theme-success' : agent.performance.success_rate >= 90 ? 'text-theme-warning' : 'text-theme-error'}>
                     {agent.performance.success_rate.toFixed(1)}%
                   </span>
@@ -95,13 +95,13 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-theme-muted">Running</span>
+                    <span className="text-theme-tertiary">Running</span>
                     <span className="font-medium text-theme-info">
                       {agent.executions.running}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-theme-muted">Completed</span>
+                    <span className="text-theme-tertiary">Completed</span>
                     <span className="font-medium text-theme-success">
                       {agent.executions.completed}
                     </span>
@@ -109,14 +109,14 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-theme-muted">Failed</span>
+                    <span className="text-theme-tertiary">Failed</span>
                     <span className="font-medium text-theme-error">
                       {agent.executions.failed}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-theme-muted">Cancelled</span>
-                    <span className="font-medium text-theme-muted">
+                    <span className="text-theme-tertiary">Cancelled</span>
+                    <span className="font-medium text-theme-tertiary">
                       {agent.executions.cancelled}
                     </span>
                   </div>
@@ -126,13 +126,13 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
               {/* Usage Stats */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-theme-muted block">Tokens Used</span>
+                  <span className="text-theme-tertiary block">Tokens Used</span>
                   <span className="font-medium">
                     {agent.usage.tokens_consumed.toLocaleString()}
                   </span>
                 </div>
                 <div>
-                  <span className="text-theme-muted block">Total Cost</span>
+                  <span className="text-theme-tertiary block">Total Cost</span>
                   <span className="font-medium">
                     ${agent.usage.cost.toFixed(4)}
                   </span>
@@ -141,7 +141,7 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
 
               {/* Response Time */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-theme-muted">Avg Response</span>
+                <span className="text-theme-tertiary">Avg Response</span>
                 <span className="font-medium">
                   {agent.performance.avg_response_time.toFixed(0)}ms
                 </span>
@@ -150,11 +150,11 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
               {/* Provider Distribution */}
               {agent.provider_distribution.length > 0 && (
                 <div className="space-y-2">
-                  <span className="text-sm text-theme-muted">Provider Usage</span>
+                  <span className="text-sm text-theme-tertiary">Provider Usage</span>
                   <div className="space-y-1">
                     {agent.provider_distribution.slice(0, 2).map((provider, index) => (
                       <div key={index} className="flex items-center justify-between text-xs">
-                        <span className="text-theme-muted">{provider.provider_name}</span>
+                        <span className="text-theme-tertiary">{provider.provider_name}</span>
                         <span className="font-medium">{provider.execution_count}</span>
                       </div>
                     ))}
@@ -164,7 +164,7 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
 
               {/* Last Execution */}
               {agent.last_execution && (
-                <div className="flex items-center gap-2 text-xs text-theme-muted">
+                <div className="flex items-center gap-2 text-xs text-theme-tertiary">
                   <Clock className="h-3 w-3" />
                   <span>Last: {new Date(agent.last_execution).toLocaleTimeString()}</span>
                 </div>
@@ -193,8 +193,8 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
       {agents.length === 0 && !isLoading && (
         <Card>
           <CardContent className="py-8 text-center">
-            <Bot className="h-12 w-12 text-theme-muted mx-auto mb-4" />
-            <p className="text-theme-muted">No agents found</p>
+            <Bot className="h-12 w-12 text-theme-tertiary mx-auto mb-4" />
+            <p className="text-theme-tertiary">No agents found</p>
           </CardContent>
         </Card>
       )}

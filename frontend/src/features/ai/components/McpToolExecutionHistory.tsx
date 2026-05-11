@@ -278,7 +278,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
                   {execution.parameters && Object.keys(execution.parameters).length > 0 && (
                     <div className="mb-2">
                       <p className="text-xs font-medium text-theme-tertiary mb-1">Parameters:</p>
-                      <pre className="text-xs bg-theme-bg p-2 rounded overflow-x-auto max-h-32 text-theme-secondary">
+                      <pre className="text-xs bg-theme-surface p-2 rounded overflow-x-auto max-h-32 text-theme-secondary">
                         {JSON.stringify(execution.parameters, null, 2)}
                       </pre>
                     </div>
@@ -288,7 +288,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
                   {execution.status === 'completed' && execution.result && (
                     <div className="mb-2">
                       <p className="text-xs font-medium text-theme-tertiary mb-1">Result:</p>
-                      <pre className="text-xs bg-theme-bg p-2 rounded overflow-x-auto max-h-32 text-theme-secondary">
+                      <pre className="text-xs bg-theme-surface p-2 rounded overflow-x-auto max-h-32 text-theme-secondary">
                         {JSON.stringify(execution.result, null, 2)}
                       </pre>
                     </div>

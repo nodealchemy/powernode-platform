@@ -477,7 +477,7 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
                   type="checkbox"
                   checked={formData.sandbox_mode}
                   onChange={(e) => handleChange('sandbox_mode', e.target.checked)}
-                  className="rounded border-theme-interactive-primary text-theme-brand-primary focus:ring-theme-brand-primary"
+                  className="rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-brand-primary"
                 />
                 <span className="text-sm text-theme-text-primary">Sandbox Mode</span>
               </label>
@@ -486,7 +486,7 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
                   type="checkbox"
                   checked={formData.network_access}
                   onChange={(e) => handleChange('network_access', e.target.checked)}
-                  className="rounded border-theme-interactive-primary text-theme-brand-primary focus:ring-theme-brand-primary"
+                  className="rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-brand-primary"
                 />
                 <span className="text-sm text-theme-text-primary">Network Access</span>
               </label>
@@ -521,7 +521,7 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 text-sm font-semibold text-theme-text-primary uppercase tracking-wider hover:text-theme-brand-primary transition-colors"
+              className="flex items-center gap-2 text-sm font-semibold text-theme-text-primary uppercase tracking-wider hover:text-theme-interactive-primary transition-colors"
             >
               {showAdvanced ? (
                 <ChevronDown className="w-4 h-4" />

@@ -12,7 +12,7 @@ const getCircuitBreakerIcon = (state: string) => {
     case 'closed': return <CheckCircle className="h-4 w-4 text-theme-success" />;
     case 'half_open': return <Clock className="h-4 w-4 text-theme-warning" />;
     case 'open': return <XCircle className="h-4 w-4 text-theme-danger" />;
-    default: return <AlertCircle className="h-4 w-4 text-theme-muted" />;
+    default: return <AlertCircle className="h-4 w-4 text-theme-tertiary" />;
   }
 };
 
@@ -34,19 +34,19 @@ export const CircuitBreakerStatus: React.FC<CircuitBreakerStatusProps> = ({ prov
 
     <div className="grid grid-cols-4 gap-4">
       <div className="p-4 bg-theme-surface rounded">
-        <p className="text-xs text-theme-muted">Failure Count</p>
+        <p className="text-xs text-theme-tertiary">Failure Count</p>
         <p className="text-xl font-bold text-theme-primary">{provider.circuit_breaker.failure_count}</p>
       </div>
       <div className="p-4 bg-theme-surface rounded">
-        <p className="text-xs text-theme-muted">Success Threshold</p>
+        <p className="text-xs text-theme-tertiary">Success Threshold</p>
         <p className="text-xl font-bold text-theme-primary">{provider.circuit_breaker.success_threshold}</p>
       </div>
       <div className="p-4 bg-theme-surface rounded">
-        <p className="text-xs text-theme-muted">Timeout</p>
+        <p className="text-xs text-theme-tertiary">Timeout</p>
         <p className="text-xl font-bold text-theme-primary">{provider.circuit_breaker.timeout}s</p>
       </div>
       <div className="p-4 bg-theme-surface rounded">
-        <p className="text-xs text-theme-muted">Last Failure</p>
+        <p className="text-xs text-theme-tertiary">Last Failure</p>
         <p className="text-sm font-medium text-theme-primary">
           {provider.circuit_breaker.last_failure
             ? new Date(provider.circuit_breaker.last_failure).toLocaleString()
@@ -56,22 +56,22 @@ export const CircuitBreakerStatus: React.FC<CircuitBreakerStatusProps> = ({ prov
     </div>
 
     <div className="p-4 bg-theme-surface rounded">
-      <h4 className="text-sm font-medium text-theme-muted mb-3">Request Statistics</h4>
+      <h4 className="text-sm font-medium text-theme-tertiary mb-3">Request Statistics</h4>
       <div className="grid grid-cols-4 gap-4">
         <div>
-          <p className="text-xs text-theme-muted">Total Requests</p>
+          <p className="text-xs text-theme-tertiary">Total Requests</p>
           <p className="font-semibold">{provider.circuit_breaker.stats.total_requests}</p>
         </div>
         <div>
-          <p className="text-xs text-theme-muted">Successful</p>
+          <p className="text-xs text-theme-tertiary">Successful</p>
           <p className="font-semibold text-theme-success">{provider.circuit_breaker.stats.successful_requests}</p>
         </div>
         <div>
-          <p className="text-xs text-theme-muted">Failed</p>
+          <p className="text-xs text-theme-tertiary">Failed</p>
           <p className="font-semibold text-theme-danger">{provider.circuit_breaker.stats.failed_requests}</p>
         </div>
         <div>
-          <p className="text-xs text-theme-muted">Avg Response</p>
+          <p className="text-xs text-theme-tertiary">Avg Response</p>
           <p className="font-semibold">{formatLatency(provider.circuit_breaker.stats.avg_response_time)}</p>
         </div>
       </div>

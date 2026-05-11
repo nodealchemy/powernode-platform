@@ -42,7 +42,7 @@ export const McpStudioTab: React.FC = () => {
         <p className="text-sm text-theme-secondary">
           No MCP servers or agents configured yet.
         </p>
-        <p className="text-xs text-theme-muted">
+        <p className="text-xs text-theme-tertiary">
           Add MCP servers in the "MCP Servers" tab and agents in the Agents page.
         </p>
       </div>

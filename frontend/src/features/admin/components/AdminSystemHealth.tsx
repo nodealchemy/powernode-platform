@@ -170,7 +170,7 @@ export const AdminSystemHealth: React.FC<AdminSystemHealthProps> = ({
         };
       case 'error':
         return {
-          bg: 'bg-theme-error-background',
+          bg: 'bg-theme-error',
           border: 'border-theme-error',
           text: 'text-theme-error',
           icon: XCircle,

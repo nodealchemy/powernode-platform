@@ -58,7 +58,7 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-theme-brand-primary" />
+            <Activity className="w-4 h-4 text-theme-interactive-primary" />
             <span className="text-sm font-semibold text-theme-text-primary">Live Execution</span>
           </div>
           {isRunning && (

@@ -333,7 +333,7 @@ export const AIConversationsPage: React.FC = () => {
           <div className="font-medium text-theme-primary whitespace-normal">
             {conversation.title}
           </div>
-          <div className="text-sm text-theme-muted leading-relaxed whitespace-normal flex items-center gap-2">
+          <div className="text-sm text-theme-tertiary leading-relaxed whitespace-normal flex items-center gap-2">
             <Bot className="h-3 w-3 flex-shrink-0" />
             {conversation.ai_agent?.name || 'Unknown Agent'}
           </div>
@@ -353,7 +353,7 @@ export const AIConversationsPage: React.FC = () => {
       render: (conversation: ConversationBase) => (
         <div className="text-sm">
           <div className="text-theme-primary">{conversation.message_count || 0}</div>
-          <div className="text-theme-muted">{(conversation.total_tokens || 0).toLocaleString()} tokens</div>
+          <div className="text-theme-tertiary">{(conversation.total_tokens || 0).toLocaleString()} tokens</div>
         </div>
       )
     },
@@ -378,7 +378,7 @@ export const AIConversationsPage: React.FC = () => {
           <div className="text-theme-primary">
             {formatLastActivity(conversation.last_activity_at || conversation.created_at)}
           </div>
-          <div className="text-theme-muted">{new Date(conversation.created_at).toLocaleDateString()}</div>
+          <div className="text-theme-tertiary">{new Date(conversation.created_at).toLocaleDateString()}</div>
         </div>
       )
     },

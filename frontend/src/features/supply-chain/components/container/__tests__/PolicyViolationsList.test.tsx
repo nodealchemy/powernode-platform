@@ -165,7 +165,7 @@ describe('PolicyViolationsList', () => {
       );
 
       const emptyText = screen.getByText('No policy evaluations available');
-      expect(emptyText.parentElement).toHaveClass('text-theme-muted');
+      expect(emptyText.parentElement).toHaveClass('text-theme-tertiary');
     });
 
     it('shows evaluate button in empty state when onEvaluate provided', () => {

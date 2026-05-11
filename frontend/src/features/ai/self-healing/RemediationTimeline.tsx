@@ -27,14 +27,14 @@ const ACTION_LABELS: Record<string, string> = {
 const RESULT_CONFIG: Record<string, { icon: React.ElementType; color: string; badge: string }> = {
   success: { icon: CheckCircle, color: 'text-theme-success', badge: 'success' },
   failure: { icon: XCircle, color: 'text-theme-error', badge: 'danger' },
-  skipped: { icon: SkipForward, color: 'text-theme-muted', badge: 'default' },
+  skipped: { icon: SkipForward, color: 'text-theme-tertiary', badge: 'default' },
   rate_limited: { icon: Clock, color: 'text-theme-warning', badge: 'warning' },
 };
 
 export const RemediationTimeline: React.FC<RemediationTimelineProps> = ({ logs }) => {
   if (logs.length === 0) {
     return (
-      <div className="text-center py-8 text-theme-muted">
+      <div className="text-center py-8 text-theme-tertiary">
         <p className="text-sm">No remediation actions recorded</p>
       </div>
     );
@@ -62,13 +62,13 @@ export const RemediationTimeline: React.FC<RemediationTimelineProps> = ({ logs }
                   {log.result}
                 </Badge>
               </div>
-              <p className="text-xs text-theme-muted mt-1 truncate">
+              <p className="text-xs text-theme-tertiary mt-1 truncate">
                 {log.trigger_source} — {log.trigger_event}
               </p>
               {log.result_message && (
                 <p className="text-xs text-theme-secondary mt-1">{log.result_message}</p>
               )}
-              <p className="text-xs text-theme-muted mt-1">
+              <p className="text-xs text-theme-tertiary mt-1">
                 {time.toLocaleString()}
               </p>
             </div>

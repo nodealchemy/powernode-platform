@@ -47,7 +47,7 @@ export const AguiPage: React.FC = () => {
   if (!canView) {
     return (
       <div className="text-center py-12">
-        <Radio className="h-12 w-12 text-theme-muted mx-auto mb-4 opacity-50" />
+        <Radio className="h-12 w-12 text-theme-tertiary mx-auto mb-4 opacity-50" />
         <p className="text-theme-secondary">You do not have permission to view AG-UI sessions.</p>
       </div>
     );
@@ -63,7 +63,7 @@ export const AguiPage: React.FC = () => {
       className={`p-1.5 rounded transition-colors ${
         selectedSessionId === s.id
           ? 'bg-theme-interactive-primary/20 text-theme-interactive-primary'
-          : 'text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover'
+          : 'text-theme-tertiary hover:text-theme-primary hover:bg-theme-surface-hover'
       }`}
       title={s.thread_id}
     >

@@ -68,22 +68,22 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
 
       {/* Info Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="flex items-start gap-3 p-3 bg-theme-bg rounded-lg">
-          <AlertTriangle className="h-4 w-4 text-theme-muted mt-0.5" />
+        <div className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg">
+          <AlertTriangle className="h-4 w-4 text-theme-tertiary mt-0.5" />
           <div>
             <p className="text-xs text-theme-tertiary">Trigger Reason</p>
             <p className="text-sm text-theme-primary">{record.trigger_reason}</p>
           </div>
         </div>
-        <div className="flex items-start gap-3 p-3 bg-theme-bg rounded-lg">
-          <ShieldAlert className="h-4 w-4 text-theme-muted mt-0.5" />
+        <div className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg">
+          <ShieldAlert className="h-4 w-4 text-theme-tertiary mt-0.5" />
           <div>
             <p className="text-xs text-theme-tertiary">Trigger Source</p>
             <p className="text-sm text-theme-primary">{record.trigger_source}</p>
           </div>
         </div>
-        <div className="flex items-start gap-3 p-3 bg-theme-bg rounded-lg">
-          <Clock className="h-4 w-4 text-theme-muted mt-0.5" />
+        <div className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg">
+          <Clock className="h-4 w-4 text-theme-tertiary mt-0.5" />
           <div>
             <p className="text-xs text-theme-tertiary">Cooldown</p>
             <p className="text-sm text-theme-primary">
@@ -91,8 +91,8 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
             </p>
           </div>
         </div>
-        <div className="flex items-start gap-3 p-3 bg-theme-bg rounded-lg">
-          <Clock className="h-4 w-4 text-theme-muted mt-0.5" />
+        <div className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg">
+          <Clock className="h-4 w-4 text-theme-tertiary mt-0.5" />
           <div>
             <p className="text-xs text-theme-tertiary">Scheduled Restore</p>
             <p className="text-sm text-theme-primary">
@@ -101,8 +101,8 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
           </div>
         </div>
         {record.approved_by_id && (
-          <div className="flex items-start gap-3 p-3 bg-theme-bg rounded-lg">
-            <User className="h-4 w-4 text-theme-muted mt-0.5" />
+          <div className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg">
+            <User className="h-4 w-4 text-theme-tertiary mt-0.5" />
             <div>
               <p className="text-xs text-theme-tertiary">Approved By</p>
               <p className="text-sm text-theme-primary">{record.approved_by_id}</p>
@@ -110,8 +110,8 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
           </div>
         )}
         {record.restored_at && (
-          <div className="flex items-start gap-3 p-3 bg-theme-bg rounded-lg">
-            <Clock className="h-4 w-4 text-theme-muted mt-0.5" />
+          <div className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg">
+            <Clock className="h-4 w-4 text-theme-tertiary mt-0.5" />
             <div>
               <p className="text-xs text-theme-tertiary">Restored At</p>
               <p className="text-sm text-theme-primary">{new Date(record.restored_at).toLocaleString()}</p>
@@ -132,7 +132,7 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
       {record.restrictions_applied && Object.keys(record.restrictions_applied).length > 0 && (
         <div className="mb-6">
           <h4 className="text-sm font-medium text-theme-primary mb-2">Restrictions Applied</h4>
-          <div className="bg-theme-bg rounded-lg p-3">
+          <div className="bg-theme-surface rounded-lg p-3">
             <pre className="text-xs text-theme-secondary overflow-x-auto whitespace-pre-wrap">
               {JSON.stringify(record.restrictions_applied, null, 2)}
             </pre>
@@ -144,7 +144,7 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
       {record.forensic_snapshot && Object.keys(record.forensic_snapshot).length > 0 && (
         <div>
           <h4 className="text-sm font-medium text-theme-primary mb-2">Forensic Snapshot</h4>
-          <div className="bg-theme-bg rounded-lg p-3 max-h-80 overflow-y-auto">
+          <div className="bg-theme-surface rounded-lg p-3 max-h-80 overflow-y-auto">
             <pre className="text-xs text-theme-secondary overflow-x-auto whitespace-pre-wrap">
               {JSON.stringify(record.forensic_snapshot, null, 2)}
             </pre>

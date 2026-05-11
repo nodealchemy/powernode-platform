@@ -60,7 +60,7 @@ const KillSwitchButton: React.FC = () => {
             {halted ? 'AI SUSPENDED' : 'AI Active'}
           </p>
           {halted && status?.halted_since && (
-            <p className="text-sm text-theme-muted">Since {new Date(status.halted_since).toLocaleString()}</p>
+            <p className="text-sm text-theme-tertiary">Since {new Date(status.halted_since).toLocaleString()}</p>
           )}
           {halted && status?.reason && (
             <p className="text-sm text-theme-secondary mt-1">Reason: {status.reason}</p>
@@ -150,7 +150,7 @@ const KillSwitchEventLog: React.FC = () => {
   if (isLoading) return <LoadingSpinner size="sm" className="py-4" />;
   if (!events || events.length === 0) {
     return (
-      <p className="text-sm text-theme-muted text-center py-4">No kill switch events recorded</p>
+      <p className="text-sm text-theme-tertiary text-center py-4">No kill switch events recorded</p>
     );
   }
 
@@ -168,11 +168,11 @@ const KillSwitchEventLog: React.FC = () => {
               <span className={`text-sm font-medium ${event.event_type === 'halt' ? 'text-theme-error' : 'text-theme-success'}`}>
                 {event.event_type === 'halt' ? 'Emergency Halt' : 'Resumed'}
               </span>
-              <span className="text-xs text-theme-muted">{new Date(event.created_at).toLocaleString()}</span>
+              <span className="text-xs text-theme-tertiary">{new Date(event.created_at).toLocaleString()}</span>
             </div>
             <p className="text-sm text-theme-secondary truncate">{event.reason}</p>
             {event.triggered_by_name && (
-              <p className="text-xs text-theme-muted">by {event.triggered_by_name}</p>
+              <p className="text-xs text-theme-tertiary">by {event.triggered_by_name}</p>
             )}
           </div>
         </div>
