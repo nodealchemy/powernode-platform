@@ -131,6 +131,8 @@ module Ai
         "system_sdwan_compile_ovn_plan"                => "Ai::Tools::SdwanTool",
         "system_sdwan_create_ipfix_collector"          => "Ai::Tools::SdwanTool",
         "system_sdwan_list_ipfix_collectors"           => "Ai::Tools::SdwanTool",
+        "system_sdwan_create_ovn_acl"                  => "Ai::Tools::SdwanTool",
+        "system_sdwan_list_ovn_acls"                   => "Ai::Tools::SdwanTool",
         # Phase B: Docker daemon auto-provisioning on NodeInstances.
         # Distinct from the docker_* family below — those tools manage
         # *external*, operator-registered hosts; these manage *managed*
