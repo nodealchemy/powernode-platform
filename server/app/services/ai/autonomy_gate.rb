@@ -1,0 +1,142 @@
+# frozen_string_literal: true
+
+module Ai
+  # Central choke point for any mutating operation that might require human
+  # approval. Every controller / service that performs a guarded mutation calls
+  # `Ai::AutonomyGate.evaluate(...)` and dispatches on the returned `decision`:
+  #
+  #   :proceed  → executor ran synchronously; result is in `result.result`
+  #   :pending  → ApprovalRequest created; caller should return HTTP 202
+  #   :blocked  → policy denied the action; caller should return 422
+  #
+  # The gate creates a `Ai::DeferredOperation` row in every case (audit trail).
+  # Auto-approved operations execute immediately via `DeferredOperation#execute_now!`.
+  # Pending operations resume via the worker job after the ApprovalRequest
+  # completes (see `Ai::ApprovalRequest#notify_source_of_decision`).
+  class AutonomyGate
+    Result = Struct.new(:decision, :deferred_operation, :result, :error, keyword_init: true) do
+      def proceed?; decision == :proceed; end
+      def pending?; decision == :pending; end
+      def blocked?; decision == :blocked; end
+      def approval_request; deferred_operation&.approval_request; end
+    end
+
+    DEFAULT_APPROVAL_TIMEOUT_HOURS = 4
+
+    def self.evaluate(**kwargs)
+      new(account: kwargs.fetch(:account)).evaluate(**kwargs.except(:account))
+    end
+
+    def initialize(account:)
+      @account = account
+      @policy_service = ::Ai::InterventionPolicyService.new(account: account)
+    end
+
+    # @param action_category [String] e.g. "sdwan.peer_delete", "system.task.terminate"
+    # @param executor_class  [String] fully-qualified class name implementing
+    #                                  `self.execute(params, deferred_operation:)`
+    # @param params          [Hash]   serializable params passed to executor
+    # @param agent           [Ai::Agent, nil] when action is agent-initiated
+    # @param requested_by    [User, nil]      when action is user-initiated
+    # @param source_type     [String, nil]    polymorphic source for cross-ref
+    # @param source_id       [String, nil]
+    # @param description     [String, nil]    human-readable summary for the UI
+    def evaluate(action_category:, executor_class:, params: {}, agent: nil,
+                 requested_by: nil, source_type: nil, source_id: nil, description: nil)
+      policy_match = @policy_service.resolve(
+        action_category: action_category, agent: agent, user: requested_by
+      )
+
+      deferred = create_deferred_operation!(
+        action_category: action_category, executor_class: executor_class,
+        params: params, agent: agent, requested_by: requested_by,
+        source_type: source_type, source_id: source_id, description: description
+      )
+
+      case policy_match[:policy]
+      when "auto_approve", "notify_and_proceed"
+        result_data = deferred.execute_now!
+        Result.new(decision: :proceed, deferred_operation: deferred, result: result_data)
+      when "require_approval"
+        request = create_approval_request!(deferred, policy_match[:record])
+        deferred.update!(approval_request: request)
+        Result.new(decision: :pending, deferred_operation: deferred)
+      when "block", "silent"
+        deferred.update!(status: "rejected", error_message: "Blocked by policy")
+        Result.new(decision: :blocked, deferred_operation: deferred,
+                   error: "Action #{action_category} is blocked by policy")
+      else
+        # Unknown policy — fail safe to require_approval
+        Rails.logger.warn("[AutonomyGate] Unknown policy '#{policy_match[:policy]}' for #{action_category}, defaulting to require_approval")
+        request = create_approval_request!(deferred, policy_match[:record])
+        deferred.update!(approval_request: request)
+        Result.new(decision: :pending, deferred_operation: deferred)
+      end
+    rescue StandardError => e
+      Rails.logger.error("[AutonomyGate] evaluate(#{action_category}) failed: #{e.class}: #{e.message}")
+      Result.new(decision: :blocked, error: "Gate evaluation failed: #{e.message}")
+    end
+
+    private
+
+    def create_deferred_operation!(action_category:, executor_class:, params:, agent:,
+                                   requested_by:, source_type:, source_id:, description:)
+      ::Ai::DeferredOperation.create!(
+        account: @account,
+        action_category: action_category,
+        executor_class: executor_class,
+        params: params || {},
+        ai_agent: agent,
+        requested_by: requested_by,
+        source_type: source_type,
+        source_id: source_id,
+        description: description
+      )
+    end
+
+    def create_approval_request!(deferred, policy_record)
+      chain = resolve_chain(deferred, policy_record)
+      chain.create_request!(
+        source_type: "Ai::DeferredOperation",
+        source_id: deferred.id,
+        description: deferred.description.presence || deferred.action_category,
+        request_data: {
+          action_category: deferred.action_category,
+          executor_class: deferred.executor_class,
+          params: deferred.params,
+          agent_id: deferred.ai_agent_id,
+          agent_name: deferred.ai_agent&.name,
+          requested_by_id: deferred.requested_by_id,
+          source_type: deferred.source_type,
+          source_id: deferred.source_id
+        },
+        requested_by: deferred.requested_by
+      )
+    end
+
+    # Use the policy's assigned chain when set, otherwise a per-agent default
+    # chain ("<Agent Name> Actions" or "Manual Operations").
+    def resolve_chain(deferred, policy_record)
+      return policy_record.approval_chain if policy_record&.approval_chain_id
+
+      chain_name = if deferred.ai_agent
+        "#{deferred.ai_agent.name} Actions"
+      else
+        "Manual Operations"
+      end
+
+      ::Ai::ApprovalChain.find_or_create_by!(account: @account, name: chain_name) do |c|
+        c.trigger_type = "autonomy_action"
+        c.status = "active"
+        c.is_sequential = true
+        c.timeout_hours = DEFAULT_APPROVAL_TIMEOUT_HOURS
+        c.timeout_action = "reject"
+        c.steps = [{
+          "name" => "Operator Approval",
+          "approvers" => ["*"],
+          "required_approvals" => 1
+        }]
+      end
+    end
+  end
+end

@@ -1840,6 +1840,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
     t.index ["source_type"], name: "index_ai_data_sources_on_source_type"
   end
 
+  create_table "ai_deferred_operations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action_category", null: false
+    t.uuid "ai_agent_id"
+    t.uuid "approval_request_id"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.text "error_message"
+    t.datetime "executed_at"
+    t.string "executor_class", null: false
+    t.jsonb "params", default: {}, null: false
+    t.uuid "requested_by_id"
+    t.jsonb "result", default: {}, null: false
+    t.uuid "source_id"
+    t.string "source_type"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_deferred_operations_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_deferred_operations_on_account_id"
+    t.index ["action_category"], name: "index_ai_deferred_operations_on_action_category"
+    t.index ["ai_agent_id"], name: "index_ai_deferred_operations_on_ai_agent_id"
+    t.index ["approval_request_id"], name: "index_ai_deferred_operations_on_approval_request_id"
+    t.index ["executor_class"], name: "index_ai_deferred_operations_on_executor_class"
+    t.index ["requested_by_id"], name: "index_ai_deferred_operations_on_requested_by_id"
+    t.index ["source_type", "source_id"], name: "index_ai_deferred_operations_on_source_type_and_source_id"
+  end
+
   create_table "ai_delegation_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "agent_id", null: false
@@ -2346,6 +2373,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
     t.uuid "account_id", null: false
     t.string "action_category", null: false
     t.uuid "ai_agent_id"
+    t.uuid "approval_chain_id"
     t.jsonb "conditions", default: {}
     t.datetime "created_at", null: false
     t.boolean "is_active", default: true, null: false
@@ -2360,6 +2388,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
     t.index ["account_id", "user_id", "ai_agent_id"], name: "idx_ai_intervention_policies_specificity"
     t.index ["account_id"], name: "index_ai_intervention_policies_on_account_id"
     t.index ["ai_agent_id"], name: "index_ai_intervention_policies_on_ai_agent_id"
+    t.index ["approval_chain_id"], name: "index_ai_intervention_policies_on_approval_chain_id"
     t.index ["user_id"], name: "index_ai_intervention_policies_on_user_id"
   end
 
@@ -12582,6 +12611,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
   add_foreign_key "ai_data_source_credentials", "accounts", on_delete: :cascade
   add_foreign_key "ai_data_source_credentials", "ai_data_sources", on_delete: :cascade
   add_foreign_key "ai_data_sources", "accounts", on_delete: :cascade
+  add_foreign_key "ai_deferred_operations", "accounts"
+  add_foreign_key "ai_deferred_operations", "ai_agents"
+  add_foreign_key "ai_deferred_operations", "ai_approval_requests", column: "approval_request_id"
+  add_foreign_key "ai_deferred_operations", "users", column: "requested_by_id"
   add_foreign_key "ai_delegation_policies", "accounts"
   add_foreign_key "ai_delegation_policies", "ai_agents", column: "agent_id"
   add_foreign_key "ai_deployment_risks", "accounts"
@@ -12628,6 +12661,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
   add_foreign_key "ai_improvement_recommendations", "users", column: "approved_by_id"
   add_foreign_key "ai_intervention_policies", "accounts"
   add_foreign_key "ai_intervention_policies", "ai_agents"
+  add_foreign_key "ai_intervention_policies", "ai_approval_chains", column: "approval_chain_id"
   add_foreign_key "ai_intervention_policies", "users"
   add_foreign_key "ai_kill_switch_events", "accounts"
   add_foreign_key "ai_kill_switch_events", "users", column: "triggered_by_id"

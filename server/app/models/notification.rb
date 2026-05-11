@@ -44,6 +44,9 @@ class Notification < ApplicationRecord
     agent_feedback_request
     agent_goal_achieved
     agent_improvement_applied
+    autonomy_approval_required
+    autonomy_approval_completed
+    autonomy_approval_rejected
   ].freeze
 
   # Categories

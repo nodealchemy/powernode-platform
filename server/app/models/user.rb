@@ -97,6 +97,15 @@ class User < ApplicationRecord
   scope :unlocked, -> { where("locked_until IS NULL OR locked_until <= ?", Time.current) }
   scope :with_role, ->(role_name) { joins(:roles).where(roles: { name: role_name }) }
 
+  # Returns users who hold a specific permission either directly via a role,
+  # or implicitly via the system.admin grant-all rule. The two cohorts are
+  # union-ed via raw IDs to keep the query simple under both code paths.
+  scope :with_permission, ->(permission_name) {
+    direct_ids = joins(roles: :permissions).where(permissions: { name: permission_name }).pluck(:id)
+    admin_ids  = joins(roles: :permissions).where(permissions: { name: "system.admin" }).pluck(:id)
+    where(id: (direct_ids + admin_ids).uniq)
+  }
+
   # JSON serialization - exclude sensitive fields
   def as_json(options = {})
     super(options.merge(except: [

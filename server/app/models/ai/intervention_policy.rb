@@ -7,7 +7,11 @@ module Ai
     SCOPES = %w[global agent action_type].freeze
     POLICIES = %w[auto_approve notify_and_proceed require_approval silent block].freeze
 
-    ACTION_CATEGORIES = %w[
+    # Static categories owned by core. Extensions append at boot via
+    # `Ai::InterventionPolicy.register_category!("ext.action_name")` from
+    # their Engine#after_initialize. The registry is thread-safe at boot
+    # (single-threaded init); reads are lock-free at request time.
+    STATIC_CATEGORIES = %w[
       approval proposal escalation status_update issue_alert
       feedback
       trading.create_session trading.schedule_session trading.start_session
@@ -27,10 +31,38 @@ module Ai
       *
     ].freeze
 
+    @category_registry = Set.new(STATIC_CATEGORIES)
+    @category_registry_mutex = Mutex.new
+
+    class << self
+      # Register an action category at boot. Called from extension Engines'
+      # `after_initialize` blocks. Idempotent — calling twice with the same
+      # name is a no-op. Returns the category name.
+      def register_category!(name)
+        return name unless name.is_a?(String) && !name.strip.empty?
+
+        @category_registry_mutex.synchronize { @category_registry << name }
+        name
+      end
+
+      def register_categories!(names)
+        names.each { |n| register_category!(n) }
+      end
+
+      def category_registered?(name)
+        @category_registry.include?(name)
+      end
+
+      def registered_categories
+        @category_registry.to_a.sort
+      end
+    end
+
     # Associations
     belongs_to :account
     belongs_to :user, optional: true
     belongs_to :agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
+    belongs_to :approval_chain, class_name: "Ai::ApprovalChain", optional: true
 
     # Validations
     validates :scope, presence: true, inclusion: { in: SCOPES }

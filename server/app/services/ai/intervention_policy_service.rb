@@ -15,7 +15,11 @@ module Ai
     # @param agent [Ai::Agent, nil]
     # @param user [User, nil]
     # @param severity [String, nil] "info", "warning", "critical"
-    # @return [Hash] { policy: String, channels: Array, conditions: Hash }
+    # @return [Hash] { policy: String, channels: Array, conditions: Hash, record: InterventionPolicy|nil }
+    #
+    # `record` is the matched InterventionPolicy row (or nil if the default
+    # policy was applied). Callers that need to read `record.approval_chain`
+    # for chain assignment use this; everyone else can ignore it.
     def resolve(action_category:, agent: nil, user: nil, severity: nil)
       policies = Ai::InterventionPolicy
         .active
@@ -42,7 +46,8 @@ module Ai
         return {
           policy: "require_approval",
           channels: best.preferred_channels.presence || %w[notification],
-          conditions: best.conditions
+          conditions: best.conditions,
+          record: best
         }
       end
 
@@ -52,14 +57,16 @@ module Ai
           policy: "silent",
           channels: [],
           conditions: best.conditions,
-          reason: "Daily notification limit reached"
+          reason: "Daily notification limit reached",
+          record: best
         }
       end
 
       {
         policy: best.policy,
         channels: best.preferred_channels.presence || %w[notification],
-        conditions: best.conditions
+        conditions: best.conditions,
+        record: best
       }
     end
 
@@ -84,7 +91,8 @@ module Ai
       {
         policy: "require_approval",
         channels: %w[notification],
-        conditions: {}
+        conditions: {},
+        record: nil
       }
     end
 

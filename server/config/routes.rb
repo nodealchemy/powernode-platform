@@ -1473,6 +1473,11 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # APPROVAL CHAINS - Multi-step approval workflows for AutonomyGate
+        # ===================================================================
+        resources :approval_chains, only: %i[index show create update destroy]
+
+        # ===================================================================
         # MEMORY POOLS - Scoped memory management
         # ===================================================================
         resources :memory_pools do
@@ -2575,6 +2580,7 @@ Rails.application.routes.draw do
           get "circuit_breakers/:agent_id", action: :agent_circuit_breakers
           post "circuit_breakers/:id/reset", action: :reset_circuit_breaker
           get "approvals", action: :approval_queue
+          get "approvals/:id", action: :show_approval
           post "approvals/:id/approve", action: :approve_action
           post "approvals/:id/reject", action: :reject_action
           get "shadow_executions", action: :shadow_executions

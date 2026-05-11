@@ -249,6 +249,25 @@ module ApiResponse
     render_success(data, meta: meta)
   end
 
+  # Pending-approval response (HTTP 202 Accepted) for operations gated by
+  # Ai::AutonomyGate that need human approval before executing. The caller
+  # passes the deferred operation; this returns the approval_request_id +
+  # deferred_operation_id so the frontend can render an inline approval UI
+  # or surface a "pending" toast.
+  # @param deferred_operation [Ai::DeferredOperation]
+  # @param message [String] Optional human-readable note
+  def render_pending_approval(deferred_operation, message: nil)
+    request = deferred_operation.approval_request
+    payload = {
+      pending: true,
+      deferred_operation_id: deferred_operation.id,
+      action_category: deferred_operation.action_category,
+      approval_request_id: request&.id,
+      message: message || "Approval required for #{deferred_operation.action_category}"
+    }
+    render_success(payload, status: :accepted)
+  end
+
   # Bulk operation response
   # @param successful [Array] Successfully processed items
   # @param failed [Array] Failed items with error messages

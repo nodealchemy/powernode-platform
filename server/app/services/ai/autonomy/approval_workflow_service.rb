@@ -42,7 +42,10 @@ module Ai
           .order(created_at: :asc)
       end
 
-      # Approve a pending request
+      # Approve a pending request. Routes through record_decision! so the
+      # underlying multi-step machinery (process_decision, advance_to_next_step!,
+      # final-step approve!) runs — single-step chains terminate immediately,
+      # multi-step chains advance to the next step.
       # @param request [Ai::ApprovalRequest] The request to approve
       # @param approver [User] The user approving
       # @param comments [String] Optional comments
@@ -50,18 +53,13 @@ module Ai
       def approve(request:, approver:, comments: nil)
         return false unless request.account_id == account.id
         return false unless request.pending?
+        return false unless request.can_approve?(approver)
 
-        request.update!(status: "approved", completed_at: Time.current)
-        request.decisions.create!(
-          approver: approver,
-          step_number: request.current_step || 0,
-          decision: "approved",
-          comments: comments
-        )
+        request.record_decision!(approver: approver, decision: "approved", comments: comments)
         true
       end
 
-      # Reject a pending request
+      # Reject a pending request. Rejection at any step terminates the chain.
       # @param request [Ai::ApprovalRequest] The request to reject
       # @param approver [User] The user rejecting
       # @param comments [String] Optional comments
@@ -69,14 +67,9 @@ module Ai
       def reject(request:, approver:, comments: nil)
         return false unless request.account_id == account.id
         return false unless request.pending?
+        return false unless request.can_approve?(approver)
 
-        request.update!(status: "rejected", completed_at: Time.current)
-        request.decisions.create!(
-          approver: approver,
-          step_number: request.current_step || 0,
-          decision: "rejected",
-          comments: comments
-        )
+        request.record_decision!(approver: approver, decision: "rejected", comments: comments)
         true
       end
 
