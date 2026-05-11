@@ -319,6 +319,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 {notifications.map((notification) => {
                   const Icon = SEVERITY_ICONS[notification.severity] || InformationCircleIcon;
                   const colorClass = SEVERITY_COLORS[notification.severity] || SEVERITY_COLORS.info;
+                  const isAutonomyApproval =
+                    notification.type === 'autonomy_approval_required' ||
+                    notification.type === 'system_task_approval_required';
 
                   return (
                     <div
@@ -326,6 +329,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                       className={`
                         px-4 py-3 hover:bg-theme-surface-hover transition-colors cursor-pointer
                         ${!notification.read ? 'bg-theme-info/10 dark:bg-theme-info/10' : ''}
+                        ${isAutonomyApproval ? 'border-l-4 border-theme-warning' : ''}
                       `}
                       onClick={() => handleNotificationClick(notification)}
                     >

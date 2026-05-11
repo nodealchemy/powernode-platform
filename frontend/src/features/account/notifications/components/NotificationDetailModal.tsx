@@ -11,7 +11,13 @@ import {
 } from '@heroicons/react/24/outline';
 import { Modal } from '@/shared/components/ui/Modal';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
+import { ApprovalRequestPanel } from '@/shared/components/approval-chains/ApprovalRequestPanel';
 import { Notification } from '../services/notificationApi';
+
+const APPROVAL_NOTIFICATION_TYPES = [
+  'autonomy_approval_required',
+  'system_task_approval_required',
+];
 
 const SEVERITY_ICONS: Record<string, React.ElementType> = {
   info: InformationCircleIcon,
@@ -170,31 +176,49 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
         </div>
       }
     >
-      {notification.message ? (
-        <MarkdownRenderer
-          content={notification.message}
-          variant="admin"
-          enableAdvancedFeatures={false}
-          fontSize="base"
-          lineHeight="relaxed"
-          maxWidth="none"
-          customComponents={{
-            p: ({ children }: { children?: React.ReactNode }) => <p className="text-base text-theme-primary leading-relaxed my-2">{children}</p>,
-            strong: ({ children }: { children?: React.ReactNode }) => <strong className="text-theme-primary font-semibold">{children}</strong>,
-            ul: ({ children }: { children?: React.ReactNode }) => <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>,
-            ol: ({ children }: { children?: React.ReactNode }) => <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol>,
-            li: ({ children }: { children?: React.ReactNode }) => <li className="text-base text-theme-primary leading-relaxed">{children}</li>,
-            a: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
-              <a href={href} className="text-theme-link hover:text-theme-link-hover underline" target="_blank" rel="noopener noreferrer">
-                {children}
-              </a>
-            ),
-            code: ({ children }: { children?: React.ReactNode }) => <code className="px-1.5 py-0.5 bg-theme-surface-hover rounded text-sm font-mono">{children}</code>,
-          }}
-        />
-      ) : (
-        <p className="text-sm text-theme-tertiary italic">No additional details</p>
-      )}
+      {(() => {
+        const approvalRequestId = notification.metadata?.approval_request_id as string | undefined;
+        const isApprovalNotification =
+          APPROVAL_NOTIFICATION_TYPES.includes(notification.type) && !!approvalRequestId;
+
+        if (isApprovalNotification && approvalRequestId) {
+          return (
+            <ApprovalRequestPanel
+              approvalRequestId={approvalRequestId}
+              onResolved={() => {
+                onMarkAsRead(notification.id);
+                onDismiss(notification.id);
+              }}
+            />
+          );
+        }
+
+        return notification.message ? (
+          <MarkdownRenderer
+            content={notification.message}
+            variant="admin"
+            enableAdvancedFeatures={false}
+            fontSize="base"
+            lineHeight="relaxed"
+            maxWidth="none"
+            customComponents={{
+              p: ({ children }: { children?: React.ReactNode }) => <p className="text-base text-theme-primary leading-relaxed my-2">{children}</p>,
+              strong: ({ children }: { children?: React.ReactNode }) => <strong className="text-theme-primary font-semibold">{children}</strong>,
+              ul: ({ children }: { children?: React.ReactNode }) => <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>,
+              ol: ({ children }: { children?: React.ReactNode }) => <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol>,
+              li: ({ children }: { children?: React.ReactNode }) => <li className="text-base text-theme-primary leading-relaxed">{children}</li>,
+              a: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
+                <a href={href} className="text-theme-link hover:text-theme-link-hover underline" target="_blank" rel="noopener noreferrer">
+                  {children}
+                </a>
+              ),
+              code: ({ children }: { children?: React.ReactNode }) => <code className="px-1.5 py-0.5 bg-theme-surface-hover rounded text-sm font-mono">{children}</code>,
+            }}
+          />
+        ) : (
+          <p className="text-sm text-theme-tertiary italic">No additional details</p>
+        );
+      })()}
     </Modal>
   );
 };
