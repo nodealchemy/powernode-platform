@@ -36,6 +36,7 @@ const AdminUsersPage = React.lazy(() => import('@/pages/app/admin/AdminUsersPage
 const AdminRolesPage = React.lazy(() => import('@/pages/app/admin/AdminRolesPage').then(m => ({ default: m.AdminRolesPage })));
 const AdminWorkersPage = React.lazy(() => import('@/pages/app/admin/WorkersPage').then(m => ({ default: m.WorkersPage })));
 const AdminStoragePage = React.lazy(() => import('@/pages/app/admin/StorageProvidersPage'));
+const AdminStorageAssignmentsPage = React.lazy(() => import('@/pages/app/admin/StorageProviderAssignmentsPage'));
 const AdminMaintenancePage = React.lazy(() => import('@/pages/app/admin/AdminMaintenancePage').then(m => ({ default: m.AdminMaintenancePage })));
 // AI Providers
 const AIProvidersPage = React.lazy(() => import('./ai/AIProvidersPage').then(m => ({ default: m.AIProvidersPage })));
@@ -502,6 +503,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
         <Route path="/admin/workers/*" element={<AdminWorkersPage />} />
         <Route path="/admin/storage" element={<AdminStoragePage />} />
+        <Route path="/admin/storage/:storageId/assignments" element={<AdminStorageAssignmentsPage />} />
 
         {/* Extension routes (dynamically registered via featureRegistry) */}
         {featureRegistry.getRoutes().map((route) => (
