@@ -213,7 +213,7 @@ export function ContextBrowser({
 
     if (linkToDetail && !onSelect) {
       return (
-        <Link key={context.id} to={`/app/ai/contexts/${context.id}`}>
+        <Link key={context.id} to={`/app/ai/knowledge/contexts/${context.id}`}>
           {content}
         </Link>
       );

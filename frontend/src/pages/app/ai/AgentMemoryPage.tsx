@@ -336,7 +336,7 @@ export function AgentMemoryPage() {
                 </div>
               </div>
               <button
-                onClick={() => navigate(`/app/ai/contexts/${context.id}`)}
+                onClick={() => navigate(`/app/ai/knowledge/contexts/${context.id}`)}
                 className="px-4 py-2 text-sm text-theme-secondary hover:text-theme-primary transition-colors"
               >
                 View Full Context

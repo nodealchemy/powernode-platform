@@ -113,7 +113,7 @@ export function ContextDetailPage() {
     const response = await contextApi.deleteContext(id);
     if (response.success) {
       showNotification('Context deleted', 'success');
-      navigate('/app/ai/contexts');
+      navigate('/app/ai/knowledge/contexts');
     } else {
       showNotification(response.error || 'Failed to delete context', 'error');
     }
@@ -163,7 +163,7 @@ export function ContextDetailPage() {
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
     { label: 'AI', href: '/app/ai' },
-    { label: 'Contexts', href: '/app/ai/contexts' },
+    { label: 'Contexts', href: '/app/ai/knowledge/contexts' },
     { label: context?.name || 'Context Details' }
   ];
 
@@ -183,7 +183,7 @@ export function ContextDetailPage() {
         <div className="text-center py-12">
           <p className="text-theme-secondary">The context you're looking for doesn't exist.</p>
           <button
-            onClick={() => navigate('/app/ai/contexts')}
+            onClick={() => navigate('/app/ai/knowledge/contexts')}
             className="mt-4 text-theme-primary hover:underline"
           >
             Back to Knowledge Base

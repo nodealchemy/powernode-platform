@@ -317,7 +317,7 @@ function SearchResultItem({ result, onClick, showContext }: SearchResultItemProp
 
   if (showContext && context && !onClick) {
     return (
-      <Link to={`/app/ai/contexts/${context.id}`} className="block">
+      <Link to={`/app/ai/knowledge/contexts/${context.id}`} className="block">
         {content}
       </Link>
     );

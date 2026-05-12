@@ -78,7 +78,7 @@ export const ContextsContent: React.FC<ContextsContentProps> = ({ onActionsReady
         scope: 'account',
       });
       setRefreshKey((k) => k + 1);
-      navigate(`/app/ai/contexts/${response.data.context.id}`);
+      navigate(`/app/ai/knowledge/contexts/${response.data.context.id}`);
     } else {
       showNotification(response.error || 'Failed to create context', 'error');
     }
