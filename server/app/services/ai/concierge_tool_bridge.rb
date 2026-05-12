@@ -115,31 +115,79 @@ module Ai
     end
 
     def dispatch_tool_call(tool_call)
+      dispatch_tool_call_capturing(tool_call).first
+    end
+
+    # Override the capturing path so the auto-confirmation logic fires whether
+    # the loop calls #dispatch_tool_call_capturing directly (the agentic loop
+    # path) or #dispatch_tool_call (external callers).
+    def dispatch_tool_call_capturing(tool_call)
       tool_name = tool_call[:name] || tool_call["name"]
 
       if tool_name == "request_confirmation"
-        handle_confirmation_request(tool_call)
-      else
-        if @conversation&.workspace_conversation? && WORKSPACE_CONTEXT_TOOLS.include?(tool_name)
-          arguments = tool_call[:arguments] || tool_call["arguments"] || {}
-          arguments = JSON.parse(arguments) if arguments.is_a?(String)
-          arguments = arguments.stringify_keys.merge("conversation_id" => @conversation.conversation_id)
-
-          # Auto-prepend @mention when the model omits it from send_message.
-          # gpt-4.1-mini frequently delegates with just the request text
-          # (e.g. "What time is it?") without the required @AgentName prefix.
-          if tool_name == "send_message" && arguments["message"].present?
-            arguments["message"] = ensure_mention(arguments["message"])
-          end
-
-          tool_call = tool_call.merge(arguments: arguments, "arguments" => arguments)
-          Rails.logger.info("[ConciergeToolBridge] Auto-injected conversation_id=#{@conversation.conversation_id} into #{tool_name}")
-        end
-        super(tool_call)
+        msg = handle_confirmation_request(tool_call)
+        return [msg, { handled: true }]
       end
+
+      if @conversation&.workspace_conversation? && WORKSPACE_CONTEXT_TOOLS.include?(tool_name)
+        arguments = tool_call[:arguments] || tool_call["arguments"] || {}
+        arguments = JSON.parse(arguments) if arguments.is_a?(String)
+        arguments = arguments.stringify_keys.merge("conversation_id" => @conversation.conversation_id)
+
+        # Auto-prepend @mention when the model omits it from send_message.
+        # gpt-4.1-mini frequently delegates with just the request text
+        # (e.g. "What time is it?") without the required @AgentName prefix.
+        if tool_name == "send_message" && arguments["message"].present?
+          arguments["message"] = ensure_mention(arguments["message"])
+        end
+
+        tool_call = tool_call.merge(arguments: arguments, "arguments" => arguments)
+        Rails.logger.info("[ConciergeToolBridge] Auto-injected conversation_id=#{@conversation.conversation_id} into #{tool_name}")
+      end
+
+      result_json, full_result = super(tool_call)
+
+      # T3 — auto-surface a confirmation card when a tool returns
+      # requires_approval + a confirmation block. Removes the reliance on
+      # smaller LLMs (gpt-4.1-mini, etc.) choosing to call
+      # request_confirmation as a follow-up; the operator sees the
+      # interactive card immediately alongside the LLM's narration.
+      auto_emit_confirmation(full_result) if full_result.is_a?(Hash)
+
+      [result_json, full_result]
     end
 
     private
+
+    # Detect tool results carrying { requires_approval: true } + a
+    # confirmation: {action_type, action_description, action_params} block
+    # and emit a confirmation card the operator can click without waiting
+    # on the LLM to call request_confirmation.
+    def auto_emit_confirmation(full_result)
+      requires_approval = full_result[:requires_approval] || full_result["requires_approval"]
+      return unless requires_approval
+
+      data = full_result[:data] || full_result["data"] || {}
+      confirmation = if data.is_a?(Hash)
+                       data[:confirmation] || data["confirmation"]
+                     end
+      confirmation ||= full_result[:confirmation] || full_result["confirmation"]
+      return unless confirmation.is_a?(Hash)
+
+      synthetic = {
+        arguments: {
+          "action_description" => confirmation[:action_description] || confirmation["action_description"],
+          "tool_name"          => confirmation[:action_type]        || confirmation["action_type"],
+          "tool_arguments"     => confirmation[:action_params]      || confirmation["action_params"] || {}
+        }
+      }
+      handle_confirmation_request(synthetic)
+      Rails.logger.info(
+        "[ConciergeToolBridge] auto-emitted confirmation card action=#{synthetic[:arguments]['tool_name']}"
+      )
+    rescue StandardError => e
+      Rails.logger.error("[ConciergeToolBridge] auto-confirmation failed: #{e.class}: #{e.message}")
+    end
 
     # Ensure the message contains an @mention for at least one workspace member.
     # If the LLM omitted it, prepend a mention for the default delegation target

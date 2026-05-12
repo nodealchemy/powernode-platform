@@ -15,8 +15,27 @@ module Ai
       @account = user.account
     end
 
-    # Primary entry point — routes to tool-bridge or legacy action-grammar
+    # Primary entry point — routes to tool-bridge or legacy action-grammar.
+    #
+    # Wraps the original dispatch with ConciergeRouter (pre-LLM routing).
+    # Three outcomes from the router:
+    #
+    #   :invoked     — A skill was already executed; result is stashed for
+    #                  injection into the LLM's system prompt so the model
+    #                  phrases a natural reply over the pre-computed data.
+    #                  Agent stays as Powernode Assistant.
+    #
+    #   :delegated   — A specialist agent owns this query better than the
+    #                  default. @agent is swapped for this turn only;
+    #                  subsequent turns default back unless re-routed.
+    #
+    #   :passthrough — Router didn't fire; default chat flow runs as before.
+    #
+    # Router failures are caught and ignored — chat must never regress when
+    # the router has a bad day.
     def process_message(content)
+      apply_routing!(invoke_router(content))
+
       credential = find_credential
 
       if credential && tool_bridge_available?(credential)
@@ -30,6 +49,104 @@ module Ai
         "I encountered an error processing your request. Please try again."
       )
     end
+
+    private
+
+    def invoke_router(content)
+      return nil unless defined?(::Ai::ConciergeRouter) && @conversation && @user
+      return nil if content.to_s.strip.empty?
+
+      stub_message = Struct.new(:body).new(content.to_s)
+      ::Ai::ConciergeRouter.route(conversation: @conversation, user_message: stub_message)
+    rescue StandardError => e
+      Rails.logger.warn("[ConciergeService] router error: #{e.class}: #{e.message}")
+      nil
+    end
+
+    def apply_routing!(routing)
+      return unless routing.respond_to?(:mode)
+
+      case routing.mode
+      when :invoked
+        # Stash the invocation result; the system prompt builder appends
+        # context_addendum so the LLM has the skill output as context
+        # before generation. The LLM phrases the natural reply.
+        @router_invocation = routing
+        Rails.logger.info(
+          "[ConciergeService] router :invoked skill=#{routing.skill_slug} for conv=#{@conversation.id}"
+        )
+
+        # When the router pre-invokes a skill whose result carries
+        # requires_approval + a confirmation block, surface the confirmation
+        # card directly here. The LLM-driven path (tool bridge auto-emit)
+        # never fires for router-invoked skills because the LLM only
+        # narrates the pre-injected result instead of calling the tool.
+        emit_router_invoked_confirmation(routing.skill_data) if routing.respond_to?(:skill_data)
+      when :delegated
+        # Swap to the specialist agent for THIS turn. Conversation state
+        # is unchanged — next turn defaults back to the original agent
+        # unless re-routed by the next invocation. The @router_delegated
+        # flag triggers an adjacent-injection handoff notice in the
+        # messages array so the new agent doesn't inherit wrong-domain
+        # interpretations from the prior agent's conversation history.
+        if routing.delegated_agent.present?
+          original = @agent&.name
+          @agent = routing.delegated_agent
+          @router_delegated = true
+          Rails.logger.info(
+            "[ConciergeService] router :delegated from=#{original.inspect} to=#{routing.delegated_agent.name.inspect} conv=#{@conversation.id}"
+          )
+        end
+      when :passthrough
+        # No-op
+      end
+    end
+
+    # Mirrors ConciergeToolBridge#auto_emit_confirmation for the router
+    # invocation path. The router runs the skill executor directly (no
+    # LLM tool call), so the bridge never sees the result — without this
+    # method, design-agent-team-from-intent and design-skill-from-intent
+    # invocations via the router would yield narration but no clickable
+    # confirmation card.
+    def emit_router_invoked_confirmation(skill_data)
+      return unless skill_data.is_a?(Hash)
+
+      requires_approval = skill_data[:requires_approval] || skill_data["requires_approval"]
+      return unless requires_approval
+
+      data = skill_data[:data] || skill_data["data"] || {}
+      confirmation = data.is_a?(Hash) ? (data[:confirmation] || data["confirmation"]) : nil
+      confirmation ||= skill_data[:confirmation] || skill_data["confirmation"]
+      return unless confirmation.is_a?(Hash)
+
+      action_type = confirmation[:action_type] || confirmation["action_type"]
+      action_description = confirmation[:action_description] || confirmation["action_description"]
+      action_params = confirmation[:action_params] || confirmation["action_params"] || {}
+
+      @conversation.add_assistant_message(
+        action_description.to_s,
+        content_metadata: {
+          "concierge_action" => true,
+          "action_type"      => action_type,
+          "action_params"    => action_params,
+          "actions" => [
+            { "type" => "confirm", "label" => "Confirm", "style" => "primary" },
+            { "type" => "modify",  "label" => "Modify",  "style" => "secondary" }
+          ],
+          "action_context" => {
+            "type"        => "concierge_confirmation",
+            "action_type" => action_type,
+            "status"      => "pending",
+            "mode"        => "router_invoked"
+          }
+        }
+      )
+      Rails.logger.info("[ConciergeService] router auto-emitted confirmation card action=#{action_type}")
+    rescue StandardError => e
+      Rails.logger.error("[ConciergeService] router confirmation emit failed: #{e.class}: #{e.message}")
+    end
+
+    public
 
     def handle_confirmed_action(action_type, params)
       resolve_pending_action(action_type)
@@ -49,6 +166,12 @@ module Ai
         trigger_code_review(params)
       when "deploy"
         trigger_deploy(params)
+      when "resume_recipe_run"
+        resume_recipe_run(params)
+      when "create_recipe_skill"
+        create_recipe_skill(params)
+      when "create_team_from_spec"
+        create_team_from_spec(params)
       else
         @conversation.add_assistant_message("Unknown action type: #{action_type}")
       end
@@ -92,7 +215,7 @@ module Ai
     # Detect explicit delegation intent: "ask Claude ...", "tell X ...", "have X do ..."
     DELEGATION_PATTERN = /\b(ask|tell|have|message|ping|notify)\s+(claude|the\s+assistant)/i
 
-    def process_with_tools(content, _credential = nil)
+    def process_with_tools(content, credential = nil)
       llm_client = WorkerLlmClient.new(agent_id: @agent.id)
       tool_bridge = Ai::ConciergeToolBridge.new(
         agent: @agent, account: @account,
@@ -100,7 +223,13 @@ module Ai
       )
 
       messages = build_tool_messages(content)
-      model = concierge_model || credential.provider.default_model
+      # Fallback chain: explicit agent model → credential's provider default →
+      # re-fetched credential (in case caller passed nil). The `credential ||=`
+      # guard handles the latter — previously this was `_credential` (unused
+      # param) which silently broke when concierge_model returned nil
+      # (e.g., for System Concierge whose @agent.model is unset).
+      credential ||= find_credential
+      model = concierge_model || credential&.provider&.default_model
 
       # When the user explicitly asks to delegate, force the model to call send_message
       # rather than letting it decide (gpt-4.1-mini often ignores tool-use instructions)
@@ -165,6 +294,16 @@ module Ai
         messages << { role: msg.role, content: msg.content }
       end
 
+      # Router-invoked skill result, injected as a synthetic system message
+      # IMMEDIATELY BEFORE the user's latest message. This positioning is
+      # deliberate (R5 fix 2026-05-12): when the addendum lived inside the
+      # global system prompt, ~10 turns of accumulated "couldn't find"
+      # context in conversation history would outweigh the directive. Placing
+      # it adjacent to the user message means the LLM sees the override
+      # right next to the question — recency bias works *for* us instead
+      # of against us.
+      messages << router_override_message if router_override_message
+
       messages << { role: "user", content: user_content }
       messages
     end
@@ -181,6 +320,12 @@ module Ai
       # Dynamic runtime context (live data: missions, repos, teams, workspace members)
       context_section = build_context_section
       parts << context_section
+
+      # NOTE: router invocation result is NOT injected here. It's placed
+      # adjacent to the user message via build_tool_messages /
+      # build_legacy_messages instead — adjacent injection avoids the
+      # recency-bias problem where ~10 turns of "couldn't find" history
+      # outweigh a directive buried in the global system prompt.
 
       assembled = parts.join("\n\n")
 
@@ -247,8 +392,93 @@ module Ai
         messages << { role: msg.role, content: msg.content }
       end
 
+      # Router-invoked skill result — same adjacent-injection pattern as
+      # build_tool_messages. See R5 fix note there.
+      messages << router_override_message if router_override_message
+
       messages << { role: "user", content: user_content }
       messages
+    end
+
+    # Synthetic system message carrying the router's invocation addendum
+    # (for :invoked mode) OR a delegation-handoff notice (for :delegated mode).
+    # In both cases it sits adjacent to the user message so the LLM sees the
+    # override at the top of its working memory rather than buried under
+    # accumulated conversation history that may have established a wrong
+    # pattern (e.g., 10+ "couldn't find" responses).
+    def router_override_message
+      return invoked_override if @router_invocation&.context_addendum.present?
+      return delegated_override if @router_delegated
+
+      nil
+    end
+
+    def invoked_override
+      {
+        role: "system",
+        content: <<~OVERRIDE.strip
+          IMPORTANT — IGNORE PRIOR CONVERSATION PATTERN FOR THIS QUERY.
+          Earlier responses in this conversation may have said "no records
+          found" or "couldn't find in knowledge base." Those answers were
+          incorrect for the question now being asked. The platform tool
+          has been invoked directly for the user's latest message and the
+          authoritative result is below. Use ONLY this data when answering;
+          do not invoke search_knowledge or fall back to general training
+          data for this specific question.
+
+          #{@router_invocation.context_addendum}
+        OVERRIDE
+      }
+    end
+
+    def delegated_override
+      {
+        role: "system",
+        content: <<~OVERRIDE.strip
+          IMPORTANT — AGENT HANDOFF FOR THIS QUERY.
+          You are now responding as **#{@agent.name}** for this user message.
+          Earlier responses in this conversation came from a DIFFERENT agent
+          (Powernode Assistant, a general-purpose chat agent) and may have
+          interpreted platform-specific terminology incorrectly. For
+          example, "NodeModule" in this platform refers to
+          `System::NodeModule` — a Powernode unit of installable software
+          assigned to nodes — NOT a Node.js npm module. Similarly:
+            * "fleet" = the network of managed NodeInstances (NOT AI agents)
+            * "module" = NodeModule (NOT Node.js / Python module)
+            * "instance" = NodeInstance (NOT AWS EC2 instance — though it
+              may be backed by one)
+            * "package" = a row in system_packages from a synced apt/rpm repo
+            * "repository" = a row in system_package_repositories (apt/rpm
+              source), NOT a Git repo
+
+          === MANDATORY: INVOKE TOOLS, DO NOT DESCRIBE ===
+          You have direct access to platform tools (system_*, docker_*,
+          kubernetes_*). For ANY query that asks about platform state
+          ("how many...", "what's configured...", "show me...", "list...")
+          or that requests a platform action ("provision...", "create...",
+          "deploy..."), you MUST call the appropriate tool DIRECTLY rather
+          than describing what tool you would call or providing generic
+          install instructions.
+
+          Examples of CORRECT behavior:
+            * "How many package repos?" → call system_list_package_repositories
+              (or invoke system-list-package-repositories-summary skill), then
+              report the actual count. NOT generic CLI advice.
+            * "Provision a Docker runtime" → call request_confirmation with
+              the provision plan, then on confirm call system_provision_docker_runtime.
+              NOT generic "install Docker via apt" instructions.
+            * "How is my fleet?" → call system_list_nodes / system_list_instances,
+              report real data. NOT "you should check your dashboard."
+
+          If you don't recognize the appropriate tool, call discover_skills
+          first to find it, then invoke. DO NOT fall back to general
+          training-data instructions when a platform tool exists for the
+          query.
+
+          Treat the latest user message as a fresh query in your domain.
+          Do NOT defer to prior responses in this conversation.
+        OVERRIDE
+      }
     end
 
     def legacy_system_prompt
@@ -261,6 +491,9 @@ module Ai
 
       # Dynamic runtime context (live data: missions, repos, teams, workspace members)
       parts << build_context_section
+
+      # Router invocation result is injected adjacent to the user message
+      # in build_legacy_messages, not here. See router_override_message.
 
       # Action-grammar markers — tightly coupled to parse_action, must stay in code
       parts << <<~INSTRUCTIONS
@@ -578,6 +811,303 @@ module Ai
         "Code review requested for **#{params['repository']}** (branch: #{params['branch'] || 'default'}). " \
         "This will be routed through the Code Factory review pipeline."
       )
+    end
+
+    # M3 — operator approved a paused require_approval step in a recipe run.
+    # Resumes the run from the paused step; the runner continues until the
+    # next pause point, completion, or failure.
+    def resume_recipe_run(params)
+      run_id = params["run_id"] || params[:run_id]
+      run = ::Ai::SkillRecipeRun.find_by(id: run_id, account: @account)
+      unless run
+        @conversation.add_assistant_message("Recipe run #{run_id.inspect} not found.")
+        return
+      end
+      unless run.paused?
+        @conversation.add_assistant_message(
+          "Recipe run #{run_id} is not paused (status=#{run.status}); nothing to resume."
+        )
+        return
+      end
+
+      # Switch the run back to running so the runner knows the pending
+      # step was approved (see SkillRecipeRunner#approval_already_granted_for?).
+      run.update!(status: "running")
+      resumed = ::Ai::SkillRecipeRunner.resume(run: run)
+
+      summary = if resumed.successful?
+                  "Recipe **#{run.skill.name}** completed successfully. Final outputs:\n```json\n#{JSON.pretty_generate(resumed.outputs)}\n```"
+                elsif resumed.paused?
+                  "Recipe **#{run.skill.name}** is paused at the next approval-gated step (#{resumed.pending_step_id}). Confirm again to continue."
+                elsif resumed.failed?
+                  "Recipe **#{run.skill.name}** failed at step #{resumed.failed_step_id}: #{resumed.error_message}"
+                else
+                  "Recipe run finished in unexpected state: #{resumed.status}"
+                end
+      @conversation.add_assistant_message(summary)
+    end
+
+    # M4 prep — operator approved the design of a new recipe skill. Persists
+    # the Ai::Skill row with metadata.recipe populated, optionally binding
+    # to an agent. Called from the create_recipe_skill confirmation flow
+    # emitted by DesignSkillFromIntentExecutor.
+    def create_recipe_skill(params)
+      slug = params["slug"] || params[:slug]
+      if slug.blank? || params["recipe"].blank?
+        @conversation.add_assistant_message("Cannot create recipe skill: missing slug or recipe payload.")
+        return
+      end
+
+      skill = ::Ai::Skill.find_or_initialize_by(slug: slug)
+      skill.assign_attributes(
+        account:     @account,
+        name:        params["name"] || slug.titleize,
+        description: params["description"] || "Custom recipe skill",
+        category:    params["category"] || "skill_management",
+        status:      "active",
+        is_enabled:  true,
+        is_system:   false,
+        version:     "1.0.0",
+        tags:        Array(params["tags"]).presence || %w[custom recipe operator-defined],
+        metadata: {
+          "author"          => "operator",
+          "icon"            => "recipe",
+          "domain"          => "custom",
+          "invocation_mode" => "one_shot",
+          "recipe"          => params["recipe"]
+        }
+      )
+      skill.save!
+
+      # Bind to the calling agent so it's immediately discoverable to the
+      # operator's chat surface. Operator can rebind elsewhere via the
+      # skills admin UI.
+      if @agent&.persisted?
+        ::Ai::AgentSkill.find_or_create_by!(ai_agent_id: @agent.id, ai_skill_id: skill.id) do |bind|
+          bind.priority = 500
+          bind.is_active = true
+        end
+      end
+
+      @conversation.add_assistant_message(
+        "Recipe skill **#{skill.name}** (`#{skill.slug}`) created and bound. " \
+        "It's now discoverable via `discover_skills` and routable by the ConciergeRouter."
+      )
+    end
+
+    # T3 — operator approved a team spec produced by
+    # DesignAgentTeamFromIntentExecutor. Creates any approved new agents
+    # (per-role allow-list via approved_new_agent_roles, defaulting to all),
+    # then persists Ai::AgentTeam + member rows. Drops members whose backing
+    # agent could not be resolved; fails the whole creation if a `required`
+    # member is unresolvable.
+    #
+    # Map between executor vocabulary and AgentTeam columns:
+    #   executor "coordination_strategy" → AgentTeam#team_type
+    #   AgentTeam#coordination_strategy   ← derived (manager_led for hierarchical/sequential,
+    #                                                priority_based for parallel,
+    #                                                consensus for mesh).
+    TEAM_TYPE_MAP = {
+      "hierarchical" => { team_type: "hierarchical", coordination_strategy: "manager_led" },
+      "sequential"   => { team_type: "sequential",   coordination_strategy: "manager_led" },
+      "parallel"     => { team_type: "parallel",     coordination_strategy: "priority_based" },
+      "mesh"         => { team_type: "mesh",         coordination_strategy: "consensus" }
+    }.freeze
+
+    def create_team_from_spec(params)
+      name = params["name"] || params[:name]
+      members = Array(params["members"] || params[:members])
+      strategy_in = (params["coordination_strategy"] || params[:coordination_strategy]).to_s
+
+      if name.blank? || members.empty? || !TEAM_TYPE_MAP.key?(strategy_in)
+        @conversation.add_assistant_message(
+          "Cannot create team: missing name, members, or unrecognized coordination_strategy `#{strategy_in}`."
+        )
+        return
+      end
+
+      # Three states distinguished here:
+      #   absent (nil)   → default to allow-all (operator clicked plain "Confirm")
+      #   array provided → only those roles approved, even if empty
+      raw_allow = params.key?("approved_new_agent_roles") ? params["approved_new_agent_roles"]
+                                                          : params[:approved_new_agent_roles]
+      allow_all_new = raw_allow.nil?
+      approved_new_roles = Array(raw_allow)
+      new_specs_by_role = Array(params["new_agents_to_create"]).index_by { |e| e["role"] }
+
+      created_agents = {}
+      skipped_unapproved = []
+      ActiveRecord::Base.transaction do
+        new_specs_by_role.each do |role, entry|
+          next unless allow_all_new || approved_new_roles.include?(role)
+
+          agent = create_agent_from_spec(entry["agent_spec"] || entry[:agent_spec], role)
+          created_agents[role] = agent if agent
+        end
+
+        members.each_with_index do |m, i|
+          # Skip members whose new agent wasn't approved
+          if m["agent_spec"].present? && !created_agents.key?(m["role"])
+            if m["required"]
+              raise ActiveRecord::Rollback, "Required member `#{m['role']}` could not be resolved"
+            end
+            skipped_unapproved << m["role"]
+            next
+          end
+        end
+
+        mapping = TEAM_TYPE_MAP.fetch(strategy_in)
+        team = @account.ai_agent_teams.create!(
+          name: unique_team_name(name),
+          description: params["description"] || "Team composed via DesignAgentTeamFromIntentExecutor",
+          team_type: mapping[:team_type],
+          coordination_strategy: mapping[:coordination_strategy],
+          status: "active",
+          team_config: {
+            "designed_by_skill" => "design-agent-team-from-intent",
+            "designed_at"       => Time.current.iso8601,
+            "output_template"   => params["output_template"] || {},
+            "skipped_members"   => skipped_unapproved
+          }
+        )
+
+        # Designate exactly one lead for manager_led teams: the resolvable
+        # member with the lowest priority. Setting is_lead on more than one
+        # member trips AgentTeamMember's uniqueness validation.
+        resolvable_members = members.reject { |m| m["agent_spec"].present? && !created_agents.key?(m["role"]) }
+        lead_role = if mapping[:coordination_strategy] == "manager_led"
+                      resolvable_members.min_by { |m| (m["priority"] || 100).to_i }&.dig("role")
+                    end
+
+        resolvable_members.each do |m|
+          agent = if m["agent_slug"].present?
+                    @account.ai_agents.find_by(slug: m["agent_slug"])
+                  else
+                    created_agents[m["role"]]
+                  end
+          next if agent.blank?
+
+          ::Ai::AgentTeamMember.create!(
+            ai_agent_team_id: team.id,
+            ai_agent_id:      agent.id,
+            role:             m["role"],
+            priority_order:   (m["priority"] || 100).to_i,
+            is_lead:          m["role"] == lead_role,
+            recruited_at:     Time.current
+          )
+
+          # Mirror as Ai::TeamRole so the existing role-based UI surfaces
+          # this composition. The role_name is account-scoped-unique in
+          # the model — disambiguate per-team via "team_id:role" prefix.
+          ::Ai::TeamRole.create!(
+            account_id:    @account.id,
+            agent_team_id: team.id,
+            ai_agent_id:   agent.id,
+            role_name:     unique_team_role_name(team, m["role"]),
+            role_type:     m["role"] == lead_role ? "manager" : "worker",
+            role_description: m["role"],
+            capabilities:  Array(m["capabilities"]),
+            priority_order: (m["priority"] || 100).to_i,
+            max_concurrent_tasks: 1
+          )
+        end
+
+        @created_team = team
+      end
+
+      if @created_team
+        skip_note = skipped_unapproved.any? ? " Skipped (unapproved new agents): #{skipped_unapproved.join(', ')}." : ""
+        new_note  = created_agents.any? ? " Created #{created_agents.size} new agent(s): #{created_agents.keys.join(', ')}." : ""
+        @conversation.add_assistant_message(
+          "Team **#{@created_team.name}** created with #{@created_team.members.count} member(s).#{new_note}#{skip_note}"
+        )
+      else
+        @conversation.add_assistant_message("Team creation rolled back: required member could not be resolved.")
+      end
+    end
+
+    def create_agent_from_spec(agent_spec, role)
+      return nil if agent_spec.blank?
+
+      agent_type = valid_agent_type(agent_spec["agent_type"])
+      recommendation = ::Ai::AgentModelSelector.recommend(
+        account:     @account,
+        agent_type:  agent_type,
+        role:        role,
+        description: agent_spec["system_prompt_summary"]
+      )
+      provider = recommendation[:provider]
+      model    = recommendation[:model]
+      unless provider
+        Rails.logger.error("[create_team_from_spec] no active AI provider — cannot create agent for role=#{role}")
+        return nil
+      end
+
+      Rails.logger.info("[create_team_from_spec] model_selection role=#{role}: #{recommendation[:reason]}")
+
+      base = (agent_spec["name"] || role).to_s.parameterize.truncate(40, omission: "")
+      slug = unique_agent_slug(base)
+      ::Ai::Agent.create!(
+        account:       @account,
+        creator:       @user,
+        provider:      provider,
+        name:          agent_spec["name"] || role.titleize,
+        slug:          slug,
+        agent_type:    agent_type,
+        status:        "active",
+        description:   agent_spec["system_prompt_summary"],
+        system_prompt: agent_spec["system_prompt_summary"],
+        mcp_metadata:  {
+          "created_by"      => "design-agent-team-from-intent",
+          "role"            => role,
+          "model_config"    => { "model" => model },
+          "model_selection" => {
+            "provider_type" => recommendation[:provider_type],
+            "model"         => model,
+            "reason"        => recommendation[:reason],
+            "selected_at"   => Time.current.iso8601,
+            "score_details" => recommendation[:score_details]
+          }.compact
+        }
+      )
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.error("[create_team_from_spec] agent_create failed role=#{role}: #{e.message}")
+      nil
+    end
+
+    def valid_agent_type(t)
+      allowed = ::Ai::Agent.validators_on(:agent_type).flat_map { |v| Array(v.options[:in]) }
+      allowed.include?(t) ? t : "assistant"
+    end
+
+    def unique_agent_slug(base)
+      slug = base
+      i = 1
+      while ::Ai::Agent.exists?(slug: slug)
+        slug = "#{base}-#{i}"
+        i += 1
+      end
+      slug
+    end
+
+    def unique_team_name(base)
+      name = base
+      i = 1
+      while @account.ai_agent_teams.exists?(name: name)
+        name = "#{base} (#{i})"
+        i += 1
+      end
+      name
+    end
+
+    def unique_team_role_name(team, base)
+      candidate = base.to_s
+      i = 1
+      while ::Ai::TeamRole.exists?(role_name: candidate)
+        candidate = "#{base}_#{team.id[0, 6]}_#{i}"
+        i += 1
+      end
+      candidate
     end
 
     def trigger_deploy(params)
