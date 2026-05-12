@@ -8,7 +8,14 @@ module Ai
 
         def list_roles(team_id)
           team = find_team(team_id)
-          team.ai_team_roles.ordered_by_priority
+          # Eager-load agent + provider so serialize_role doesn't N+1 when
+          # surfacing agent_model, agent_provider, model_selection, and
+          # AgentModelPerformance rows. agent_team is already in scope from
+          # the lookup; loading it on the role lets is_lead checks skip the
+          # ai_agent_team_id round-trip too.
+          team.ai_team_roles
+              .ordered_by_priority
+              .includes(:agent_team, ai_agent: :provider)
         end
 
         def create_role(team_id, params)

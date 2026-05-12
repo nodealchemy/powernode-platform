@@ -31,6 +31,23 @@ export interface Team {
   created_at: string;
 }
 
+export interface ModelSelectionRationale {
+  provider_type?: string;
+  model?: string;
+  reason?: string;
+  selected_at?: string;
+}
+
+export interface ModelPerformance {
+  total_runs: number;
+  successful_runs: number;
+  failed_runs: number;
+  success_rate: number | null;
+  avg_cost_usd: number;
+  avg_duration_ms: number;
+  last_run_at: string | null;
+}
+
 export interface TeamRole {
   id: string;
   role_name: string;
@@ -47,8 +64,27 @@ export interface TeamRole {
   max_concurrent_tasks: number;
   agent_id: string | null;
   agent_name: string | null;
+  agent_slug?: string | null;
   agent_type: string | null;
+  agent_model?: string | null;
+  agent_provider?: string | null;
   is_lead: boolean;
+  model_selection?: ModelSelectionRationale;
+  model_performance?: ModelPerformance;
+}
+
+export interface TeamActivationRules {
+  on_event?: string[];
+  enabled?: boolean;
+  min_strength?: number;
+  cooldown_seconds?: number;
+}
+
+export interface TeamEventHistoryEntry {
+  signal_key: string;
+  signal_id?: string;
+  execution_id?: string;
+  dispatched_at: string;
 }
 
 export interface TeamChannel {

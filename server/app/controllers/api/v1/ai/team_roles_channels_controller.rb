@@ -146,7 +146,8 @@ module Api
         end
 
         def serialize_role(role)
-          {
+          agent = role.ai_agent
+          base = {
             id: role.id,
             role_name: role.role_name,
             role_type: role.role_type,
@@ -161,10 +162,45 @@ module Api
             can_escalate: role.can_escalate,
             max_concurrent_tasks: role.max_concurrent_tasks,
             agent_id: role.ai_agent_id,
-            agent_name: role.ai_agent&.name,
-            agent_type: role.ai_agent&.agent_type,
+            agent_name: agent&.name,
+            agent_slug: agent&.slug,
+            agent_type: agent&.agent_type,
+            agent_model: agent&.model,
+            agent_provider: agent&.provider&.provider_type,
             is_lead: role.ai_agent_id.present? && role.agent_team.members.exists?(ai_agent_id: role.ai_agent_id, is_lead: true)
           }
+
+          sel = agent&.mcp_metadata&.dig("model_selection")
+          if sel.is_a?(Hash)
+            base[:model_selection] = {
+              provider_type: sel["provider_type"],
+              model:         sel["model"],
+              reason:        sel["reason"],
+              selected_at:   sel["selected_at"]
+            }.compact
+          end
+
+          if agent && agent.ai_provider_id.present? && agent.model.present? && agent.agent_type.present?
+            perf = ::Ai::AgentModelPerformance.find_by(
+              account_id:     agent.account_id,
+              ai_provider_id: agent.ai_provider_id,
+              model:          agent.model,
+              agent_type:     agent.agent_type
+            )
+            if perf
+              base[:model_performance] = {
+                total_runs:      perf.total_runs,
+                successful_runs: perf.successful_runs,
+                failed_runs:     perf.failed_runs,
+                success_rate:    perf.success_rate,
+                avg_cost_usd:    perf.avg_cost_usd,
+                avg_duration_ms: perf.avg_duration_ms,
+                last_run_at:     perf.last_run_at
+              }
+            end
+          end
+
+          base
         end
 
         def serialize_channel(channel)
