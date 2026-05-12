@@ -46,6 +46,7 @@ module Ai
     after_update :trigger_webhook, if: :saved_change_to_status?
     after_update :propagate_cost_to_budget, if: -> { saved_change_to_cost_usd? && cost_usd.present? && cost_usd > 0 }
     after_update :trigger_trust_evaluation, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
+    after_update :record_model_performance, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
 
     # Methods
     def pending?
@@ -248,6 +249,28 @@ module Ai
       Ai::Autonomy::TrustEngineService.new(account: account).evaluate(agent: agent, execution: self)
     rescue StandardError => e
       Rails.logger.error("[AgentExecution] Trust evaluation failed for execution #{id}: #{e.message}")
+    end
+
+    # Feeds Ai::AgentModelPerformance — the substrate Ai::AgentModelSelector
+    # consults when picking a model for a newly designed agent. Each run's
+    # success/cost/duration is rolled into a per-(provider, model, agent_type)
+    # counter row scoped to this account.
+    def record_model_performance
+      model_name = agent&.model
+      return unless ai_provider_id.present? && model_name.present? && agent&.agent_type.present?
+
+      Ai::AgentModelPerformance.record!(
+        account_id:  account_id,
+        provider_id: ai_provider_id,
+        model:       model_name,
+        agent_type:  agent.agent_type,
+        success:     status == "completed",
+        cost_usd:    cost_usd,
+        duration_ms: duration_ms,
+        tokens:      tokens_used
+      )
+    rescue StandardError => e
+      Rails.logger.error("[AgentExecution] Model performance record failed for execution #{id}: #{e.message}")
     end
   end
 end
