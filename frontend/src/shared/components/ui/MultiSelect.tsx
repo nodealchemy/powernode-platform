@@ -59,7 +59,10 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
   const [activeIndex, setActiveIndex] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  // HTMLDivElement (not HTMLButtonElement) because the trigger is a
+  // <div role="combobox"> — chips contain inner remove <button>s and
+  // HTML forbids button-in-button.
+  const triggerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const fieldId = useId();
@@ -187,18 +190,38 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
 
   const labelFor = (v: string) => options.find((o) => o.value === v)?.label ?? v;
 
+  // Trigger toggle on Space/Enter for the combobox role. The container's
+  // onKeyDown handles list navigation when open; this handler covers the
+  // closed-state activation that a real <button> would get for free.
+  const onTriggerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    if (!open && (e.key === ' ' || e.key === 'Enter')) {
+      e.preventDefault();
+      setOpen(true);
+    }
+  };
+
   return (
     <div ref={containerRef} className={`relative ${className}`} onKeyDown={onKeyDown}>
-      <button
-        type="button"
+      {/*
+       * NOTE: trigger is a <div role="combobox"> rather than a <button>
+       * because chips contain their own remove <button>, and HTML
+       * forbids button-in-button (causes a React hydration error).
+       * role="combobox" + tabIndex + Space/Enter handler give it the
+       * same keyboard semantics as a button.
+       */}
+      <div
         ref={triggerRef}
         onClick={() => !disabled && setOpen((o) => !o)}
+        onKeyDown={onTriggerKeyDown}
+        role="combobox"
+        tabIndex={disabled ? -1 : 0}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
         aria-label={ariaLabel}
-        disabled={disabled}
-        className={`w-full min-h-[2.25rem] flex flex-wrap items-center gap-1 px-2 py-1.5 rounded border border-theme bg-theme-background text-left text-theme-primary focus:outline-none focus:border-theme-focus disabled:opacity-50`}
+        aria-disabled={disabled}
+        className={`w-full min-h-[2.25rem] flex flex-wrap items-center gap-1 px-2 py-1.5 rounded border border-theme bg-theme-background text-left text-theme-primary cursor-pointer focus:outline-none focus:border-theme-focus aria-disabled:opacity-50 aria-disabled:cursor-not-allowed`}
       >
         {value.length === 0 ? (
           <span className="text-theme-tertiary text-sm">{placeholder}</span>
@@ -231,7 +254,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
           </>
         )}
         <ChevronDown className="w-4 h-4 text-theme-tertiary ml-auto flex-shrink-0" />
-      </button>
+      </div>
 
       {open && (
         <div
