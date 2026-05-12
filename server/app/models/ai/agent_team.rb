@@ -194,6 +194,88 @@ module Ai
     end
 
     # ==========================================
+    # Event-driven activation (T4)
+    # ==========================================
+    # Teams opt in by setting team_config["activation_rules"] to:
+    #   {
+    #     "on_event":         ["fleet.capacity_pressure", "fleet.region_busy"],
+    #     "enabled":          true,
+    #     "min_strength":     0.5,    # optional, default 0.0
+    #     "cooldown_seconds": 600     # optional, default 0
+    #   }
+    # Each matching Ai::StigmergicSignal#after_create_commit fires
+    # Ai::TeamEventDispatcher which calls #dispatch_for_event! on every
+    # responsive team. activation_rules lives inside the existing
+    # team_config JSONB (no new column needed).
+
+    def activation_rules
+      rules = team_config.is_a?(Hash) ? team_config["activation_rules"] : nil
+      rules.is_a?(Hash) ? rules : {}
+    end
+
+    def event_subscriptions
+      Array(activation_rules["on_event"])
+    end
+
+    def event_triggers_enabled?
+      activation_rules["enabled"] == true && event_subscriptions.any?
+    end
+
+    def responsive_to_signal?(signal)
+      return false unless event_triggers_enabled?
+      return false unless event_subscriptions.include?(signal.signal_key)
+      return false unless active?
+
+      min_strength = activation_rules["min_strength"].to_f
+      return false if min_strength.positive? && signal.strength.to_f < min_strength
+
+      cooldown = activation_rules["cooldown_seconds"].to_i
+      if cooldown.positive?
+        last = Array(team_config.to_h["event_history"]).first
+        if last && last["dispatched_at"]
+          last_at = Time.parse(last["dispatched_at"].to_s)
+          return false if last_at > cooldown.seconds.ago
+        end
+      end
+
+      true
+    rescue ArgumentError
+      true
+    end
+
+    def dispatch_for_event!(signal, user: nil)
+      execution = ::Ai::Teams::ExecutionService.new(account: account).start_execution(
+        id,
+        {
+          objective: "Triggered by signal: #{signal.signal_key}",
+          input_context: {
+            "triggered_by_event"   => signal.signal_key,
+            "signal_id"            => signal.id,
+            "signal_type"          => signal.signal_type,
+            "signal_strength"      => signal.strength,
+            "signal_payload"       => signal.payload,
+            "emitted_by_agent_id"  => signal.emitter_agent_id
+          }
+        },
+        user: user
+      )
+
+      record_event_dispatch!(signal, execution)
+      execution
+    end
+
+    def record_event_dispatch!(signal, execution)
+      history = Array(team_config.to_h["event_history"])
+      history.unshift(
+        "signal_key"   => signal.signal_key,
+        "signal_id"    => signal.id,
+        "execution_id" => execution.respond_to?(:execution_id) ? execution.execution_id : execution&.id,
+        "dispatched_at" => Time.current.iso8601
+      )
+      update!(team_config: team_config.to_h.merge("event_history" => history.first(20)))
+    end
+
+    # ==========================================
     # Private Methods
     # ==========================================
     private

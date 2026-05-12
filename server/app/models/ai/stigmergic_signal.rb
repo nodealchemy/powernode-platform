@@ -25,6 +25,13 @@ module Ai
     scope :strongest, -> { order(strength: :desc) }
     scope :for_account, ->(account_id) { where(account_id: account_id) }
 
+    # T4 — autonomous team activation: any AgentTeam in this account that
+    # opted in via activation_rules.on_event=[signal_key] gets dispatched.
+    # Runs after_commit so the signal row is durably persisted before the
+    # team execution starts (otherwise a rolled-back signal could leave a
+    # stranded execution).
+    after_create_commit :trigger_subscribed_teams
+
     def reinforce!(agent_id:, strength_delta: 0.1)
       new_strength = [strength + strength_delta, 1.0].min
       reinforcements << {
@@ -64,6 +71,14 @@ module Ai
 
     def fading?
       active? && strength < 0.3
+    end
+
+    private
+
+    def trigger_subscribed_teams
+      ::Ai::TeamEventDispatcher.dispatch(self)
+    rescue StandardError => e
+      Rails.logger.error("[StigmergicSignal] subscriber dispatch crashed: #{e.class}: #{e.message}")
     end
   end
 end
