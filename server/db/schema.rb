@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_130004) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_160001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10328,6 +10328,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_130004) do
   end
 
   create_table "system_node_architectures", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "aliases", default: [], null: false
     t.string "apt_name"
     t.datetime "created_at", null: false
     t.text "description"
@@ -10351,6 +10352,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_130004) do
     t.uuid "ramdisk_file_object_id"
     t.string "rpm_name"
     t.datetime "updated_at", null: false
+    t.index ["aliases"], name: "idx_node_architectures_aliases_gin", using: :gin
     t.index ["apt_name"], name: "index_system_node_architectures_on_apt_name", where: "(apt_name IS NOT NULL)"
     t.index ["enabled"], name: "index_system_node_architectures_on_enabled"
     t.index ["family"], name: "index_system_node_architectures_on_family"
