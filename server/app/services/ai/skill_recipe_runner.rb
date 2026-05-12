@@ -1,0 +1,312 @@
+# frozen_string_literal: true
+
+module Ai
+  # Interprets recipe-skill specs (Ai::Skill.metadata["recipe"]) and dispatches
+  # the declared MCP tool sequence. See docs/platform/CONCIERGE_ROUTING_AND_META_SKILLS.md
+  # §"Recipe specification" for the spec format.
+  #
+  # Recipe shape:
+  #
+  #   {
+  #     "version" => "1",
+  #     "inputs"  => [ { "name" => "region", "type" => "string", "required" => true }, ... ],
+  #     "steps"   => [
+  #       { "id" => "step1", "tool" => "system_list_providers", "params" => {...}, "capture" => "providers" },
+  #       { "id" => "step2", "tool" => "system_provision_instance",
+  #         "params" => { "provider_id" => "{{ providers.results[0].id }}" },
+  #         "require_approval" => true }
+  #     ],
+  #     "output" => { "instance_id" => "{{ step2.data.id }}" }
+  #   }
+  #
+  # Variable interpolation: `{{ inputs.name }}` and `{{ <capture>.<dotted.path> }}`.
+  # Array indexing: `{{ providers.results[0].id }}`.
+  #
+  # Three execution modes:
+  #
+  #   .execute(skill:, inputs:, ...)    — full run; dispatches tools, persists trace
+  #   .dry_run(skill:, inputs:, ...)    — resolves bindings, validates, doesn't dispatch
+  #   .resume(run:, ...)                — picks up a paused run after approval
+  #
+  # All return an Ai::SkillRecipeRun row (persisted), even on validation failure
+  # (`status: "failed"`).
+  class SkillRecipeRunner
+    MAX_STEPS = 50           # safety cap — recipes shouldn't be huge
+    INTERPOLATION_RE = /\{\{\s*([^}]+?)\s*\}\}/
+
+    class RecipeError < StandardError; end
+
+    def self.execute(skill:, inputs:, account:, user: nil, agent: nil, dry_run: false)
+      new(skill: skill, inputs: inputs, account: account, user: user, agent: agent, dry_run: dry_run).run
+    end
+
+    def self.dry_run(skill:, inputs:, account:, user: nil, agent: nil)
+      execute(skill: skill, inputs: inputs, account: account, user: user, agent: agent, dry_run: true)
+    end
+
+    def self.resume(run:)
+      raise RecipeError, "Run is not paused" unless run.paused?
+
+      new(skill: run.skill, inputs: run.inputs, account: run.account,
+          user: run.user, agent: run.agent, existing_run: run).run
+    end
+
+    def initialize(skill:, inputs:, account:, user: nil, agent: nil, dry_run: false, existing_run: nil)
+      @skill   = skill
+      @inputs  = inputs.is_a?(Hash) ? inputs.with_indifferent_access : {}.with_indifferent_access
+      @account = account
+      @user    = user
+      @agent   = agent
+      @dry_run = dry_run
+      @run     = existing_run
+    end
+
+    def run
+      ensure_run!
+      ensure_recipe!
+      validate_inputs!
+
+      @run.update!(status: "running", started_at: @run.started_at || Time.current) unless @dry_run
+
+      captures = resume_captures_from(@run)
+      remaining_steps = remaining_steps_for(@run)
+
+      remaining_steps.each_with_index do |step, idx|
+        global_idx = (@run.steps_log || []).size + idx
+        raise RecipeError, "Recipe exceeds MAX_STEPS=#{MAX_STEPS}" if global_idx >= MAX_STEPS
+
+        if step["require_approval"] && !@dry_run && !approval_already_granted_for?(step)
+          pause_for_approval!(step)
+          return @run
+        end
+
+        step_result = execute_step(step, captures)
+        record_step!(step, step_result)
+
+        if step_result[:error]
+          fail_run!(step, step_result[:error])
+          return @run
+        end
+
+        # capture output under the step's capture name (or id)
+        capture_name = step["capture"] || step["id"]
+        captures[capture_name] = step_result[:result] if capture_name.present?
+      end
+
+      finalize_run!(captures)
+      @run
+    rescue RecipeError => e
+      fail_run!(nil, e.message)
+      @run
+    rescue StandardError => e
+      Rails.logger.error("[SkillRecipeRunner] crash skill=#{@skill&.slug} run=#{@run&.id}: #{e.class}: #{e.message}")
+      fail_run!(nil, "Runner crashed: #{e.class}: #{e.message}")
+      @run
+    end
+
+    private
+
+    def ensure_run!
+      return if @run
+
+      @run = ::Ai::SkillRecipeRun.create!(
+        account: @account,
+        skill: @skill,
+        user: @user,
+        agent: @agent,
+        status: @dry_run ? "running" : "pending",
+        inputs: @inputs.to_h,
+        outputs: {},
+        steps_log: [],
+        dry_run: @dry_run,
+        started_at: Time.current
+      )
+    end
+
+    def ensure_recipe!
+      raise RecipeError, "Skill #{@skill&.slug.inspect} is not a recipe skill" unless @skill&.recipe?
+      raise RecipeError, "Recipe has no steps" if @skill.recipe_steps.empty?
+    end
+
+    def validate_inputs!
+      missing = @skill.recipe_inputs.select { |spec| spec["required"] }
+                                    .map { |spec| spec["name"] }
+                                    .reject { |name| @inputs.key?(name) }
+      raise RecipeError, "Missing required input(s): #{missing.join(', ')}" if missing.any?
+    end
+
+    # Reconstructs captures from prior step results when resuming a paused run.
+    def resume_captures_from(run)
+      captures = {}.with_indifferent_access
+      Array(run.steps_log).each do |entry|
+        capture_name = entry["capture"] || entry["step_id"] || entry["id"]
+        next if capture_name.blank?
+        next if entry["error"].present?
+
+        captures[capture_name] = entry["result"]
+      end
+      captures
+    end
+
+    def remaining_steps_for(run)
+      completed_ids = Array(run.steps_log).map { |e| e["step_id"] }
+      @skill.recipe_steps.reject { |s| completed_ids.include?(s["id"]) }
+    end
+
+    # Returns true if this paused run is being resumed after operator approval
+    # for this specific step. Detected via pending_step_id == step["id"]; the
+    # resume() path clears that field when called.
+    def approval_already_granted_for?(step)
+      @run.pending_step_id == step["id"] && @run.status == "running"
+    end
+
+    def pause_for_approval!(step)
+      @run.update!(
+        status: "paused_for_approval",
+        pending_step_id: step["id"]
+      )
+    end
+
+    def execute_step(step, captures)
+      started_at = Time.current
+
+      resolved_params = interpolate(step["params"] || {}, captures)
+
+      result =
+        if @dry_run
+          { dry_run: true, would_dispatch: step["tool"], with_params: resolved_params }
+        else
+          dispatch_tool(step["tool"], resolved_params)
+        end
+
+      {
+        result:      result,
+        started_at:  started_at.iso8601,
+        finished_at: Time.current.iso8601,
+        error:       nil
+      }
+    rescue StandardError => e
+      {
+        result:      nil,
+        started_at:  started_at.iso8601,
+        finished_at: Time.current.iso8601,
+        error:       "#{e.class}: #{e.message}"
+      }
+    end
+
+    # Dispatches an MCP tool action via the registered tool class. Returns the
+    # tool's response hash ({success:, data:/error:}).
+    def dispatch_tool(tool_name, params)
+      raise RecipeError, "Step missing 'tool' name" if tool_name.blank?
+
+      tool_class_name = ::Ai::Tools::PlatformApiToolRegistry::TOOLS[tool_name]
+      raise RecipeError, "Unknown tool: #{tool_name}" if tool_class_name.blank?
+
+      klass = tool_class_name.constantize
+      tool = klass.new(account: @account, user: @user, agent: @agent)
+      tool.execute(params: params.merge(action: tool_name).with_indifferent_access)
+    end
+
+    # === Variable interpolation =====================================
+    #
+    # Resolves `{{ inputs.x }}` and `{{ stepname.path.to.field }}` in any
+    # nested structure (Hash, Array, String). Unrecognized paths resolve to
+    # nil; the substituted value is preserved (so a Hash binding stays a
+    # Hash, an Array stays an Array — only strings get string-substituted).
+
+    def interpolate(value, captures)
+      case value
+      when Hash
+        value.transform_values { |v| interpolate(v, captures) }
+      when Array
+        value.map { |v| interpolate(v, captures) }
+      when String
+        interpolate_string(value, captures)
+      else
+        value
+      end
+    end
+
+    def interpolate_string(str, captures)
+      # If the entire string is a single {{ ... }}, return the resolved value
+      # as-is (preserves type). Otherwise, do string substitution.
+      single_match = str.match(/\A\{\{\s*([^}]+?)\s*\}\}\z/)
+      if single_match
+        return resolve_path(single_match[1], captures)
+      end
+
+      str.gsub(INTERPOLATION_RE) { |_| resolve_path(Regexp.last_match(1), captures).to_s }
+    end
+
+    # Resolves a dotted path like "inputs.region" or "step1.data.results[0].name"
+    # against the captures hash. Supports array indexing via [N].
+    def resolve_path(path, captures)
+      tokens = path.to_s.split(".")
+      root = tokens.shift
+      current =
+        case root
+        when "inputs" then @inputs
+        else captures[root]
+        end
+
+      tokens.each do |token|
+        # Support array indexing: "results[0]"
+        if (m = token.match(/\A(\w+)\[(\d+)\]\z/))
+          field, idx = m[1], m[2].to_i
+          current = walk(current, field)
+          current = current.is_a?(Array) ? current[idx] : nil
+        else
+          current = walk(current, token)
+        end
+        return nil if current.nil?
+      end
+      current
+    end
+
+    def walk(obj, key)
+      case obj
+      when Hash
+        obj[key] || obj[key.to_sym]
+      else
+        nil
+      end
+    end
+
+    # === Run lifecycle helpers ========================================
+
+    def record_step!(step, step_result)
+      @run.append_step!(
+        "step_id"     => step["id"],
+        "tool"        => step["tool"],
+        "capture"     => step["capture"],
+        "params_sent" => interpolate(step["params"] || {}, resume_captures_from(@run)),
+        "result"      => step_result[:result],
+        "started_at"  => step_result[:started_at],
+        "finished_at" => step_result[:finished_at],
+        "error"       => step_result[:error]
+      )
+      @run.save! unless @dry_run
+    end
+
+    def fail_run!(step, error_message)
+      @run.update!(
+        status:         "failed",
+        failed_step_id: step&.dig("id"),
+        error_message:  error_message,
+        finished_at:    Time.current
+      )
+    end
+
+    def finalize_run!(captures)
+      output_template = @skill.recipe["output"] || {}
+      resolved_output = interpolate(output_template, captures)
+
+      @run.update!(
+        status:           "completed",
+        outputs:          resolved_output.is_a?(Hash) ? resolved_output : { value: resolved_output },
+        pending_step_id:  nil,
+        finished_at:      Time.current
+      )
+    end
+  end
+end
