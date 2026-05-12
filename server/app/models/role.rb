@@ -59,8 +59,10 @@ class Role < ApplicationRecord
           role.update!(attrs)
         end
 
-        # Sync permissions
-        role.sync_permissions!(config[:permissions])
+        # Sync permissions — Permissions.permissions_for_role merges the
+        # static config with extension-registered grants so extension
+        # permissions (registered via engine initializers) survive db:seed.
+        role.sync_permissions!(Permissions.permissions_for_role(name.to_s))
       end
     end
 

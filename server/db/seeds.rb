@@ -980,14 +980,40 @@ if Rails.env.development? || Rails.env.test?
   end
 end
 
-# Extension seeds (dynamically discovered from registered extensions)
+# Extension seeds (dynamically discovered from registered extensions).
+# Each extension can opt-in to selective seeding by providing a
+# `db/seeds.rb` orchestrator that explicitly lists the files to load.
+# This is the preferred pattern — globbing `db/seeds/*.rb` blindly
+# inevitably picks up smoke_test_*.rb / example_*.rb files that aren't
+# safe to run on every seed cycle (they create resources, hit external
+# services, or break with FK violations on teardown).
+#
+# If no orchestrator is present, fall back to the legacy glob pattern
+# for backwards compatibility (extensions that haven't migrated yet).
 Powernode::ExtensionRegistry.each do |slug, ext|
-  seeds_dir = ext[:engine].root.join("db", "seeds")
-  next unless Dir.exist?(seeds_dir)
+  engine_root = ext[:engine].root
+  orchestrator = engine_root.join("db", "seeds.rb")
+  seeds_dir    = engine_root.join("db", "seeds")
 
-  puts "\n📦 Loading #{slug} extension seeds..."
-  Dir[seeds_dir.join("*.rb")].sort.each { |f| load f }
-  puts "✅ #{slug.capitalize} extension seeds loaded"
+  if File.exist?(orchestrator)
+    puts "\n📦 Loading #{slug} extension seeds (via orchestrator)…"
+    begin
+      load orchestrator
+    rescue StandardError => e
+      Rails.logger.error("[seeds] #{slug} orchestrator failed: #{e.class}: #{e.message}")
+      puts "  ❌ #{slug} orchestrator failed: #{e.message}"
+    end
+    puts "✅ #{slug.capitalize} extension seeds loaded"
+  elsif Dir.exist?(seeds_dir)
+    puts "\n📦 Loading #{slug} extension seeds (globbing)…"
+    Dir[seeds_dir.join("*.rb")].sort.each do |f|
+      load f
+    rescue StandardError => e
+      Rails.logger.error("[seeds] #{slug}/#{File.basename(f)} failed: #{e.class}: #{e.message}")
+      puts "  ⚠️  #{File.basename(f)} failed: #{e.message}"
+    end
+    puts "✅ #{slug.capitalize} extension seeds loaded"
+  end
 end
 
 puts "\n🎉 Seeding complete!"

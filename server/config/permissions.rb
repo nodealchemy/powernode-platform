@@ -909,18 +909,69 @@ module Permissions
     }
   }.freeze
 
+  # Extension registry — mutable hash that lets extensions register
+  # permissions + role grants without modifying this file. Populated by
+  # extension engine initializers (e.g. PowernodeSystem::Engine).
+  # Consumed by Role.sync_from_config! so db:seed preserves grants that
+  # would otherwise be wiped by sync_permissions!'s destructive replace.
+  #
+  # Shape:
+  #   @extension_permissions = { "perm.name" => "description", ... }
+  #   @extension_role_permissions = { "role_name" => Set["perm.a", "perm.b"], ... }
+  @extension_permissions       = {}
+  @extension_role_permissions  = Hash.new { |h, k| h[k] = [] }
+
   # Helper methods
   class << self
+    # === Extension registration API ===
+    #
+    # Call from an extension's engine.rb initializer (after :load_config_initializers)
+    # so the registrations are in place before Role.sync_from_config! runs during
+    # db:seed. Idempotent — re-registering the same name+description is a no-op.
+    #
+    # Example (extensions/system/server/lib/powernode_system/engine.rb):
+    #   ::Permissions.register_permissions(
+    #     "system.packages.embed"   => "Worker can write package embeddings",
+    #     "system.packages.reembed" => "Operator can manually trigger re-embedding"
+    #   )
+    #   ::Permissions.register_role_permissions("system_worker", %w[system.packages.embed])
+    def register_permissions(definitions)
+      definitions.each do |name, description|
+        @extension_permissions[name.to_s] = description.to_s
+      end
+    end
+
+    def register_role_permissions(role_name, permission_names)
+      list = @extension_role_permissions[role_name.to_s]
+      Array(permission_names).each do |name|
+        list << name.to_s unless list.include?(name.to_s)
+      end
+    end
+
+    def extension_permissions
+      @extension_permissions
+    end
+
+    def extension_role_permissions
+      @extension_role_permissions
+    end
+
+    # === Lookups ===
     def permission_exists?(permission)
-      ALL_PERMISSIONS.key?(permission)
+      ALL_PERMISSIONS.key?(permission) || @extension_permissions.key?(permission)
     end
 
     def permission_description(permission)
-      ALL_PERMISSIONS[permission]
+      ALL_PERMISSIONS[permission] || @extension_permissions[permission]
     end
 
+    # Returns the effective permission set for a role, merging the static
+    # config with extension-registered additions. Used by Role.sync_from_config!
+    # so extension grants survive db:seed.
     def permissions_for_role(role_name)
-      ROLES.dig(role_name, :permissions) || []
+      base = ROLES.dig(role_name, :permissions) || []
+      extras = @extension_role_permissions[role_name.to_s] || []
+      (base + extras).uniq
     end
 
     def role_exists?(role_name)
