@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_190001) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_200002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10841,6 +10841,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_190001) do
     t.jsonb "depends", default: [], null: false
     t.text "description"
     t.bigint "download_size_bytes"
+    t.vector "embedding", limit: 1536
+    t.datetime "embedding_generated_at"
+    t.datetime "embedding_started_at"
     t.string "filename"
     t.string "homepage"
     t.bigint "installed_size_bytes"
@@ -10864,6 +10867,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_190001) do
     t.string "version", null: false
     t.index ["depends"], name: "idx_packages_depends_gin", using: :gin
     t.index ["description"], name: "idx_packages_description_trgm", opclass: :gin_trgm_ops, using: :gin
+    t.index ["embedding"], name: "idx_packages_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
+    t.index ["license"], name: "idx_packages_license"
     t.index ["name", "architecture"], name: "index_system_packages_on_name_and_architecture"
     t.index ["name"], name: "idx_packages_name_trgm", opclass: :gin_trgm_ops, using: :gin
     t.index ["name"], name: "index_system_packages_on_name"
@@ -10871,6 +10876,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_190001) do
     t.index ["package_repository_id", "name", "architecture", "version"], name: "idx_pkg_repo_name_arch_ver", unique: true
     t.index ["package_repository_id"], name: "index_system_packages_on_package_repository_id"
     t.index ["provides"], name: "idx_packages_provides_gin", using: :gin
+    t.index ["section_or_group"], name: "idx_packages_section"
   end
 
   create_table "system_project_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
