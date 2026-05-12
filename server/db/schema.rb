@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_200002) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -562,6 +562,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_200002) do
     t.index ["account_id"], name: "index_ai_agent_lineages_on_account_id"
     t.index ["child_agent_id"], name: "index_ai_agent_lineages_on_child_agent_id"
     t.index ["parent_agent_id"], name: "index_ai_agent_lineages_on_parent_agent_id"
+  end
+
+  create_table "ai_agent_model_performances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "agent_type", limit: 50, null: false
+    t.uuid "ai_provider_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "failed_runs", default: 0, null: false
+    t.datetime "last_run_at"
+    t.string "model", limit: 120, null: false
+    t.integer "successful_runs", default: 0, null: false
+    t.decimal "total_cost_usd", precision: 14, scale: 6, default: "0.0", null: false
+    t.bigint "total_duration_ms", default: 0, null: false
+    t.integer "total_runs", default: 0, null: false
+    t.bigint "total_tokens", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "ai_provider_id", "model", "agent_type"], name: "idx_ai_agent_model_perf_lookup", unique: true
+    t.index ["account_id"], name: "index_ai_agent_model_performances_on_account_id"
+    t.index ["ai_provider_id"], name: "index_ai_agent_model_performances_on_ai_provider_id"
   end
 
   create_table "ai_agent_observations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3937,6 +3956,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_200002) do
     t.index ["parent_proposal_id"], name: "index_ai_skill_proposals_on_parent_proposal_id"
     t.index ["proposed_by_agent_id"], name: "index_ai_skill_proposals_on_proposed_by_agent_id"
     t.index ["proposed_by_user_id"], name: "index_ai_skill_proposals_on_proposed_by_user_id"
+  end
+
+  create_table "ai_skill_recipe_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_id"
+    t.uuid "ai_skill_id", null: false
+    t.datetime "created_at", null: false
+    t.boolean "dry_run", default: false, null: false
+    t.text "error_message"
+    t.string "failed_step_id"
+    t.datetime "finished_at"
+    t.jsonb "inputs", default: {}, null: false
+    t.jsonb "outputs", default: {}, null: false
+    t.string "pending_step_id"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.jsonb "steps_log", default: [], null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id"
+    t.index ["account_id", "status"], name: "index_ai_skill_recipe_runs_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_skill_recipe_runs_on_account_id"
+    t.index ["ai_skill_id", "created_at"], name: "index_ai_skill_recipe_runs_on_ai_skill_id_and_created_at"
+    t.index ["status"], name: "index_ai_skill_recipe_runs_on_status"
+    t.index ["user_id", "created_at"], name: "index_ai_skill_recipe_runs_on_user_id_and_created_at"
   end
 
   create_table "ai_skill_usage_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -12703,6 +12746,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_200002) do
   add_foreign_key "ai_agent_lineages", "accounts"
   add_foreign_key "ai_agent_lineages", "ai_agents", column: "child_agent_id"
   add_foreign_key "ai_agent_lineages", "ai_agents", column: "parent_agent_id"
+  add_foreign_key "ai_agent_model_performances", "accounts"
+  add_foreign_key "ai_agent_model_performances", "ai_providers"
   add_foreign_key "ai_agent_observations", "accounts"
   add_foreign_key "ai_agent_observations", "ai_agent_goals", column: "goal_id"
   add_foreign_key "ai_agent_observations", "ai_agents"
@@ -13004,6 +13049,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_200002) do
   add_foreign_key "ai_skill_proposals", "ai_skills", column: "created_skill_id"
   add_foreign_key "ai_skill_proposals", "users", column: "proposed_by_user_id"
   add_foreign_key "ai_skill_proposals", "users", column: "reviewed_by_id"
+  add_foreign_key "ai_skill_recipe_runs", "accounts"
+  add_foreign_key "ai_skill_recipe_runs", "ai_agents"
+  add_foreign_key "ai_skill_recipe_runs", "ai_skills"
+  add_foreign_key "ai_skill_recipe_runs", "users"
   add_foreign_key "ai_skill_usage_records", "accounts"
   add_foreign_key "ai_skill_usage_records", "ai_agents"
   add_foreign_key "ai_skill_usage_records", "ai_skills"
