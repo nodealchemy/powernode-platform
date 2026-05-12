@@ -30,6 +30,7 @@ module Ai
         "system_create_module_from_package"   => "Ai::Tools::SystemPackageRepositoryTool",
         "system_list_package_module_links"    => "Ai::Tools::SystemPackageRepositoryTool",
         "system_refresh_package_module"       => "Ai::Tools::SystemPackageRepositoryTool",
+        "system_suggest_architectures_for_fleet" => "Ai::Tools::SystemPackageRepositoryTool",
 
         # === Architecture catalog (platform-wide CPU arches + AI parity) ===
         "system_list_architectures"    => "Ai::Tools::SystemArchitectureCatalogTool",
