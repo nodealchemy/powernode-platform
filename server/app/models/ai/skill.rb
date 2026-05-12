@@ -16,6 +16,51 @@ module Ai
 
     STATUSES = %w[active inactive draft].freeze
 
+    # Metadata keys that affect the ConciergeRouter's routing decisions
+    # (which agent handles a query, whether to delegate vs. invoke directly).
+    # Changes to these fields trigger an auto version bump so the audit
+    # trail captures behavior-affecting edits, not just casual metadata
+    # tweaks like icon or author.
+    ROUTING_METADATA_FIELDS = %w[domain invocation_mode].freeze
+
+    # Two-value taxonomy that drives the invoke-vs-delegate decision.
+    # Binary on purpose — a sliding "complexity" scale invites endless
+    # debate without affecting routing.
+    INVOCATION_MODES = %w[one_shot workflow_step].freeze
+
+    # Per-process registry of domain → executor-namespace pattern,
+    # populated by extension engines in their after_initialize hooks. The
+    # parent platform has zero compile-time knowledge of which extensions
+    # exist — extensions opt themselves in via Ai::Skill.register_domain.
+    # "platform" is the always-present built-in domain (Powernode Assistant's
+    # native skills); extension domains map to specialist agents whose
+    # `autonomy_config["extension"]` matches the domain value.
+    @domain_registry = { "platform" => nil }
+    @domain_registry_mutex = Mutex.new
+
+    class << self
+      attr_reader :domain_registry
+    end
+
+    # Extension engines call this in an after_initialize block to register
+    # their routing domain. Idempotent — re-registering the same name
+    # with the same pattern is a no-op. Thread-safe (initializer order
+    # can interleave with first request handling on boot).
+    #
+    #   Ai::Skill.register_domain(
+    #     name: "system",
+    #     executor_namespace_pattern: /\ASystem::/
+    #   )
+    def self.register_domain(name:, executor_namespace_pattern: nil)
+      @domain_registry_mutex.synchronize do
+        @domain_registry[name.to_s] = executor_namespace_pattern
+      end
+    end
+
+    def self.registered_domains
+      @domain_registry_mutex.synchronize { @domain_registry.keys.dup }
+    end
+
     # ==========================================
     # Associations
     # ==========================================
@@ -38,6 +83,7 @@ module Ai
     has_many :compositions_as_composite, class_name: "Ai::SkillComposition", foreign_key: "composite_skill_id", dependent: :destroy
     has_many :component_skills, through: :compositions_as_composite, source: :component_skill
     has_many :compositions_as_component, class_name: "Ai::SkillComposition", foreign_key: "component_skill_id", dependent: :nullify
+    has_many :recipe_runs, class_name: "Ai::SkillRecipeRun", foreign_key: "ai_skill_id", dependent: :destroy
 
     # ==========================================
     # Validations
@@ -56,10 +102,22 @@ module Ai
     scope :active, -> { where(status: "active") }
     scope :enabled, -> { where(is_enabled: true) }
 
+    # Routing scopes — used by ConciergeRouter to pre-filter candidates
+    # before similarity ranking.
+    scope :for_domain, ->(domain) { where("metadata->>'domain' = ?", domain.to_s) }
+    scope :one_shot, -> { where("metadata->>'invocation_mode' = ?", "one_shot") }
+    scope :workflow_step, -> { where("metadata->>'invocation_mode' = ?", "workflow_step") }
+
+    # Recipe skills — skills whose behavior is defined by a declarative
+    # ordered list of MCP tool invocations stored in metadata["recipe"]
+    # rather than a Ruby executor class. Dispatched by Ai::SkillRecipeRunner.
+    scope :recipe_skills, -> { where("metadata ? 'recipe'") }
+
     # ==========================================
     # Callbacks
     # ==========================================
     before_validation :generate_slug, on: :create
+    before_update :bump_version_on_routing_change
     after_commit :sync_to_knowledge_graph, on: [:create, :update]
     after_commit :enqueue_conflict_check, on: [:create, :update], if: :conflict_relevant_change?
     after_destroy :archive_knowledge_graph_node
@@ -159,6 +217,97 @@ module Ai
         .where("skill_a_id = :id OR skill_b_id = :id", id: id)
     end
 
+    # === Routing accessors (ConciergeRouter) ===
+
+    # Returns the skill's routing domain. Explicit `metadata["domain"]` wins;
+    # otherwise inferred from the executor namespace as a safety net for
+    # skills registered before the metadata model existed.
+    def domain
+      explicit = metadata.is_a?(Hash) ? metadata["domain"] : nil
+      return explicit if explicit.present?
+
+      infer_domain_from_executor
+    end
+
+    # Returns "one_shot" or "workflow_step". Defaults to "one_shot" for
+    # skills registered before the metadata model — most skills are
+    # one-shot, so this is the safer default.
+    def invocation_mode
+      mode = metadata.is_a?(Hash) ? metadata["invocation_mode"] : nil
+      INVOCATION_MODES.include?(mode) ? mode : "one_shot"
+    end
+
+    def one_shot?
+      invocation_mode == "one_shot"
+    end
+
+    def workflow_step?
+      invocation_mode == "workflow_step"
+    end
+
+    # === Recipe skill predicates ======================================
+    #
+    # A recipe skill has `metadata["recipe"]` populated (per the schema in
+    # docs/platform/CONCIERGE_ROUTING_AND_META_SKILLS.md §"Recipe specification").
+    # Recipe skills are dispatched by Ai::SkillRecipeRunner rather than a
+    # Ruby executor class — the metadata is the executable artifact.
+
+    def recipe?
+      metadata.is_a?(Hash) && metadata["recipe"].is_a?(Hash)
+    end
+
+    def recipe
+      return nil unless recipe?
+
+      metadata["recipe"]
+    end
+
+    def recipe_inputs
+      return [] unless recipe?
+
+      Array(recipe["inputs"])
+    end
+
+    def recipe_steps
+      return [] unless recipe?
+
+      Array(recipe["steps"])
+    end
+
+    # Returns the canonical chat-facing specialist this skill should
+    # delegate to (or nil for platform-domain skills that the router
+    # invokes directly). Tiebreaker chain:
+    #
+    #   1. Among AgentSkill bindings, keep only agent_type="assistant"
+    #      (monitors like Fleet Autonomy aren't conversation participants).
+    #   2. Prefer the agent whose own `autonomy_config["extension"]`
+    #      matches this skill's domain (semantic affinity).
+    #   3. Prefer the highest-priority AgentSkill binding (lowest integer).
+    #   4. Earliest created_at — deterministic last-resort.
+    def specialist_agent
+      return nil if domain == "platform"
+
+      candidates = agent_skills.includes(:agent)
+                               .map(&:agent)
+                               .compact
+                               .select { |a| a.agent_type == "assistant" }
+      return nil if candidates.empty?
+      return candidates.first if candidates.one?
+
+      # Tiebreak 1: domain affinity
+      affinity = candidates.find { |a| a.autonomy_config.is_a?(Hash) && a.autonomy_config["extension"] == domain }
+      return affinity if affinity
+
+      # Tiebreak 2: AgentSkill priority (lower = higher priority, per existing convention)
+      candidate_ids = candidates.map(&:id)
+      best_binding = agent_skills.where(ai_agent_id: candidate_ids).order(:priority).first
+      return ::Ai::Agent.find_by(id: best_binding.ai_agent_id) if best_binding
+
+      # Tiebreak 3: deterministic — earliest binding wins
+      earliest = agent_skills.where(ai_agent_id: candidate_ids).order(:created_at).first
+      ::Ai::Agent.find_by(id: earliest.ai_agent_id)
+    end
+
     private
 
     def sync_to_knowledge_graph
@@ -211,6 +360,47 @@ module Ai
       return 0.5 if learnings.empty?
 
       learnings.average(:effectiveness_score)&.to_f || 0.5
+    end
+
+    # Auto-bumps the minor version when a routing-relevant metadata field
+    # changes. Triggered by before_update so updates flowing through the
+    # ORM (seeds, MCP update_skill calls, admin UI edits) all get the
+    # bump consistently. Idempotent — re-saving with the same metadata
+    # doesn't bump.
+    def bump_version_on_routing_change
+      return unless metadata_changed?
+
+      previous = metadata_was || {}
+      current  = metadata     || {}
+      changed  = ROUTING_METADATA_FIELDS.any? { |field| previous[field] != current[field] }
+      return unless changed
+
+      self.version = next_minor_version(version)
+    end
+
+    # Inferred domain fallback. Walks the runtime domain registry —
+    # extensions register their executor-namespace pattern via
+    # Ai::Skill.register_domain, the parent has no compile-time knowledge
+    # of which extensions exist. Used only when metadata["domain"] is
+    # absent. Defaults to "platform" when no pattern matches.
+    def infer_domain_from_executor
+      executor = metadata.is_a?(Hash) ? metadata["executor_class"].to_s : ""
+      return "platform" if executor.empty?
+
+      self.class.domain_registry.each do |domain, pattern|
+        next if pattern.nil?
+        return domain if executor.match?(pattern)
+      end
+      "platform"
+    end
+
+    # Semver-style minor bump: 1.2.3 → 1.3.0. Defaults missing version
+    # to "1.0.0" so freshly-seeded skills get a stable starting point.
+    def next_minor_version(current)
+      parts = (current.to_s.split(".") + %w[0 0 0]).first(3).map(&:to_i)
+      parts[1] += 1
+      parts[2] = 0
+      parts.join(".")
     end
   end
 end
