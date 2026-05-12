@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_180001) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_190001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10802,7 +10802,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_180001) do
     t.text "last_sync_error"
     t.datetime "last_synced_at"
     t.string "name", null: false
-    t.uuid "node_platform_id"
     t.integer "package_count", default: 0, null: false
     t.integer "priority", default: 100, null: false
     t.jsonb "rpm_config", default: {}, null: false
@@ -10816,13 +10815,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_180001) do
     t.index ["created_by_id"], name: "index_system_package_repositories_on_created_by_id"
     t.index ["enabled"], name: "index_system_package_repositories_on_enabled"
     t.index ["name"], name: "idx_pkgrepo_shared_name_unique", unique: true, where: "(account_id IS NULL)"
-    t.index ["node_platform_id"], name: "index_system_package_repositories_on_node_platform_id"
     t.index ["sync_status"], name: "index_system_package_repositories_on_sync_status"
     t.index ["visibility"], name: "index_system_package_repositories_on_visibility"
     t.check_constraint "kind::text = ANY (ARRAY['apt'::character varying, 'rpm'::character varying, 'dnf'::character varying]::text[])", name: "chk_pkgrepo_kind"
     t.check_constraint "sync_status::text = ANY (ARRAY['idle'::character varying, 'syncing'::character varying, 'failed'::character varying]::text[])", name: "chk_pkgrepo_sync_status"
     t.check_constraint "visibility::text = 'shared'::text AND account_id IS NULL OR visibility::text = 'account'::text AND account_id IS NOT NULL", name: "chk_pkgrepo_visibility_account_consistency"
     t.check_constraint "visibility::text = ANY (ARRAY['account'::character varying, 'shared'::character varying]::text[])", name: "chk_pkgrepo_visibility"
+  end
+
+  create_table "system_package_repository_platforms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "node_platform_id", null: false
+    t.uuid "package_repository_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["node_platform_id"], name: "idx_pkgrepo_platforms_platform"
+    t.index ["package_repository_id", "node_platform_id"], name: "idx_pkgrepo_platforms_unique", unique: true
+    t.index ["package_repository_id"], name: "idx_pkgrepo_platforms_repo"
   end
 
   create_table "system_packages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -13547,8 +13555,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_180001) do
   add_foreign_key "system_package_module_links", "system_node_modules", column: "node_module_id", on_delete: :cascade
   add_foreign_key "system_package_module_links", "system_package_repositories", column: "package_repository_id", on_delete: :restrict
   add_foreign_key "system_package_repositories", "accounts"
-  add_foreign_key "system_package_repositories", "system_node_platforms", column: "node_platform_id", on_delete: :nullify
   add_foreign_key "system_package_repositories", "users", column: "created_by_id", on_delete: :restrict
+  add_foreign_key "system_package_repository_platforms", "system_node_platforms", column: "node_platform_id", on_delete: :cascade
+  add_foreign_key "system_package_repository_platforms", "system_package_repositories", column: "package_repository_id", on_delete: :cascade
   add_foreign_key "system_packages", "system_package_repositories", column: "package_repository_id", on_delete: :cascade
   add_foreign_key "system_project_metrics", "ai_missions", column: "mission_id"
   add_foreign_key "system_provider_availability_zones", "system_provider_regions", column: "provider_region_id"

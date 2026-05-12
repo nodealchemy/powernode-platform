@@ -24,6 +24,8 @@ module Ai
         "system_update_package_repository"    => "Ai::Tools::SystemPackageRepositoryTool",
         "system_delete_package_repository"    => "Ai::Tools::SystemPackageRepositoryTool",
         "system_sync_package_repository"      => "Ai::Tools::SystemPackageRepositoryTool",
+        "system_link_repository_platform"     => "Ai::Tools::SystemPackageRepositoryTool",
+        "system_unlink_repository_platform"   => "Ai::Tools::SystemPackageRepositoryTool",
         "system_search_packages"              => "Ai::Tools::SystemPackageRepositoryTool",
         "system_get_package"                  => "Ai::Tools::SystemPackageRepositoryTool",
         "system_resolve_package_dependencies" => "Ai::Tools::SystemPackageRepositoryTool",
