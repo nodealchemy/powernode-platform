@@ -437,6 +437,67 @@ skills_data = [
     tags: ["meta", "customization", "configuration"]
   },
   {
+    name: "Design Agent Team From Intent",
+    slug: "design-agent-team-from-intent",
+    executor_class: "Ai::Skills::DesignAgentTeamFromIntentExecutor",
+    category: "skill_management",
+    description: "Design an Ai::AgentTeam from a free-text operator intent. The operator describes a multi-agent collaboration (e.g., 'a team that reviews PRs for security and style with a coordinator that summarizes findings'); this skill proposes the team composition — members (existing agents or new agent specs to create), coordination strategy (parallel/sequential/hierarchical/mesh), output template — for operator confirmation. Use when the operator wants several agents to collaborate, not just a single skill or recipe.",
+    system_prompt: <<~PROMPT.strip,
+      Use this skill when an operator describes a multi-agent collaboration
+      they want to set up. Inputs: intent (required free-text),
+      suggested_name (optional), max_members (1-6, default 6),
+      preferred_strategy (optional: parallel|sequential|hierarchical|mesh).
+      Returns a team spec — name, description, coordination_strategy,
+      members (each with role + agent_slug or agent_spec), output template.
+
+      The team is NOT persisted automatically. Present it to the operator;
+      on confirmation, invoke create_team_from_spec to persist the
+      Ai::AgentTeam + member rows. Each NEW agent proposed in the spec
+      requires individual operator approval before creation — agents have
+      trust scores + cost ceilings + intervention policies that operators
+      should review.
+
+      Useful when an operator says "I want a team that...", "set up agents
+      that work together to...", "coordinate multiple specialists...", etc.
+    PROMPT
+    commands: [
+      { "name" => "design-team", "description" => "Design a new multi-agent team from a natural-language intent", "argument_hint" => "<intent>",
+        "workflow_steps" => ["Shortlist existing agents", "LLM-design composition", "Validate", "Present for confirmation"] }
+    ],
+    connectors: [],
+    tags: ["meta", "team-design", "intent", "multi-agent"]
+  },
+  {
+    name: "Design Skill From Intent",
+    slug: "design-skill-from-intent",
+    executor_class: "Ai::Skills::DesignSkillFromIntentExecutor",
+    category: "skill_management",
+    description: "Design a recipe-based skill from a free-text operator intent. The operator describes a workflow they want repeatable (e.g., 'find cheapest provider in region and provision an instance there'); this skill produces a recipe spec for operator review and confirmation.",
+    system_prompt: <<~PROMPT.strip,
+      Use this skill when an operator describes a multi-step workflow they
+      want automated and made discoverable. Inputs: intent (required
+      free-text), suggested_name (optional), max_steps (1-8, default 8).
+      Returns a recipe specification — name, description, inputs, ordered
+      tool-invocation steps with variable interpolation, output template.
+
+      The recipe is NOT persisted automatically. Present it to the operator
+      with the proposed steps; on confirmation, invoke the
+      `create_recipe_skill` action with the slug + recipe payload to save
+      it as a discoverable skill bound to your toolkit.
+
+      DesignSkillFromIntentExecutor uses the SemanticToolDiscoveryService
+      to shortlist candidate MCP tools, then calls an LLM with structured
+      output to compose the recipe. The result is validated (tool names
+      exist, captures are unique, etc.) before returning.
+    PROMPT
+    commands: [
+      { "name" => "design-skill", "description" => "Design a new recipe skill from a natural-language intent", "argument_hint" => "<intent>",
+        "workflow_steps" => ["Shortlist tools", "LLM-design recipe", "Validate", "Present for confirmation"] }
+    ],
+    connectors: [],
+    tags: ["meta", "recipe", "skill-design", "intent"]
+  },
+  {
     name: "Powernode Development",
     slug: "powernode-dev",
     category: "code_intelligence",
@@ -588,7 +649,21 @@ skills_data.each do |data|
     system_prompt: data[:system_prompt],
     commands: data[:commands],
     activation_rules: {},
-    metadata: { "author" => "system", "icon" => data[:category] },
+    metadata: {
+      "author" => "system",
+      "icon" => data[:category],
+      # === ConciergeRouter signals ===
+      # Platform-wide skills live in the "platform" domain — they're the
+      # front-door assistant's built-in toolkit, never delegated. All
+      # default to one_shot (they answer or perform a single action);
+      # override per-skill via data[:invocation_mode] if multi-step.
+      "domain" => "platform",
+      "invocation_mode" => data[:invocation_mode] || "one_shot",
+      # Optional per-entry executor class — most platform skills are
+      # prompt-only and have no executor, but meta-skills like
+      # design-skill-from-intent need a real Ruby executor.
+      "executor_class" => data[:executor_class]
+    }.compact,
     tags: data[:tags],
     is_system: true,
     is_enabled: true,
@@ -641,7 +716,15 @@ concierge_skill.assign_attributes(
       "workflow_steps" => ["Check active missions", "Check workspace member status", "Summarize activity"] }
   ],
   activation_rules: {},
-  metadata: { "author" => "system", "icon" => "concierge" },
+  metadata: {
+    "author" => "system",
+    "icon" => "concierge",
+    # The concierge skill IS the front-door routing — definitionally
+    # platform domain. one_shot: it makes a single routing decision per
+    # turn (delegate or answer).
+    "domain" => "platform",
+    "invocation_mode" => "one_shot"
+  },
   tags: ["concierge", "workspace", "routing", "delegation"],
   is_system: true,
   is_enabled: true,

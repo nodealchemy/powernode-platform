@@ -1181,6 +1181,8 @@ platform_skill_assignments = {
   'Powernode Assistant' => %w[
     productivity knowledge-system-curator skill-management
     product-management powernode-dev
+    design-skill-from-intent
+    design-agent-team-from-intent
   ],
   'Process Automation Optimizer' => %w[
     devops-automation productivity incident-analysis

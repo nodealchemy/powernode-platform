@@ -285,7 +285,13 @@ UTILITY_AGENTS.each do |attrs|
         status: "active",
         is_enabled: true,
         is_system: true,
-        version: "1.0.0"
+        version: "1.0.0",
+        # ConciergeRouter signals — utility skills live in the platform
+        # domain; default one_shot, override per-definition if needed.
+        metadata: {
+          "domain" => "platform",
+          "invocation_mode" => skill_def[:invocation_mode] || "one_shot"
+        }
       )
       skill.save!
 
@@ -599,7 +605,13 @@ SPECIALIST_SKILLS.each do |attrs|
     status: "active",
     is_enabled: true,
     is_system: true,
-    version: "1.0.0"
+    version: "1.0.0",
+    # ConciergeRouter signals — specialist utility skills are platform-domain
+    # by default. Override invocation_mode per-skill if multi-step.
+    metadata: {
+      "domain" => "platform",
+      "invocation_mode" => attrs[:invocation_mode] || "one_shot"
+    }
   )
 
   if skill.save
