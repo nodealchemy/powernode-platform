@@ -73,7 +73,15 @@ export function useConversations(options: UseConversationsOptions = {}): UseConv
 
   const loadConversations = useCallback(async (overrideFilters?: GlobalConversationFilters) => {
     try {
-      const queryFilters = overrideFilters || filters;
+      // include_workspace=true tells the backend's apply_filters NOT to drop
+      // workspace conversations from the index. The chat sidebar renders a
+      // dedicated Workspaces section (ChatWindowSidebar) that partitions them
+      // out of the regular list — without this flag that section is always
+      // empty regardless of how many workspaces the user is in.
+      const queryFilters: GlobalConversationFilters = {
+        ...(overrideFilters || filters),
+        include_workspace: 'true',
+      };
       const response = await conversationsApi.getConversations(queryFilters);
 
       if (!mountedRef.current) return;

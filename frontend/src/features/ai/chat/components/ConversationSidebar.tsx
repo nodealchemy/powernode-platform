@@ -217,6 +217,46 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const conciergeConversations = conversations.filter((c) => !c.pinned && c.ai_agent?.is_concierge);
   const unpinnedConversations = conversations.filter((c) => !c.pinned && !c.ai_agent?.is_concierge);
 
+  // Auto-expand the section holding the active conversation. ConversationListItem
+  // scrolls itself into view, but its effect only runs when mounted — a collapsed
+  // section short-circuits rendering and the active row stays hidden. Without
+  // this, opening a 'provisioning' tab while the Provisioning group is collapsed
+  // shows the chat surface with no matching sidebar entry.
+  useEffect(() => {
+    if (!activeConversationId) return;
+
+    let target: SectionKey | null = null;
+    if (provisioningConversations.some((c) => c.id === activeConversationId)) {
+      target = 'provisioning';
+    } else if (workspaceConversations.some((c) => c.id === activeConversationId)) {
+      target = 'workspaces';
+    } else if (pinnedConversations.some((c) => c.id === activeConversationId)) {
+      target = 'pinned';
+    } else if (unpinnedConversations.some((c) => c.id === activeConversationId)) {
+      target = 'recent';
+    }
+    if (!target) return;
+
+    setCollapsedSections((prev) => {
+      if (!prev[target!]) return prev;
+      const next = { ...prev, [target!]: false };
+      saveCollapsed(next);
+      return next;
+    });
+  }, [activeConversationId, provisioningConversations, workspaceConversations, pinnedConversations, unpinnedConversations]);
+
+  useEffect(() => {
+    if (!activeChannelId || channels.length === 0) return;
+    if (!channels.some((c) => c.id === activeChannelId)) return;
+
+    setCollapsedSections((prev) => {
+      if (!prev.channels) return prev;
+      const next = { ...prev, channels: false };
+      saveCollapsed(next);
+      return next;
+    });
+  }, [activeChannelId, channels]);
+
   const renderConversationItem = (conv: ConversationBase) => (
     <ConversationListItem
       key={conv.id}
@@ -413,7 +453,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             {/* Pinned section */}
             {pinnedConversations.length > 0 && (
               <div>
-                {(conciergeConversations.length > 0 || workspaceConversations.length > 0 || channels.length > 0) && (
+                {(conciergeConversations.length > 0 || workspaceConversations.length > 0 || provisioningConversations.length > 0 || channels.length > 0) && (
                   <div className="border-t border-theme" />
                 )}
                 <button
@@ -435,7 +475,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             {/* Unpinned / recent section */}
             {unpinnedConversations.length > 0 && (
               <div>
-                {(pinnedConversations.length > 0 || conciergeConversations.length > 0 || workspaceConversations.length > 0 || channels.length > 0) && (
+                {(pinnedConversations.length > 0 || conciergeConversations.length > 0 || workspaceConversations.length > 0 || provisioningConversations.length > 0 || channels.length > 0) && (
                   <div className="border-t border-theme" />
                 )}
                 <button

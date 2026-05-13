@@ -25,6 +25,10 @@ export interface GlobalConversationFilters extends QueryFilters {
   pinned?: boolean;
   tags?: string[];
   sort_by?: 'pinned' | 'last_activity' | 'created_at';
+  // Backend's apply_filters drops workspace conversations from the index
+  // unless this is "true". Send "true" from surfaces that render workspaces
+  // (e.g. the chat sidebar's Workspaces section).
+  include_workspace?: 'true';
 }
 
 export interface ConversationStats {
