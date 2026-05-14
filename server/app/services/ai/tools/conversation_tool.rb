@@ -106,6 +106,27 @@ module Ai
               status: { type: "string", required: false, description: "Filter by status: active, paused, completed, archived (default: all)" },
               limit: { type: "integer", required: false, description: "Max results (default 10, max 50)" }
             }
+          },
+          "pin_conversation" => {
+            description: "Pin a conversation to the top of the sidebar list. Sets pinned_at to now.",
+            parameters: {
+              conversation_id: { type: "string", required: true, description: "Conversation UUID or conversation_id" }
+            }
+          },
+          "unpin_conversation" => {
+            description: "Unpin a conversation (clears pinned_at).",
+            parameters: {
+              conversation_id: { type: "string", required: true, description: "Conversation UUID or conversation_id" }
+            }
+          },
+          "tag_conversation" => {
+            description: "Set, add, or remove tags on a conversation. Pass `tags:` to replace, `add_tag:` to append, or `remove_tag:` to remove.",
+            parameters: {
+              conversation_id: { type: "string", required: true, description: "Conversation UUID or conversation_id" },
+              tags: { type: "array", required: false, description: "Replace the conversation's tag list with this array" },
+              add_tag: { type: "string", required: false, description: "Append a single tag (idempotent — won't dup)" },
+              remove_tag: { type: "string", required: false, description: "Remove a single tag" }
+            }
           }
         }
       end
@@ -128,9 +149,51 @@ module Ai
         when "create_workspace" then create_workspace(params)
         when "invite_agent" then invite_agent(params)
         when "active_sessions" then list_active_sessions(params)
+        # Pin / tag (HIGH-tier additions)
+        when "pin_conversation" then pin_conversation(params)
+        when "unpin_conversation" then unpin_conversation(params)
+        when "tag_conversation" then tag_conversation(params)
         else
           { success: false, error: "Unknown action: #{params[:action]}" }
         end
+      end
+
+      private
+
+      def resolve_conversation(conv_id)
+        account.ai_conversations.find_by(id: conv_id) ||
+          account.ai_conversations.find_by(conversation_id: conv_id)
+      end
+
+      def pin_conversation(params)
+        conv = resolve_conversation(params[:conversation_id])
+        return { success: false, error: "Conversation not found" } unless conv
+        conv.update!(pinned_at: Time.current)
+        { success: true, conversation_id: conv.id, pinned_at: conv.pinned_at.iso8601 }
+      end
+
+      def unpin_conversation(params)
+        conv = resolve_conversation(params[:conversation_id])
+        return { success: false, error: "Conversation not found" } unless conv
+        conv.update!(pinned_at: nil)
+        { success: true, conversation_id: conv.id, pinned: false }
+      end
+
+      def tag_conversation(params)
+        conv = resolve_conversation(params[:conversation_id])
+        return { success: false, error: "Conversation not found" } unless conv
+        tags = params[:tags]
+        if tags.is_a?(Array)
+          conv.update!(tags: tags.map { |t| t.to_s.strip.downcase }.reject(&:blank?).uniq)
+        elsif params[:add_tag].present?
+          new_tags = ((conv.tags || []) + [params[:add_tag].to_s.strip.downcase]).uniq
+          conv.update!(tags: new_tags)
+        elsif params[:remove_tag].present?
+          conv.update!(tags: (conv.tags || []) - [params[:remove_tag].to_s.strip.downcase])
+        else
+          return { success: false, error: "Specify tags: (replace), add_tag:, or remove_tag:" }
+        end
+        { success: true, conversation_id: conv.id, tags: conv.reload.tags }
       end
 
       private

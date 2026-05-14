@@ -54,6 +54,18 @@ module Ai
           "knowledge_health" => {
             description: "Get a cross-system health report for learnings, shared knowledge, and knowledge graph",
             parameters: {}
+          },
+          "unsupersede_learning" => {
+            description: "Revive a deprecated/superseded learning back to active state. Clears superseded_by_id and resets status to active. Use to reverse an erroneous resolve_contradiction call.",
+            parameters: {
+              learning_id: { type: "string", required: true, description: "CompoundLearning ID to revive" }
+            }
+          },
+          "verify_learning_batch" => {
+            description: "Bulk-verify multiple learnings at once. Skips already-non-active entries. Returns per-id success/skip.",
+            parameters: {
+              learning_ids: { type: "array", required: true, description: "Array of CompoundLearning IDs" }
+            }
           }
         }
       end
@@ -67,9 +79,43 @@ module Ai
         when "resolve_contradiction" then resolve_contradiction(params)
         when "rate_knowledge" then rate_knowledge(params)
         when "knowledge_health" then knowledge_health
+        when "unsupersede_learning" then unsupersede_learning(params)
+        when "verify_learning_batch" then verify_learning_batch(params)
         else
-          { success: false, error: "Unknown action: #{params[:action]}. Valid: verify_learning, dispute_learning, resolve_contradiction, rate_knowledge, knowledge_health" }
+          { success: false, error: "Unknown action: #{params[:action]}" }
         end
+      end
+
+      def unsupersede_learning(params)
+        learning = Ai::CompoundLearning.find_by(id: params[:learning_id])
+        return { success: false, error: "Learning not found" } unless learning
+        return { success: false, error: "Already active" } if learning.status == "active"
+
+        learning.update!(status: "active", superseded_by_id: nil)
+        { success: true, learning_id: learning.id, status: learning.status }
+      rescue ActiveRecord::RecordInvalid => e
+        { success: false, error: e.message }
+      end
+
+      def verify_learning_batch(params)
+        ids = Array(params[:learning_ids])
+        return { success: false, error: "learning_ids must be a non-empty array" } if ids.empty?
+        return { success: false, error: "User context required to verify" } unless user
+
+        results = ids.map do |id|
+          learning = Ai::CompoundLearning.find_by(id: id)
+          if learning.nil?
+            { id: id, ok: false, reason: "not_found" }
+          elsif learning.status != "active"
+            { id: id, ok: false, reason: "status=#{learning.status}" }
+          else
+            learning.verify!(user: user)
+            { id: id, ok: true }
+          end
+        rescue StandardError => e
+          { id: id, ok: false, reason: e.message }
+        end
+        { success: true, verified: results.count { |r| r[:ok] }, total: ids.size, results: results }
       end
 
       private

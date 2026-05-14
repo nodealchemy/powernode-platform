@@ -35,9 +35,14 @@ module Ai
             }
           },
           "get_notifications" => {
-            description: "Get unread notifications for the current user with type, severity, and action URL",
+            description: "Get notifications for the current user. Defaults to active+unread (default 10, max 50). Filterable by category, type, source_type, before timestamp, or unread_only=false to include read.",
             parameters: {
-              limit: { type: "integer", required: false, description: "Max notifications to return (default 10, max 50)" }
+              limit: { type: "integer", required: false, description: "Max notifications to return (default 10, max 50)" },
+              category: { type: "string", required: false, description: "Filter by category (e.g. ai, system, security)" },
+              type: { type: "string", required: false, description: "Filter by notification type (e.g. autonomy_approval_required, ai_concierge_message)" },
+              source_type: { type: "string", required: false, description: "Filter by metadata.source_type (e.g. system_fleet, system_cve_responder)" },
+              before: { type: "string", required: false, description: "Only return notifications created before this ISO8601 timestamp" },
+              unread_only: { type: "boolean", required: false, description: "Restrict to unread (default true)" }
             }
           },
           "dismiss_notification" => {
@@ -151,8 +156,24 @@ module Ai
         return { success: false, error: "User context required for notifications" } unless user
 
         limit = (params[:limit] || 10).to_i.clamp(1, 50)
-        notifications = user.notifications.active.unread.recent.limit(limit)
+        unread_only = params[:unread_only].nil? ? true : ActiveModel::Type::Boolean.new.cast(params[:unread_only])
 
+        scope = user.notifications.active
+        scope = scope.unread if unread_only
+        scope = scope.where(category: params[:category]) if params[:category].present?
+        scope = scope.where(notification_type: params[:type]) if params[:type].present?
+        if params[:source_type].present?
+          scope = scope.where("metadata ->> 'source_type' = ?", params[:source_type])
+        end
+        if params[:before].present?
+          begin
+            scope = scope.where("created_at < ?", Time.iso8601(params[:before].to_s))
+          rescue ArgumentError
+            return { success: false, error: "before must be an ISO8601 timestamp" }
+          end
+        end
+
+        notifications = scope.recent.limit(limit)
         {
           success: true,
           count: notifications.size,

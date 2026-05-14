@@ -8,9 +8,9 @@ module Ai
       def self.definition
         {
           name: "team_management",
-          description: "Create, list, get, update teams, add members, or execute team workflows",
+          description: "Create, list, get, update, delete teams; add/remove members; or execute team workflows",
           parameters: {
-            action: { type: "string", required: true, description: "Action: create_team, list_teams, get_team, update_team, add_team_member, execute_team" },
+            action: { type: "string", required: true, description: "Action: create_team, list_teams, get_team, update_team, delete_team, add_team_member, remove_team_member, execute_team" },
             team_id: { type: "string", required: false },
             name: { type: "string", required: false },
             team_type: { type: "string", required: false },
@@ -18,6 +18,7 @@ module Ai
             role: { type: "string", required: false },
             input: { type: "object", required: false },
             description: { type: "string", required: false, description: "Team description" },
+            status: { type: "string", required: false, description: "Team status: active, paused, archived" },
             coordination_strategy: { type: "string", required: false, description: "Coordination strategy" },
             team_config: { type: "object", required: false, description: "Team configuration" },
             review_config: { type: "object", required: false, description: "Review configuration" }
@@ -52,9 +53,16 @@ module Ai
               team_id: { type: "string", required: true, description: "Team UUID or exact team name" },
               name: { type: "string", required: false, description: "New team name" },
               description: { type: "string", required: false, description: "New team description" },
+              status: { type: "string", required: false, description: "Team status: active, paused, archived" },
               coordination_strategy: { type: "string", required: false, description: "Coordination strategy" },
               team_config: { type: "object", required: false, description: "Team configuration to merge" },
               review_config: { type: "object", required: false, description: "Review configuration to merge" }
+            }
+          },
+          "delete_team" => {
+            description: "Hard-destroy a team. Cascades: members + channels + executions :destroy; conversations + learnings :nullify. Irreversible.",
+            parameters: {
+              team_id: { type: "string", required: true, description: "Team UUID or exact team name" }
             }
           },
           "add_team_member" => {
@@ -63,6 +71,13 @@ module Ai
               team_id: { type: "string", required: true, description: "Team UUID or exact team name" },
               agent_id: { type: "string", required: true, description: "Agent UUID, slug, or exact name" },
               role: { type: "string", required: false, description: "Member role (default: worker)" }
+            }
+          },
+          "remove_team_member" => {
+            description: "Remove an AI agent from a team. Destroys the AgentTeamMember row and the backing TeamRole if present.",
+            parameters: {
+              team_id: { type: "string", required: true, description: "Team UUID or exact team name" },
+              agent_id: { type: "string", required: true, description: "Agent UUID, slug, or exact name" }
             }
           },
           "execute_team" => {
@@ -83,7 +98,9 @@ module Ai
         when "list_teams" then list_teams(params)
         when "get_team" then get_team(params)
         when "update_team" then update_team(params)
+        when "delete_team" then delete_team(params)
         when "add_team_member" then add_team_member(params)
+        when "remove_team_member" then remove_team_member(params)
         when "execute_team" then execute_team(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
@@ -191,6 +208,7 @@ module Ai
         attrs = {}
         attrs[:name] = params[:name] if params[:name].present?
         attrs[:description] = params[:description] if params[:description].present?
+        attrs[:status] = params[:status] if params[:status].present?
         attrs[:coordination_strategy] = params[:coordination_strategy] if params[:coordination_strategy].present?
         if params[:team_config].present?
           attrs[:team_config] = (team.team_config || {}).merge(params[:team_config])
@@ -199,10 +217,35 @@ module Ai
           attrs[:review_config] = (team.review_config || {}).merge(params[:review_config])
         end
         team.update!(attrs)
-        { success: true, team_id: team.id, name: team.name }
+        { success: true, team_id: team.id, name: team.name, status: team.status }
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Team not found" }
       rescue ActiveRecord::RecordInvalid => e
+        { success: false, error: e.message }
+      end
+
+      def delete_team(params)
+        team = resolve_team(params[:team_id])
+        name = team.name
+        member_count = team.members.count
+        team.destroy!
+        { success: true, deleted: true, team_id: params[:team_id], name: name, members_cascaded: member_count }
+      rescue ActiveRecord::RecordNotFound
+        { success: false, error: "Team not found" }
+      rescue ActiveRecord::RecordNotDestroyed, ActiveRecord::InvalidForeignKey => e
+        { success: false, error: "Failed to delete team: #{e.message}" }
+      end
+
+      def remove_team_member(params)
+        team = resolve_team(params[:team_id])
+        agent = resolve_agent(params[:agent_id])
+        member = team.members.find_by(ai_agent_id: agent.id)
+        return { success: false, error: "Agent #{agent.name} is not a member of team #{team.name}" } unless member
+
+        team.ai_team_roles.where(ai_agent_id: agent.id).destroy_all
+        member.destroy!
+        { success: true, removed: true, team_id: team.id, agent_id: agent.id }
+      rescue ActiveRecord::RecordNotFound => e
         { success: false, error: e.message }
       end
 

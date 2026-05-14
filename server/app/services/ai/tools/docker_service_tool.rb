@@ -90,7 +90,7 @@ module Ai
               service_id: { type: "string", required: true, description: "Service UUID, docker_service_id, or service_name" }
             }
           },
-          "docker_remove_service" => {
+          "docker_delete_service" => {
             description: "Remove a Swarm service and its tasks",
             parameters: {
               cluster_id: { type: "string", required: false, description: "Swarm cluster ID, slug, or name" },
@@ -125,7 +125,7 @@ module Ai
         when "docker_update_service" then update_service(params)
         when "docker_scale_service" then scale_service(params)
         when "docker_rollback_service" then rollback_service(params)
-        when "docker_remove_service" then remove_service(params)
+        when "docker_delete_service" then remove_service(params)
         when "docker_service_logs" then service_logs(params)
         when "docker_service_tasks" then service_tasks(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }

@@ -44,7 +44,7 @@ module Ai
               labels: { type: "object", required: false, description: "Network labels" }
             }
           },
-          "docker_remove_network" => {
+          "docker_delete_network" => {
             description: "Remove a network from the Swarm cluster",
             parameters: {
               cluster_id: { type: "string", required: false, description: "Swarm cluster ID, slug, or name" },
@@ -66,7 +66,7 @@ module Ai
               labels: { type: "object", required: false, description: "Volume labels" }
             }
           },
-          "docker_remove_volume" => {
+          "docker_delete_volume" => {
             description: "Remove a volume from the Swarm cluster",
             parameters: {
               cluster_id: { type: "string", required: false, description: "Swarm cluster ID, slug, or name" },
@@ -82,10 +82,10 @@ module Ai
         case params[:action]
         when "docker_list_networks" then list_networks(params)
         when "docker_create_network" then create_network(params)
-        when "docker_remove_network" then remove_network(params)
+        when "docker_delete_network" then remove_network(params)
         when "docker_list_volumes" then list_volumes(params)
         when "docker_create_volume" then create_volume(params)
-        when "docker_remove_volume" then remove_volume(params)
+        when "docker_delete_volume" then remove_volume(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
       rescue ActiveRecord::RecordNotFound => e

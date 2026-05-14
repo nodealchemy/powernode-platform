@@ -111,6 +111,22 @@ module Ai
               skill_id: { type: "string", required: true, description: "Skill ID" },
               enabled: { type: "boolean", required: true, description: "Set to true or false" }
             }
+          },
+          "attach_skill_to_agent" => {
+            description: "Bind a skill to an agent — adds an Ai::AgentSkill row that lets the agent invoke the skill. Idempotent: re-attach updates priority/is_active.",
+            parameters: {
+              skill_id: { type: "string", required: true, description: "Skill UUID or slug" },
+              agent_id: { type: "string", required: true, description: "Agent UUID, slug, or name" },
+              priority: { type: "integer", required: false, description: "Priority order (default 0)" },
+              is_active: { type: "boolean", required: false, description: "Active flag (default true)" }
+            }
+          },
+          "detach_skill_from_agent" => {
+            description: "Unbind a skill from an agent — destroys the Ai::AgentSkill row.",
+            parameters: {
+              skill_id: { type: "string", required: true, description: "Skill UUID or slug" },
+              agent_id: { type: "string", required: true, description: "Agent UUID, slug, or name" }
+            }
           }
         }
       end
@@ -129,8 +145,52 @@ module Ai
         when "update_skill" then update_skill(params)
         when "delete_skill" then delete_skill(params)
         when "toggle_skill" then toggle_skill(params)
-        else { success: false, error: "Unknown action: #{params[:action]}. Valid actions: list_skills, get_skill, discover_skills, get_skill_context, skill_health, skill_metrics, create_skill, update_skill, delete_skill, toggle_skill" }
+        when "attach_skill_to_agent" then attach_skill_to_agent(params)
+        when "detach_skill_from_agent" then detach_skill_from_agent(params)
+        else { success: false, error: "Unknown action: #{params[:action]}" }
         end
+      end
+
+      private
+
+      def resolve_skill(skill_id)
+        Ai::Skill.where(account_id: account.id).find_by(id: skill_id) ||
+          Ai::Skill.where(account_id: account.id).find_by(slug: skill_id)
+      end
+
+      def resolve_agent_by_any(agent_id)
+        account.ai_agents.find_by(id: agent_id) ||
+          account.ai_agents.find_by(slug: agent_id) ||
+          account.ai_agents.find_by(name: agent_id)
+      end
+
+      def attach_skill_to_agent(params)
+        skill = resolve_skill(params[:skill_id])
+        return { success: false, error: "Skill not found" } unless skill
+        agent_rec = resolve_agent_by_any(params[:agent_id])
+        return { success: false, error: "Agent not found" } unless agent_rec
+
+        binding = Ai::AgentSkill.find_or_initialize_by(ai_agent_id: agent_rec.id, ai_skill_id: skill.id)
+        binding.priority = params[:priority] if params.key?(:priority)
+        binding.is_active = params.key?(:is_active) ? !!params[:is_active] : true
+        binding.save!
+        { success: true, attached: true, skill_id: skill.id, agent_id: agent_rec.id,
+          priority: binding.priority, is_active: binding.is_active }
+      rescue ActiveRecord::RecordInvalid => e
+        { success: false, error: e.message }
+      end
+
+      def detach_skill_from_agent(params)
+        skill = resolve_skill(params[:skill_id])
+        return { success: false, error: "Skill not found" } unless skill
+        agent_rec = resolve_agent_by_any(params[:agent_id])
+        return { success: false, error: "Agent not found" } unless agent_rec
+
+        binding = Ai::AgentSkill.find_by(ai_agent_id: agent_rec.id, ai_skill_id: skill.id)
+        return { success: false, error: "Skill #{skill.name} is not attached to agent #{agent_rec.name}" } unless binding
+
+        binding.destroy!
+        { success: true, detached: true, skill_id: skill.id, agent_id: agent_rec.id }
       end
 
       private

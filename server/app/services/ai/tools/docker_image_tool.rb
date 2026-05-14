@@ -41,7 +41,7 @@ module Ai
               credential_id: { type: "string", required: false, description: "Registry credential ID for authenticated pulls" }
             }
           },
-          "docker_remove_image" => {
+          "docker_delete_image" => {
             description: "Remove a Docker image from a host",
             parameters: {
               host_id: { type: "string", required: false, description: "Docker host ID, slug, or name" },
@@ -67,7 +67,7 @@ module Ai
         case params[:action]
         when "docker_list_images" then list_images(params)
         when "docker_pull_image" then pull_image(params)
-        when "docker_remove_image" then remove_image(params)
+        when "docker_delete_image" then remove_image(params)
         when "docker_tag_image" then tag_image(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end

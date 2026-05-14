@@ -8,10 +8,16 @@ module Ai
         "system_list_nodes" => "Ai::Tools::SystemFleetTool",
         "system_get_node" => "Ai::Tools::SystemFleetTool",
         "system_create_node" => "Ai::Tools::SystemFleetTool",
+        "system_delete_node" => "Ai::Tools::SystemFleetTool",
+        "system_delete_template" => "Ai::Tools::SystemFleetTool",
+        "system_update_template" => "Ai::Tools::SystemFleetTool",
+        "system_delete_module" => "Ai::Tools::SystemFleetTool",
+        "system_refresh_instance_modules" => "Ai::Tools::SystemFleetTool",
         "system_list_instances" => "Ai::Tools::SystemFleetTool",
         "system_get_instance" => "Ai::Tools::SystemFleetTool",
         "system_provision_instance" => "Ai::Tools::SystemFleetTool",
         "system_terminate_instance" => "Ai::Tools::SystemFleetTool",
+        "system_destroy_instance" => "Ai::Tools::SystemFleetTool",
         "system_list_providers"     => "Ai::Tools::SystemFleetTool",
         "system_get_provider"       => "Ai::Tools::SystemFleetTool",
         "system_update_provider"    => "Ai::Tools::SystemFleetTool",
@@ -43,8 +49,6 @@ module Ai
         "system_delete_architecture"   => "Ai::Tools::SystemArchitectureCatalogTool",
         "system_propose_architecture"  => "Ai::Tools::SystemArchitectureCatalogTool",
 
-        "system_sdwan_activate_host_bridge" => "Ai::Tools::SdwanTool",
-        "system_sdwan_release_host_bridge"  => "Ai::Tools::SdwanTool",
         "system_list_templates" => "Ai::Tools::SystemFleetTool",
         "system_get_template" => "Ai::Tools::SystemFleetTool",
         "system_assign_module_to_template" => "Ai::Tools::SystemFleetTool",
@@ -125,8 +129,8 @@ module Ai
         "system_sdwan_revoke_federation_peer"  => "Ai::Tools::SdwanTool",
         "system_sdwan_federation_scan"         => "Ai::Tools::SdwanTool",
         # Slice 9a: routing layer (static subnet routing)
-        "system_sdwan_set_peer_lan_subnets"        => "Ai::Tools::SdwanTool",
-        "system_sdwan_set_network_routing_mode"    => "Ai::Tools::SdwanTool",
+        "system_sdwan_update_peer_lan_subnets"        => "Ai::Tools::SdwanTool",
+        "system_sdwan_update_network_routing_mode"    => "Ai::Tools::SdwanTool",
         "system_sdwan_list_subnet_advertisements"  => "Ai::Tools::SdwanTool",
         "system_sdwan_get_routing_summary"         => "Ai::Tools::SdwanTool",
         # Slice 9b: virtual IPs
@@ -139,7 +143,7 @@ module Ai
         "system_sdwan_list_vip_assignments"        => "Ai::Tools::SdwanTool",
         # Slice 9c: iBGP / FRR control plane
         "system_sdwan_get_account_bgp"             => "Ai::Tools::SdwanTool",
-        "system_sdwan_set_account_as_number"       => "Ai::Tools::SdwanTool",
+        "system_sdwan_update_account_as_number"       => "Ai::Tools::SdwanTool",
         "system_sdwan_get_bgp_sessions"            => "Ai::Tools::SdwanTool",
         "system_sdwan_get_bgp_config_for_peer"     => "Ai::Tools::SdwanTool",
         # Slice 9e: route policies
@@ -158,6 +162,8 @@ module Ai
         # Phase O6: host bridges (O1) + OVN deployment/switches/ports (O3) + IPFIX (O5)
         "system_sdwan_create_host_bridge"              => "Ai::Tools::SdwanTool",
         "system_sdwan_list_host_bridges"               => "Ai::Tools::SdwanTool",
+        "system_sdwan_activate_host_bridge"            => "Ai::Tools::SdwanTool",
+        "system_sdwan_release_host_bridge"             => "Ai::Tools::SdwanTool",
         "system_sdwan_create_ovn_deployment"           => "Ai::Tools::SdwanTool",
         "system_sdwan_create_ovn_logical_switch"       => "Ai::Tools::SdwanTool",
         "system_sdwan_create_ovn_logical_switch_port"  => "Ai::Tools::SdwanTool",
@@ -166,6 +172,10 @@ module Ai
         "system_sdwan_list_ipfix_collectors"           => "Ai::Tools::SdwanTool",
         "system_sdwan_create_ovn_acl"                  => "Ai::Tools::SdwanTool",
         "system_sdwan_list_ovn_acls"                   => "Ai::Tools::SdwanTool",
+        "system_sdwan_delete_ovn_acl"                  => "Ai::Tools::SdwanTool",
+        "system_sdwan_delete_ovn_logical_switch"       => "Ai::Tools::SdwanTool",
+        "system_sdwan_delete_ovn_deployment"           => "Ai::Tools::SdwanTool",
+        "system_sdwan_delete_ipfix_collector"          => "Ai::Tools::SdwanTool",
         # Phase B: Docker daemon auto-provisioning on NodeInstances.
         # Distinct from the docker_* family below — those tools manage
         # *external*, operator-registered hosts; these manage *managed*
@@ -218,9 +228,9 @@ module Ai
         "bootstrap_disk_image_ci"        => "Ai::Tools::DiskImageOperatorTool",
         # Container deployment & management
         "deploy_container_agent" => "Ai::Tools::ContainerDeploymentTool",
-        "container_status" => "Ai::Tools::ContainerStatusTool",
-        "container_logs" => "Ai::Tools::ContainerLogsTool",
-        "container_terminate" => "Ai::Tools::ContainerTerminateTool",
+        "agent_container_status" => "Ai::Tools::ContainerStatusTool",
+        "agent_container_logs" => "Ai::Tools::ContainerLogsTool",
+        "agent_container_terminate" => "Ai::Tools::ContainerTerminateTool",
         # Integration health
         "integration_health" => "Ai::Tools::IntegrationHealthTool",
         # Ralph Loop management (autonomous agent duty cycles)
@@ -228,6 +238,7 @@ module Ai
         "get_ralph_loop" => "Ai::Tools::RalphLoopTool",
         "pause_ralph_loop" => "Ai::Tools::RalphLoopTool",
         "resume_ralph_loop" => "Ai::Tools::RalphLoopTool",
+        "update_ralph_loop" => "Ai::Tools::RalphLoopTool",
         "delete_ralph_loop" => "Ai::Tools::RalphLoopTool",
         "get_ralph_loop_statistics" => "Ai::Tools::RalphLoopTool",
         # Agent management
@@ -236,16 +247,21 @@ module Ai
         "execute_agent" => "Ai::Tools::AgentManagementTool",
         "get_agent" => "Ai::Tools::AgentManagementTool",
         "update_agent" => "Ai::Tools::AgentManagementTool",
+        "set_agent_autonomy_level" => "Ai::Tools::AgentManagementTool",
+        "update_agent_trust_score" => "Ai::Tools::AgentManagementTool",
+        "delete_agent" => "Ai::Tools::AgentManagementTool",
         "spawn_task" => "Ai::Tools::AgentManagementTool",
         "check_task_status" => "Ai::Tools::AgentManagementTool",
         "wait_for_task" => "Ai::Tools::AgentManagementTool",
         # Team management
         "create_team" => "Ai::Tools::TeamManagementTool",
         "add_team_member" => "Ai::Tools::TeamManagementTool",
+        "remove_team_member" => "Ai::Tools::TeamManagementTool",
         "execute_team" => "Ai::Tools::TeamManagementTool",
         "get_team" => "Ai::Tools::TeamManagementTool",
         "list_teams" => "Ai::Tools::TeamManagementTool",
         "update_team" => "Ai::Tools::TeamManagementTool",
+        "delete_team" => "Ai::Tools::TeamManagementTool",
         # Pipeline management
         "trigger_pipeline" => "Ai::Tools::PipelineManagementTool",
         "list_pipelines" => "Ai::Tools::PipelineManagementTool",
@@ -258,6 +274,8 @@ module Ai
         "consolidate_memory" => "Ai::Tools::MemoryTool",
         "memory_stats" => "Ai::Tools::MemoryTool",
         "list_pools" => "Ai::Tools::MemoryTool",
+        "create_memory_pool" => "Ai::Tools::MemoryTool",
+        "delete_memory_pool" => "Ai::Tools::MemoryTool",
         # Agent-managed memory (MemGPT-style)
         "agent_remember" => "Ai::Tools::AgentMemoryManagementTool",
         "agent_forget" => "Ai::Tools::AgentMemoryManagementTool",
@@ -304,12 +322,16 @@ module Ai
         "update_skill" => "Ai::Tools::SkillTool",
         "delete_skill" => "Ai::Tools::SkillTool",
         "toggle_skill" => "Ai::Tools::SkillTool",
+        "attach_skill_to_agent" => "Ai::Tools::SkillTool",
+        "detach_skill_from_agent" => "Ai::Tools::SkillTool",
         # Knowledge quality
         "verify_learning" => "Ai::Tools::KnowledgeQualityTool",
         "dispute_learning" => "Ai::Tools::KnowledgeQualityTool",
         "resolve_contradiction" => "Ai::Tools::KnowledgeQualityTool",
         "rate_knowledge" => "Ai::Tools::KnowledgeQualityTool",
         "knowledge_health" => "Ai::Tools::KnowledgeQualityTool",
+        "unsupersede_learning" => "Ai::Tools::KnowledgeQualityTool",
+        "verify_learning_batch" => "Ai::Tools::KnowledgeQualityTool",
         # Knowledge graph
         "search_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool",
         "reason_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool",
@@ -330,6 +352,9 @@ module Ai
         "create_workspace" => "Ai::Tools::ConversationTool",
         "invite_agent" => "Ai::Tools::ConversationTool",
         "active_sessions" => "Ai::Tools::ConversationTool",
+        "pin_conversation" => "Ai::Tools::ConversationTool",
+        "unpin_conversation" => "Ai::Tools::ConversationTool",
+        "tag_conversation" => "Ai::Tools::ConversationTool",
         # Activity monitoring
         "get_activity_feed" => "Ai::Tools::ActivityMonitorTool",
         "get_mission_status" => "Ai::Tools::ActivityMonitorTool",
@@ -359,6 +384,14 @@ module Ai
         "decompose_goal" => "Ai::Tools::AgentAutonomyTool",
         "validate_plan" => "Ai::Tools::AgentAutonomyTool",
         "approve_plan" => "Ai::Tools::AgentAutonomyTool",
+        # Intervention policies + deferred operations (operator control over autonomy)
+        "list_intervention_policies" => "Ai::Tools::AgentAutonomyTool",
+        "create_intervention_policy" => "Ai::Tools::AgentAutonomyTool",
+        "update_intervention_policy" => "Ai::Tools::AgentAutonomyTool",
+        "delete_intervention_policy" => "Ai::Tools::AgentAutonomyTool",
+        "list_deferred_operations" => "Ai::Tools::AgentAutonomyTool",
+        "approve_deferred_operation" => "Ai::Tools::AgentAutonomyTool",
+        "reject_deferred_operation" => "Ai::Tools::AgentAutonomyTool",
         # Self-improvement (skill mutation, challenges)
         "generate_self_challenge" => "Ai::Tools::SelfImprovementTool",
         "list_challenges" => "Ai::Tools::SelfImprovementTool",
@@ -391,7 +424,7 @@ module Ai
         "docker_start_container" => "Ai::Tools::DockerContainerTool",
         "docker_stop_container" => "Ai::Tools::DockerContainerTool",
         "docker_restart_container" => "Ai::Tools::DockerContainerTool",
-        "docker_remove_container" => "Ai::Tools::DockerContainerTool",
+        "docker_delete_container" => "Ai::Tools::DockerContainerTool",
         "docker_container_logs" => "Ai::Tools::DockerContainerTool",
         "docker_container_stats" => "Ai::Tools::DockerContainerTool",
         "docker_container_exec" => "Ai::Tools::DockerContainerTool",
@@ -402,14 +435,14 @@ module Ai
         "docker_update_service" => "Ai::Tools::DockerServiceTool",
         "docker_scale_service" => "Ai::Tools::DockerServiceTool",
         "docker_rollback_service" => "Ai::Tools::DockerServiceTool",
-        "docker_remove_service" => "Ai::Tools::DockerServiceTool",
+        "docker_delete_service" => "Ai::Tools::DockerServiceTool",
         "docker_service_logs" => "Ai::Tools::DockerServiceTool",
         "docker_service_tasks" => "Ai::Tools::DockerServiceTool",
         # Docker infrastructure management — Swarm stacks
         "docker_list_stacks" => "Ai::Tools::DockerStackTool",
         "docker_get_stack" => "Ai::Tools::DockerStackTool",
         "docker_deploy_stack" => "Ai::Tools::DockerStackTool",
-        "docker_remove_stack" => "Ai::Tools::DockerStackTool",
+        "docker_delete_stack" => "Ai::Tools::DockerStackTool",
         "docker_adopt_stack" => "Ai::Tools::DockerStackTool",
         # Docker infrastructure management — clusters, nodes, secrets, configs
         "docker_list_clusters" => "Ai::Tools::DockerClusterTool",
@@ -422,10 +455,10 @@ module Ai
         "docker_node_activate" => "Ai::Tools::DockerClusterTool",
         "docker_list_secrets" => "Ai::Tools::DockerClusterTool",
         "docker_create_secret" => "Ai::Tools::DockerClusterTool",
-        "docker_remove_secret" => "Ai::Tools::DockerClusterTool",
+        "docker_delete_secret" => "Ai::Tools::DockerClusterTool",
         "docker_list_configs" => "Ai::Tools::DockerClusterTool",
         "docker_create_config" => "Ai::Tools::DockerClusterTool",
-        "docker_remove_config" => "Ai::Tools::DockerClusterTool",
+        "docker_delete_config" => "Ai::Tools::DockerClusterTool",
         # Docker infrastructure management — hosts
         "docker_list_hosts" => "Ai::Tools::DockerHostTool",
         "docker_get_host" => "Ai::Tools::DockerHostTool",
@@ -434,15 +467,15 @@ module Ai
         # Docker infrastructure management — images
         "docker_list_images" => "Ai::Tools::DockerImageTool",
         "docker_pull_image" => "Ai::Tools::DockerImageTool",
-        "docker_remove_image" => "Ai::Tools::DockerImageTool",
+        "docker_delete_image" => "Ai::Tools::DockerImageTool",
         "docker_tag_image" => "Ai::Tools::DockerImageTool",
         # Docker infrastructure management — networks and volumes
         "docker_list_networks" => "Ai::Tools::DockerNetworkVolumeTool",
         "docker_create_network" => "Ai::Tools::DockerNetworkVolumeTool",
-        "docker_remove_network" => "Ai::Tools::DockerNetworkVolumeTool",
+        "docker_delete_network" => "Ai::Tools::DockerNetworkVolumeTool",
         "docker_list_volumes" => "Ai::Tools::DockerNetworkVolumeTool",
         "docker_create_volume" => "Ai::Tools::DockerNetworkVolumeTool",
-        "docker_remove_volume" => "Ai::Tools::DockerNetworkVolumeTool",
+        "docker_delete_volume" => "Ai::Tools::DockerNetworkVolumeTool",
         # Trading — portfolio & wallets
         "trading_list_portfolios" => "Ai::Tools::TradingPortfolioTool",
         "trading_get_portfolio" => "Ai::Tools::TradingPortfolioTool",

@@ -69,6 +69,24 @@ module Ai
           "list_pools" => {
             description: "List all memory pools in the current account",
             parameters: {}
+          },
+          "create_memory_pool" => {
+            description: "Create a new memory pool. pool_id should be a unique slug (e.g. 'trading_ops'). Pools are account-scoped.",
+            parameters: {
+              pool_id: { type: "string", required: true, description: "Unique slug for the pool (lowercase, underscores)" },
+              name: { type: "string", required: true, description: "Human-readable display name" },
+              pool_type: { type: "string", required: false, description: "Pool type: shared (default), persistent, short_term, long_term" },
+              scope: { type: "string", required: false, description: "Scope: account (default), public, agent, team, execution" },
+              owner_agent_id: { type: "string", required: false, description: "Owner agent (scope=agent)" },
+              team_id: { type: "string", required: false, description: "Owner team (scope=team)" },
+              retention_policy: { type: "object", required: false, description: "JSON retention config (ttl, max_size, etc.)" }
+            }
+          },
+          "delete_memory_pool" => {
+            description: "Permanently delete a memory pool and all its data. Cannot delete the 'default' pool.",
+            parameters: {
+              pool_id: { type: "string", required: true, description: "Pool slug or UUID" }
+            }
           }
         }
       end
@@ -93,6 +111,8 @@ module Ai
         when "consolidate_memory" then consolidate_memory(params)
         when "memory_stats" then memory_stats(params)
         when "list_pools" then list_pools(params)
+        when "create_memory_pool" then create_memory_pool(params)
+        when "delete_memory_pool" then delete_memory_pool(params)
         else
           { success: false, error: "Unknown action: #{params[:action]}" }
         end
@@ -105,6 +125,36 @@ module Ai
       end
 
       private
+
+      def create_memory_pool(params)
+        return { success: false, error: "pool_id required" } if params[:pool_id].blank?
+        return { success: false, error: "name required" } if params[:name].blank?
+
+        pool = account.ai_memory_pools.create!(
+          pool_id: params[:pool_id],
+          name: params[:name],
+          pool_type: params[:pool_type] || "shared",
+          scope: params[:scope] || "account",
+          owner_agent_id: params[:owner_agent_id],
+          team_id: params[:team_id],
+          data: {},
+          retention_policy: params[:retention_policy] || {}
+        )
+        { success: true, pool_id: pool.pool_id, id: pool.id, name: pool.name }
+      end
+
+      def delete_memory_pool(params)
+        return { success: false, error: "pool_id required" } if params[:pool_id].blank?
+        return { success: false, error: "Cannot delete the 'default' pool" } if params[:pool_id] == "default"
+
+        pool = account.ai_memory_pools.find_by(pool_id: params[:pool_id]) ||
+               account.ai_memory_pools.find_by(id: params[:pool_id])
+        return { success: false, error: "Memory pool not found" } unless pool
+
+        name = pool.name
+        pool.destroy!
+        { success: true, deleted: true, pool_id: params[:pool_id], name: name }
+      end
 
       # Resolve the effective agent ID for memory operations.
       # Falls back to the MCP session's linked agent when no agent is in context.

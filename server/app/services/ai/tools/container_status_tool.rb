@@ -7,7 +7,7 @@ module Ai
 
       def self.definition
         {
-          name: "container_status",
+          name: "agent_container_status",
           description: "Get the current status and details of a container instance by execution ID. " \
                        "Returns status, resource usage, duration, and any error information.",
           parameters: {
@@ -17,7 +17,7 @@ module Ai
       end
 
       def self.action_definitions
-        { "container_status" => definition }
+        { "agent_container_status" => definition }
       end
 
       protected

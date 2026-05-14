@@ -47,7 +47,7 @@ module Ai
               compose_variables: { type: "object", required: false, description: "Variable substitutions (e.g. {\"IMAGE_TAG\": \"latest\"})" }
             }
           },
-          "docker_remove_stack" => {
+          "docker_delete_stack" => {
             description: "Remove a stack and all its services from the cluster",
             parameters: {
               cluster_id: { type: "string", required: false, description: "Swarm cluster ID, slug, or name" },
@@ -71,7 +71,7 @@ module Ai
         when "docker_list_stacks" then list_stacks(params)
         when "docker_get_stack" then get_stack(params)
         when "docker_deploy_stack" then deploy_stack(params)
-        when "docker_remove_stack" then remove_stack(params)
+        when "docker_delete_stack" then remove_stack(params)
         when "docker_adopt_stack" then adopt_stack(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end

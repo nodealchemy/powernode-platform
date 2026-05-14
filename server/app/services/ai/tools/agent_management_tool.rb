@@ -58,6 +58,36 @@ module Ai
               mcp_metadata: { type: "object", required: false, description: "MCP metadata to merge" }
             }
           },
+          "set_agent_autonomy_level" => {
+            description: "Manually set an agent's trust level (supervised/monitored/trusted/autonomous). Bypasses the computed trust_score tier. Use to bootstrap a new agent or override after manual review.",
+            parameters: {
+              agent_id: { type: "string", required: true, description: "Agent UUID, slug, or name" },
+              trust_level: { type: "string", required: true, description: "supervised | monitored | trusted | autonomous" }
+            }
+          },
+          "update_agent_trust_score" => {
+            description: "Update an agent's computed AgentTrustScore record. Pass any subset of dimension scores (reliability/cost_efficiency/safety/quality/speed) or `overall_score` + `tier` to manually adjust. Auto-creates the trust_score row if missing.",
+            parameters: {
+              agent_id: { type: "string", required: true, description: "Agent UUID, slug, or name" },
+              tier: { type: "string", required: false, description: "supervised | monitored | trusted | autonomous" },
+              overall_score: { type: "number", required: false, description: "0.0–1.0" },
+              reliability: { type: "number", required: false, description: "0.0–1.0" },
+              cost_efficiency: { type: "number", required: false, description: "0.0–1.0" },
+              safety: { type: "number", required: false, description: "0.0–1.0" },
+              quality: { type: "number", required: false, description: "0.0–1.0" },
+              speed: { type: "number", required: false, description: "0.0–1.0" }
+            }
+          },
+          "delete_agent" => {
+            description: "Hard-destroy an AI agent. Cascades children (executions/conversations/messages/skills/etc) via dependent:destroy. " \
+                         "For FKs without dependent: (mcp_sessions, ralph_loops.default_agent_id, team memberships, telemetry, learnings, " \
+                         "messages, a2a tasks, etc), if reassign_to_agent_id is given those rows are repointed to it; otherwise they are deleted. " \
+                         "Irreversible.",
+            parameters: {
+              agent_id: { type: "string", required: true, description: "Agent UUID, slug, or name to destroy" },
+              reassign_to_agent_id: { type: "string", required: false, description: "Agent UUID, slug, or name to repoint un-cascaded FKs to. If omitted, those rows are deleted." }
+            }
+          },
           "execute_agent" => {
             description: "Queue execution of a server-side AI agent (assistant type only). " \
                          "Cannot execute MCP client agents — use @mention in workspace messages to reach them.",
@@ -98,6 +128,9 @@ module Ai
         when "list_agents" then list_agents
         when "get_agent" then get_agent(params)
         when "update_agent" then update_agent(params)
+        when "set_agent_autonomy_level" then set_agent_autonomy_level(params)
+        when "update_agent_trust_score" then update_agent_trust_score(params)
+        when "delete_agent" then delete_agent(params)
         when "execute_agent" then execute_agent(params)
         when "spawn_task" then spawn_task(params)
         when "check_task_status" then check_task_status(params)
@@ -105,6 +138,60 @@ module Ai
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
       end
+
+      # FKs on ai_agents that have NO dependent:destroy on Ai::Agent and must be
+      # explicitly handled before destroy. Reassign mode repoints these to the
+      # canonical agent; delete mode deletes the rows.
+      REASSIGN_AGENT_FKS = [
+        ["mcp_sessions", "ai_agent_id"],
+        ["ai_messages", "ai_agent_id"],
+        ["ai_telemetry_events", "agent_id"],
+        ["ai_compound_learnings", "source_agent_id"],
+        ["ai_skill_usage_records", "ai_agent_id"],
+        ["ai_skill_versions", "created_by_agent_id"],
+        ["ai_skill_proposals", "proposed_by_agent_id"],
+        ["ai_trajectories", "ai_agent_id"],
+        ["ai_persistent_contexts", "ai_agent_id"],
+        ["ai_context_entries", "ai_agent_id"],
+        ["ai_context_access_logs", "ai_agent_id"],
+        ["ai_experience_replays", "ai_agent_id"],
+        ["ai_a2a_tasks", "from_agent_id"],
+        ["ai_a2a_tasks", "to_agent_id"],
+        ["ai_team_tasks", "assigned_agent_id"],
+        ["chat_channels", "default_agent_id"],
+        ["chat_sessions", "assigned_agent_id"],
+        ["ai_task_reviews", "reviewer_agent_id"],
+        ["ai_code_review_comments", "agent_id"],
+        ["ai_skill_recipe_runs", "ai_agent_id"],
+        ["ai_governance_reports", "monitor_agent_id"],
+        ["ai_governance_reports", "subject_agent_id"],
+        ["ai_stigmergic_signals", "emitter_agent_id"],
+        ["ai_self_challenges", "challenger_agent_id"],
+        ["ai_self_challenges", "executor_agent_id"],
+        ["ai_self_challenges", "validator_agent_id"],
+        ["ai_performance_benchmarks", "target_agent_id"],
+        ["ai_test_scenarios", "target_agent_id"],
+        ["community_agents", "agent_id"],
+        ["ai_ralph_loops", "default_agent_id"],
+        ["ai_agent_team_members", "ai_agent_id"]
+      ].freeze
+
+      # Rows that are operational/transient: only deleted when destroying a
+      # dup agent, never repointed (no value to retain on the canonical).
+      DELETE_AGENT_ROWS = [
+        ["ai_deferred_operations", "ai_agent_id"],
+        ["ai_agent_observations", "ai_agent_id"],
+        ["ai_intervention_policies", "ai_agent_id"],
+        ["ai_agent_proposals", "ai_agent_id"],
+        ["ai_agent_escalations", "ai_agent_id"],
+        ["ai_agent_feedbacks", "ai_agent_id"],
+        ["ai_goal_plans", "ai_agent_id"],
+        ["ai_team_restructure_events", "ai_agent_id"],
+        ["ai_circuit_breakers", "agent_id"],
+        ["ai_behavioral_fingerprints", "agent_id"],
+        ["ai_delegation_policies", "agent_id"],
+        ["ai_agent_cards", "ai_agent_id"]
+      ].freeze
 
       private
 
@@ -205,6 +292,106 @@ module Ai
         { success: false, error: "Agent not found" }
       rescue ActiveRecord::RecordInvalid => e
         { success: false, error: e.message }
+      end
+
+      VALID_TRUST_LEVELS = %w[supervised monitored trusted autonomous].freeze
+
+      def set_agent_autonomy_level(params)
+        agent_record = resolve_agent(params[:agent_id])
+        return { success: false, error: "Agent not found" } unless agent_record
+        tl = params[:trust_level].to_s
+        return { success: false, error: "trust_level must be one of #{VALID_TRUST_LEVELS.join('/')}" } unless VALID_TRUST_LEVELS.include?(tl)
+
+        agent_record.update!(trust_level: tl)
+        { success: true, agent_id: agent_record.id, trust_level: agent_record.trust_level }
+      rescue ActiveRecord::RecordInvalid => e
+        { success: false, error: e.message }
+      end
+
+      def update_agent_trust_score(params)
+        agent_record = resolve_agent(params[:agent_id])
+        return { success: false, error: "Agent not found" } unless agent_record
+
+        score = agent_record.trust_score || Ai::AgentTrustScore.new(
+          account: account, agent: agent_record,
+          reliability: 0.5, cost_efficiency: 0.5, safety: 0.5, quality: 0.5, speed: 0.5,
+          overall_score: 0.5, tier: "supervised", evaluation_count: 0
+        )
+
+        attrs = {}
+        %i[tier overall_score reliability cost_efficiency safety quality speed].each do |k|
+          attrs[k] = params[k] if params.key?(k)
+        end
+        if attrs[:tier] && !VALID_TRUST_LEVELS.include?(attrs[:tier].to_s)
+          return { success: false, error: "tier must be one of #{VALID_TRUST_LEVELS.join('/')}" }
+        end
+
+        score.assign_attributes(attrs)
+        score.last_evaluated_at = Time.current
+        score.save!
+
+        { success: true, agent_id: agent_record.id, trust_score: {
+          tier: score.tier, overall_score: score.overall_score,
+          reliability: score.reliability, cost_efficiency: score.cost_efficiency,
+          safety: score.safety, quality: score.quality, speed: score.speed,
+          last_evaluated_at: score.last_evaluated_at&.iso8601
+        } }
+      rescue ActiveRecord::RecordInvalid => e
+        { success: false, error: e.message }
+      end
+
+      def delete_agent(params)
+        agent_record = resolve_agent(params[:agent_id])
+        return { success: false, error: "Agent not found" } unless agent_record
+
+        canonical = nil
+        if params[:reassign_to_agent_id].present?
+          canonical = resolve_agent(params[:reassign_to_agent_id])
+          return { success: false, error: "reassign_to_agent_id agent not found" } unless canonical
+          return { success: false, error: "reassign_to_agent_id cannot equal agent_id" } if canonical.id == agent_record.id
+        end
+
+        repointed = Hash.new(0)
+        deleted = Hash.new(0)
+        name = agent_record.name
+        agent_id = agent_record.id
+
+        ActiveRecord::Base.transaction do
+          REASSIGN_AGENT_FKS.each do |table, col|
+            if canonical
+              n = ActiveRecord::Base.connection.exec_update(
+                "UPDATE #{table} SET #{col} = $1 WHERE #{col} = $2",
+                "repoint-#{table}-#{col}", [canonical.id, agent_id]
+              )
+              repointed["#{table}.#{col}"] = n if n > 0
+            else
+              n = ActiveRecord::Base.connection.exec_delete(
+                "DELETE FROM #{table} WHERE #{col} = $1",
+                "del-#{table}-#{col}", [agent_id]
+              )
+              deleted["#{table}.#{col}"] = n if n > 0
+            end
+          end
+
+          DELETE_AGENT_ROWS.each do |table, col|
+            n = ActiveRecord::Base.connection.exec_delete(
+              "DELETE FROM #{table} WHERE #{col} = $1",
+              "del-#{table}-#{col}", [agent_id]
+            )
+            deleted["#{table}.#{col}"] = n if n > 0
+          end
+
+          agent_record.destroy!
+        end
+
+        {
+          success: true, deleted: true, agent_id: agent_id, name: name,
+          reassigned_to: canonical&.id, repointed_rows: repointed, deleted_rows: deleted
+        }
+      rescue ActiveRecord::InvalidForeignKey => e
+        { success: false, error: "Foreign key blocks destroy — extend REASSIGN_AGENT_FKS or DELETE_AGENT_ROWS to cover it: #{e.message}" }
+      rescue StandardError => e
+        { success: false, error: "Failed to delete agent: #{e.class}: #{e.message}" }
       end
 
       def spawn_task(params)

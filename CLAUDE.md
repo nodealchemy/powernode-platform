@@ -471,7 +471,7 @@ All `platform.*` tools organized by development task. Full parameter docs: [MCP_
 | `docker_start_container` | Start a stopped container |
 | `docker_stop_container` | Stop a running container (configurable timeout) |
 | `docker_restart_container` | Restart a container |
-| `docker_remove_container` | Remove a container (force flag available) |
+| `docker_delete_container` | Remove a container (force flag available) |
 | `docker_container_logs` | Retrieve container logs (tail + since filters) |
 | `docker_container_stats` | Live CPU, memory, network I/O stats |
 | `docker_container_exec` | Execute a command inside a running container |
@@ -481,13 +481,13 @@ All `platform.*` tools organized by development task. Full parameter docs: [MCP_
 | `docker_update_service` | Update service config (image, env, constraints) |
 | `docker_scale_service` | Scale a service to a specified replica count |
 | `docker_rollback_service` | Rollback a service to its previous version |
-| `docker_remove_service` | Remove a service and its tasks |
+| `docker_delete_service` | Remove a service and its tasks |
 | `docker_service_logs` | Retrieve aggregated logs from all service tasks |
 | `docker_service_tasks` | List tasks with status and node placement |
 | `docker_list_stacks` | List all stacks with status and service count |
 | `docker_get_stack` | Detailed stack info including compose file |
 | `docker_deploy_stack` | Deploy or redeploy a stack from Compose YAML |
-| `docker_remove_stack` | Remove a stack and all its services |
+| `docker_delete_stack` | Remove a stack and all its services |
 | `docker_adopt_stack` | Adopt an externally-deployed stack into Powernode |
 | `docker_list_clusters` | List all Swarm clusters with connection status |
 | `docker_get_cluster` | Detailed cluster info with node/service counts |
@@ -499,24 +499,24 @@ All `platform.*` tools organized by development task. Full parameter docs: [MCP_
 | `docker_node_activate` | Activate a drained node to resume scheduling |
 | `docker_list_secrets` | List secrets (metadata only, not values) |
 | `docker_create_secret` | Create a new Swarm secret |
-| `docker_remove_secret` | Remove a secret |
+| `docker_delete_secret` | Remove a secret |
 | `docker_list_configs` | List all Swarm configs |
 | `docker_create_config` | Create a new Swarm config |
-| `docker_remove_config` | Remove a config |
+| `docker_delete_config` | Remove a config |
 | `docker_list_hosts` | List all Docker hosts with connection status |
 | `docker_get_host` | Detailed host info (OS, resources, Docker version) |
 | `docker_sync_host` | Sync containers and images from Docker daemon |
 | `docker_test_host` | Test connection to a Docker host |
 | `docker_list_images` | List all images with tags, size, creation time |
 | `docker_pull_image` | Pull an image from a registry |
-| `docker_remove_image` | Remove an image (force flag available) |
+| `docker_delete_image` | Remove an image (force flag available) |
 | `docker_tag_image` | Tag an image with a new repository and tag |
 | `docker_list_networks` | List Swarm networks with driver and scope |
 | `docker_create_network` | Create an overlay network |
-| `docker_remove_network` | Remove a network |
+| `docker_delete_network` | Remove a network |
 | `docker_list_volumes` | List Swarm volumes with driver info |
 | `docker_create_volume` | Create a volume with configurable driver |
-| `docker_remove_volume` | Remove a volume |
+| `docker_delete_volume` | Remove a volume |
 
 ---
 

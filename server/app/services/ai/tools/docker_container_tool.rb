@@ -77,7 +77,7 @@ module Ai
               timeout: { type: "integer", required: false, description: "Seconds to wait before killing (default: 10)" }
             }
           },
-          "docker_remove_container" => {
+          "docker_delete_container" => {
             description: "Remove a container (must be stopped unless force is true)",
             parameters: {
               host_id: { type: "string", required: false, description: "Docker host ID, slug, or name" },
@@ -124,7 +124,7 @@ module Ai
         when "docker_start_container" then start_container(params)
         when "docker_stop_container" then stop_container(params)
         when "docker_restart_container" then restart_container(params)
-        when "docker_remove_container" then remove_container(params)
+        when "docker_delete_container" then remove_container(params)
         when "docker_container_logs" then container_logs(params)
         when "docker_container_stats" then container_stats(params)
         when "docker_container_exec" then container_exec(params)

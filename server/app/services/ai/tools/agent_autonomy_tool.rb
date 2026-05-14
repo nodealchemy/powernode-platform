@@ -137,6 +137,66 @@ module Ai
               goal_id: { type: "string", description: "Goal ID with the plan to approve", required: true },
               notes: { type: "string", description: "Approval notes", required: false }
             }
+          },
+          # === Intervention policies (CRUD) ===
+          "list_intervention_policies" => {
+            description: "List intervention policies for the current account. Filterable by agent, action_category, is_active.",
+            parameters: {
+              agent_id: { type: "string", required: false, description: "Filter by agent" },
+              action_category: { type: "string", required: false, description: "Filter by action category" },
+              is_active: { type: "boolean", required: false, description: "Filter by active flag" }
+            }
+          },
+          "create_intervention_policy" => {
+            description: "Create a new intervention policy that gates autonomous actions for an agent (or all agents in scope).",
+            parameters: {
+              scope: { type: "string", required: true, description: "global | agent | team" },
+              ai_agent_id: { type: "string", required: false, description: "Agent (when scope=agent)" },
+              action_category: { type: "string", required: true, description: "Action category to gate (e.g. system.module_assign)" },
+              policy: { type: "string", required: true, description: "auto_approve | notify_and_proceed | require_approval | silent | block" },
+              conditions: { type: "object", required: false, description: "JSON match conditions" },
+              priority: { type: "integer", required: false, description: "Higher priority wins on conflict (default 0)" },
+              approval_chain_id: { type: "string", required: false, description: "Approval chain UUID (when policy=require_approval)" }
+            }
+          },
+          "update_intervention_policy" => {
+            description: "Update an existing intervention policy. Pass only the fields to change.",
+            parameters: {
+              policy_id: { type: "string", required: true, description: "Intervention policy UUID" },
+              policy: { type: "string", required: false, description: "auto_approve | notify_and_proceed | require_approval | silent | block" },
+              conditions: { type: "object", required: false, description: "Merged into existing conditions" },
+              priority: { type: "integer", required: false },
+              is_active: { type: "boolean", required: false }
+            }
+          },
+          "delete_intervention_policy" => {
+            description: "Permanently delete an intervention policy.",
+            parameters: {
+              policy_id: { type: "string", required: true, description: "Intervention policy UUID" }
+            }
+          },
+          # === Deferred operations (approval queue) ===
+          "list_deferred_operations" => {
+            description: "List deferred operations (queued autonomous actions awaiting approval or completion).",
+            parameters: {
+              status: { type: "string", required: false, description: "pending | approved | rejected | completed | failed" },
+              agent_id: { type: "string", required: false, description: "Filter by agent" },
+              limit: { type: "integer", required: false, description: "Max results (default 25, max 100)" }
+            }
+          },
+          "approve_deferred_operation" => {
+            description: "Approve a pending deferred operation via the approval workflow. Triggers the underlying ApprovalRequest's approve path which will execute the action when the final step approves.",
+            parameters: {
+              deferred_operation_id: { type: "string", required: true, description: "DeferredOperation UUID OR ApprovalRequest UUID" },
+              comments: { type: "string", required: false, description: "Optional approval comment" }
+            }
+          },
+          "reject_deferred_operation" => {
+            description: "Reject a pending deferred operation. Sets the request to rejected and the deferred op never executes.",
+            parameters: {
+              deferred_operation_id: { type: "string", required: true, description: "DeferredOperation UUID OR ApprovalRequest UUID" },
+              comments: { type: "string", required: false, description: "Reason for rejection (recommended)" }
+            }
           }
         }
       end
@@ -158,6 +218,13 @@ module Ai
         when "decompose_goal" then decompose_goal(params)
         when "validate_plan" then validate_plan(params)
         when "approve_plan" then approve_plan(params)
+        when "list_intervention_policies" then list_intervention_policies(params)
+        when "create_intervention_policy" then create_intervention_policy(params)
+        when "update_intervention_policy" then update_intervention_policy(params)
+        when "delete_intervention_policy" then delete_intervention_policy(params)
+        when "list_deferred_operations" then list_deferred_operations(params)
+        when "approve_deferred_operation" then approve_deferred_operation(params)
+        when "reject_deferred_operation" then reject_deferred_operation(params)
         else
           error_result("Unknown action: #{params[:action]}")
         end
@@ -471,6 +538,119 @@ module Ai
           account.ai_agents.find_by(id: agent_id)
         else
           agent
+        end
+      end
+
+      # === Intervention policies ===
+
+      def list_intervention_policies(params)
+        scope = account.ai_intervention_policies
+        scope = scope.where(ai_agent_id: params[:agent_id]) if params[:agent_id].present?
+        scope = scope.where(action_category: params[:action_category]) if params[:action_category].present?
+        scope = scope.where(is_active: params[:is_active]) unless params[:is_active].nil?
+
+        policies = scope.order(priority: :desc, created_at: :desc).limit(100)
+        {
+          success: true, count: policies.size,
+          policies: policies.map { |p|
+            { id: p.id, scope: p.scope, ai_agent_id: p.ai_agent_id, action_category: p.action_category,
+              policy: p.policy, priority: p.priority, is_active: p.is_active,
+              approval_chain_id: p.approval_chain_id, conditions: p.conditions }
+          }
+        }
+      end
+
+      def create_intervention_policy(params)
+        policy = account.ai_intervention_policies.create!(
+          scope: params[:scope],
+          ai_agent_id: params[:ai_agent_id],
+          action_category: params[:action_category],
+          policy: params[:policy],
+          conditions: params[:conditions] || {},
+          priority: params[:priority] || 0,
+          approval_chain_id: params[:approval_chain_id],
+          is_active: true,
+          user_id: user&.id
+        )
+        { success: true, policy_id: policy.id, policy: policy.policy }
+      rescue ActiveRecord::RecordInvalid => e
+        { success: false, error: e.message }
+      end
+
+      def update_intervention_policy(params)
+        policy = account.ai_intervention_policies.find_by(id: params[:policy_id])
+        return { success: false, error: "Intervention policy not found" } unless policy
+
+        attrs = {}
+        attrs[:policy] = params[:policy] if params[:policy].present?
+        attrs[:priority] = params[:priority] if params.key?(:priority)
+        attrs[:is_active] = params[:is_active] unless params[:is_active].nil?
+        attrs[:conditions] = (policy.conditions || {}).merge(params[:conditions]) if params[:conditions].present?
+
+        policy.update!(attrs)
+        { success: true, policy_id: policy.id, policy: policy.policy, is_active: policy.is_active }
+      rescue ActiveRecord::RecordInvalid => e
+        { success: false, error: e.message }
+      end
+
+      def delete_intervention_policy(params)
+        policy = account.ai_intervention_policies.find_by(id: params[:policy_id])
+        return { success: false, error: "Intervention policy not found" } unless policy
+        policy.destroy!
+        { success: true, deleted: true, policy_id: params[:policy_id] }
+      end
+
+      # === Deferred operations (approval queue) ===
+
+      def list_deferred_operations(params)
+        scope = account.ai_deferred_operations
+        scope = scope.where(status: params[:status]) if params[:status].present?
+        scope = scope.where(ai_agent_id: params[:agent_id]) if params[:agent_id].present?
+        limit = (params[:limit] || 25).to_i.clamp(1, 100)
+        ops = scope.order(created_at: :desc).limit(limit)
+        {
+          success: true, count: ops.size,
+          operations: ops.map { |o|
+            { id: o.id, status: o.status, ai_agent_id: o.ai_agent_id, action_category: o.action_category,
+              executor_class: o.executor_class, description: o.description,
+              approval_request_id: o.approval_request_id, source_type: o.source_type,
+              created_at: o.created_at.iso8601, executed_at: o.executed_at&.iso8601 }
+          }
+        }
+      end
+
+      def approve_deferred_operation(params)
+        request = resolve_approval_request(params[:deferred_operation_id])
+        return { success: false, error: "ApprovalRequest not found" } unless request
+
+        result = ::Ai::Autonomy::ApprovalWorkflowService.approve(
+          request: request, approver: user, comments: params[:comments]
+        )
+        { success: true, approval_request_id: request.id, request_status: request.reload.status, workflow: result }
+      rescue StandardError => e
+        { success: false, error: "Approval failed: #{e.class}: #{e.message}" }
+      end
+
+      def reject_deferred_operation(params)
+        request = resolve_approval_request(params[:deferred_operation_id])
+        return { success: false, error: "ApprovalRequest not found" } unless request
+
+        result = ::Ai::Autonomy::ApprovalWorkflowService.reject(
+          request: request, approver: user, comments: params[:comments]
+        )
+        { success: true, approval_request_id: request.id, request_status: request.reload.status, workflow: result }
+      rescue StandardError => e
+        { success: false, error: "Rejection failed: #{e.class}: #{e.message}" }
+      end
+
+      # Accepts either a DeferredOperation id (looks up its approval_request) or an ApprovalRequest id directly.
+      def resolve_approval_request(id)
+        return nil if id.blank?
+        deferred = account.ai_deferred_operations.find_by(id: id)
+        if deferred
+          deferred.approval_request_id ? ::Ai::ApprovalRequest.find_by(id: deferred.approval_request_id) : nil
+        else
+          ::Ai::ApprovalRequest.where(account_id: account.id).find_by(id: id)
         end
       end
     end

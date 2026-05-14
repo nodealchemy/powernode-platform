@@ -81,7 +81,7 @@ All 305 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md]
 | Subsystem | Tools (all `platform.*`) |
 |-----------|--------------------------|
 | Agents | `create_agent`, `list_agents`, `get_agent`, `update_agent`, `execute_agent` |
-| Agent Containers | `deploy_container_agent`, `container_status`, `container_logs`, `container_terminate` |
+| Agent Containers | `deploy_container_agent`, `agent_container_status`, `agent_container_logs`, `agent_container_terminate` |
 | Agent Introspection/Memory | `agent_introspect`, `agent_remember`, `agent_recall`, `agent_reflect`, `agent_forget` |
 | Teams | `create_team`, `list_teams`, `get_team`, `update_team`, `add_team_member`, `execute_team`, `invite_agent`, `recruit_agent`, `optimize_team` |
 | Tasks | `spawn_task`, `check_task_status`, `wait_for_task` |
@@ -113,12 +113,12 @@ All 305 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md]
 | Coordination (Signals/Pressure) | `emit_signal`, `perceive_signals`, `reinforce_signal`, `measure_pressure`, `perceive_pressure`, `detect_collusion` |
 | DevOps | `create_gitea_repository`, `update_gitea_repository`, `dispatch_to_runner`, `get_api_reference` |
 | Docker Hosts | `docker_list_hosts`, `docker_get_host`, `docker_sync_host`, `docker_test_host` |
-| Docker Containers | `docker_list_containers`, `docker_get_container`, `docker_create_container`, `docker_start_container`, `docker_stop_container`, `docker_restart_container`, `docker_remove_container`, `docker_container_logs`, `docker_container_stats`, `docker_container_exec` |
-| Docker Images | `docker_list_images`, `docker_pull_image`, `docker_remove_image`, `docker_tag_image` |
-| Docker Services | `docker_list_services`, `docker_get_service`, `docker_create_service`, `docker_update_service`, `docker_scale_service`, `docker_rollback_service`, `docker_remove_service`, `docker_service_logs`, `docker_service_tasks` |
-| Docker Stacks | `docker_list_stacks`, `docker_get_stack`, `docker_deploy_stack`, `docker_remove_stack`, `docker_adopt_stack` |
-| Docker Clusters | `docker_list_clusters`, `docker_get_cluster`, `docker_cluster_health`, `docker_list_nodes`, `docker_node_promote`, `docker_node_demote`, `docker_node_drain`, `docker_node_activate`, `docker_list_secrets`, `docker_create_secret`, `docker_remove_secret`, `docker_list_configs`, `docker_create_config`, `docker_remove_config` |
-| Docker Networks/Volumes | `docker_list_networks`, `docker_create_network`, `docker_remove_network`, `docker_list_volumes`, `docker_create_volume`, `docker_remove_volume` |
+| Docker Containers | `docker_list_containers`, `docker_get_container`, `docker_create_container`, `docker_start_container`, `docker_stop_container`, `docker_restart_container`, `docker_delete_container`, `docker_container_logs`, `docker_container_stats`, `docker_container_exec` |
+| Docker Images | `docker_list_images`, `docker_pull_image`, `docker_delete_image`, `docker_tag_image` |
+| Docker Services | `docker_list_services`, `docker_get_service`, `docker_create_service`, `docker_update_service`, `docker_scale_service`, `docker_rollback_service`, `docker_delete_service`, `docker_service_logs`, `docker_service_tasks` |
+| Docker Stacks | `docker_list_stacks`, `docker_get_stack`, `docker_deploy_stack`, `docker_delete_stack`, `docker_adopt_stack` |
+| Docker Clusters | `docker_list_clusters`, `docker_get_cluster`, `docker_cluster_health`, `docker_list_nodes`, `docker_node_promote`, `docker_node_demote`, `docker_node_drain`, `docker_node_activate`, `docker_list_secrets`, `docker_create_secret`, `docker_delete_secret`, `docker_list_configs`, `docker_create_config`, `docker_delete_config` |
+| Docker Networks/Volumes | `docker_list_networks`, `docker_create_network`, `docker_delete_network`, `docker_list_volumes`, `docker_create_volume`, `docker_delete_volume` |
 | Image Generation | `generate_image`, `list_generated_images` |
 | Trading (Strategies) | `trading_list_strategies`, `trading_get_strategy`, `trading_create_strategy`, `trading_update_strategy`, `trading_pause_strategy`, `trading_activate_strategy`, `trading_demote_strategy`, `trading_decommission_strategy`, `trading_decline_strategy`, `trading_advance_phase`, `trading_recover_strategy`, `trading_strategy_performance`, `trading_strategy_versions`, `trading_get_strategy_params`, `trading_update_strategy_params`, `trading_seed_strategy_defaults`, `trading_seed_profit_formula` |
 | Trading (Portfolios) | `trading_create_portfolio`, `trading_get_portfolio`, `trading_list_portfolios`, `trading_update_portfolio`, `trading_portfolio_summary`, `trading_portfolio_performance`, `trading_portfolio_allocations`, `trading_compounding_summary` |

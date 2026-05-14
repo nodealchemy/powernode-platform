@@ -10,7 +10,7 @@ module Ai
 
       def self.definition
         {
-          name: "container_logs",
+          name: "agent_container_logs",
           description: "Fetch logs from a container instance. Returns the execution logs, " \
                        "status, and any error messages. Logs are truncated to the requested tail size.",
           parameters: {
@@ -21,7 +21,7 @@ module Ai
       end
 
       def self.action_definitions
-        { "container_logs" => definition }
+        { "agent_container_logs" => definition }
       end
 
       protected

@@ -91,7 +91,7 @@ module Ai
               labels: { type: "object", required: false, description: "Secret labels" }
             }
           },
-          "docker_remove_secret" => {
+          "docker_delete_secret" => {
             description: "Remove a secret from the Swarm cluster",
             parameters: {
               cluster_id: { type: "string", required: false, description: "Swarm cluster ID, slug, or name" },
@@ -113,7 +113,7 @@ module Ai
               labels: { type: "object", required: false, description: "Config labels" }
             }
           },
-          "docker_remove_config" => {
+          "docker_delete_config" => {
             description: "Remove a config from the Swarm cluster",
             parameters: {
               cluster_id: { type: "string", required: false, description: "Swarm cluster ID, slug, or name" },
@@ -137,10 +137,10 @@ module Ai
         when "docker_node_activate" then node_activate(params)
         when "docker_list_secrets" then list_secrets(params)
         when "docker_create_secret" then create_secret(params)
-        when "docker_remove_secret" then remove_secret(params)
+        when "docker_delete_secret" then remove_secret(params)
         when "docker_list_configs" then list_configs(params)
         when "docker_create_config" then create_config(params)
-        when "docker_remove_config" then remove_config(params)
+        when "docker_delete_config" then remove_config(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
       rescue ActiveRecord::RecordNotFound => e

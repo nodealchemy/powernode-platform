@@ -7,7 +7,7 @@ module Ai
 
       def self.definition
         {
-          name: "container_terminate",
+          name: "agent_container_terminate",
           description: "Gracefully terminate a running container instance. Respects execution gate " \
                        "governance checks. The container will be cancelled with the provided reason.",
           parameters: {
@@ -18,7 +18,7 @@ module Ai
       end
 
       def self.action_definitions
-        { "container_terminate" => definition }
+        { "agent_container_terminate" => definition }
       end
 
       protected
