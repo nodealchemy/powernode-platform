@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8678,30 +8678,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
     t.index ["rotated_from_id"], name: "index_sdwan_constellation_signing_keys_on_rotated_from_id"
   end
 
-  create_table "sdwan_federation_peers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "acceptance_token_digest", comment: "SHA-256 hex digest of the plaintext acceptance token. Plaintext returned exactly once on propose; stored only as digest."
-    t.datetime "acceptance_token_expires_at", comment: "When the acceptance token expires. accept! refuses tokens past this time."
-    t.uuid "account_id", null: false
-    t.datetime "created_at", null: false
-    t.text "encrypted_credentials"
-    t.datetime "expires_at"
-    t.jsonb "metadata", default: {}, null: false
-    t.datetime "migrated_to_vault_at"
-    t.uuid "remote_account_id"
-    t.uuid "remote_instance_id"
-    t.string "remote_instance_url", null: false
-    t.string "remote_prefix_advertisement"
-    t.datetime "signed_at"
-    t.string "status", default: "proposed", null: false
-    t.datetime "updated_at", null: false
-    t.string "vault_path"
-    t.index ["acceptance_token_digest"], name: "index_federation_peers_on_token_digest", where: "(acceptance_token_digest IS NOT NULL)"
-    t.index ["account_id", "remote_instance_id"], name: "idx_sdwan_federation_peers_unique_remote", unique: true
-    t.index ["account_id"], name: "index_sdwan_federation_peers_on_account_id"
-    t.index ["remote_prefix_advertisement"], name: "index_sdwan_federation_peers_on_remote_prefix_advertisement"
-    t.index ["status"], name: "index_sdwan_federation_peers_on_status"
-  end
-
   create_table "sdwan_firewall_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "action", default: "accept", null: false
@@ -10064,6 +10040,56 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "check_vuln_scans_status"
   end
 
+  create_table "system_acme_certificates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "challenge_type", limit: 16, default: "dns-01", null: false
+    t.string "common_name", limit: 255, null: false
+    t.datetime "created_at", null: false
+    t.uuid "dns_credential_id"
+    t.datetime "expires_at"
+    t.datetime "issued_at"
+    t.string "issuer", limit: 64, default: "letsencrypt-prod", null: false
+    t.datetime "last_renewal_attempt_at"
+    t.text "last_renewal_error"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "migrated_to_vault_at"
+    t.datetime "revoked_at"
+    t.jsonb "sans", default: [], null: false
+    t.string "status", limit: 32, default: "pending", null: false
+    t.string "traefik_resolver_name"
+    t.datetime "updated_at", null: false
+    t.string "vault_path_account_key"
+    t.string "vault_path_certificate"
+    t.string "vault_path_chain"
+    t.string "vault_path_private_key"
+    t.index ["account_id", "common_name"], name: "idx_acme_certs_acct_cn_unique_active", unique: true, where: "((status)::text <> 'revoked'::text)"
+    t.index ["account_id"], name: "index_system_acme_certificates_on_account_id"
+    t.index ["dns_credential_id"], name: "index_system_acme_certificates_on_dns_credential_id"
+    t.index ["expires_at"], name: "index_system_acme_certificates_on_expires_at"
+    t.index ["issuer"], name: "index_system_acme_certificates_on_issuer"
+    t.index ["migrated_to_vault_at"], name: "index_acme_certificates_on_migrated_to_vault_at", where: "(migrated_to_vault_at IS NOT NULL)"
+    t.index ["revoked_at"], name: "index_system_acme_certificates_on_revoked_at"
+    t.index ["status"], name: "index_system_acme_certificates_on_status"
+  end
+
+  create_table "system_acme_dns_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "last_validated_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "migrated_to_vault_at"
+    t.string "name", limit: 255, null: false
+    t.string "provider", limit: 64, null: false
+    t.string "status", limit: 32, default: "untested", null: false
+    t.datetime "updated_at", null: false
+    t.string "vault_path_credentials"
+    t.index ["account_id", "name"], name: "idx_acme_dns_creds_acct_name_unique", unique: true
+    t.index ["account_id"], name: "index_system_acme_dns_credentials_on_account_id"
+    t.index ["migrated_to_vault_at"], name: "index_acme_dns_credentials_on_migrated_to_vault_at", where: "(migrated_to_vault_at IS NOT NULL)"
+    t.index ["provider"], name: "index_system_acme_dns_credentials_on_provider"
+    t.index ["status"], name: "index_system_acme_dns_credentials_on_status"
+  end
+
   create_table "system_bootstrap_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "consumed_at"
     t.string "consumed_from_ip"
@@ -10176,6 +10202,188 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
     t.index ["account_id"], name: "index_system_disk_image_webhooks_on_account_id"
     t.index ["created_by_id"], name: "index_system_disk_image_webhooks_on_created_by_id"
     t.index ["status"], name: "index_system_disk_image_webhooks_on_status"
+  end
+
+  create_table "system_federation_capabilities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "conflict_resolution", limit: 48, default: "newer_wins_logical_clock", null: false
+    t.datetime "created_at", null: false
+    t.string "direction", limit: 32, null: false
+    t.uuid "federation_peer_id", null: false
+    t.jsonb "filter", default: {}, null: false
+    t.datetime "last_synced_at"
+    t.string "policy", limit: 32, default: "manual", null: false
+    t.string "resource_kind", limit: 64, null: false
+    t.jsonb "sync_cursor", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "resource_kind"], name: "idx_fed_caps_account_resource_kind"
+    t.index ["federation_peer_id", "resource_kind", "direction"], name: "idx_fed_caps_peer_kind_direction_unique", unique: true
+    t.index ["policy"], name: "index_system_federation_capabilities_on_policy"
+    t.check_constraint "conflict_resolution::text = ANY (ARRAY['newer_wins_logical_clock'::character varying, 'local_wins'::character varying, 'remote_wins'::character varying, 'prompt'::character varying]::text[])", name: "federation_capabilities_conflict_resolution_enum"
+    t.check_constraint "direction::text = ANY (ARRAY['push_local_to_remote'::character varying, 'pull_remote_to_local'::character varying, 'bidirectional'::character varying, 'migration_only'::character varying]::text[])", name: "federation_capabilities_direction_enum"
+    t.check_constraint "policy::text = ANY (ARRAY['manual'::character varying, 'auto_on_change'::character varying, 'auto_periodic'::character varying, 'on_match_filter'::character varying]::text[])", name: "federation_capabilities_policy_enum"
+  end
+
+  create_table "system_federation_contract_versions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "contract_digest", limit: 64, null: false
+    t.text "contract_text", null: false
+    t.datetime "created_at", null: false
+    t.date "deprecated_at"
+    t.date "effective_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.integer "version", null: false
+    t.index ["contract_digest"], name: "index_system_federation_contract_versions_on_contract_digest", unique: true
+    t.index ["deprecated_at"], name: "index_system_federation_contract_versions_on_deprecated_at", where: "(deprecated_at IS NOT NULL)"
+    t.index ["version"], name: "index_system_federation_contract_versions_on_version", unique: true
+  end
+
+  create_table "system_federation_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "archived_at"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.uuid "federation_peer_id", null: false
+    t.uuid "grantor_user_id"
+    t.datetime "issued_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.jsonb "node_instance_ids", default: [], null: false
+    t.jsonb "permission_scopes", default: [], null: false
+    t.string "remote_subject", limit: 256, null: false
+    t.uuid "resource_id"
+    t.string "resource_kind", limit: 64, null: false
+    t.string "revocation_reason", limit: 256
+    t.datetime "revoked_at"
+    t.jsonb "sdwan_network_ids", default: [], null: false
+    t.jsonb "source_cidrs", default: [], null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "expires_at"], name: "idx_fed_grants_account_expiring", where: "((revoked_at IS NULL) AND (archived_at IS NULL))"
+    t.index ["account_id", "revoked_at"], name: "idx_fed_grants_account_revoked", where: "(archived_at IS NULL)"
+    t.index ["account_id"], name: "index_system_federation_grants_on_account_id"
+    t.index ["federation_peer_id", "remote_subject", "resource_kind", "resource_id"], name: "idx_fed_grants_specific_resource_unique", unique: true, where: "(resource_id IS NOT NULL)"
+    t.index ["federation_peer_id", "remote_subject", "resource_kind"], name: "idx_fed_grants_kind_wide_unique", unique: true, where: "(resource_id IS NULL)"
+    t.index ["federation_peer_id"], name: "index_system_federation_grants_on_federation_peer_id"
+    t.index ["grantor_user_id"], name: "index_system_federation_grants_on_grantor_user_id"
+    t.index ["node_instance_ids"], name: "index_system_federation_grants_on_node_instance_ids", using: :gin
+    t.index ["sdwan_network_ids"], name: "index_system_federation_grants_on_sdwan_network_ids", using: :gin
+  end
+
+  create_table "system_federation_network_bridges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "activated_at"
+    t.datetime "created_at", null: false
+    t.uuid "federation_peer_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "proposed_at"
+    t.string "revocation_reason", limit: 256
+    t.datetime "revoked_at"
+    t.uuid "sdwan_network_id", null: false
+    t.string "state", limit: 16, default: "proposed", null: false
+    t.datetime "suspended_at"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "state"], name: "idx_on_account_id_state_4a17bb3bba"
+    t.index ["federation_peer_id", "sdwan_network_id"], name: "idx_fed_bridges_peer_network_unique", unique: true
+    t.index ["sdwan_network_id"], name: "index_system_federation_network_bridges_on_sdwan_network_id"
+    t.index ["state"], name: "index_system_federation_network_bridges_on_state"
+    t.check_constraint "state::text = ANY (ARRAY['proposed'::character varying, 'active'::character varying, 'suspended'::character varying, 'revoked'::character varying]::text[])", name: "federation_network_bridges_state_enum"
+  end
+
+  create_table "system_federation_peers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "acceptance_token_digest", comment: "SHA-256 hex digest of the plaintext acceptance token. Plaintext returned exactly once on propose; stored only as digest."
+    t.datetime "acceptance_token_expires_at", comment: "When the acceptance token expires. accept! refuses tokens past this time."
+    t.uuid "account_id", null: false
+    t.jsonb "capabilities", default: {}, null: false
+    t.integer "contract_version_agreed"
+    t.datetime "created_at", null: false
+    t.text "encrypted_credentials"
+    t.jsonb "endpoints", default: [], null: false
+    t.datetime "expires_at"
+    t.jsonb "extension_slugs", default: [], null: false
+    t.datetime "last_capability_sync_at"
+    t.datetime "last_handshake_at"
+    t.datetime "last_heartbeat_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "migrated_to_vault_at"
+    t.uuid "node_certificate_id"
+    t.uuid "parent_peer_id"
+    t.string "peer_kind", limit: 32, default: "sdwan_only", null: false
+    t.uuid "remote_account_id"
+    t.uuid "remote_instance_id"
+    t.string "remote_instance_url", null: false
+    t.string "remote_prefix_advertisement"
+    t.datetime "signed_at"
+    t.string "spawn_mode", limit: 32
+    t.string "spawn_role", limit: 16
+    t.string "status", default: "proposed", null: false
+    t.jsonb "sync_cursor", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.string "vault_path"
+    t.index ["acceptance_token_digest"], name: "index_federation_peers_on_token_digest", where: "(acceptance_token_digest IS NOT NULL)"
+    t.index ["account_id", "remote_instance_id"], name: "idx_sdwan_federation_peers_unique_remote", unique: true
+    t.index ["account_id"], name: "index_system_federation_peers_on_account_id"
+    t.index ["last_heartbeat_at"], name: "idx_federation_peers_platform_heartbeat", where: "((peer_kind)::text = 'platform'::text)"
+    t.index ["node_certificate_id"], name: "index_system_federation_peers_on_node_certificate_id"
+    t.index ["parent_peer_id"], name: "index_system_federation_peers_on_parent_peer_id"
+    t.index ["peer_kind", "status"], name: "idx_federation_peers_kind_status"
+    t.index ["peer_kind"], name: "index_system_federation_peers_on_peer_kind"
+    t.index ["remote_prefix_advertisement"], name: "index_system_federation_peers_on_remote_prefix_advertisement"
+    t.index ["status"], name: "index_system_federation_peers_on_status"
+    t.check_constraint "peer_kind::text = ANY (ARRAY['platform'::character varying, 'sdwan_only'::character varying]::text[])", name: "federation_peers_peer_kind_enum"
+  end
+
+  create_table "system_federation_service_offerings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "backend_host", limit: 255
+    t.integer "backend_port", null: false
+    t.uuid "backend_vip_id"
+    t.jsonb "capacity_metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "default_grant_scopes", default: ["read"], null: false
+    t.integer "default_grant_ttl_days", default: 30, null: false
+    t.datetime "deprecated_at"
+    t.text "description_markdown"
+    t.jsonb "latency_metadata", default: {}, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 255, null: false
+    t.string "protocol", limit: 16, null: false
+    t.datetime "retired_at"
+    t.string "slug", limit: 64, null: false
+    t.string "status", limit: 16, default: "draft", null: false
+    t.text "subscription_terms_markdown"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "slug"], name: "idx_fed_service_offerings_acct_slug_unique", unique: true
+    t.index ["account_id"], name: "index_system_federation_service_offerings_on_account_id"
+    t.index ["backend_vip_id"], name: "index_system_federation_service_offerings_on_backend_vip_id"
+    t.index ["protocol"], name: "index_system_federation_service_offerings_on_protocol"
+    t.index ["status"], name: "index_system_federation_service_offerings_on_status"
+  end
+
+  create_table "system_federation_service_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "acme_certificate_id"
+    t.datetime "activated_at"
+    t.integer "backend_port", null: false
+    t.string "backend_vip", limit: 255
+    t.datetime "cancelled_at"
+    t.datetime "created_at", null: false
+    t.uuid "federation_grant_id", null: false
+    t.uuid "federation_peer_id", null: false
+    t.string "local_hostname", limit: 255, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "protocol", limit: 16, null: false
+    t.uuid "service_offering_id"
+    t.string "service_offering_slug", limit: 64, null: false
+    t.string "status", limit: 16, default: "pending", null: false
+    t.datetime "subscribed_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.datetime "suspended_at"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "local_hostname"], name: "idx_fed_service_subs_acct_hostname_unique", unique: true
+    t.index ["account_id"], name: "index_system_federation_service_subscriptions_on_account_id"
+    t.index ["acme_certificate_id"], name: "idx_on_acme_certificate_id_067efd537c"
+    t.index ["federation_grant_id"], name: "idx_on_federation_grant_id_1cc186eb1f"
+    t.index ["federation_peer_id", "service_offering_slug"], name: "idx_fed_service_subs_peer_slug"
+    t.index ["federation_peer_id"], name: "idx_on_federation_peer_id_920bf6bbf4"
+    t.index ["status"], name: "index_system_federation_service_subscriptions_on_status"
   end
 
   create_table "system_fleet_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10293,6 +10501,58 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
     t.check_constraint "target_size >= min_size", name: "chk_instance_pools_target_gte_min"
   end
 
+  create_table "system_migration_plan_steps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "action", limit: 24, null: false
+    t.datetime "applied_at"
+    t.string "conflict_policy", limit: 32, default: "fail", null: false
+    t.datetime "created_at", null: false
+    t.string "error_message", limit: 2048
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "migration_id", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.uuid "resource_id", null: false
+    t.string "resource_kind", limit: 64, null: false
+    t.integer "step_order", null: false
+    t.datetime "updated_at", null: false
+    t.index ["action"], name: "index_system_migration_plan_steps_on_action"
+    t.index ["migration_id", "step_order"], name: "idx_migration_plan_steps_order_unique", unique: true
+    t.index ["migration_id"], name: "index_system_migration_plan_steps_on_migration_id"
+    t.index ["resource_kind", "resource_id"], name: "idx_on_resource_kind_resource_id_d9906d8436"
+    t.check_constraint "action::text = ANY (ARRAY['create'::character varying, 'link_local'::character varying, 'skip'::character varying, 'conflict'::character varying]::text[])", name: "migration_plan_steps_action_enum"
+    t.check_constraint "conflict_policy::text = ANY (ARRAY['skip_if_exists'::character varying, 'rename_with_suffix'::character varying, 'overwrite'::character varying, 'fail'::character varying]::text[])", name: "migration_plan_steps_conflict_policy_enum"
+  end
+
+  create_table "system_migrations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "audit_log", default: [], null: false
+    t.datetime "cancelled_at"
+    t.datetime "completed_at"
+    t.jsonb "conflict_log", default: [], null: false
+    t.datetime "created_at", null: false
+    t.uuid "destination_peer_id"
+    t.boolean "dry_run", default: false, null: false
+    t.string "error_message", limit: 2048
+    t.datetime "failed_at"
+    t.uuid "initiated_by_user_id"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "operation", limit: 16, null: false
+    t.jsonb "plan_summary", default: {}, null: false
+    t.uuid "root_resource_id", null: false
+    t.string "root_resource_kind", limit: 64, null: false
+    t.uuid "source_account_id"
+    t.datetime "started_at"
+    t.string "status", limit: 16, default: "planned", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_system_migrations_on_account_id_and_status"
+    t.index ["account_id"], name: "index_system_migrations_on_account_id"
+    t.index ["destination_peer_id"], name: "index_system_migrations_on_destination_peer_id"
+    t.index ["initiated_by_user_id"], name: "index_system_migrations_on_initiated_by_user_id"
+    t.index ["operation"], name: "index_system_migrations_on_operation"
+    t.index ["root_resource_kind", "root_resource_id"], name: "idx_on_root_resource_kind_root_resource_id_87428e8e2e"
+    t.check_constraint "operation::text = ANY (ARRAY['duplicate'::character varying, 'migrate'::character varying]::text[])", name: "migrations_operation_enum"
+    t.check_constraint "status::text = ANY (ARRAY['planned'::character varying, 'validating'::character varying, 'transferring'::character varying, 'conflict'::character varying, 'applying'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "migrations_status_enum"
+  end
+
   create_table "system_module_artifacts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "architecture", null: false
     t.datetime "built_at", null: false
@@ -10352,6 +10612,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
     t.index ["puppet_module_id"], name: "index_system_module_puppet_assignments_on_puppet_module_id"
   end
 
+  create_table "system_module_service_dependencies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "depends_on_module_service_id", null: false
+    t.string "kind", limit: 32, default: "requires_health", null: false
+    t.uuid "module_service_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["depends_on_module_service_id"], name: "idx_on_depends_on_module_service_id_b120776bd4"
+    t.index ["module_service_id", "depends_on_module_service_id"], name: "idx_msd_unique_edge", unique: true
+  end
+
+  create_table "system_module_services", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "capabilities", default: [], null: false
+    t.datetime "created_at", null: false
+    t.jsonb "env", default: {}, null: false
+    t.jsonb "exposed_ports", default: [], null: false
+    t.string "health_endpoint", limit: 256
+    t.integer "health_initial_delay_seconds", default: 10, null: false
+    t.integer "health_interval_seconds", default: 30, null: false
+    t.string "health_method", limit: 8, default: "GET", null: false
+    t.integer "health_timeout_seconds", default: 5, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 100, null: false
+    t.uuid "node_module_id", null: false
+    t.string "restart_policy", limit: 32, default: "always", null: false
+    t.string "run_as_user", limit: 64
+    t.text "start_command", null: false
+    t.text "stop_command"
+    t.datetime "updated_at", null: false
+    t.string "working_directory", limit: 512
+    t.index ["account_id"], name: "index_system_module_services_on_account_id"
+    t.index ["node_module_id", "name"], name: "index_system_module_services_on_node_module_id_and_name", unique: true
+    t.index ["restart_policy"], name: "index_system_module_services_on_restart_policy"
+  end
+
   create_table "system_mount_encryption_keys", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "algorithm", null: false
     t.datetime "created_at", null: false
@@ -10409,12 +10704,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
   end
 
   create_table "system_node_certificates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
     t.datetime "created_at", null: false
     t.text "encrypted_credentials"
     t.uuid "encryption_key_id"
     t.string "issuer_subject"
     t.datetime "migrated_to_vault_at"
-    t.uuid "node_instance_id", null: false
+    t.uuid "node_instance_id"
     t.datetime "not_after", null: false
     t.datetime "not_before", null: false
     t.text "pem_chain"
@@ -10422,13 +10718,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
     t.datetime "revoked_at"
     t.string "serial", null: false
     t.string "subject", null: false
+    t.string "subject_kind", limit: 32, default: "instance", null: false
     t.datetime "updated_at", null: false
     t.string "vault_path"
+    t.index ["account_id"], name: "index_system_node_certificates_on_account_id"
     t.index ["node_instance_id"], name: "index_system_node_certificates_on_node_instance_id"
     t.index ["not_after"], name: "index_system_node_certificates_on_not_after"
     t.index ["revoked_at"], name: "index_system_node_certificates_on_revoked_at"
     t.index ["serial"], name: "index_system_node_certificates_on_serial", unique: true
     t.index ["subject"], name: "index_system_node_certificates_on_subject"
+    t.index ["subject_kind"], name: "index_system_node_certificates_on_subject_kind"
+    t.check_constraint "node_instance_id IS NOT NULL OR account_id IS NOT NULL", name: "node_certificates_owner_present"
+    t.check_constraint "subject_kind::text = ANY (ARRAY['instance'::character varying, 'federation_peer'::character varying]::text[])", name: "node_certificates_subject_kind_enum"
   end
 
   create_table "system_node_instance_peers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10922,6 +11223,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
     t.index ["section_or_group"], name: "idx_packages_section"
   end
 
+  create_table "system_platform_deployments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 100, null: false
+    t.uuid "node_template_id", null: false
+    t.string "public_dns_hostname", limit: 256
+    t.string "satellite_extension_slug", limit: 64
+    t.string "service_role", limit: 32, null: false
+    t.integer "target_replicas", default: 1, null: false
+    t.datetime "updated_at", null: false
+    t.uuid "virtual_ip_id"
+    t.index ["account_id", "name"], name: "idx_platform_deployments_account_name_unique", unique: true
+    t.index ["account_id", "service_role"], name: "idx_platform_deployments_account_role"
+    t.index ["node_template_id"], name: "index_system_platform_deployments_on_node_template_id"
+    t.index ["satellite_extension_slug"], name: "index_system_platform_deployments_on_satellite_extension_slug", where: "(satellite_extension_slug IS NOT NULL)"
+    t.index ["virtual_ip_id"], name: "index_system_platform_deployments_on_virtual_ip_id"
+    t.check_constraint "target_replicas >= 0", name: "platform_deployments_target_replicas_non_negative"
+  end
+
   create_table "system_project_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "correlation_id"
     t.datetime "created_at", null: false
@@ -11162,7 +11483,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
     t.index ["provider_id"], name: "index_system_provider_volume_types_on_provider_id"
     t.index ["specs"], name: "index_system_provider_volume_types_on_specs", using: :gin
     t.index ["volume_type"], name: "index_system_provider_volume_types_on_volume_type"
-    t.check_constraint "volume_type::text = ANY (ARRAY['gp2'::character varying, 'gp3'::character varying, 'io1'::character varying, 'io2'::character varying, 'st1'::character varying, 'sc1'::character varying, 'standard'::character varying, 'ssd'::character varying, 'hdd'::character varying, 'custom'::character varying]::text[])", name: "system_provider_volume_types_type_check"
+    t.check_constraint "volume_type::text = ANY (ARRAY['gp2'::character varying, 'gp3'::character varying, 'io1'::character varying, 'io2'::character varying, 'st1'::character varying, 'sc1'::character varying, 'standard'::character varying, 'ssd'::character varying, 'hdd'::character varying, 'nfs'::character varying, 'iscsi'::character varying, 'smb'::character varying, 'custom'::character varying]::text[])", name: "system_provider_volume_types_type_check"
   end
 
   create_table "system_provider_volumes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -11297,6 +11618,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
     t.index ["volume_type_id"], name: "index_system_region_volume_types_on_volume_type_id"
   end
 
+  create_table "system_slo_definitions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "enforces_autonomy", default: false, null: false
+    t.decimal "error_rate_max_pct", precision: 5, scale: 2
+    t.integer "latency_p99_max_ms"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.uuid "node_module_id", null: false
+    t.datetime "updated_at", null: false
+    t.decimal "uptime_target_pct", precision: 5, scale: 2
+    t.string "window", default: "1d", null: false
+    t.index ["node_module_id", "name"], name: "ix_slo_module_name_unique", unique: true
+    t.index ["node_module_id"], name: "index_system_slo_definitions_on_node_module_id"
+  end
+
   create_table "system_storage_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.boolean "auto_mount", default: true, null: false
@@ -11345,6 +11681,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
     t.index ["storage_assignment_id"], name: "index_system_storage_credentials_on_storage_assignment_id"
     t.check_constraint "kind::text = ANY (ARRAY['peer_ip_acl'::character varying, 'cifs_user_pass'::character varying, 'sts_token'::character varying, 'tls_cert'::character varying, 'webdav_basic'::character varying]::text[])", name: "system_storage_credentials_kind_check"
     t.check_constraint "status::text = ANY (ARRAY['issued'::character varying, 'active'::character varying, 'rotating'::character varying, 'revoked'::character varying, 'expired'::character varying, 'failed'::character varying]::text[])", name: "system_storage_credentials_status_check"
+  end
+
+  create_table "system_storage_migrations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "approved_at"
+    t.jsonb "audit_log", default: [], null: false
+    t.bigint "bytes_copied"
+    t.bigint "bytes_total"
+    t.bigint "bytes_verified"
+    t.datetime "cancelled_at"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.string "error_message"
+    t.datetime "failed_at"
+    t.uuid "initiated_by_user_id"
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "node_instance_id", null: false
+    t.jsonb "plan", default: {}, null: false
+    t.string "role", limit: 64, null: false
+    t.string "snapshot_subpath", limit: 512
+    t.string "source_subpath", limit: 512
+    t.uuid "source_volume_id", null: false
+    t.datetime "started_at"
+    t.string "status", limit: 32, default: "planned", null: false
+    t.string "target_subpath", limit: 512
+    t.uuid "target_volume_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_system_storage_migrations_on_account_id_and_status"
+    t.index ["account_id"], name: "index_system_storage_migrations_on_account_id"
+    t.index ["initiated_by_user_id"], name: "index_system_storage_migrations_on_initiated_by_user_id"
+    t.index ["node_instance_id"], name: "index_system_storage_migrations_on_node_instance_id"
+    t.index ["source_volume_id"], name: "index_system_storage_migrations_on_source_volume_id"
+    t.index ["status"], name: "index_system_storage_migrations_on_status"
+    t.index ["target_volume_id"], name: "index_system_storage_migrations_on_target_volume_id"
+    t.check_constraint "source_volume_id <> target_volume_id", name: "storage_migration_source_ne_target"
   end
 
   create_table "system_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -13407,7 +13778,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
   add_foreign_key "sdwan_configurations", "accounts"
   add_foreign_key "sdwan_constellation_signing_keys", "accounts"
   add_foreign_key "sdwan_constellation_signing_keys", "sdwan_constellation_signing_keys", column: "rotated_from_id"
-  add_foreign_key "sdwan_federation_peers", "accounts"
   add_foreign_key "sdwan_firewall_rules", "accounts"
   add_foreign_key "sdwan_firewall_rules", "sdwan_networks"
   add_foreign_key "sdwan_flow_samples", "accounts"
@@ -13541,6 +13911,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
   add_foreign_key "supply_chain_vulnerability_scans", "accounts"
   add_foreign_key "supply_chain_vulnerability_scans", "supply_chain_container_images", column: "container_image_id", on_delete: :cascade
   add_foreign_key "supply_chain_vulnerability_scans", "users", column: "triggered_by_id"
+  add_foreign_key "system_acme_certificates", "accounts", on_delete: :cascade
+  add_foreign_key "system_acme_certificates", "system_acme_dns_credentials", column: "dns_credential_id", on_delete: :nullify
+  add_foreign_key "system_acme_dns_credentials", "accounts", on_delete: :cascade
   add_foreign_key "system_bootstrap_tokens", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_bootstrap_tokens", "system_nodes", column: "node_id"
   add_foreign_key "system_cve_exposures", "system_cves", column: "cve_id"
@@ -13553,6 +13926,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
   add_foreign_key "system_disk_image_publications", "workers", column: "triggered_by_worker_id"
   add_foreign_key "system_disk_image_webhooks", "accounts"
   add_foreign_key "system_disk_image_webhooks", "users", column: "created_by_id"
+  add_foreign_key "system_federation_capabilities", "accounts", on_delete: :cascade
+  add_foreign_key "system_federation_capabilities", "system_federation_peers", column: "federation_peer_id", on_delete: :cascade
+  add_foreign_key "system_federation_grants", "accounts", on_delete: :cascade
+  add_foreign_key "system_federation_grants", "system_federation_peers", column: "federation_peer_id", on_delete: :cascade
+  add_foreign_key "system_federation_grants", "users", column: "grantor_user_id", on_delete: :restrict
+  add_foreign_key "system_federation_network_bridges", "accounts", on_delete: :cascade
+  add_foreign_key "system_federation_network_bridges", "sdwan_networks", on_delete: :restrict
+  add_foreign_key "system_federation_network_bridges", "system_federation_peers", column: "federation_peer_id", on_delete: :cascade
+  add_foreign_key "system_federation_peers", "accounts"
+  add_foreign_key "system_federation_peers", "system_federation_peers", column: "parent_peer_id", on_delete: :nullify
+  add_foreign_key "system_federation_peers", "system_node_certificates", column: "node_certificate_id", on_delete: :nullify
+  add_foreign_key "system_federation_service_offerings", "accounts", on_delete: :cascade
+  add_foreign_key "system_federation_service_offerings", "sdwan_virtual_ips", column: "backend_vip_id", on_delete: :nullify
+  add_foreign_key "system_federation_service_subscriptions", "accounts", on_delete: :cascade
+  add_foreign_key "system_federation_service_subscriptions", "system_acme_certificates", column: "acme_certificate_id", on_delete: :nullify
+  add_foreign_key "system_federation_service_subscriptions", "system_federation_grants", column: "federation_grant_id", on_delete: :restrict
+  add_foreign_key "system_federation_service_subscriptions", "system_federation_peers", column: "federation_peer_id", on_delete: :cascade
   add_foreign_key "system_fleet_events", "accounts"
   add_foreign_key "system_gitops_repositories", "accounts"
   add_foreign_key "system_gitops_sync_runs", "system_gitops_repositories", column: "gitops_repository_id"
@@ -13562,16 +13952,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
   add_foreign_key "system_instance_pools", "system_node_templates", column: "node_template_id", on_delete: :restrict
   add_foreign_key "system_instance_pools", "system_provider_instance_types", column: "provider_instance_type_id", on_delete: :nullify
   add_foreign_key "system_instance_pools", "system_provider_regions", column: "provider_region_id", on_delete: :nullify
+  add_foreign_key "system_migration_plan_steps", "system_migrations", column: "migration_id", on_delete: :cascade
+  add_foreign_key "system_migrations", "accounts", on_delete: :cascade
+  add_foreign_key "system_migrations", "system_federation_peers", column: "destination_peer_id", on_delete: :restrict
+  add_foreign_key "system_migrations", "users", column: "initiated_by_user_id", on_delete: :nullify
   add_foreign_key "system_module_artifacts", "system_node_module_versions", column: "node_module_version_id"
   add_foreign_key "system_module_dependencies", "system_node_modules", column: "dependency_id"
   add_foreign_key "system_module_dependencies", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_module_puppet_assignments", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_module_puppet_assignments", "system_puppet_modules", column: "puppet_module_id"
+  add_foreign_key "system_module_service_dependencies", "system_module_services", column: "depends_on_module_service_id", on_delete: :cascade
+  add_foreign_key "system_module_service_dependencies", "system_module_services", column: "module_service_id", on_delete: :cascade
+  add_foreign_key "system_module_services", "accounts", on_delete: :cascade
+  add_foreign_key "system_module_services", "system_node_modules", column: "node_module_id", on_delete: :cascade
   add_foreign_key "system_mount_encryption_keys", "system_node_instances", column: "node_instance_id", on_delete: :nullify
   add_foreign_key "system_mount_encryption_keys", "system_storage_assignments", column: "storage_assignment_id", on_delete: :cascade
   add_foreign_key "system_node_architectures", "file_objects", column: "image_file_object_id"
   add_foreign_key "system_node_architectures", "file_objects", column: "kernel_file_object_id"
   add_foreign_key "system_node_architectures", "file_objects", column: "ramdisk_file_object_id"
+  add_foreign_key "system_node_certificates", "accounts", on_delete: :cascade
   add_foreign_key "system_node_certificates", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_node_instance_peers", "accounts"
   add_foreign_key "system_node_instance_peers", "system_node_instances", column: "node_instance_id"
@@ -13614,6 +14013,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
   add_foreign_key "system_package_repository_platforms", "system_node_platforms", column: "node_platform_id", on_delete: :cascade
   add_foreign_key "system_package_repository_platforms", "system_package_repositories", column: "package_repository_id", on_delete: :cascade
   add_foreign_key "system_packages", "system_package_repositories", column: "package_repository_id", on_delete: :cascade
+  add_foreign_key "system_platform_deployments", "accounts", on_delete: :cascade
+  add_foreign_key "system_platform_deployments", "sdwan_virtual_ips", column: "virtual_ip_id", on_delete: :nullify
+  add_foreign_key "system_platform_deployments", "system_node_templates", column: "node_template_id", on_delete: :restrict
   add_foreign_key "system_project_metrics", "ai_missions", column: "mission_id"
   add_foreign_key "system_provider_availability_zones", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_provider_connections", "accounts"
@@ -13646,12 +14048,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_022500) do
   add_foreign_key "system_region_instance_types", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_region_volume_types", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_region_volume_types", "system_provider_volume_types", column: "volume_type_id"
+  add_foreign_key "system_slo_definitions", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_storage_assignments", "accounts"
   add_foreign_key "system_storage_assignments", "sdwan_networks", on_delete: :nullify
   add_foreign_key "system_storage_assignments", "sdwan_virtual_ips", on_delete: :nullify
   add_foreign_key "system_storage_assignments", "system_node_instances", column: "node_instance_id", on_delete: :cascade
   add_foreign_key "system_storage_credentials", "system_node_instances", column: "node_instance_id", on_delete: :cascade
   add_foreign_key "system_storage_credentials", "system_storage_assignments", column: "storage_assignment_id", on_delete: :cascade
+  add_foreign_key "system_storage_migrations", "accounts"
+  add_foreign_key "system_storage_migrations", "system_node_instances", column: "node_instance_id"
+  add_foreign_key "system_storage_migrations", "system_provider_volumes", column: "source_volume_id"
+  add_foreign_key "system_storage_migrations", "system_provider_volumes", column: "target_volume_id"
+  add_foreign_key "system_storage_migrations", "users", column: "initiated_by_user_id"
   add_foreign_key "system_tasks", "accounts"
   add_foreign_key "system_tasks", "users", column: "initiated_by_id"
   add_foreign_key "system_tasks", "workers", column: "claimed_by_worker_id", on_delete: :nullify
