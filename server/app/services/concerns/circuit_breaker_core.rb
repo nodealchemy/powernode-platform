@@ -340,7 +340,13 @@ module CircuitBreakerCore
     @last_failure_time = Time.current
     save_circuit_state
 
-    log_warn "Failure recorded: #{error.message} " \
+    # Defensive: callers occasionally invoke record_failure with no
+    # exception (e.g. when a 404 Vault read is treated as a failure for
+    # circuit-breaker accounting purposes but isn't an exception). Use
+    # safe-nav so we surface a sensible "unknown" message instead of
+    # masking the real failure with a NoMethodError.
+    error_message = error&.message || "unknown failure"
+    log_warn "Failure recorded: #{error_message} " \
              "(consecutive: #{@consecutive_failures}/#{@config[:failure_threshold]})"
 
     # Check if we should open the circuit

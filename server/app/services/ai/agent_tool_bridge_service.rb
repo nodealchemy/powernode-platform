@@ -73,7 +73,11 @@ module Ai
       "platform_provisioning_compose_plan"  => "provisioning_plan",
       "platform_provisioning_approve_plan"  => "provisioning_plan_approved",
       "platform_provisioning_status"        => "provisioning_status",
-      "platform_provisioning_adapt"         => "provisioning_adaptation"
+      "platform_provisioning_adapt"         => "provisioning_adaptation",
+      # D3 — Platform deployment wizard. Two-shape payload: wizard form
+      # (no mode supplied) or deployment-done envelope (mode set). The
+      # frontend renderer distinguishes via `payload.card.phase`.
+      "system_deploy_platform"              => "platform_deployment_wizard"
     }.freeze
 
     # Dispatch a tool call. Returns the truncated JSON string the LLM sees as

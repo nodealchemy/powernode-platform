@@ -29,6 +29,24 @@ module Security
       # client half ({cert_pem, key_pem, serial, not_after}) is stored
       # here, keyed by `Devops::DockerHost.id`.
       docker_daemon_tls: "docker-daemon-tls",
+      # ACME-issued TLS certificate material. Stores {cert_pem,
+      # private_key_pem, chain_pem, account_key_pem} per
+      # System::AcmeCertificate.id. Used by Traefik for TLS termination
+      # on the platform's public listeners.
+      # Plan reference: Decentralized Federation §J + P2.5.
+      acme_certificate: "acme-certificates",
+      # DNS provider API credentials used to solve the ACME DNS-01
+      # challenge during cert issuance/renewal. Stores provider-specific
+      # token structures per System::AcmeDnsCredential.id (e.g.
+      # Cloudflare API token, Route53 access key + secret, etc.).
+      acme_dns: "acme-dns-credentials",
+      # PostgreSQL streaming-replication credentials issued to a
+      # cluster_member spawn child. Stores {username, password, slot_name,
+      # primary_host, primary_port} keyed by System::FederationPeer.id.
+      # The child reads these (one-time during accept) to configure its
+      # pg-replica module's recovery.conf.
+      # Plan reference: Decentralized Federation §H + P6.4.
+      cluster_member_pg_replica: "cluster-member-pg-replica",
       custom: "custom"
     }.freeze
 
