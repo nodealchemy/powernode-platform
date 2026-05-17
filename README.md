@@ -269,3 +269,10 @@ All tests must pass. Permissions must use the permission system (never role-base
 ## License
 
 MIT License — see **[LICENSE](LICENSE)** for full text.
+
+---
+
+## Community
+
+- **GitHub issues** — [nodealchemy/powernode-platform/issues](https://github.com/nodealchemy/powernode-platform/issues) for bugs + feature requests
+- **X / Twitter** — [@nodealchemy](https://x.com/nodealchemy) for general updates and informal questions
