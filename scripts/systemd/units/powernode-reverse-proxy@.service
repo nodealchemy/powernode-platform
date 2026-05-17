@@ -1,0 +1,42 @@
+[Unit]
+Description=Powernode Reverse Proxy (instance %i)
+Documentation=https://doc.traefik.io/traefik/
+After=network.target powernode-backend@%i.service powernode-frontend@%i.service
+Wants=powernode-backend@%i.service powernode-frontend@%i.service
+PartOf=powernode.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# User= must be set so AmbientCapabilities=CAP_NET_BIND_SERVICE doesn't
+# get dropped — when User= is omitted, systemd runs as root which
+# implicitly has CAP_NET_BIND_SERVICE plus everything else, and the
+# Ambient* allowlist is moot. The installer's 00-user.conf drop-in
+# pattern (used by powernode-backend@) sets this to the operator
+# account; matching that here keeps the service permissions aligned.
+User=rett
+Group=rett
+
+EnvironmentFile=/etc/powernode/powernode.conf
+EnvironmentFile=-/etc/powernode/reverse-proxy-%i.conf
+
+WorkingDirectory=/opt/powernode
+ExecStart=/opt/powernode/scripts/systemd/powernode-reverse-proxy.sh
+
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=60s
+TimeoutStopSec=15s
+
+# Bind the privileged ports (80, 443) without running as root.
+# AmbientCapabilities grants the running user just CAP_NET_BIND_SERVICE,
+# nothing else.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+
+SyslogIdentifier=powernode-reverse-proxy-%i
+
+[Install]
+WantedBy=powernode.target
