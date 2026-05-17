@@ -59,11 +59,24 @@ module Integrations
       total_unhealthy = 0
 
       loop do
-        response = api_client.get("/api/v1/devops/integration_instances", {
-          status: "active",
-          page: page,
-          per_page: 50
-        })
+        begin
+          response = api_client.get("/api/v1/devops/integration_instances", {
+            status: "active",
+            page: page,
+            per_page: 50
+          })
+        rescue BackendApiClient::ApiError => e
+          # The integration_instances endpoint is operator-auth (requires
+          # devops.integrations.read permission); worker JWTs aren't
+          # users + don't carry permissions, so 4xx is expected when no
+          # operator-side bridge exists. Log + skip silently rather than
+          # retry-storm every 15 minutes. The job retries with `dead:
+          # false` anyway, so failures don't accumulate, but they DO
+          # spam logs. A future P-2.5.x.next slice would add a
+          # worker_api/integrations/list endpoint that accepts X-Worker-Token.
+          log_info("integration health check: endpoint unreachable (#{e.message}); skipping sweep")
+          return { skipped: true, reason: e.message }
+        end
 
         break unless response[:success]
 

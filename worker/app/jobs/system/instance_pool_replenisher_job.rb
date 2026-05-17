@@ -110,8 +110,9 @@ module System
       # phase even if recycle hit an unexpected error.
     end
 
-    def api_client
-      @api_client ||= ::PlatformApiClient.new
-    end
+    # BaseJob#api_client already returns a BackendApiClient instance —
+    # no need for a job-local override. The previous override pointed
+    # at `::PlatformApiClient` which doesn't exist in the worker
+    # tree, causing every periodic run to fail with NameError.
   end
 end
