@@ -524,6 +524,42 @@
       queue: system
       description: 'Monitor federation service subscriptions for renewal + grant health'
 
+    # P9 — Auto-policy capability sweep every 5 min. Walks every
+    # FederationCapability whose policy is auto_periodic /
+    # on_match_filter / auto_on_change and dispatches the sync
+    # transport. Closes the operator-burden gap that motivated
+    # Architectural Fix 1 (FederationManager AI Skill in P4).
+    federation_capability_auto_sync:
+      cron: '*/5 * * * *'  # Every 5 minutes
+      class: FederationCapabilityAutoSyncJob
+      queue: system
+      description: 'Tick auto-flow FederationCapability rows + dispatch sync transport'
+
+    # P9.2 — Per-peer audit log WORM shipment, daily at 04:30 UTC.
+    # Walks every active peer's FleetEvent rows older than 30 days,
+    # seals them into sha256-addressed JSON-Lines, records a receipt
+    # in system_federation_audit_shipments. Enforces Social Contract
+    # commitment #5 (audit transparency) + Architectural Fix 2
+    # (WORM-shipped retention).
+    federation_audit_shipment:
+      cron: '30 4 * * *'  # Every day at 04:30 UTC
+      class: FederationAuditShipmentJob
+      queue: system
+      description: 'WORM-ship per-peer audit log excerpts older than 30 days'
+
+    # P9.5 — Multi-hop migration chain advancement, every 60s.
+    # Walks every chain in planned/in_flight status and advances
+    # one hop per chain per tick (cooperative scheduling — keeps
+    # one long chain from monopolizing the worker, while many
+    # short chains progress concurrently). Stalled chains
+    # (in_flight without progress > 1h) are skipped here and
+    # surfaced as governance findings instead.
+    migration_chain_advance:
+      every: '60s'
+      class: MigrationChainAdvanceJob
+      queue: system
+      description: 'Advance active multi-hop migration chains by one hop per tick'
+
     # NOTE: Codebase intelligence re-indexing is handled by Claude Code hooks
     # (codebase-index-marker.sh + codebase-index-apply.sh), not cron.
 
