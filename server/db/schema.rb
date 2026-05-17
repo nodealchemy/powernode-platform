@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_17_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10204,6 +10204,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
     t.index ["status"], name: "index_system_disk_image_webhooks_on_status"
   end
 
+  create_table "system_federation_audit_shipments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "error_message"
+    t.integer "event_count", default: 0, null: false
+    t.uuid "federation_peer_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "period_end", null: false
+    t.datetime "period_start", null: false
+    t.string "sealed_path", limit: 512
+    t.string "sha256", limit: 64
+    t.datetime "shipped_at"
+    t.string "status", limit: 32, default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_system_federation_audit_shipments_on_account_id"
+    t.index ["federation_peer_id", "period_start"], name: "idx_audit_shipment_peer_period_start"
+    t.index ["federation_peer_id"], name: "index_system_federation_audit_shipments_on_federation_peer_id"
+    t.check_constraint "period_end > period_start", name: "audit_shipment_period_valid"
+  end
+
   create_table "system_federation_capabilities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "conflict_resolution", limit: 48, default: "newer_wins_logical_clock", null: false
@@ -10295,6 +10315,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
     t.jsonb "capabilities", default: {}, null: false
     t.integer "contract_version_agreed"
     t.datetime "created_at", null: false
+    t.string "data_residency", limit: 64
     t.text "encrypted_credentials"
     t.jsonb "endpoints", default: [], null: false
     t.datetime "expires_at"
@@ -10307,6 +10328,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
     t.uuid "node_certificate_id"
     t.uuid "parent_peer_id"
     t.string "peer_kind", limit: 32, default: "sdwan_only", null: false
+    t.string "platform_version", limit: 64
     t.uuid "remote_account_id"
     t.uuid "remote_instance_id"
     t.string "remote_instance_url", null: false
@@ -10321,14 +10343,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
     t.index ["acceptance_token_digest"], name: "index_federation_peers_on_token_digest", where: "(acceptance_token_digest IS NOT NULL)"
     t.index ["account_id", "remote_instance_id"], name: "idx_sdwan_federation_peers_unique_remote", unique: true
     t.index ["account_id"], name: "index_system_federation_peers_on_account_id"
+    t.index ["data_residency"], name: "idx_federation_peers_data_residency"
     t.index ["last_heartbeat_at"], name: "idx_federation_peers_platform_heartbeat", where: "((peer_kind)::text = 'platform'::text)"
     t.index ["node_certificate_id"], name: "index_system_federation_peers_on_node_certificate_id"
     t.index ["parent_peer_id"], name: "index_system_federation_peers_on_parent_peer_id"
     t.index ["peer_kind", "status"], name: "idx_federation_peers_kind_status"
     t.index ["peer_kind"], name: "index_system_federation_peers_on_peer_kind"
+    t.index ["platform_version"], name: "idx_federation_peers_platform_version"
     t.index ["remote_prefix_advertisement"], name: "index_system_federation_peers_on_remote_prefix_advertisement"
     t.index ["status"], name: "index_system_federation_peers_on_status"
     t.check_constraint "peer_kind::text = ANY (ARRAY['platform'::character varying, 'sdwan_only'::character varying]::text[])", name: "federation_peers_peer_kind_enum"
+  end
+
+  create_table "system_federation_schema_compatibility", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.datetime "created_at", null: false
+    t.string "local_version", limit: 64, null: false
+    t.string "notes", limit: 1024
+    t.string "remote_version", limit: 64, null: false
+    t.string "source", limit: 32, default: "default", null: false
+    t.string "status", limit: 32, default: "compatible", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_system_federation_schema_compatibility_on_account_id"
+    t.index ["local_version", "remote_version"], name: "idx_schema_compat_pair_unique", unique: true
+    t.index ["status"], name: "idx_schema_compat_status"
   end
 
   create_table "system_federation_service_offerings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10501,6 +10539,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
     t.check_constraint "target_size >= min_size", name: "chk_instance_pools_target_gte_min"
   end
 
+  create_table "system_migration_chains", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "audit_log", default: [], null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "current_hop_index", default: 0, null: false
+    t.string "error_message"
+    t.datetime "failed_at"
+    t.jsonb "hop_peer_ids", default: [], null: false
+    t.uuid "initiated_by_user_id"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "operation", limit: 16, null: false
+    t.string "root_resource_id", limit: 64, null: false
+    t.string "root_resource_kind", limit: 64, null: false
+    t.datetime "started_at"
+    t.string "status", limit: 32, default: "planned", null: false
+    t.integer "total_hops", default: 1, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "idx_migration_chains_account_status"
+    t.index ["account_id"], name: "index_system_migration_chains_on_account_id"
+    t.index ["initiated_by_user_id"], name: "index_system_migration_chains_on_initiated_by_user_id"
+    t.index ["status"], name: "idx_migration_chains_status"
+    t.check_constraint "current_hop_index >= 0 AND current_hop_index <= total_hops", name: "migration_chain_hop_index_in_range"
+    t.check_constraint "total_hops >= 1", name: "migration_chain_total_hops_positive"
+  end
+
   create_table "system_migration_plan_steps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "action", limit: 24, null: false
     t.datetime "applied_at"
@@ -10526,6 +10590,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
     t.uuid "account_id", null: false
     t.jsonb "audit_log", default: [], null: false
     t.datetime "cancelled_at"
+    t.integer "chain_position"
     t.datetime "completed_at"
     t.jsonb "conflict_log", default: [], null: false
     t.datetime "created_at", null: false
@@ -10535,6 +10600,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
     t.datetime "failed_at"
     t.uuid "initiated_by_user_id"
     t.jsonb "metadata", default: {}, null: false
+    t.uuid "migration_chain_id"
     t.string "operation", limit: 16, null: false
     t.jsonb "plan_summary", default: {}, null: false
     t.uuid "root_resource_id", null: false
@@ -10547,6 +10613,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
     t.index ["account_id"], name: "index_system_migrations_on_account_id"
     t.index ["destination_peer_id"], name: "index_system_migrations_on_destination_peer_id"
     t.index ["initiated_by_user_id"], name: "index_system_migrations_on_initiated_by_user_id"
+    t.index ["migration_chain_id"], name: "idx_migrations_chain"
     t.index ["operation"], name: "index_system_migrations_on_operation"
     t.index ["root_resource_kind", "root_resource_id"], name: "idx_on_root_resource_kind_root_resource_id_87428e8e2e"
     t.check_constraint "operation::text = ANY (ARRAY['duplicate'::character varying, 'migrate'::character varying]::text[])", name: "migrations_operation_enum"
@@ -10761,6 +10828,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
   end
 
   create_table "system_node_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
     t.string "agent_version"
     t.string "architecture", default: "amd64", null: false
     t.string "boot_id"
@@ -10797,6 +10865,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
     t.datetime "updated_at", null: false
     t.string "variety", default: "cloud", null: false
     t.string "vpn_ip_address"
+    t.index ["account_id"], name: "index_system_node_instances_on_account_id"
     t.index ["architecture"], name: "index_system_node_instances_on_architecture"
     t.index ["claim_code"], name: "idx_node_instances_claim_code_unique", unique: true, where: "(claim_code IS NOT NULL)"
     t.index ["config"], name: "index_system_node_instances_on_config", using: :gin
@@ -13926,6 +13995,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
   add_foreign_key "system_disk_image_publications", "workers", column: "triggered_by_worker_id"
   add_foreign_key "system_disk_image_webhooks", "accounts"
   add_foreign_key "system_disk_image_webhooks", "users", column: "created_by_id"
+  add_foreign_key "system_federation_audit_shipments", "accounts"
+  add_foreign_key "system_federation_audit_shipments", "system_federation_peers", column: "federation_peer_id"
   add_foreign_key "system_federation_capabilities", "accounts", on_delete: :cascade
   add_foreign_key "system_federation_capabilities", "system_federation_peers", column: "federation_peer_id", on_delete: :cascade
   add_foreign_key "system_federation_grants", "accounts", on_delete: :cascade
@@ -13937,6 +14008,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
   add_foreign_key "system_federation_peers", "accounts"
   add_foreign_key "system_federation_peers", "system_federation_peers", column: "parent_peer_id", on_delete: :nullify
   add_foreign_key "system_federation_peers", "system_node_certificates", column: "node_certificate_id", on_delete: :nullify
+  add_foreign_key "system_federation_schema_compatibility", "accounts"
   add_foreign_key "system_federation_service_offerings", "accounts", on_delete: :cascade
   add_foreign_key "system_federation_service_offerings", "sdwan_virtual_ips", column: "backend_vip_id", on_delete: :nullify
   add_foreign_key "system_federation_service_subscriptions", "accounts", on_delete: :cascade
@@ -13952,9 +14024,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
   add_foreign_key "system_instance_pools", "system_node_templates", column: "node_template_id", on_delete: :restrict
   add_foreign_key "system_instance_pools", "system_provider_instance_types", column: "provider_instance_type_id", on_delete: :nullify
   add_foreign_key "system_instance_pools", "system_provider_regions", column: "provider_region_id", on_delete: :nullify
+  add_foreign_key "system_migration_chains", "accounts"
+  add_foreign_key "system_migration_chains", "users", column: "initiated_by_user_id"
   add_foreign_key "system_migration_plan_steps", "system_migrations", column: "migration_id", on_delete: :cascade
   add_foreign_key "system_migrations", "accounts", on_delete: :cascade
   add_foreign_key "system_migrations", "system_federation_peers", column: "destination_peer_id", on_delete: :restrict
+  add_foreign_key "system_migrations", "system_migration_chains", column: "migration_chain_id"
   add_foreign_key "system_migrations", "users", column: "initiated_by_user_id", on_delete: :nullify
   add_foreign_key "system_module_artifacts", "system_node_module_versions", column: "node_module_version_id"
   add_foreign_key "system_module_dependencies", "system_node_modules", column: "dependency_id"
@@ -13974,6 +14049,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_130000) do
   add_foreign_key "system_node_certificates", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_node_instance_peers", "accounts"
   add_foreign_key "system_node_instance_peers", "system_node_instances", column: "node_instance_id"
+  add_foreign_key "system_node_instances", "accounts"
   add_foreign_key "system_node_instances", "system_bootstrap_tokens", column: "enrollment_token_id"
   add_foreign_key "system_node_instances", "system_instance_pools", column: "instance_pool_id", on_delete: :nullify
   add_foreign_key "system_node_instances", "system_nodes", column: "node_id"
