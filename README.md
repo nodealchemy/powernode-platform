@@ -274,5 +274,14 @@ MIT License — see **[LICENSE](LICENSE)** for full text.
 
 ## Community
 
+**Text channels**
+
 - **GitHub issues** — [nodealchemy/powernode-platform/issues](https://github.com/nodealchemy/powernode-platform/issues) for bugs + feature requests
 - **X / Twitter** — [@nodealchemy](https://x.com/nodealchemy) for general updates and informal questions
+
+**Email**
+
+- [contact@nodealchemy.com](mailto:contact@nodealchemy.com) — general inquiries
+- [support@nodealchemy.com](mailto:support@nodealchemy.com) — technical support
+- [sales@nodealchemy.com](mailto:sales@nodealchemy.com) — commercial + enterprise-tier inquiries
+- [security@nodealchemy.com](mailto:security@nodealchemy.com) — security vulnerabilities; see [SECURITY.md](./SECURITY.md)
