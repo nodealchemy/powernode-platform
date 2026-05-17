@@ -495,6 +495,35 @@
       queue: ai_orchestration
       description: 'Detect potential collusion patterns between agent pairs'
 
+    # P2.5.5 — ACME cert renewal sweep every 6h. The job hits a worker_api
+    # endpoint that walks system_acme_certificates rows with status pending
+    # or expiry within 30d, calls Acme::CertificateManager#renew!, and
+    # reloads Traefik. Operator can also trigger manually via the cert UI.
+    acme_certificate_renewal:
+      cron: '0 */6 * * *'  # Every 6 hours
+      class: AcmeCertificateRenewalJob
+      queue: system
+      description: 'Renew Let''s Encrypt certs in the 30-day expiry window'
+
+    # P3.5 — Federation peer heartbeat every 60s. Pulls each active peer
+    # row, POSTs /federation_api/heartbeat, advances state machine
+    # active⇄degraded based on response. Skipped here if FederationHeartbeatJob
+    # is registered elsewhere (e.g. on the worker_api receiver side).
+    federation_heartbeat:
+      every: '60s'
+      class: FederationHeartbeatJob
+      queue: system
+      description: 'Tick federation peer heartbeats + state machine'
+
+    # P4.6.9 — Subscription monitor every hour. Renews active subscriptions'
+    # grants 7d before expiry; suspends subscriptions whose offerings
+    # transitioned to retired (30d grace); flags grant-validation failures.
+    federation_subscription_monitor:
+      cron: '0 * * * *'  # Every hour at minute 0
+      class: FederationSubscriptionMonitorJob
+      queue: system
+      description: 'Monitor federation service subscriptions for renewal + grant health'
+
     # NOTE: Codebase intelligence re-indexing is handled by Claude Code hooks
     # (codebase-index-marker.sh + codebase-index-apply.sh), not cron.
 
