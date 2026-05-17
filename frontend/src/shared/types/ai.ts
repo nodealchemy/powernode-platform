@@ -204,7 +204,11 @@ export type ChatCardKind =
   | 'provisioning_plan_approved'
   | 'provisioning_execution'
   | 'provisioning_status'
-  | 'provisioning_adaptation';
+  | 'provisioning_adaptation'
+  // D3 — Platform deployment wizard. Two-shape payload: form (no mode
+  // supplied → render the inline form) and done (mode set → show the
+  // success summary + acceptance_token for federated mode).
+  | 'platform_deployment_wizard';
 
 export interface ChatCard {
   kind: ChatCardKind;

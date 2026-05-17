@@ -10,6 +10,7 @@ import type { ChatCard } from '@/shared/types/ai';
 import { BriefCard } from './BriefCard';
 import { ProvisioningPlanReview } from './ProvisioningPlanReview';
 import type { ProjectBrief, ProvisioningPlan, PlanStep, RiskFactor } from './types';
+import { PlatformDeploymentWizardCard } from './PlatformDeploymentWizardCard';
 
 /**
  * Renders a single ChatCard (surfaced from a Concierge tool result via
@@ -304,6 +305,11 @@ function renderInner(card: ChatCard): React.ReactElement | null {
         </Card>
       );
     }
+
+    // D3 — Platform deployment wizard. Renders inline form (form phase)
+    // or done-summary with acceptance_token capture (done phase).
+    case 'platform_deployment_wizard':
+      return <PlatformDeploymentWizardCard card={card} />;
 
     default:
       return null;
