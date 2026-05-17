@@ -1,5 +1,11 @@
-# Docker Compose for production deployment
-# Usage: docker compose -f docker/docker-compose.prod.yml up -d
+# ════════════════════════════════════════════════════════════════════════
+# ⚠️  DEPRECATED — schedule cutover by 2026-08-01
+# ════════════════════════════════════════════════════════════════════════
+#
+# Replaced by the platform's native module-based deployment (P8 milestone).
+# Cutover runbook: extensions/system/docs/runbooks/docker-compose-cutover.md
+# See top-level ./docker-compose.prod.yml for the full deprecation notice.
+# ════════════════════════════════════════════════════════════════════════
 
 services:
   # PostgreSQL Database

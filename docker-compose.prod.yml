@@ -1,5 +1,31 @@
-# Docker Compose for production deployment
-# Usage: docker-compose -f docker-compose.prod.yml up -d
+# ════════════════════════════════════════════════════════════════════════
+# ⚠️  DEPRECATED — schedule cutover by 2026-08-01
+# ════════════════════════════════════════════════════════════════════════
+#
+# This stack is being replaced by the platform's native module-based
+# deployment (Golden Eclipse P8 dogfooding milestone). The same logical
+# services (postgres, redis, rails, sidekiq, frontend, traefik) now ship
+# as `powernode-*` modules under extensions/system/modules/ and are
+# orchestrated by the on-node Go agent via systemd unit files generated
+# from system_module_services rows.
+#
+# Cutover runbook: extensions/system/docs/runbooks/docker-compose-cutover.md
+#
+# Why the cutover:
+#   - Single deployment path for self-host AND federated peers
+#   - mTLS + cosign-signed supply chain instead of mutable image tags
+#   - composefs immutable rootfs + fs-verity at file open
+#   - Service lifecycle managed by systemd (Restart, journalctl, etc.)
+#     instead of Docker's restart loops
+#
+# Status as of P8.5: this file remains the supported production path
+# until the cutover runbook's acceptance gate (full E2E suite on a
+# QEMU-hosted powernode-hub + HA failover <60s) passes. After that
+# this file is read-only, archived, and removed in a follow-up cleanup
+# release.
+#
+# Usage during the deprecation window: docker-compose -f docker-compose.prod.yml up -d
+# ════════════════════════════════════════════════════════════════════════
 
 services:
   # PostgreSQL Database
