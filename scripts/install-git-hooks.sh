@@ -27,7 +27,11 @@ check_gitleaks() {
 }
 
 echo "Checking dependencies..."
-GITLEAKS_AVAILABLE=$(check_gitleaks && echo "true" || echo "false")
+if check_gitleaks; then
+  GITLEAKS_AVAILABLE="true"
+else
+  GITLEAKS_AVAILABLE="false"
+fi
 echo ""
 
 # Install pre-commit hook
@@ -119,6 +123,44 @@ chmod +x "$GIT_HOOKS_DIR/pre-commit"
 
 echo "✅ Pre-commit hook installed!"
 echo ""
+
+# Install pre-push hook (documentation verification)
+echo "Installing pre-push hook..."
+cat > "$GIT_HOOKS_DIR/pre-push" << 'PUSH_HOOK_EOF'
+#!/bin/bash
+# Powernode Platform - Pre-push Documentation Check
+# Runs the docs link checker before allowing push. The link checker is the
+# hard gate; other docs/.verify/ scripts are run on demand by reviewers.
+#
+# Bypass (use sparingly — broken links degrade docs quickly):
+#   git push --no-verify
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+LINK_CHECKER="$PROJECT_ROOT/docs/.verify/check-links.sh"
+
+if [ ! -x "$LINK_CHECKER" ]; then
+  echo "ℹ️  docs/.verify/check-links.sh not found or not executable — skipping doc link check"
+  exit 0
+fi
+
+echo "🔗 Running docs link check..."
+if bash "$LINK_CHECKER"; then
+  echo "✅ Docs link check passed"
+  exit 0
+else
+  echo ""
+  echo "❌ Docs link check failed."
+  echo "   Fix the broken links above, or bypass with: git push --no-verify"
+  exit 1
+fi
+PUSH_HOOK_EOF
+
+chmod +x "$GIT_HOOKS_DIR/pre-push"
+
+echo "✅ Pre-push hook installed (docs link check)!"
+echo ""
 echo "📋 Installed Checks:"
 echo "  1. No console.log in production code"
 echo "  2. No hardcoded color classes"
@@ -126,6 +168,7 @@ echo "  3. No puts/print in Ruby code"
 echo "  4. All Ruby files have frozen_string_literal"
 echo "  5. TypeScript 'any' type warnings"
 echo "  6. Secret scanning with gitleaks (if installed)"
+echo "  7. Docs link check on push (docs/.verify/check-links.sh)"
 echo ""
 echo "🔐 Secret Scanning:"
 if [ "$GITLEAKS_AVAILABLE" = "true" ]; then
