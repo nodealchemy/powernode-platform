@@ -326,7 +326,7 @@ RSpec.describe 'Api::V1::Ai::Analytics', type: :request do
 
     before do
       allow(ReportRequest).to receive(:create!).and_return(report)
-      allow(GenerateReportJob).to receive(:perform_later) if defined?(GenerateReportJob)
+      allow(WorkerJobService).to receive(:enqueue_job)
     end
 
     context 'with ai.analytics.create permission' do

@@ -1,274 +1,94 @@
 # frozen_string_literal: true
 
+# Async-only reports API. The server creates a ReportRequest row and dispatches
+# the worker job through PdfReportService.enqueue!; the worker renders the file
+# and updates the request. Clients poll request_details and download via
+# download_request once status is "completed".
 class Api::V1::ReportsController < ApplicationController
   before_action :check_reports_permission
-  before_action :set_date_range
+  before_action :set_date_range, only: %i[index templates]
   before_action :set_account_scope
 
-  SUPPORTED_FORMATS = %w[pdf csv].freeze
   REPORT_TYPES = PdfReportService::REPORT_TYPES
-
-  # GET /api/v1/reports/:report_type
-  def show
-    # Route provides :id param, treat as report_type
-    params[:report_type] ||= params[:id]
-
-    unless REPORT_TYPES.include?(params[:report_type])
-      return render_error(
-        "Invalid report type. Supported types: #{REPORT_TYPES.join(', ')}",
-        :bad_request
-      )
-    end
-
-    format = params[:format]&.downcase || "pdf"
-
-    unless SUPPORTED_FORMATS.include?(format)
-      return render_error(
-        "Invalid format. Supported formats: #{SUPPORTED_FORMATS.join(', ')}",
-        :bad_request
-      )
-    end
-
-    case format
-    when "pdf"
-      generate_pdf_report
-    when "csv"
-      generate_csv_report
-    end
-  rescue StandardError => e
-    render_internal_error("Report generation failed", exception: e)
-  end
+  SUPPORTED_FORMATS = PdfReportService::SUPPORTED_FORMATS
 
   # GET /api/v1/reports
   def index
     render_success(
       data: {
-        available_reports: REPORT_TYPES.map do |report_type|
-          {
-            type: report_type,
-            name: humanize_report_type(report_type),
-            description: report_description(report_type),
-            supported_formats: SUPPORTED_FORMATS
-          }
-        end,
+        available_reports: REPORT_TYPES.map { |type| { type: type, name: humanize(type), formats: SUPPORTED_FORMATS } },
         supported_formats: SUPPORTED_FORMATS,
-        max_date_range_days: 730 # 2 years
+        max_date_range_days: 730
       }
     )
   end
 
   # GET /api/v1/reports/templates
   def templates
-    render_success(
-      data: [
-        {
-          id: "revenue_analytics",
-          name: "Revenue Analytics",
-          description: "Comprehensive revenue analysis including MRR, ARR, growth trends, and forecasting",
-          category: "financial",
-          icon: "💰",
-          formats: [ "pdf", "csv", "xlsx" ],
-          parameters: {
-            requires_date_range: true,
-            filters: [
-              {
-                name: "plan_id",
-                type: "select",
-                label: "Plan",
-                options: (defined?(Billing::Plan) ? Billing::Plan.pluck(:name) : []),
-                required: false
-              }
-            ]
-          }
-        },
-        {
-          id: "customer_analytics",
-          name: "Customer Analytics",
-          description: "Customer growth, ARPU, LTV, and segmentation analysis",
-          category: "customer",
-          icon: "👥",
-          formats: [ "pdf", "csv", "xlsx" ],
-          parameters: {
-            requires_date_range: true,
-            filters: [
-              {
-                name: "status",
-                type: "select",
-                label: "Customer Status",
-                options: [ "active", "inactive", "trial" ],
-                required: false
-              }
-            ]
-          }
-        },
-        {
-          id: "churn_analysis",
-          name: "Churn Analysis",
-          description: "Customer and revenue churn rates, trends, and retention insights",
-          category: "analytics",
-          icon: "📉",
-          formats: [ "pdf", "csv" ],
-          parameters: {
-            requires_date_range: true,
-            filters: []
-          }
-        },
-        {
-          id: "growth_analytics",
-          name: "Growth Analytics",
-          description: "Growth rates, new revenue expansion metrics, and compound growth analysis",
-          category: "analytics",
-          icon: "📈",
-          formats: [ "pdf", "csv" ],
-          parameters: {
-            requires_date_range: true,
-            filters: []
-          }
-        },
-        {
-          id: "cohort_analysis",
-          name: "Cohort Analysis",
-          description: "Customer retention by cohort and tenure analysis",
-          category: "analytics",
-          icon: "🔄",
-          formats: [ "pdf", "csv" ],
-          parameters: {
-            requires_date_range: false,
-            filters: [
-              {
-                name: "cohort_period",
-                type: "select",
-                label: "Cohort Period",
-                options: [ "monthly", "quarterly" ],
-                required: false
-              }
-            ]
-          }
-        },
-        {
-          id: "comprehensive_report",
-          name: "Executive Summary",
-          description: "Complete business overview with all key metrics and insights",
-          category: "executive",
-          icon: "📊",
-          formats: [ "pdf" ],
-          parameters: {
-            requires_date_range: true,
-            filters: []
-          }
-        }
-      ]
-    )
+    render_success(data: REPORT_TYPES.map { |type| template_descriptor(type) })
   end
 
   # GET /api/v1/reports/requests
   def requests
-    page = params[:page]&.to_i || 1
-    limit = params[:limit]&.to_i || 20
-    limit = [ limit, 100 ].min # Cap at 100
+    page = [(params[:page]&.to_i || 1), 1].max
+    limit = (params[:limit]&.to_i || 20).clamp(1, 100)
 
-    report_requests = ReportRequest.for_account(@account_scope)
-                                  .order(created_at: :desc)
-                                  .limit(limit)
-                                  .offset((page - 1) * limit)
+    report_requests = scoped_report_requests
+                                   .order(created_at: :desc)
+                                   .limit(limit)
+                                   .offset((page - 1) * limit)
 
-    render_success(
-      data: report_requests.map do |request|
-        {
-          id: request.id,
-          name: request.name,
-          type: request.report_type,
-          format: request.format,
-          status: request.status,
-          requested_at: request.created_at.iso8601,
-          completed_at: request.completed_at&.iso8601,
-          file_url: request.file_url,
-          file_size: request.file_size,
-          error_message: request.error_message,
-          parameters: request.parameters
-        }
-      end
-    )
+    render_success(data: report_requests.map { |r| serialize_request(r) })
   end
 
   # GET /api/v1/reports/requests/:id
   def request_details
-    request = ReportRequest.for_account(@account_scope).find(params[:id])
-
-    render_success(
-      data: {
-        id: request.id,
-        name: request.name,
-        type: request.report_type,
-        format: request.format,
-        status: request.status,
-        requested_at: request.created_at.iso8601,
-        completed_at: request.completed_at&.iso8601,
-        file_url: request.file_url,
-        file_size: request.file_size,
-        error_message: request.error_message,
-        parameters: request.parameters
-      }
-    )
+    report_request = scoped_report_requests.find(params[:id])
+    render_success(data: serialize_request(report_request))
   rescue ActiveRecord::RecordNotFound
-    render_error("Report request not found", status: :internal_server_error)
+    render_error("Report request not found", status: :not_found)
   end
 
   # POST /api/v1/reports/requests
   def create_request
     template_id = params[:template_id]
+    format = params[:format] || "pdf"
     name = params[:name]
-    format = params[:format]
-    parameters = params[:parameters] || {}
+    parameters = params[:parameters].is_a?(ActionController::Parameters) ? params[:parameters].to_unsafe_h : (params[:parameters] || {})
 
-    # Validate template exists
-    template_ids = [ "revenue_analytics", "customer_analytics", "churn_analysis", "growth_analytics", "cohort_analysis", "comprehensive_report" ]
-    unless template_ids.include?(template_id)
-      render_error("Invalid template ID", status: :internal_server_error)
-      return
+    unless REPORT_TYPES.include?(template_id)
+      return render_error("Invalid template ID. Allowed: #{REPORT_TYPES.join(', ')}", status: :unprocessable_content)
+    end
+    unless SUPPORTED_FORMATS.include?(format)
+      return render_error("Invalid format. Allowed: #{SUPPORTED_FORMATS.join(', ')}", status: :unprocessable_content)
     end
 
-    # Create the report request
-    request = ReportRequest.create!(
-      account: @account_scope,
-      user: current_user,
-      name: name,
+    date_range = parameters["date_range"] || {}
+
+    report_request = PdfReportService.enqueue!(
       report_type: template_id,
+      account: @account_scope || current_user.account,
+      user: current_user,
       format: format,
-      status: "pending",
+      name: name,
+      start_date: parse_date(date_range["start_date"]),
+      end_date: parse_date(date_range["end_date"]),
       parameters: parameters
     )
 
-    # Queue background job to generate the report (job lives in worker service)
-    GenerateReportJob.perform_later(request.id)
-
-    render_success(
-      data: {
-        id: request.id,
-        name: request.name,
-        status: request.status,
-        requested_at: request.created_at.iso8601
-      }
-    )
+    render_success(data: serialize_request(report_request), status: :accepted)
+  rescue ArgumentError => e
+    render_error(e.message, status: :unprocessable_content)
   rescue StandardError => e
     render_internal_error("Failed to create report request", exception: e)
   end
 
-  # PATCH /api/v1/reports/requests/:id
+  # PATCH /api/v1/reports/requests/:id  (worker callback)
   def update_request
-    request = ReportRequest.for_account(@account_scope).find(params[:id])
-
-    update_params = params.permit(:status, :file_path, :file_url, :file_size, :error_message, :completed_at)
-
-    request.update!(update_params)
-
-    render_success(
-      data: {
-        id: request.id,
-        status: request.status,
-        updated_at: request.updated_at.iso8601
-      }
-    )
+    report_request = scoped_report_requests.find(params[:id])
+    permitted = params.permit(:status, :file_path, :file_url, :file_size, :content_type, :error_message, :completed_at)
+    report_request.update!(permitted)
+    render_success(data: serialize_request(report_request))
   rescue ActiveRecord::RecordNotFound
     render_not_found("Report request")
   rescue StandardError => e
@@ -277,74 +97,58 @@ class Api::V1::ReportsController < ApplicationController
 
   # DELETE /api/v1/reports/requests/:id
   def cancel_request
-    request = ReportRequest.for_account(@account_scope).find(params[:id])
+    report_request = scoped_report_requests.find(params[:id])
 
-    if request.status == "completed"
-      render_error("Cannot cancel completed request", status: :internal_server_error)
-      return
-    end
+    return render_error("Cannot cancel completed request", status: :unprocessable_content) if report_request.completed?
+    return render_error("Cannot cancel failed request", status: :unprocessable_content) if report_request.failed?
 
-    if request.status == "failed"
-      render_error("Cannot cancel failed request", status: :internal_server_error)
-      return
-    end
-
-    request.update!(status: "cancelled")
-
-    render_success
+    report_request.cancel!
+    render_success(data: serialize_request(report_request))
   rescue ActiveRecord::RecordNotFound
-    render_error("Report request not found", status: :internal_server_error)
+    render_error("Report request not found", status: :not_found)
   end
 
   # GET /api/v1/reports/requests/:id/download
   def download_request
-    request = ReportRequest.for_account(@account_scope).find(params[:id])
+    report_request = scoped_report_requests.find(params[:id])
 
-    unless request.status == "completed" && request.file_url
-      render_error("Report not ready for download", status: :internal_server_error)
-      return
+    return render_error("Report not ready for download", status: :unprocessable_content) unless report_request.completed?
+    return render_error("Report file missing", status: :not_found) unless report_request.file_path.present? && File.exist?(report_request.file_path)
+
+    allowed_roots = [
+      Rails.root.join("tmp", "reports").to_s,
+      Rails.root.parent.join("worker", "storage", "reports").to_s
+    ]
+    expanded_path = File.expand_path(report_request.file_path)
+    unless allowed_roots.any? { |root| expanded_path.start_with?(root) }
+      Rails.logger.error "Blocked access to file outside reports directories: #{report_request.file_path}"
+      return render_error("Invalid report file path", status: :forbidden)
     end
 
-    # In a real implementation, this would serve the file from storage (S3, etc.)
-    # For now, we'll redirect to the file URL or serve it directly
-    if request.file_path && File.exist?(request.file_path)
-      # Security: Validate file path is within allowed reports directory
-      reports_base = Rails.root.join("tmp", "reports").to_s
-      expanded_path = File.expand_path(request.file_path)
-      unless expanded_path.start_with?(reports_base)
-        Rails.logger.error "Attempted access to file outside reports directory: #{request.file_path}"
-        return render_error("Invalid report file path", status: :forbidden)
-      end
-
-      send_file request.file_path,
-                filename: "#{request.name.parameterize}.#{request.format}",
-                type: request.content_type,
-                disposition: "attachment"
-    else
-      render_error("Report file not found", status: :internal_server_error)
-    end
+    send_file report_request.file_path,
+              filename: report_request.generate_filename,
+              type: report_request.content_type || "application/pdf",
+              disposition: "attachment"
   rescue ActiveRecord::RecordNotFound
-    render_error("Report request not found", status: :internal_server_error)
+    render_error("Report request not found", status: :not_found)
   end
 
   # GET /api/v1/reports/scheduled
   def scheduled
-    reports = ScheduledReport.for_account(@account_scope)
-                            .where(is_active: true)
-                            .order(:next_run_at)
+    reports = scoped_scheduled_reports.active.order(:next_run_at)
 
     render_success(
       data: reports.map do |report|
         {
           id: report.id,
-          name: report.name || humanize_report_type(report.report_type),
+          name: report.name || humanize(report.report_type),
           template_id: report.report_type,
           frequency: report.frequency,
           next_run: report.next_run_at&.iso8601,
           last_run: report.last_run_at&.iso8601,
           enabled: report.is_active,
           delivery_method: report.try(:delivery_method) || "email",
-          recipients: report.recipients || [],
+          recipients: report.recipients_list,
           parameters: report.parameters || {},
           format: report.format
         }
@@ -352,313 +156,126 @@ class Api::V1::ReportsController < ApplicationController
     )
   end
 
-  # POST /api/v1/reports/generate
-  def generate
-    report_requests = params[:reports] || []
-
-    if report_requests.empty?
-      render_error("No reports requested", status: :internal_server_error)
-      return
-    end
-
-    generated_reports = []
-
-    report_requests.each do |request|
-      report_type = request[:type]
-      format = request[:format] || "pdf"
-
-      next unless REPORT_TYPES.include?(report_type) && SUPPORTED_FORMATS.include?(format)
-
-      case format
-      when "pdf"
-        pdf_data = PdfReportService.new(
-          report_type: report_type,
-          account: @account_scope,
-          start_date: @start_date,
-          end_date: @end_date,
-          user: current_user
-        ).generate_pdf
-
-        generated_reports << {
-          type: report_type,
-          format: format,
-          filename: "#{report_type}_#{Date.current.strftime('%Y%m%d')}.pdf",
-          data: Base64.encode64(pdf_data),
-          content_type: "application/pdf",
-          size: pdf_data.bytesize
-        }
-      when "csv"
-        csv_data = generate_csv_data(report_type)
-
-        generated_reports << {
-          type: report_type,
-          format: format,
-          filename: "#{report_type}_#{Date.current.strftime('%Y%m%d')}.csv",
-          data: Base64.encode64(csv_data),
-          content_type: "text/csv",
-          size: csv_data.bytesize
-        }
-      end
-    end
-
-    render_success(
-      data: {
-        reports: generated_reports,
-        generated_at: Time.current.iso8601,
-        account: @account_scope ? {
-          id: @account_scope.id,
-          name: @account_scope.name
-        } : nil,
-        period: {
-          start_date: @start_date,
-          end_date: @end_date
-        }
-      }
-    )
-  end
-
-  # POST /api/v1/reports/schedule
-  def schedule
-    report_type = params[:report_type]
-    frequency = params[:frequency] # daily, weekly, monthly
-    recipients = params[:recipients] || []
-    format = params[:format] || "pdf"
-
-    unless REPORT_TYPES.include?(report_type)
-      render_error("Invalid report type", status: :internal_server_error)
-      return
-    end
-
-    unless %w[daily weekly monthly].include?(frequency)
-      return render_error(
-        "Invalid frequency. Use: daily, weekly, monthly",
-        :bad_request
-      )
-    end
-
-    # Create scheduled report record
-    scheduled_report = ScheduledReport.create!(
-      report_type: report_type,
-      frequency: frequency,
-      recipients: recipients,
-      format: format,
-      account: @account_scope,
-      user: current_user,
-      next_run_at: calculate_next_run_time(frequency),
-      active: true
-    )
-
-    render_success(
-      data: {
-        id: scheduled_report.id,
-        report_type: scheduled_report.report_type,
-        frequency: scheduled_report.frequency,
-        next_run_at: scheduled_report.next_run_at,
-        recipients: scheduled_report.recipients
-      }
-    )
-  rescue StandardError => e
-    render_internal_error("Failed to schedule report", exception: e)
-  end
-
-  # GET /api/v1/reports/scheduled
-  def scheduled_reports
-    reports = ScheduledReport.for_account(@account_scope)
-                            .where(active: true)
-                            .order(:next_run_at)
-
-    render_success(
-      data: reports.map do |report|
-        {
-          id: report.id,
-          report_type: report.report_type,
-          frequency: report.frequency,
-          next_run_at: report.next_run_at,
-          recipients: report.recipients,
-          last_run_at: report.last_run_at,
-          created_at: report.created_at
-        }
-      end
-    )
-  end
-
-  # DELETE /api/v1/reports/scheduled/:id
-  def destroy_scheduled
-    scheduled_report = ScheduledReport.for_account(@account_scope).find(params[:id])
-    scheduled_report.update!(active: false)
-
-    render_success(message: "Scheduled report cancelled")
-  rescue ActiveRecord::RecordNotFound
-    render_error("Scheduled report not found", status: :internal_server_error)
-  end
-
   private
 
+  def scoped_report_requests
+    @account_scope ? ReportRequest.for_account(@account_scope) : ReportRequest.all
+  end
+
+  def scoped_scheduled_reports
+    @account_scope ? ScheduledReport.for_account(@account_scope) : ScheduledReport.all
+  end
+
   def check_reports_permission
-    unless current_user.has_permission?("analytics.export") || current_user.has_permission?("analytics.global")
-      render_error("Report generation permission required", status: :internal_server_error)
-    end
+    return if worker_authenticated?
+    return if has_permission?("analytics.export")
+
+    render_error("Report generation permission required", status: :forbidden)
   end
 
   def set_date_range
-    @start_date = params[:start_date]&.to_date || 12.months.ago.to_date.beginning_of_month
-    @end_date = params[:end_date]&.to_date || Date.current.end_of_month
+    @start_date = parse_date(params[:start_date]) || 12.months.ago.to_date.beginning_of_month
+    @end_date = parse_date(params[:end_date]) || Date.current.end_of_month
 
-    # Validate date range
     if @start_date > @end_date
-      render_error("Start date must be before end date", status: :internal_server_error)
-      return
+      render_error("Start date must be before end date", status: :unprocessable_content) and return
     end
 
-    # Limit to reasonable range (2 years max)
-    if @end_date - @start_date > 2.years
-      render_error("Date range too large (max 2 years)", status: :internal_server_error)
-      nil
+    if (@end_date - @start_date) > 2.years
+      render_error("Date range too large (max 2 years)", status: :unprocessable_content) and return
     end
   end
 
   def set_account_scope
-    # If user has global analytics permission, allow querying all accounts
-    if current_user.has_permission?("analytics.global") && params[:account_id].blank?
-      @account_scope = nil # Global analytics
-    elsif params[:account_id].present? && current_user.has_permission?("analytics.global")
+    # Workers operate across all accounts when they call back to update report state.
+    return @account_scope = nil if worker_authenticated?
+
+    if has_permission?("analytics.global") && params[:account_id].present?
       @account_scope = Account.find(params[:account_id])
+    elsif has_permission?("analytics.global") && params[:account_id].blank?
+      @account_scope = nil
     else
-      # Regular users can only generate reports for their own account
       @account_scope = current_user.account
     end
   end
 
-  def generate_pdf_report
-    pdf_data = PdfReportService.new(
-      report_type: params[:report_type],
-      account: @account_scope,
-      start_date: @start_date,
-      end_date: @end_date,
-      user: current_user
-    ).generate_pdf
-
-    send_data pdf_data,
-              filename: "#{params[:report_type]}_#{Date.current.strftime('%Y%m%d')}.pdf",
-              type: "application/pdf",
-              disposition: "attachment"
+  def parse_date(value)
+    return nil if value.blank?
+    value.is_a?(Date) ? value : Date.parse(value.to_s)
+  rescue ArgumentError
+    nil
   end
 
-  def generate_csv_report
-    csv_data = generate_csv_data(params[:report_type])
-
-    send_data csv_data,
-              filename: "#{params[:report_type]}_#{Date.current.strftime('%Y%m%d')}.csv",
-              type: "text/csv",
-              disposition: "attachment"
+  def humanize(report_type)
+    report_type.to_s.tr("_", " ").titleize
   end
 
-  def generate_csv_data(report_type)
-    case report_type
-    when "customer_report"
-      return export_customer_data_csv
-    when "subscription_report"
-      return export_subscription_data_csv
-    end
-
-    unless Powernode::ExtensionRegistry.loaded?("business")
-      return CSV.generate(headers: true) { |csv| csv << ["Business feature required"] }
-    end
-
-    analytics_service = Billing::RevenueAnalyticsService.new(
-      account: @account_scope,
-      start_date: @start_date,
-      end_date: @end_date
-    )
-
-    case report_type
-    when "revenue_report"
-      analytics_service.export_revenue_data_csv("monthly")
-    else
-      # Default to revenue data
-      analytics_service.export_revenue_data_csv("monthly")
-    end
-  end
-
-  def export_customer_data_csv
-    require "csv"
-
-    customers = @account_scope ? @account_scope.users : User.all
-    customers = customers.joins(:account).where(accounts: { status: "active" })
-
-    CSV.generate(headers: true) do |csv|
-      csv << [ "Customer ID", "Name", "Email", "Account", "Plan", "Status", "Created", "Last Login" ]
-
-      customers.each do |customer|
-        subscription = customer.account.subscription
-        csv << [
-          customer.id,
-          customer.full_name,
-          customer.email,
-          customer.account.name,
-          subscription&.plan&.name || "No Plan",
-          subscription&.status || "No Subscription",
-          customer.created_at.strftime("%Y-%m-%d"),
-          customer.last_login_at&.strftime("%Y-%m-%d %H:%M") || "Never"
-        ]
-      end
-    end
-  end
-
-  def export_subscription_data_csv
-    require "csv"
-
-    subscription_class = defined?(Billing::Subscription) ? Billing::Subscription : nil
-    subscriptions = if subscription_class
-      @account_scope ? @account_scope.subscriptions : subscription_class.all
-    else
-      return CSV.generate(headers: true) { |csv| csv << ["Billing not available"] }
-    end
-    subscriptions = subscriptions.includes(:account, :plan)
-
-    CSV.generate(headers: true) do |csv|
-      csv << [ "Subscription ID", "Account", "Plan", "Status", "MRR", "Created", "Current Period End", "Trial End" ]
-
-      subscriptions.each do |sub|
-        csv << [
-          sub.id,
-          sub.account.name,
-          sub.plan.name,
-          sub.status,
-          (sub.plan.price_cents / 100.0),
-          sub.created_at.strftime("%Y-%m-%d"),
-          sub.current_period_end&.strftime("%Y-%m-%d") || "N/A",
-          sub.trial_end&.strftime("%Y-%m-%d") || "N/A"
-        ]
-      end
-    end
-  end
-
-  def humanize_report_type(report_type)
-    report_type.gsub("_", " ").titleize
-  end
-
-  def report_description(report_type)
-    descriptions = {
-      "revenue_report" => "Monthly recurring revenue analysis with trends and forecasts",
-      "growth_report" => "Customer and revenue growth metrics with compound growth rates",
-      "churn_report" => "Customer churn analysis with retention insights",
-      "customer_report" => "Customer analytics including segmentation and lifetime value",
-      "subscription_report" => "Subscription overview with plan distribution and status",
-      "executive_summary" => "High-level business metrics summary for executives"
+  TEMPLATE_DESCRIPTORS = {
+    "revenue_analytics" => {
+      name: "Revenue Analytics",
+      description: "Comprehensive revenue analysis including MRR, ARR, growth trends, and forecasting",
+      category: "financial",
+      icon: "revenue",
+      formats: %w[pdf csv]
+    },
+    "customer_analytics" => {
+      name: "Customer Analytics",
+      description: "Customer growth, ARPU, LTV, and segmentation analysis",
+      category: "customer",
+      icon: "customers",
+      formats: %w[pdf csv]
+    },
+    "churn_analysis" => {
+      name: "Churn Analysis",
+      description: "Customer and revenue churn rates, trends, and retention insights",
+      category: "analytics",
+      icon: "churn",
+      formats: %w[pdf csv]
+    },
+    "growth_analytics" => {
+      name: "Growth Analytics",
+      description: "Growth rates, new revenue expansion metrics, and compound growth analysis",
+      category: "analytics",
+      icon: "growth",
+      formats: %w[pdf csv]
+    },
+    "cohort_analysis" => {
+      name: "Cohort Analysis",
+      description: "Customer retention by cohort and tenure analysis",
+      category: "analytics",
+      icon: "cohort",
+      formats: %w[pdf csv]
+    },
+    "comprehensive_report" => {
+      name: "Executive Summary",
+      description: "Complete business overview with all key metrics and insights",
+      category: "executive",
+      icon: "summary",
+      formats: %w[pdf]
     }
+  }.freeze
 
-    descriptions[report_type] || "Detailed analytics report"
+  def template_descriptor(report_type)
+    descriptor = TEMPLATE_DESCRIPTORS.fetch(report_type)
+    descriptor.merge(
+      id: report_type,
+      parameters: { requires_date_range: report_type != "cohort_analysis", filters: [] }
+    )
   end
 
-  def calculate_next_run_time(frequency)
-    case frequency
-    when "daily"
-      1.day.from_now.beginning_of_day + 8.hours # 8 AM next day
-    when "weekly"
-      1.week.from_now.beginning_of_week + 8.hours # Monday 8 AM
-    when "monthly"
-      1.month.from_now.beginning_of_month + 8.hours # First day of month 8 AM
-    end
+  def serialize_request(report_request)
+    {
+      id: report_request.id,
+      name: report_request.name,
+      type: report_request.report_type,
+      format: report_request.format,
+      status: report_request.status,
+      requested_at: report_request.created_at.iso8601,
+      completed_at: report_request.completed_at&.iso8601,
+      file_url: report_request.file_url,
+      file_size: report_request.file_size,
+      error_message: report_request.error_message,
+      parameters: report_request.parameters || {}
+    }
   end
 end

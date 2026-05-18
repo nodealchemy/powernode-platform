@@ -305,6 +305,17 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # REPORT REQUEST ACTIONS — fired by ReportRequest#log_status_change
+  # =============================================================================
+  REPORT_REQUEST_ACTIONS = %w[
+    report_request_pending
+    report_request_processing
+    report_request_completed
+    report_request_failed
+    report_request_cancelled
+  ].freeze
+
+  # =============================================================================
   # LEGACY ACTIONS (deprecated, kept for backward compatibility)
   # These will be migrated to their standardized equivalents
   # =============================================================================
@@ -350,6 +361,7 @@ module AuditActions
     SITE_SETTING_ACTIONS,
     SUPPLY_CHAIN_ACTIONS,
     SYSTEM_NODE_INSTANCE_ACTIONS,
+    REPORT_REQUEST_ACTIONS,
     LEGACY_ACTIONS
   ].flatten.uniq.freeze
 

@@ -1107,28 +1107,20 @@ Rails.application.routes.draw do
       # Notifications endpoint for worker service
       resources :notifications, only: [ :create ]
 
-      # Enhanced reports endpoints for worker integration
-      resources :reports, only: [ :show, :index, :create ] do
+      # Async reports API — generation happens in the worker
+      resources :reports, only: [:index] do
         collection do
           get :templates
           get :scheduled
-          post :generate
-          post :schedule
           get :requests, to: "reports#requests"
           post :requests, to: "reports#create_request"
         end
-
-        member do
-          delete :scheduled, to: "reports#destroy_scheduled"
-        end
       end
 
-      # Report requests nested endpoints
       get "reports/requests/:id", to: "reports#request_details"
       patch "reports/requests/:id", to: "reports#update_request"
       delete "reports/requests/:id", to: "reports#cancel_request"
       get "reports/requests/:id/download", to: "reports#download_request"
-      delete "reports/scheduled/:id", to: "reports#destroy_scheduled"
 
       # Pages management
       resources :pages, only: [ :index, :show ], param: :slug

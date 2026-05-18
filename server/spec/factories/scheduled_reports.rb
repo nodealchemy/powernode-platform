@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 FactoryBot.define do
   factory :scheduled_report do
     name { "Monthly Revenue Report" }
-    report_type { "revenue_report" }
+    report_type { "revenue_analytics" }
     frequency { "monthly" }
     recipients { [ "admin@example.com", "billing@example.com" ] }
     format { "pdf" }
@@ -29,8 +31,8 @@ FactoryBot.define do
       last_run_at { 1.week.ago }
     end
 
-    trait :analytics_report do
-      report_type { "customer_report" }
+    trait :customer_analytics do
+      report_type { "customer_analytics" }
     end
 
     trait :csv_format do

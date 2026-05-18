@@ -104,7 +104,7 @@ RSpec.describe "Api::V1::Ai::AnalyticsReportsController", type: :request do
     let(:valid_params) { { report: { template_id: 'revenue_analytics' } } }
 
     before do
-      allow(GenerateReportJob).to receive(:perform_later)
+      allow(WorkerJobService).to receive(:enqueue_job)
     end
 
     it 'returns 401 when unauthenticated' do
@@ -128,7 +128,10 @@ RSpec.describe "Api::V1::Ai::AnalyticsReportsController", type: :request do
     end
 
     it 'queues a background job' do
-      expect(GenerateReportJob).to receive(:perform_later)
+      expect(WorkerJobService).to receive(:enqueue_job).with(
+        "Reports::GenerateReportJob",
+        hash_including(args: [an_instance_of(String)], queue: "reports")
+      )
       post path, params: valid_params.to_json, headers: auth_headers_for(create_user)
     end
   end

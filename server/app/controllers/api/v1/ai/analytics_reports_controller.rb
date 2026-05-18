@@ -46,7 +46,11 @@ module Api
             requested_at: Time.current
           )
 
-          GenerateReportJob.perform_later(report.id)
+          WorkerJobService.enqueue_job(
+            "Reports::GenerateReportJob",
+            args: [report.id],
+            queue: "reports"
+          )
 
           log_audit_event("ai.analytics.report.create", report,
                           metadata: { template_id: report_params[:template_id] })

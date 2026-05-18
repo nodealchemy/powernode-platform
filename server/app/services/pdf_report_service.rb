@@ -1,154 +1,86 @@
 # frozen_string_literal: true
 
-# PDF Report Service - Delegates to worker service
+# PdfReportService — thin enqueue helper for the async report pipeline.
+#
+# All report generation happens in the worker via `Reports::GenerateReportJob`.
+# The server's role is to create a `ReportRequest` row and dispatch the job through
+# `WorkerJobService`. Polling and download go through `Api::V1::ReportsController`.
+#
+# Canonical report types follow the `*_analytics` / `*_analysis` taxonomy and are
+# validated identically on `ReportRequest`.
 class PdfReportService
   REPORT_TYPES = %w[
-    revenue_report
-    growth_report
-    churn_report
-    customer_report
-    subscription_report
-    executive_summary
+    revenue_analytics
+    customer_analytics
+    churn_analysis
+    growth_analytics
+    cohort_analysis
+    comprehensive_report
   ].freeze
 
-  def initialize(report_type:, account: nil, start_date: nil, end_date: nil, user: nil)
-    @report_type = report_type
-    @account = account
-    @start_date = start_date || 12.months.ago.to_date.beginning_of_month
-    @end_date = end_date || Date.current.end_of_month
-    @user = user
-  end
+  SUPPORTED_FORMATS = %w[pdf csv].freeze
 
-  # Generate PDF report (delegated to worker service)
-  def generate_pdf(format: "pdf")
-    Rails.logger.info "Delegating PDF report generation to worker service"
-
-    unless REPORT_TYPES.include?(@report_type)
-      return { success: false, error: "Unsupported report type: #{@report_type}" }
-    end
-
-    job_data = {
-      report_type: @report_type,
-      account_id: @account&.id,
-      start_date: @start_date.iso8601,
-      end_date: @end_date.iso8601,
-      user_id: @user&.id,
-      format: format
-    }
-
-    begin
-      # Enqueue report generation in worker service
-      WorkerJobService.enqueue_report_job("generate_report", job_data)
-
-      {
-        success: true,
-        message: "Report generation queued for processing",
-        report_type: @report_type,
-        format: format,
-        job_data: job_data
-      }
-    rescue WorkerJobService::WorkerServiceError => e
-      Rails.logger.error "Failed to delegate report generation: #{e.message}"
-      { success: false, error: e.message }
-    end
-  end
-
-  # Synchronous method for simple report data (no PDF generation)
-  def get_report_data
-    case @report_type
-    when "revenue_report"
-      get_revenue_data
-    when "growth_report"
-      get_growth_data
-    when "customer_report"
-      get_customer_data
-    else
-      { success: false, error: "Report data not available for type: #{@report_type}" }
-    end
-  end
-
-  private
-
-  def get_revenue_data
-    # Simple revenue data that doesn't require complex processing
-    payment_class = defined?(Billing::Payment) ? Billing::Payment : nil
-    unless payment_class
-      return { success: true, data: { total_revenue: 0, payment_count: 0, average_payment: 0, period: { start_date: @start_date, end_date: @end_date } } }
-    end
-    base_query = @account ? @account.payments : payment_class.all
-    payments = base_query.succeeded
-                         .where(processed_at: @start_date..@end_date)
-
-    {
-      success: true,
-      data: {
-        total_revenue: payments.sum(:amount_cents),
-        payment_count: payments.count,
-        average_payment: payments.average(:amount_cents)&.to_f || 0,
-        period: { start_date: @start_date, end_date: @end_date }
-      }
-    }
-  end
-
-  def get_growth_data
-    # Simple growth metrics
-    subscription_class = defined?(Billing::Subscription) ? Billing::Subscription : nil
-    unless subscription_class
-      return { success: true, data: { active_subscriptions: 0, new_subscriptions: 0, period: { start_date: @start_date, end_date: @end_date } } }
-    end
-    subscriptions = @account ? @account.subscriptions : subscription_class.all
-    active_subs = subscriptions.active.count
-    new_subs = subscriptions.where(created_at: @start_date..@end_date).count
-
-    {
-      success: true,
-      data: {
-        active_subscriptions: active_subs,
-        new_subscriptions: new_subs,
-        period: { start_date: @start_date, end_date: @end_date }
-      }
-    }
-  end
-
-  def get_customer_data
-    # Simple customer metrics
-    base_query = @account ? @account.users : User.all
-    users = base_query.active
-
-    {
-      success: true,
-      data: {
-        total_customers: users.count,
-        new_customers: users.where(created_at: @start_date..@end_date).count,
-        period: { start_date: @start_date, end_date: @end_date }
-      }
-    }
-  end
-
-  # Class method for bulk report generation
   class << self
-    def generate_scheduled_reports
-      Rails.logger.info "Delegating scheduled report generation to worker service"
+    # Create a ReportRequest and dispatch the worker job. Returns the persisted request.
+    def enqueue!(report_type:, account:, user:, format: "pdf", name: nil, start_date: nil, end_date: nil, parameters: {})
+      raise ArgumentError, "Unsupported report type: #{report_type}" unless REPORT_TYPES.include?(report_type)
+      raise ArgumentError, "Unsupported format: #{format}" unless SUPPORTED_FORMATS.include?(format)
 
-      begin
-        WorkerJobService.enqueue_report_job("generate_scheduled_reports", {})
-        { success: true, message: "Scheduled report generation queued" }
-      rescue WorkerJobService::WorkerServiceError => e
-        Rails.logger.error "Failed to delegate scheduled reports: #{e.message}"
-        { success: false, error: e.message }
-      end
+      start_date ||= 12.months.ago.to_date.beginning_of_month
+      end_date ||= Date.current.end_of_month
+
+      request_params = parameters.to_h.deep_dup
+      request_params["date_range"] ||= {
+        "start_date" => start_date.iso8601,
+        "end_date" => end_date.iso8601
+      }
+
+      report_request = ReportRequest.create!(
+        account: account,
+        user: user,
+        name: name.presence || default_name(report_type),
+        report_type: report_type,
+        format: format,
+        status: "pending",
+        parameters: request_params,
+        requested_at: Time.current
+      )
+
+      WorkerJobService.enqueue_job(
+        "Reports::GenerateReportJob",
+        args: [report_request.id],
+        queue: "reports"
+      )
+
+      report_request
+    end
+
+    def generate_scheduled_reports
+      Rails.logger.info "Dispatching scheduled report sweep to worker"
+      WorkerJobService.enqueue_job("Reports::ScheduledReportSweepJob", args: [], queue: "reports")
+      { success: true, message: "Scheduled report sweep queued" }
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.error "Failed to dispatch scheduled report sweep: #{e.message}"
+      { success: false, error: e.message }
     end
 
     def cleanup_old_reports(days_old: 30)
-      Rails.logger.info "Delegating report cleanup to worker service"
+      Rails.logger.info "Dispatching report cleanup to worker"
+      WorkerJobService.enqueue_job(
+        "Reports::CleanupOldReportsJob",
+        args: [{ "days_old" => days_old }],
+        queue: "reports"
+      )
+      { success: true, message: "Report cleanup queued" }
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.error "Failed to dispatch report cleanup: #{e.message}"
+      { success: false, error: e.message }
+    end
 
-      begin
-        WorkerJobService.enqueue_report_job("cleanup_old_reports", { days_old: days_old })
-        { success: true, message: "Report cleanup queued" }
-      rescue WorkerJobService::WorkerServiceError => e
-        Rails.logger.error "Failed to delegate report cleanup: #{e.message}"
-        { success: false, error: e.message }
-      end
+    private
+
+    def default_name(report_type)
+      "#{report_type.humanize} (#{Date.current.iso8601})"
     end
   end
 end

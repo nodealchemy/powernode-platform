@@ -6,7 +6,7 @@ class ScheduledReport < ApplicationRecord
 
   validates :report_type, presence: true, inclusion: { in: PdfReportService::REPORT_TYPES }
   validates :frequency, presence: true, inclusion: { in: %w[daily weekly monthly] }
-  validates :format, presence: true, inclusion: { in: %w[pdf csv] }
+  validates :format, presence: true, inclusion: { in: PdfReportService::SUPPORTED_FORMATS }
 
   scope :active, -> { where(is_active: true) }
   scope :for_account, ->(account) { where(account: account) }
@@ -26,126 +26,59 @@ class ScheduledReport < ApplicationRecord
     self.recipients = emails.is_a?(Array) ? emails.to_json : emails
   end
 
+  # Enqueue a worker job to generate and (if recipients are configured) email
+  # the report. Updates run timestamps and returns the persisted ReportRequest.
   def execute_report!
-    return unless is_active?
+    return nil unless is_active?
 
-    # Generate the report
-    pdf_data = PdfReportService.new(
+    request_parameters = (parameters.is_a?(Hash) ? parameters.deep_dup : {})
+    if recipients_list.any?
+      request_parameters["delivery_method"] = "email"
+      request_parameters["recipients"] = recipients_list
+    end
+
+    report_request = PdfReportService.enqueue!(
       report_type: report_type,
       account: account,
+      user: user,
+      format: format,
+      name: scheduled_report_name,
       start_date: 1.month.ago.beginning_of_month,
       end_date: Date.current.end_of_month,
-      user: user
-    ).generate_pdf
+      parameters: request_parameters
+    )
 
-    # Update last run time and calculate next run time
     self.last_run_at = Time.current
     calculate_next_run_time
     save!
 
-    # Send email with report attachment via worker service
-    send_report_email(pdf_data)
-
-    Rails.logger.info "Scheduled report #{id} executed and emailed to #{recipients_list.join(', ')}"
-
-    pdf_data
-  end
-
-  def send_report_email(pdf_data)
-    return if recipients_list.empty?
-
-    # Generate report filename with timestamp
-    timestamp = Time.current.strftime("%Y%m%d_%H%M%S")
-    filename = "#{report_type}_report_#{timestamp}.pdf"
-
-    # Create temporary file for the PDF
-    temp_file = Tempfile.new([ filename, ".pdf" ])
-    temp_file.binmode
-    temp_file.write(pdf_data)
-    temp_file.close
-
-    begin
-      # Send email to each recipient using worker service
-      recipients_list.each do |recipient_email|
-        # Use WorkerJobService to queue the email delivery
-        WorkerJobService.enqueue_email_job("report_email", {
-          recipient: recipient_email,
-          subject: generate_report_subject,
-          template: "scheduled_report",
-          template_data: {
-            report_type: report_type,
-            frequency: frequency,
-            account_name: account&.name || "System",
-            user_name: user.full_name,
-            generated_at: Time.current.strftime("%B %d, %Y at %I:%M %p"),
-            period: format_report_period
-          },
-          attachments: [
-            {
-              filename: filename,
-              content: Base64.encode64(pdf_data),
-              content_type: "application/pdf"
-            }
-          ],
-          account_id: account&.id,
-          user_id: user.id
-        })
-      end
-    ensure
-      # Clean up temporary file
-      temp_file.unlink if temp_file
-    end
-
-    # Record email delivery attempt
-    EmailDelivery.create!(
-      recipient_email: recipients_list.join(", "),
-      subject: generate_report_subject,
-      email_type: "report_generated",
-      account: account,
-      user: user,
-      template: "scheduled_report",
-      template_data: {
-        report_id: id,
-        recipients_count: recipients_list.size
-      }.to_json
-    )
-  end
-
-  def generate_report_subject
-    period_text = case frequency
-    when "daily" then "Daily"
-    when "weekly" then "Weekly"
-    when "monthly" then "Monthly"
-    end
-
-    "#{period_text} #{report_type.humanize} Report - #{format_report_period}"
-  end
-
-  def format_report_period
-    case frequency
-    when "daily"
-      (last_run_at || Time.current).strftime("%B %d, %Y")
-    when "weekly"
-      start_of_week = (last_run_at || Time.current).beginning_of_week
-      end_of_week = start_of_week.end_of_week
-      "Week of #{start_of_week.strftime('%B %d')} - #{end_of_week.strftime('%B %d, %Y')}"
-    when "monthly"
-      (last_run_at || Time.current).strftime("%B %Y")
-    end
+    Rails.logger.info "Scheduled report #{id} dispatched as request #{report_request.id}"
+    report_request
   end
 
   private
+
+  def scheduled_report_name
+    base = name.presence || report_type.humanize
+    period = case frequency
+             when "daily"   then Date.current.strftime("%B %d, %Y")
+             when "weekly"  then "Week of #{Date.current.beginning_of_week.strftime('%B %d, %Y')}"
+             when "monthly" then Date.current.strftime("%B %Y")
+             else Date.current.iso8601
+             end
+    "#{base} — #{period}"
+  end
 
   def calculate_next_run_time
     base_time = last_run_at || created_at || Time.current
 
     self.next_run_at = case frequency
-    when "daily"
-                        base_time.beginning_of_day + 1.day + 8.hours
-    when "weekly"
-                        base_time.beginning_of_week + 1.week + 8.hours
-    when "monthly"
-                        base_time.beginning_of_month + 1.month + 8.hours
-    end
+                       when "daily"
+                         base_time.beginning_of_day + 1.day + 8.hours
+                       when "weekly"
+                         base_time.beginning_of_week + 1.week + 8.hours
+                       when "monthly"
+                         base_time.beginning_of_month + 1.month + 8.hours
+                       end
   end
 end
