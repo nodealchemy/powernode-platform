@@ -257,11 +257,11 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                     <h3 className="text-xl font-bold text-theme-primary">
                       {footerData?.site_name || 'Powernode'}
                     </h3>
-                    <p className="text-xs text-theme-tertiary font-medium">Subscription Platform</p>
+                    <p className="text-xs text-theme-tertiary font-medium">Mission control for AI agent fleets</p>
                   </div>
                 </div>
                 <p className="text-theme-secondary text-sm leading-relaxed mb-6">
-                  {footerData?.footer_description || 'Powerful subscription management platform designed to help businesses grow. Trusted by thousands of companies worldwide.'}
+                  {footerData?.footer_description || 'Open-source control plane for AI agent fleets. Knowledge graph, governance, swarm coordination, MCP-native runtime, and the fleet substrate underneath.'}
                 </p>
 
                 {/* Social Media Links */}
@@ -354,7 +354,9 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                     <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">Careers</span>
                   </li>
                   <li>
-                    <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">Blog</span>
+                    <Link to="/blog" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-blog">
+                      Blog
+                    </Link>
                   </li>
                 </ul>
               </div>

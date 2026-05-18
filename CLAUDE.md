@@ -1,25 +1,30 @@
 # CLAUDE.md
 
-Development guidance for **Powernode** subscription platform.
+Development guidance for **Powernode**: open-source mission control for AI agent fleets.
 
 ## Project Overview
 
-**Powernode** - Subscription lifecycle management platform:
-- **Backend**: Rails 8 API (`./server`) - JWT auth, UUIDv7 primary keys
-- **Frontend**: React TypeScript (`./frontend`) - Theme-aware, Tailwind CSS
-- **Worker**: Sidekiq standalone (`./worker`) - API-only communication
-- **Business**: Git submodule (`./extensions/business`) - proprietary features (billing, BaaS, reseller, AI publisher)
-- **System**: Git submodule (`./extensions/system`) - node lifecycle, module CRUD, fleet autonomy, on-node Go agent, initramfs, CLI. **Public on GitHub** (MIT) at `nodealchemy/powernode-system`, private on Gitea. Mounted as a submodule of this repo since 2026-05-02.
-- **Database**: PostgreSQL with native UUID schema
-- **Payments**: Stripe, PayPal with PCI compliance (business only)
+**Powernode** is the control plane for production AI agent fleets — knowledge graph,
+governance, swarm coordination, MCP-native runtime, and the fleet substrate
+(bare-metal / VM / container lifecycle) underneath. Open-source under MIT.
+
+- **Backend**: Rails 8 API (`./server`) — JWT auth, UUIDv7 primary keys, 525+ MCP tool actions across 60 classes
+- **Frontend**: React TypeScript (`./frontend`) — theme-aware, Tailwind CSS
+- **Worker**: Sidekiq standalone (`./worker`) — API-only communication
+- **System**: Git submodule (`./extensions/system`) — node lifecycle, module CRUD, fleet autonomy, on-node Go agent, initramfs, SDWAN, federation. **Public on GitHub** (MIT) at `nodealchemy/powernode-system`, private on Gitea.
+- **Marketing**: Git submodule (`./extensions/marketing`) — public-facing site + campaign management. **Public on GitHub** (MIT) at `nodealchemy/powernode-marketing`.
+- **Supply chain**: Git submodule (`./extensions/supply-chain`) — SBOM + cosign + attestations. **Public on GitHub** (MIT) at `nodealchemy/powernode-supply-chain`.
+- **Database**: PostgreSQL with native UUID schema + pgvector for embeddings
+
+Additional private submodules (added manually by maintainers; not in the public repo) provide SaaS features. The platform runs in **core mode** when those aren't present — single-user self-hosted with all core capabilities unlocked.
 
 **Project Status**: See [docs/TODO.md](docs/TODO.md) (auto-generated from shared knowledge — do not edit manually)
 
 ### Core Models
 ```
-Account → User (many), Subscription (one)
-Subscription → Plan, Payments, Invoices
+Account → User (many), Agent (many), Skill (many)
 User → Roles, Permissions, Invitations
+Agent → Conversations, Tasks, Goals, ApprovalRequests
 ```
 
 ---

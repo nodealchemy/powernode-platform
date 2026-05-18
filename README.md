@@ -10,8 +10,9 @@ It's the full operational substrate underneath: authentication, permissions, mul
 
 - **AI Agent Orchestration** — Deploy agents with trust scoring, autonomy tiers, and 5 team strategies. Kill switch, goal tracking, proposals, escalations, and behavioral fingerprinting keep agents operating within defined boundaries.
 - **Multi-Provider LLM Routing** — 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere), 145+ models, cost-optimized selection with per-agent budgets and ROI tracking.
-- **Knowledge Infrastructure** — GraphRAG over 1,190+ nodes and 1,670+ edges, 4-tier memory system (working → STM → LTM → shared), compound learning with decay and reinforcement, RAG pipeline with pgvector embeddings and 3-round agentic retrieval.
-- **MCP-Native Platform** — 431 tool actions across 57 tool classes spanning knowledge, memory, skills, autonomy, DevOps, Docker, and content management. Full A2A protocol support for agent-to-agent communication.
+- **Knowledge Infrastructure** — GraphRAG over 91,000+ nodes and 81,000+ edges, 4-tier memory system (working → STM → LTM → shared), compound learning with decay and reinforcement, RAG pipeline with pgvector embeddings and 3-round agentic retrieval.
+- **MCP-Native Platform** — 525 tool actions across 60 tool classes spanning knowledge, memory, skills, autonomy, DevOps, Docker, codebase intelligence, and content management. Full A2A protocol support for agent-to-agent communication.
+- **Fleet Substrate** — Bare-metal, VM, and container lifecycle via the System extension. Multi-arch initramfs (amd64 + arm64), composefs + fs-verity rootfs, Cosign + SLSA L3+ signed module supply chain, instance pools, SDWAN overlay with iBGP/FRR + virtual IPs + federation peering.
 - **DevOps Automation** — CI/CD pipelines with 13 step types (including AI-powered), Docker Swarm orchestration, multi-provider Git integration (GitHub, GitLab, Gitea), supply chain security with SBOM generation.
 - **Production Foundation** — 543+ granular permissions, 17 WebSocket channels, JWT + OAuth 2.0 authentication, and 20,600+ tests across backend, frontend, and E2E.
 

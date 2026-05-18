@@ -1,7 +1,7 @@
 {
   "name": "powernode-platform",
   "version": "0.3.1",
-  "description": "Subscription management platform with Rails 8 API and React TypeScript frontend",
+  "description": "Open-source mission control for AI agent fleets — chat to provision, agents to operate, humans to approve. Knowledge graph, governance, swarm coordination, MCP-native runtime, and the underlying fleet substrate.",
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
@@ -39,16 +39,19 @@
     "npm": ">=8.0.0"
   },
   "keywords": [
-    "subscription",
-    "billing",
+    "ai-agents",
+    "agent-orchestration",
+    "knowledge-graph",
+    "mcp",
+    "model-context-protocol",
+    "fleet-management",
+    "sdwan",
     "rails",
     "react",
-    "typescript",
-    "stripe",
-    "paypal"
+    "typescript"
   ],
   "author": "Everett C. Haimes III",
-  "license": "GPL-3.0-or-later",
+  "license": "MIT",
   "dependencies": {
     "ws": "^8.18.3"
   }
