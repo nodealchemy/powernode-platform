@@ -162,54 +162,73 @@ RSpec.describe Reports::GenerateReportJob, type: :job do
         allow(api_client).to receive(:complete_report_request).and_return(true)
       end
 
-      context 'JSON format' do
-        let(:report_request) { super().merge('format' => 'json') }
-
-        it 'generates JSON report' do
-          expect(job).to receive(:generate_json_report).and_call_original
-
-          job.execute(report_request_id)
-        end
-      end
-
       context 'PDF format' do
         let(:report_request) { super().merge('format' => 'pdf') }
 
         before do
-          # Mock Prawn to avoid complex PDF generation in tests
           allow(job).to receive(:generate_pdf_report).and_return('PDF content')
         end
 
         it 'generates PDF report' do
           expect(job).to receive(:generate_pdf_report)
-
-          job.execute(report_request_id)
-        end
-      end
-
-      context 'XLSX format' do
-        let(:report_request) { super().merge('format' => 'xlsx') }
-
-        before do
-          # Mock caxlsx to avoid complex Excel generation in tests
-          allow(job).to receive(:generate_xlsx_report).and_return('XLSX content')
-        end
-
-        it 'generates XLSX report' do
-          expect(job).to receive(:generate_xlsx_report)
-
           job.execute(report_request_id)
         end
       end
 
       context 'unsupported format' do
-        let(:report_request) { super().merge('format' => 'html') }
+        let(:report_request) { super().merge('format' => 'xlsx') }
 
         it 'raises error for unsupported format' do
           expect(api_client).to receive(:fail_report_request)
-
           expect { job.execute(report_request_id) }.to raise_error(/Unsupported format/)
         end
+      end
+    end
+
+    context 'when delivery_method is email' do
+      let(:recipients) { %w[ops@example.com alerts@example.com] }
+      let(:report_request) do
+        {
+          'id' => report_request_id,
+          'name' => 'Revenue Report Q1',
+          'type' => 'revenue_analytics',
+          'report_type' => 'revenue_analytics',
+          'format' => 'pdf',
+          'account_id' => account_id,
+          'user_id' => 'user-789',
+          'parameters' => {
+            'date_range' => 'last_30_days',
+            'delivery_method' => 'email',
+            'recipients' => recipients
+          }
+        }
+      end
+
+      before do
+        allow(api_client).to receive(:get_report_request).and_return(report_request)
+        allow(api_client).to receive(:update_report_request_status).and_return(true)
+        allow(api_client).to receive(:complete_report_request).and_return(true)
+        allow(job).to receive(:generate_pdf_report).and_return('PDF bytes')
+      end
+
+      it 'enqueues an EmailDeliveryJob for each recipient with the PDF attached' do
+        recipients.each do |recipient|
+          expect(Notifications::EmailDeliveryJob).to receive(:perform_async).with(
+            hash_including(
+              'to' => recipient,
+              'email_type' => 'report_delivery',
+              'attachments' => [hash_including('content_type' => 'application/pdf')]
+            )
+          )
+        end
+
+        job.execute(report_request_id)
+      end
+
+      it 'skips email delivery when recipients list is empty' do
+        report_request['parameters']['recipients'] = []
+        expect(Notifications::EmailDeliveryJob).not_to receive(:perform_async)
+        job.execute(report_request_id)
       end
     end
 

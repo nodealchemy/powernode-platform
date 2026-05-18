@@ -6,8 +6,7 @@ require_relative '../base_job'
 # Works with ReportRequest model for tracked report generation
 class Reports::GenerateReportJob < BaseJob
   include Reports::PdfReportConcern
-  include Reports::XlsxReportConcern
-  include Reports::CsvJsonReportConcern
+  include Reports::CsvReportConcern
 
   sidekiq_options queue: 'reports',
                   retry: 2
@@ -51,6 +50,8 @@ class Reports::GenerateReportJob < BaseJob
 
       log_info("Successfully generated report #{report_request_id}")
 
+      deliver_via_email(report_request, file_data, file_path) if email_delivery_requested?(report_request)
+
     rescue StandardError => e
       log_error("Failed to generate report #{report_request_id}: #{e.message}")
 
@@ -74,10 +75,6 @@ class Reports::GenerateReportJob < BaseJob
       generate_pdf_report(report_request)
     when 'csv'
       generate_csv_report(report_request)
-    when 'xlsx'
-      generate_xlsx_report(report_request)
-    when 'json'
-      generate_json_report(report_request)
     else
       raise "Unsupported format: #{report_request['format']}"
     end
@@ -105,5 +102,57 @@ class Reports::GenerateReportJob < BaseJob
   # Build download URL for the generated report
   def build_download_url(report_request_id)
     "#{ENV['BACKEND_API_URL'] || 'http://localhost:3000'}/api/v1/reports/requests/#{report_request_id}/download"
+  end
+
+  def email_delivery_requested?(report_request)
+    parameters = report_request['parameters'] || {}
+    parameters['delivery_method'].to_s == 'email' && Array(parameters['recipients']).any?
+  end
+
+  # Fan out the rendered file to each recipient via the email delivery job.
+  def deliver_via_email(report_request, file_data, file_path)
+    parameters = report_request['parameters'] || {}
+    recipients = Array(parameters['recipients']).compact.uniq
+    return if recipients.empty?
+
+    filename = File.basename(file_path)
+    encoded = Base64.strict_encode64(file_data)
+    content_type = mime_type_for(report_request['format'])
+
+    template_data = {
+      'report_type' => report_request['report_type'],
+      'report_name' => report_request['name'],
+      'period' => parameters['date_range'] || {},
+      'account_id' => report_request['account_id'],
+      'generated_at' => Time.now.iso8601
+    }
+
+    recipients.each do |recipient|
+      Notifications::EmailDeliveryJob.perform_async({
+        'to' => recipient,
+        'subject' => "Report: #{report_request['name']}",
+        'body' => "Your scheduled report '#{report_request['name']}' is attached.",
+        'email_type' => 'report_delivery',
+        'account_id' => report_request['account_id'],
+        'user_id' => report_request['user_id'] || report_request['requested_by_id'],
+        'template' => 'scheduled_report',
+        'template_data' => template_data,
+        'attachments' => [
+          { 'filename' => filename, 'content' => encoded, 'content_type' => content_type }
+        ]
+      })
+    end
+
+    log_info("Dispatched report email to #{recipients.size} recipient(s)", report_request_id: report_request['id'])
+  end
+
+  def mime_type_for(format)
+    case format.to_s.downcase
+    when 'pdf'  then 'application/pdf'
+    when 'csv'  then 'text/csv'
+    when 'xlsx' then 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    when 'json' then 'application/json'
+    else 'application/octet-stream'
+    end
   end
 end

@@ -56,7 +56,8 @@ class BackendApiClient
 
   # Report request management methods
   def get_report_request(request_id)
-    get("/api/v1/reports/requests/#{request_id}")
+    response = get("/api/v1/reports/requests/#{request_id}")
+    response.is_a?(Hash) && response.key?("data") ? response["data"] : response
   end
 
   def update_report_request_status(request_id, status)
@@ -81,15 +82,18 @@ class BackendApiClient
     })
   end
 
-  # Get report data for generation
+  # Fetch analytics data for report generation.
+  # The /analytics/export endpoint returns { csv_data:, filename: } for CSV
+  # consumers. We unwrap the API envelope so concerns can use the inner hash.
   def get_report_data(report_type, account_id = nil, parameters = {})
     params = {
       report_type: report_type,
       parameters: parameters
     }
     params[:account_id] = account_id if account_id
-    
-    get("/api/v1/analytics/export", params)
+
+    response = get("/api/v1/analytics/export", params)
+    response.is_a?(Hash) && response.key?("data") ? response["data"] : response
   end
 
   # Service authentication verification
