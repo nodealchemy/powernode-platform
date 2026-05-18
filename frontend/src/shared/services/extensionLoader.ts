@@ -16,11 +16,21 @@ interface ExtensionManifest {
   };
 }
 
-// Build-time glob discovery of extension register modules and manifests
-// Path goes up 4 levels: services/ → shared/ → src/ → frontend/ → project root
+// Build-time glob discovery of extension register modules + manifests.
+// Path goes up 4 levels: services/ → shared/ → src/ → frontend/ → project root.
+//
+// `eager: true` for both globs means Vite inlines the modules into the main
+// bundle at build time, so they're available synchronously at import time.
+// This is critical for routing: the marketing extension's register()
+// populates featureRegistry with public routes like /features and /pricing.
+// If extensions registered asynchronously (eager: false + dynamic import in
+// useEffect), App.tsx's first render would see an empty registry, and the
+// catch-all `*` route would redirect /features → / → /welcome before the
+// async register finished — breaking every direct/social link to /features.
+// Synchronous module-load registration eliminates that race entirely.
 const registerModules = import.meta.glob<ExtensionModule>(
   '../../../../extensions/*/frontend/src/register.ts',
-  { eager: false }
+  { eager: true }
 );
 
 const manifestModules = import.meta.glob<{ default: ExtensionManifest }>(
@@ -29,26 +39,28 @@ const manifestModules = import.meta.glob<{ default: ExtensionManifest }>(
 );
 
 const loaded = new Map<string, ExtensionManifest>();
-let extensionsLoaded = false;
+let extensionsRegistered = false;
 
 /**
- * Discover and load all extensions found at build time.
- * Each extension must export a `register()` function from `frontend/src/register.ts`.
- * Idempotent — safe to call multiple times (React StrictMode double-fires effects).
+ * Iterates all discovered extension register modules and invokes register()
+ * for each. Runs synchronously at module import time so featureRegistry is
+ * populated before App.tsx renders.
  *
  * Slugs listed in `__DISABLED_EXTENSIONS__` (build-time constant from
- * config/extensions_state.json) are skipped. The corresponding register modules
- * are also stubbed at build time by the `disabled-extensions-stub` Vite plugin,
- * so calling them is safe — the skip here is defense in depth and keeps the
- * `loaded` map honest.
+ * config/extensions_state.json) are skipped. The corresponding register
+ * modules are also stubbed at build time by the `disabled-extensions-stub`
+ * Vite plugin, so calling them is safe — the skip here is defense in depth
+ * and keeps the `loaded` map honest.
+ *
+ * Idempotent — guarded against re-execution.
  */
-export async function loadAllExtensions(): Promise<void> {
-  if (extensionsLoaded) return;
-  extensionsLoaded = true;
+function registerAllExtensions(): void {
+  if (extensionsRegistered) return;
+  extensionsRegistered = true;
 
   const disabled = typeof __DISABLED_EXTENSIONS__ !== 'undefined' ? __DISABLED_EXTENSIONS__ : [];
 
-  for (const [modulePath, loader] of Object.entries(registerModules)) {
+  for (const [modulePath, mod] of Object.entries(registerModules)) {
     // Extract slug from path: ../../../../extensions/{slug}/frontend/src/register.ts
     const parts = modulePath.split('/');
     const slug = parts[5];
@@ -59,7 +71,6 @@ export async function loadAllExtensions(): Promise<void> {
     }
 
     try {
-      const mod = await loader();
       mod.register();
 
       // Load manifest if available
@@ -82,6 +93,19 @@ export async function loadAllExtensions(): Promise<void> {
       logger.error(`Failed to load extension "${slug}":`, err);
     }
   }
+}
+
+// Register at module import time — before any consumer (App.tsx) renders.
+// This is the line that fixes the catch-all-redirect race.
+registerAllExtensions();
+
+/**
+ * Backward-compatible no-op kept so existing callers that do
+ * `await loadAllExtensions()` continue to compile. The actual registration
+ * happens at module load above (see {@link registerAllExtensions}).
+ */
+export async function loadAllExtensions(): Promise<void> {
+  // No-op: extensions are registered synchronously at module import.
 }
 
 /** Check if a specific extension is loaded */
