@@ -336,7 +336,7 @@ export const LoginPage: React.FC = () => {
 
                 <div className="mt-6 text-center">
                   <Link
-                    to="/plans"
+                    to="/pricing"
                     className="btn-theme btn-theme-secondary w-full inline-flex justify-center items-center space-x-2 py-3 px-4 border border-theme rounded-xl text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
                   >
                     <span>Create your account</span>

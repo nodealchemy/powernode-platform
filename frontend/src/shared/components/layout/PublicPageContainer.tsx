@@ -154,7 +154,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                     Sign in
                   </Link>
                   <Link
-                    to="/plans"
+                    to="/pricing"
                     className="inline-flex items-center space-x-2 px-4 py-2 md:px-6 md:py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-lg md:rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl text-sm"
                   >
                     <span>Get Started</span>
@@ -324,14 +324,24 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 <h4 className="text-theme-primary font-semibold mb-6">Support</h4>
                 <ul className="space-y-4">
                   <li>
-                    <Link to="/pages/help" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-help-center">
-                      Help Center
-                    </Link>
+                    <a
+                      href="https://github.com/nodealchemy/powernode-platform/tree/develop/docs"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm"
+                      data-testid="footer-help-center"
+                    >
+                      Documentation
+                    </a>
                   </li>
                   <li>
-                    <Link to="/pages/contact" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-contact">
+                    <a
+                      href="mailto:contact@nodealchemy.com"
+                      className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm"
+                      data-testid="footer-contact"
+                    >
                       Contact Us
-                    </Link>
+                    </a>
                   </li>
                   <li>
                     <Link to="/status" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-status">
@@ -346,12 +356,15 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 <h4 className="text-theme-primary font-semibold mb-6">Company</h4>
                 <ul className="space-y-4">
                   <li>
-                    <Link to="/pages/about" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-about">
-                      About Us
-                    </Link>
-                  </li>
-                  <li>
-                    <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">Careers</span>
+                    <a
+                      href="https://github.com/nodealchemy/powernode-platform"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm"
+                      data-testid="footer-github"
+                    >
+                      GitHub
+                    </a>
                   </li>
                   <li>
                     <Link to="/blog" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-blog">
@@ -368,14 +381,6 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
             <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
               <div className="flex flex-wrap items-center gap-6 text-sm text-theme-tertiary">
                 <span>© {footerData?.copyright_year || new Date().getFullYear()} {footerData?.copyright_text || 'Everett C. Haimes III. All rights reserved.'}</span>
-                <div className="flex items-center space-x-6">
-                  <Link to="/pages/privacy" className="text-theme-tertiary hover:text-theme-primary transition-colors duration-200" data-testid="footer-privacy">
-                    Privacy Policy
-                  </Link>
-                  <Link to="/pages/terms" className="text-theme-tertiary hover:text-theme-primary transition-colors duration-200" data-testid="footer-terms">
-                    Terms of Service
-                  </Link>
-                </div>
               </div>
 
               <div className="flex items-center space-x-6">

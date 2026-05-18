@@ -52,13 +52,21 @@ export const UnauthorizedPage: React.FC = () => {
         {/* Help Text */}
         <p className="mt-8 text-sm text-theme-tertiary">
           Need access?{' '}
-          <Link to="/pages/contact" className="text-theme-link hover:text-theme-link-hover underline">
-            Contact your administrator
-          </Link>{' '}
+          <a
+            href="mailto:support@nodealchemy.com"
+            className="text-theme-link hover:text-theme-link-hover underline"
+          >
+            Contact support
+          </a>{' '}
           or{' '}
-          <Link to="/pages/help" className="text-theme-link hover:text-theme-link-hover underline">
-            visit our Help Center
-          </Link>
+          <a
+            href="https://github.com/nodealchemy/powernode-platform/tree/develop/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-theme-link hover:text-theme-link-hover underline"
+          >
+            read the docs
+          </a>
         </p>
       </div>
     </div>

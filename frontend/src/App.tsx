@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer } from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -26,9 +26,6 @@ import { LoginPage } from '@/pages/public/LoginPage';
 const RegisterPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('business'))
   ? React.lazy(() => import('@ext/business/pages/public/RegisterPage'))
   : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Registration is available in Business edition.');
-const PlanSelectionPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('business'))
-  ? React.lazy(() => import('@ext/business/pages/public/PlanSelectionPage'))
-  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Plan selection is available in Business edition.');
 import { DashboardPage } from '@/pages/app/DashboardPage';
 import { ForgotPasswordPage } from '@/pages/public/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/public/ResetPasswordPage';
@@ -123,18 +120,16 @@ const AppContent: React.FC = () => {
   const [showAuthFallback, setShowAuthFallback] = React.useState(false);
   const initializingRef = React.useRef(false); // Prevent double initialization
 
-  // Load all discovered extensions
+  // Extension registration happens synchronously at module import time
+  // (see frontend/src/shared/services/extensionLoader.ts). By the time
+  // this component renders, featureRegistry is already populated, so
+  // there's no need to gate route resolution or subscribe for re-renders.
+  // The loadAllExtensions() call below is a backward-compat no-op kept
+  // in case future async loading is re-introduced.
   useEffect(() => {
     loadAllExtensions().catch(() => {
       // Extension loading failure is non-fatal
     });
-  }, []);
-
-  // Re-render when featureRegistry changes so extension-registered public
-  // marketing routes appear as soon as extensions finish loading.
-  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-  useEffect(() => {
-    return featureRegistry.subscribe(() => forceUpdate());
   }, []);
 
   // Auth initialization with proper dependencies to prevent double execution
@@ -283,21 +278,7 @@ const AppContent: React.FC = () => {
             />
           ))}
 
-          {/* Public routes */}
-          <Route
-            path="/plans"
-            element={
-              <PublicRoute>
-                <React.Suspense fallback={<LoadingSpinner message="Loading..." />}>
-                  <PlanSelectionPage />
-                </React.Suspense>
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/pricing"
-            element={<Navigate to="/plans" replace />}
-          />
+          {/* Public routes — /pricing is owned by the business extension's PricingPage */}
           <Route
             path="/login"
             element={
