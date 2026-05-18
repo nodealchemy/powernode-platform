@@ -28,6 +28,14 @@ const VIEWPORT = { width: 1920, height: 1080 };
 const ADMIN_EMAIL = process.env.POWERNODE_ADMIN_EMAIL || 'admin@powernode.org';
 const ADMIN_PASSWORD = process.env.POWERNODE_ADMIN_PASSWORD || 'Fwhf7j-v5z92HL0OZqPRVq_1';
 
+// Demo Company user — used for KG + AI Agents captures because the dev
+// admin account has trading-extension data that would leak into the
+// public marketing site per feedback_no_private_extension_names_in_public_docs.
+// Demo Company is a clean account seeded by
+// extensions/marketing/server/db/seeds/marketing_demo_data_seed.rb.
+const DEMO_EMAIL = process.env.POWERNODE_DEMO_EMAIL || 'demo@powernode.org';
+const DEMO_PASSWORD = process.env.POWERNODE_DEMO_PASSWORD || 'Fwhf7j-v5z92HL0OZqPRVq_1';
+
 // Marketing pages first (no auth, SPA-navigated — see notes), then
 // operator UX (auth required, full page.goto)
 //
@@ -43,30 +51,44 @@ const CAPTURES = [
   { slug: 'marketing-homepage', url: '/', settle: 3000, spa: true },
   { slug: 'marketing-features', url: '/features', settle: 2000, spa: true },
   { slug: 'marketing-pricing', url: '/pricing', settle: 2000, spa: true },
-  { slug: 'fleet-dashboard', url: '/app/system/fleet', auth: true, settle: 3000 },
-  { slug: 'template-composer', url: '/app/system/templates/compose', auth: true, settle: 3000 },
-  { slug: 'sdwan-overview', url: '/app/system/sdwan', auth: true, settle: 3000 },
-  // NOTE: /app/ai/knowledge and /app/ai/agents intentionally NOT captured
-  // here — the dev DB contains trading-extension data (e.g.
-  // "Trading Session Analyst Experiential Memory", "Daily P&L Coordinator")
-  // that would leak the private trading extension into the public
-  // marketing site. Re-add only after the captures are reviewed for
-  // private-extension leaks per feedback_no_private_extension_names_in_public_docs.
+  { slug: 'fleet-dashboard', url: '/app/system/fleet', auth: 'admin', settle: 3000 },
+  { slug: 'template-composer', url: '/app/system/templates/compose', auth: 'admin', settle: 3000 },
+  { slug: 'sdwan-overview', url: '/app/system/sdwan', auth: 'admin', settle: 3000 },
+  // Demo Company captures (clean account, no trading leak) for the AI
+  // operator UX surfaces. Captured AFTER admin captures since each
+  // login uses the current page context.
+  { slug: 'ai-agents', url: '/app/ai/agents', auth: 'demo', settle: 3000 },
+  { slug: 'ai-knowledge', url: '/app/ai/knowledge', auth: 'demo', settle: 3000 },
 ];
 
-async function login(page) {
-  console.log(`  → logging in as ${ADMIN_EMAIL}`);
+async function login(page, asUser /* 'admin' | 'demo' */) {
+  const creds = asUser === 'demo'
+    ? { email: DEMO_EMAIL, password: DEMO_PASSWORD }
+    : { email: ADMIN_EMAIL, password: ADMIN_PASSWORD };
+  console.log(`  → logging in as ${creds.email}`);
+
+  // First log out to be safe if we're switching users
   await page.goto(`${BASE}/login`);
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+
+  // If already logged in, /login may redirect away — go again with explicit logout
+  if (!page.url().includes('/login')) {
+    console.log(`  → already authenticated; clearing session for switch`);
+    await page.context().clearCookies();
+    await page.evaluate(() => {
+      try { localStorage.clear(); sessionStorage.clear(); } catch (_) {}
+    });
+    await page.goto(`${BASE}/login`);
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+  }
 
   const emailSel = 'input[type="email"], input[name="email"]';
   const passSel = 'input[type="password"], input[name="password"]';
   await page.waitForSelector(emailSel, { timeout: 10000 });
-  await page.fill(emailSel, ADMIN_EMAIL);
-  await page.fill(passSel, ADMIN_PASSWORD);
+  await page.fill(emailSel, creds.email);
+  await page.fill(passSel, creds.password);
 
   await page.click('button[type="submit"]');
-  // Wait until we navigate off /login
   await page.waitForFunction(() => !window.location.pathname.startsWith('/login'),
     { timeout: 20000 }).catch(() => {});
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
@@ -99,14 +121,14 @@ async function login(page) {
     .catch(() => console.log('  (warm-up: marketing link not detected — proceeding anyway)'));
   await page.waitForTimeout(2000);
 
-  let authed = false;
+  let currentUser = null;
   const results = [];
 
   for (const c of CAPTURES) {
     try {
-      if (c.auth && !authed) {
-        await login(page);
-        authed = true;
+      if (c.auth && c.auth !== currentUser) {
+        await login(page, c.auth);
+        currentUser = c.auth;
       }
 
       const target = `${BASE}${c.url}`;
