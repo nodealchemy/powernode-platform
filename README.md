@@ -107,7 +107,7 @@ powernode-platform/
 │                          developer, devops, missions, privacy
 ├── worker/              - Sidekiq 7.2 (220+ jobs, 45 services, 4 API clients)
 ├── extensions/          - 4 extensions (business, trading, supply-chain, marketing)
-├── docs/                - 111 documentation files
+├── docs/                - Documentation (see docs/README.md)
 └── scripts/             - 48 automation scripts
 ```
 
@@ -128,7 +128,7 @@ powernode-platform/
 
 ## Quick Start
 
-> For detailed setup instructions, see the **[Quick Start Guide](docs/QUICKSTART.md)**.
+> For detailed setup instructions, see the **[Quick Start Guide](docs/getting-started/01-quickstart.md)**.
 
 ```bash
 # 1. Install dependencies
@@ -158,82 +158,45 @@ Services:
 
 ## Documentation
 
-### Getting Started
-- **[Development Guide](docs/DEVELOPMENT.md)** - Architecture, namespaces, setup
-- **[Quick Start](docs/QUICKSTART.md)** - Fast setup guide
-- **[CLAUDE.md](CLAUDE.md)** - Development patterns and rules
-- **[TODO](docs/TODO.md)** - Current status and roadmap (auto-generated from MCP shared knowledge)
+The full documentation lives in **[docs/](docs/)** — start with [docs/README.md](docs/README.md) for the visitor map.
 
-### Backend
-- **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)** - API architecture (Rails 8.1.2, 10 namespaces)
-- **[Data Modeler](docs/backend/DATA_MODELER_SPECIALIST.md)** - Database & ActiveRecord
-- **[Database Schema](docs/backend/DATABASE_SCHEMA_REFERENCE.md)** - 396 tables, namespace reference
-- **[Service Architecture](docs/backend/BACKEND_SERVICE_ARCHITECTURE.md)** - 634 services, 22 namespaces
-- **[Background Jobs](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)** - Job patterns
-- **[Payment Integration](docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md)** - Stripe/PayPal
+### Common entry points
 
-### Frontend
-- **[React Architect](docs/frontend/REACT_ARCHITECT_SPECIALIST.md)** - React 19.1, Vite 7.2, Tailwind v4.1
-- **[State Management](docs/frontend/STATE_MANAGEMENT_GUIDE.md)** - Redux Toolkit + React Query
-- **[UI Components](docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md)** - Design system
-- **[Dashboard](docs/frontend/DASHBOARD_SPECIALIST.md)** - Analytics & charts
-- **[WebSocket Integration](docs/frontend/WEBSOCKET_INTEGRATION.md)** - Real-time patterns
+- **[Quick Start](docs/getting-started/01-quickstart.md)** — run it locally in 10 minutes
+- **[Ship your first agent](docs/getting-started/02-first-agent.md)** — first deployment walkthrough
+- **[Architecture](docs/concepts/architecture.md)** — system shape, namespaces, service boundaries
+- **[Agents & autonomy](docs/concepts/agents-and-autonomy.md)** — agent orchestration, missions, model routing, autonomy tiers
+- **[MCP & tools](docs/concepts/mcp-and-tools.md)** — MCP protocol, OAuth, tool catalog conventions
+- **[Knowledge & memory](docs/concepts/knowledge-and-memory.md)** — knowledge graph, RAG, 4-tier memory, skills
+- **[Permissions](docs/concepts/permissions.md)** — 543+ permissions, role mapping, frontend rules
+- **[Data model](docs/concepts/data-model.md)** — UUIDv7 + namespaces + schema conventions
+- **[Chat & realtime](docs/concepts/chat-and-realtime.md)** — 17 ActionCable channels, multi-platform chat
+- **[Cost & FinOps](docs/concepts/cost-and-finops.md)** — provider pricing, budgets, ROI
 
-### AI Platform
-- **[AI Orchestration Guide](docs/platform/AI_ORCHESTRATION_GUIDE.md)** - Complete AI system overview
-- **[AI API Reference](docs/platform/AI_ORCHESTRATION_API_REFERENCE.md)** - 73 AI controllers
-- **[Code Factory](docs/platform/CODE_FACTORY_GUIDE.md)** - PRD generation, code review
-- **[Ralph Loops](docs/platform/RALPH_LOOPS_GUIDE.md)** - Recursive agent learning
-- **[Missions](docs/platform/MISSIONS_GUIDE.md)** - Mission pipeline, 12 phases
-- **[Model Router](docs/platform/MODEL_ROUTER_GUIDE.md)** - Cost-optimized routing
-- **[Agent Autonomy](docs/platform/AGENT_AUTONOMY_GUIDE.md)** - Kill switch, goals, proposals, escalations, feedback, intervention policies
-- **[Memory System](docs/platform/MEMORY_SYSTEM_ARCHITECTURE.md)** - 4-tier memory architecture
-- **[Security Guardrails](docs/platform/AI_SECURITY_GUARDRAILS.md)** - Behavioral fingerprinting
-- **[RAG System](docs/platform/RAG_SYSTEM_GUIDE.md)** - Knowledge bases, hybrid search
-- **[Skill Graph](docs/platform/SKILL_GRAPH_REFERENCE.md)** - Skills registry, gap detection
-- **[Cost Attribution](docs/platform/COST_ATTRIBUTION_SYSTEM.md)** - FinOps, budgets, ROI
-- **[Provider Routing](docs/platform/AI_PROVIDER_ROUTING.md)** - Multi-provider management
-- **[AI Operations](docs/platform/AI_ORCHESTRATION_OPERATIONS.md)** - Monitoring, incident runbooks
+### By task
 
-### DevOps & Infrastructure
-- **[DevOps Platform](docs/platform/DEVOPS_PLATFORM_GUIDE.md)** - 43 models, pipelines, containers, Swarm
-- **[Docker Swarm](docs/infrastructure/DOCKER_SWARM_OPERATIONS.md)** - Cluster operations
-- **[Docker Deployment](docs/infrastructure/DOCKER_DEPLOYMENT.md)** - Container setup
-- **[Configuration](docs/infrastructure/CONFIGURATION_MANAGEMENT.md)** - Env vars, secrets
-- **[Scripts Reference](docs/infrastructure/SCRIPTS_REFERENCE.md)** - 48 automation scripts
-- **[DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md)** - CI/CD specialist
+- **Backend / Frontend / Worker** → [docs/guides/backend.md](docs/guides/backend.md), [docs/guides/frontend.md](docs/guides/frontend.md), [docs/operations/worker-operations.md](docs/operations/worker-operations.md)
+- **DevOps + Docker Swarm + CI/CD** → [docs/guides/devops.md](docs/guides/devops.md), [docs/operations/docker-swarm.md](docs/operations/docker-swarm.md)
+- **Security + supply chain** → [docs/guides/security.md](docs/guides/security.md)
+- **Extensions (business, trading, supply-chain, marketing)** → [docs/guides/extensions.md](docs/guides/extensions.md)
+- **Testing (Backend + Frontend + E2E)** → [docs/guides/testing.md](docs/guides/testing.md), [docs/guides/e2e-testing.md](docs/guides/e2e-testing.md)
+- **Production operations** → [docs/operations/production-deployment.md](docs/operations/production-deployment.md), [docs/operations/ai-operations.md](docs/operations/ai-operations.md), [docs/operations/performance-tuning.md](docs/operations/performance-tuning.md)
+- **Contributing** → [docs/contributing/development-setup.md](docs/contributing/development-setup.md), [CONTRIBUTING.md](CONTRIBUTING.md)
 
-### Worker
-- **[Worker Architecture](docs/worker/WORKER_ARCHITECTURE_OVERVIEW.md)** - Isolation, API clients, circuit breakers
-- **[Worker Operations](docs/worker/WORKER_OPERATIONS_GUIDE.md)** - 220+ jobs, 33 queues, scheduling
-- **[CI/CD Architecture](docs/worker/CI_CD_ARCHITECTURE.md)** - Pipeline execution
-- **[File Processing](docs/worker/FILE_PROCESSING_ARCHITECTURE.md)** - File handling subsystem
+### Reference
 
-### Platform References
-- **[Changelog](docs/CHANGELOG.md)** - Release history
-- **[Permission System](docs/platform/PERMISSION_SYSTEM_REFERENCE.md)** - 543+ permissions, 30+ categories
-- **[WebSocket Channels](docs/platform/ACTIONCABLE_CHANNELS_REFERENCE.md)** - 17 channels reference
-- **[Chat System](docs/platform/CHAT_SYSTEM_ARCHITECTURE.md)** - Multi-platform chat
-- **[Content Management](docs/platform/CONTENT_MANAGEMENT_GUIDE.md)** - KB articles, pages, CMS
-- **[Theme System](docs/platform/THEME_SYSTEM_REFERENCE.md)** - Tailwind v4.1 theming
-- **[API Standards](docs/platform/API_RESPONSE_STANDARDS.md)** - API conventions
-- **[UUID System](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 across 340+ models
-- **[MCP Configuration](docs/platform/MCP_CONFIGURATION.md)** - MCP server setup and OAuth
-- **[MCP Tool Catalog](docs/platform/MCP_TOOL_CATALOG.md)** - 431 tool actions across 57 tool classes
-- **[Workflow System](docs/platform/WORKFLOW_SYSTEM_STANDARDS.md)** - Workflow patterns
-- **[Node Executors](docs/backend/NODE_EXECUTOR_REFERENCE.md)** - 35+ workflow node types
+- **[API overview](docs/reference/api/overview.md)** — response standards, conventions
+- **[Database schema](docs/reference/database-schema.md)** — tables + namespace reference
+- **[Theme system](docs/reference/theme-system.md)**, **[Plugin system](docs/reference/plugin-system.md)**, **[Scripts](docs/reference/scripts.md)**
+- **[Node executors](docs/reference/node-executors.md)** — workflow node types
+- **[MCP tools (auto-generated)](docs/reference/auto/mcp-tools.md)** — full action catalog
+- **[Skills / Knowledge / Learnings / Graph (auto-generated)](docs/reference/auto/)**
+- **[TODO (auto-generated)](docs/reference/auto/todo.md)** — current status and roadmap
+- **[Changelog](CHANGELOG.md)** — release history
 
-### Security
-- **[Security Specialist](docs/infrastructure/SECURITY_SPECIALIST.md)** - Security architecture
-- **[Supply Chain Security](docs/platform/SUPPLY_CHAIN_SECURITY.md)** - SBOM, attestations, compliance
+### Development guide for AI assistants
 
-### Testing
-- **[Backend Testing](docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md)** - RSpec strategies
-- **[Frontend Testing](docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md)** - Jest + React Testing Library
-- **[E2E Testing](docs/testing/PLAYWRIGHT_E2E_TESTING.md)** - Playwright patterns
-
-### Business
-- **[Business Overview](extensions/business/README.md)** - Billing, BaaS, reseller, AI publisher
+- **[CLAUDE.md](CLAUDE.md)** — development patterns, MCP-first workflow, conventions
 
 ## Contributing
 
@@ -241,8 +204,8 @@ Powernode follows strict architectural patterns and enforces them through automa
 
 ### Getting Oriented
 1. Read **[CLAUDE.md](CLAUDE.md)** for development guidelines and conventions
-2. Check **[docs/TODO.md](docs/TODO.md)** for current priorities (auto-generated from MCP shared knowledge)
-3. Review the specialist documentation for your area (see [Documentation](#documentation) above)
+2. Check **[docs/reference/auto/todo.md](docs/reference/auto/todo.md)** for current priorities (auto-generated from MCP shared knowledge)
+3. Review the relevant guide or concept doc for your area (see [Documentation](#documentation) above)
 
 ### Branch Strategy
 ```

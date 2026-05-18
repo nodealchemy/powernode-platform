@@ -232,7 +232,7 @@ show_next_steps() {
     echo "   cp frontend/.env.example frontend/.env"
     echo "   # Then edit with actual values"
     echo
-    print_success "See docs/platform/SECURITY_CLEANUP_PLAN.md for complete details"
+    print_success "See docs/guides/security.md for complete details"
 }
 
 # Main execution

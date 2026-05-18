@@ -248,7 +248,7 @@ module Ai
     # === Recipe skill predicates ======================================
     #
     # A recipe skill has `metadata["recipe"]` populated (per the schema in
-    # docs/platform/CONCIERGE_ROUTING_AND_META_SKILLS.md §"Recipe specification").
+    # docs/concepts/agents-and-autonomy.md §"Recipe specification").
     # Recipe skills are dispatched by Ai::SkillRecipeRunner rather than a
     # Ruby executor class — the metadata is the executable artifact.
 

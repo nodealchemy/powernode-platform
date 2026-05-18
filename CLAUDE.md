@@ -18,7 +18,7 @@ governance, swarm coordination, MCP-native runtime, and the fleet substrate
 
 Additional private submodules (added manually by maintainers; not in the public repo) provide SaaS features. The platform runs in **core mode** when those aren't present — single-user self-hosted with all core capabilities unlocked.
 
-**Project Status**: See [docs/TODO.md](docs/TODO.md) (auto-generated from shared knowledge — do not edit manually)
+**Project Status**: See [docs/reference/auto/todo.md](docs/reference/auto/todo.md) (auto-generated from shared knowledge — do not edit manually)
 
 ### Core Models
 ```
@@ -31,7 +31,7 @@ Agent → Conversations, Tasks, Goals, ApprovalRequests
 
 ## Specialists
 
-Use `platform.discover_skills` with a task description to find the right specialist capability. Fallback: [MCP_CONFIGURATION.md](docs/platform/MCP_CONFIGURATION.md).
+Use `platform.discover_skills` with a task description to find the right specialist capability. Fallback: [concepts/mcp-and-tools.md](docs/concepts/mcp-and-tools.md).
 
 ---
 
@@ -229,17 +229,17 @@ cd frontend && CI=true npm test
 
 | Topic | MCP Query | File Fallback |
 |-------|-----------|---------------|
-| MCP Configuration | `platform.discover_skills` | [MCP_CONFIGURATION.md](docs/platform/MCP_CONFIGURATION.md) |
-| Permission System | `platform.search_knowledge` query: "permission system" | [PERMISSION_SYSTEM_REFERENCE.md](docs/platform/PERMISSION_SYSTEM_REFERENCE.md) |
-| Theme System | `platform.search_knowledge` query: "theme system" | [THEME_SYSTEM_REFERENCE.md](docs/platform/THEME_SYSTEM_REFERENCE.md) |
-| API Standards | `platform.search_knowledge` query: "API response standards" | [API_RESPONSE_STANDARDS.md](docs/platform/API_RESPONSE_STANDARDS.md) |
-| UUID System | `platform.search_knowledge` query: "UUID system" | [UUID_SYSTEM_IMPLEMENTATION.md](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md) |
-| Architecture | `platform.search_knowledge_graph` query: "platform architecture" | [DEVELOPMENT.md](docs/DEVELOPMENT.md) |
-| Codebase Structure | `platform.code_context_tree` / `platform.code_semantic_search` | [MCP_TOOL_CATALOG.md](docs/platform/MCP_TOOL_CATALOG.md) |
-| Learnings & Patterns | `platform.query_learnings` | [LEARNINGS.md](docs/platform/knowledge/LEARNINGS.md) |
-| Shared Knowledge | `platform.search_knowledge` | [KNOWLEDGE.md](docs/platform/knowledge/KNOWLEDGE.md) |
-| Skills Registry | `platform.discover_skills` | [SKILLS.md](docs/platform/knowledge/SKILLS.md) |
-| Knowledge Graph | `platform.search_knowledge_graph` | [GRAPH.md](docs/platform/knowledge/GRAPH.md) |
+| MCP Configuration | `platform.discover_skills` | [concepts/mcp-and-tools.md](docs/concepts/mcp-and-tools.md) |
+| Permission System | `platform.search_knowledge` query: "permission system" | [concepts/permissions.md](docs/concepts/permissions.md) |
+| Theme System | `platform.search_knowledge` query: "theme system" | [reference/theme-system.md](docs/reference/theme-system.md) |
+| API Standards | `platform.search_knowledge` query: "API response standards" | [reference/api/overview.md](docs/reference/api/overview.md) |
+| UUID System | `platform.search_knowledge` query: "UUID system" | [concepts/data-model.md](docs/concepts/data-model.md) |
+| Architecture | `platform.search_knowledge_graph` query: "platform architecture" | [concepts/architecture.md](docs/concepts/architecture.md) |
+| Codebase Structure | `platform.code_context_tree` / `platform.code_semantic_search` | [reference/auto/mcp-tools.md](docs/reference/auto/mcp-tools.md) |
+| Learnings & Patterns | `platform.query_learnings` | [reference/auto/learnings.md](docs/reference/auto/learnings.md) |
+| Shared Knowledge | `platform.search_knowledge` | [reference/auto/knowledge-base.md](docs/reference/auto/knowledge-base.md) |
+| Skills Registry | `platform.discover_skills` | [reference/auto/skills.md](docs/reference/auto/skills.md) |
+| Knowledge Graph | `platform.search_knowledge_graph` | [reference/auto/knowledge-graph.md](docs/reference/auto/knowledge-graph.md) |
 
 ---
 
@@ -309,7 +309,7 @@ Claude Code invokes `platform.*` tools directly via the streamable-http MCP serv
 
 ## MCP Tool Catalog
 
-All `platform.*` tools organized by development task. Full parameter docs: [MCP_TOOL_CATALOG.md](docs/platform/MCP_TOOL_CATALOG.md).
+All `platform.*` tools organized by development task. Full parameter docs: [reference/auto/mcp-tools.md](docs/reference/auto/mcp-tools.md).
 
 ### Discovery & Context (10 tools)
 | Tool | Description |
@@ -568,15 +568,15 @@ The platform runs automated maintenance (see `worker/config/sidekiq.yml`). Claud
 ## Tool Evolution
 
 All `platform.*` tools are defined in `server/app/services/ai/tools/platform_api_tool_registry.rb`.
-When tools are added/modified, run `cd server && rails mcp:generate_tool_catalog` to regenerate `docs/platform/MCP_TOOL_CATALOG.md`.
-When MCP knowledge is updated significantly, run `cd server && rails mcp:sync_docs` to regenerate fallback docs in `docs/platform/knowledge/`.
+When tools are added/modified, run `cd server && rails mcp:generate_tool_catalog` to regenerate `docs/reference/auto/mcp-tools.md`.
+When MCP knowledge is updated significantly, run `cd server && rails mcp:sync_docs` to regenerate fallback docs in `docs/reference/auto/`.
 Knowledge sync runs automatically daily at 5:30 AM UTC via `AiKnowledgeDocSyncJob`.
 
 ### Adding a New Tool
 1. Create tool class in `server/app/services/ai/tools/`
 2. Add action→class mapping to `PlatformApiToolRegistry::TOOLS`
 3. Add `action_definitions` with descriptions and parameter schemas
-4. Run `rails mcp:generate_tool_catalog` → updates `docs/platform/MCP_TOOL_CATALOG.md`
+4. Run `rails mcp:generate_tool_catalog` → updates `docs/reference/auto/mcp-tools.md`
 5. Update relevant CLAUDE.md component file(s) with the new tool
 6. Create learning: `platform.create_learning` category: `pattern` documenting the new tool
 
@@ -590,12 +590,14 @@ Knowledge sync runs automatically daily at 5:30 AM UTC via `AiKnowledgeDocSyncJo
 ## File Organization
 
 **NEVER save files to project root**. Use:
-- `docs/platform/` - Platform architecture
-- `docs/backend/` - Backend documentation
-- `docs/frontend/` - Frontend documentation
-- `docs/testing/` - Testing documentation
-- `docs/services/` - Service documentation
-- `docs/infrastructure/` - Infrastructure documentation
+- `docs/getting-started/` - Tutorials for first-time users
+- `docs/concepts/` - Architecture, agents, knowledge/memory, permissions, data model, MCP, chat, cost
+- `docs/guides/` - Role-themed how-to (backend, frontend, testing, devops, security, extensions, etc.)
+- `docs/reference/` - API contracts, schema, scripts, theme system, plugin system
+- `docs/reference/auto/` - **Auto-generated** (MCP tools, skills, knowledge graph, learnings) — do not edit
+- `docs/operations/` - Production runbooks (deployment, swarm, AI ops, worker, perf)
+- `docs/contributing/` - Dev setup, conventions, GitHub workflow, doc conventions, release process
+- `docs/history/` - Archived audits and plans
 
 ---
 

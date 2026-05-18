@@ -4,7 +4,7 @@ module Ai
   module Tools
     class ApiReferenceTool < BaseTool
       REQUIRED_PERMISSION = "ai.agents.read"
-      API_REFERENCE_PATH = Rails.root.join("../docs/platform/AI_ORCHESTRATION_API_REFERENCE.md")
+      API_REFERENCE_PATH = Rails.root.join("../docs/reference/api/ai.md")
 
       def self.definition
         {

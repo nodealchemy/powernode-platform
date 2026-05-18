@@ -66,17 +66,15 @@ Query MCP first. Use these files when MCP returns no relevant results:
 
 | When working on | MCP Query | File Fallback |
 |-----------------|-----------|---------------|
-| `app/services/mcp/*` | `platform.search_knowledge` query: "MCP tool" | [MCP_CONFIGURATION.md](../docs/platform/MCP_CONFIGURATION.md) |
-| `app/models/ai/*` | `platform.search_knowledge_graph` query: "AI model" | [AI_ORCHESTRATION_GUIDE.md](../docs/platform/AI_ORCHESTRATION_GUIDE.md) |
-| `app/controllers/api/v1/*` | `platform.search_knowledge` query: "API standards" | [API_RESPONSE_STANDARDS.md](../docs/platform/API_RESPONSE_STANDARDS.md) |
-| `app/services/billing/*` | `platform.search_knowledge` query: "billing engine" | [BILLING_ENGINE_DEVELOPER_SPECIALIST.md](../docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md) |
-| `app/services/payments/*` | `platform.search_knowledge` query: "payment integration" | [PAYMENT_INTEGRATION_SPECIALIST.md](../docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md) |
-| `db/migrate/*` | `platform.search_knowledge` query: "UUID migration" | [UUID_SYSTEM_IMPLEMENTATION.md](../docs/platform/UUID_SYSTEM_IMPLEMENTATION.md) |
-| Permission models/services | `platform.search_knowledge` query: "permission system" | [PERMISSION_SYSTEM_REFERENCE.md](../docs/platform/PERMISSION_SYSTEM_REFERENCE.md) |
+| `app/services/mcp/*` | `platform.search_knowledge` query: "MCP tool" | [concepts/mcp-and-tools.md](../docs/concepts/mcp-and-tools.md) |
+| `app/models/ai/*` | `platform.search_knowledge_graph` query: "AI model" | [concepts/agents-and-autonomy.md](../docs/concepts/agents-and-autonomy.md) |
+| `app/controllers/api/v1/*` | `platform.search_knowledge` query: "API standards" | [reference/api/overview.md](../docs/reference/api/overview.md) |
+| `db/migrate/*` | `platform.search_knowledge` query: "UUID migration" | [concepts/data-model.md](../docs/concepts/data-model.md) |
+| Permission models/services | `platform.search_knowledge` query: "permission system" | [concepts/permissions.md](../docs/concepts/permissions.md) |
 
 ## Backend MCP Tool Reference
 
-All 305 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md](../docs/platform/MCP_TOOL_CATALOG.md) (regenerable via `rails mcp:generate_tool_catalog`).
+All MCP actions grouped by subsystem. Full parameter docs: [reference/auto/mcp-tools.md](../docs/reference/auto/mcp-tools.md) (regenerable via `rails mcp:generate_tool_catalog`).
 
 | Subsystem | Tools (all `platform.*`) |
 |-----------|--------------------------|
@@ -152,9 +150,6 @@ bundle exec rspec spec/path_spec.rb:42           # Run single example
 
 ## Key Specialists
 
-Use `platform.discover_skills` with your task description first. File fallbacks:
+Use `platform.discover_skills` with your task description first. File fallback:
 
-- [Rails Architect](../docs/backend/RAILS_ARCHITECT_SPECIALIST.md)
-- [API Developer](../docs/backend/API_DEVELOPER_SPECIALIST.md)
-- [Data Modeler](../docs/backend/DATA_MODELER_SPECIALIST.md)
-- [Background Job Engineer](../docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)
+- [Backend guide](../docs/guides/backend.md) — Rails architecture, API patterns, data modeling, background jobs

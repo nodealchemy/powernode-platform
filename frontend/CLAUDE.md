@@ -62,18 +62,18 @@ Query MCP first. Use these files when MCP returns no relevant results:
 
 | When working on | MCP Query | File Fallback |
 |-----------------|-----------|---------------|
-| `features/ai/*` | `platform.search_knowledge` query: "AI frontend" | [AI_ORCHESTRATION_GUIDE.md](../docs/platform/AI_ORCHESTRATION_GUIDE.md) |
-| `shared/components/*` | `platform.search_knowledge` query: "UI components" | [UI_COMPONENT_DEVELOPER_SPECIALIST.md](../docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md) |
-| Theme/styling | `platform.search_knowledge` query: "theme system" | [THEME_SYSTEM_REFERENCE.md](../docs/platform/THEME_SYSTEM_REFERENCE.md) |
-| Permission checks | `platform.search_knowledge` query: "permission frontend" | [PERMISSION_SYSTEM_REFERENCE.md](../docs/platform/PERMISSION_SYSTEM_REFERENCE.md) |
-| Forms | `platform.search_knowledge` query: "form patterns" | [FORM_PATTERNS.md](../docs/frontend/FORM_PATTERNS.md) |
-| State management | `platform.query_learnings` query: "state management" | [STATE_MANAGEMENT_GUIDE.md](../docs/frontend/STATE_MANAGEMENT_GUIDE.md) |
-| `features/admin/*` | `platform.search_knowledge` query: "admin panel" | [ADMIN_PANEL_DEVELOPER_SPECIALIST.md](../docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md) |
-| `features/ai/autonomy/*` | `platform.search_knowledge` query: "AI autonomy frontend" | [AGENT_AUTONOMY_GUIDE.md](../docs/platform/AGENT_AUTONOMY_GUIDE.md) |
+| `features/ai/*` | `platform.search_knowledge` query: "AI frontend" | [concepts/agents-and-autonomy.md](../docs/concepts/agents-and-autonomy.md) |
+| `shared/components/*` | `platform.search_knowledge` query: "UI components" | [guides/frontend.md](../docs/guides/frontend.md) |
+| Theme/styling | `platform.search_knowledge` query: "theme system" | [reference/theme-system.md](../docs/reference/theme-system.md) |
+| Permission checks | `platform.search_knowledge` query: "permission frontend" | [concepts/permissions.md](../docs/concepts/permissions.md) |
+| Forms | `platform.search_knowledge` query: "form patterns" | [guides/frontend.md](../docs/guides/frontend.md) |
+| State management | `platform.query_learnings` query: "state management" | [guides/frontend.md](../docs/guides/frontend.md) |
+| `features/admin/*` | `platform.search_knowledge` query: "admin panel" | [guides/frontend.md](../docs/guides/frontend.md) |
+| `features/ai/autonomy/*` | `platform.search_knowledge` query: "AI autonomy frontend" | [concepts/agents-and-autonomy.md](../docs/concepts/agents-and-autonomy.md) |
 
 ## Frontend-Relevant MCP Tools
 
-Scoped to tools useful for frontend development. Full catalog: [MCP_TOOL_CATALOG.md](../docs/platform/MCP_TOOL_CATALOG.md).
+Scoped to tools useful for frontend development. Full catalog: [reference/auto/mcp-tools.md](../docs/reference/auto/mcp-tools.md).
 
 ### Context & Discovery
 | Tool | Use Case |
@@ -113,8 +113,6 @@ Scoped to tools useful for frontend development. Full catalog: [MCP_TOOL_CATALOG
 
 ## Key Specialists
 
-Use `platform.discover_skills` with your task description first. File fallbacks:
+Use `platform.discover_skills` with your task description first. File fallback:
 
-- [React Architect](../docs/frontend/REACT_ARCHITECT_SPECIALIST.md)
-- [UI Components](../docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md)
-- [Dashboard](../docs/frontend/DASHBOARD_SPECIALIST.md)
+- [Frontend guide](../docs/guides/frontend.md) — React architecture, UI components, dashboards, forms, state, plugin UI, WebSocket integration

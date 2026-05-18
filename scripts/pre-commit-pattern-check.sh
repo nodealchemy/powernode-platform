@@ -94,10 +94,9 @@ if [[ $FAILED -eq 1 ]]; then
     echo ""
     echo "Please fix the violations above and try again."
     echo "For pattern documentation, see:"
-    echo "  - docs/platform/PLATFORM_PATTERNS_ANALYSIS.md"
-    echo "  - docs/backend/RAILS_ARCHITECT_SPECIALIST.md"
-    echo "  - docs/frontend/REACT_ARCHITECT_SPECIALIST.md"
-    echo "  - docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md"
+    echo "  - docs/concepts/architecture.md"
+    echo "  - docs/guides/backend.md"
+    echo "  - docs/guides/frontend.md"
     echo ""
     echo "To bypass this check (not recommended): git commit --no-verify"
     exit 1

@@ -2,7 +2,7 @@
 
 module Ai
   # Interprets recipe-skill specs (Ai::Skill.metadata["recipe"]) and dispatches
-  # the declared MCP tool sequence. See docs/platform/CONCIERGE_ROUTING_AND_META_SKILLS.md
+  # the declared MCP tool sequence. See docs/concepts/agents-and-autonomy.md
   # §"Recipe specification" for the spec format.
   #
   # Recipe shape:

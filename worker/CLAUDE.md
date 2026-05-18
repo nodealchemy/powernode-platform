@@ -46,15 +46,14 @@ Query MCP first. Use these files when MCP returns no relevant results:
 
 | When working on | MCP Query | File Fallback |
 |-----------------|-----------|---------------|
-| `app/jobs/*` | `platform.search_knowledge` query: "background jobs" | [BACKGROUND_JOB_ENGINEER_SPECIALIST.md](../docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md) |
-| MCP jobs | `platform.search_knowledge` query: "MCP tools" | [MCP_CONFIGURATION.md](../docs/platform/MCP_CONFIGURATION.md) |
-| Billing jobs | `platform.search_knowledge` query: "billing engine" | [BILLING_ENGINE_DEVELOPER_SPECIALIST.md](../docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md) |
+| `app/jobs/*` | `platform.search_knowledge` query: "background jobs" | [guides/backend.md](../docs/guides/backend.md) |
+| MCP jobs | `platform.search_knowledge` query: "MCP tools" | [concepts/mcp-and-tools.md](../docs/concepts/mcp-and-tools.md) |
 
 ---
 
 ## Worker-Relevant MCP Tools
 
-Scoped to tools workers actually need. Full catalog: [MCP_TOOL_CATALOG.md](../docs/platform/MCP_TOOL_CATALOG.md).
+Scoped to tools workers actually need. Full catalog: [reference/auto/mcp-tools.md](../docs/reference/auto/mcp-tools.md).
 
 ### Job Context & Discovery
 | Tool | Use Case |

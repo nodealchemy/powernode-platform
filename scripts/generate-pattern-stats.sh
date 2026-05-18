@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-OUTPUT_FILE="docs/platform/PATTERN_USAGE_STATISTICS.md"
+OUTPUT_FILE="docs/reference/auto/pattern-usage-statistics.md"
 
 echo -e "${BLUE}Generating Pattern Usage Statistics...${NC}"
 

@@ -243,8 +243,9 @@ fi
 
 echo ""
 echo "For detailed pattern documentation, see:"
-echo "- docs/platform/PLATFORM_PATTERNS_ANALYSIS.md"
-echo "- docs/platform/PLATFORM_STANDARDIZATION_RECOMMENDATIONS.md"
-echo "- Individual MCP specialist documentation in docs/{backend,frontend,testing}/"
+echo "- docs/concepts/architecture.md"
+echo "- docs/guides/backend.md"
+echo "- docs/guides/frontend.md"
+echo "- docs/guides/testing.md"
 
 exit $exit_code

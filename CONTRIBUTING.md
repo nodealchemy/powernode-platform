@@ -113,6 +113,17 @@ Then `journalctl -u powernode-backend@default -f` to tail logs.
 - **[GitHub Discussions](https://github.com/rett/powernode-platform/discussions)** — best for design questions, ideas, "is this approach right?"
 - **[GitHub Security Advisories](https://github.com/rett/powernode-platform/security/advisories/new)** — for private questions or security reports
 
+## Documentation conventions
+
+Powernode's docs follow a few clear rules. See [docs/contributing/doc-conventions.md](docs/contributing/doc-conventions.md) for the full reference.
+
+- **Auto-generated docs** live in `docs/reference/auto/` and carry an `<!-- AUTO-GENERATED -->` header. Never edit them — they are regenerated from platform data.
+- **Archived docs** live in `docs/history/` and carry an `**ARCHIVED**` banner. Audits and historical plans live here.
+- **Active docs** end with a `_Last verified: YYYY-MM-DD_` footer.
+- **Diagrams** use Mermaid fenced code blocks, not ASCII or SVG.
+- **Links** are relative and resolve on disk (see `docs/.verify/check-links.sh` once wired in Wave 4).
+- **Counts** (number of tools, tables, etc.) link to the live source (`docs/reference/auto/mcp-tools.md`) — never inline.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License (see [LICENSE](LICENSE)).
