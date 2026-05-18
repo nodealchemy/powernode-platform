@@ -88,7 +88,8 @@ module Api
         private
 
         def require_webhook_permission
-          return if current_user.has_permission?("webhooks.manage")
+          return if worker_authenticated?
+          return if has_permission?("webhooks.manage")
           render_error("Insufficient permissions", status: :forbidden)
         end
 

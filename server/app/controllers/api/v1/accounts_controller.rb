@@ -91,12 +91,12 @@ class Api::V1::AccountsController < ApplicationController
   def set_account
     @account = current_account
 
-    # Allow access to other accounts only if user has accounts.read permissions
-    if params[:id] != current_account.id && !current_user.has_permission?("accounts.read")
+    # Workers operate cross-account when fetching account data for report generation.
+    if !worker_authenticated? && params[:id] != current_account.id && !has_permission?("accounts.read")
       return render_error("Access denied", status: :forbidden)
     end
 
-    @account = Account.find(params[:id]) if params[:id] != current_account.id
+    @account = Account.find(params[:id]) if params[:id] != current_account&.id
   rescue ActiveRecord::RecordNotFound
     render_error("Account not found", status: :not_found)
   end
