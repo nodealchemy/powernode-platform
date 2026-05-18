@@ -488,7 +488,7 @@ platform.get_skill_context(skill_id: "uuid")
 platform.list_skills(category: "deployment", status: "active")
 ```
 
-See [`reference/auto/skills.md`](../reference/auto/skills.md) for the live skill registry.
+Query the live skill registry via `platform.list_skills` or `platform.discover_skills` — it is account-scoped and reflects current `ai_skills` state. The registry is not committed to git (would churn nightly); a local snapshot can be regenerated with `cd server && bundle exec rails mcp:sync_docs`.
 
 ## Content linking and the knowledge graph
 
@@ -624,12 +624,10 @@ The knowledge, memory, and skill subsystems run on automated maintenance schedul
 
 - [`concepts/agents-and-autonomy.md`](./agents-and-autonomy.md) — how agents use this knowledge
 - [`concepts/mcp-and-tools.md`](./mcp-and-tools.md) — MCP tool surface for memory/knowledge/skills
-- [`reference/auto/knowledge-base.md`](../reference/auto/knowledge-base.md) — live KB content
-- [`reference/auto/knowledge-graph.md`](../reference/auto/knowledge-graph.md) — live KG statistics
-- [`reference/auto/learnings.md`](../reference/auto/learnings.md) — live compound learning registry
-- [`reference/auto/skills.md`](../reference/auto/skills.md) — live skill registry
 - [`guides/backend.md`](../guides/backend.md) — backend implementation patterns
 - [`guides/content-management.md`](../guides/content-management.md) — content authoring workflow
+
+For live, account-scoped registries (KB content, knowledge graph statistics, compound learnings, skills), query MCP directly — these are not committed to git because they churn with normal platform use: `platform.search_knowledge`, `platform.search_knowledge_graph`, `platform.query_learnings`, `platform.list_skills`. A local Markdown snapshot can be produced with `cd server && bundle exec rails mcp:sync_docs`.
 
 ## Materials previously at
 

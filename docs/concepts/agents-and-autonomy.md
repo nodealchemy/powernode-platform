@@ -1097,8 +1097,9 @@ See [`concepts/permissions.md`](./permissions.md) for the full permission system
 - [`concepts/chat-and-realtime.md`](./chat-and-realtime.md) — WebSocket channels for agent events
 - [`reference/api/ai.md`](../reference/api/ai.md) — full AI API endpoint reference
 - [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md) — live MCP tool catalog
-- [`reference/auto/skills.md`](../reference/auto/skills.md) — live skill registry
 - [`guides/backend.md`](../guides/backend.md) — backend implementation patterns
+
+For the live skill registry, query `platform.list_skills` / `platform.discover_skills` — it is account-scoped and not committed to git.
 
 ## Materials previously at
 

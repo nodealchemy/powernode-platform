@@ -18,7 +18,7 @@ Open-source mission control for AI agent fleets.
 | [concepts/](concepts/) | Architecture, agents, knowledge/memory, permissions, data model, MCP, chat/realtime, cost |
 | [guides/](guides/) | Role-themed how-to: backend, frontend, testing, devops, security, extensions, etc. |
 | [reference/](reference/) | API contracts, database schema, scripts, theme system, plugin system |
-| [reference/auto/](reference/auto/) | **Auto-generated** — MCP tools, skills, knowledge graph, learnings (do not edit) |
+| [reference/auto/](reference/auto/) | **Auto-generated** — MCP tool catalog (do not edit; other DB-backed registries are queried live via MCP) |
 | [operations/](operations/) | Production runbooks: deployment, docker swarm, AI ops, worker ops, perf tuning |
 | [contributing/](contributing/) | Dev setup, conventions, GitHub workflow, doc conventions, release process |
 | [history/](history/) | Archived audits and plans — preserved for context |
