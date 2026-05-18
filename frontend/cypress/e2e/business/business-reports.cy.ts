@@ -243,7 +243,7 @@ describe('Business Reports Page Tests', () => {
     });
 
     it('should display format options', () => {
-      cy.assertContainsAny(['PDF', 'CSV', 'XLSX', 'JSON', 'Format']);
+      cy.assertContainsAny(['PDF', 'CSV', 'Format']);
     });
   });
 
