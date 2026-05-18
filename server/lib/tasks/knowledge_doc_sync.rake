@@ -48,7 +48,7 @@ namespace :mcp do
       end
 
       puts ""
-      puts "Output: docs/platform/knowledge/ + extension docs/ + docs/TODO.md"
+      puts "Output: docs/reference/auto/ (platform) + extensions/*/docs/knowledge/ (extension)"
     else
       puts "Sync failed: #{result[:error]}"
       exit 1

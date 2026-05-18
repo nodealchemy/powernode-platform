@@ -1,0 +1,33 @@
+# Auto-generated documentation manifest
+# Each entry describes how a file in docs/reference/auto/ is regenerated.
+# CI (when wired) verifies regeneration produces no drift.
+
+- filename: mcp-tools.md
+  generator: bundle exec rails mcp:generate_tool_catalog
+  source: Ai::Tools::PlatformApiToolRegistry::TOOLS (server/app/services/ai/tools/platform_api_tool_registry.rb)
+  cadence: on-tool-class-change
+
+- filename: skills.md
+  generator: bundle exec rails mcp:sync_docs
+  source: ai_skills table (status=active, enabled=true; capped at 50 entries per scope)
+  cadence: nightly via AiKnowledgeDocSyncJob (5:30 AM UTC)
+
+- filename: knowledge-base.md
+  generator: bundle exec rails mcp:sync_docs
+  source: ai_shared_knowledges table (quality_score >= 0.5; capped at 100 entries per scope)
+  cadence: nightly via AiKnowledgeDocSyncJob (5:30 AM UTC)
+
+- filename: knowledge-graph.md
+  generator: bundle exec rails mcp:sync_docs
+  source: ai_knowledge_graph_nodes + ai_knowledge_graph_edges (active nodes with confidence >= 0.3; 75 nodes / 150 edges)
+  cadence: nightly via AiKnowledgeDocSyncJob (5:30 AM UTC)
+
+- filename: learnings.md
+  generator: bundle exec rails mcp:sync_docs
+  source: ai_compound_learnings table (status IN active/verified, importance >= 0.5 OR confidence >= 0.7; capped at 100 entries per scope)
+  cadence: nightly via AiKnowledgeDocSyncJob (5:30 AM UTC)
+
+- filename: todo.md
+  generator: bundle exec rails mcp:sync_docs
+  source: ai_shared_knowledges table (tagged "todo"; capped at 100 entries; platform-scoped only)
+  cadence: nightly via AiKnowledgeDocSyncJob (5:30 AM UTC)
