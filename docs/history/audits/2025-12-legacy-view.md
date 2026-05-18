@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-01** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # Legacy HAML View Audit — Node & Instance Management
 
 **Purpose:** Compare legacy `powernode-server` HAML views against the System extension's React UI; identify gaps worth porting and patterns to preserve.

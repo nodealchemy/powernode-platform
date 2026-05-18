@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-01** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # Legacy `powernode-server` → System:: Extension Audit
 
 **Date:** 2026-04-29

@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-01** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # Cypress E2E Test Audit Report
 
 **Generated**: January 2026

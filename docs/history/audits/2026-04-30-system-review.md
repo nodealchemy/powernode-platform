@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-03** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # System Extension — High-Level Review & Hardening Plan
 
 **Date:** 2026-04-30

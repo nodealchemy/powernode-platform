@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-01** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # System Extension — Senior-Engineer Audit (2026-04-30)
 
 > **Audit type.** Read-only review. No code changes were made as part of this audit.

@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-01** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # Permission Migration Implementation Checklist
 
 ## Pre-Migration Audit

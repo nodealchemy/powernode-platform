@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-04-18** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

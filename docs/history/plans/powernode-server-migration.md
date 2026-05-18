@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-01** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # Powernode System Migration Plan
 
 **Feature Name**: Powernode System

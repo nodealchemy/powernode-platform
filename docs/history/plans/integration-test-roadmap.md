@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-01** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # Integration Test Improvement Roadmap
 
 **Date**: November 26, 2025

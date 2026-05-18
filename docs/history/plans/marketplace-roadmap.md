@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-03-14** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # Marketplace Implementation Roadmap
 *Based on Audit Findings and Existing Comprehensive Plan*
 

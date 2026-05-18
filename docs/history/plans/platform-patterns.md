@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-17** — Preserved for historical context. Normative patterns extracted to `docs/concepts/architecture.md` during 2026-05-17 doc modernization. See [current docs](../../README.md) for current state.
+
 # Platform Patterns and Standards
 
 **Comprehensive pattern discovery, standardization recommendations, and component guidelines**

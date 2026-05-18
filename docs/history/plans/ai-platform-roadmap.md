@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-04-18** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # AI Agent Orchestration Platform - Implementation Roadmap
 
 **Version**: 1.1 | **Date**: April 2026 | **Status**: Historical Roadmap (Phases 1-4 shipped)

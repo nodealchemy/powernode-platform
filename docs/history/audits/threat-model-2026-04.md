@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-03** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # System Extension — Threat Model
 
 **Status:** Living document. Last revised 2026-05-03.

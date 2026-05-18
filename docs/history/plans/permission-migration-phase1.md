@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-05-01** — Preserved for historical context. See [current docs](../../README.md) for current state.
+
 # Phase 1 Implementation Guide: Permission Mapping & Backend Updates
 
 ## 🎯 **Current Audit Results** 
