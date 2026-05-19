@@ -224,7 +224,7 @@ This walks through adding a fictional report-generation tool with two actions: `
 
 ### Step 1 — define the tool class
 
-Create `server/app/services/ai/tools/example_report_tool.rb`:
+Create a new tool file at `server/app/services/ai/tools/<feature>_tool.rb` (e.g. `example_report_tool.rb` for the walkthrough below):
 
 ```ruby
 # frozen_string_literal: true
@@ -485,7 +485,7 @@ Never use `puts` or `print`. They escape the structured log pipeline and pollute
 Once the action is registered, three surfaces pick it up automatically:
 
 - **Claude Code** — on next session start, the MCP discover handshake calls `PlatformApiToolRegistry.tool_definitions(agent: nil)` and the new action appears in the available-tools list.
-- **In-app agents** — agent executions filter via `concierge_tool_filter` or per-agent `allowed_tools`. Update the relevant agent seed (`server/db/seeds/ai_agents_seed.rb` or the extension's seed file) if you want a specific agent to invoke the new action.
+- **In-app agents** — agent executions filter via `concierge_tool_filter` or per-agent `allowed_tools`. Update the relevant agent seed (e.g. `server/db/seeds/claude_agents_seed.rb`, `extensions/system/server/db/seeds/system_concierge_agent.rb`, or the matching seed for your domain) if you want a specific agent to invoke the new action.
 - **The MCP semantic discovery service** — `platform.discover_skills` ranks tools by embedding similarity. New tools are picked up on the next embedding refresh (nightly via the maintenance schedule); you can force-refresh by re-running the relevant indexer rake task.
 
 There is no separate "publish" step — the registry is the publish surface.
