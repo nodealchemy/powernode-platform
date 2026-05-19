@@ -1,5 +1,13 @@
 # frozen_string_literal: true
 
+# Make this factory self-sufficient in both rspec and rails-runner contexts.
+# RSpec autoloads spec/support/ + the test gems via rails_helper.rb; bare
+# rails-runner code paths (smoke seeds calling FactoryBot.create(:user))
+# don't. Explicit requires let `FactoryBot.create(:user)` work everywhere.
+# Reference: audit discovery 2026-05-18 — sdwan_factories.rb smoke surfaced.
+require_relative "../support/test_users"
+require "faker"
+
 FactoryBot.define do
   factory :user do
     association :account
