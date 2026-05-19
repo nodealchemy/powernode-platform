@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_17_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_18_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10520,6 +10520,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_180000) do
     t.integer "min_size", default: 0, null: false
     t.string "name", null: false
     t.uuid "node_template_id", null: false
+    t.text "preferred_regions", default: [], array: true
     t.uuid "provider_instance_type_id"
     t.uuid "provider_region_id"
     t.string "status", default: "active", null: false
