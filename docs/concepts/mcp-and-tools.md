@@ -16,6 +16,7 @@
 - [Adding a new tool](#adding-a-new-tool)
 - [Tool catalog](#tool-catalog)
 - [Related concepts](#related-concepts)
+- [Extending the Tool Registry](#extending-the-tool-registry)
 - [Materials previously at](#materials-previously-at)
 
 ## What this concept covers
@@ -596,6 +597,53 @@ The live tool catalog — every action, parameter, example, and permission — l
 - [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md) — live tool catalog
 - [`reference/node-executors.md`](../reference/node-executors.md) — workflow node executor reference
 - [`guides/backend.md`](../guides/backend.md) — adding tools and node executors
+
+## Extending the Tool Registry
+
+Tool registration follows a deterministic three-touch flow: drop a new tool class into `server/app/services/ai/tools/`, register the actions it exposes inside `Ai::Tools::PlatformApiToolRegistry::TOOLS`, then regenerate the catalog so downstream documentation and discovery surfaces (Claude Code's `tools/list`, the workspace concierge, the auto-generated reference) see the new actions. The registry is class-method dispatched — no autoload hook, no metaprogramming — so the only thing tying an action name to a tool is the explicit mapping in `TOOLS`.
+
+### Recipe
+
+1. **Create `server/app/services/ai/tools/<feature>_tool.rb`** with `REQUIRED_PERMISSION` (a string like `ai.agents.read`) and `action_definitions` returning the per-action JSON Schema:
+
+   ```ruby
+   # frozen_string_literal: true
+
+   module Ai
+     module Tools
+       class FeatureTool < BaseTool
+         REQUIRED_PERMISSION = "ai.feature.read"
+
+         def self.action_definitions
+           {
+             "feature_do_thing" => {
+               description: "Run the thing once",
+               parameters: { id: { type: "string", required: true } }
+             }
+           }
+         end
+
+         protected
+
+         def call(params)
+           # validation → permission check → execution → audit log
+         end
+       end
+     end
+   end
+   ```
+
+2. **Add to `Ai::Tools::PlatformApiToolRegistry::TOOLS`** — map every action name your class handles to the class string (the registry uses string class names so it can stay autoload-safe):
+
+   ```ruby
+   "feature_do_thing" => "Ai::Tools::FeatureTool",
+   ```
+
+3. **Run `cd server && bundle exec rails mcp:generate_tool_catalog`** — this introspects the registry, calls `action_definitions` on each class, and rewrites `docs/reference/auto/mcp-tools.md`.
+
+4. **Verify your action appears in [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md)** — if the action is missing, the registry entry or the `action_definitions` method is the most likely cause.
+
+For the in-line `## Adding a new tool` walkthrough (with implementation patterns, audit log examples, deprecation flow), see the section above. Full walkthrough at [`guides/mcp-tool-development.md`](../guides/mcp-tool-development.md).
 
 ## Materials previously at
 

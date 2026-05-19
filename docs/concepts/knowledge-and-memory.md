@@ -6,6 +6,7 @@
 
 - [What this concept covers](#what-this-concept-covers)
 - [Memory tiers](#memory-tiers)
+- [Memory Pools — Configuration & Examples](#memory-pools--configuration--examples)
 - [RAG system](#rag-system)
 - [Skill graph](#skill-graph)
 - [Content linking and the knowledge graph](#content-linking-and-the-knowledge-graph)
@@ -206,6 +207,72 @@ Memory access is controlled at multiple levels:
 2. **Agent scope** — private memory is only accessible to the owning agent
 3. **Pool access control** — JSONB `access_control` field with read/write permissions
 4. **Context access control** — per-agent grants on `PersistentContext`
+
+## Memory Pools — Configuration & Examples
+
+This section zooms in on the **shared memory** tier — the `Ai::MemoryPool` model that backs cross-agent collaboration, agent bulletins, and stigmergic coordination. The [memory consolidation diagram](#consolidation-pipeline) above shows how STM entries promote into LTM; pools sit alongside that pipeline as a deliberately-named, deliberately-shared substrate.
+
+### Pool configuration fields
+
+`Ai::MemoryPool` validates `pool_type` against the model's enum and `scope` against the runtime scope set. Pool data lives in JSONB, and access control plus retention are declarative:
+
+| Field | Values | Purpose |
+|-------|--------|---------|
+| `pool_type` | `shared`, `agent_private`, `team_shared`, `task_scoped`, `global` | Coarse-grained ownership semantic |
+| `scope` | `execution`, `persistent`, `session` | Lifetime relative to surrounding work |
+| `expires_at` | timestamp / `nil` | Optional TTL; `active` scope excludes expired pools |
+| `retention_policy` | JSON | Per-pool retention config (TTL, max size, eviction) |
+| `access_control` | JSON | `{ "agents": [...uuids], "public": true|false }` |
+| `data_size_bytes` | integer | Auto-calculated on save; underpins quota enforcement |
+
+`persist_across_executions` (boolean) flips a pool into the `persistent` scope filter so workflow ticks can rebind to long-lived state. Versioning is automatic — `before_save` increments `version` whenever `data` changes.
+
+### Example 1 — create a pool via MCP
+
+```ruby
+# frozen_string_literal: true
+
+platform.create_memory_pool(
+  pool_id: "trading_ops",
+  name: "Trading Operations Shared State",
+  pool_type: "shared",
+  scope: "persistent",
+  retention_policy: { ttl_seconds: 604_800, max_size_bytes: 5_000_000 }
+)
+```
+
+The tool is registered as `create_memory_pool` in `Ai::Tools::PlatformApiToolRegistry` (see [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md) for the live parameter schema). `pool_id` is a unique slug; defaults are `pool_type: "shared"` and `scope: "account"`.
+
+### Example 2 — read and write to a pool
+
+```ruby
+# frozen_string_literal: true
+
+platform.write_shared_memory(
+  pool_id: "trading_ops",
+  key: "agent_bulletin.market_regime",
+  value: { regime: "risk_off", confidence: 0.82 }
+)
+
+platform.read_shared_memory(
+  pool_id: "trading_ops",
+  key: "agent_bulletin.market_regime"
+)
+# => { success: true, key: "agent_bulletin.market_regime", value: { ... } }
+```
+
+Dot-separated keys index nested JSON, so `agent_bulletin.market_regime` writes into `data["agent_bulletin"]["market_regime"]`. Writes to `agent_bulletin.*` keys broadcast a `memory_pool_key_write` event with `is_bulletin: true` over `McpChannel` — that is the stigmergic-coordination signal subscribers listen for.
+
+### Access control note
+
+Pool access is enforced at the model layer, not the controller:
+
+- `accessible_by?(agent_id)` — owner always, plus any agent listed in `access_control["agents"]`, plus any agent when `access_control["public"] == true`
+- `writable_by?(agent_id)` — owner always; shared pools with `public: true` additionally permit any accessible agent
+- `agent_private` pools default to owner-only; `team_shared` pools require explicit grants via `grant_access(agent_id)` (the model has no team-membership lookup, so the writer must populate `access_control["agents"]` after a `team_shared` pool is created)
+- The `default` pool is special-cased: `find_or_create_by!(pool_id: "default")` creates it on demand with `access_control: { "public" => true }`, and `delete_memory_pool` refuses to remove it
+
+For the STM→LTM consolidation diagram and pool/tier overview, see [Memory tiers](#memory-tiers) above. For the full set of memory MCP actions (search, consolidate, stats, list pools), see [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md).
 
 ## RAG system
 

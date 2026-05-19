@@ -15,6 +15,7 @@
 - [Forbidden patterns](#forbidden-patterns)
 - [Database schema](#database-schema)
 - [Migration history](#migration-history)
+- [Agent-Specific Permission Examples](#agent-specific-permission-examples)
 - [Related concepts](#related-concepts)
 - [Materials previously at](#materials-previously-at)
 
@@ -444,6 +445,47 @@ Defense in depth: every protected operation validates permissions at the control
 
 - **2025-08-22**: Standardized all permissions to use singular resource naming. Previously mixed plural/singular (e.g., `users.manage`); now consistent singular throughout (`user.manage`, `webhook.create`)
 - Subsequent additions extend the catalog without breaking the convention
+
+## Agent-Specific Permission Examples
+
+Recap: every protected agent operation goes through `current_user.has_permission?('name')` on the backend and `currentUser?.permissions?.includes('name')` on the frontend. The AI subsystem uses the `ai.*` namespace, with one permission per resource cluster (agents, skills, missions, ralph loops, autonomy, ...). The strings below are the ones actually used in the backend tool registry, controllers, and `db/seeds/ai_autonomy_permissions.rb`.
+
+### Common agent operations → required permission
+
+| Agent operation | Required permission |
+|-----------------|---------------------|
+| List or get agents | `ai.agents.read` |
+| Create or update an agent | `ai.agents.update` (or `ai.agents.create` for new records) |
+| Execute an agent (`platform.execute_agent`, `Ai::Tools::AgentManagementTool`) | `ai.agents.execute` |
+| Archive, pause, resume, clone, test, or delete an agent | `ai.agents.archive` / `pause` / `resume` / `clone` / `test` / `delete` |
+| Promote / demote autonomy tier (kill switch, intervention policies, duty cycles) | `ai.autonomy.manage` |
+| Approve a pending autonomy action | `ai.autonomy.approve` |
+| Attach or detach a skill from an agent (`platform.attach_skill_to_agent`) | `ai.skills.read` (the SkillTool's `REQUIRED_PERMISSION`) plus `ai.skills.update` to mutate the skill definition |
+| Manage missions (`platform.get_mission_status`, mission lifecycle endpoints) | `ai.missions.manage`; read-only views need `ai.missions.read` |
+| Manage Ralph Loops (start, pause, resume, run iteration, update tasks) | `ai.ralph_loops.update` plus the operation-specific permission (`ai.ralph_loops.start`, `ai.ralph_loops.pause`, `ai.ralph_loops.run_iteration`, ...) |
+| Manage approval chains | `ai.approval_chains.manage` (assigned to `owner` + `admin` by default) |
+
+For the canonical list of every `ai.*` permission with its current role assignments, see [`reference/permissions.md`](../reference/permissions.md) — these examples are the developer-facing subset.
+
+### Worked example — just-enough perms to manage Ralph Loops
+
+An operator who runs the daily Ralph Loop schedule but should not be able to flip the kill switch or rewrite autonomy policy needs the following narrow grant. Create a role (e.g. `ralph_operator`) and attach exactly these permissions:
+
+```ruby
+# frozen_string_literal: true
+
+%w[
+  ai.agents.read
+  ai.ralph_loops.read
+  ai.ralph_loops.start
+  ai.ralph_loops.pause
+  ai.ralph_loops.resume
+  ai.ralph_loops.run_iteration
+  ai.ralph_loops.update_task
+].each { |name| role.permissions << Permission.find_by!(name: name) }
+```
+
+This keeps the operator out of `ai.autonomy.manage`, `ai.autonomy.approve`, `ai.kill_switch.manage`, and `ai.approval_chains.manage` — the four permissions that gate full autonomy control.
 
 ## Related concepts
 

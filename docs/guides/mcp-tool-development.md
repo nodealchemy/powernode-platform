@@ -1,0 +1,533 @@
+# MCP Tool Development
+
+> Status: active
+
+How to add a new `platform.*` MCP tool action that external AI sessions (Claude Code, custom agents, the chat concierge) can invoke. Every entry in the platform's tool catalogue — from `system_list_nodes` to `docker_create_service` to `trading_advance_phase` — is one action on one tool class registered in `platform_api_tool_registry.rb`. This guide walks the full add path: define the class, declare actions, register them, regenerate the catalogue, write a spec.
+
+## Table of Contents
+
+- [What is an MCP tool class?](#what-is-an-mcp-tool-class)
+- [File layout](#file-layout)
+- [Tool class anatomy](#tool-class-anatomy)
+- [JSON Schema for parameters](#json-schema-for-parameters)
+- [Permission checks](#permission-checks)
+- [Worked example: `Ai::Tools::ExampleReportTool`](#worked-example-aitoolsexamplereporttool)
+- [Testing](#testing)
+- [Audit logging](#audit-logging)
+- [Surfacing the tool to MCP clients](#surfacing-the-tool-to-mcp-clients)
+- [Anti-patterns](#anti-patterns)
+- [Verification](#verification)
+- [Related](#related)
+
+## What is an MCP tool class?
+
+An **MCP tool class** is a Ruby class that exposes one or more *actions* — discrete operations an AI session can invoke. Each action has a name (`example_generate_report`), a JSON Schema for parameters, a permission requirement, and a Ruby implementation. The class itself is the unit of code organisation (one class per feature domain); the actions are the unit of MCP invocation.
+
+External MCP clients (Claude Code via the streamable-http server config, custom agents via the `Mcp::Sessions` controller) hit `/api/v1/mcp/message` with a tool name and a parameter hash. The MCP layer:
+
+1. Looks up the action name in `Ai::Tools::PlatformApiToolRegistry::TOOLS` and resolves the implementing class
+2. Calls `klass.permitted?(agent: agent)` to verify the agent's account has the `REQUIRED_PERMISSION`
+3. Instantiates `tool = klass.new(account:, agent:, user:)`
+4. Calls `tool.execute(params: {action: "<name>", ...})`
+5. Returns the resulting `{ success: true|false, ... }` hash to the caller
+
+Because every action flows through the same path, the registry is the single source of truth for "what can an AI session do on this platform" — currently 525+ actions across 60 classes (`server/app/services/ai/tools/`). Adding a new capability is mechanical once you know the pattern.
+
+Tools are **distinct from** skill executors. A skill executor (see [`skill-executor-development.md`](skill-executor-development.md)) is an orchestration that often calls one or more tools internally; the tool is the unit of authorised, audited platform action. Many tools never appear in a skill — `platform.list_agents` is just a tool, no executor wraps it.
+
+## File layout
+
+| Concern | Location |
+|---------|----------|
+| Tool class | `server/app/services/ai/tools/<feature>_tool.rb` |
+| Base class | `server/app/services/ai/tools/base_tool.rb` |
+| Registry | `server/app/services/ai/tools/platform_api_tool_registry.rb` |
+| Spec | `server/spec/services/ai/tools/<feature>_tool_spec.rb` |
+| Generated catalogue | `docs/reference/auto/mcp-tools.md` (regenerated, do not edit) |
+
+Naming follows `<feature>_tool.rb`. Multi-feature classes are fine — `SystemFleetTool` covers nodes, templates, instances, modules, tasks, volumes and disk-image publications because they all share the same `system_*` permission family and a single audit context. Split a class once it crosses ~25 actions or once the action handlers stop sharing helpers.
+
+## Tool class anatomy
+
+Every tool inherits from `Ai::Tools::BaseTool`. The base class is in `server/app/services/ai/tools/base_tool.rb` — read it once and refer back. It owns three things every subclass uses: the permission gate, the `execute(params:)` orchestration, and the `success_result(...)` / `error_result(...)` shape helpers.
+
+### `REQUIRED_PERMISSION` constant
+
+```ruby
+module Ai
+  module Tools
+    class ExampleReportTool < BaseTool
+      REQUIRED_PERMISSION = "example.reports.manage"
+      # ...
+    end
+  end
+end
+```
+
+Every tool declares one permission constant. `BaseTool.permitted?(agent:)` checks whether any user in the agent's account holds this permission via a role binding. The check is gentle — failure to evaluate (missing tables, race conditions) returns `true` because API-level authorisation has already gated the request. Naming follows `subsystem.resource.verb` — see [`concepts/permissions.md`](../concepts/permissions.md) for the registry. Use `read` for non-mutating actions and `manage` for mutations; `execute` is reserved for actions that invoke other agents (`ai.agents.execute`).
+
+A tool that exposes both read and write actions still declares a single `REQUIRED_PERMISSION`. The convention is to set it to the *most permissive* permission needed by any action in the class; finer-grained checks happen inside the action handlers. This is why `KbArticleManagementTool` uses `kb.manage` even though `list_kb_articles` could justify `kb.read`.
+
+### `self.action_definitions`
+
+For multi-action tools, this is the canonical declaration:
+
+```ruby
+def self.action_definitions
+  {
+    "example_generate_report" => {
+      description: "Generate a new report for an account",
+      parameters: {
+        report_type: { type: "string",  required: true,
+                       description: "One of: usage, audit, billing" },
+        format:      { type: "string",  required: false,
+                       description: "csv|json|pdf (default: json)" },
+        max_rows:    { type: "integer", required: false, description: "Cap row count" }
+      }
+    },
+    "example_list_reports" => {
+      description: "List previously-generated reports",
+      parameters: {
+        status: { type: "string", required: false,
+                  description: "Filter by status (queued|running|complete|failed)" },
+        limit:  { type: "integer", required: false, description: "Default 25, max 100" }
+      }
+    }
+  }
+end
+```
+
+The hash is keyed by the *registry name* (the `platform.*` action name without the prefix), and the value is `{ description:, parameters: }`. The registry uses these definitions when an MCP client requests the tool list — each key becomes one tool entry with a focused per-action schema. Don't duplicate the action's name inside the parameters hash; the dispatcher strips it.
+
+### `self.definition` for single-action tools
+
+If a tool has only one action, you can skip `action_definitions` and define `self.definition` instead. The default `action_definitions` on `BaseTool` synthesises a per-action entry from the single `definition` by stripping the `action` parameter:
+
+```ruby
+def self.definition
+  {
+    name: "kill_switch_status",
+    description: "Check whether the platform's AI kill switch is engaged",
+    parameters: {
+      account_id: { type: "string", required: false,
+                    description: "Override account scope (admin only)" }
+    }
+  }
+end
+```
+
+Prefer `action_definitions` even for single-action tools — it future-proofs the class against adding a second action later, and the per-action description is what the LLM sees during tool selection.
+
+### `#perform(action:, params:, context:)` dispatch
+
+The base class calls `#call(params)` (defined `protected`), so subclasses implement the dispatch there. The conventional pattern is a `case` on `params[:action]`:
+
+```ruby
+protected
+
+def call(params)
+  case params[:action]
+  when "example_generate_report" then generate_report(params)
+  when "example_list_reports"    then list_reports(params)
+  else error_result("Unknown action: #{params[:action]}")
+  end
+end
+
+private
+
+def generate_report(params)
+  # ... do work ...
+  success_result(report_id: report.id, status: report.status)
+rescue ActiveRecord::RecordInvalid => e
+  error_result(e.message)
+end
+```
+
+Three rules apply inside the `case`:
+
+1. **Always return a hash** — either `success_result(payload)` (becomes `{ success: true, data: payload }` after the base wrap) or `error_result(msg)` (becomes `{ success: false, error: msg }`). Never raise from inside a handler unless you intend the entire MCP call to fail with `500`; the base class does not rescue inside `#call`.
+2. **Account scope every query** — `::SomeModel.where(account: @account).find(params[:id])`. The base class enforces that `@account` is a persisted `Account` before `#call` runs, but it does not scope your queries for you.
+3. **Validate inside the handler** — `validate_params!` only checks top-level `required:` flags. Anything richer (enum membership, mutual exclusion, range checks) belongs in the handler.
+
+## JSON Schema for parameters
+
+The registry supports two parameter formats: a **flat** format (the one shown above) and a fully-typed **`type: "object"` with `properties` + `required`** format. They render identically to MCP clients; the flat format is preferred because it's shorter and reads like prose.
+
+### Flat format
+
+```ruby
+parameters: {
+  query:    { type: "string",  required: true,  description: "Search query" },
+  limit:    { type: "integer", required: false, description: "Max results (default 25)" },
+  filters:  { type: "object",  required: false, description: "Free-form filter map" }
+}
+```
+
+This format auto-derives `required:` from each key's `required` flag and emits a JSON Schema `{ type: "object", properties: { ... }, required: [...] }` shape. `BaseTool.validate_params!` walks this map and raises `ArgumentError, "Missing required parameters: ..."` if any required key is `nil` or blank.
+
+### Schema-object format
+
+When you need nested objects, array `items` constraints, or `enum` values, switch to a full JSON Schema:
+
+```ruby
+parameters: {
+  type: "object",
+  required: %w[report_type],
+  properties: {
+    report_type: {
+      type: "string",
+      enum: %w[usage audit billing],
+      description: "Which report kind to generate"
+    },
+    options: {
+      type: "object",
+      properties: {
+        include_totals: { type: "boolean", default: false },
+        currency:       { type: "string",  default: "USD" }
+      }
+    },
+    tags: {
+      type: "array",
+      items: { type: "string" }
+    }
+  }
+}
+```
+
+`validate_params!` skips this format (it spots the `type: "object"` key at the root), so the action handler is responsible for its own validation. Use this only when the LLM benefits from the extra structure — most tools are simpler.
+
+### Common types
+
+| Type | Notes |
+|------|-------|
+| `"string"` | Default. Pair with `enum:` for fixed sets. |
+| `"integer"` | Use over `"number"` when fractional values are nonsense. |
+| `"boolean"` | LLMs sometimes pass `"true"` as a string — coerce in the handler if needed. |
+| `"array"` | Always pair with `items:` even in the flat format if practical. |
+| `"object"` | Free-form JSON. Document the shape in `description:` since there's no schema. |
+
+Defaults belong in the action handler, not the schema — `params[:limit] || 25`. JSON Schema `default:` keys are ignored by the registry's flat format.
+
+## Permission checks
+
+`REQUIRED_PERMISSION` is the only declarative gate; richer checks belong inside the handler. Three conventions:
+
+- **Subsystem prefix** — `ai.`, `docker.`, `system.`, `kb.`, `trading.`, `pages.`, etc. Group by where the tool's data lives, not by the agent that calls it.
+- **Resource segment** — `agents`, `containers`, `nodes`, `articles`, `strategies`, etc. Use the model's table-name singular (`agent`, `container`) or plural depending on the resource family already in the registry.
+- **Verb suffix** — `read`, `manage`, `execute`. Read-only tools use `read`; mutations use `manage`. Reserve `execute` for actions that *cause an agent to run* (the existing `ai.agents.execute` convention).
+
+Full table of existing patterns is in [`concepts/permissions.md`](../concepts/permissions.md). When in doubt, grep the registry for a sibling permission rather than inventing a new one — drift here is the most common review comment.
+
+## Worked example: `Ai::Tools::ExampleReportTool`
+
+This walks through adding a fictional report-generation tool with two actions: `example_generate_report` and `example_list_reports`. The example is fictional but every step mirrors what a real add looks like.
+
+### Step 1 — define the tool class
+
+Create `server/app/services/ai/tools/example_report_tool.rb`:
+
+```ruby
+# frozen_string_literal: true
+
+module Ai
+  module Tools
+    # Generate and enumerate operator-facing reports (usage, audit, billing).
+    # Reports are queued via Worker::JobDispatch and surface via a separate
+    # API; this tool exposes the AI-callable entry points.
+    class ExampleReportTool < BaseTool
+      REQUIRED_PERMISSION = "example.reports.manage"
+
+      def self.action_definitions
+        {
+          "example_generate_report" => {
+            description: "Queue a new report for generation",
+            parameters: {
+              report_type: { type: "string",  required: true,
+                             description: "One of: usage, audit, billing" },
+              format:      { type: "string",  required: false,
+                             description: "csv|json|pdf (default json)" },
+              max_rows:    { type: "integer", required: false,
+                             description: "Cap result rows" }
+            }
+          },
+          "example_list_reports" => {
+            description: "List previously-generated reports for the account",
+            parameters: {
+              status: { type: "string",  required: false,
+                        description: "queued|running|complete|failed" },
+              limit:  { type: "integer", required: false,
+                        description: "Default 25, max 100" }
+            }
+          }
+        }
+      end
+
+      protected
+
+      def call(params)
+        case params[:action]
+        when "example_generate_report" then generate_report(params)
+        when "example_list_reports"    then list_reports(params)
+        else error_result("Unknown action: #{params[:action]}")
+        end
+      end
+
+      private
+
+      def generate_report(params)
+        type = params[:report_type].to_s
+        unless %w[usage audit billing].include?(type)
+          return error_result("report_type must be one of: usage, audit, billing")
+        end
+
+        report = ::ExampleReport.create!(
+          account:     @account,
+          report_type: type,
+          format:      params[:format].presence || "json",
+          max_rows:    params[:max_rows],
+          status:      "queued",
+          requested_by_id: @user&.id
+        )
+
+        ::Worker::JobDispatch.enqueue("ExampleReportGenerateJob", report_id: report.id)
+
+        success_result(
+          report_id: report.id,
+          status:    report.status,
+          report_type: report.report_type,
+          queued_at: report.created_at.iso8601
+        )
+      rescue ActiveRecord::RecordInvalid => e
+        error_result(e.message)
+      end
+
+      def list_reports(params)
+        limit = [ params[:limit].to_i.nonzero? || 25, 100 ].min
+        scope = ::ExampleReport.where(account: @account)
+        scope = scope.where(status: params[:status]) if params[:status].present?
+        reports = scope.order(created_at: :desc).limit(limit)
+
+        success_result(
+          count:   reports.size,
+          reports: reports.map { |r| serialize(r) }
+        )
+      end
+
+      def serialize(report)
+        {
+          id:          report.id,
+          status:      report.status,
+          report_type: report.report_type,
+          format:      report.format,
+          row_count:   report.row_count,
+          created_at:  report.created_at.iso8601,
+          completed_at: report.completed_at&.iso8601
+        }
+      end
+    end
+  end
+end
+```
+
+A few things worth calling out:
+
+- The class is `Ai::Tools::ExampleReportTool`, not `ExampleReportTool` — every tool lives under the `Ai::Tools` namespace.
+- Action names use snake_case and read like commands (`generate_report`, `list_reports`). The prefix (`example_`) groups them in the catalogue and avoids name collisions.
+- `@user&.id` is safe because the base class allows `user: nil` (autonomous agent calls). Don't crash when there's no user — fall back to a system user or accept the nil.
+- Mutating actions enqueue work via the worker, never run it inline. The MCP tool returns immediately with a handle the caller can poll.
+
+### Step 2 — implement the actions
+
+Already done above. Recipe in short form: validate inputs that aren't covered by the schema, enforce account scope on every query, return through `success_result` or `error_result`, rescue `ActiveRecord::RecordInvalid` and turn it into an error result, never raise from `#call`.
+
+### Step 3 — register the actions
+
+Edit `server/app/services/ai/tools/platform_api_tool_registry.rb` and add to the `TOOLS` hash near similarly-scoped entries:
+
+```ruby
+TOOLS = {
+  # ... existing entries ...
+
+  # Example reports (operator-facing usage/audit/billing exports)
+  "example_generate_report" => "Ai::Tools::ExampleReportTool",
+  "example_list_reports"    => "Ai::Tools::ExampleReportTool",
+
+  # ... rest of registry ...
+}.freeze
+```
+
+Pick the insertion point that keeps related actions together — the registry is grouped by feature with `# === Section ===` headers. Adding a third action later is a single-line addition; the registry doesn't care about ordering within a class.
+
+### Step 4 — regenerate the catalogue
+
+```bash
+cd server && bundle exec rails mcp:generate_tool_catalog
+```
+
+This walks `TOOLS`, calls `klass.action_definitions` for each value, and writes the per-action schema to `docs/reference/auto/mcp-tools.md`. The output is canonical — do not hand-edit. Anyone reviewing the PR should see the new action's full schema in the regenerated file.
+
+If the rake task fails with a `NameError`, the most likely cause is a typo in the class string in the registry; the constantize step will raise. Fix and re-run.
+
+## Testing
+
+Specs live at `server/spec/services/ai/tools/<feature>_tool_spec.rb`. The pattern mirrors the canonical specs (`knowledge_tool_spec.rb`, `agent_management_tool_spec.rb`):
+
+```ruby
+# frozen_string_literal: true
+
+require "rails_helper"
+
+RSpec.describe Ai::Tools::ExampleReportTool do
+  let(:account) { create(:account) }
+  let(:user)    { account.users.first || create(:user, :with_account_creation, account: account) }
+  let(:tool)    { described_class.new(account: account, user: user) }
+
+  describe ".action_definitions" do
+    it "exposes both report actions" do
+      actions = described_class.action_definitions
+      expect(actions.keys).to contain_exactly(
+        "example_generate_report",
+        "example_list_reports"
+      )
+    end
+
+    it "marks report_type as required for generate" do
+      params = described_class.action_definitions["example_generate_report"][:parameters]
+      expect(params[:report_type][:required]).to be true
+    end
+  end
+
+  describe ".permitted?" do
+    it "requires example.reports.manage" do
+      expect(described_class::REQUIRED_PERMISSION).to eq("example.reports.manage")
+    end
+  end
+
+  describe "#execute" do
+    context "example_generate_report" do
+      it "queues a report and returns the id" do
+        allow(::Worker::JobDispatch).to receive(:enqueue)
+
+        result = tool.execute(params: {
+          action: "example_generate_report",
+          report_type: "usage"
+        })
+
+        expect(result[:success]).to be true
+        expect(result.dig(:data, :status)).to eq("queued")
+        expect(::Worker::JobDispatch).to have_received(:enqueue).with(
+          "ExampleReportGenerateJob",
+          hash_including(report_id: kind_of(String))
+        )
+      end
+
+      it "errors on an unknown report_type" do
+        result = tool.execute(params: {
+          action: "example_generate_report",
+          report_type: "spaceship"
+        })
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/report_type must be one of/)
+      end
+    end
+
+    context "example_list_reports" do
+      before do
+        create(:example_report, account: account, status: "complete")
+      end
+
+      it "returns the reports for the account" do
+        result = tool.execute(params: { action: "example_list_reports" })
+        expect(result[:success]).to be true
+        expect(result.dig(:data, :count)).to eq(1)
+      end
+    end
+
+    context "parameter validation" do
+      it "raises when report_type is missing" do
+        expect {
+          tool.execute(params: { action: "example_generate_report" })
+        }.to raise_error(ArgumentError, /Missing required parameters: report_type/)
+      end
+    end
+  end
+end
+```
+
+Always cover four things:
+
+- **Action definitions** — both actions present, required flags correct. Catches drift between the schema and what the LLM sees.
+- **Permission constant** — fast string equality test. Permission renames break this immediately rather than at runtime.
+- **Happy + error paths per action** — at minimum one success and one validation failure each.
+- **`validate_params!` enforcement** — the base class raises `ArgumentError` for missing required params; one spec per tool confirms it.
+
+Avoid testing the base class's `success_result` / `error_result` shape — that's `base_tool_spec.rb`'s job.
+
+## Audit logging
+
+Every MCP invocation is captured by the surrounding session machinery — `Mcp::MessageController` (or the streamable-http equivalent) records the action name, the agent that initiated it, the params, the result, and the latency. You do not need to log inside the tool unless you want extra structured fields.
+
+When you do want extra logging — for example, capturing *which* record was modified for diff-style audit — use `Rails.logger.tagged`:
+
+```ruby
+def update_report(params)
+  Rails.logger.tagged("ExampleReportTool") do
+    Rails.logger.info("update report_id=#{params[:report_id]} actor=#{@user&.id}")
+  end
+  # ... do work ...
+end
+```
+
+Never use `puts` or `print`. They escape the structured log pipeline and pollute systemd journal output. The platform's `Rails.logger` (only) policy applies to tools as much as to controllers.
+
+## Surfacing the tool to MCP clients
+
+Once the action is registered, three surfaces pick it up automatically:
+
+- **Claude Code** — on next session start, the MCP discover handshake calls `PlatformApiToolRegistry.tool_definitions(agent: nil)` and the new action appears in the available-tools list.
+- **In-app agents** — agent executions filter via `concierge_tool_filter` or per-agent `allowed_tools`. Update the relevant agent seed (`server/db/seeds/ai_agents_seed.rb` or the extension's seed file) if you want a specific agent to invoke the new action.
+- **The MCP semantic discovery service** — `platform.discover_skills` ranks tools by embedding similarity. New tools are picked up on the next embedding refresh (nightly via the maintenance schedule); you can force-refresh by re-running the relevant indexer rake task.
+
+There is no separate "publish" step — the registry is the publish surface.
+
+## Anti-patterns
+
+Things that have caused PR pushback or production issues:
+
+- **Don't use `puts` or `print` inside a tool.** Use `Rails.logger.info` (or `tagged(...).info`). `puts` skips JSON formatting and breaks systemd journal indexing.
+- **Don't hard-code account scoping with literal IDs.** Always `where(account: @account)`. Even `where(account_id: @account.id)` is fine, but never `where(account_id: "some-uuid")`. A tool that hard-codes IDs has hidden cross-tenant leakage waiting to surface.
+- **Don't skip the `render`-style result shape.** Tools must return either `{ success: true, data: ... }` or `{ success: false, error: ... }`. Returning a raw model (`return user`) or an `ActiveRecord::Relation` will break every MCP client that unmarshals the result.
+- **Don't raise from `#call` for expected errors.** `ArgumentError` from missing required params is fine (the base class enforces it). Anything else — record not found, validation failed, race condition — should become `error_result(msg)`. Raising propagates a `500` to the MCP client and triggers retry storms.
+- **Don't reuse `REQUIRED_PERMISSION` across mutating and read-only tools without thought.** A read tool with `manage` permission is over-permissioned and means low-privilege agents can't introspect. Split the class if the permissions diverge.
+- **Don't put business logic in the registry.** `platform_api_tool_registry.rb` is a constant-only map. Adding conditional `if` blocks or environment checks there will be reverted in review.
+- **Don't add a tool without a spec.** Every tool gets at least the four-coverage minimum from the testing section above. `mcp:generate_tool_catalog` produces the docs from action_definitions; specs produce the confidence that the actions work.
+
+## Verification
+
+After adding a new action:
+
+```bash
+# Regenerate the catalogue and confirm the new action appears
+cd server && bundle exec rails mcp:generate_tool_catalog
+grep -n "example_generate_report" /home/rett/Drive/Projects/powernode-platform/docs/reference/auto/mcp-tools.md
+
+# Run the spec
+cd server && bundle exec rspec spec/services/ai/tools/example_report_tool_spec.rb
+
+# Check the registry sees the class
+cd server && bundle exec rails runner \
+  'puts Ai::Tools::PlatformApiToolRegistry.find_tool("example_generate_report")'
+# expected: Ai::Tools::ExampleReportTool
+```
+
+If the catalogue grep returns no hits, the action wasn't registered. Re-check the `TOOLS` hash entry and re-run `mcp:generate_tool_catalog`. If the spec passes and the runner reports the right class, the tool is wired correctly and is reachable from any MCP client the next time it connects.
+
+## Related
+
+- [`skill-executor-development.md`](skill-executor-development.md) — system-extension orchestrations that call into tools
+- [`concepts/permissions.md`](../concepts/permissions.md) — the permission registry that backs `REQUIRED_PERMISSION`
+- [`concepts/mcp-and-tools.md`](../concepts/mcp-and-tools.md) — broader MCP surface, session lifecycle, and workflow integration
+- [`backend.md`](backend.md) — Rails conventions for services, controllers, and the worker boundary
+- [`testing.md`](testing.md) — RSpec conventions, factories, and shared examples
+
+_Last verified: 2026-05-19_

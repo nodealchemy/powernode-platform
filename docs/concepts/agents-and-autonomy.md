@@ -12,6 +12,7 @@
 - [Code Factory](#code-factory)
 - [Model Router](#model-router)
 - [Provider routing and resilience](#provider-routing-and-resilience)
+- [Intervention Policies & Approval Gates](#intervention-policies--approval-gates)
 - [Concierge routing and meta-skills](#concierge-routing-and-meta-skills)
 - [Agent autonomy (trust and governance)](#agent-autonomy-trust-and-governance)
 - [Operational autonomy](#operational-autonomy)
@@ -544,6 +545,59 @@ For provider pricing and cost portions of routing, see [`concepts/cost-and-finop
 - Health tracking via `record_success!` / `record_failure!(error_message)`
 - Expiration monitoring (`expired?`, `expires_soon?`)
 - Connection testing (`test_connection`)
+
+## Intervention Policies & Approval Gates
+
+Intervention policies bind action categories to one of five outcomes, letting operators tune how aggressively the platform pauses for human review without rewiring service code. Every autonomous action — agent execution, proposal creation, escalation, deferred trading move, infrastructure adaptation — passes through `Ai::InterventionPolicyService#resolve` before it fires, and the resolver's verdict determines whether the work proceeds, queues for approval, blocks outright, or runs silently. Categories are open-ended: core ships the `STATIC_CATEGORIES` set in `Ai::InterventionPolicy`, and extensions append more at boot via `Ai::InterventionPolicy.register_category!`.
+
+### Policy outcomes
+
+- `auto_approve` — executes without operator interaction; the action is still audited but no notification fires
+- `notify_and_proceed` — fires a notification on the configured channels (default `notification`) then executes immediately
+- `require_approval` — queues the action for operator approval via `Ai::ApprovalChain` (the matched policy's `approval_chain` association picks the chain definition; the resolver returns the matched `record` so callers can read the chain)
+- `silent` — executes without notification; audit log only (overridden to `require_approval` when severity is `critical`)
+- `block` — refuses to execute; records the rejection in the audit log
+
+The five values are validated by `Ai::InterventionPolicy::POLICIES`.
+
+### Resolution flow
+
+```ruby
+# frozen_string_literal: true
+
+resolver = Ai::InterventionPolicyService.new(account: account)
+verdict = resolver.resolve(
+  action_category: "trading.advance_phase",
+  agent: agent,
+  user: user,
+  severity: "warning"
+)
+# => { policy: "require_approval", channels: [...], conditions: {...}, record: <InterventionPolicy> }
+```
+
+`#resolve` selects the **most specific** matching policy. Specificity is computed by `InterventionPolicy#specificity_score`:
+
+| Match dimension | Score boost |
+|-----------------|-------------|
+| `user_id` present | +10 |
+| `ai_agent_id` present | +5 |
+| `action_category` not `*` | +2 |
+| `priority` column | +priority |
+
+Effective precedence: **user+agent > user > agent > global**. Agent-scoped policies always win over global ones when an agent is in context (the service filters to agent-scoped matches first when any are present). Wildcard `*` policies act as fallbacks. The verdict also carries two automatic overrides: `critical` severity escalates `silent` → `require_approval`, and `notify_and_proceed` falls back to `silent` once the user's daily notification cap (from `conditions.max_daily_notifications`) is exhausted.
+
+### Where policies fire
+
+Every autonomous action routes through the resolver before execution. The pre-execution path goes:
+
+1. Service-level call site picks an `action_category` string
+2. `InterventionPolicyService#resolve` (or `#auto_approve?` / `#blocked?` shortcut) decides the outcome
+3. `Ai::Autonomy::ExecutionGateService` consults the verdict and either proceeds, queues an `Ai::ApprovalRequest` against the matched `approval_chain`, dispatches a notification, or records a block
+4. `AiInterventionPolicyTuningJob` (runs weekly) inspects approval-rate trends and proposes policy adjustments — operators see the suggestions in the autonomy dashboard
+
+The policy table also supports `conditions` JSON for trust-tier minimums (`trust_tier_minimum`) and quiet hours, which the resolver evaluates against the agent's current `Ai::AgentTrustScore.tier` before declaring a match. The existing intervention-policy subsection under [Agent autonomy](#agent-autonomy-trust-and-governance) documents the underlying scope/policy enums and the weekly tuning job.
+
+For authoring policies, see [`guides/intervention-policies-guide.md`](../guides/intervention-policies-guide.md). For day-2 ops, see [`operations/agent-autonomy-operations.md`](../operations/agent-autonomy-operations.md).
 
 ## Concierge routing and meta-skills
 
