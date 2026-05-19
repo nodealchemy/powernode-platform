@@ -6,10 +6,15 @@
 puts "🧠 Creating Claude-Powered Workflow Agents..."
 
 admin_account = Account.find_by(name: "Powernode Admin")
-admin_user = admin_account.users.find_by(email: "admin@powernode.org")
-claude_provider = Ai::Provider.find_by(provider_type: 'anthropic')
+raise "claude_agents_seed: admin account 'Powernode Admin' not found — seed accounts first" unless admin_account
 
-if admin_account && admin_user && claude_provider
+admin_user = admin_account.users.find_by(email: "admin@powernode.org")
+raise "claude_agents_seed: admin user 'admin@powernode.org' not found" unless admin_user
+
+claude_provider = Ai::Provider.find_by(provider_type: 'anthropic')
+raise "claude_agents_seed: Anthropic provider not seeded — run ai_providers_seed first" unless claude_provider
+
+ActiveRecord::Base.transaction do
   puts "✅ Using admin account: #{admin_account.name} (ID: #{admin_account.id})"
   puts "✅ Using admin user: #{admin_user.name} (ID: #{admin_user.id})"
   puts "✅ Using Claude provider: #{claude_provider.name} (ID: #{claude_provider.id})"
@@ -112,6 +117,23 @@ if admin_account && admin_user && claude_provider
     }
   end
 
+  strategic_planner_skills = %w[
+    system-capacity-recommend
+    system-platform-deploy
+    system-platform-resilience
+    system-runbook-generate
+  ]
+  strategic_planner_skills.each_with_index do |slug, i|
+    skill = Ai::Skill.find_by(slug: slug)
+    raise "claude_agents_seed: skill #{slug} not found — run system_skills_seed first" unless skill
+    binding = Ai::AgentSkill.find_or_initialize_by(
+      ai_agent_id: strategic_planner.id, ai_skill_id: skill.id
+    )
+    binding.assign_attributes(priority: 200 + i, is_active: true)
+    binding.save!
+  end
+  puts "  ✅ Bound #{strategic_planner_skills.size} skills to Claude Strategic Planner"
+
   # Research Analyst — now on Ollama for cost optimization
   ollama_provider = Ai::Provider.find_by(provider_type: 'ollama')
   research_analyst = Ai::Agent.find_or_create_by(
@@ -202,6 +224,23 @@ if admin_account && admin_user && claude_provider
       }
     }
   end
+
+  research_analyst_skills = %w[
+    system-attribute-failure
+    system-cve-runbook-generate
+    system-suggest-architectures-for-fleet
+    system-discover-packages-by-intent
+  ]
+  research_analyst_skills.each_with_index do |slug, i|
+    skill = Ai::Skill.find_by(slug: slug)
+    raise "claude_agents_seed: skill #{slug} not found — run system_skills_seed first" unless skill
+    binding = Ai::AgentSkill.find_or_initialize_by(
+      ai_agent_id: research_analyst.id, ai_skill_id: skill.id
+    )
+    binding.assign_attributes(priority: 200 + i, is_active: true)
+    binding.save!
+  end
+  puts "  ✅ Bound #{research_analyst_skills.size} skills to Claude Research Analyst"
 
   # Claude-Powered Creative Content Generator
   content_creator = Ai::Agent.find_or_create_by(
@@ -302,12 +341,6 @@ if admin_account && admin_user && claude_provider
   puts "   Strategic Planning: #{claude_agents.where(agent_type: 'assistant').count}"
   puts "   Research Analysis: #{claude_agents.where(agent_type: 'data_analyst').count}"
   puts "   Content Creation: #{claude_agents.where(agent_type: 'content_generator').count}"
-
-else
-  puts "❌ Missing required data"
-  puts "   Account: #{admin_account&.name || 'NOT FOUND'}"
-  puts "   User: #{admin_user&.name || 'NOT FOUND'}"
-  puts "   Claude Provider: #{claude_provider&.name || 'NOT FOUND'}"
 end
 
 puts "✅ Claude-powered agents seeding completed!"

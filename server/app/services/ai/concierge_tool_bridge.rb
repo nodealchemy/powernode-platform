@@ -56,6 +56,21 @@ module Ai
       trigger_pipeline dispatch_to_runner create_gitea_repository
     ].freeze
 
+    # System Concierge's tool surface (operator chat for the system extension).
+    # Owned here rather than in seed metadata because the filter is a runtime
+    # contract — adding a new tool family means updating this list, and the
+    # bridge is the consumer.
+    SYSTEM_CONCIERGE_TOOL_FILTER = %w[
+      system_*
+      docker_*
+      kubernetes_*
+      discover_skills
+      get_skill_context
+      request_confirmation
+      execute_agent
+      list_agents
+    ].freeze
+
     def initialize(agent:, account:, conversation:, user:)
       super(agent: agent, account: account)
       @conversation = conversation
@@ -252,6 +267,12 @@ module Ai
       meta = agent&.metadata
       return [] unless meta.is_a?(Hash)
 
+      # System Concierge: filter is owned by this bridge (single source of
+      # truth for the canonical operator chat agent).
+      return SYSTEM_CONCIERGE_TOOL_FILTER if meta["concierge_kind"] == "system_concierge"
+
+      # Other concierge-style extension agents (e.g. Topology Designer)
+      # declare their filter in metadata.
       patterns = meta["concierge_tool_filter"] || meta[:concierge_tool_filter]
       Array(patterns).map(&:to_s).reject(&:empty?)
     end
