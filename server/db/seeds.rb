@@ -124,6 +124,7 @@ admin_user = User.find_by(email: 'admin@powernode.org')
 # Welcome page
 Page.find_or_create_by!(slug: 'welcome') do |page|
   page.title = 'Welcome to Powernode'
+  page.account = admin_user.account
   page.author = admin_user
   page.status = 'published'
   page.meta_description = 'Streamline your subscription business with AI orchestration, DevOps integration, supply chain security, and automated billing.'
@@ -184,6 +185,7 @@ end
 # Terms of Service page
 Page.find_or_create_by!(slug: 'terms') do |page|
   page.title = 'Terms of Service'
+  page.account = admin_user.account
   page.author = admin_user
   page.status = 'published'
   page.meta_description = 'Terms of Service for Powernode subscription management platform including AI services, DevOps, and supply chain security.'
@@ -290,6 +292,7 @@ end
 # Privacy Policy page
 Page.find_or_create_by!(slug: 'privacy') do |page|
   page.title = 'Privacy Policy'
+  page.account = admin_user.account
   page.author = admin_user
   page.status = 'published'
   page.meta_description = 'Privacy Policy for Powernode - learn how we collect, use, and protect your personal information including AI data processing.'
@@ -427,6 +430,7 @@ end
 # Help/Support page
 Page.find_or_create_by!(slug: 'help') do |page|
   page.title = 'Help & Support'
+  page.account = admin_user.account
   page.author = admin_user
   page.status = 'published'
   page.meta_description = 'Get help with Powernode - guides for billing, AI orchestration, DevOps, supply chain security, and more.'
@@ -560,6 +564,7 @@ end
 # About page
 Page.find_or_create_by!(slug: 'about') do |page|
   page.title = 'About Powernode'
+  page.account = admin_user.account
   page.author = admin_user
   page.status = 'published'
   page.meta_description = 'Learn about Powernode - our mission to simplify subscription management with AI orchestration and supply chain security.'
@@ -648,6 +653,7 @@ end
 # Contact page
 Page.find_or_create_by!(slug: 'contact') do |page|
   page.title = 'Contact Us'
+  page.account = admin_user.account
   page.author = admin_user
   page.status = 'published'
   page.meta_description = 'Get in touch with the Powernode team for sales, support, or general inquiries.'
@@ -707,6 +713,7 @@ end
 # Features page
 Page.find_or_create_by!(slug: 'features') do |page|
   page.title = 'Platform Features'
+  page.account = admin_user.account
   page.author = admin_user
   page.status = 'published'
   page.meta_description = 'Explore Powernode features: subscription billing, AI orchestration, DevOps integration, and supply chain security.'
