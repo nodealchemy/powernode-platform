@@ -60,12 +60,17 @@ fi
 # also (re)writes the per-account dynamic YAML so a stale config from a
 # previous environment doesn't survive into this start.
 cd "$PLATFORM_ROOT/server"
+# Pipe through `tail -n 1` to skip the initializer chatter that Rails 8.1+
+# emits to stdout during boot (Sentry status, billing automation init, JWT
+# algorithm log, ActiveRecord encryption status, etc.). The `print` (not
+# `puts`) in the runner block leaves the path as the FINAL non-newlined
+# character of stdout — `tail -n 1` reliably extracts just the path.
 STATIC_CONFIG="$(bundle exec rails runner '
   Account.find_each do |acct|
     Acme::TraefikConfigWriter.write!(account: acct) rescue nil
   end
   print Acme::TraefikConfigWriter.write_static_config!
-' 2>&1)"
+' 2>&1 | tail -n 1)"
 
 if [[ -z "$STATIC_CONFIG" ]] || [[ ! -f "$STATIC_CONFIG" ]]; then
   echo "Failed to generate Traefik static config; runner output:" >&2
