@@ -18,6 +18,20 @@ export type ProviderTypeSlug = string;
 
 export type ProviderCredentialValues = Record<string, string>;
 
+/**
+ * Which lifecycle slot a field belongs to:
+ *
+ *   - `credential` (default) — secret material that lands in
+ *     ProviderCredential / Vault (access keys, tokens, passwords).
+ *   - `config` — non-secret connection or deployment defaults that live on
+ *     Provider.config (endpoint URLs, regions, TLS verification flags). The
+ *     extension's ProviderFormModal exposes these on its General tab and
+ *     passes `excludeScopes={['config']}` so they don't render again on the
+ *     Credentials tab. The onboarding wizard auto-creates a provider from
+ *     the credentials payload, so it still shows them.
+ */
+export type ProviderFieldScope = 'credential' | 'config';
+
 export interface ProviderFieldDef {
   /** Snake_case key used in the credentials payload sent to the server. */
   key: string;
@@ -35,6 +49,8 @@ export interface ProviderFieldDef {
   required?: boolean;
   /** When true, the value must parse as JSON before "Test" is enabled. */
   jsonValidate?: boolean;
+  /** Lifecycle slot — see ProviderFieldScope. Defaults to 'credential'. */
+  scope?: ProviderFieldScope;
 }
 
 /**
@@ -125,6 +141,7 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         type: 'text',
         defaultValue: 'us-east-1',
         required: true,
+        scope: 'config',
       },
     ],
     hetzner: [
@@ -188,6 +205,7 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         label: 'Subscription ID',
         type: 'text',
         required: true,
+        scope: 'config',
       },
     ],
     local_qemu: [
@@ -208,6 +226,7 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         placeholder: 'https://pve.example.com:8006',
         helper: 'Base URL of the Proxmox VE REST API. Include scheme and port.',
         required: true,
+        scope: 'config',
       },
       {
         key: 'access_key',
@@ -232,6 +251,7 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         defaultValue: 'true',
         helper: 'Set to "false" for PVE installs with a self-signed certificate. Stored as a string in config.',
         required: false,
+        scope: 'config',
       },
     ],
   },
@@ -338,6 +358,15 @@ export interface ProviderCredentialFormProps {
   compact?: boolean;
   /** Hide the "Test credentials" CTA — useful when the parent renders its own. */
   hideTestButton?: boolean;
+  /**
+   * Hide fields whose `scope` matches any value in this array. Default behavior
+   * (omitted) renders every field in the schema. The system extension's
+   * ProviderFormModal passes `['config']` here so connection/region defaults
+   * already collected on its General tab don't appear again on the Credentials
+   * tab. The onboarding wizard omits this prop because it auto-creates a
+   * provider from the credentials payload and needs every field.
+   */
+  excludeScopes?: ProviderFieldScope[];
   className?: string;
 }
 
@@ -401,9 +430,23 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
   testEndpoint = '/system/provider_credentials/test',
   compact = false,
   hideTestButton = false,
+  excludeScopes,
   className = '',
 }) => {
-  const fields = PROVIDER_FIELD_SCHEMAS[category]?.[providerType] ?? [];
+  // Memoize against a string key so callers can pass a fresh array literal
+  // (e.g. `excludeScopes={['config']}`) on every render without invalidating
+  // the dep arrays of downstream useMemo/useEffect blocks.
+  const excludeKey = (excludeScopes ?? []).join(',');
+  const fields = useMemo(() => {
+    const raw = PROVIDER_FIELD_SCHEMAS[category]?.[providerType] ?? [];
+    if (excludeKey.length === 0) return raw;
+    const excluded = new Set(excludeKey.split(',') as ProviderFieldScope[]);
+    // Fields without an explicit `scope` default to 'credential' — non-secret
+    // config fields opt out by tagging themselves `scope: 'config'`. Exclude-list
+    // semantics (not include-list) so existing schemas keep working without
+    // retagging every single field.
+    return raw.filter((field) => !excluded.has(field.scope ?? 'credential'));
+  }, [category, providerType, excludeKey]);
   const providerLabel = PROVIDER_LABELS[category]?.[providerType] ?? providerType;
 
   const [values, setValues] = useState<ProviderCredentialValues>(() =>
