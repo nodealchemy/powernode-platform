@@ -16,14 +16,17 @@
 # We hook into the same on_load lifecycle to run AFTER the railtie and
 # call configure() directly with the resolved keys.
 #
-# Key rotation: each ACTIVE_RECORD_ENCRYPTION_*_KEY / SALT env var accepts
-# a comma-separated list. The first entry is used for new writes; all
-# entries are tried for reads. Rotation procedure:
-#   1. Generate new keys; set env to "NEW,OLD" (new first, old second).
+# Key rotation: ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY and DETERMINISTIC_KEY
+# accept comma-separated lists. Rails 8's KeyProvider#encryption_key returns
+# `@keys.last` — the LAST entry is used for new writes, and ALL entries are
+# tried for reads. **Order matters and is counterintuitive.** Rotation:
+#   1. Generate new keys; set env to "OLD,NEW" — OLD first (read fallback),
+#      NEW last (active write key).
 #   2. Restart backend.
-#   3. Run `bin/rails ar_encryption:re_encrypt_all` to re-save every row
-#      with `encrypts` declarations under the new primary key.
-#   4. Set env back to just "NEW"; restart. Old keys are no longer trusted.
+#   3. Run `bin/rails ar_encryption:re_encrypt_all` — writes use NEW.
+#   4. Set env back to just "NEW"; restart. OLD is no longer trusted.
+#
+# (The salt is single-value only — PBKDF2 needs a string.)
 ActiveSupport.on_load(:active_record_encryption) do
   # `multi:` controls whether an env value is allowed to be a comma-
   # separated key list (array) or must be a single string.

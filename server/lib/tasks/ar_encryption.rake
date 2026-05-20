@@ -3,18 +3,20 @@
 # ActiveRecord encryption key rotation tasks.
 #
 # Workflow (production):
-#   1. Generate new keys, set ACTIVE_RECORD_ENCRYPTION_* env vars to the
-#      NEW values and ACTIVE_RECORD_ENCRYPTION_PREVIOUS_* env vars to the
-#      OLD values. Restart the backend.
-#   2. Run `bin/rails ar_encryption:re_encrypt_all` — re-saves every row
-#      with `encrypts` declarations so it gets re-encrypted under the new
-#      primary key.
-#   3. Unset the ACTIVE_RECORD_ENCRYPTION_PREVIOUS_* env vars. Restart the
-#      backend. Old keys are no longer trusted.
+#   1. Generate new keys. Set ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY (and
+#      _DETERMINISTIC_KEY) env vars to the comma-separated form "OLD,NEW".
+#      Rails 8's KeyProvider#encryption_key returns @keys.LAST — so NEW
+#      MUST be LAST for new writes. Reads try all entries.
+#   2. Restart backend.
+#   3. Run `bin/rails ar_encryption:re_encrypt_all` — re-saves every row
+#      with `encrypts` declarations through proper setters + forced
+#      dirty-tracking, so each encrypted column gets rewritten under NEW.
+#   4. Set env back to just "NEW"; restart. OLD is no longer trusted.
 #
-# Reuses Rails's stock `previous:` configuration (set up in
-# config/initializers/encryption.rb) — during the rotation window, reads
-# fall back to the old key, writes encrypt with the new key.
+# Forced dirty-tracking is mandatory: setting an encrypted attribute to
+# its current decrypted value doesn't mark the column dirty (value
+# unchanged → Rails skips the write). The task calls
+# `record.send("#{attr}_will_change!")` explicitly to force re-encryption.
 #
 # CRITICAL: exception details are NEVER printed to stdout/stderr because
 # ActiveRecord encryption exception messages can include the encryption
@@ -70,12 +72,19 @@ namespace :ar_encryption do
         relation.each do |record|
           rid = (record.id rescue "?")
           begin
-            # Re-set every encrypted attribute through the proper setter.
-            # The setter encrypts under the current primary key; save
-            # persists the new ciphertext.
+            # Re-set every encrypted attribute through the proper setter,
+            # then FORCE dirty-tracking. Without the explicit will_change!
+            # call, Rails sees `attr = current_value_we_just_read` as a
+            # no-op and skips the write — so the underlying ciphertext
+            # never gets rewritten with the new key. Plain `encrypts`
+            # attributes hit this; pepper-layered attributes don't,
+            # because the pepper layer's random IV produces a different
+            # serialized value each call.
             klass.encrypted_attributes.each do |attr|
               current = record.public_send(attr)
+              next if current.nil?
               record.public_send("#{attr}=", current)
+              record.send("#{attr}_will_change!")
             end
             if record.save(validate: false, touch: false)
               processed += 1
