@@ -4,7 +4,7 @@ module Api
   module V1
     module Ai
       module Intelligence
-        class BaasController < ApplicationController
+        class BaaSController < ApplicationController
           before_action :validate_permissions
 
           # GET /api/v1/ai/intelligence/baas/usage_anomalies
