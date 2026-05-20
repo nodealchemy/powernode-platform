@@ -200,6 +200,40 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         required: false,
       },
     ],
+    proxmox: [
+      {
+        key: 'endpoint_url',
+        label: 'PVE API Endpoint',
+        type: 'text',
+        placeholder: 'https://pve.example.com:8006',
+        helper: 'Base URL of the Proxmox VE REST API. Include scheme and port.',
+        required: true,
+      },
+      {
+        key: 'access_key',
+        label: 'API Token ID',
+        type: 'text',
+        placeholder: 'root@pam!powernode',
+        helper: 'PVE token identity in the form USER@REALM!TOKENNAME.',
+        required: true,
+      },
+      {
+        key: 'secret_key',
+        label: 'API Token Secret',
+        type: 'password',
+        placeholder: '00000000-0000-0000-0000-000000000000',
+        helper: 'UUID secret shown once at token creation in the PVE web UI.',
+        required: true,
+      },
+      {
+        key: 'verify_ssl',
+        label: 'Verify TLS certificate',
+        type: 'text',
+        defaultValue: 'true',
+        helper: 'Set to "false" for PVE installs with a self-signed certificate. Stored as a string in config.',
+        required: false,
+      },
+    ],
   },
   git: {
     github: [
@@ -260,6 +294,7 @@ export const PROVIDER_LABELS: Record<ProviderCategory, Record<ProviderTypeSlug, 
     gcp: 'Google Cloud Platform',
     azure: 'Microsoft Azure',
     local_qemu: 'Local KVM/QEMU',
+    proxmox: 'Proxmox VE',
   },
   git: {
     github: 'GitHub',
