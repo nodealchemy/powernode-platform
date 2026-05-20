@@ -105,8 +105,12 @@ rsync -az --info=stats2 \
   --exclude server/storage/files/ --exclude server/coverage/ \
   --exclude frontend/dist/ --exclude frontend/build/ \
   --exclude .env \
+  --exclude config/extensions_state.json \
+  --exclude frontend/.proxy-config-cache.json \
   /path/to/powernode-platform/  target-host:/home/$USER/powernode-platform/
 ```
+
+> **Gotcha #16**: `config/extensions_state.json` and `frontend/.proxy-config-cache.json` are deployment-specific state, not source code. The dev tree typically only disables `trading`; ops/prod also need `business` disabled (gotcha #5). Likewise the proxy-cache file holds host allowlists specific to each environment. Always exclude both from rsync so deployment-local choices survive sync runs.
 
 ### Step 6 — Install Ruby gems
 
