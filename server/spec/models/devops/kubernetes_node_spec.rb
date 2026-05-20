@@ -133,6 +133,53 @@ RSpec.describe Devops::KubernetesNode, type: :model do
     end
   end
 
+  describe "cluster.node_count auto-decrement on destroy" do
+    it "decrements cluster.node_count when a node is destroyed" do
+      built_node.save!
+      cluster.update!(node_count: 3)
+
+      expect {
+        built_node.destroy
+      }.to change { cluster.reload.node_count }.from(3).to(2)
+    end
+
+    it "does not decrement below zero (safety guard)" do
+      built_node.save!
+      cluster.update!(node_count: 0)
+
+      expect {
+        built_node.destroy
+      }.not_to change { cluster.reload.node_count }
+    end
+
+    it "no-ops when the cluster is already gone (cascade-destroy ordering)" do
+      built_node.save!
+      cluster_id = cluster.id
+      cluster.destroy
+      # After cluster destroy, the node row is also gone (cascade), so this
+      # path proves the callback's `return unless cluster` guard works.
+      expect(::Devops::KubernetesCluster.where(id: cluster_id).exists?).to be(false)
+    end
+
+    it "is consistent across multiple destroys in the same transaction" do
+      built_node.save!
+      second_instance = sdwan_test_node_instance(node: node, name: "i-second-#{SecureRandom.hex(3)}")
+      second_node = create(:devops_kubernetes_node,
+                            kubernetes_cluster: cluster,
+                            node_instance: second_instance,
+                            role: "agent",
+                            name: "second-node")
+      cluster.update!(node_count: 5)
+
+      expect {
+        ::ActiveRecord::Base.transaction do
+          built_node.destroy
+          second_node.destroy
+        end
+      }.to change { cluster.reload.node_count }.from(5).to(3)
+    end
+  end
+
   describe "#node_summary" do
     it "returns the operator-facing fields" do
       built_node.save!

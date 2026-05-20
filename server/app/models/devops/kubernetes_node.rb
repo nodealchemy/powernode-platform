@@ -29,6 +29,15 @@ module Devops
                class_name: "System::NodeInstance",
                foreign_key: :node_instance_id
 
+    # Keep cluster.node_count consistent across destroys. The increment
+    # path lives in KubernetesClusterProvisionerService#register_node_join!,
+    # but destroys can be triggered from many call sites (decommission
+    # cascade, drain reprovision, operator delete), so the model owns
+    # the decrement. Guarded against double-decrement when the cluster
+    # is also being destroyed (cascade) — the after_destroy doesn't fire
+    # if the cluster row is already gone.
+    after_destroy :decrement_cluster_node_count
+
     validates :name, presence: true, length: { maximum: 255 }
     validates :role, presence: true, inclusion: { in: ROLES }
     validates :status, presence: true, inclusion: { in: STATUSES }
@@ -80,6 +89,19 @@ module Devops
         k8s_version: k8s_version,
         last_heartbeat_at: last_heartbeat_at
       }
+    end
+
+    private
+
+    def decrement_cluster_node_count
+      # Reload to dodge stale-counter clobbering when multiple nodes
+      # are destroyed in the same transaction (each callback fires
+      # post-commit on its own row).
+      cluster = ::Devops::KubernetesCluster.where(id: kubernetes_cluster_id).first
+      return unless cluster
+      return if cluster.node_count.to_i <= 0
+
+      cluster.decrement!(:node_count)
     end
   end
 end
