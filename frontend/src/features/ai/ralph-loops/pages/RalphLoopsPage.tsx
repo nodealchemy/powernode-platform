@@ -183,6 +183,29 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
     }
   }, [selectedLoop, showNotification]);
 
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const handleCancelLoop = useCallback(async () => {
+    if (!selectedLoop) return;
+    const confirmed = window.confirm(
+      `Cancel loop "${selectedLoop.name}"?\n\n` +
+      `This sets status to 'cancelled' and stops any further iterations. ` +
+      `The loop record is preserved as an audit trail.`
+    );
+    if (!confirmed) return;
+    try {
+      setCancelLoading(true);
+      const reason = window.prompt('Cancellation reason (optional):') || undefined;
+      await ralphLoopsApi.cancelLoop(selectedLoop.id, reason);
+      showNotification('Loop cancelled', 'success');
+      loadLoop(selectedLoop.id);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Failed to cancel loop', 'error');
+    } finally {
+      setCancelLoading(false);
+    }
+  }, [selectedLoop, showNotification]);
+
   const handleRegenerateToken = useCallback(async () => {
     if (!selectedLoop) return;
     try {
@@ -265,7 +288,9 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
           onPauseSchedule={handlePauseSchedule}
           onResumeSchedule={handleResumeSchedule}
           onRegenerateToken={handleRegenerateToken}
+          onCancelLoop={handleCancelLoop}
           scheduleLoading={scheduleLoading}
+          cancelLoading={cancelLoading}
         />
       </div>
 

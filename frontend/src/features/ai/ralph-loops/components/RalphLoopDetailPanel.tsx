@@ -10,9 +10,11 @@ import {
   Repeat,
   TrendingUp,
   Loader2,
+  XCircle,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
 import { Badge } from '@/shared/components/ui/Badge';
+import { Button } from '@/shared/components/ui/Button';
 import { LoopStatsCards } from './LoopStatsCards';
 import { RalphIterationList } from './RalphIterationList';
 import { RalphProgressView } from './RalphProgressView';
@@ -55,7 +57,9 @@ interface RalphLoopDetailPanelProps {
   onPauseSchedule: () => void;
   onResumeSchedule: () => void;
   onRegenerateToken: () => void;
+  onCancelLoop: () => void;
   scheduleLoading: boolean;
+  cancelLoading?: boolean;
 }
 
 export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
@@ -74,7 +78,9 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
   onPauseSchedule,
   onResumeSchedule,
   onRegenerateToken,
+  onCancelLoop,
   scheduleLoading,
+  cancelLoading,
 }) => {
   const navigate = useNavigate();
 
@@ -112,6 +118,7 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
 
   const status = statusConfig[loop.status] || statusConfig.pending;
   const isRunning = loop.status === 'running';
+  const isCancellable = ['pending', 'running', 'paused'].includes(loop.status);
   const progressPercentage = loop.task_count
     ? Math.round((loop.completed_task_count || 0) / loop.task_count * 100)
     : 0;
@@ -119,7 +126,7 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <div className="space-y-6">
-        {/* Status Badge */}
+        {/* Status Badge + actions */}
         <div className="flex items-center gap-3 mb-4">
           <Badge variant={status.variant}>
             {isRunning && <RotateCcw className="w-3 h-3 mr-1 animate-spin" />}
@@ -139,6 +146,23 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
                 </>
               )}
             </Badge>
+          )}
+          {isCancellable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCancelLoop}
+              disabled={cancelLoading}
+              className="ml-auto text-theme-status-error hover:bg-theme-status-error/10"
+              data-testid="ralph-loop-cancel-btn"
+            >
+              {cancelLoading ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <XCircle className="w-4 h-4 mr-1" />
+              )}
+              Cancel Loop
+            </Button>
           )}
         </div>
 
