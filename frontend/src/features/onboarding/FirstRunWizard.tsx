@@ -77,12 +77,24 @@ const PROVIDER_OPTIONS_BY_CATEGORY: Record<ProviderCategory, ReadonlyArray<Provi
       description: 'Run open-weight models on your own hardware — no API keys needed.',
       icon: <Brain className="h-5 w-5" />,
     },
+    {
+      type: 'grok',
+      label: 'xAI (Grok)',
+      description: 'Grok-3 and Grok-vision via the xAI API.',
+      icon: <Brain className="h-5 w-5" />,
+    },
   ],
   cloud: [
     {
       type: 'local_qemu',
       label: 'Local KVM/QEMU',
       description: 'Run on the local hypervisor — recommended for first-time setup and on-box workloads.',
+      icon: <Server className="h-5 w-5" />,
+    },
+    {
+      type: 'proxmox',
+      label: 'Proxmox VE',
+      description: 'Spawn VMs + LXC containers on a Proxmox cluster via the PVE API.',
       icon: <Server className="h-5 w-5" />,
     },
     {

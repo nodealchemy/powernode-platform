@@ -138,9 +138,17 @@ class APIClient {
           console.error('[API Error]', error);
         }
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // Auth endpoints establish or terminate a session. A 401 here means
+        // bad credentials, missing/invalid refresh cookie, or already-logged-out
+        // — refreshing the access token will not help and will produce a
+        // misleading second error (e.g. /auth/refresh 400 because no cookie
+        // exists yet). Skip the refresh path for these.
+        const url: string = originalRequest?.url ?? '';
+        const isAuthEndpoint = /\/auth\/(login|refresh|logout|register|forgot-password|reset-password|verify-2fa|verify-email)$/.test(url);
+
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
           const state = store.getState();
-          
+
           // If we're impersonating and get 401, the impersonation session is invalid
           if (state.auth.impersonation.isImpersonating) {
             try {

@@ -119,6 +119,24 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         required: false,
       },
     ],
+    grok: [
+      {
+        key: 'api_key',
+        label: 'API Key',
+        type: 'password',
+        placeholder: 'xai-…',
+        helper: 'Generated under console.x.ai → API Keys.',
+        required: true,
+      },
+      {
+        key: 'default_model',
+        label: 'Default Model',
+        type: 'text',
+        defaultValue: 'grok-3',
+        helper: 'e.g. grok-3, grok-3-mini-fast, grok-vision.',
+        required: false,
+      },
+    ],
   },
   cloud: {
     aws: [
@@ -305,6 +323,7 @@ export const PROVIDER_LABELS: Record<ProviderCategory, Record<ProviderTypeSlug, 
     anthropic: 'Anthropic Claude',
     openai: 'OpenAI',
     ollama: 'Ollama (self-hosted)',
+    grok: 'xAI (Grok)',
   },
   cloud: {
     aws: 'Amazon Web Services',
@@ -594,9 +613,11 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
   };
 
   return (
-    <div
+    <form
       className={`space-y-4 ${className}`.trim()}
       data-testid={`provider-credential-form-${category}-${providerType}`}
+      onSubmit={(event) => event.preventDefault()}
+      autoComplete="off"
     >
       {!compact && (
         <div className="flex items-start gap-2 rounded-lg border border-theme bg-theme-info/10 px-3 py-2 text-xs text-theme-secondary">
@@ -651,7 +672,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
           )}
         </div>
       )}
-    </div>
+    </form>
   );
 };
 
