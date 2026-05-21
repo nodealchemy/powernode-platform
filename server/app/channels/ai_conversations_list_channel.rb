@@ -17,7 +17,10 @@ class AiConversationsListChannel < ApplicationCable::Channel
     end
 
     stream_from self.class.stream_name(current_user.account_id)
-    transmit(type: "subscription.confirmed", timestamp: Time.current.iso8601)
+    # Wrap in explicit hash — Rails 8 / Ruby 3.2 distinguishes positional
+    # hash from kwargs strictly; `transmit(type: ...)` was being parsed as
+    # kwargs and raising ArgumentError (given 0, expected 1).
+    transmit({ type: "subscription.confirmed", timestamp: Time.current.iso8601 })
   end
 
   def unsubscribed

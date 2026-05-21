@@ -245,6 +245,7 @@ Rails.application.routes.draw do
           # Maintenance::BackupCleanupJob worker scans this to find expired
           # rows for deletion. Filterable by `status` and `created_before`.
           get "backups", to: "maintenance#list_backups"
+          post "backups", to: "maintenance#create_backup"
           get "backups/:id", to: "maintenance#show_backup"
           patch "backups/:id", to: "maintenance#update_backup"
           delete "backups/:id", to: "maintenance#delete_backup"

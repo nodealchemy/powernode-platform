@@ -25,7 +25,7 @@ class SubscriptionChannel < ApplicationCable::Channel
   # Client can request subscription refresh
   def refresh_subscriptions
     if current_account
-      subscription = current_account.subscription
+      subscription = fetch_subscription_safely
 
       broadcast_to_account(current_account, {
         type: "subscription_updated",
@@ -41,10 +41,19 @@ class SubscriptionChannel < ApplicationCable::Channel
 
   private
 
+  # When the business extension isn't loaded (core-mode install), Account
+  # doesn't have a `subscription` association — calling it NoMethodErrors.
+  # Treat that the same as "no subscription on this account".
+  def fetch_subscription_safely
+    return nil unless current_account
+    return nil unless ::Shared::FeatureGateService.business_loaded?
+    current_account.respond_to?(:subscription) ? current_account.subscription : nil
+  end
+
   def send_current_subscription_status
     return unless current_account
 
-    subscription = current_account.subscription
+    subscription = fetch_subscription_safely
 
     data = {
       type: "subscription_status",

@@ -295,6 +295,47 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
     render_error("Auth cleanup failed: #{e.message}", status: :internal_server_error)
   end
 
+  # POST /api/v1/internal/maintenance/backups
+  # Worker calls this from Maintenance::ScheduledBackupJob (daily 2 AM UTC
+  # for full backups, weekly Sunday 3 AM for schema-only). Creates a
+  # pending Database::Backup row. Actual pg_dump orchestration is a
+  # separate concern not yet wired on every deployment — when absent, the
+  # row stays in `pending` and the operator gets a clean trail without
+  # any 500s in the journal.
+  def create_backup
+    backup_type = (params[:backup_type] || "full").to_s
+    unless %w[full incremental manual schema_only].include?(backup_type)
+      return render_error("invalid backup_type: #{backup_type}", status: :unprocessable_entity)
+    end
+
+    backup = Database::Backup.new(
+      backup_type: backup_type == "schema_only" ? "manual" : backup_type,
+      status: "pending",
+      metadata: {
+        requested_at: Time.current.iso8601,
+        scheduled: ActiveModel::Type::Boolean.new.cast(params[:scheduled]),
+        description: params[:description].to_s,
+        # Preserve the original worker-supplied type for downstream
+        # executors that need to distinguish "full" vs "schema_only".
+        requested_type: backup_type
+      }
+    )
+
+    if backup.save
+      log_internal_audit("backup.create", "Database::Backup", backup.id,
+                         backup_type: backup_type, scheduled: backup.metadata["scheduled"])
+      render_success({
+        id: backup.id,
+        status: backup.status,
+        backup_type: backup.backup_type,
+        created_at: backup.created_at
+      }, status: :accepted)
+    else
+      render_error("backup row save failed: #{backup.errors.full_messages.join('; ')}",
+                   status: :unprocessable_entity)
+    end
+  end
+
   # POST /api/v1/internal/maintenance/backups/:id/cleanup
   def cleanup_old_backups
     days_to_keep = params[:days_to_keep]&.to_i || 30
