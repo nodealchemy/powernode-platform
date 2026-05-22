@@ -46,12 +46,7 @@ Use `platform.discover_skills` with a task description to find the right special
 - **Staged commits**: Group changes into logical commits by concern (models, services, controllers, frontend, tests, config) — never one monolithic commit
 
 ### Business Submodule (`./extensions/business`)
-- **Separate git repo** at `extensions/business/` — has its own branch, commits, and a private upstream (added manually by maintainers with access; not committed to public repo)
-- **Always check both repos**: `git status` in root AND `git -C extensions/business status` — changes in `extensions/business/` are invisible to the parent repo's `git status`
-- **Commit order**: Commit inside `extensions/business/` first, then update the submodule pointer in the parent repo
-- **Path aliases**: Business frontend uses `@business/` for intra-business imports, `@/` for core shared imports
-- **Core mode**: When business submodule is absent, the app runs as single-user self-hosted (all features unlocked, no billing/SaaS)
-- **Feature gating**: `Shared::FeatureGateService.business_loaded?` (backend), `__BUSINESS__` build flag (frontend), `businessOnly: true` on nav items
+Private remote-only (not committed to public repo). **Path aliases**: `@business/` for intra-business imports, `@/` for core shared imports. **Core mode** when absent: single-user self-hosted, all features unlocked, no billing/SaaS. **Feature gating**: `Shared::FeatureGateService.business_loaded?` (backend), `__BUSINESS__` build flag (frontend), `businessOnly: true` on nav items. For git/commit rules see [Submodule Safety](#submodule-safety-critical).
 
 ### Permission-Based Access Control (CRITICAL)
 **Frontend MUST use permissions ONLY - NEVER roles for access control**
@@ -146,6 +141,7 @@ user.role === 'manager'
 - **System and supply-chain extensions** are publicly mirrored on GitHub — `.gitmodules` advertises `https://github.com/nodealchemy/powernode-system.git` and `https://github.com/nodealchemy/powernode-supply-chain.git`. Maintainer's local checkout has `origin` = the public GitHub mirror and `ipnode` = the private upstream (added manually). Push to both remotes on every release. **Do NOT run `git submodule sync`** on these submodules — it would overwrite local config and drop the private upstream remote.
 - **Business and trading extensions** are not committed to the public repo (gitignored in the parent's tree; not present in `.gitmodules`). Maintainers with access add them locally via `git submodule add <private-url> extensions/business` (and similar for trading); their commits go to the private upstream only and never appear in public clones.
 - **CWD verification**: Before EVERY `git add`/`git commit`, run `git rev-parse --show-toplevel` and verify it matches the intended repo
+- **Survey both git statuses**: When checking state, run `git status` in root AND `git -C extensions/<name> status` for each submodule — changes inside a submodule are invisible to the parent repo's `git status`
 - **Never commit extension files from parent**: Files under `extensions/*/` MUST be committed from within the submodule. Running `git add extensions/trading/...` from parent only stages a pointer change
 - **Commit order**: Commit inside each submodule FIRST, then update pointers in parent
 
@@ -288,22 +284,7 @@ The Powernode MCP server (`platform.*` tools) is the **primary knowledge source*
 
 ### AFTER EVERY TASK (MANDATORY — zero exceptions for non-trivial work)
 
-Contribute at least one of:
-
-| When you... | Do this |
-|-------------|---------|
-| Solved a non-trivial bug | `platform.create_learning` (category: `discovery` or `failure_mode`) |
-| Established/confirmed a pattern | `platform.create_learning` (category: `pattern` or `best_practice`) |
-| Documented a procedure or guide | `platform.create_knowledge` (content_type: `procedure`) |
-| Found entity relationships | `platform.extract_to_knowledge_graph` |
-| Implemented a reusable capability | `platform.create_skill` |
-
-**Self-check**: "Did I create learnings for the critical findings in this task?" If no, do it now.
-
-### Skip Contributions For
-- Trivial fixes (typos, simple renames, formatting)
-- Speculative or unverified analysis
-- Knowledge that already exists in MCP (always search first)
+Contribute via the manual responsibilities table in [Knowledge Quality Lifecycle](#knowledge-quality-lifecycle). **Skip** for trivial fixes (typos, renames, formatting), speculative/unverified analysis, or knowledge that already exists in MCP. **Self-check** at task end: "Did I create learnings for the critical findings?" — if no, do it now.
 
 ### MCP Tool Invocation
 
@@ -313,219 +294,33 @@ Claude Code invokes `platform.*` tools directly via the streamable-http MCP serv
 
 ## MCP Tool Catalog
 
-All `platform.*` tools organized by development task. Full parameter docs: [reference/auto/mcp-tools.md](docs/reference/auto/mcp-tools.md).
+All `platform.*` tools by area — see [reference/auto/mcp-tools.md](docs/reference/auto/mcp-tools.md) for descriptions and parameters.
 
-### Discovery & Context (10 tools)
-| Tool | Description |
-|------|-------------|
-| `search_knowledge` | Semantic search across shared knowledge entries |
-| `query_learnings` | Query compound learnings by category, status, or text |
-| `search_knowledge_graph` | Semantic search over knowledge graph nodes |
-| `reason_knowledge_graph` | Multi-hop reasoning across graph relationships |
-| `discover_skills` | Find reusable skills matching a task description |
-| `get_skill_context` | Get full execution context for a specific skill |
-| `search_memory` | Search agent working/shared memory pools |
-| `search_documents` | Search RAG document chunks by query |
-| `query_knowledge_base` | Query a specific knowledge base with RAG |
-| `get_api_reference` | Look up API endpoint contracts and schemas |
-
-### Knowledge Contribution (7 tools)
-| Tool | Description |
-|------|-------------|
-| `create_learning` | Create a compound learning (categories: `pattern`, `best_practice`, `discovery`, `failure_mode`) |
-| `create_knowledge` | Create a shared knowledge entry (content_types: `procedure`, `reference`, `guide`) |
-| `update_knowledge` | Update an existing shared knowledge entry |
-| `promote_knowledge` | Promote knowledge for cross-team visibility |
-| `extract_to_knowledge_graph` | Extract entities and relationships to the knowledge graph |
-| `create_skill` | Register a reusable skill with execution context |
-| `update_skill` | Update an existing skill definition |
-
-### Quality & Reinforcement (9 tools)
-| Tool | Description |
-|------|-------------|
-| `verify_learning` | Verify a learning as accurate (boosts confidence) |
-| `dispute_learning` | Dispute an inaccurate learning with reason |
-| `resolve_contradiction` | Pick a winner between two conflicting learnings |
-| `rate_knowledge` | Rate shared knowledge quality (1-5 scale) |
-| `reinforce_learning` | Reinforce a learning that was used successfully |
-| `knowledge_health` | Cross-system health report (learnings + knowledge + graph) |
-| `learning_metrics` | Compound learning statistics and trends |
-| `skill_health` | Skill system health and conflict report |
-| `skill_metrics` | Skill usage statistics and effectiveness |
-
-### Agent Management (5 tools)
-| Tool | Description |
-|------|-------------|
-| `create_agent` | Create a new AI agent with provider and model config |
-| `list_agents` | List agents (filterable by status, provider) |
-| `get_agent` | Get full agent details including trust score |
-| `update_agent` | Update agent configuration |
-| `execute_agent` | Execute an agent with a prompt and optional tools |
-
-### Team Management (6 tools)
-| Tool | Description |
-|------|-------------|
-| `create_team` | Create an agent team with composition rules |
-| `list_teams` | List teams (filterable by status) |
-| `get_team` | Get team details including members and roles |
-| `update_team` | Update team configuration |
-| `add_team_member` | Add an agent to a team with a role |
-| `execute_team` | Execute a team task with orchestration |
-
-### Knowledge Graph Exploration (7 tools)
-| Tool | Description |
-|------|-------------|
-| `search_knowledge_graph` | Semantic search over graph nodes |
-| `reason_knowledge_graph` | Multi-hop reasoning across relationships |
-| `get_graph_node` | Get a specific node with its relationships |
-| `list_graph_nodes` | List graph nodes (filterable by type, label) |
-| `get_graph_neighbors` | Get connected nodes within N hops |
-| `graph_statistics` | Graph-wide statistics (node/edge counts, density) |
-| `get_subgraph` | Extract a subgraph around a focal node |
-
-### Memory Management (6 tools)
-| Tool | Description |
-|------|-------------|
-| `write_shared_memory` | Write to a shared memory pool (key-value with TTL) |
-| `read_shared_memory` | Read from a shared memory pool by key |
-| `search_memory` | Semantic search across memory entries |
-| `consolidate_memory` | Trigger memory tier consolidation (STM→LTM) |
-| `memory_stats` | Memory usage statistics per tier |
-| `list_pools` | List available memory pools for an agent/team |
-
-### RAG & Documents (7 tools)
-| Tool | Description |
-|------|-------------|
-| `query_knowledge_base` | Query a knowledge base using RAG retrieval |
-| `list_knowledge_bases` | List available knowledge bases |
-| `create_knowledge_base` | Create a new knowledge base |
-| `add_document` | Add a document to a knowledge base |
-| `process_document` | Trigger document chunking and embedding |
-| `search_documents` | Search document chunks by semantic query |
-| `delete_document` | Remove a document from a knowledge base |
-
-### Content Management (8 tools)
-| Tool | Description |
-|------|-------------|
-| `list_kb_articles` | List knowledge base articles |
-| `get_kb_article` | Get article content and metadata |
-| `create_kb_article` | Create a new KB article |
-| `update_kb_article` | Update an existing KB article |
-| `list_pages` | List content pages |
-| `get_page` | Get page content and metadata |
-| `create_page` | Create a new content page |
-| `update_page` | Update an existing content page |
-
-### Skill Administration (4 tools)
-| Tool | Description |
-|------|-------------|
-| `list_skills` | List skills with pagination and filters |
-| `get_skill` | Get full skill definition and execution context |
-| `delete_skill` | Remove a skill |
-| `toggle_skill` | Enable or disable a skill |
-
-### AI Autonomy & Safety (16 tools)
-| Tool | Description |
-|------|-------------|
-| `emergency_halt` | Emergency halt ALL AI activity (kill switch) |
-| `emergency_resume` | Resume AI activity after emergency halt |
-| `kill_switch_status` | Check current kill switch state |
-| `create_agent_goal` | Create a goal for an agent (self or managed) |
-| `list_agent_goals` | List an agent's goals (introspection) |
-| `update_agent_goal` | Update goal progress or status |
-| `agent_introspect` | View own execution history, trust score, performance, and budget |
-| `propose_feature` | Create a feature suggestion for human review |
-| `send_proactive_notification` | Notify users about detected issues or suggestions |
-| `discover_claude_sessions` | Find active Claude Code MCP client sessions |
-| `request_code_change` | Request code changes via workspace message |
-| `create_proposal` | Formally propose a change for human review |
-| `escalate` | Structured escalation when stuck or encountering issues |
-| `request_feedback` | Request user feedback on completed work |
-| `report_issue` | Report a detected platform issue |
-
-### Codebase Intelligence (14 tools)
-| Tool | Description |
-|------|-------------|
-| `code_context_tree` | AST-based structural tree with file headers and symbol ranges (depth-pruned) |
-| `code_file_skeleton` | Function signatures, class methods, type definitions with line ranges (no bodies) |
-| `code_semantic_search` | Semantic search over code symbols using embeddings — finds code by meaning |
-| `code_identifier_search` | Search identifiers (functions, classes, variables) by name with usage counts |
-| `code_semantic_navigate` | Browse codebase by meaning using semantic clustering with labeled groups |
-| `code_feature_hub` | Obsidian-style feature navigation from markdown `[[wikilinks]]` |
-| `code_blast_radius` | Trace every file and line where a symbol is imported or used — impact analysis |
-| `code_static_analysis` | Run native linters/compilers (RuboCop, TypeScript, ESLint) with structured output |
-| `code_index_status` | Codebase index statistics: files indexed, symbols, staleness, embedding coverage |
-| `code_upsert_node` | Create/update a code-aware knowledge graph node with auto-embedding |
-| `code_create_relation` | Create typed edges between code nodes (imports, calls, inherits, etc.) |
-| `code_search_graph` | Search code graph with optional multi-hop traversal |
-| `code_prune_stale` | Find/archive nodes for files that no longer exist (dry_run supported) |
-| `code_bulk_index` | Trigger codebase indexing — AST parse, create KG nodes/edges, generate embeddings |
-
-### DevOps & CI/CD (6 tools)
-| Tool | Description |
-|------|-------------|
-| `create_gitea_repository` | Create a Gitea repository (private by default) |
-| `update_gitea_repository` | Update Gitea repo settings (visibility, description, archival) |
-| `dispatch_to_runner` | Dispatch a job to a Git runner (GitHub/Gitea) |
-| `trigger_pipeline` | Trigger a CI/CD pipeline run |
-| `list_pipelines` | List pipelines (filterable by status) |
-| `get_pipeline_status` | Get pipeline run status and step details |
+- **Discovery & Context** (10): `search_knowledge`, `query_learnings`, `search_knowledge_graph`, `reason_knowledge_graph`, `discover_skills`, `get_skill_context`, `search_memory`, `search_documents`, `query_knowledge_base`, `get_api_reference`
+- **Knowledge Contribution** (7): `create_learning`, `create_knowledge`, `update_knowledge`, `promote_knowledge`, `extract_to_knowledge_graph`, `create_skill`, `update_skill`
+- **Quality & Reinforcement** (9): `verify_learning`, `dispute_learning`, `resolve_contradiction`, `rate_knowledge`, `reinforce_learning`, `knowledge_health`, `learning_metrics`, `skill_health`, `skill_metrics`
+- **Agent Management** (5): `create_agent`, `list_agents`, `get_agent`, `update_agent`, `execute_agent`
+- **Team Management** (6): `create_team`, `list_teams`, `get_team`, `update_team`, `add_team_member`, `execute_team`
+- **Knowledge Graph Exploration** (7): `search_knowledge_graph`, `reason_knowledge_graph`, `get_graph_node`, `list_graph_nodes`, `get_graph_neighbors`, `graph_statistics`, `get_subgraph`
+- **Memory Management** (6): `write_shared_memory`, `read_shared_memory`, `search_memory`, `consolidate_memory`, `memory_stats`, `list_pools`
+- **RAG & Documents** (7): `query_knowledge_base`, `list_knowledge_bases`, `create_knowledge_base`, `add_document`, `process_document`, `search_documents`, `delete_document`
+- **Content Management** (8): `list_kb_articles`, `get_kb_article`, `create_kb_article`, `update_kb_article`, `list_pages`, `get_page`, `create_page`, `update_page`
+- **Skill Administration** (4): `list_skills`, `get_skill`, `delete_skill`, `toggle_skill`
+- **AI Autonomy & Safety** (16): `emergency_halt`, `emergency_resume`, `kill_switch_status`, `create_agent_goal`, `list_agent_goals`, `update_agent_goal`, `agent_introspect`, `propose_feature`, `send_proactive_notification`, `discover_claude_sessions`, `request_code_change`, `create_proposal`, `escalate`, `request_feedback`, `report_issue`
+- **Codebase Intelligence** (14): `code_context_tree`, `code_file_skeleton`, `code_semantic_search`, `code_identifier_search`, `code_semantic_navigate`, `code_feature_hub`, `code_blast_radius`, `code_static_analysis`, `code_index_status`, `code_upsert_node`, `code_create_relation`, `code_search_graph`, `code_prune_stale`, `code_bulk_index`
+- **DevOps & CI/CD** (6): `create_gitea_repository`, `update_gitea_repository`, `dispatch_to_runner`, `trigger_pipeline`, `list_pipelines`, `get_pipeline_status`
 
 ### Docker Management (52 tools)
-| Tool | Description |
-|------|-------------|
-| `docker_list_containers` | List all containers on a host with status, image, ports |
-| `docker_get_container` | Detailed info on a specific container |
-| `docker_create_container` | Create a new container from an image |
-| `docker_start_container` | Start a stopped container |
-| `docker_stop_container` | Stop a running container (configurable timeout) |
-| `docker_restart_container` | Restart a container |
-| `docker_delete_container` | Remove a container (force flag available) |
-| `docker_container_logs` | Retrieve container logs (tail + since filters) |
-| `docker_container_stats` | Live CPU, memory, network I/O stats |
-| `docker_container_exec` | Execute a command inside a running container |
-| `docker_list_services` | List all Swarm services with replica counts |
-| `docker_get_service` | Detailed info on a specific Swarm service |
-| `docker_create_service` | Create a service with image, replicas, ports, env |
-| `docker_update_service` | Update service config (image, env, constraints) |
-| `docker_scale_service` | Scale a service to a specified replica count |
-| `docker_rollback_service` | Rollback a service to its previous version |
-| `docker_delete_service` | Remove a service and its tasks |
-| `docker_service_logs` | Retrieve aggregated logs from all service tasks |
-| `docker_service_tasks` | List tasks with status and node placement |
-| `docker_list_stacks` | List all stacks with status and service count |
-| `docker_get_stack` | Detailed stack info including compose file |
-| `docker_deploy_stack` | Deploy or redeploy a stack from Compose YAML |
-| `docker_delete_stack` | Remove a stack and all its services |
-| `docker_adopt_stack` | Adopt an externally-deployed stack into Powernode |
-| `docker_list_clusters` | List all Swarm clusters with connection status |
-| `docker_get_cluster` | Detailed cluster info with node/service counts |
-| `docker_cluster_health` | Comprehensive health check (nodes, services, alerts) |
-| `docker_list_nodes` | List all nodes with role, availability, resources |
-| `docker_node_promote` | Promote a worker node to manager |
-| `docker_node_demote` | Demote a manager node to worker |
-| `docker_node_drain` | Drain a node (stop scheduling, migrate tasks) |
-| `docker_node_activate` | Activate a drained node to resume scheduling |
-| `docker_list_secrets` | List secrets (metadata only, not values) |
-| `docker_create_secret` | Create a new Swarm secret |
-| `docker_delete_secret` | Remove a secret |
-| `docker_list_configs` | List all Swarm configs |
-| `docker_create_config` | Create a new Swarm config |
-| `docker_delete_config` | Remove a config |
-| `docker_list_hosts` | List all Docker hosts with connection status |
-| `docker_get_host` | Detailed host info (OS, resources, Docker version) |
-| `docker_sync_host` | Sync containers and images from Docker daemon |
-| `docker_test_host` | Test connection to a Docker host |
-| `docker_list_images` | List all images with tags, size, creation time |
-| `docker_pull_image` | Pull an image from a registry |
-| `docker_delete_image` | Remove an image (force flag available) |
-| `docker_tag_image` | Tag an image with a new repository and tag |
-| `docker_list_networks` | List Swarm networks with driver and scope |
-| `docker_create_network` | Create an overlay network |
-| `docker_delete_network` | Remove a network |
-| `docker_list_volumes` | List Swarm volumes with driver info |
-| `docker_create_volume` | Create a volume with configurable driver |
-| `docker_delete_volume` | Remove a volume |
+Grouped by area — see [reference/auto/mcp-tools.md](docs/reference/auto/mcp-tools.md) for full per-tool params.
+- **Containers** (10): `docker_{list,get,create,start,stop,restart,delete}_container`, `docker_container_{logs,stats,exec}`
+- **Services** (9): `docker_{list,get,create,update,scale,rollback,delete}_service`, `docker_service_{logs,tasks}`
+- **Stacks** (5): `docker_{list,get,deploy,delete,adopt}_stack`
+- **Clusters & Nodes** (8): `docker_{list,get}_cluster`, `docker_cluster_health`, `docker_list_nodes`, `docker_node_{promote,demote,drain,activate}`
+- **Secrets & Configs** (6): `docker_{list,create,delete}_{secret,config}`
+- **Hosts** (4): `docker_{list,get,sync,test}_host`
+- **Images** (4): `docker_{list,pull,delete,tag}_image`
+- **Networks** (3): `docker_{list,create,delete}_network`
+- **Volumes** (3): `docker_{list,create,delete}_volume`
 
 ---
 
@@ -550,44 +345,28 @@ The platform runs automated maintenance (see `worker/config/sidekiq.yml`). Claud
 | Proposal expiry | Every hour | Expire overdue unreviewed proposals |
 
 ### Manual (Claude Code responsibilities)
-| Trigger | Action | Tool |
-|---------|--------|------|
-| Used a learning successfully | Reinforce it | `platform.reinforce_learning` |
-| Used a learning that was wrong | Dispute it | `platform.dispute_learning` |
-| Found two conflicting learnings | Resolve the conflict | `platform.resolve_contradiction` |
-| Read useful shared knowledge | Rate it 4-5 | `platform.rate_knowledge` |
-| Read outdated shared knowledge | Rate it 1-2, create corrected version | `platform.rate_knowledge` + `platform.create_knowledge` |
-| Periodic health check | Run diagnostics | `platform.knowledge_health` + `platform.skill_health` |
-| Found stale/wrong code patterns | Fix code, then document the fix | Fix → `platform.create_learning` (category: `discovery`) |
-| Removed deprecated code | Document removal | `platform.create_learning` (category: `pattern`) |
-
-### Proactive Maintenance (during sessions)
-- **Before starting work**: Run `platform.knowledge_health` if last check was >24h ago
-- **When encountering bugs**: Always search `platform.query_learnings` for existing fix — if found, `reinforce_learning`; if not, fix and `create_learning`
-- **When removing stale code**: Create a learning documenting what was removed and why
-- **When fixing documentation**: Update `platform.update_knowledge` to correct the source entry
+| Trigger | Tool |
+|---------|------|
+| Solved a non-trivial bug | `create_learning` (category: `discovery` / `failure_mode`) |
+| Established/confirmed a pattern | `create_learning` (category: `pattern` / `best_practice`) |
+| Documented a procedure or guide | `create_knowledge` (content_type: `procedure`) |
+| Found entity relationships | `extract_to_knowledge_graph` |
+| Implemented a reusable capability | `create_skill` |
+| Used a learning successfully | `reinforce_learning` |
+| Used a learning that was wrong | `dispute_learning` |
+| Found two conflicting learnings | `resolve_contradiction` |
+| Read useful shared knowledge | `rate_knowledge` (4-5) |
+| Read outdated shared knowledge | `rate_knowledge` (1-2) + `create_knowledge` (corrected version) |
+| Removed deprecated code | `create_learning` (category: `pattern`) documenting the removal |
+| Encountering a bug | Search `query_learnings` first — `reinforce_learning` if found, fix + `create_learning` if not |
+| Fixing documentation drift | `update_knowledge` on the source entry |
+| Before starting work (>24h since last) | `knowledge_health` + `skill_health` |
 
 ---
 
 ## Tool Evolution
 
-All `platform.*` tools are defined in `server/app/services/ai/tools/platform_api_tool_registry.rb`.
-When tools are added/modified, run `cd server && rails mcp:generate_tool_catalog` to regenerate `docs/reference/auto/mcp-tools.md`.
-When MCP knowledge is updated significantly, run `cd server && rails mcp:sync_docs` to regenerate fallback docs in `docs/reference/auto/`.
-Knowledge sync runs automatically daily at 5:30 AM UTC via `AiKnowledgeDocSyncJob`.
-
-### Adding a New Tool
-1. Create tool class in `server/app/services/ai/tools/`
-2. Add action→class mapping to `PlatformApiToolRegistry::TOOLS`
-3. Add `action_definitions` with descriptions and parameter schemas
-4. Run `rails mcp:generate_tool_catalog` → updates `docs/reference/auto/mcp-tools.md`
-5. Update relevant CLAUDE.md component file(s) with the new tool
-6. Create learning: `platform.create_learning` category: `pattern` documenting the new tool
-
-### Deprecating a Tool
-1. Add deprecation notice to `action_definitions` description
-2. Create learning: `platform.create_learning` category: `best_practice` documenting the replacement
-3. Remove from CLAUDE.md after migration period
+`platform.*` tools live in `server/app/services/ai/tools/platform_api_tool_registry.rb` (tool class + `TOOLS` map + `action_definitions`). After adding or modifying, run `rails mcp:generate_tool_catalog` to refresh `docs/reference/auto/mcp-tools.md`; `rails mcp:sync_docs` regenerates the broader fallback docs (also runs nightly at 5:30 AM UTC via `AiKnowledgeDocSyncJob`). For **new** tools, also add the tool name to the MCP Tool Catalog list above and create a `pattern` learning. For **deprecations**, add a deprecation note in the action definition, create a `best_practice` learning pointing at the replacement, and remove the entry from the catalog list after the migration period.
 
 ---
 
