@@ -112,10 +112,24 @@ module Security
       secret.respond_to?(:data) ? secret.data : {}
     end
 
+    # Prefer the AppRole-authenticated client from Security::VaultClient
+    # — production wires the backend's identity that way and the bare
+    # `Vault::Client.new(token: nil)` fallback issues unauthenticated
+    # requests that Vault rejects with 403. Explicit token override (for
+    # smoke tests against a dev vault) still wins when supplied.
     def build_default_client(address, token)
+      explicit_token = token || ENV["VAULT_TOKEN"]
+      if explicit_token.present?
+        addr = address || ENV.fetch("VAULT_ADDR", "https://127.0.0.1:8200")
+        return ::Vault::Client.new(address: addr, token: explicit_token)
+      end
+
+      if defined?(::Security::VaultClient) && ::Security::VaultClient.instance.client
+        return ::Security::VaultClient.instance.client
+      end
+
       addr = address || ENV.fetch("VAULT_ADDR", "https://127.0.0.1:8200")
-      tok  = token || ENV["VAULT_TOKEN"]
-      ::Vault::Client.new(address: addr, token: tok)
+      ::Vault::Client.new(address: addr)
     end
   end
 end
