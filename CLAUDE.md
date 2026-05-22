@@ -114,11 +114,15 @@ user.role === 'manager'
 | Quality Gates | Run `cd frontend && npx tsc --noEmit` after TS changes, verify Ruby syntax after .rb changes |
 | Verify Seeds | After seed modifications: `cd server && rails db:seed` — watch for association/validation errors |
 | Stop & Ask | **HARD RULE**: After 3 failed attempts at the same fix, STOP immediately and ask the user. Do NOT try a 4th approach, do NOT continue iterating, do NOT try workarounds. Present what you tried and ask for guidance |
+| Surface Assumptions | Before implementing ambiguous requests, state your assumptions explicitly. If multiple valid interpretations exist, present them and ask — never silently pick. Preemptive counterpart to **Stop & Ask** — addresses ambiguity *before* failure, not after |
 | Audit Sessions | When asked to audit/review/analyze code, save findings to `docs/` and do NOT implement changes. Audit = report only, unless the user explicitly says to fix |
 | Verify Changes | Ruby: syntax check + related spec. TypeScript: `tsc --noEmit`. Migrations: `rails db:migrate:status`. Seeds: `rails db:seed`. Use `/verify` for targeted checks |
+| Test-First Bug Reproduction | For bug fixes, write a failing test that reproduces the bug BEFORE writing the fix. Confirms the bug exists, prevents regression, and forces understanding of the root cause |
 | Verify CWD | Before git operations on submodules, always `git rev-parse --show-toplevel` to confirm you're in the right repo |
 | Completion Gate | Before reporting work as done, run `/verify` on changed files. Never mark a task complete with unverified changes |
-| Dead Reference Cleanup | After deleting any file, `grep -r` for all import/require references to it across the codebase and remove them before committing |
+| Verify Per Step | For multi-step tasks, state a brief plan with explicit verification for each step ("Step → verify: <check>"). Finer-grained than **Completion Gate** — catch drift mid-task rather than only at the end |
+| Dead Reference Cleanup | After deleting any file, `grep -r` for all import/require references to it across the codebase and remove them before committing. **Scope**: applies to orphans YOUR changes created. Pre-existing dead code: mention if noticed, don't delete unless explicitly asked |
+| Trace Changes to Request | Every changed line should trace directly to the user's request. If you can't justify a hunk against the original task, revert it. Adjacent "improvements" during a bug fix count as scope creep |
 | Plan Before Multi-File | Changes touching **3+ files**: outline which files will change and data flow direction, then wait for user approval before writing code. Single-file fixes can proceed directly |
 | Parallel Investigation | When debugging spans backend + frontend or 3+ services, spawn parallel sub-agents: one per layer/service. Merge findings before proposing a fix — never serialize investigation across layers |
 
