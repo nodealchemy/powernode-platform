@@ -298,6 +298,19 @@ class Rack::Attack
     Rails.env.development? && [ "127.0.0.1", "::1" ].include?(request.ip)
   end
 
+  # Safelist on-node agent traffic. /api/v1/system/node_api/* is gated by
+  # mTLS or instance JWT (controller-level auth), so each request is bound
+  # to a specific NodeInstance identity — billing tiers based on user
+  # behavior don't apply. Throttling agent polls creates self-DOS at
+  # higher fleet sizes (an account's own agents starved by its own tier).
+  # Worker-api callers (POST /worker_api/*) have the same property.
+  safelist("powernode_node_api") do |request|
+    path = request.path.to_s
+    path.start_with?("/api/v1/system/node_api/") ||
+      path.start_with?("/api/v1/system/worker_api/") ||
+      path.start_with?("/api/v1/system/federation_api/")
+  end
+
   # Safelist specific API keys (e.g., system workers)
   safelist("system_api_keys") do |request|
     api_key = request.get_header("HTTP_X_API_KEY")
