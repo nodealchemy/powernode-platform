@@ -134,6 +134,15 @@
       queue: maintenance
       description: 'Reap Sdwan::UserDevice rows revoked >90 days ago + their Vault entries'
 
+    # System extension — fleet-wide Unix identity reaper. Sweeps draining
+    # ServiceUser/ServiceGroup rows past the 24h grace window and frees
+    # their UIDs/GIDs for reuse once no module still declares them.
+    system_identity_reap:
+      cron: '20 3 * * *'  # 3:20 AM UTC, after SDWAN device reaper
+      class: System::IdentityReaperJob
+      queue: maintenance
+      description: 'Transition drained ServiceUser/ServiceGroup rows past 24h grace to removed'
+
     # System extension — disk-image publication retention sweep.
     # Two-stage: retire newest > N (default 3) per platform, then purge
     # retired past 7-day grace window. Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — Chunk 2).

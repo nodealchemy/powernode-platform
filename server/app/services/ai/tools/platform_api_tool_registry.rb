@@ -5,6 +5,12 @@ module Ai
     class PlatformApiToolRegistry
       TOOLS = {
         # System extension fleet (Golden Eclipse M5)
+        # === Storage assignment ownership (fleet-wide identity model) ===
+        "system_assign_storage_owner"               => "Ai::Tools::SystemStorageOwnerTool",
+        "system_list_storage_assignments_by_owner"  => "Ai::Tools::SystemStorageOwnerTool",
+        "system_storage_chown_status"               => "Ai::Tools::SystemStorageOwnerTool",
+        "system_storage_chown_retry"                => "Ai::Tools::SystemStorageOwnerTool",
+
         "system_list_nodes" => "Ai::Tools::SystemFleetTool",
         "system_get_node" => "Ai::Tools::SystemFleetTool",
         "system_create_node" => "Ai::Tools::SystemFleetTool",
