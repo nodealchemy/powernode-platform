@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_22_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_24_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10706,15 +10706,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_22_140000) do
     t.string "name", limit: 100, null: false
     t.uuid "node_module_id", null: false
     t.string "restart_policy", limit: 32, default: "always", null: false
-    t.uuid "service_user_id", null: false
+    t.uuid "service_user_id"
     t.text "start_command", null: false
     t.text "stop_command"
+    t.string "system_user", limit: 32
     t.datetime "updated_at", null: false
     t.string "working_directory", limit: 512
     t.index ["account_id"], name: "index_system_module_services_on_account_id"
     t.index ["node_module_id", "name"], name: "index_system_module_services_on_node_module_id_and_name", unique: true
     t.index ["restart_policy"], name: "index_system_module_services_on_restart_policy"
     t.index ["service_user_id"], name: "index_system_module_services_on_service_user_id"
+    t.index ["system_user"], name: "index_system_module_services_on_system_user"
   end
 
   create_table "system_module_user_declarations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -11016,6 +11018,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_22_140000) do
   create_table "system_node_modules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.boolean "auto_generated", default: false, null: false
+    t.jsonb "capabilities", default: [], null: false, comment: "Capability tags this module provides (denormalized from manifest.dependencies.provides) — queried by ManifestImportService for capability:foo dependency resolution."
     t.uuid "category_id"
     t.jsonb "config", default: {}, null: false
     t.integer "consent_budget_per_day"
@@ -11057,6 +11060,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_22_140000) do
     t.index ["account_id", "name"], name: "index_system_node_modules_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_system_node_modules_on_account_id"
     t.index ["auto_generated"], name: "index_system_node_modules_on_auto_generated"
+    t.index ["capabilities"], name: "idx_system_node_modules_on_capabilities_gin", using: :gin
     t.index ["category_id"], name: "index_system_node_modules_on_category_id"
     t.index ["config"], name: "index_system_node_modules_on_config", using: :gin
     t.index ["copy_path_id"], name: "index_system_node_modules_on_copy_path_id"
