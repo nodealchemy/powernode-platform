@@ -124,22 +124,47 @@ chmod +x "$GIT_HOOKS_DIR/pre-commit"
 echo "✅ Pre-commit hook installed!"
 echo ""
 
-# Install pre-push hook (documentation verification)
+# Install pre-push hook (submodule pointer integrity + docs link check)
 echo "Installing pre-push hook..."
 cat > "$GIT_HOOKS_DIR/pre-push" << 'PUSH_HOOK_EOF'
 #!/bin/bash
-# Powernode Platform - Pre-push Documentation Check
-# Runs the docs link checker before allowing push. The link checker is the
-# hard gate; other docs/.verify/ scripts are run on demand by reviewers.
+# Powernode Platform - Pre-push Gate
 #
-# Bypass (use sparingly — broken links degrade docs quickly):
+# Runs two checks before allowing push:
+#   1. Submodule pointer integrity — every submodule pointer in HEAD must
+#      be reachable on the same remote we're pushing the parent to.
+#      Catches the "publish-before-pointer" failure mode that broke
+#      build-platform-modules CI on 2026-05-24 (supply-chain pointer
+#      bumped to da97052 before the submodule commit was pushed).
+#   2. Docs link checker — broken links in docs/.
+#
+# Bypass (use sparingly):
 #   git push --no-verify
+#
+# Pre-push receives: $1=remote-name $2=remote-url, then ref lines on stdin.
+
+PUSH_REMOTE="${1:-origin}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-LINK_CHECKER="$PROJECT_ROOT/docs/.verify/check-links.sh"
+# --- Submodule pointer check -------------------------------------------------
+POINTER_CHECKER="$PROJECT_ROOT/scripts/verify-submodule-pointers.sh"
+if [ -x "$POINTER_CHECKER" ]; then
+  echo "🔗 Verifying submodule pointers against remote '$PUSH_REMOTE'..."
+  if ! PUSH_REMOTE="$PUSH_REMOTE" bash "$POINTER_CHECKER" --remote "$PUSH_REMOTE"; then
+    echo ""
+    echo "❌ Submodule pointer check failed."
+    echo "   Push the missing submodule commit(s) first, OR bypass with:"
+    echo "     git push --no-verify"
+    exit 1
+  fi
+else
+  echo "ℹ️  scripts/verify-submodule-pointers.sh not found or not executable — skipping submodule check"
+fi
 
+# --- Docs link check ---------------------------------------------------------
+LINK_CHECKER="$PROJECT_ROOT/docs/.verify/check-links.sh"
 if [ ! -x "$LINK_CHECKER" ]; then
   echo "ℹ️  docs/.verify/check-links.sh not found or not executable — skipping doc link check"
   exit 0
@@ -159,7 +184,7 @@ PUSH_HOOK_EOF
 
 chmod +x "$GIT_HOOKS_DIR/pre-push"
 
-echo "✅ Pre-push hook installed (docs link check)!"
+echo "✅ Pre-push hook installed (submodule pointer + docs link check)!"
 echo ""
 echo "📋 Installed Checks:"
 echo "  1. No console.log in production code"
@@ -168,7 +193,8 @@ echo "  3. No puts/print in Ruby code"
 echo "  4. All Ruby files have frozen_string_literal"
 echo "  5. TypeScript 'any' type warnings"
 echo "  6. Secret scanning with gitleaks (if installed)"
-echo "  7. Docs link check on push (docs/.verify/check-links.sh)"
+echo "  7. Submodule pointer integrity on push (scripts/verify-submodule-pointers.sh)"
+echo "  8. Docs link check on push (docs/.verify/check-links.sh)"
 echo ""
 echo "🔐 Secret Scanning:"
 if [ "$GITLEAKS_AVAILABLE" = "true" ]; then
