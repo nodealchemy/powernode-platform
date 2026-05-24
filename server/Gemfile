@@ -223,6 +223,25 @@ group :development, :test do
   gem "rswag-specs", "~> 2.13"
 end
 
-# Extension gems (dynamically discovered from extensions/*/extension.json)
+# Extension gems (dynamically discovered from extensions/*/extension.json).
+# Partitioned into public (listed in .gitmodules) vs private (present on
+# disk but not in .gitmodules — added by maintainers with access to a
+# private upstream). The optional :private_extensions group means CI's
+# default `bundle install` skips them, keeping Gemfile.lock consistent
+# across environments that don't have access to the private submodules.
+# Maintainers who want private extensions installed:
+#   bundle install --with private_extensions   # one-off
+#   bundle config set --local with private_extensions   # persistent
+# Before committing Gemfile.lock, drop --with so the lockfile stays
+# private-extension-free. scripts/lockfile-no-private-check.sh
+# (wired into the pre-commit hook) enforces this.
 require_relative "../extensions_loader_helper"
-discover_extension_gems.each { |slug, path| gem "powernode_#{slug.tr('-', '_')}", path: path }
+ext_groups = discover_extension_gems_by_visibility
+ext_groups[:public].each do |slug, path|
+  gem "powernode_#{slug.tr('-', '_')}", path: path
+end
+group :private_extensions, optional: true do
+  ext_groups[:private].each do |slug, path|
+    gem "powernode_#{slug.tr('-', '_')}", path: path
+  end
+end

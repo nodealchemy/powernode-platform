@@ -38,8 +38,9 @@ echo ""
 echo "Installing pre-commit hook..."
 cat > "$GIT_HOOKS_DIR/pre-commit" << 'HOOK_EOF'
 #!/bin/bash
-# Powernode Platform - Pre-commit Quality & Security Check
-# This hook runs automated quality checks and secret scanning before allowing a commit
+# Powernode Platform - Pre-commit Quality, Lockfile, & Security Check
+# Runs automated quality checks, the Gemfile.lock private-extension
+# check, and gitleaks secret scanning before allowing a commit.
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,6 +48,22 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 echo "🔍 Running pre-commit checks..."
 echo ""
+
+# Gemfile.lock private-extension check — must come early so it fails
+# before slower checks. Catches "maintainer forgot to regenerate the
+# public lockfile after a private-extension bundle install."
+LOCK_CHECKER="$PROJECT_ROOT/scripts/check-lockfile-public-only.sh"
+if [ -x "$LOCK_CHECKER" ]; then
+  echo "📦 Gemfile.lock public-only check..."
+  if ! bash "$LOCK_CHECKER"; then
+    echo ""
+    echo "❌ Gemfile.lock declares private-extension gems CI can't resolve."
+    echo "   Run: bash scripts/regen-public-lockfile.sh --lock-only"
+    echo "   Then re-stage server/Gemfile.lock and retry the commit."
+    exit 1
+  fi
+  echo ""
+fi
 
 # Run quality checks
 echo "📋 Quality Checks..."
@@ -187,14 +204,15 @@ chmod +x "$GIT_HOOKS_DIR/pre-push"
 echo "✅ Pre-push hook installed (submodule pointer + docs link check)!"
 echo ""
 echo "📋 Installed Checks:"
-echo "  1. No console.log in production code"
-echo "  2. No hardcoded color classes"
-echo "  3. No puts/print in Ruby code"
-echo "  4. All Ruby files have frozen_string_literal"
-echo "  5. TypeScript 'any' type warnings"
-echo "  6. Secret scanning with gitleaks (if installed)"
-echo "  7. Submodule pointer integrity on push (scripts/verify-submodule-pointers.sh)"
-echo "  8. Docs link check on push (docs/.verify/check-links.sh)"
+echo "  1. Gemfile.lock private-extension check on commit"
+echo "  2. No console.log in production code"
+echo "  3. No hardcoded color classes"
+echo "  4. No puts/print in Ruby code"
+echo "  5. All Ruby files have frozen_string_literal"
+echo "  6. TypeScript 'any' type warnings"
+echo "  7. Secret scanning with gitleaks (if installed)"
+echo "  8. Submodule pointer integrity on push (scripts/verify-submodule-pointers.sh)"
+echo "  9. Docs link check on push (docs/.verify/check-links.sh)"
 echo ""
 echo "🔐 Secret Scanning:"
 if [ "$GITLEAKS_AVAILABLE" = "true" ]; then

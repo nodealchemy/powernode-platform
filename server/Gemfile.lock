@@ -1,10 +1,4 @@
 PATH
-  remote: ../extensions/business/server
-  specs:
-    powernode_business (0.1.0)
-      rails (~> 8.1)
-
-PATH
   remote: ../extensions/marketing/server
   specs:
     powernode_marketing (0.1.0)
@@ -882,7 +876,6 @@ DEPENDENCIES
   opentelemetry-sdk (~> 1.4)
   paypal-sdk-rest
   pg (~> 1.1)
-  powernode_business!
   powernode_marketing!
   powernode_supply_chain!
   powernode_system!
