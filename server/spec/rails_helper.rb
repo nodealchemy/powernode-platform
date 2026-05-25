@@ -124,6 +124,15 @@ RSpec.configure do |config|
   # transaction that rolls back automatically. DatabaseCleaner is only needed
   # for the initial suite cleanup and for tests that explicitly require
   # truncation (e.g., multi-threaded performance tests).
+  #
+  # Allow non-localhost DATABASE_URL. DatabaseCleaner's safeguard rejects
+  # remote URLs by default ("ENV['DATABASE_URL'] is set to a remote URL"),
+  # which trips in CI where the test DB lives on the docker bridge gateway
+  # (172.17.0.1 — the act runner job container can't reach 127.0.0.1 of
+  # the sidecar; see extensions/system/.gitea/workflows/ci.yaml). Test
+  # databases aren't real prod targets; opt out so the safeguard doesn't
+  # block legitimate CI runs.
+  DatabaseCleaner.allow_remote_database_url = true
   config.before(:suite) do
     # Under parallel_tests, databases are already clean (parallel:prepare runs
     # db:purge + db:schema:load) and permissions are seeded by parallel:seed_permissions.
