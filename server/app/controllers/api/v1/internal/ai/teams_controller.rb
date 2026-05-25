@@ -82,7 +82,7 @@ module Api
             render_not_found("Agent Team or Execution")
           rescue StandardError => e
             Rails.logger.error "[TeamsController] Strategy execution failed: #{e.message}"
-            render_error("Strategy execution failed: #{e.message}", status: :unprocessable_entity)
+            render_error("Strategy execution failed: #{e.message}", status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/teams/:team_id/optimization_results

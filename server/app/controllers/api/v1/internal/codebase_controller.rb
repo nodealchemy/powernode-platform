@@ -9,7 +9,7 @@ class Api::V1::Internal::CodebaseController < Api::V1::Internal::InternalBaseCon
     incremental = params.fetch(:incremental, true)
 
     unless base_path.present? && File.directory?(base_path)
-      render_error("Invalid base_path: #{base_path}", status: :unprocessable_entity)
+      render_error("Invalid base_path: #{base_path}", status: :unprocessable_content)
       return
     end
 
@@ -49,7 +49,7 @@ class Api::V1::Internal::CodebaseController < Api::V1::Internal::InternalBaseCon
     if result[:success]
       render_success(result)
     else
-      render_error(result[:error], status: :unprocessable_entity)
+      render_error(result[:error], status: :unprocessable_content)
     end
   rescue ActiveRecord::RecordNotFound => e
     render_error(e.message, status: :not_found)

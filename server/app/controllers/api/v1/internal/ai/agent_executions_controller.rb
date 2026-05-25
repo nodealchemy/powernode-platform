@@ -24,7 +24,7 @@ module Api
             if @execution.save
               render_success(agent_execution: serialize_for_worker(@execution))
             else
-              render_error("Failed to update execution: #{@execution.errors.full_messages.join(', ')}", status: :unprocessable_entity)
+              render_error("Failed to update execution: #{@execution.errors.full_messages.join(', ')}", status: :unprocessable_content)
             end
           end
 
@@ -38,7 +38,7 @@ module Api
               @execution.update!(status: "cancelled", error_message: reason, completed_at: Time.current)
               render_success(agent_execution: serialize_for_worker(@execution), message: "Execution cancelled")
             else
-              render_error("Execution not in cancellable state (#{@execution.status})", status: :unprocessable_entity)
+              render_error("Execution not in cancellable state (#{@execution.status})", status: :unprocessable_content)
             end
           end
 

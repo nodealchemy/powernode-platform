@@ -94,7 +94,7 @@ module Api
         # DELETE /api/v1/ai/agents/:id
         def destroy
           if @agent.is_concierge?
-            return render_error("Cannot delete the concierge agent", status: :unprocessable_entity)
+            return render_error("Cannot delete the concierge agent", status: :unprocessable_content)
           end
 
           agent_name = @agent.name

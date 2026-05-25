@@ -54,7 +54,7 @@ module Api
           direction = params.fetch(:direction, "bidirectional")
 
           unless %w[inbound_only outbound_only bidirectional].include?(direction)
-            return render_error("Invalid direction. Must be: inbound_only, outbound_only, bidirectional", status: :unprocessable_entity)
+            return render_error("Invalid direction. Must be: inbound_only, outbound_only, bidirectional", status: :unprocessable_content)
           end
 
           chat_channel.update!(

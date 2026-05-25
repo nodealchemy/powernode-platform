@@ -26,7 +26,7 @@ module Api
             elsif params[:devops_provider_id].present?
               create_from_devops_provider
             else
-              render_error("Either credential_id or devops_provider_id is required", status: :unprocessable_entity)
+              render_error("Either credential_id or devops_provider_id is required", status: :unprocessable_content)
             end
           end
 

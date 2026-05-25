@@ -29,9 +29,9 @@ module Api
             primary_agent: primary_agent ? { id: primary_agent.id, name: primary_agent.name } : nil
           )
         rescue ActionController::ParameterMissing => e
-          render_error(e.message, :unprocessable_entity)
+          render_error(e.message, :unprocessable_content)
         rescue StandardError => e
-          render_error("Failed to create workspace: #{e.message}", :unprocessable_entity)
+          render_error("Failed to create workspace: #{e.message}", :unprocessable_content)
         end
 
         # GET /api/v1/ai/workspaces/:id
@@ -76,7 +76,7 @@ module Api
             agent: { id: agent.id, name: agent.name, agent_type: agent.agent_type }
           )
         rescue ArgumentError => e
-          render_error(e.message, :unprocessable_entity)
+          render_error(e.message, :unprocessable_content)
         end
 
         # DELETE /api/v1/ai/workspaces/:id/members/:agent_id
@@ -89,7 +89,7 @@ module Api
 
           render_success(message: "#{agent.name} removed from workspace")
         rescue ArgumentError => e
-          render_error(e.message, :unprocessable_entity)
+          render_error(e.message, :unprocessable_content)
         end
 
         private

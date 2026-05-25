@@ -19,7 +19,7 @@ module Api
 
             render_success(tools: definitions, tools_enabled: bridge.tools_enabled?)
           rescue StandardError => e
-            render_error("Failed to fetch tool definitions: #{e.message}", status: :unprocessable_entity)
+            render_error("Failed to fetch tool definitions: #{e.message}", status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/llm/dispatch_tool
@@ -33,7 +33,7 @@ module Api
           rescue JSON::ParserError
             render_success(result: result_json)
           rescue StandardError => e
-            render_error("Tool dispatch failed: #{e.message}", status: :unprocessable_entity)
+            render_error("Tool dispatch failed: #{e.message}", status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/llm/execute_with_reasoning
@@ -73,7 +73,7 @@ module Api
               evaluation: result[:evaluation]
             )
           rescue StandardError => e
-            render_error("Reasoning execution failed: #{e.message}", status: :unprocessable_entity)
+            render_error("Reasoning execution failed: #{e.message}", status: :unprocessable_content)
           end
 
           private

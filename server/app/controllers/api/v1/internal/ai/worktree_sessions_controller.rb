@@ -26,7 +26,7 @@ module Api
             @session.start!
             render_success(session: @session.reload.session_summary)
           rescue ActiveRecord::RecordInvalid => e
-            render_error(e.message, status: :unprocessable_entity)
+            render_error(e.message, status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/worktree_sessions/:id/activate
@@ -35,7 +35,7 @@ module Api
             @session.activate!
             render_success(session: @session.reload.session_summary)
           rescue ActiveRecord::RecordInvalid => e
-            render_error(e.message, status: :unprocessable_entity)
+            render_error(e.message, status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/worktree_sessions/:id/fail_session
@@ -94,12 +94,12 @@ module Api
             Rails.logger.error "[WorktreeProvisioning] WorktreeManager error: #{e.message}"
             worktree&.unlock! if worktree&.locked?
             worktree&.fail!(error_message: e.message, error_code: "PROVISIONING_FAILED")
-            render_error(e.message, status: :unprocessable_entity)
+            render_error(e.message, status: :unprocessable_content)
           rescue StandardError => e
             Rails.logger.error "[WorktreeProvisioning] Failed to provision worktree: #{e.message}"
             worktree&.unlock! if worktree&.locked?
             worktree&.fail!(error_message: e.message, error_code: "PROVISIONING_FAILED")
-            render_error("Provisioning failed: #{e.message}", status: :unprocessable_entity)
+            render_error("Provisioning failed: #{e.message}", status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/worktree_sessions/:id/cleanup
@@ -136,7 +136,7 @@ module Api
             render_success(cleaned: cleaned, errors: errors)
           rescue StandardError => e
             Rails.logger.error "[WorktreeCleanup] Cleanup failed for session #{@session.id}: #{e.message}"
-            render_error("Cleanup failed: #{e.message}", status: :unprocessable_entity)
+            render_error("Cleanup failed: #{e.message}", status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/worktree_sessions/:id/push_and_pr
@@ -147,7 +147,7 @@ module Api
             gitea_repository = config["gitea_repository"]
 
             unless gitea_repository.present?
-              return render_error("No gitea_repository configured for session", status: :unprocessable_entity)
+              return render_error("No gitea_repository configured for session", status: :unprocessable_content)
             end
 
             service = ::Ai::Git::GiteaIntegrationService.new(
@@ -179,18 +179,18 @@ module Api
                 session: @session.reload.session_summary
               )
             else
-              render_error("PR creation failed: #{result[:error]}", status: :unprocessable_entity)
+              render_error("PR creation failed: #{result[:error]}", status: :unprocessable_content)
             end
           rescue StandardError => e
             Rails.logger.error "[WorktreePushAndPr] Failed for session #{@session.id}: #{e.message}"
-            render_error("Push and PR failed: #{e.message}", status: :unprocessable_entity)
+            render_error("Push and PR failed: #{e.message}", status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/worktree_sessions/:id/execute_merge
           # Runs the merge strategy for the session
           def execute_merge
             unless @session.status == "merging"
-              return render_error("Session must be in merging status", status: :unprocessable_entity)
+              return render_error("Session must be in merging status", status: :unprocessable_content)
             end
 
             merge_service = ::Ai::Git::MergeService.new(session: @session)
@@ -215,19 +215,19 @@ module Api
 
               render_error(
                 result[:error] || "Merge failed",
-                status: :unprocessable_entity
+                status: :unprocessable_content
               )
             end
           rescue StandardError => e
             Rails.logger.error "[MergeExecution] Failed for session #{@session.id}: #{e.message}"
             @session.fail!(error_message: e.message, error_code: "MERGE_JOB_FAILED")
-            render_error("Merge execution failed: #{e.message}", status: :unprocessable_entity)
+            render_error("Merge execution failed: #{e.message}", status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/worktree_sessions/:id/detect_conflicts
           # Runs conflict detection between active worktrees
           def detect_conflicts
-            return render_error("Session is terminal", status: :unprocessable_entity) if @session.terminal?
+            return render_error("Session is terminal", status: :unprocessable_content) if @session.terminal?
 
             service = ::Ai::Git::ConflictDetectionService.new(session: @session)
             result = service.detect
@@ -235,7 +235,7 @@ module Api
             render_success(result)
           rescue StandardError => e
             Rails.logger.error "[ConflictDetection] Failed for session #{@session.id}: #{e.message}"
-            render_error("Conflict detection failed: #{e.message}", status: :unprocessable_entity)
+            render_error("Conflict detection failed: #{e.message}", status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/worktree_sessions/check_timeouts
@@ -307,7 +307,7 @@ module Api
             render_success(timed_out_dispatches: timed_out, count: timed_out.size)
           rescue StandardError => e
             Rails.logger.error "[DispatchTimeout] Failed for session #{@session.id}: #{e.message}"
-            render_error("Dispatch timeout failed: #{e.message}", status: :unprocessable_entity)
+            render_error("Dispatch timeout failed: #{e.message}", status: :unprocessable_content)
           end
 
           private

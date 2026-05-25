@@ -95,7 +95,7 @@ module Api
           rescue ActiveRecord::RecordNotFound
             render_error("Agent not found", status: :not_found)
           rescue StandardError => e
-            render_error("Failed to build execution context: #{e.message}", status: :unprocessable_entity)
+            render_error("Failed to build execution context: #{e.message}", status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/ai/provider_config

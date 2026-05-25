@@ -305,7 +305,7 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
   def create_backup
     backup_type = (params[:backup_type] || "full").to_s
     unless %w[full incremental manual schema_only].include?(backup_type)
-      return render_error("invalid backup_type: #{backup_type}", status: :unprocessable_entity)
+      return render_error("invalid backup_type: #{backup_type}", status: :unprocessable_content)
     end
 
     backup = Database::Backup.new(
@@ -332,7 +332,7 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
       }, status: :accepted)
     else
       render_error("backup row save failed: #{backup.errors.full_messages.join('; ')}",
-                   status: :unprocessable_entity)
+                   status: :unprocessable_content)
     end
   end
 

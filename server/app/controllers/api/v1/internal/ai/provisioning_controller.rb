@@ -23,7 +23,7 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     render_success(result)
   rescue StandardError => e
     Rails.logger.error("[Internal::Ai::Provisioning#capture_intent] #{e.class}: #{e.message}")
-    render_error("Capture intent failed: #{e.message}", status: :unprocessable_entity)
+    render_error("Capture intent failed: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/ai/provisioning/missions/:mission_id/compose_plan
@@ -38,7 +38,7 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     render_success(plan_id: plan&.id, mission_id: @mission.id)
   rescue StandardError => e
     Rails.logger.error("[Internal::Ai::Provisioning#compose_plan] #{e.class}: #{e.message}")
-    render_error("Compose plan failed: #{e.message}", status: :unprocessable_entity)
+    render_error("Compose plan failed: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/ai/provisioning/missions/:mission_id/execute
@@ -50,7 +50,7 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
   # tool variant raced with this path and double-provisioned).
   def execute
     plan = resolve_plan!
-    return render_error("No plan available for mission", status: :unprocessable_entity) unless plan
+    return render_error("No plan available for mission", status: :unprocessable_content) unless plan
 
     # M1 Self-Serve Hardening — gate execution on subscription quota. On
     # denial, surface a structured upgrade payload the frontend can render.
@@ -73,7 +73,7 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     render_success(result.merge(mission_id: @mission.id))
   rescue StandardError => e
     Rails.logger.error("[Internal::Ai::Provisioning#execute] #{e.class}: #{e.message}")
-    render_error("Execute failed: #{e.message}", status: :unprocessable_entity)
+    render_error("Execute failed: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/ai/provisioning/missions/:mission_id/verify
@@ -110,7 +110,7 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     )
   rescue StandardError => e
     Rails.logger.error("[Internal::Ai::Provisioning#verify] #{e.class}: #{e.message}")
-    render_error("Verify failed: #{e.message}", status: :unprocessable_entity)
+    render_error("Verify failed: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/ai/provisioning/missions/:mission_id/handoff
@@ -138,7 +138,7 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     )
   rescue StandardError => e
     Rails.logger.error("[Internal::Ai::Provisioning#handoff] #{e.class}: #{e.message}")
-    render_error("Handoff failed: #{e.message}", status: :unprocessable_entity)
+    render_error("Handoff failed: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/ai/provisioning/missions/:mission_id/steps/:step_id/execute
@@ -153,7 +153,7 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     return render_error("Step not found", status: :not_found) unless step
 
     plan = step.plan
-    return render_error("Step is not bound to a plan", status: :unprocessable_entity) unless plan
+    return render_error("Step is not bound to a plan", status: :unprocessable_content) unless plan
 
     runner = ::Ai::Provisioning::SkillCompositionRunner.new(
       account: @mission.account,
@@ -166,7 +166,7 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     render_success(result.merge(mission_id: @mission.id, step_id: step.id))
   rescue StandardError => e
     Rails.logger.error("[Internal::Ai::Provisioning#execute_step] #{e.class}: #{e.message}")
-    render_error("Step execute failed: #{e.message}", status: :unprocessable_entity)
+    render_error("Step execute failed: #{e.message}", status: :unprocessable_content)
   end
 
   private

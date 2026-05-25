@@ -39,7 +39,7 @@ module Api
           if goal.save
             render_success(serialize_goal(goal), status: :created)
           else
-            render_error(goal.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(goal.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -48,7 +48,7 @@ module Api
           if @goal.update(goal_params)
             render_success(serialize_goal(@goal))
           else
-            render_error(@goal.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@goal.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 

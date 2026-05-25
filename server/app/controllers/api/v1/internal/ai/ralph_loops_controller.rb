@@ -77,7 +77,7 @@ module Api
                 remaining: ralph_loop.max_iterations - ralph_loop.current_iteration
               )
             else
-              render_error(result[:error] || "Iteration failed", status: :unprocessable_entity)
+              render_error(result[:error] || "Iteration failed", status: :unprocessable_content)
             end
           rescue ActiveRecord::RecordNotFound
             render_error("Ralph loop not found", status: :not_found)
