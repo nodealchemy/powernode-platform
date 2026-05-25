@@ -41,8 +41,19 @@ class McpSession < ApplicationRecord
   def touch_activity!
     now = Time.current
     updates = { last_activity_at: now }
-    # Extend TTL on activity — prevents sessions from expiring while actively in use
-    updates[:expires_at] = DEFAULT_TTL.from_now if expires_at.present? && expires_at < 1.hour.from_now
+    # Sliding-window renewal: every request advances expires_at to
+    # now + DEFAULT_TTL. Previously the renewal only triggered when
+    # the session was within 1 hour of expiring — meaning an operator
+    # who used the session heavily for ~22h, then went idle for 3h,
+    # came back to a dead session even though they'd been actively
+    # using it. Sliding window matches the intuitive "session stays
+    # alive as long as you're using it" contract.
+    #
+    # Guarded by expires_at.present? so legacy rows without a TTL
+    # don't get a fresh one assigned mid-flight.
+    if expires_at.present?
+      updates[:expires_at] = DEFAULT_TTL.from_now
+    end
     update_columns(updates)
   end
 

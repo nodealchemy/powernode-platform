@@ -223,6 +223,26 @@ RSpec.describe McpSession, type: :model do
         expect(session.reload.updated_at).to eq(original_updated)
       end
     end
+
+    it "slides expires_at forward to now + DEFAULT_TTL on every call" do
+      # Repro of the operator-reported "MCP keeps needing re-auth":
+      # prior behavior renewed only when expires_at was within 1 hour of
+      # now, so a heavily-used session that went idle for >1 hour would
+      # die even though it had been actively used through most of its
+      # window. Sliding-window contract: any activity advances expires_at
+      # to now + DEFAULT_TTL.
+      session.update_columns(expires_at: 24.hours.from_now)
+      travel_to 12.hours.from_now do
+        session.touch_activity!
+        expect(session.reload.expires_at).to be_within(2.seconds).of(McpSession::DEFAULT_TTL.from_now)
+      end
+    end
+
+    it "leaves expires_at alone for legacy rows that have no TTL set" do
+      session.update_columns(expires_at: nil)
+      session.touch_activity!
+      expect(session.reload.expires_at).to be_nil
+    end
   end
 
   describe "#expired?" do
