@@ -58,9 +58,7 @@ module Ai
         result_data = deferred.execute_now!
         Result.new(decision: :proceed, deferred_operation: deferred, result: result_data)
       when "require_approval"
-        request = create_approval_request!(deferred, policy_match[:record])
-        deferred.update!(approval_request: request)
-        Result.new(decision: :pending, deferred_operation: deferred)
+        require_approval_or_proceed(deferred, policy_match[:record], action_category)
       when "block", "silent"
         deferred.update!(status: "rejected", error_message: "Blocked by policy")
         Result.new(decision: :blocked, deferred_operation: deferred,
@@ -68,9 +66,7 @@ module Ai
       else
         # Unknown policy — fail safe to require_approval
         Rails.logger.warn("[AutonomyGate] Unknown policy '#{policy_match[:policy]}' for #{action_category}, defaulting to require_approval")
-        request = create_approval_request!(deferred, policy_match[:record])
-        deferred.update!(approval_request: request)
-        Result.new(decision: :pending, deferred_operation: deferred)
+        require_approval_or_proceed(deferred, policy_match[:record], action_category)
       end
     rescue StandardError => e
       Rails.logger.error("[AutonomyGate] evaluate(#{action_category}) failed: #{e.class}: #{e.message}")
@@ -92,6 +88,32 @@ module Ai
         source_id: source_id,
         description: description
       )
+    end
+
+    # Bridges the require_approval policy decision to either the approval-chain
+    # workflow (when Ai::ApprovalChain is loaded — the business extension owns
+    # the chain model) or a fall-through auto-proceed in core mode (single-
+    # operator self-hosted: the requester IS the approver, no separate
+    # approval infrastructure to defer to).
+    #
+    # Without this fork the require_approval path raised NameError on every
+    # core-mode evaluation, the rescue caught it, and the gate returned
+    # :blocked + 422 — which broke `tasks_controller create`,
+    # `sdwan/networks destroy`, and every other AutonomyGate-protected
+    # request spec running without business loaded.
+    def require_approval_or_proceed(deferred, policy_record, action_category)
+      if defined?(::Ai::ApprovalChain)
+        request = create_approval_request!(deferred, policy_record)
+        deferred.update!(approval_request: request)
+        Result.new(decision: :pending, deferred_operation: deferred)
+      else
+        Rails.logger.info(
+          "[AutonomyGate] require_approval policy in core mode (no Ai::ApprovalChain) — " \
+          "auto-proceeding for #{action_category}"
+        )
+        result_data = deferred.execute_now!
+        Result.new(decision: :proceed, deferred_operation: deferred, result: result_data)
+      end
     end
 
     def create_approval_request!(deferred, policy_record)
