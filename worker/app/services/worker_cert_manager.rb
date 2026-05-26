@@ -43,12 +43,18 @@ class WorkerCertManager
   # (no in-process cache to invalidate). In test env (no PKI on disk)
   # returns a pass-through hash; specs that exercise the TLS path mock
   # WebMock at the request layer.
+  #
+  # SSL verification uses the system trust store (no ca_file set) — the
+  # PLATFORM's server cert is signed by Let's Encrypt (or the public CA
+  # in use), NOT by the internal CA. The internal CA bundle only matters
+  # on the server-side: Traefik uses it to VERIFY the client cert this
+  # worker presents. On the client side, we trust the platform's server
+  # cert via the OS trust store.
   def ssl_options
     return { verify: false } if test_env? && !File.exist?(@cert_path)
     {
       client_cert: OpenSSL::X509::Certificate.new(File.read(@cert_path)),
       client_key:  OpenSSL::PKey.read(File.read(@key_path)),
-      ca_file:     @ca_path,
       verify:      true
     }
   end
