@@ -8,8 +8,7 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
   # Worker JWT authentication via InternalBaseController
   let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
-    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
-    { 'Authorization' => "Bearer #{token}" }
+    { 'X-Forwarded-Tls-Client-Cert-Info' => CGI.escape(%(Subject="CN=#{internal_worker.node_instance_id}")) }
   end
 
   # Stub worker job dispatch — termination callbacks trigger notifications via WorkerJobService

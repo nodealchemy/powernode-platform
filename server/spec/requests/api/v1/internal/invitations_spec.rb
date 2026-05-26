@@ -39,8 +39,7 @@ RSpec.describe 'Api::V1::Internal::Invitations', type: :request do
   # Worker JWT authentication via InternalBaseController
   let(:system_worker) { create(:worker, :system_worker, account: account) }
   let(:worker_headers) do
-    token = Security::JwtService.encode({ type: "worker", sub: system_worker.id }, 5.minutes.from_now)
-    { 'Authorization' => "Bearer #{token}" }
+    { 'X-Forwarded-Tls-Client-Cert-Info' => CGI.escape(%(Subject="CN=#{system_worker.node_instance_id}")) }
   end
 
   describe 'GET /api/v1/internal/invitations/:id' do

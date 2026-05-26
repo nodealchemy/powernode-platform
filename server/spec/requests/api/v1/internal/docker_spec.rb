@@ -9,8 +9,7 @@ RSpec.describe 'Api::V1::Internal::Devops::Docker', type: :request do
   # Worker JWT authentication via InternalBaseController
   let(:internal_worker) { create(:worker, account: account) }
   let(:service_headers) do
-    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
-    { 'Authorization' => "Bearer #{token}", 'Content-Type' => 'application/json' }
+    { 'X-Forwarded-Tls-Client-Cert-Info' => CGI.escape(%(Subject="CN=#{internal_worker.node_instance_id}")), 'Content-Type' => 'application/json' }
   end
 
   describe 'GET /api/v1/internal/devops/docker/hosts' do

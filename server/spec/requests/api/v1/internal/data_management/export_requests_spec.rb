@@ -35,8 +35,7 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
   # Worker JWT authentication via InternalBaseController
   let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
-    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
-    { 'Authorization' => "Bearer #{token}" }
+    { 'X-Forwarded-Tls-Client-Cert-Info' => CGI.escape(%(Subject="CN=#{internal_worker.node_instance_id}")) }
   end
 
   let(:account) { create(:account) }
@@ -92,7 +91,7 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
         get "/api/v1/internal/data_export_requests/#{export_request.id}",
             as: :json
 
-        expect_error_response('Worker token required', 401)
+        expect_error_response('mTLS client certificate required', 401)
       end
     end
   end
@@ -167,7 +166,7 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
              params: { data_export_request: { user_id: user.id, account_id: account.id } },
              as: :json
 
-        expect_error_response('Worker token required', 401)
+        expect_error_response('mTLS client certificate required', 401)
       end
     end
   end
@@ -341,7 +340,7 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
               params: { action_type: 'start' },
               as: :json
 
-        expect_error_response('Worker token required', 401)
+        expect_error_response('mTLS client certificate required', 401)
       end
     end
   end

@@ -57,8 +57,15 @@ fi
 
 # Regenerate the static config from the Rails-side TraefikConfigWriter
 # so env-derived paths (dynamic dir, etc.) stay in sync. The runner
-# also (re)writes the per-account dynamic YAML so a stale config from a
-# previous environment doesn't survive into this start.
+# also:
+#   - writes the internal CA bundle (Traefik's trust anchor for verifying
+#     mTLS client certs on /api/v1/system/node_api routes)
+#   - writes the shared _mtls.yaml dynamic config (TLS options +
+#     passTLSClientCert middleware referenced by per-account routers)
+#   - (re)writes the per-account dynamic YAML so a stale config from a
+#     previous environment doesn't survive into this start.
+# Order matters: shared mTLS YAML + CA bundle must exist before per-account
+# routers reference `mtls-required@file` / `pass-tls-client-cert@file`.
 cd "$PLATFORM_ROOT/server"
 # Pipe through `tail -n 1` to skip the initializer chatter that Rails 8.1+
 # emits to stdout during boot (Sentry status, billing automation init, JWT
@@ -66,6 +73,8 @@ cd "$PLATFORM_ROOT/server"
 # `puts`) in the runner block leaves the path as the FINAL non-newlined
 # character of stdout — `tail -n 1` reliably extracts just the path.
 STATIC_CONFIG="$(bundle exec rails runner '
+  Acme::TraefikConfigWriter.write_internal_ca! rescue nil
+  Acme::TraefikConfigWriter.write_mtls_shared_dynamic! rescue nil
   Account.find_each do |acct|
     Acme::TraefikConfigWriter.write!(account: acct) rescue nil
   end

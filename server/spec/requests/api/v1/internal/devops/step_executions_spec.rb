@@ -16,8 +16,7 @@ RSpec.describe 'Api::V1::Internal::Devops::StepExecutions', type: :request do
   # Worker JWT authentication via InternalBaseController
   let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
-    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
-    { 'Authorization' => "Bearer #{token}" }
+    { 'X-Forwarded-Tls-Client-Cert-Info' => CGI.escape(%(Subject="CN=#{internal_worker.node_instance_id}")) }
   end
 
   describe 'POST /api/v1/internal/devops/step_executions' do

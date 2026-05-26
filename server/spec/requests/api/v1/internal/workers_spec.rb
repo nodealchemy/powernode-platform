@@ -9,11 +9,7 @@ RSpec.describe 'Api::V1::Internal::Workers', type: :request do
   # Worker service authentication via InternalBaseController (JWT type: "worker")
   let(:system_worker) { create(:worker, :system_worker, account: account) }
   let(:worker_service_headers) do
-    token = Security::JwtService.encode(
-      { type: "worker", sub: system_worker.id },
-      5.minutes.from_now
-    )
-    { 'Authorization' => "Bearer #{token}" }
+    { 'X-Forwarded-Tls-Client-Cert-Info' => CGI.escape(%(Subject="CN=#{system_worker.node_instance_id}")) }
   end
 
   describe 'POST /api/v1/internal/workers/:id/test_results' do

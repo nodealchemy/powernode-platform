@@ -3,6 +3,7 @@
 require 'faraday'
 require 'faraday/retry'
 require 'oj'
+require_relative 'worker_cert_manager'
 
 # API Client for communicating with the main Rails backend
 class ApiClient
@@ -126,48 +127,31 @@ class ApiClient
   end
 
   def get(path, params = {})
-    handle_response do
-      @client.get(path, params) do |req|
-        req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
-      end
-    end
+    handle_response { @client.get(path, params) }
   end
 
   def post(path, body = {})
-    handle_response do
-      @client.post(path) do |req|
-        req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
-        req.body = body
-      end
-    end
+    handle_response { @client.post(path) { |req| req.body = body } }
   end
 
   def put(path, body = {})
-    handle_response do
-      @client.put(path) do |req|
-        req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
-        req.body = body
-      end
-    end
+    handle_response { @client.put(path) { |req| req.body = body } }
   end
 
   def delete(path)
-    handle_response do
-      @client.delete(path) do |req|
-        req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
-      end
-    end
+    handle_response { @client.delete(path) }
   end
 
   private
 
   def build_client
-    Faraday.new(url: @base_url) do |f|
+    Faraday.new(url: @base_url, ssl: WorkerCertManager.instance.ssl_options) do |f|
       f.request :json
       f.request :retry, max: 3, interval: 0.5, backoff_factor: 2
       f.response :json, content_type: 'application/json', parser_options: { symbolize_names: true }
 
-      # JWT auth set per-request (short-lived tokens, can't be a static header)
+      # Auth is mTLS at the transport layer — the worker's client cert is
+      # presented during the TLS handshake; no Bearer header is needed.
       f.headers['User-Agent'] = 'PowernodeWorkerAgent/1.0'
       f.headers['Accept'] = 'application/json'
 

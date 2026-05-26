@@ -7,8 +7,7 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
   let(:internal_account) { create(:account) }
   let(:internal_worker) { create(:worker, account: internal_account) }
   let(:internal_headers) do
-    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
-    { 'Authorization' => "Bearer #{token}" }
+    { 'X-Forwarded-Tls-Client-Cert-Info' => CGI.escape(%(Subject="CN=#{internal_worker.node_instance_id}")) }
   end
 
   let(:valid_config) do

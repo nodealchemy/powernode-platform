@@ -4,6 +4,7 @@ require 'faraday'
 require 'faraday/retry'
 require 'oj'
 require_relative 'concerns/circuit_breaker'
+require_relative 'worker_cert_manager'
 
 # API client for worker-to-backend communication
 # Handles all HTTP requests to the Rails backend with service authentication
@@ -215,10 +216,9 @@ class BackendApiClient
   end
 
   def download_file_content(file_id)
-    # Returns binary file content
+    # Returns binary file content. Auth via mTLS at the transport layer.
     response = @connection.get do |req|
       req.url "/api/v1/worker/files/#{file_id}/download"
-      req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
     end
 
     if response.status == 200
@@ -251,7 +251,6 @@ class BackendApiClient
       begin
         response = @connection.send(method) do |req|
           req.url path
-          req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
           req.headers['Content-Type'] = 'application/json'
           req.headers['Accept'] = 'application/json'
           req.headers['User-Agent'] = 'PowernodeWorker/1.0'
@@ -288,7 +287,7 @@ class BackendApiClient
   private
 
   def build_connection
-    Faraday.new(url: @config.backend_api_url) do |conn|
+    Faraday.new(url: @config.backend_api_url, ssl: WorkerCertManager.instance.ssl_options) do |conn|
       # Request/response middleware
       conn.request :json
       conn.response :json, content_type: /\bjson$/
@@ -345,7 +344,6 @@ class BackendApiClient
       start_time = Time.current
       response = @connection.post do |req|
         req.url path
-        req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
         req.headers['Content-Type'] = 'application/json'
         req.headers['Accept'] = 'application/json'
         req.headers['User-Agent'] = 'PowernodeWorker/1.0'

@@ -16,9 +16,9 @@ module ApiTestHelpers
       stub = stub.with(query: with_query)
     end
 
-    # Only match critical Authorization header (partial matching)
-    # This allows Faraday to add additional headers like Connection, Host, etc.
-    stub = stub.with(headers: { 'Authorization' => expected_request_headers['Authorization'] })
+    # Auth is mTLS at the transport layer — no Authorization header to
+    # match. Faraday adds its own bookkeeping headers (Connection, Host,
+    # etc.) so we leave the matcher unconstrained.
 
     stub.to_return(
       status: status,
@@ -214,7 +214,6 @@ module ApiTestHelpers
 
   def expected_request_headers
     {
-      'Authorization' => 'Bearer test-worker-token-123',
       'Content-Type' => 'application/json',
       'Accept' => 'application/json',
       'User-Agent' => 'PowernodeWorker/1.0'

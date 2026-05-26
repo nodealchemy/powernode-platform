@@ -6,6 +6,13 @@ FactoryBot.define do
     description { "A test worker" }
     status { 'active' }
     association :account
+    # Workers-as-NodeInstances (Stage 8b): every Worker is backed by a
+    # NodeInstance that carries its mTLS identity. For tests we just need
+    # a unique UUID — the actual NodeInstance row isn't required because
+    # InternalBaseController does `Worker.find_by(node_instance_id: cn)`
+    # rather than traversing the association. Specs that DO need a real
+    # NodeInstance row should set node_instance_id: explicitly.
+    node_instance_id { UUID7.generate }
 
     # Create worker with assigned roles after creation
     after(:create) do |worker|

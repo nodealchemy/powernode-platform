@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_24_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -13218,6 +13218,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_24_130000) do
     t.boolean "is_system", default: false, null: false
     t.datetime "last_seen_at"
     t.string "name", null: false
+    t.uuid "node_instance_id"
     t.jsonb "permissions", default: []
     t.string "status", default: "active"
     t.string "token_digest"
@@ -13227,6 +13228,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_24_130000) do
     t.index ["capabilities"], name: "index_workers_on_capabilities", using: :gin
     t.index ["is_system"], name: "index_workers_on_is_system_unique", unique: true, where: "(is_system = true)"
     t.index ["name"], name: "index_workers_on_name", unique: true
+    t.index ["node_instance_id"], name: "index_workers_on_node_instance_id", unique: true, where: "(node_instance_id IS NOT NULL)"
     t.index ["permissions"], name: "index_workers_on_permissions", using: :gin
     t.index ["status"], name: "index_workers_on_status"
     t.index ["worker_type"], name: "index_workers_on_worker_type"

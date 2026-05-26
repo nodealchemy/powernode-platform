@@ -28,11 +28,17 @@ class EmailConfigurationService
       uri = URI("#{backend_url}/api/v1/email_settings")
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == 'https'
+      if http.use_ssl?
+        ssl = WorkerCertManager.instance.ssl_options
+        http.cert = ssl[:client_cert]
+        http.key  = ssl[:client_key]
+        http.ca_file = ssl[:ca_file]
+        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      end
       http.read_timeout = 10
       http.open_timeout = 5
 
       request = Net::HTTP::Get.new(uri)
-      request['Authorization'] = "Bearer #{WorkerJwt.token}"
       request['Content-Type'] = 'application/json'
       request['Accept'] = 'application/json'
       

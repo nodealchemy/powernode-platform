@@ -5,7 +5,7 @@ Sidekiq standalone worker for Powernode.
 ## Critical Rules
 
 - Jobs inherit from `BaseJob`, implement `execute()` method
-- API-only communication with server
+- API-only communication with server (mTLS for `/api/v1/internal/*`; ActionCable WebSocket still uses JWT)
 - `Rails.logger` - no puts/print
 - `# frozen_string_literal: true` pragma required
 - All AI execution jobs MUST include `AiSuspensionCheckConcern` for kill switch compliance
