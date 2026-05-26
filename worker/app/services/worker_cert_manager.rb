@@ -50,12 +50,19 @@ class WorkerCertManager
   # on the server-side: Traefik uses it to VERIFY the client cert this
   # worker presents. On the client side, we trust the platform's server
   # cert via the OS trust store.
+  #
+  # WORKER_TLS_VERIFY=false (dev) disables server-cert verification.
+  # Dev's Traefik often serves a self-signed cert (no public CA), so the
+  # client side has nothing to chain to. Client cert is still presented;
+  # the platform still verifies it. Production should leave this unset
+  # (defaults to verify: true).
   def ssl_options
     return { verify: false } if test_env? && !File.exist?(@cert_path)
+    verify_flag = ENV.fetch("WORKER_TLS_VERIFY", "true") != "false"
     {
       client_cert: OpenSSL::X509::Certificate.new(File.read(@cert_path)),
       client_key:  OpenSSL::PKey.read(File.read(@key_path)),
-      verify:      true
+      verify:      verify_flag
     }
   end
 
