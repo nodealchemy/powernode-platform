@@ -663,9 +663,12 @@ Rails.application.routes.draw do
       # ===================================================================
       # Marketing routes are in extensions/marketing/server/config/routes.rb
 
-      # Worker authentication endpoints (for worker service)
+      # Worker authentication endpoints (for worker service). All routes
+      # require mTLS — Traefik exposes /api/v1/worker_auth via the
+      # websecure-mtls (:4443) entrypoint; WorkerAuthController includes
+      # MtlsClientAuthentication and authenticates the worker by its
+      # client cert before validating the user credentials in the body.
       namespace :worker_auth do
-        post :verify
         post :authenticate_user
         post :verify_session
         post :verify_platform_token

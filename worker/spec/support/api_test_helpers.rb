@@ -76,14 +76,6 @@ module ApiTestHelpers
     })
   end
 
-  def stub_service_verification_success
-    stub_backend_api_success(:post, '/api/v1/service/verify', {
-      success: true,
-      service: 'worker',
-      permissions: ['worker.execute']
-    })
-  end
-
   def stub_account_data(account_id)
     stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}", {
       success: true,
@@ -174,21 +166,6 @@ module ApiTestHelpers
 
   def expect_no_api_requests
     expect(WebMock).not_to have_been_requested
-  end
-
-  # Authentication helpers
-  def stub_service_authentication_success
-    stub_backend_api_success(:post, '/api/v1/service/verify', {
-      success: true,
-      service: 'worker'
-    })
-  end
-
-  def stub_service_authentication_failure
-    stub_backend_api_error(:post, '/api/v1/service/verify', 
-      status: 401, 
-      error_message: 'Invalid service token'
-    )
   end
 
   # WebMock helpers

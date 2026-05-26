@@ -1,22 +1,23 @@
 # frozen_string_literal: true
 
+# Sidekiq web UI authentication endpoints.
+#
+# Callers: ONLY `powernode-worker-web` (Sinatra app on port 4567 that
+# serves Sidekiq web UI). The worker forwards user-credential requests
+# from its login form to the platform; this controller validates the
+# USER credentials and returns a worker-local session token.
+#
+# Auth model: mTLS. The worker presents its mTLS client cert via Faraday
+# SSL options (WorkerCertManager); Traefik terminates on the
+# `<slug>-worker-auth` router (mTLS-required) and forwards the verified
+# CN — which is the NodeInstance.id — via `X-Forwarded-Tls-Client-Cert-Info`.
+# This controller resolves the Worker via `node_instance_id` (shared with
+# Internal::InternalBaseController via MtlsClientAuthentication).
 class Api::V1::WorkerAuthController < ApplicationController
-  skip_before_action :authenticate_request, only: [ :authenticate_user, :verify_session, :verify, :verify_platform_token ]
-  before_action :authenticate_service_request, only: [ :authenticate_user, :verify_session, :verify_platform_token ]
+  include MtlsClientAuthentication
 
-  # POST /api/v1/service/verify
-  # Service token verification for worker communication
-  def verify
-    if authenticate_service_token
-      render_success({
-        valid: true,
-        service: "powernode_worker",
-        timestamp: Time.current.iso8601
-      })
-    else
-      render_error("Invalid service token", status: :unauthorized)
-    end
-  end
+  skip_before_action :authenticate_request
+  before_action :authenticate_worker_via_mtls!
 
   # POST /api/v1/worker_auth/authenticate_user
   # Authenticate user credentials for Sidekiq web interface
@@ -48,26 +49,13 @@ class Api::V1::WorkerAuthController < ApplicationController
       return render_error("Email not verified", status: :unauthorized)
     end
 
-    # Check if user has admin permissions for Sidekiq access
     unless user.has_permission?("admin.access") || user.has_permission?("system.admin")
       Rails.logger.warn "Insufficient permissions for: #{email}"
       return render_error("Insufficient permissions to access worker interface", status: :forbidden)
     end
 
-    # Generate session token for the worker interface
     session_token = generate_session_token(user)
-
-    # Store session with expiration (24 hours for worker interface)
-    Rails.cache.write(
-      "worker_session:#{session_token}",
-      {
-        user_id: user.id,
-        user_email: user.email,
-        permissions: user.permissions.pluck(:resource, :action).map { |r, a| "#{r}.#{a}" },
-        created_at: Time.current.iso8601
-      },
-      expires_in: 24.hours
-    )
+    store_worker_session!(session_token, user)
 
     Rails.logger.info "Worker authentication successful for user: #{email}"
 
@@ -86,8 +74,8 @@ class Api::V1::WorkerAuthController < ApplicationController
 
   # POST /api/v1/worker_auth/verify_platform_token
   # Verify a platform JWT for Sidekiq web interface access.
-  # Accepts an access/refresh token issued by JwtService, validates the user
-  # exists, is active, email-verified, and has admin permissions.
+  # Body carries the USER's platform access token; mTLS verifies the
+  # CALLER (worker) at the transport layer.
   def verify_platform_token
     token = params[:token]
 
@@ -119,19 +107,8 @@ class Api::V1::WorkerAuthController < ApplicationController
       return render_error("Insufficient permissions to access worker interface", status: :forbidden)
     end
 
-    # Generate session token for the worker interface
     session_token = generate_session_token(user)
-
-    Rails.cache.write(
-      "worker_session:#{session_token}",
-      {
-        user_id: user.id,
-        user_email: user.email,
-        permissions: user.permissions.pluck(:resource, :action).map { |r, a| "#{r}.#{a}" },
-        created_at: Time.current.iso8601
-      },
-      expires_in: 24.hours
-    )
+    store_worker_session!(session_token, user)
 
     Rails.logger.info "Worker platform token verified for user: #{user.email}"
 
@@ -143,7 +120,7 @@ class Api::V1::WorkerAuthController < ApplicationController
     })
   end
 
-  # POST /api/v1/service/verify_session
+  # POST /api/v1/worker_auth/verify_session
   # Verify session token for authenticated Sidekiq web interface users
   def verify_session
     session_token = params[:session_token]
@@ -155,7 +132,6 @@ class Api::V1::WorkerAuthController < ApplicationController
     session_data = Rails.cache.read("worker_session:#{session_token}")
 
     if session_data
-      # Verify user still exists and has permissions
       user = User.find_by(id: session_data[:user_id])
 
       if user && (user.has_permission?("admin.access") || user.has_permission?("system.admin"))
@@ -166,7 +142,6 @@ class Api::V1::WorkerAuthController < ApplicationController
           expires_at: (Time.current + 24.hours).iso8601
         })
       else
-        # User no longer exists or lost permissions, invalidate session
         Rails.cache.delete("worker_session:#{session_token}")
         render_error("Session invalid - user permissions changed", status: :unauthorized)
       end
@@ -177,37 +152,20 @@ class Api::V1::WorkerAuthController < ApplicationController
 
   private
 
-  def authenticate_service_request
-    unless authenticate_service_token
-      render_error("Service authentication required", status: :unauthorized)
-    end
-  end
-
-  def authenticate_service_token
-    auth_header = request.headers["Authorization"]
-    return false unless auth_header&.start_with?("Bearer ")
-
-    token = auth_header.split(" ").last
-    return false if token.blank?
-
-    # JWT-only worker authentication
-    begin
-      payload = Security::JwtService.decode(token)
-      return false unless payload[:type] == "worker"
-
-      worker = Worker.find_by(id: payload[:sub], status: "active")
-      return false unless worker&.system?
-
-      @current_worker = worker
-      true
-    rescue StandardError
-      false
-    end
-  end
-
-  def generate_session_token(user)
-    # Generate secure session token using a simple UUID for now
-    # In production, this would use proper JWT with secure secrets
+  def generate_session_token(_user)
     SecureRandom.uuid
+  end
+
+  def store_worker_session!(session_token, user)
+    Rails.cache.write(
+      "worker_session:#{session_token}",
+      {
+        user_id: user.id,
+        user_email: user.email,
+        permissions: user.permissions.pluck(:resource, :action).map { |r, a| "#{r}.#{a}" },
+        created_at: Time.current.iso8601
+      },
+      expires_in: 24.hours
+    )
   end
 end

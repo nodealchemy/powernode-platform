@@ -7,17 +7,13 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
   let(:user) { create(:user, account: account, email_verified: true) }
   let(:worker) { create(:worker, :system_worker, status: 'active') }
 
-  # Generate a valid JWT token for the system worker
-  let(:worker_jwt) do
-    Security::JwtService.encode(
-      { type: "worker", sub: worker.id },
-      5.minutes.from_now
-    )
-  end
-
+  # mTLS auth — Traefik forwards the verified CN (= NodeInstance.id) via
+  # the URL-encoded X-Forwarded-Tls-Client-Cert-Info header. The Worker is
+  # resolved by node_instance_id (Stage 8b Workers-as-NodeInstances).
   let(:worker_auth_headers) do
     {
-      'Authorization' => "Bearer #{worker_jwt}",
+      'X-Forwarded-Tls-Client-Cert-Info' =>
+        CGI.escape(%(Subject="CN=#{worker.node_instance_id}")),
       'Content-Type' => 'application/json'
     }
   end
@@ -26,38 +22,6 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
     # Grant admin permissions
     allow_any_instance_of(User).to receive(:has_permission?).with('admin.access').and_return(true)
     allow_any_instance_of(User).to receive(:has_permission?).with('system.admin').and_return(true)
-  end
-
-  describe 'POST /api/v1/worker_auth/verify' do
-    context 'with valid service token' do
-      it 'verifies the service token' do
-        post '/api/v1/worker_auth/verify', headers: worker_auth_headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['valid']).to be true
-        expect(data['service']).to eq('powernode_worker')
-      end
-    end
-
-    context 'with invalid service token' do
-      it 'returns unauthorized error' do
-        post '/api/v1/worker_auth/verify', headers: {
-          'Authorization' => 'Bearer invalid_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
-
-        expect_error_response('Invalid service token', 401)
-      end
-    end
-
-    context 'without authorization header' do
-      it 'returns unauthorized error' do
-        post '/api/v1/worker_auth/verify', as: :json
-
-        expect_error_response('Invalid service token', 401)
-      end
-    end
   end
 
   describe 'POST /api/v1/worker_auth/authenticate_user' do
@@ -166,6 +130,30 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
         expect_error_response('Email and password are required', 400)
       end
     end
+
+    context 'without mTLS client cert' do
+      it 'returns unauthorized error' do
+        post '/api/v1/worker_auth/authenticate_user', params: auth_params,
+          headers: { 'Content-Type' => 'application/json' }, as: :json
+
+        expect_error_response('mTLS client certificate required', 401)
+      end
+    end
+
+    context 'with mTLS cert for unknown worker' do
+      it 'returns unauthorized error' do
+        bad_headers = {
+          'X-Forwarded-Tls-Client-Cert-Info' =>
+            CGI.escape(%(Subject="CN=#{SecureRandom.uuid}")),
+          'Content-Type' => 'application/json'
+        }
+
+        post '/api/v1/worker_auth/authenticate_user', params: auth_params,
+          headers: bad_headers, as: :json
+
+        expect_error_response('Worker not found for mTLS subject', 401)
+      end
+    end
   end
 
   describe 'POST /api/v1/worker_auth/verify_session' do
@@ -180,7 +168,6 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
     end
 
     before do
-      # Allow cache to work normally, then write session data for the test
       Rails.cache.write("worker_session:#{session_token}", session_data, expires_in: 24.hours)
     end
 
@@ -208,28 +195,24 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
 
     context 'when user no longer exists' do
       it 'invalidates session and returns error' do
-        # Use a non-existent user_id in session data
         Rails.cache.write("worker_session:#{session_token}", session_data.merge(user_id: SecureRandom.uuid), expires_in: 24.hours)
 
         post '/api/v1/worker_auth/verify_session', params: { session_token: session_token },
           headers: worker_auth_headers, as: :json
 
         expect_error_response('Session invalid - user permissions changed', 401)
-        # Session should be invalidated
         expect(Rails.cache.read("worker_session:#{session_token}")).to be_nil
       end
     end
 
     context 'when user lost permissions' do
       it 'invalidates session and returns error' do
-        # Remove all permissions from user
         allow_any_instance_of(User).to receive(:has_permission?).and_return(false)
 
         post '/api/v1/worker_auth/verify_session', params: { session_token: session_token },
           headers: worker_auth_headers, as: :json
 
         expect_error_response('Session invalid - user permissions changed', 401)
-        # Session should be invalidated
         expect(Rails.cache.read("worker_session:#{session_token}")).to be_nil
       end
     end

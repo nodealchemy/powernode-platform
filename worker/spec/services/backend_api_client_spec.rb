@@ -261,16 +261,6 @@ RSpec.describe BackendApiClient, type: :service do
     end
 
     describe 'service authentication' do
-      describe '#verify_service_token' do
-        it 'verifies service authentication' do
-          auth_response = { valid: true, service: 'worker' }
-          stub_backend_api_success(:post, '/api/v1/service/verify', auth_response)
-          
-          result = client.verify_service_token
-          expect(result).to eq(auth_response.stringify_keys)
-        end
-      end
-
       describe '#authenticate_user' do
         it 'authenticates user credentials' do
           auth_response = { success: true, user_id: 'user-123' }

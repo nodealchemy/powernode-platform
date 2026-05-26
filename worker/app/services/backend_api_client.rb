@@ -97,11 +97,6 @@ class BackendApiClient
     response.is_a?(Hash) && response.key?("data") ? response["data"] : response
   end
 
-  # Service authentication verification
-  def verify_service_token
-    post("/api/v1/service/verify", {})
-  end
-
   # User authentication for web interface access
   def authenticate_user(email, password)
     post("/api/v1/worker_auth/authenticate_user", {

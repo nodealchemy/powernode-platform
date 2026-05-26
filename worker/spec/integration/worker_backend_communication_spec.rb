@@ -11,44 +11,12 @@ RSpec.describe 'Worker-Backend Communication', type: :integration do
     mock_powernode_worker_config
   end
 
-  describe 'Service Authentication Flow' do
-    context 'successful authentication' do
-      before do
-        stub_service_authentication_success
-      end
-
-      it 'authenticates service with backend' do
-        result = api_client.verify_service_token
-        
-        expect(result).to include('success' => true)
-        expect_api_request(:post, '/api/v1/service/verify')
-      end
-    end
-
-    context 'authentication failure' do
-      before do
-        stub_service_authentication_failure
-      end
-
-      it 'raises authentication error' do
-        expect {
-          api_client.verify_service_token
-        }.to raise_error(BackendApiClient::ApiError, 'Service authentication failed')
-      end
-    end
-
-    context 'network connectivity issues' do
-      before do
-        stub_backend_api_timeout(:post, '/api/v1/service/verify')
-      end
-
-      it 'handles timeout errors appropriately' do
-        expect {
-          api_client.verify_service_token
-        }.to raise_error(BackendApiClient::ApiError, /Request timeout/)
-      end
-    end
-  end
+  # Worker→backend transport-layer auth is mTLS — the worker presents its
+  # client cert via Faraday's ssl_options (WorkerCertManager). There is no
+  # service-token round-trip; per-request auth is enforced at the TLS
+  # handshake, not at the Rails layer. The deprecated /api/v1/service/verify
+  # endpoint and BackendApiClient#verify_service_token method were removed
+  # alongside the JWT path conversion (#110).
 
   describe 'Job Status Reporting Flow' do
     let(:job_id) { 'job-integration-test-123' }
@@ -383,7 +351,6 @@ RSpec.describe 'Worker-Backend Communication', type: :integration do
     it 'handles multiple concurrent API requests' do
       # Stub multiple different endpoints
       stub_health_check_success
-      stub_service_authentication_success
       stub_account_data('account-concurrent-test')
       
       # Simulate concurrent API calls (as might happen with multiple jobs)
@@ -395,17 +362,12 @@ RSpec.describe 'Worker-Backend Communication', type: :integration do
       end
       
       threads << Thread.new do
-        results[:auth] = api_client.verify_service_token
-      end
-      
-      threads << Thread.new do
         results[:account] = api_client.get_account('account-concurrent-test')
       end
-      
+
       threads.each(&:join)
-      
+
       expect(results[:health]).to include('status' => 'ok')
-      expect(results[:auth]).to include('success' => true)
       expect(results[:account]).to include('success' => true)
     end
   end
