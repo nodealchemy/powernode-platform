@@ -115,6 +115,19 @@ RSpec.configure do |config|
 
   config.include FactoryBot::Syntax::Methods
 
+  # Extension spec-support helpers. The parent's own support glob (above)
+  # only covers server/spec/support; extension specs run mounted into the
+  # parent and `require "rails_helper"`, so their support helpers
+  # (e.g. WorkerMtlsAuthHelpers) need explicit loading here — same
+  # precedent as the extension-factory loads above. Scoped to *_helpers.rb
+  # so we don't re-trigger an extension's simplecov/coverage bootstrap.
+  %w[business trading system marketing supply-chain].each do |ext|
+    support_dir = Rails.root.join('..', 'extensions', ext, 'server', 'spec', 'support')
+    next unless support_dir.exist?
+
+    Dir[support_dir.join('**/*_helpers.rb')].sort.each { |f| require f }
+  end
+
   # Time travel helpers (travel_to, freeze_time, etc.)
   config.include ActiveSupport::Testing::TimeHelpers
 
