@@ -28,7 +28,7 @@ gem "paypal-sdk-rest", require: false
 
 
 # HTTP client for webhook processing
-gem "http", "~> 6.0"
+gem "http"
 gem "httparty"
 
 # Analytics and reporting
@@ -71,47 +71,11 @@ gem "marcel", "~> 1.0"
 gem "sys-filesystem", "~> 1.5"
 
 # ===================================================================
-# INFRASTRUCTURE / CLOUD COMPUTE — extensions/system/
-# Used by System::Providers::* adapters for cloud instance lifecycle.
-# Active when extensions/system/ is loaded and a ProviderConnection is
-# configured. Constants referenced in the adapter source files require
-# these specific gem families:
-#   AwsProvider        → Aws::EC2::Client (aws-sdk-ec2)
-#   GcpProvider        → Google::Cloud::Compute::V1::* (google-cloud-compute v2)
-#   OpenStackProvider  → Fog::OpenStack::{Compute,Network,Volume,Image} (fog-openstack v1)
-#   AzureProvider      → Azure::{Compute,Network}::Mgmt::V2020_*::*ManagementClient
-#                        (azure_mgmt_compute + azure_mgmt_network 0.21+ era)
-# ===================================================================
-
-gem "aws-sdk-ec2", "~> 1.0"
-gem "google-cloud-compute", "~> 1.16"
-gem "fog-openstack", "~> 1.0"
-
-# NOTE: AzureProvider is non-functional in Phase 1 because the deprecated
-# azure_mgmt_compute/azure_mgmt_network family transitively depends on
-# faraday < 2.0 via ms_rest_azure, which conflicts with the platform's
-# faraday ~> 2.0 pin. Future work: rewrite AzureProvider against the Azure
-# REST API directly using Faraday 2.x (see Azure ARM REST docs), or wait
-# for a Faraday-2-compatible Azure SDK. Until then, AzureProvider raises
-# NameError at runtime if invoked.
-
-# SSH client gem for Phase 2 daemon path. Phase 1 platform-side execution
-# uses Open3 + system `ssh` (see System::SshExecutionService).
-gem "net-ssh", "~> 7.0"
-
-# ===================================================================
 # SECURITY & SECRET MANAGEMENT
 # ===================================================================
 
 # HashiCorp Vault client for secret management
 gem "vault", "~> 0.18"
-
-# Ethereum key generation, address derivation, transaction signing
-gem "eth", "~> 0.5"
-
-# BIP-39 mnemonic generation and HD key derivation
-gem "bip_mnemonic"
-gem "money-tree"
 
 # ===================================================================
 # FEATURE FLAGS
@@ -166,7 +130,7 @@ group :development, :test do
 end
 
 gem "database_cleaner-active_record", "~> 2.2", group: :test
-gem "shoulda-matchers", "~> 6.5", group: :test
+gem "shoulda-matchers", "~> 7.0", group: :test
 gem "webmock", "~> 3.25", group: :test
 gem "vcr", "~> 6.3", group: :test
 gem "rspec-json_expectations", "~> 2.2", group: :test
@@ -185,18 +149,17 @@ gem "doorkeeper", "~> 5.7"
 
 # Two-Factor Authentication (2FA)
 gem "rotp", "~> 6.3"
-gem "rqrcode", "~> 2.2"
+gem "rqrcode", "~> 3.1"
 
 gem "redis", "~> 5.4"
 gem "neighbor"
-gem "liquid", "~> 5.4"
 
 # Error tracking and monitoring
-gem "sentry-ruby", "~> 5.17"
-gem "sentry-rails", "~> 5.17"
+gem "sentry-ruby", "~> 6.5"
+gem "sentry-rails", "~> 6.5"
 
 # Application performance monitoring (optional)
-gem "skylight", "~> 6.0", require: false
+gem "skylight", "~> 7.1", require: false
 
 # ===================================================================
 # OPENTELEMETRY - Distributed Tracing & Observability
@@ -204,6 +167,9 @@ gem "skylight", "~> 6.0", require: false
 # ===================================================================
 
 group :opentelemetry, optional: true do
+  # NOTE: opentelemetry-instrumentation-* 0.x latest releases require Ruby >= 3.3.
+  # This app runs Ruby 3.2.8, so these are pinned to their highest 3.2-compatible
+  # versions. Raise these ceilings once the runtime moves to Ruby >= 3.3.
   gem "opentelemetry-sdk", "~> 1.4"
   gem "opentelemetry-exporter-otlp", "~> 0.28"
   gem "opentelemetry-instrumentation-rails", "~> 0.31"
@@ -223,25 +189,6 @@ group :development, :test do
   gem "rswag-specs", "~> 2.13"
 end
 
-# Extension gems (dynamically discovered from extensions/*/extension.json).
-# Partitioned into public (listed in .gitmodules) vs private (present on
-# disk but not in .gitmodules — added by maintainers with access to a
-# private upstream). The optional :private_extensions group means CI's
-# default `bundle install` skips them, keeping Gemfile.lock consistent
-# across environments that don't have access to the private submodules.
-# Maintainers who want private extensions installed:
-#   bundle install --with private_extensions   # one-off
-#   bundle config set --local with private_extensions   # persistent
-# Before committing Gemfile.lock, drop --with so the lockfile stays
-# private-extension-free. scripts/lockfile-no-private-check.sh
-# (wired into the pre-commit hook) enforces this.
+# Extension gems (dynamically discovered from extensions/*/extension.json)
 require_relative "../extensions_loader_helper"
-ext_groups = discover_extension_gems_by_visibility
-ext_groups[:public].each do |slug, path|
-  gem "powernode_#{slug.tr('-', '_')}", path: path
-end
-group :private_extensions, optional: true do
-  ext_groups[:private].each do |slug, path|
-    gem "powernode_#{slug.tr('-', '_')}", path: path
-  end
-end
+discover_extension_gems.each { |slug, path| gem "powernode_#{slug.tr('-', '_')}", path: path }
