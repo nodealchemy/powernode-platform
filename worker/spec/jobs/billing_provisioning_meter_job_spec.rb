@@ -10,9 +10,6 @@ RSpec.describe BillingProvisioningMeterJob, type: :job do
 
   before do
     mock_powernode_worker_config
-    # WorkerJwt.token reads worker_id and jwt_secret_key from config; stub the
-    # token directly so we don't need to expand the worker config double.
-    allow(WorkerJwt).to receive(:token).and_return('test-worker-token-123')
     stub_backend_api_success(:post, '/api/v1/internal/billing/provisioning/meter/rollup',
                              { 'success' => true, 'data' => { 'metered_count' => 4, 'invoiced_count' => 1 } })
   end
@@ -51,7 +48,6 @@ RSpec.describe BillingProvisioningMeterJob, type: :job do
   context 'when the rollup endpoint reports a failure' do
     before do
       WebMock.reset!
-      allow(WorkerJwt).to receive(:token).and_return('test-worker-token-123')
       stub_backend_api_success(:post, '/api/v1/internal/billing/provisioning/meter/rollup',
                                { 'success' => false, 'error' => 'transient db error' })
     end
@@ -64,7 +60,6 @@ RSpec.describe BillingProvisioningMeterJob, type: :job do
   context 'when the API client raises a non-retryable error' do
     before do
       WebMock.reset!
-      allow(WorkerJwt).to receive(:token).and_return('test-worker-token-123')
       stub_backend_api_error(:post, '/api/v1/internal/billing/provisioning/meter/rollup',
                              status: 404, error_message: 'rollup endpoint missing')
     end

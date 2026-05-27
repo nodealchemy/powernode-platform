@@ -3,22 +3,28 @@
 require 'websocket-client-simple'
 require 'json'
 require 'securerandom'
+require 'openssl'
+require_relative 'worker_cert_manager'
 
 # Thread-safe ActionCable WebSocket client for worker → server communication.
 # Implements the ActionCable client protocol (subscribe, message, ping)
 # with request/response correlation via UUID request_ids.
 #
+# Auth is mTLS at the TLS handshake — the worker's client cert is
+# presented via WorkerCertManager + the websocket-client-simple monkey
+# patch (`config/initializers/websocket_client_simple_mtls.rb`). The
+# previous `?token=#{jwt}` URL-param JWT path is gone.
+#
 # Usage:
-#   client = ActionCableClient.new("ws://localhost:3000/cable", jwt_token)
+#   client = ActionCableClient.new("wss://ops.ipnode.net:4443/cable")
 #   client.connect
 #   response = client.send_request("tool_definitions", agent_id: "uuid")
 #   client.disconnect
 class ActionCableClient
   DEFAULT_TIMEOUT = 30
 
-  def initialize(url, token, channel: "WorkerToolDispatchChannel")
+  def initialize(url, channel: "WorkerToolDispatchChannel")
     @url = url
-    @token = token
     @channel_identifier = { channel: channel }.to_json
     @pending = {}
     @global_mutex = Mutex.new
@@ -35,8 +41,9 @@ class ActionCableClient
   # Blocks until welcome + subscription confirmation or timeout.
   # Returns self for chaining.
   def connect
-    ws_url = "#{@url}?token=#{@token}"
-    @ws = WebSocket::Client::Simple.connect(ws_url)
+    options = {}
+    options[:ssl_context] = build_ssl_context if @url.start_with?("wss://")
+    @ws = WebSocket::Client::Simple.connect(@url, options)
     setup_handlers
     wait_for_welcome(timeout: 5)
     subscribe_to_channel
@@ -102,6 +109,20 @@ class ActionCableClient
   end
 
   private
+
+  # Builds an OpenSSL::SSL::SSLContext carrying the worker's mTLS client
+  # cert (read fresh from disk on each connect so post-rotation reconnects
+  # pick up new material atomically). Server cert verification uses the
+  # system trust store unless WORKER_TLS_VERIFY=false (dev override).
+  def build_ssl_context
+    opts = WorkerCertManager.instance.ssl_options
+    ctx = OpenSSL::SSL::SSLContext.new
+    ctx.cert = opts[:client_cert] if opts[:client_cert]
+    ctx.key  = opts[:client_key]  if opts[:client_key]
+    ctx.verify_mode = opts[:verify] == false ? OpenSSL::SSL::VERIFY_NONE : OpenSSL::SSL::VERIFY_PEER
+    ctx.cert_store = OpenSSL::X509::Store.new.tap(&:set_default_paths)
+    ctx
+  end
 
   def logger
     @logger ||= defined?(PowernodeWorker) ? PowernodeWorker.application.logger : Logger.new($stdout)

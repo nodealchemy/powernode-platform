@@ -13,6 +13,16 @@ module ApplicationCable
     private
 
     def find_verified_identity
+      # mTLS arm — workers connect to the /cable router on the
+      # websecure-mtls Traefik entrypoint (:4443) and present their
+      # client cert via WorkerCertManager. Traefik forwards the verified
+      # subject CN (= NodeInstance.id) via X-Forwarded-Tls-Client-Cert-Info.
+      # Resolve the worker from there and short-circuit before the
+      # user-JWT arm.
+      if authenticate_worker_via_mtls
+        return
+      end
+
       token = request.params[:token] || extract_token_from_headers
       refresh_param = request.params[:refresh_token]
 
@@ -23,8 +33,6 @@ module ApplicationCable
             return if payload.nil?
 
             case payload[:type]
-            when "worker"
-              authenticate_worker(payload)
             when "access"
               authenticate_user(payload)
             else
@@ -52,6 +60,32 @@ module ApplicationCable
       else
         Rails.logger.warn "ActionCable: No token provided"
         reject_unauthorized_connection
+      end
+    end
+
+    # Returns truthy if an active worker was identified from the
+    # Traefik-forwarded mTLS subject CN; false when no header is present
+    # (user-JWT arm takes over) or the CN can't be resolved to an active
+    # Worker (connection is rejected immediately to avoid the JWT arm
+    # producing a misleading downstream error).
+    def authenticate_worker_via_mtls
+      info = request.headers["X-Forwarded-Tls-Client-Cert-Info"].presence
+      return false unless info
+
+      decoded = CGI.unescape(info)
+      match = decoded.match(/\bCN\s*=\s*"?([^,"]+)"?/i)
+      cn = match && match[1].strip
+      return false if cn.blank?
+
+      worker = Worker.find_by(node_instance_id: cn)
+      if worker&.active?
+        Rails.logger.info "ActionCable: mTLS authentication successful for worker #{worker.name}"
+        self.current_worker = worker
+        true
+      else
+        Rails.logger.warn "ActionCable: mTLS cert CN #{cn} did not resolve to an active worker"
+        reject_unauthorized_connection
+        true
       end
     end
 
@@ -98,18 +132,6 @@ module ApplicationCable
         expires_at: @minted_tokens[:expires_at],
         refresh_expires_at: @minted_tokens[:refresh_expires_at]
       )
-    end
-
-    def authenticate_worker(payload)
-      worker = Worker.find(payload[:sub])
-
-      if worker&.active?
-        Rails.logger.info "ActionCable: Worker authentication successful for #{worker.name}"
-        self.current_worker = worker
-      else
-        Rails.logger.warn "ActionCable: Worker inactive"
-        reject_unauthorized_connection
-      end
     end
 
     def authenticate_user(payload)

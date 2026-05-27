@@ -30,13 +30,20 @@ module AiLlmProxyConcern
   end
 
   # Establish a WebSocket connection to the server's ActionCable endpoint.
-  # Returns an ActionCableClient or nil on failure.
+  # mTLS at the TLS handshake — WorkerCertManager + the websocket-client-simple
+  # monkey patch present the worker's client cert. ApplicationCable::Connection
+  # resolves the worker from the cert CN.
+  #
+  # URL priority: explicit WORKER_CABLE_URL env (wss://host:4443/cable in prod),
+  # else BACKEND_API_URL with /cable appended (works for dev plaintext + tests).
+  # Returns an ActionCableClient or nil on failure (caller falls back to HTTP).
   def connect_tool_dispatch_ws
-    base_url = ENV.fetch('BACKEND_API_URL', 'http://localhost:3000')
-    ws_url = base_url.sub(/^http/, 'ws') + '/cable'
-    token = WorkerJwt.token
+    ws_url = ENV.fetch("WORKER_CABLE_URL") do
+      base_url = ENV.fetch("BACKEND_API_URL", "http://localhost:3000")
+      base_url.sub(/^http/, "ws") + "/cable"
+    end
 
-    client = ::ActionCableClient.new(ws_url, token)
+    client = ::ActionCableClient.new(ws_url)
     client.connect
     log_info("[LlmProxy] WebSocket connection established to #{ws_url}")
     client

@@ -84,4 +84,31 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
         .to have_rejected_connection
     end
   end
+
+  describe "mTLS worker arm" do
+    let(:worker) { create(:worker, :system_worker, status: "active") }
+    let(:mtls_header) do
+      { "X-Forwarded-Tls-Client-Cert-Info" =>
+        CGI.escape(%(Subject="CN=#{worker.node_instance_id}")) }
+    end
+
+    it "identifies an active worker by mTLS subject CN" do
+      connect "/cable", headers: mtls_header
+      expect(connection.current_worker).to eq(worker)
+      expect(connection.current_user).to be_nil
+    end
+
+    it "ignores any token query param when an mTLS header is also present" do
+      tokens = Security::JwtService.generate_user_tokens(user)
+      connect "/cable?token=#{tokens[:access_token]}", headers: mtls_header
+      expect(connection.current_worker).to eq(worker)
+      expect(connection.current_user).to be_nil
+    end
+
+    it "rejects when the mTLS CN does not resolve to a worker" do
+      bad_headers = { "X-Forwarded-Tls-Client-Cert-Info" =>
+        CGI.escape(%(Subject="CN=#{SecureRandom.uuid}")) }
+      expect { connect "/cable", headers: bad_headers }.to have_rejected_connection
+    end
+  end
 end
