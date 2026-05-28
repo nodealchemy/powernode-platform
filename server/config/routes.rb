@@ -1030,54 +1030,15 @@ Rails.application.routes.draw do
         post :test, on: :collection
       end
 
-      # Customer management endpoints
-      resources :customers do
-        member do
-          get :stats
-          patch :update_status
-        end
-      end
+      # Customer management endpoints are in business/server/config/routes.rb (business only)
 
       # Billing routes are in business/server/config/routes.rb (business only)
 
-      # Analytics endpoints
-      namespace :analytics do
-        get :live
-        get :revenue
-        get :growth
-        get :churn
-        get :cohorts
-        get :customers
-        match :export, via: [ :get, :post ]
-
-        # Worker service endpoints
-        post :recalculate
-        post :update_revenue_snapshots
-        post :update_metrics
-      end
-
+      # Analytics endpoints (revenue/customer) are in business/server/config/routes.rb (business only)
       # Analytics tiers are in business/server/config/routes.rb
 
-      # Usage tracking endpoints
-      resources :usage, only: [] do
-        collection do
-          get :dashboard
-          get :meters
-          get :history
-          get :billing_summary
-          get :quotas
-          get :export
-          post :quotas, to: "usage#set_quota"
-          post "quotas/reset", to: "usage#reset_quotas"
-        end
-      end
-      get "usage/meters/:slug", to: "usage#meter"
-      resources :usage_events, only: [ :create ], path: "usage_events", controller: "usage" do
-        collection do
-          post :batch, to: "usage#track_events_batch"
-        end
-      end
-      post "usage_events", to: "usage#track_event"
+      # Usage metering/quota endpoints are in business/server/config/routes.rb
+      # (usage metering is billing functionality — owned by the business extension)
 
       # Predictive analytics, reseller routes are in business/server/config/routes.rb
 
@@ -1478,6 +1439,47 @@ Rails.application.routes.draw do
         # APPROVAL CHAINS - Multi-step approval workflows for AutonomyGate
         # ===================================================================
         resources :approval_chains, only: %i[index show create update destroy]
+
+        # ===================================================================
+        # GOVERNANCE - AI workflow governance & compliance (core capability)
+        # ===================================================================
+        scope :governance, controller: "governance" do
+          # Policies
+          get "policies", action: :policies
+          post "policies", action: :create_policy
+          put "policies/:id/activate", action: :activate_policy
+          post "policies/evaluate", action: :evaluate_policies
+
+          # Violations
+          get "violations", action: :violations
+          put "violations/:id/acknowledge", action: :acknowledge_violation
+          put "violations/:id/resolve", action: :resolve_violation
+
+          # Approval chains
+          get "approval_chains", action: :approval_chains
+          post "approval_chains", action: :create_approval_chain
+
+          # Approval requests
+          get "approval_requests", action: :approval_requests
+          get "approval_requests/pending", action: :pending_approvals
+          post "approval_requests/:id/decide", action: :decide_approval
+
+          # Data classifications
+          get "classifications", action: :classifications
+          post "classifications", action: :create_classification
+
+          # Data scanning
+          post "scan", action: :scan_data
+          post "mask", action: :mask_data
+
+          # Reports
+          get "reports", action: :reports
+          post "reports", action: :generate_report
+
+          # Summary and audit
+          get "summary", action: :summary
+          get "audit_log", action: :audit_log
+        end
 
         # ===================================================================
         # MEMORY POOLS - Scoped memory management

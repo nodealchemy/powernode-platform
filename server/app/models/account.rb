@@ -102,6 +102,17 @@ class Account < ApplicationRecord
   has_many :ai_governance_reports, class_name: "Ai::GovernanceReport", dependent: :destroy
   has_many :ai_collusion_indicators, class_name: "Ai::CollusionIndicator", dependent: :destroy
 
+  # AI Governance & Compliance Suite (core — approvals/compliance are platform-operation
+  # capabilities, not billing; they must work in core mode without the business extension)
+  has_many :ai_compliance_policies, class_name: "Ai::CompliancePolicy", dependent: :destroy
+  has_many :ai_policy_violations, class_name: "Ai::PolicyViolation", dependent: :destroy
+  has_many :ai_approval_chains, class_name: "Ai::ApprovalChain", dependent: :destroy
+  has_many :ai_approval_requests, class_name: "Ai::ApprovalRequest", dependent: :destroy
+  has_many :ai_data_classifications, class_name: "Ai::DataClassification", dependent: :destroy
+  has_many :ai_data_detections, class_name: "Ai::DataDetection", dependent: :destroy
+  has_many :ai_compliance_reports, class_name: "Ai::ComplianceReport", dependent: :destroy
+  has_many :ai_compliance_audit_entries, class_name: "Ai::ComplianceAuditEntry", dependent: :destroy
+
   # AI Self-Learning & Coordination (Phase 1-4 AGI)
   has_many :ai_experience_replays, class_name: "Ai::ExperienceReplay", dependent: :destroy
   has_many :ai_self_challenges, class_name: "Ai::SelfChallenge", dependent: :destroy
@@ -163,10 +174,8 @@ class Account < ApplicationRecord
   has_many :file_objects, class_name: "FileManagement::Object", dependent: :destroy
   has_many :file_tags, class_name: "FileManagement::Tag", dependent: :destroy
 
-  # Usage Tracking associations
-  has_many :usage_events, dependent: :destroy
-  has_many :usage_summaries, dependent: :destroy
-  has_many :usage_quotas, dependent: :destroy
+  # Usage metering associations (usage_events/summaries/quotas) are billing functionality —
+  # added by the business extension's account decorator.
 
   # Marketing associations are in extensions/marketing/server/app/decorators/models/account_decorator.rb
 
