@@ -434,6 +434,11 @@ Rails.application.routes.draw do
           # Embedding provider config (worker → server)
           get "embedding_config", to: "execution_contexts#embedding_config"
 
+          # Decrypted provider credentials (worker → server, mTLS). Internal
+          # counterpart to Api::V1::Ai::ProviderCredentialsController#decrypt —
+          # the mTLS-only worker can't use the JWT-gated user route.
+          post "credentials/:id/decrypt", to: "credentials#decrypt"
+
           # Agent execution management (worker → server)
           get "executions/:id", to: "agent_executions#show"
           patch "executions/:id", to: "agent_executions#update"
@@ -665,7 +670,7 @@ Rails.application.routes.draw do
 
       # Worker authentication endpoints (for worker service). All routes
       # require mTLS — Traefik exposes /api/v1/worker_auth via the
-      # websecure-mtls (:4443) entrypoint; WorkerAuthController includes
+      # websecure-mtls (:443) entrypoint; WorkerAuthController includes
       # MtlsClientAuthentication and authenticates the worker by its
       # client cert before validating the user credentials in the body.
       namespace :worker_auth do

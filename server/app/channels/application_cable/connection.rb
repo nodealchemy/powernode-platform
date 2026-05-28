@@ -14,7 +14,7 @@ module ApplicationCable
 
     def find_verified_identity
       # mTLS arm — workers connect to the /cable router on the
-      # websecure-mtls Traefik entrypoint (:4443) and present their
+      # websecure-mtls Traefik entrypoint (:443) and present their
       # client cert via WorkerCertManager. Traefik forwards the verified
       # subject CN (= NodeInstance.id) via X-Forwarded-Tls-Client-Cert-Info.
       # Resolve the worker from there and short-circuit before the

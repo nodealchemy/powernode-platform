@@ -2,7 +2,7 @@
 
 # Resolves the worker identity from a Traefik-forwarded mTLS client cert.
 # Routes that include this concern must be reachable only via the
-# `websecure-mtls` (:4443) entrypoint — Traefik's passTLSClientCert
+# `websecure-mtls` (:443) entrypoint — Traefik's passTLSClientCert
 # middleware sets `X-Forwarded-Tls-Client-Cert-Info` only for verified
 # client certs, and the listener-level mtls-required@file option rejects
 # unverified connections before they reach Rails.
