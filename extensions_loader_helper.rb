@@ -31,13 +31,10 @@ end
 # install can't resolve. Opt IN to declaring + loading private extensions
 # (full-mode dev runtime) with:
 #   POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1 bundle install
-# Back-compat: the legacy POWERNODE_HIDE_PRIVATE_EXTENSIONS=0 also forces
-# include; =1 is now a no-op (exclusion is the default). The committed lock
-# is just `bundle lock` with no env; scripts/regen-public-lockfile.sh remains
-# as a convenience wrapper.
+# The committed lock is just `bundle lock` with no env;
+# scripts/regen-public-lockfile.sh remains as a convenience wrapper.
 def discover_extension_gems_by_visibility
-  include_private = ENV["POWERNODE_INCLUDE_PRIVATE_EXTENSIONS"] == "1" ||
-                    ENV["POWERNODE_HIDE_PRIVATE_EXTENSIONS"] == "0"
+  include_private = ENV["POWERNODE_INCLUDE_PRIVATE_EXTENSIONS"] == "1"
   dir = File.join(__dir__, "extensions")
   return { public: [], private: [] } unless Dir.exist?(dir)
 

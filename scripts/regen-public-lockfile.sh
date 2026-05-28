@@ -10,10 +10,11 @@
 # have deleted from the Gemfile" (the lockfile names a gem the Gemfile
 # no longer declares).
 #
-# This script flips the POWERNODE_HIDE_PRIVATE_EXTENSIONS env knob so
-# discover_extension_gems_by_visibility excludes private extensions from
-# the :private bucket, then runs `bundle install` (or `bundle lock`) to
-# rewrite the lockfile.
+# Private extensions are excluded from the lockfile BY DEFAULT (see
+# extensions_loader_helper.rb), so this script just makes sure the full-mode
+# opt-in is OFF and runs `bundle lock` (or `bundle install`) to rewrite the
+# lockfile to the public-only set — handy after editing the Gemfile, or to
+# reset a full-mode working lock back to public before committing.
 #
 # Usage:
 #   bash scripts/regen-public-lockfile.sh             # full install
@@ -39,16 +40,19 @@ for arg in "$@"; do
   esac
 done
 
-echo "[regen-public-lockfile] hiding private extensions from discovery..."
-export POWERNODE_HIDE_PRIVATE_EXTENSIONS=1
+echo "[regen-public-lockfile] excluding private extensions from discovery (default)..."
+# Guarantee the public-only set regardless of any ambient full-mode opt-in
+# (the var lives in the server's service env, and a maintainer may have it
+# exported or sourced into their shell).
+unset POWERNODE_INCLUDE_PRIVATE_EXTENSIONS
 export BUNDLE_FROZEN=false
 
 if [[ "$LOCK_ONLY" -eq 1 ]]; then
   echo "[regen-public-lockfile] running 'bundle lock' (no install)..."
   bundle lock
 else
-  echo "[regen-public-lockfile] running 'bundle install --without private_extensions'..."
-  bundle install --without private_extensions
+  echo "[regen-public-lockfile] running 'bundle install'..."
+  bundle install
 fi
 
 echo ""

@@ -43,6 +43,14 @@ git submodule update --init --recursive
 
 The `extensions/business` and `extensions/trading` submodules are private; they will be absent for external contributors and the platform falls back to single-user core mode automatically. See [getting-started/03-extensions.md](../getting-started/03-extensions.md).
 
+**Maintainers with the private submodules** run **full mode** — private extensions declared and loaded into the Rails bundle. The committed `server/Gemfile.lock` is always public-only, so opt in explicitly when installing and in the server's runtime environment:
+
+```bash
+POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1 bundle install   # in server/
+```
+
+This drifts your *working* `server/Gemfile.lock` to include the private gems — leave it unstaged. The pre-commit hook only checks the *staged* lock, so it won't block unrelated commits, and you should never commit the full-mode lock. See [dependency loading](../guides/extensions.md#dependency-loading-public-only-lockfile).
+
 ## Install dependencies
 
 ```bash

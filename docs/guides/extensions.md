@@ -176,6 +176,18 @@ class Api::V1::AdvancedReportsController < ApplicationController
 end
 ```
 
+## Dependency loading (public-only lockfile)
+
+Extensions are Ruby path gems: `server/Gemfile` discovers each `extensions/<slug>/server` and declares `powernode_<slug>` (see `extensions_loader_helper.rb`). Discovery is **visibility-aware** — public extensions (those listed in `.gitmodules`) are always declared, while **private** extensions (present on disk but not in `.gitmodules`, e.g. `business`/`trading`) are **excluded by default**.
+
+That keeps the committed `server/Gemfile.lock` public-only: a maintainer with the private submodules on disk still produces a lock that CI and public clones resolve cleanly. To declare and load the private extensions for full-mode dev, opt in:
+
+```bash
+POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1 bundle install   # in server/
+```
+
+Set the same variable in the server's runtime environment so the engines load at boot. Your working lock will then list the private gems — keep it unstaged; the `check-lockfile-public-only` pre-commit hook validates only the *staged* lock. Regenerate a clean public lock anytime with `scripts/regen-public-lockfile.sh`.
+
 ## Backend integration
 
 ### Rails engine

@@ -3,9 +3,9 @@
 # declares a powernode_* gem whose corresponding extension isn't listed in
 # .gitmodules. The gate for CI + the pre-commit hook.
 #
-# A passing run means CI's default `bundle install --without
-# private_extensions` will succeed in frozen mode on a clone that
-# doesn't have the private submodules.
+# A passing run means CI's default `bundle install` will succeed in frozen
+# mode on a clone that doesn't have the private submodules (private
+# extensions are excluded from the lockfile by default).
 #
 # IMPORTANT: this validates the STAGED/index content (`git show :<lock>`),
 # NOT the working tree. A maintainer running full-mode dev has private-
