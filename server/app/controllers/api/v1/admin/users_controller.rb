@@ -255,49 +255,6 @@ class Api::V1::Admin::UsersController < ApplicationController
     end
   end
 
-  # POST /api/v1/admin/users/:id/impersonate
-  def impersonate
-    unless Powernode::ExtensionRegistry.loaded?("business")
-      return render_error("Impersonation requires business edition", :forbidden)
-    end
-
-    service = Auth::ImpersonationService.new(current_user)
-
-    begin
-      token = service.start_impersonation(
-        target_user_id: @user.id,
-        reason: params[:reason],
-        ip_address: request.remote_ip,
-        user_agent: request.user_agent
-      )
-
-      render_success(
-        data: {
-          token: token,
-          target_user: user_summary(@user),
-          expires_at: (Time.current + ImpersonationSession::MAX_SESSION_DURATION).iso8601
-        },
-        message: "Impersonation started successfully",
-        status: :created
-      )
-    rescue Auth::ImpersonationService::Error => e
-      render_error(
-        e.message,
-        e.http_status,
-        details: { code: e.error_code }
-      )
-    rescue StandardError => e
-      Rails.logger.error "Impersonation error: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
-
-      render_error(
-        "Failed to start impersonation",
-        :internal_server_error,
-        details: { code: "impersonation_failed" }
-      )
-    end
-  end
-
   private
 
   def find_user

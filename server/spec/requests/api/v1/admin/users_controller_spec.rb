@@ -313,46 +313,4 @@ RSpec.describe 'Api::V1::Admin::UsersController', type: :request do
     end
   end
 
-  describe 'POST /api/v1/admin/users/:id/impersonate' do
-    let(:target_user) { create(:user, account: account) }
-
-    context 'with admin user impersonate permission' do
-      it 'starts impersonation successfully' do
-        service = double('ImpersonationService')
-        allow(Auth::ImpersonationService).to receive(:new).and_return(service)
-        allow(service).to receive(:start_impersonation).and_return('impersonation-token')
-
-        post "/api/v1/admin/users/#{target_user.id}/impersonate",
-             params: { reason: 'Support request' }.to_json,
-             headers: headers
-
-        expect_success_response
-        data = json_response_data
-        expect(data).to include('token', 'target_user', 'expires_at')
-      end
-
-      it 'handles impersonation service errors' do
-        service = double('ImpersonationService')
-        error = Auth::ImpersonationService::PermissionDeniedError.new('Impersonation not allowed')
-        allow(Auth::ImpersonationService).to receive(:new).and_return(service)
-        allow(service).to receive(:start_impersonation).and_raise(error)
-
-        post "/api/v1/admin/users/#{target_user.id}/impersonate",
-             params: { reason: 'Test' }.to_json,
-             headers: headers
-
-        expect_error_response('Impersonation not allowed', 403)
-      end
-    end
-
-    context 'without admin user impersonate permission' do
-      it 'returns forbidden error' do
-        post "/api/v1/admin/users/#{target_user.id}/impersonate",
-             params: { reason: 'Test' }.to_json,
-             headers: view_only_headers
-
-        expect(response).to have_http_status(:forbidden)
-      end
-    end
-  end
 end

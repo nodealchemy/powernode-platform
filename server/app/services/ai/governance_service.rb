@@ -248,14 +248,6 @@ module Ai
         )
       end
 
-      # Broadcast to AI Workflow channel for real-time updates
-      AiWorkflowOrchestrationChannel.broadcast_approval_requested(
-        account,
-        request_id: request.id,
-        step_name: step_info["name"],
-        approvers: approvers
-      )
-
       Rails.logger.info "Approval requested for #{request.request_id}, notified #{approvers.length} approvers"
     end
   end

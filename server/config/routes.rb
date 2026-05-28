@@ -896,11 +896,7 @@ Rails.application.routes.draw do
         resources :jobs, only: [ :index, :show ]
 
         # User management
-        resources :users do
-          member do
-            post :impersonate
-          end
-        end
+        resources :users
 
         # Page management
         resources :pages do
