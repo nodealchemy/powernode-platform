@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
-# check-lockfile-public-only.sh — fail if server/Gemfile.lock declares a
-# powernode_* gem whose corresponding extension isn't listed in
-# .gitmodules. This is the "did the maintainer forget to regenerate the
-# public lockfile before commit?" gate for CI + the pre-commit hook.
+# check-lockfile-public-only.sh — fail if the COMMITTED server/Gemfile.lock
+# declares a powernode_* gem whose corresponding extension isn't listed in
+# .gitmodules. The gate for CI + the pre-commit hook.
 #
 # A passing run means CI's default `bundle install --without
 # private_extensions` will succeed in frozen mode on a clone that
 # doesn't have the private submodules.
+#
+# IMPORTANT: this validates the STAGED/index content (`git show :<lock>`),
+# NOT the working tree. A maintainer running full-mode dev has private-
+# extension gems in their *working-tree* lock (the running services need
+# them), but that must not block commits that don't touch the lock — only a
+# lock actually being committed is checked. In CI the index (post-checkout)
+# equals the committed file, so the check is identical there.
 
 set -euo pipefail
 
@@ -14,7 +20,15 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT"
 
 LOCKFILE="server/Gemfile.lock"
-[[ -f "$LOCKFILE" ]] || { echo "skip: no $LOCKFILE"; exit 0; }
+# Prefer the staged/index blob; fall back to the working-tree file (e.g. a
+# manual run outside git, or an untracked lock). Skip if neither exists.
+if lock_content="$(git show ":$LOCKFILE" 2>/dev/null)" && [[ -n "$lock_content" ]]; then
+  :
+elif [[ -f "$LOCKFILE" ]]; then
+  lock_content="$(cat "$LOCKFILE")"
+else
+  echo "skip: no $LOCKFILE (staged or working)"; exit 0
+fi
 
 if [[ ! -f .gitmodules ]]; then
   echo "skip: no .gitmodules — cannot derive public-extension allow-list"
@@ -38,8 +52,9 @@ for s in $public_slugs; do
   public_gems+=" powernode_$underscored"
 done
 
-# Extract powernode_* lines from Gemfile.lock DEPENDENCIES section.
-declared=$(awk '/^DEPENDENCIES/{flag=1;next} /^[^[:space:]]/{flag=0} flag && /^[[:space:]]+powernode_/{print $1}' "$LOCKFILE" \
+# Extract powernode_* lines from the (staged) Gemfile.lock DEPENDENCIES section.
+declared=$(printf '%s\n' "$lock_content" \
+  | awk '/^DEPENDENCIES/{flag=1;next} /^[^[:space:]]/{flag=0} flag && /^[[:space:]]+powernode_/{print $1}' \
   | sed 's/!*$//')
 
 violations=()
@@ -51,13 +66,17 @@ while IFS= read -r dep; do
 done <<< "$declared"
 
 if [[ ${#violations[@]} -gt 0 ]]; then
-  echo "✗ check-lockfile-public-only: server/Gemfile.lock declares private-extension gem(s) CI can't resolve:"
+  echo "✗ check-lockfile-public-only: the STAGED server/Gemfile.lock declares"
+  echo "  private-extension gem(s) CI can't resolve:"
   for v in "${violations[@]}"; do echo "    $v"; done
   echo ""
-  echo "Fix: regenerate the lockfile without private extensions:"
-  echo "    bash scripts/regen-public-lockfile.sh"
+  echo "If you're in full-mode dev, just don't stage the lock — keep your"
+  echo "private-extension lock local/unstaged: git restore --staged server/Gemfile.lock"
   echo ""
-  echo "Then commit the regenerated server/Gemfile.lock."
+  echo "If you intend to commit a lock change, regenerate the public one"
+  echo "(private extensions are excluded by default now):"
+  echo "    cd server && bundle lock      # or: bash scripts/regen-public-lockfile.sh"
+  echo "then re-stage server/Gemfile.lock."
   exit 1
 fi
 
