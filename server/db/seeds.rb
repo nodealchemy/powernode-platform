@@ -1095,10 +1095,5 @@ puts "✅ Created #{SiteSetting.count} site settings"
 if Rails.env.development? || Rails.env.test?
   puts "   Accounts: #{Account.count}"
   puts "   Users: #{User.count}"
-  if defined?(Billing::Subscription)
-    puts "   Subscriptions: #{Billing::Subscription.count}"
-  elsif defined?(Subscription)
-    puts "   Subscriptions: #{Subscription.count}"
-  end
   puts "   Site Settings: #{SiteSetting.count}"
 end

@@ -496,8 +496,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     {
       users: User.count,
       accounts: Account.count,
-      subscriptions: (defined?(Billing::Subscription) ? Billing::Subscription.count : 0),
-      payments: (defined?(Billing::Payment) ? Billing::Payment.count : 0)
+      subscriptions: (Powernode::BillingBridge.subscription_model&.count || 0),
+      payments: (Powernode::BillingBridge.payment_model&.count || 0)
     }
   rescue StandardError => e
     Rails.logger.error "Failed to get total records count: #{e.message}"

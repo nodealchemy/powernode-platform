@@ -198,14 +198,11 @@ module Admin
       return {} unless user.can?("view_global_analytics")
 
       {
-        total_revenue: if Powernode::ExtensionRegistry.loaded?("business")
-                       RevenueSnapshot.where(account_id: nil)
-                                      .order(:snapshot_date)
-                                      .last(30)
-                                      .pluck(:snapshot_date, :total_revenue)
-                     else
-                       []
-                     end,
+        total_revenue: (Powernode::BillingBridge.revenue_snapshot_model
+                          &.where(account_id: nil)
+                          &.order(:snapshot_date)
+                          &.last(30)
+                          &.pluck(:snapshot_date, :total_revenue) || []),
         subscription_trends: subscription_class ? subscription_class.group(:status).count : {},
         churn_rate: calculate_global_churn_rate,
         customer_growth: calculate_customer_growth
@@ -294,14 +291,14 @@ module Admin
         created_at: account.created_at,
         updated_at: account.updated_at,
         users_count: account.users.count,
-        subscription: account.subscription ? {
-          id: account.subscription.id,
-          status: account.subscription.status,
+        subscription: (sub = account.current_subscription) ? {
+          id: sub.id,
+          status: sub.status,
           plan: {
-            name: account.subscription.plan.name,
-            price_cents: account.subscription.plan.price
+            name: sub.plan&.name,
+            price_cents: sub.plan&.price
           },
-          current_period_end: account.subscription.current_period_end
+          current_period_end: sub.current_period_end
         } : nil,
         owner: owner ? {
           id: owner.id,
@@ -498,11 +495,11 @@ module Admin
     end
 
     def subscription_class
-      defined?(Billing::Subscription) ? Billing::Subscription : nil
+      Powernode::BillingBridge.subscription_model
     end
 
     def payment_class
-      defined?(Billing::Payment) ? Billing::Payment : nil
+      Powernode::BillingBridge.payment_model
     end
 
     def log_admin_action(action, resource, metadata = {})

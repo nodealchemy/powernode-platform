@@ -1,3 +1,21 @@
+PATH
+  remote: ../extensions/marketing/server
+  specs:
+    powernode_marketing (0.1.0)
+      rails (>= 8.0)
+
+PATH
+  remote: ../extensions/supply-chain/server
+  specs:
+    powernode_supply_chain (0.1.0)
+      rails (>= 8.0)
+
+PATH
+  remote: ../extensions/system/server
+  specs:
+    powernode_system (0.1.0)
+      rails (~> 8.1)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -737,6 +755,9 @@ DEPENDENCIES
   opentelemetry-sdk (~> 1.4)
   paypal-sdk-rest
   pg (~> 1.1)
+  powernode_marketing!
+  powernode_supply_chain!
+  powernode_system!
   prawn
   prawn-table
   puma (>= 5.0)

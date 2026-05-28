@@ -34,8 +34,11 @@ require_relative '../app/services/credential_resolver'
 require_relative '../app/services/firebase_service'
 require_relative '../app/services/twilio_service'
 
-# Require base job first
+# Require base classes first — available to core AND extension jobs/services.
+# BaseWorkerService must load here (not lazily via each service's own require) so
+# extension services that subclass it resolve the constant during extension load.
 require_relative '../app/jobs/base_job'
+require_relative '../app/services/base_worker_service'
 
 # Load all concerns first (BEFORE job classes that use them)
 services_concerns = Dir[File.expand_path('../app/services/concerns/*.rb', __dir__)].sort

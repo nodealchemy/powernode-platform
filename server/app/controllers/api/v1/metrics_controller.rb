@@ -108,7 +108,7 @@ module Api
           total_users: User.count,
           active_subscriptions: subscription_class&.active&.count || 0,
           total_revenue_cents: (subscription_class&.active&.joins(:plan)&.sum("plans.price")) || 0,
-          successful_payments_today: defined?(Billing::Payment) ? Billing::Payment.successful.where("created_at >= ?", 1.day.ago).count : 0
+          successful_payments_today: (payment_class&.successful&.where("created_at >= ?", 1.day.ago)&.count || 0)
         }
       rescue StandardError => e
         Rails.logger.error "Business metrics error: #{e.message}"
@@ -149,18 +149,19 @@ module Api
       end
 
       def payment_metrics
-        return { total: 0, successful: 0, failed: 0, pending: 0, total_amount_cents: 0, today: 0, this_week: 0, this_month: 0, by_provider: {}, average_amount_cents: 0 } unless defined?(Billing::Payment)
+        pm = payment_class
+        return { total: 0, successful: 0, failed: 0, pending: 0, total_amount_cents: 0, today: 0, this_week: 0, this_month: 0, by_provider: {}, average_amount_cents: 0 } unless pm
         {
-          total: Billing::Payment.count,
-          successful: Billing::Payment.successful.count,
-          failed: Billing::Payment.failed.count,
-          pending: Billing::Payment.pending.count,
-          total_amount_cents: Billing::Payment.successful.sum(:amount_cents),
-          today: Billing::Payment.where("created_at >= ?", 1.day.ago).count,
-          this_week: Billing::Payment.where("created_at >= ?", 1.week.ago).count,
-          this_month: Billing::Payment.where("created_at >= ?", 1.month.ago).count,
-          by_provider: Billing::Payment.group(:provider).count,
-          average_amount_cents: Billing::Payment.successful.average(:amount_cents)&.round
+          total: pm.count,
+          successful: pm.successful.count,
+          failed: pm.failed.count,
+          pending: pm.pending.count,
+          total_amount_cents: pm.successful.sum(:amount_cents),
+          today: pm.where("created_at >= ?", 1.day.ago).count,
+          this_week: pm.where("created_at >= ?", 1.week.ago).count,
+          this_month: pm.where("created_at >= ?", 1.month.ago).count,
+          by_provider: pm.group(:provider).count,
+          average_amount_cents: pm.successful.average(:amount_cents)&.round
         }
       end
 
@@ -238,7 +239,11 @@ module Api
       end
 
       def subscription_class
-        defined?(Billing::Subscription) ? Billing::Subscription : nil
+        Powernode::BillingBridge.subscription_model
+      end
+
+      def payment_class
+        Powernode::BillingBridge.payment_model
       end
 
       def calculate_database_size

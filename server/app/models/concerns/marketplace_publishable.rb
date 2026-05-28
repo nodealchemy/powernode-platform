@@ -150,9 +150,9 @@ module MarketplacePublishable
   private
 
   def within_publish_limit?(account)
-    return true unless account.subscription&.plan
+    return true unless account.current_subscription&.plan
 
-    plan = account.subscription.plan
+    plan = account.current_subscription.plan
     return true unless plan.marketplace_publish_enabled?
     return true if plan.marketplace_publish_unlimited?
 

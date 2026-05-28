@@ -290,7 +290,7 @@ module AuditActions
   # =============================================================================
   # SYSTEM NODE INSTANCE LIFECYCLE ACTIONS
   # Emitted by the System::NodeInstance Auditable decoration on every AASM
-  # transition. Used by Billing::AuditExportService for compliance exports.
+  # transition. Consumed by the business extension's audit export for compliance.
   # =============================================================================
   SYSTEM_NODE_INSTANCE_ACTIONS = %w[
     system.node_instance.start

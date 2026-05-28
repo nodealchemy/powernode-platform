@@ -116,10 +116,10 @@ class Api::V1::AccountsController < ApplicationController
       created_at: account.created_at,
       updated_at: account.updated_at,
       users_count: account.users.count,
-      subscription: account.subscription ? {
-        id: account.subscription.id,
-        status: account.subscription.status,
-        plan_name: account.subscription.plan.name
+      subscription: (sub = account.current_subscription) ? {
+        id: sub.id,
+        status: sub.status,
+        plan_name: sub.plan&.name
       } : nil
     }
   end

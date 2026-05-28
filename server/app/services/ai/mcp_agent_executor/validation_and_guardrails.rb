@@ -51,7 +51,7 @@ class Ai::McpAgentExecutor
                                  .where("created_at >= ?", 1.hour.ago)
                                  .count
 
-      hourly_limit = @account.subscription&.plan&.features&.dig("ai_executions_per_hour") || 100
+      hourly_limit = @account.current_subscription&.plan&.features&.dig("ai_executions_per_hour") || 100
 
       if recent_executions >= hourly_limit
         raise ValidationError, "Rate limit exceeded: #{recent_executions}/#{hourly_limit} executions this hour"

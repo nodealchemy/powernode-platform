@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-module Billing
+module Entitlements
   # Service for managing feature plan-based role assignments and access control
   class FeaturePlanService
     class << self
       # Check if a user can be assigned a specific role based on their account's plan
       def can_assign_role_to_user?(user, role_name)
-        return true if Shared::FeatureGateService.core_mode?
+        return true unless Shared::FeatureGateService.billing_enabled?
         return false unless user&.account&.subscription&.plan
 
         plan = user.account.subscription.plan
@@ -35,7 +35,7 @@ module Billing
 
         # Check if user has the permission through their roles
         return true if user.has_permission?(feature_permission)
-        return true if Shared::FeatureGateService.core_mode?
+        return true unless Shared::FeatureGateService.billing_enabled?
 
         # Check plan-level feature gates
         plan = user.account&.subscription&.plan
@@ -46,7 +46,7 @@ module Billing
 
       # Get feature limits for a user's plan
       def get_plan_limits(user)
-        return unlimited_core_limits if Shared::FeatureGateService.core_mode?
+        return unlimited_core_limits unless Shared::FeatureGateService.billing_enabled?
         plan = user&.account&.subscription&.plan
         return default_limits unless plan&.features
 
@@ -55,7 +55,7 @@ module Billing
 
       # Check if user is within their plan limits for a specific feature
       def within_plan_limit?(user, feature, current_count)
-        return true if Shared::FeatureGateService.core_mode?
+        return true unless Shared::FeatureGateService.billing_enabled?
         limits = get_plan_limits(user)
         limit = limits["#{feature}_limit"]
 
@@ -127,8 +127,9 @@ module Billing
 
       # Get a summary of what features/roles each plan provides
       def plan_comparison_matrix
-        return [] if Shared::FeatureGateService.core_mode?
-        plan_class = defined?(Billing::Plan) ? Billing::Plan : nil
+        return [] unless Shared::FeatureGateService.billing_enabled?
+        # Plan catalog lives in the business extension; this matrix is business-only.
+        plan_class = nil
         return [] unless plan_class
         plans = plan_class.active.includes(:subscriptions)
 
@@ -155,7 +156,7 @@ module Billing
       # Generate a user's feature access report
       def user_feature_report(user)
         return {} unless user&.account
-        return core_mode_feature_report(user) if Shared::FeatureGateService.core_mode?
+        return core_mode_feature_report(user) unless Shared::FeatureGateService.billing_enabled?
 
         plan = user.account.subscription&.plan
         user_roles = user.roles.includes(:permissions)
@@ -245,4 +246,3 @@ module Billing
   end
 end
 
-# Backwards compatibility alias

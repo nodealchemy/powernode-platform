@@ -56,12 +56,9 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     # denial, surface a structured upgrade payload the frontend can render.
     # Previously the gate lived only in the (now-removed) tool action, so
     # the worker-job path was bypassing it.
-    if defined?(::Billing::ProvisioningQuotaGuard)
-      allow, reason = ::Billing::ProvisioningQuotaGuard.allow?(account: @mission.account, mission: @mission)
-      unless allow
-        payload = ::Billing::ProvisioningQuotaGuard.upgrade_payload(reason: reason, account: @mission.account)
-        return render_success(payload.merge(mission_id: @mission.id))
-      end
+    quota = Powernode::BillingBridge.check_provisioning_quota(account: @mission.account, mission: @mission)
+    unless quota[:allowed]
+      return render_success(quota[:payload].merge(mission_id: @mission.id))
     end
 
     runner = ::Ai::Provisioning::SkillCompositionRunner.new(

@@ -368,7 +368,7 @@ module Api
         end
 
         def repository_limit
-          subscription = current_user.account.subscription
+          subscription = current_user.account.current_subscription
           return 10 unless subscription&.plan # Default fallback
 
           subscription.plan.get_limit("max_repositories") || 10

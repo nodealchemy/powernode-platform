@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Billing
+module Entitlements
   class UsageLimitService
     # Main limit checking methods for each resource type
     def self.can_add_user?(account)
@@ -38,7 +38,7 @@ module Billing
 
     # Get usage summary for all limits
     def self.usage_summary(account)
-      return unlimited_usage_summary(account) if Shared::FeatureGateService.core_mode?
+      return unlimited_usage_summary(account) unless Shared::FeatureGateService.billing_enabled?
       plan = account.subscription&.plan
       return {} unless plan
 
@@ -59,14 +59,14 @@ module Billing
 
     # Check if account has reached any limits
     def self.has_reached_limits?(account)
-      return false if Shared::FeatureGateService.core_mode?
+      return false unless Shared::FeatureGateService.billing_enabled?
       summary = usage_summary(account)
       summary.any? { |_, data| !data[:unlimited] && data[:current] >= data[:limit] }
     end
 
     # Get the specific limit value for a resource type
     def self.get_limit(account, limit_type)
-      return 9999 if Shared::FeatureGateService.core_mode?
+      return 9999 unless Shared::FeatureGateService.billing_enabled?
       plan = account.subscription&.plan
       return 0 unless plan
 
@@ -76,7 +76,7 @@ module Billing
     private
 
     def self.check_limit(account, limit_key, current_count)
-      return true if Shared::FeatureGateService.core_mode?
+      return true unless Shared::FeatureGateService.billing_enabled?
       plan = account.subscription&.plan
       return false unless plan
 
@@ -99,4 +99,3 @@ module Billing
   end
 end
 
-# Backwards compatibility alias

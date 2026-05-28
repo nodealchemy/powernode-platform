@@ -35,7 +35,6 @@ class DailySummaryService
   def build_markdown
     sections = [
       header_section,
-      subscription_section,
       agent_execution_section,
       knowledge_section,
       graph_section
@@ -49,23 +48,6 @@ class DailySummaryService
       # Daily Summary — #{@date.strftime('%A, %B %d, %Y')}
 
       Auto-generated operational summary for **#{@account.name}**.
-    MD
-  end
-
-  def subscription_section
-    subs = Subscription.where(account: @account)
-    active_count = subs.active.count
-    new_count = subs.where(created_at: @range).count
-    churned = subs.where(status: "canceled").where(updated_at: @range).count
-
-    <<~MD.strip
-      ## Subscriptions
-
-      | Metric | Value |
-      |--------|-------|
-      | Active subscriptions | #{active_count} |
-      | New (today) | #{new_count} |
-      | Canceled (today) | #{churned} |
     MD
   end
 

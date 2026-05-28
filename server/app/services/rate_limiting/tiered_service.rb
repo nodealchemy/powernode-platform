@@ -415,8 +415,8 @@ module RateLimiting
         override = Rails.cache.read("tier_override:#{account.id}")
         return override.to_sym if override
 
-        # Get from subscription plan
-        plan = account.subscription&.plan
+        # Get from subscription plan (nil in core mode — no billing)
+        plan = account.current_subscription&.plan
         return :free unless plan
 
         # Map plan name to tier

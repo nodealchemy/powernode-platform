@@ -17,9 +17,7 @@ if Rails.env.test? || true  # Force disable Prometheus
     def self.track_authentication(*args); end
     def self.track_webhook(*args); end
     def self.track_background_job(*args); end
-    def self.update_subscription_metrics; end
     def self.update_user_metrics; end
-    def self.update_revenue_metrics; end
   end
 
   # Stub middleware for tests
@@ -50,14 +48,6 @@ else
     extend self
 
     # Business metrics
-    def self.subscription_gauge
-      @subscription_gauge ||= PrometheusExporter::Client.default.register(:gauge,
-        "powernode_subscriptions_total",
-        "Total number of active subscriptions",
-        [ :status, :plan_name ]
-      )
-    end
-
     def self.user_gauge
       @user_gauge ||= PrometheusExporter::Client.default.register(:gauge,
         "powernode_users_total",
@@ -108,14 +98,6 @@ else
       )
     end
 
-    def self.subscription_revenue_gauge
-      @subscription_revenue_gauge ||= PrometheusExporter::Client.default.register(:gauge,
-        "powernode_subscription_revenue_dollars",
-        "Total subscription revenue in dollars",
-        [ :period, :plan_name ]
-      )
-    end
-
     def self.authentication_counter
       @authentication_counter ||= PrometheusExporter::Client.default.register(:counter,
         "powernode_authentication_attempts_total",
@@ -133,41 +115,9 @@ else
     end
 
     # Update business metrics
-    def self.update_subscription_metrics
-      Subscription.joins(:plan).group(:status, "plans.name").count.each do |(status, plan_name), count|
-        subscription_gauge.observe(count, status: status, plan_name: plan_name || "unknown")
-      end
-    end
-
     def self.update_user_metrics
       User.joins(:roles).group(:status, "roles.name").count.each do |(status, role), count|
         user_gauge.observe(count, status: status || "active", role: role || "member")
-      end
-    end
-
-    def self.update_revenue_metrics
-      # Monthly revenue
-      monthly_revenue = Subscription.active
-                                   .joins(:plan)
-                                   .group("plans.name")
-                                   .sum("plans.price_cents")
-
-      monthly_revenue.each do |plan_name, revenue|
-        subscription_revenue_gauge.observe(
-          revenue.to_f / 100, # Convert cents to dollars
-          period: "monthly",
-          plan_name: plan_name
-        )
-      end
-
-      # Annual revenue projection
-      annual_revenue = monthly_revenue.transform_values { |v| v * 12 }
-      annual_revenue.each do |plan_name, revenue|
-        subscription_revenue_gauge.observe(
-          revenue.to_f / 100,
-          period: "annual",
-          plan_name: plan_name
-        )
       end
     end
 
@@ -262,9 +212,7 @@ else
     Thread.new do
       loop do
         begin
-          PowernodeMetrics.update_subscription_metrics
           PowernodeMetrics.update_user_metrics
-          PowernodeMetrics.update_revenue_metrics
         rescue => e
           Rails.logger.error "Error updating metrics: #{e.message}"
         end

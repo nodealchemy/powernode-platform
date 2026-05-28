@@ -164,8 +164,8 @@
       description: 'Sync apt/rpm package metadata from enabled upstream repositories'
 
     # NOTE: Billing scheduled jobs (billing_scheduler, daily_payment_reconciliation,
-    # billing_cleanup) have been moved to enterprise:
-    # extensions/enterprise/worker/config/sidekiq_billing.yml
+    # billing_cleanup) live in the business extension and load only when its worker
+    # component is enabled: extensions/business/worker/config/sidekiq_billing.yml
 
     # Account termination processing - every 6 hours
     account_termination_processing:

@@ -18,8 +18,8 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
           billing_email: @account.billing_email,
           owner_email: owner&.email,
           owner_name: owner&.name,
-          plan_name: @account.subscription&.plan&.name,
-          status: @account.subscription&.status,
+          plan_name: @account.current_subscription&.plan&.name,
+          status: @account.current_subscription&.status,
           has_system_worker: @account.has_system_worker?,
           created_at: @account.created_at
         }

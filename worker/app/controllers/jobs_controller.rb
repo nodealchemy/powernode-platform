@@ -517,147 +517,20 @@ class JobsController
   end
 
   def valid_job_class?(job_class)
-    # List of allowed job classes for security
-    allowed_jobs = [
-      # Billing jobs
-      'Billing::BillingAutomationJob',
-      'Billing::PaymentRetryJob',
-      'Billing::SubscriptionLifecycleJob',
-      'Billing::BillingSchedulerJob',
-      'Billing::BillingCleanupJob',
-      'Billing::SubscriptionRenewalJob',
-      'Billing::DunningProcessJob',
-      'Billing::PaymentReconciliationJob',
-      # Report jobs
-      'Reports::GenerateReportJob',
-      'Reports::ScheduledReportJob',
-      # Webhook jobs
-      'Webhooks::ProcessWebhookJob',
-      # Analytics jobs
-      'Analytics::RecalculateAnalyticsJob',
-      'Analytics::UpdateRevenueSnapshotsJob',
-      # Email and notification jobs
-      'SendNotificationEmailJob',
-      'TestEmailJob',
-      'TestWorkerJob',
-      'RefreshEmailSettingsJob',
-      'Notifications::EmailDeliveryJob',
-      'Notifications::BulkEmailJob',
-      'Notifications::TransactionalEmailJob',
-      'Notifications::SmsDeliveryJob',
-      'Notifications::PushNotificationJob',
-      'Notifications::ReviewNotificationJob',
-      # Service jobs
-      'Services::TestPaymentGatewayConnectionJob',
-      # System extension jobs
-      'System::ProcessModulePublicationJob',
-      'System::ExpireUnclaimedDevicesJob',
-      'System::ProcessDiskImagePublicationJob',
-      'System::ExpireOldDiskImageFileObjectsJob',
-      # AI jobs
-      'AiConversationProcessingJob',
-      'AiAgentExecutionJob',
-      'AiTeamExecutionJob',
-      'AiWorkspaceResponseJob',
-      # File processing jobs
-      'ThumbnailGenerationJob',
-      'MetadataExtractionJob',
-      'VideoProcessingJob',
-      'AudioProcessingJob',
-      # MCP (Model Context Protocol) jobs
-      'Mcp::McpServerConnectionJob',
-      'Mcp::McpServerHealthCheckJob',
-      'Mcp::McpToolDiscoveryJob',
-      'Mcp::McpToolExecutionJob',
-      'Mcp::McpToolCacheRefreshJob',
-      # Git integration jobs
-      'Git::CredentialSetupJob',
-      'Git::RepositorySyncJob',
-      'Git::PipelineSyncJob',
-      'Git::WebhookProcessingJob',
-      'Git::JobLogsSyncJob',
-      # DevOps pipeline jobs
-      'Devops::ApprovalNotificationJob',
-      'Devops::ApprovalExpiryJob',
-      'Devops::StepExecutionJob',
-      'Devops::PipelineExecutionJob',
-      'Devops::ProviderSyncJob',
-      'Devops::ScheduleTriggerJob',
-      'Devops::SecurityScanJob',
-      'Devops::DeploymentJob',
-      'Devops::ClaudeInvokeJob',
-      'Devops::WebhookHandlerJob',
-      # Integration jobs
-      'Integrations::IntegrationExecutionJob',
-      'Integrations::IntegrationHealthCheckJob',
-      'Integrations::CredentialRotationJob',
-      # Compliance/GDPR jobs
-      'Compliance::AccountTerminationJob',
-      'Compliance::DataDeletionJob',
-      'Compliance::DataExportJob',
-      'Compliance::DataRetentionEnforcementJob',
-      'Compliance::TerminationNotificationJob',
-      'Compliance::TerminationReminderJob',
-      'Compliance::DeletionNotificationJob',
-      # Maintenance jobs
-      'Maintenance::ScheduledBackupJob',
-      'Maintenance::BackupCleanupJob',
-      'Maintenance::DatabaseMaintenanceJob',
-      'Maintenance::CacheCleanupJob',
-      'Maintenance::LogRotationJob',
-      # AI A2A (Agent-to-Agent) task jobs
-      'AiA2aTaskExecutionJob',
-      'AiA2aExternalTaskJob',
-      # AI Knowledge event-driven jobs
-      'AiPromoteLearningJob',
-      'AiConsolidateMemoryEntryJob',
-      'AiDedupLearningJob',
-      'AiUpdateGraphNodeJob',
-      'AiSkillConflictCheckJob',
-      # AI Skills jobs
-      'AiSkillSyncJob',
-      # AI Mission jobs
-      'AiMissionAnalyzeJob',
-      'AiMissionPlanJob',
-      'AiMissionExecuteJob',
-      'AiMissionTestJob',
-      'AiMissionReviewJob',
-      'AiMissionDeployJob',
-      'AiMissionMergeJob',
-      'AiMissionCleanupJob',
-      # AI Provisioning jobs (M0/M1/M2 system_provisioning mission template)
-      'AiProvisioningCaptureIntentJob',
-      'AiProvisioningComposePlanJob',
-      'AiProvisioningExecuteJob',
-      'AiProvisioningStepJob',
-      'AiProvisioningVerifyJob',
-      'AiProvisioningHandoffJob',
-      # AI remediation jobs (migrated from server)
-      'AiConversationResponseJob',
-      'AiSelfHealingMonitorJob',
-      'AiTrajectoryAnalysisJob',
-      'AiRalphLoopRunAllJob',
-      'AiRalphLoopSchedulerJob',
-      # AI Git/Worktree jobs (migrated from server)
-      'AiWorktreeProvisioningJob',
-      'AiWorktreeCleanupJob',
-      'AiWorktreePushAndPrJob',
-      'AiWorktreeTimeoutJob',
-      'AiMergeExecutionJob',
-      'AiConflictDetectionJob',
-      'AiRunnerDispatchPollJob',
-      # Supply chain jobs
-      'SupplyChain::QuestionnaireNotificationJob',
-      # Trading jobs
-      'TradingTrainingSessionJob',
-      'TradingEvolutionEpochJob',
-      'TradingSessionManagerCycleJob',
-      'TradingProvingGroundManagerCycleJob',
-      'TradingPortfolioManagerCycleJob',
-      'TradingMarketDiscoveryJob'
-    ]
+    # Security: only loaded job classes (subclasses of BaseJob) may be enqueued.
+    # Extension jobs (billing, trading, system, supply-chain, ...) are validated
+    # dynamically when their extension worker is loaded — core does not hardcode
+    # extension job names. In core mode an absent extension's classes simply do not
+    # resolve (NameError → false), so they cannot be enqueued.
+    return false unless job_class.is_a?(String) &&
+                        job_class.match?(/\A[A-Z]\w*(?:::[A-Z]\w*)*\z/)
 
-    allowed_jobs.include?(job_class)
+    klass = Object.const_get(job_class)
+    return false unless klass.is_a?(Class)
+
+    klass < ::BaseJob || false
+  rescue NameError
+    false
   end
 
   def parse_delay(delay)

@@ -99,9 +99,9 @@ module Auth
           expires_at: delegation.expires_at,
           permissions: delegation.permissions_summary
         } : nil,
-        subscription: account.subscription ? {
-          plan_name: account.subscription.plan&.name,
-          status: account.subscription.status
+        subscription: (sub = account.current_subscription) ? {
+          plan_name: sub.plan&.name,
+          status: sub.status
         } : nil
       }
     end
