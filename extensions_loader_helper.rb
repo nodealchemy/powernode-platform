@@ -16,26 +16,28 @@ end
 # = present on disk but NOT in .gitmodules (added locally by maintainers
 # with access to the private upstream).
 #
-# The Gemfile uses this partition to put private extensions inside an
-# `optional: true` bundler group. CI's default `bundle install` skips
-# optional groups, so missing-on-disk private extensions don't produce
-# a Gemfile.lock that mismatches what CI declares. Maintainers who
-# want private extensions installed run `bundle install --with
-# private_extensions` (or set BUNDLE_WITH=private_extensions in env).
+# discover_extension_gems (used by the Gemfile) returns :public + :private,
+# but :private is empty unless explicitly opted in (see below), so by default
+# only public extensions become path gems. CI + public clones don't have the
+# private submodules on disk anyway, so they only ever see public extensions.
 #
 # Returns a hash with :public and :private keys, each an array of
 # [slug, relative-path] pairs in the same shape as discover_extension_gems.
 #
-# ENV[POWERNODE_HIDE_PRIVATE_EXTENSIONS]=1 forces the :private bucket
-# empty even when extensions are present on disk — needed when
-# regenerating the committed Gemfile.lock from a maintainer's machine
-# (which has business + trading on disk). Without this knob, bundler's
-# resolve would write `powernode_business!` etc. into Gemfile.lock and
-# CI's frozen-mode install would fail. Use:
-#   POWERNODE_HIDE_PRIVATE_EXTENSIONS=1 bundle install
-# scripts/regen-public-lockfile.sh wraps this for convenience.
+# Private extensions are EXCLUDED from the :private bucket BY DEFAULT, so a
+# maintainer's machine (which has business + trading on disk) produces a
+# public-only Gemfile.lock automatically — no manual regen step, and the
+# committed lock never declares `powernode_business!` etc. that CI's frozen
+# install can't resolve. Opt IN to declaring + loading private extensions
+# (full-mode dev runtime) with:
+#   POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1 bundle install
+# Back-compat: the legacy POWERNODE_HIDE_PRIVATE_EXTENSIONS=0 also forces
+# include; =1 is now a no-op (exclusion is the default). The committed lock
+# is just `bundle lock` with no env; scripts/regen-public-lockfile.sh remains
+# as a convenience wrapper.
 def discover_extension_gems_by_visibility
-  hide_private = ENV["POWERNODE_HIDE_PRIVATE_EXTENSIONS"] == "1"
+  include_private = ENV["POWERNODE_INCLUDE_PRIVATE_EXTENSIONS"] == "1" ||
+                    ENV["POWERNODE_HIDE_PRIVATE_EXTENSIONS"] == "0"
   dir = File.join(__dir__, "extensions")
   return { public: [], private: [] } unless Dir.exist?(dir)
 
@@ -56,7 +58,7 @@ def discover_extension_gems_by_visibility
     next unless Dir.exist?(server_path)
 
     is_public = public_slugs.include?(slug)
-    next if !is_public && hide_private
+    next if !is_public && !include_private
 
     bucket = is_public ? :public : :private
     result[bucket] << [slug, "../extensions/#{slug}/server"]
