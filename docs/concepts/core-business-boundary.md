@@ -163,3 +163,42 @@ already self-guard. `plan_composer_service_spec` `let(:plan)` is `Ai::GoalPlan` 
 - **Webhook internal controller** (above): reconcile to core `WebhookDelivery` + worker contract.
 - **Usage migration/schema purity:** `usage_tracking_system` migration + tables remain in core schema (harmless
   empty tables in core mode); the usage *code* is fully in business. Optionally move the migration to business later.
+
+## Follow-up: AI workflow-run subsystem teardown (scoped effort — NOT done)
+
+`Ai::Workflow` / `Ai::WorkflowRun` / `Ai::WorkflowNode` / node-executions were removed in an earlier teardown,
+but the **execution-tracking layer built around them was left dangling**. The committed cleanup
+(`a3f2302c`) stripped the *safe/mechanical* references (specs, support, factories, analytics-spec stale
+blocks, `Ai::A2a::Service` + its orchestrator caller). What remains is **not** orphan deletion — each site
+needs a per-subsystem decision: **decouple** (track `Ai::AgentExecution`/`Ai::Mission` instead of a
+workflow-run) or **remove** (if the capability was workflow-only). Do not auto-edit blindly.
+
+**~25 live app files, grouped by subsystem:**
+- **Runner dispatch & execution-resource tracking** — `services/ai/runner_dispatch_service.rb`,
+  `models/ai/runner_dispatch.rb`, `services/ai/execution_resource_aggregator_service.rb`,
+  `services/ai/execution_resource_detail_service.rb`, `controllers/api/v1/ai/execution_resources_controller.rb`,
+  `services/mcp/execution_tracer.rb`, `services/mcp/execution_event_store.rb` (`dispatch.workflow_run_id`,
+  `node_execution.workflow_run`). Likely **decouple** → key tracking off agent-execution/mission.
+- **Circuit breaker** — `services/ai/circuit_breaker_registry.rb` (`workflow_run.with_lock`, `node_execution.workflow_run.workflow`). Decouple or scope to agent-execution circuit breaking.
+- **Agent-team orchestration** — `services/ai/agent_team_orchestrator.rb` (status method still reads `@workflow_run`),
+  `agent_team_orchestrator/lifecycle_and_context.rb`, `services/ai/teams/execution_service.rb`,
+  `controllers/api/v1/ai/team_execution_controller.rb`. Decouple to team-execution tracking.
+- **Analytics/trajectory/debugging** — `services/ai/trajectory_service.rb`,
+  `services/ai/model_router_service/routing_analytics.rb`, `services/ai/debugging_service/report_generation.rb`.
+- **RAG** — `services/ai/rag_service.rb`, `controllers/api/v1/ai/rag_controller.rb`.
+- **Memory** — `services/ai/memory/working_memory_service.rb`, `services/ai/memory/storage_service/experiential.rb`.
+- **DevOps containers / a2a devops skills** — `services/devops/container_orchestration_service.rb`,
+  `services/devops/container_image_build_service.rb`, `models/devops/container_instance.rb`,
+  `services/a2a/skills/devops_skills.rb` (joins the removed `ai_workflow_nodes` table).
+- **Misc** — `models/ai/ralph_task.rb` (already partly stubbed), `controllers/api/v1/ai/prompt_templates_controller.rb`,
+  `controllers/api/v1/ai/a2a_tasks_controller.rb`.
+
+**~41 spec files** still reference removed workflow constants (by area: ~11 `spec/services/ai`, ~10
+`spec/factories/ai`, ~6 `spec/requests/api`, ~3 `spec/services/devops`, ~3 `spec/controllers/api`, plus
+models/support/mcp/supply_chain). Clean each alongside its subsystem (delete orphans, strip `:ai_workflow`
+factory usage, align assertions to the decoupled contract).
+
+**Recommended approach:** treat as a dedicated project, one subsystem at a time — first decide
+decouple-vs-remove for that subsystem, then refactor live code + its specs together, verify with a single
+serialized rspec per subsystem. The `:ai_workflow` factory is gone repo-wide, so any spec still calling
+`create(:ai_workflow*)` fails at setup until its subsystem is addressed.
