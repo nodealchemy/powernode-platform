@@ -3,10 +3,7 @@
 module Api
   module V1
     module Internal
-      class ContainerExecutionsController < ApplicationController
-        # Worker service authentication
-        skip_before_action :authenticate_request
-        before_action :authenticate_worker!
+      class ContainerExecutionsController < InternalBaseController
 
         # POST /api/v1/internal/container_executions/:execution_id/complete
         # Callback from Gitea workflow when container execution completes
@@ -130,22 +127,6 @@ module Api
 
         def find_instance
           ::Devops::ContainerInstance.find_by!(execution_id: params[:execution_id])
-        end
-
-        def authenticate_worker!
-          token = request.headers["Authorization"]&.split(" ")&.last
-          return render_error("Unauthorized", status: :unauthorized) unless token
-
-          begin
-            payload = Security::JwtService.decode(token)
-            worker = Worker.find_by(id: payload[:sub]) if payload[:type] == "worker"
-          rescue StandardError
-            worker = nil
-          end
-
-          unless worker&.active?
-            render_error("Unauthorized", status: :unauthorized)
-          end
         end
       end
     end

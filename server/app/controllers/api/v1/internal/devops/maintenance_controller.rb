@@ -4,9 +4,7 @@ module Api
   module V1
     module Internal
       module Devops
-        class MaintenanceController < ApplicationController
-          skip_before_action :authenticate_request
-          before_action :authenticate_worker!
+        class MaintenanceController < InternalBaseController
 
           # POST /api/v1/internal/devops/maintenance/reconcile_instances
           # Reconciles container instances whose Docker containers have vanished.
@@ -86,22 +84,6 @@ module Api
           end
 
           private
-
-          def authenticate_worker!
-            token = request.headers["Authorization"]&.split(" ")&.last
-            return render_error("Unauthorized", status: :unauthorized) unless token
-
-            begin
-              payload = Security::JwtService.decode(token)
-              worker = ::Worker.find_by(id: payload[:sub]) if payload[:type] == "worker"
-            rescue StandardError
-              worker = nil
-            end
-
-            unless worker&.active?
-              render_error("Unauthorized", status: :unauthorized)
-            end
-          end
 
           def archive_unused_templates(stale_days)
             cutoff = stale_days.days.ago

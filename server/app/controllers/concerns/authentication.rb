@@ -14,7 +14,16 @@ module Authentication
     header = request.headers["Authorization"]
     header = header.split(" ").last if header
 
-    return render_unauthorized("Access token required") unless header
+    # Service auth via mTLS: with no bearer token, fall back to the reverse-
+    # proxy-forwarded verified client-cert subject (worker → backend). Operator
+    # controllers that use this filter already carve out worker callers via
+    # `current_worker`; this sets it. mTLS-only controllers (Internal::*,
+    # system worker_api) skip this filter and keep their own cert auth.
+    unless header
+      return if authenticate_worker_via_forwarded_cert
+
+      return render_unauthorized("Access token required")
+    end
 
     # JWT-only token authentication
     begin
@@ -43,6 +52,27 @@ module Authentication
     rescue StandardError
       render_unauthorized("Invalid access token")
     end
+  end
+
+  # Resolve the worker from a reverse-proxy-forwarded verified mTLS client-cert
+  # subject (CN = NodeInstance.id). Returns true and sets @current_worker /
+  # @current_account on success. The header is set only by the reverse proxy
+  # for verified certs (and by the worker itself in development) — the same
+  # trust the Internal::* / system worker_api mTLS filters already rely on.
+  def authenticate_worker_via_forwarded_cert
+    info = request.headers["X-Forwarded-Tls-Client-Cert-Info"].presence
+    return false unless info
+
+    cn = CGI.unescape(info)[/\bCN\s*=\s*"?([^,"]+)"?/i, 1]&.strip
+    return false if cn.blank?
+
+    worker = Worker.find_by(node_instance_id: cn)
+    return false unless worker&.active?
+
+    @current_worker = worker
+    @current_account = worker.account
+    request.env["powernode.internal_request"] = true
+    true
   end
 
   def authenticate_optional
