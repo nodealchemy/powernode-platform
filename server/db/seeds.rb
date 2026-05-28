@@ -97,6 +97,18 @@ begin
     )
   end
 
+  # Dev mTLS: bind the System Worker to the sentinel node_instance_id the worker
+  # injects via X-Forwarded-Tls-Client-Cert-Info (BackendApiClient, dev only), so
+  # header-based worker→backend auth survives db:seed. No-op outside development;
+  # in prod the worker presents a real cert and this binding is irrelevant.
+  if Rails.env.development? && system_worker
+    sentinel = ENV.fetch("DEV_WORKER_NODE_INSTANCE_ID", "00000000-0000-7000-8000-000000000001")
+    if system_worker.node_instance_id != sentinel
+      system_worker.update_columns(node_instance_id: sentinel)
+      puts "🔧 Dev: bound System Worker to mTLS sentinel node_instance_id"
+    end
+  end
+
   puts "✅ System worker created successfully"
   puts "   Token: #{system_worker.masked_token}"
   puts "   Roles: #{system_worker.role_names.join(', ')}"
