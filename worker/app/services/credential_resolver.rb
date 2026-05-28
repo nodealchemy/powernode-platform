@@ -51,7 +51,7 @@ class CredentialResolver
 
   def fetch_from_server(credential_id)
     response = @api_post.call(
-      "/api/v1/ai/credentials/#{credential_id}/decrypt",
+      "/api/v1/internal/ai/credentials/#{credential_id}/decrypt",
       {}
     )
 

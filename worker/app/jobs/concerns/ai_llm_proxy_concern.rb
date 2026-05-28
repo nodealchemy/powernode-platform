@@ -34,7 +34,7 @@ module AiLlmProxyConcern
   # monkey patch present the worker's client cert. ApplicationCable::Connection
   # resolves the worker from the cert CN.
   #
-  # URL priority: explicit WORKER_CABLE_URL env (wss://host:4443/cable in prod),
+  # URL priority: explicit WORKER_CABLE_URL env (wss://host:443/cable in prod),
   # else BACKEND_API_URL with /cable appended (works for dev plaintext + tests).
   # Returns an ActionCableClient or nil on failure (caller falls back to HTTP).
   def connect_tool_dispatch_ws

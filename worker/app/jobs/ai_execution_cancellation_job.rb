@@ -125,7 +125,7 @@ class AiExecutionCancellationJob < BaseJob
       credential = get_execution_credential
       return unless credential
 
-      creds_response = backend_api_post("/api/v1/ai/provider_credentials/#{credential['id']}/decrypt")
+      creds_response = backend_api_post("/api/v1/internal/ai/credentials/#{credential['id']}/decrypt")
       return unless creds_response['success']
 
       decrypted_creds = creds_response['data']['credentials']

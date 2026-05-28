@@ -16,7 +16,7 @@ require_relative 'worker_cert_manager'
 # previous `?token=#{jwt}` URL-param JWT path is gone.
 #
 # Usage:
-#   client = ActionCableClient.new("wss://ops.ipnode.net:4443/cable")
+#   client = ActionCableClient.new("wss://<platform-host>:443/cable")
 #   client.connect
 #   response = client.send_request("tool_definitions", agent_id: "uuid")
 #   client.disconnect

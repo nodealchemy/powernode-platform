@@ -249,6 +249,7 @@ class BackendApiClient
           req.headers['Content-Type'] = 'application/json'
           req.headers['Accept'] = 'application/json'
           req.headers['User-Agent'] = 'PowernodeWorker/1.0'
+          inject_dev_mtls_header(req)
 
           case method
           when :get, :delete
@@ -342,6 +343,7 @@ class BackendApiClient
         req.headers['Content-Type'] = 'application/json'
         req.headers['Accept'] = 'application/json'
         req.headers['User-Agent'] = 'PowernodeWorker/1.0'
+        inject_dev_mtls_header(req)
         req.body = data if data.any?
         # Override default Faraday timeout for long-running requests
         req.options.timeout = 3600
@@ -369,6 +371,28 @@ class BackendApiClient
   end
 
   private
+
+  # Dev-only: the dev box has no Traefik terminating mTLS in front of the
+  # backend, so synthesize the cert-info header Traefik would normally set
+  # from the worker's verified client cert. Every header-based worker-auth
+  # surface (Internal::*, System::WorkerApi/NodeApi/FederationApi) then
+  # resolves this worker via its normal find_by(node_instance_id:) path —
+  # no per-controller bypasses needed. No-op outside development; in prod
+  # Traefik sets/overwrites this header from the real client cert.
+  def inject_dev_mtls_header(req)
+    return unless development_env?
+
+    cn = ENV['DEV_WORKER_NODE_INSTANCE_ID']
+    return if cn.nil? || cn.empty?
+
+    req.headers['X-Forwarded-Tls-Client-Cert-Info'] = %(Subject="CN=#{cn}")
+  end
+
+  def development_env?
+    ENV['WORKER_ENV'] == 'development' ||
+      ENV['RAILS_ENV'] == 'development' ||
+      (!ENV['WORKER_ENV'] && !ENV['RAILS_ENV'])
+  end
 
   def handle_response(response)
     case response.status

@@ -167,7 +167,7 @@ class AiChatResponseJob < BaseJob
     max_tokens = agent['max_tokens'] || 2048
 
     # Decrypt credentials
-    decrypt_response = backend_api_post("/api/v1/ai/credentials/#{credentials['id']}/decrypt")
+    decrypt_response = backend_api_post("/api/v1/internal/ai/credentials/#{credentials['id']}/decrypt")
     unless decrypt_response['success']
       return { success: false, error: 'Failed to decrypt credentials' }
     end
