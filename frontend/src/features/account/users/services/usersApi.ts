@@ -225,9 +225,9 @@ class UsersApiService {
     return response.data;
   }
 
-  // Impersonate user (admin only)
+  // Impersonate user (admin only — business extension endpoint)
   async impersonateUser(user_id: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.post(`/admin/users/${user_id}/impersonate`);
+    const response = await api.post('/impersonations', { user_id });
     return response.data;
   }
 
