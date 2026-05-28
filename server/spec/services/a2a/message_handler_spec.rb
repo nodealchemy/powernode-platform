@@ -9,8 +9,6 @@ RSpec.describe A2a::MessageHandler do
 
   describe "#send_message" do
     context "with valid skill" do
-      let(:workflow) { create(:ai_workflow, account: account, status: "active") }
-
       it "creates a task for the skill" do
         allow_any_instance_of(A2a::Skills::WorkflowSkills).to receive(:list).and_return(
           { output: { workflows: [], total: 0 } }

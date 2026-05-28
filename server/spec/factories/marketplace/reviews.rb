@@ -4,7 +4,7 @@ FactoryBot.define do
   factory :marketplace_review, class: "MarketplaceReview" do
     association :account
     association :user
-    reviewable { association(:ai_workflow_template) }
+    reviewable { association(:devops_pipeline_template) }
     rating { rand(1..5) }
     title { Faker::Lorem.sentence(word_count: 5) }
     content { Faker::Lorem.paragraph }

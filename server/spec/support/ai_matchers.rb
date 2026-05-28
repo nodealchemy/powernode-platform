@@ -28,34 +28,6 @@ module AiMatchers
     end
   end
 
-  # Matcher to verify workflow node configuration
-  RSpec::Matchers.define :have_valid_node_configuration do
-    match do |node|
-      return false unless node.is_a?(Ai::WorkflowNode)
-
-      case node.node_type
-      when 'ai_agent'
-        node.configuration&.key?('agent_id')
-      when 'api_call'
-        node.configuration&.key?('url') && node.configuration&.key?('method')
-      when 'webhook'
-        node.configuration&.key?('webhook_url')
-      when 'condition'
-        node.configuration&.key?('condition')
-      when 'transform'
-        node.configuration&.key?('transformation')
-      when 'email'
-        node.configuration&.key?('to') && node.configuration&.key?('subject')
-      else
-        true # Other node types may have different requirements
-      end
-    end
-
-    failure_message do |node|
-      "expected workflow node of type '#{node&.node_type}' to have valid configuration"
-    end
-  end
-
   # Matcher to verify credential encryption
   RSpec::Matchers.define :have_encrypted_credentials do
     match do |credential|
@@ -188,45 +160,6 @@ module AiMatchers
 
     failure_message do |response|
       "expected response to be rate limited (429), but got #{response&.status}"
-    end
-  end
-
-  # Matcher to verify workflow validation
-  RSpec::Matchers.define :be_a_valid_workflow do
-    match do |workflow|
-      workflow.is_a?(Ai::Workflow) &&
-        workflow.valid? &&
-        workflow.nodes.count > 0 &&
-        has_start_node?(workflow) &&
-        has_connected_nodes?(workflow)
-    end
-
-    failure_message do |workflow|
-      errors = []
-      errors << "not a valid Ai::Workflow" unless workflow.is_a?(Ai::Workflow)
-      errors << "has validation errors: #{workflow.errors.full_messages.join(', ')}" unless workflow.valid?
-      errors << "has no nodes" if workflow.nodes.count == 0
-      errors << "missing start node" unless has_start_node?(workflow)
-      errors << "has disconnected nodes" unless has_connected_nodes?(workflow)
-
-      "expected workflow to be valid, but #{errors.join(', ')}"
-    end
-
-    private
-
-    def has_start_node?(workflow)
-      workflow.nodes.any? { |node| node.node_type == 'start' || node.is_start_node }
-    end
-
-    def has_connected_nodes?(workflow)
-      return true if workflow.nodes.count <= 1
-
-      # Simple check - all nodes except start should have incoming edges
-      nodes_with_edges = workflow.edges.pluck(:target_node_id).uniq
-      start_nodes = workflow.nodes.select { |n| n.node_type == 'start' || n.is_start_node }
-
-      expected_connected = workflow.nodes.count - start_nodes.count
-      nodes_with_edges.count >= expected_connected
     end
   end
 

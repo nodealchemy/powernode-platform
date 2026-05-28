@@ -58,33 +58,21 @@ RSpec.describe Ai::Analytics::DashboardService do
   # #generate_summary_metrics
   # =========================================================================
   describe "#generate_summary_metrics" do
-    let(:workflow) { create(:ai_workflow, :active, account: account) }
     let(:agent) { create(:ai_agent, account: account, provider: provider) }
 
     context "with no data" do
       it "returns zero counts" do
         result = service.generate_summary_metrics
 
-        expect(result[:workflows][:total]).to eq(0)
         expect(result[:agents][:total]).to eq(0)
         expect(result[:conversations][:total]).to eq(0)
         expect(result[:cost][:total]).to eq(0)
       end
     end
 
-    context "with workflow and agent data" do
+    context "with agent data" do
       before do
-        create(:ai_workflow_run, :completed, workflow: workflow)
-        create(:ai_workflow_run, :failed, workflow: workflow)
         create(:ai_agent_execution, :completed, agent: agent, account: account, provider: provider)
-      end
-
-      it "returns correct workflow metrics" do
-        result = service.generate_summary_metrics
-
-        expect(result[:workflows][:total]).to eq(1)
-        expect(result[:workflows][:active]).to eq(1)
-        expect(result[:workflows][:executions]).to eq(2)
       end
 
       it "returns correct agent metrics" do
@@ -97,7 +85,6 @@ RSpec.describe Ai::Analytics::DashboardService do
       it "calculates success rates" do
         result = service.generate_summary_metrics
 
-        expect(result[:workflows][:success_rate]).to be_a(Float)
         expect(result[:agents][:success_rate]).to be_a(Float)
       end
     end
@@ -129,12 +116,12 @@ RSpec.describe Ai::Analytics::DashboardService do
       )
     end
 
-    context "with workflow runs across multiple days" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
+    context "with agent executions across multiple days" do
+      let(:agent) { create(:ai_agent, account: account, provider: provider) }
 
       before do
-        create(:ai_workflow_run, :completed, workflow: workflow, created_at: 2.days.ago)
-        create(:ai_workflow_run, :completed, workflow: workflow, created_at: 1.day.ago)
+        create(:ai_agent_execution, :completed, agent: agent, account: account, provider: provider, created_at: 2.days.ago)
+        create(:ai_agent_execution, :completed, agent: agent, account: account, provider: provider, created_at: 1.day.ago)
       end
 
       it "groups executions by day" do
@@ -163,40 +150,22 @@ RSpec.describe Ai::Analytics::DashboardService do
       result = service.generate_highlights
 
       expect(result).to include(
-        :top_workflows, :top_agents,
-        :recent_failures, :cost_leaders
+        :top_agents, :recent_failures
       )
     end
 
-    context "with workflow data" do
-      let(:workflow1) { create(:ai_workflow, :active, account: account, name: "High Runner") }
-      let(:workflow2) { create(:ai_workflow, :active, account: account, name: "Low Runner") }
-
-      before do
-        3.times { create(:ai_workflow_run, :completed, workflow: workflow1) }
-        1.times { create(:ai_workflow_run, :completed, workflow: workflow2) }
-      end
-
-      it "returns top workflows sorted by execution count" do
-        result = service.generate_highlights
-
-        expect(result[:top_workflows].length).to be <= 5
-        expect(result[:top_workflows].first[:name]).to eq("High Runner")
-      end
-    end
-
     context "with failures" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
+      let(:agent) { create(:ai_agent, account: account, provider: provider) }
 
       before do
-        create(:ai_workflow_run, :failed, workflow: workflow)
+        create(:ai_agent_execution, :failed, agent: agent, account: account, provider: provider)
       end
 
       it "includes recent failures" do
         result = service.generate_highlights
 
         expect(result[:recent_failures]).not_to be_empty
-        expect(result[:recent_failures].first).to include(:run_id, :workflow_name, :error)
+        expect(result[:recent_failures].first).to include(:execution_id, :agent_name, :error)
       end
     end
   end
@@ -210,22 +179,7 @@ RSpec.describe Ai::Analytics::DashboardService do
 
       expect(result).to include(:today, :yesterday, :this_week)
       %i[today yesterday this_week].each do |period|
-        expect(result[period]).to include(:executions, :cost, :messages)
-      end
-    end
-
-    context "with today's data" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        create(:ai_workflow_run, :completed, workflow: workflow)
-      end
-
-      it "counts today's executions" do
-        result = service.generate_quick_stats
-
-        expect(result[:today][:executions]).to eq(1)
-        expect(result[:this_week][:executions]).to eq(1)
+        expect(result[period]).to include(:cost, :messages)
       end
     end
   end
@@ -237,15 +191,7 @@ RSpec.describe Ai::Analytics::DashboardService do
     it "returns resource usage keys" do
       result = service.generate_resource_usage
 
-      expect(result).to include(:providers, :models, :tokens)
-    end
-
-    it "returns token usage with zero totals when no data" do
-      result = service.generate_resource_usage
-
-      expect(result[:tokens][:total_tokens]).to eq(0)
-      expect(result[:tokens][:total_input_tokens]).to eq(0)
-      expect(result[:tokens][:total_output_tokens]).to eq(0)
+      expect(result).to include(:providers, :models)
     end
   end
 
@@ -253,10 +199,7 @@ RSpec.describe Ai::Analytics::DashboardService do
   # #generate_recent_activity
   # =========================================================================
   describe "#generate_recent_activity" do
-    let(:workflow) { create(:ai_workflow, :active, account: account) }
-
     it "returns an array sorted by created_at desc" do
-      create(:ai_workflow_run, :completed, workflow: workflow)
       create(:ai_conversation, account: account)
 
       result = service.generate_recent_activity
@@ -266,26 +209,24 @@ RSpec.describe Ai::Analytics::DashboardService do
     end
 
     it "respects the limit parameter" do
-      3.times { create(:ai_workflow_run, :completed, workflow: workflow) }
+      3.times { create(:ai_conversation, account: account) }
 
       result = service.generate_recent_activity(limit: 2)
 
       expect(result.length).to be <= 2
     end
 
-    it "includes both workflow runs and conversations" do
-      create(:ai_workflow_run, :completed, workflow: workflow)
+    it "includes conversations" do
       create(:ai_conversation, account: account)
 
       result = service.generate_recent_activity
       types = result.map { |a| a[:type] }
 
-      expect(types).to include("workflow_run")
       expect(types).to include("conversation")
     end
 
     it "returns activities with expected fields" do
-      create(:ai_workflow_run, :completed, workflow: workflow)
+      create(:ai_conversation, account: account)
 
       result = service.generate_recent_activity
       activity = result.first
@@ -328,11 +269,11 @@ RSpec.describe Ai::Analytics::DashboardService do
       service.real_time_metrics(force_refresh: true)
     end
 
-    context "with running workflows" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
+    context "with running agent executions" do
+      let(:agent) { create(:ai_agent, account: account, provider: provider) }
 
       before do
-        create(:ai_workflow_run, :running, workflow: workflow)
+        create(:ai_agent_execution, :running, agent: agent, account: account, provider: provider)
       end
 
       it "counts active executions" do
@@ -351,7 +292,7 @@ RSpec.describe Ai::Analytics::DashboardService do
       result = service.aiops_dashboard
 
       expect(result).to include(
-        :health, :overview, :providers, :workflows,
+        :health, :overview, :providers,
         :agents, :cost_analysis, :alerts, :circuit_breakers,
         :real_time, :generated_at
       )
@@ -381,7 +322,7 @@ RSpec.describe Ai::Analytics::DashboardService do
       result = service.system_health
 
       expect(result[:components]).to include(
-        :providers, :workflows, :agents, :infrastructure
+        :providers, :agents, :infrastructure
       )
     end
 
@@ -410,57 +351,41 @@ RSpec.describe Ai::Analytics::DashboardService do
         expect(result[:components][:providers][:score]).to be < 100
       end
     end
-
-    context "with many failed workflows" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        10.times { create(:ai_workflow_run, :failed, workflow: workflow, created_at: 30.minutes.ago) }
-      end
-
-      it "reduces workflow health score" do
-        result = service.system_health
-
-        expect(result[:components][:workflows][:score]).to be < 100
-        expect(result[:components][:workflows][:issues]).not_to be_empty
-      end
-    end
   end
 
   # =========================================================================
   # #system_overview
   # =========================================================================
   describe "#system_overview" do
-    let(:workflow) { create(:ai_workflow, :active, account: account) }
+    let(:agent) { create(:ai_agent, account: account, provider: provider) }
 
     it "returns system overview with default 1-hour range" do
       result = service.system_overview
 
       expect(result[:time_range_seconds]).to eq(1.hour.to_i)
-      expect(result).to include(:workflows, :executions, :performance, :costs)
+      expect(result).to include(:executions, :performance, :costs)
     end
 
-    context "with completed and failed runs" do
+    context "with completed and failed executions" do
       before do
-        create(:ai_workflow_run, :completed, workflow: workflow, created_at: 30.minutes.ago)
-        create(:ai_workflow_run, :failed, workflow: workflow, created_at: 20.minutes.ago)
+        create(:ai_agent_execution, :completed, agent: agent, account: account, provider: provider, created_at: 30.minutes.ago)
+        create(:ai_agent_execution, :failed, agent: agent, account: account, provider: provider, created_at: 20.minutes.ago)
       end
 
       it "computes correct counts and success rate" do
         result = service.system_overview
 
-        expect(result[:workflows][:total]).to eq(2)
-        expect(result[:workflows][:successful]).to eq(1)
-        expect(result[:workflows][:failed]).to eq(1)
-        expect(result[:workflows][:success_rate]).to eq(50.0)
+        expect(result[:executions][:total]).to eq(2)
+        expect(result[:executions][:successful]).to eq(1)
+        expect(result[:executions][:failed]).to eq(1)
+        expect(result[:executions][:success_rate]).to eq(50.0)
       end
     end
 
     context "with no data" do
-      it "returns 100% success rate when no runs exist" do
+      it "returns 100% success rate when no executions exist" do
         result = service.system_overview
 
-        expect(result[:workflows][:success_rate]).to eq(100)
         expect(result[:executions][:success_rate]).to eq(100)
       end
     end
@@ -514,39 +439,6 @@ RSpec.describe Ai::Analytics::DashboardService do
   end
 
   # =========================================================================
-  # #ops_workflow_metrics
-  # =========================================================================
-  describe "#ops_workflow_metrics" do
-    let!(:workflow) { create(:ai_workflow, :active, account: account) }
-
-    context "with recent runs" do
-      before do
-        create(:ai_workflow_run, :completed, workflow: workflow, created_at: 30.minutes.ago)
-        create(:ai_workflow_run, :failed, workflow: workflow, created_at: 20.minutes.ago)
-      end
-
-      it "returns workflow-level metrics" do
-        result = service.ops_workflow_metrics
-
-        expect(result).to be_an(Array)
-        wf_metric = result.find { |w| w[:workflow_id] == workflow.id }
-        expect(wf_metric[:metrics][:total_runs]).to eq(2)
-        expect(wf_metric[:metrics][:successful]).to eq(1)
-        expect(wf_metric[:metrics][:failed]).to eq(1)
-      end
-    end
-
-    context "with no runs" do
-      it "returns idle status" do
-        result = service.ops_workflow_metrics
-
-        wf_metric = result.find { |w| w[:workflow_id] == workflow.id }
-        expect(wf_metric[:recent_status]).to eq("idle")
-      end
-    end
-  end
-
-  # =========================================================================
   # #ops_agent_metrics
   # =========================================================================
   describe "#ops_agent_metrics" do
@@ -594,23 +486,19 @@ RSpec.describe Ai::Analytics::DashboardService do
       )
     end
 
-    context "with workflow and agent costs" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
+    context "with agent costs" do
       let(:agent) { create(:ai_agent, account: account, provider: provider) }
 
       before do
-        create(:ai_workflow_run, :completed, workflow: workflow,
-               created_at: 30.minutes.ago, total_cost: 0.05)
         create(:ai_agent_execution, :completed, agent: agent,
                account: account, provider: provider,
                created_at: 30.minutes.ago, cost_usd: 0.03)
       end
 
-      it "sums workflow and agent costs" do
+      it "sums agent costs" do
         result = service.ops_cost_analysis
 
         expect(result[:totals][:total_cost]).to be > 0
-        expect(result[:totals][:workflow_cost]).to eq(0.05)
         expect(result[:totals][:agent_cost]).to eq(0.03)
       end
     end
@@ -671,23 +559,6 @@ RSpec.describe Ai::Analytics::DashboardService do
         expect(cb_alerts.first[:severity]).to eq("warning")
       end
     end
-
-    context "with high workflow failure rate" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        8.times { create(:ai_workflow_run, :failed, workflow: workflow, created_at: 5.minutes.ago) }
-        3.times { create(:ai_workflow_run, :completed, workflow: workflow, created_at: 5.minutes.ago) }
-      end
-
-      it "generates high_failure_rate alert" do
-        result = service.active_alerts
-
-        failure_alerts = result.select { |a| a[:type] == "high_failure_rate" }
-        expect(failure_alerts).not_to be_empty
-        expect(failure_alerts.first[:severity]).to eq("critical")
-      end
-    end
   end
 
   # =========================================================================
@@ -742,7 +613,7 @@ RSpec.describe Ai::Analytics::DashboardService do
       result = service.aiops_real_time_metrics
 
       expect(result).to include(
-        :timestamp, :active_workflows, :requests_per_minute,
+        :timestamp, :requests_per_minute,
         :success_rate, :avg_latency_ms, :errors_last_minute,
         :cost_last_minute
       )

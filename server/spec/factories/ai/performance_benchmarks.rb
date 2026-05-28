@@ -38,10 +38,6 @@ FactoryBot.define do
       last_run_at { 1.hour.ago }
     end
 
-    trait :with_workflow do
-      association :target_workflow, factory: :ai_workflow
-    end
-
     trait :with_agent do
       association :target_agent, factory: :ai_agent
     end

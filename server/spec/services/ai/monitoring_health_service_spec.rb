@@ -4,7 +4,6 @@ require "rails_helper"
 
 RSpec.describe Ai::MonitoringHealthService, type: :service do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
   let(:provider) { create(:ai_provider, account: account) }
 
   subject(:service) { described_class.new(account: account) }
@@ -82,21 +81,7 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
       result = service.check_system_health
 
       expect(result[:status]).to eq("healthy")
-      expect(result).to have_key(:active_workflows)
       expect(result).to have_key(:active_agents)
-      expect(result).to have_key(:running_executions)
-    end
-
-    it "counts active workflows for the account" do
-      # The system checks is_active column, not status
-      wf_active = create(:ai_workflow, account: account, creator: user, is_active: true)
-      wf_inactive = create(:ai_workflow, account: account, creator: user, is_active: false)
-
-      result = service.check_system_health
-
-      expect(result[:active_workflows]).to eq(
-        account.ai_workflows.where(is_active: true).count
-      )
     end
 
     it "counts active agents for the account" do
@@ -224,7 +209,6 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
       expect(result[:services]).to have_key(:database)
       expect(result[:services]).to have_key(:redis)
       expect(result[:services]).to have_key(:providers)
-      expect(result[:services]).to have_key(:workflows)
       expect(result[:services]).to have_key(:agents)
       expect(result[:services]).to have_key(:workers)
       expect(result[:recent_activity]).to be_a(Hash)

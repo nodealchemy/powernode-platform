@@ -69,21 +69,6 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
         end
       end
 
-      context "for workflows" do
-        let!(:workflow) do
-          user = create(:user, account: account)
-          create(:ai_workflow, account: account, creator: user)
-        end
-
-        it "returns workflow list with count and items" do
-          result = service.list_resources(type: "workflows")
-
-          expect(result[:count]).to eq(1)
-          expect(result[:items]).to be_an(Array)
-          expect(result[:items].first[:id]).to eq(workflow.id)
-        end
-      end
-
       context "for teams" do
         let!(:team) { create(:ai_agent_team, account: account) }
 
@@ -133,12 +118,11 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
         allow(mock_redis).to receive(:setex)
       end
 
-      it "returns mcp_tools, workflow_node_types, and providers" do
+      it "returns mcp_tools and providers" do
         allow(service).to receive(:list_mcp_tools).and_return([
           { id: "tool-1", name: "Search Tool" },
           { id: "tool-2", name: "Code Runner" }
         ])
-        allow(Ai::WorkflowNode).to receive_message_chain(:distinct, :pluck).and_return(["condition", "action", "trigger"])
         allow(Ai::Provider).to receive(:pluck).with(:name, :provider_type).and_return([["OpenAI", "llm"]])
 
         result = service.capability_inventory
@@ -146,13 +130,11 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
         expect(result[:mcp_tools]).to be_an(Array)
         expect(result[:mcp_tools].length).to eq(2)
         expect(result[:mcp_tools].first[:name]).to eq("Search Tool")
-        expect(result[:workflow_node_types]).to eq(["condition", "action", "trigger"])
         expect(result[:providers]).to eq([["OpenAI", "llm"]])
       end
 
       it "handles MCP registry errors gracefully" do
         allow(Mcp::RegistryService).to receive(:new).and_raise(StandardError, "Registry unavailable")
-        allow(Ai::WorkflowNode).to receive_message_chain(:distinct, :pluck).and_return([])
         allow(Ai::Provider).to receive(:pluck).and_return([])
 
         result = service.capability_inventory
@@ -163,7 +145,6 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
       it "caches the result" do
         cache_key = "platform_introspection:#{account.id}:capabilities"
         allow(Mcp::RegistryService).to receive(:new).and_raise(StandardError)
-        allow(Ai::WorkflowNode).to receive_message_chain(:distinct, :pluck).and_return([])
         allow(Ai::Provider).to receive(:pluck).and_return([])
 
         expect(mock_redis).to receive(:setex).with(
@@ -187,7 +168,6 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
       result = service.dependency_map
 
       expect(result[:models]).to have_key("Ai::Agent")
-      expect(result[:models]).to have_key("Ai::Workflow")
       expect(result[:models]).to have_key("Ai::AgentTeam")
       expect(result[:models]).to have_key("Devops::Pipeline")
     end

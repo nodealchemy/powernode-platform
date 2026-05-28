@@ -6,22 +6,25 @@ RSpec.describe Ai::Analytics::PerformanceAnalysisService do
   let(:account) { create(:account) }
   let(:service) { described_class.new(account: account, time_range: 30.days) }
 
-  let(:workflow) { create(:ai_workflow, :active, account: account) }
+  let(:agent) { create(:ai_agent, account: account) }
 
   def create_completed_run(duration_ms:, completed_at: 1.day.ago, started_at: nil)
     s = started_at || completed_at - (duration_ms / 1000.0).seconds
-    create(:ai_workflow_run, :completed,
-           workflow: workflow,
+    create(:ai_agent_execution, :completed,
+           account: account,
+           agent: agent,
            duration_ms: duration_ms,
            started_at: s,
            completed_at: completed_at)
   end
 
   def create_failed_run(error_type: "execution_error", completed_at: 1.day.ago)
-    create(:ai_workflow_run, :failed,
-           workflow: workflow,
+    create(:ai_agent_execution, :failed,
+           account: account,
+           agent: agent,
            completed_at: completed_at,
            started_at: completed_at - 5.minutes,
+           error_message: "Test error",
            error_details: { "error_type" => error_type, "error_message" => "Test error" })
   end
 
@@ -48,7 +51,7 @@ RSpec.describe Ai::Analytics::PerformanceAnalysisService do
         expect(result[:avg_ms]).to be_nil
         expect(result[:median_ms]).to be_nil
         expect(result[:by_hour]).to eq({})
-        expect(result[:by_workflow]).to eq([])
+        expect(result[:by_agent]).to eq([])
       end
     end
 
@@ -96,10 +99,10 @@ RSpec.describe Ai::Analytics::PerformanceAnalysisService do
         expect(result[:std_dev_ms]).to be > 0
       end
 
-      it "returns by_workflow breakdown" do
+      it "returns by_agent breakdown" do
         result = service.analyze_response_times
-        expect(result[:by_workflow]).to be_an(Array)
-        expect(result[:by_workflow].first).to include(:id, :name, :avg_ms)
+        expect(result[:by_agent]).to be_an(Array)
+        expect(result[:by_agent].first).to include(:id, :name, :avg_ms)
       end
     end
 
@@ -128,7 +131,7 @@ RSpec.describe Ai::Analytics::PerformanceAnalysisService do
       before do
         3.times { create_completed_run(duration_ms: 100) }
         2.times { create_failed_run }
-        create(:ai_workflow_run, :cancelled, workflow: workflow, started_at: 1.day.ago, completed_at: 1.day.ago + 1.minute, cancelled_at: 1.day.ago + 1.minute)
+        create(:ai_agent_execution, :cancelled, account: account, agent: agent, started_at: 1.day.ago, completed_at: 1.day.ago + 1.minute)
       end
 
       it "returns correct totals" do
@@ -146,27 +149,22 @@ RSpec.describe Ai::Analytics::PerformanceAnalysisService do
         expect(result[:cancellation_rate]).to be_within(0.1).of(16.67)
       end
 
-      it "returns by_workflow breakdown" do
+      it "returns by_agent breakdown" do
         result = service.analyze_success_rates
-        expect(result[:by_workflow]).to be_an(Array)
+        expect(result[:by_agent]).to be_an(Array)
       end
 
       it "returns by_day breakdown" do
         result = service.analyze_success_rates
         expect(result[:by_day]).to be_a(Hash)
       end
-
-      it "returns by_trigger_type breakdown" do
-        result = service.analyze_success_rates
-        expect(result[:by_trigger_type]).to be_a(Hash)
-      end
     end
 
-    context "excludes running/initializing/pending runs" do
+    context "excludes running/pending runs" do
       before do
         create_completed_run(duration_ms: 100)
-        create(:ai_workflow_run, :running, workflow: workflow)
-        create(:ai_workflow_run, workflow: workflow, status: "initializing")
+        create(:ai_agent_execution, :running, account: account, agent: agent)
+        create(:ai_agent_execution, :pending, account: account, agent: agent)
       end
 
       it "only counts finished runs" do
@@ -264,9 +262,9 @@ RSpec.describe Ai::Analytics::PerformanceAnalysisService do
         expect(result[:recent_errors].length).to be <= 10
       end
 
-      it "returns by_workflow breakdown" do
+      it "returns by_agent breakdown" do
         result = service.analyze_error_rates
-        expect(result[:by_workflow]).to be_an(Array)
+        expect(result[:by_agent]).to be_an(Array)
       end
     end
 
@@ -300,13 +298,14 @@ RSpec.describe Ai::Analytics::PerformanceAnalysisService do
     end
 
     context "token utilization" do
-      it "returns total tokens from node executions" do
-        run = create_completed_run(duration_ms: 100)
-        node = create(:ai_workflow_node, workflow: workflow)
-        create(:ai_workflow_node_execution, :completed,
-               workflow_run: run,
-               node: node,
-               metadata: { "token_usage" => { "input_tokens" => 100, "output_tokens" => 50 } })
+      it "returns total tokens from agent executions" do
+        create(:ai_agent_execution, :completed,
+               account: account,
+               agent: agent,
+               duration_ms: 100,
+               started_at: 1.day.ago - 1.minute,
+               completed_at: 1.day.ago,
+               tokens_used: 150)
 
         result = service.analyze_resource_utilization
         expect(result[:token_utilization][:total_tokens]).to eq(150)

@@ -39,7 +39,7 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
 
       expect(result).to include(
         :total_cost, :cost_trend, :cost_by_provider,
-        :cost_by_agent, :cost_by_workflow, :cost_by_model,
+        :cost_by_agent, :cost_by_model,
         :daily_costs, :budget_status, :optimization_potential,
         :budget_forecast, :anomalies
       )
@@ -55,26 +55,10 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
         result = service.calculate_total_cost
 
         expect(result[:total]).to eq(0)
-        expect(result[:workflow_cost]).to eq(0)
+        expect(result[:agent_cost]).to eq(0)
         expect(result[:currency]).to eq("USD")
         expect(result[:period_start]).to be_present
         expect(result[:period_end]).to be_present
-      end
-    end
-
-    context "with workflow costs" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        create(:ai_workflow_run, :completed, workflow: workflow, total_cost: 0.50)
-        create(:ai_workflow_run, :completed, workflow: workflow, total_cost: 0.30)
-      end
-
-      it "sums workflow costs" do
-        result = service.calculate_total_cost
-
-        expect(result[:workflow_cost]).to eq(0.80)
-        expect(result[:total]).to eq(0.80)
       end
     end
   end
@@ -89,46 +73,6 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
 
         expect(result[:change_percentage]).to be_nil
         expect(result[:trend_direction]).to eq("unknown")
-      end
-    end
-
-    context "with data in both periods" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        # Current period
-        create(:ai_workflow_run, :completed, workflow: workflow,
-               total_cost: 1.0, created_at: 10.days.ago)
-        # Previous period
-        create(:ai_workflow_run, :completed, workflow: workflow,
-               total_cost: 0.5, created_at: 40.days.ago)
-      end
-
-      it "calculates percentage change" do
-        result = service.calculate_cost_trend
-
-        expect(result[:current_period_cost]).to be > 0
-        expect(result[:previous_period_cost]).to be > 0
-        expect(result[:change_percentage]).to be_a(Float)
-        expect(result[:trend_direction]).to eq("increasing")
-      end
-    end
-
-    context "when cost decreased" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        create(:ai_workflow_run, :completed, workflow: workflow,
-               total_cost: 0.3, created_at: 10.days.ago)
-        create(:ai_workflow_run, :completed, workflow: workflow,
-               total_cost: 1.0, created_at: 40.days.ago)
-      end
-
-      it "reports decreasing trend" do
-        result = service.calculate_cost_trend
-
-        expect(result[:change_percentage]).to be < 0
-        expect(result[:trend_direction]).to eq("decreasing")
       end
     end
   end
@@ -190,44 +134,6 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
   end
 
   # =========================================================================
-  # #cost_breakdown_by_workflow
-  # =========================================================================
-  describe "#cost_breakdown_by_workflow" do
-    context "with workflows and runs" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        create(:ai_workflow_run, :completed, workflow: workflow, total_cost: 0.10)
-        create(:ai_workflow_run, :completed, workflow: workflow, total_cost: 0.20)
-      end
-
-      it "returns per-workflow cost data" do
-        result = service.cost_breakdown_by_workflow
-
-        wf_entry = result.find { |w| w[:workflow_id] == workflow.id }
-        expect(wf_entry[:total_cost]).to eq(0.30)
-        expect(wf_entry[:execution_count]).to eq(2)
-        expect(wf_entry[:cost_per_execution]).to eq(0.15)
-      end
-
-      it "includes avg_duration_ms" do
-        result = service.cost_breakdown_by_workflow
-
-        wf_entry = result.find { |w| w[:workflow_id] == workflow.id }
-        expect(wf_entry).to have_key(:avg_duration_ms)
-      end
-    end
-
-    context "with no workflows" do
-      it "returns empty array" do
-        result = service.cost_breakdown_by_workflow
-
-        expect(result).to eq([])
-      end
-    end
-  end
-
-  # =========================================================================
   # #cost_breakdown_by_model
   # =========================================================================
   describe "#cost_breakdown_by_model" do
@@ -237,32 +143,6 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
       expect(result).to be_an(Array)
       costs = result.map { |m| m[:total_cost] }
       expect(costs).to eq(costs.sort.reverse)
-    end
-
-    context "with node executions containing model metadata" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-      let(:run) { create(:ai_workflow_run, :completed, workflow: workflow) }
-
-      before do
-        create(:ai_workflow_node_execution, :completed,
-               workflow_run: run,
-               cost: 0.05,
-               metadata: { "model" => "gpt-4", "token_usage" => { "input_tokens" => 100, "output_tokens" => 50 } })
-        create(:ai_workflow_node_execution, :completed,
-               workflow_run: run,
-               cost: 0.01,
-               metadata: { "model" => "gpt-3.5-turbo", "token_usage" => { "input_tokens" => 200, "output_tokens" => 100 } })
-      end
-
-      it "groups costs by model" do
-        result = service.cost_breakdown_by_model
-
-        expect(result.length).to eq(2)
-        gpt4 = result.find { |m| m[:model] == "gpt-4" }
-        expect(gpt4[:total_cost]).to eq(0.05)
-        expect(gpt4[:input_tokens]).to eq(100)
-        expect(gpt4[:output_tokens]).to eq(50)
-      end
     end
   end
 
@@ -275,27 +155,6 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
         result = service.daily_cost_breakdown
 
         expect(result).to eq({})
-      end
-    end
-
-    context "with runs across multiple days" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        create(:ai_workflow_run, :completed, workflow: workflow,
-               total_cost: 0.10, created_at: 2.days.ago)
-        create(:ai_workflow_run, :completed, workflow: workflow,
-               total_cost: 0.20, created_at: 1.day.ago)
-      end
-
-      it "returns daily costs as string-keyed hash" do
-        result = service.daily_cost_breakdown
-
-        expect(result.keys.length).to eq(2)
-        result.each do |date, cost|
-          expect(date).to be_a(String)
-          expect(cost).to be_a(Float)
-        end
       end
     end
   end
@@ -324,50 +183,6 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
         expect(result[:monthly_utilization]).to be_nil
       end
     end
-
-    context "with budget configured" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        account.update!(settings: { "ai_budget_limit" => 100.0, "ai_monthly_budget" => 200.0 })
-        create(:ai_workflow_run, :completed, workflow: workflow, total_cost: 50.0)
-      end
-
-      it "calculates budget utilization" do
-        result = service.budget_analysis
-
-        expect(result[:period_budget]).to eq(100.0)
-        expect(result[:monthly_budget]).to eq(200.0)
-        expect(result[:budget_utilization]).to be > 0
-        expect(result[:monthly_utilization]).to be > 0
-      end
-    end
-
-    context "budget alerts" do
-      before do
-        account.update!(settings: { "ai_budget_limit" => 10.0 })
-      end
-
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      it "generates warning when budget exceeds 80%" do
-        create(:ai_workflow_run, :completed, workflow: workflow, total_cost: 9.0)
-
-        result = service.budget_analysis
-
-        warning_alerts = result[:budget_alert].select { |a| a[:level] == "warning" }
-        expect(warning_alerts).not_to be_empty
-      end
-
-      it "generates critical alert when budget exceeded" do
-        create(:ai_workflow_run, :completed, workflow: workflow, total_cost: 15.0)
-
-        result = service.budget_analysis
-
-        critical_alerts = result[:budget_alert].select { |a| a[:level] == "critical" }
-        expect(critical_alerts).not_to be_empty
-      end
-    end
   end
 
   # =========================================================================
@@ -379,44 +194,6 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
 
       expect(result).to include(:total_potential_savings, :opportunities)
       expect(result[:opportunities]).to be_an(Array)
-    end
-
-    context "with expensive workflows" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        3.times do
-          create(:ai_workflow_run, :completed, workflow: workflow, total_cost: 1.0)
-        end
-      end
-
-      it "identifies expensive workflow opportunities" do
-        result = service.estimate_cost_savings
-
-        expensive = result[:opportunities].select { |o| o[:type] == "expensive_workflow" }
-        expect(expensive).not_to be_empty
-      end
-    end
-
-    context "with gpt-4 model usage over $10" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-      let(:run) { create(:ai_workflow_run, :completed, workflow: workflow) }
-
-      before do
-        20.times do
-          create(:ai_workflow_node_execution, :completed,
-                 workflow_run: run,
-                 cost: 0.60,
-                 metadata: { "model" => "gpt-4" })
-        end
-      end
-
-      it "suggests model downgrade" do
-        result = service.estimate_cost_savings
-
-        downgrades = result[:opportunities].select { |o| o[:type] == "model_downgrade" }
-        expect(downgrades).not_to be_empty
-      end
     end
   end
 
@@ -431,59 +208,6 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
         expect(result).to be_nil
       end
     end
-
-    context "with enough daily cost data" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        10.times do |i|
-          create(:ai_workflow_run, :completed, workflow: workflow,
-                 total_cost: 0.10 + (i * 0.01),
-                 created_at: (10 - i).days.ago)
-        end
-      end
-
-      it "returns forecast data" do
-        result = service.generate_budget_forecast
-
-        expect(result).to include(
-          :average_daily_cost, :daily_trend,
-          :forecast_next_7_days, :forecast_next_30_days,
-          :forecast_month_end, :confidence_level
-        )
-      end
-
-      it "reports high confidence with > 7 days of data" do
-        result = service.generate_budget_forecast
-
-        expect(result[:confidence_level]).to eq("high")
-      end
-
-      it "returns numeric forecasts" do
-        result = service.generate_budget_forecast
-
-        expect(result[:average_daily_cost]).to be_a(Float)
-        expect(result[:forecast_next_7_days]).to be_a(Float)
-        expect(result[:forecast_next_30_days]).to be_a(Float)
-      end
-    end
-
-    context "with very few data points" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        3.times do |i|
-          create(:ai_workflow_run, :completed, workflow: workflow,
-                 total_cost: 0.10, created_at: (3 - i).days.ago)
-        end
-      end
-
-      it "reports low confidence" do
-        result = service.generate_budget_forecast
-
-        expect(result[:confidence_level]).to eq("low")
-      end
-    end
   end
 
   # =========================================================================
@@ -495,53 +219,6 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
         result = service.detect_cost_anomalies
 
         expect(result).to eq([])
-      end
-    end
-
-    context "with anomalous spending" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        # Normal days
-        8.times do |i|
-          create(:ai_workflow_run, :completed, workflow: workflow,
-                 total_cost: 0.10, created_at: (10 - i).days.ago)
-        end
-        # Anomalous day (10x spike)
-        create(:ai_workflow_run, :completed, workflow: workflow,
-               total_cost: 5.0, created_at: 1.day.ago)
-      end
-
-      it "detects cost anomalies" do
-        result = service.detect_cost_anomalies
-
-        expect(result).not_to be_empty
-        anomaly = result.first
-        expect(anomaly).to include(:date, :cost, :expected_cost, :deviation, :severity)
-      end
-
-      it "sorts anomalies by deviation descending" do
-        result = service.detect_cost_anomalies
-
-        deviations = result.map { |a| a[:deviation].abs }
-        expect(deviations).to eq(deviations.sort.reverse)
-      end
-    end
-
-    context "with uniform spending" do
-      let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      before do
-        10.times do |i|
-          create(:ai_workflow_run, :completed, workflow: workflow,
-                 total_cost: 0.10, created_at: (10 - i).days.ago)
-        end
-      end
-
-      it "detects no anomalies" do
-        result = service.detect_cost_anomalies
-
-        expect(result).to be_empty
       end
     end
   end
@@ -558,7 +235,7 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
       result = service.roi_dashboard
 
       expect(result).to include(
-        :summary, :trends, :by_workflow, :by_agent,
+        :summary, :trends, :by_agent,
         :by_provider, :projections, :recommendations,
         :generated_at
       )
@@ -694,54 +371,6 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
         expect(today_entry[:cost]).to eq(10.0)
         expect(today_entry[:value]).to eq(50.0)
         expect(today_entry[:tasks]).to eq(20)
-      end
-    end
-  end
-
-  # =========================================================================
-  # #roi_by_workflow
-  # =========================================================================
-  describe "#roi_by_workflow" do
-    context "with no data" do
-      it "returns empty array" do
-        result = service.roi_by_workflow
-
-        expect(result).to eq([])
-      end
-    end
-
-    context "with workflow runs" do
-      let(:workflow) { create(:ai_workflow, :active, account: account, name: "Test WF") }
-
-      before do
-        create(:ai_workflow_run, :completed, workflow: workflow, total_cost: 0.10)
-        create(:ai_workflow_run, :completed, workflow: workflow, total_cost: 0.20)
-        create(:ai_workflow_run, :failed, workflow: workflow, total_cost: 0.05)
-      end
-
-      it "computes ROI per workflow" do
-        result = service.roi_by_workflow
-
-        wf = result.find { |w| w[:workflow_id] == workflow.id }
-        expect(wf[:total_runs]).to eq(3)
-        expect(wf[:successful_runs]).to eq(2)
-        expect(wf[:total_cost]).to be > 0
-        expect(wf[:time_saved_hours]).to eq(0.5) # 2 successful * 0.25
-        expect(wf[:value_generated]).to eq(37.5) # 0.5 * 75
-      end
-
-      it "calculates success rate" do
-        result = service.roi_by_workflow
-
-        wf = result.find { |w| w[:workflow_id] == workflow.id }
-        expect(wf[:success_rate]).to be_within(0.1).of(66.67)
-      end
-
-      it "sorts by ROI percentage descending" do
-        result = service.roi_by_workflow
-
-        rois = result.map { |w| w[:roi_percentage] }
-        expect(rois).to eq(rois.sort.reverse)
       end
     end
   end
@@ -1003,52 +632,6 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
         expect(result[:utilization_percentage]).to be_a(Float)
         expect(result[:remaining]).to be_a(Float)
         expect(result[:alert]).to include(:level, :message)
-      end
-
-      context "when budget is exceeded" do
-        let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-        before do
-          create(:ai_workflow_run, :completed, workflow: workflow,
-                 total_cost: 150.0, created_at: Time.current)
-        end
-
-        it "reports critical alert" do
-          result = service.budget_enforcement
-
-          expect(result[:alert][:level]).to eq("critical")
-          expect(result[:utilization_percentage]).to be >= 100
-        end
-      end
-
-      context "when budget is at warning level" do
-        let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-        before do
-          create(:ai_workflow_run, :completed, workflow: workflow,
-                 total_cost: 92.0, created_at: Time.current)
-        end
-
-        it "reports warning alert" do
-          result = service.budget_enforcement
-
-          expect(result[:alert][:level]).to eq("warning")
-        end
-      end
-
-      context "when budget is healthy" do
-        let(:workflow) { create(:ai_workflow, :active, account: account) }
-
-        before do
-          create(:ai_workflow_run, :completed, workflow: workflow,
-                 total_cost: 10.0, created_at: Time.current)
-        end
-
-        it "reports normal alert" do
-          result = service.budget_enforcement
-
-          expect(result[:alert][:level]).to eq("normal")
-        end
       end
     end
 

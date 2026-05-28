@@ -41,14 +41,6 @@ RSpec.describe Ai::A2a::Service, type: :service do
     it 'initializes with account and user' do
       expect(service).to be_a(described_class)
     end
-
-    it 'accepts optional workflow_run' do
-      workflow = create(:ai_workflow, account: account, creator: user)
-      run = create(:ai_workflow_run, workflow: workflow, account: account)
-
-      service_with_run = described_class.new(account: account, user: user, workflow_run: run)
-      expect(service_with_run).to be_a(described_class)
-    end
   end
 
   describe 'Discovery' do

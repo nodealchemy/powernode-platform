@@ -255,17 +255,6 @@ RSpec.describe Ai::DebuggingService, type: :service do
       end
     end
 
-    context 'with workflow execution type' do
-      let(:workflow) { create(:ai_workflow, account: account) }
-      let(:workflow_run) { create(:ai_workflow_run, workflow: workflow) }
-
-      it 'finds workflow run' do
-        # This test would need more setup for the workflow execution finding logic
-        result = service.send(:find_execution, workflow_run.id, 'workflow')
-        # The actual implementation would need to be tested based on the real model relationships
-      end
-    end
-
     context 'with invalid execution type' do
       it 'returns nil' do
         result = service.send(:find_execution, execution.id, 'invalid')

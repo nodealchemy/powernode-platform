@@ -359,31 +359,5 @@ class AiTestDataGenerator
 
       Ai::AgentExecution.create!(executions)
     end
-
-    def generate_workflow_test_data(account)
-      workflow = create(:ai_workflow, account: account, name: 'Generated Test Workflow')
-
-      # Create a simple 3-node workflow
-      nodes = []
-      3.times do |i|
-        nodes << create(:ai_workflow_node,
-          workflow: workflow,
-          node_type: [ 'ai_agent', 'condition', 'ai_agent' ][i],
-          name: "Node #{i + 1}",
-          position_x: 100 + (i * 200),
-          position_y: 200)
-      end
-
-      # Connect the nodes
-      2.times do |i|
-        create(:ai_workflow_edge,
-          workflow: workflow,
-          source_node: nodes[i],
-          target_node: nodes[i + 1],
-          condition_type: 'always')
-      end
-
-      workflow
-    end
   end
 end

@@ -30,10 +30,6 @@ FactoryBot.define do
       status { "pending_update" }
     end
 
-    trait :with_workflow do
-      association :created_workflow, factory: :ai_workflow
-    end
-
     trait :with_executions do
       execution_count { 50 }
       success_count { 45 }

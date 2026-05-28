@@ -34,7 +34,7 @@ class Ai::AgentTeamOrchestrator
     @workflow_run = nil
 
     # Initialize A2A service for inter-agent communication
-    @a2a_service = Ai::A2a::Service.new(account: team.account, workflow_run: @workflow_run)
+    @a2a_service = Ai::A2a::Service.new(account: team.account)
 
     # Initialize authority enforcement
     @authority = Ai::TeamAuthorityService.new(team: team)

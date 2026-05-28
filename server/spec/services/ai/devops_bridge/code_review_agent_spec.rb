@@ -48,17 +48,15 @@ RSpec.describe Ai::DevopsBridge::CodeReviewAgent, type: :service do
 
     context "when PR context is available" do
       let(:agent) { create(:ai_agent, account: account, status: "active") }
-      let(:orchestration_service) { double("AgentOrchestrationService") }
 
       before do
         allow(mock_context_builder).to receive(:build).and_return(pr_context)
-        allow(Ai::AgentOrchestrationService).to receive(:new).and_return(orchestration_service)
       end
 
       context "when agents execute successfully" do
         before do
           allow(service).to receive(:find_review_agent).and_return(agent)
-          allow(orchestration_service).to receive(:execute_agent).and_return(
+          allow(service).to receive(:execute_agent).and_return(
             { output: "No issues found" }
           )
         end
@@ -97,7 +95,7 @@ RSpec.describe Ai::DevopsBridge::CodeReviewAgent, type: :service do
       context "when agent execution fails" do
         before do
           allow(service).to receive(:find_review_agent).and_return(agent)
-          allow(orchestration_service).to receive(:execute_agent).and_raise(StandardError, "LLM timeout")
+          allow(service).to receive(:execute_agent).and_raise(StandardError, "LLM timeout")
         end
 
         it "handles errors gracefully and returns nil for that dimension" do

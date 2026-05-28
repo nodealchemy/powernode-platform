@@ -98,8 +98,6 @@ RSpec.describe "A2A Protocol", type: :request do
 
     describe "message/send" do
       it "executes a skill" do
-        workflow = create(:ai_workflow, account: account, status: "active")
-
         post "/api/v1/a2a",
              params: {
                jsonrpc: "2.0",

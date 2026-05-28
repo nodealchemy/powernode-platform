@@ -11,13 +11,6 @@ RSpec.describe Ai::GovernanceService, type: :service do
   # Stub notification services to avoid external dependencies
   before do
     allow(NotificationService).to receive(:send_all) if defined?(NotificationService)
-
-    if defined?(AiWorkflowOrchestrationChannel)
-      unless AiWorkflowOrchestrationChannel.respond_to?(:broadcast_approval_requested)
-        AiWorkflowOrchestrationChannel.define_singleton_method(:broadcast_approval_requested) { |*_args| nil }
-      end
-      allow(AiWorkflowOrchestrationChannel).to receive(:broadcast_approval_requested)
-    end
   end
 
   describe '#initialize' do

@@ -40,10 +40,9 @@ module Ai
         end
       end
 
-      def initialize(account:, user: nil, workflow_run: nil)
+      def initialize(account:, user: nil)
         @account = account
         @user = user
-        @workflow_run = workflow_run
       end
 
       # ==================== Discovery ====================
@@ -99,14 +98,13 @@ module Ai
           from_agent_id: from_agent&.id,
           to_agent_id: card.ai_agent_id,
           to_agent_card_id: card.id,
-          ai_workflow_run_id: @workflow_run&.id,
           message: normalize_message(message),
           input: extract_input(message),
           metadata: build_metadata(metadata),
           is_external: false
         )
 
-        if sync || @workflow_run.present?
+        if sync
           execute_task_sync(task)
         else
           WorkerJobService.enqueue_ai_a2a_task_execution(task.id)
@@ -121,7 +119,6 @@ module Ai
         task = Ai::A2aTask.create!(
           account: @account,
           from_agent_id: from_agent&.id,
-          ai_workflow_run_id: @workflow_run&.id,
           message: normalize_message(message),
           input: extract_input(message),
           metadata: build_metadata(metadata),
@@ -298,7 +295,6 @@ module Ai
           from_agent_id: source_task.to_agent_id,
           to_agent_id: target_card.ai_agent_id,
           to_agent_card_id: target_card.id,
-          ai_workflow_run_id: source_task.ai_workflow_run_id,
           message: handoff_message,
           input: source_task.input,
           history: source_task.history,
@@ -392,8 +388,7 @@ module Ai
       def build_metadata(metadata)
         metadata.merge(
           "submitted_by_user_id" => @user&.id,
-          "submitted_at" => Time.current.iso8601,
-          "workflow_run_id" => @workflow_run&.run_id
+          "submitted_at" => Time.current.iso8601
         )
       end
 
@@ -485,7 +480,6 @@ module Ai
       def build_execution_context(task, agent)
         context = {
           task_id: task.task_id,
-          workflow_run_id: @workflow_run&.run_id,
           history: task.history,
           from_agent: task.from_agent&.name
         }
@@ -563,7 +557,6 @@ module Ai
           },
           context: {
             "task_id" => task.task_id,
-            "workflow_run_id" => task.ai_workflow_run_id,
             "from_agent_id" => task.from_agent_id
           },
           outcome_success: success,

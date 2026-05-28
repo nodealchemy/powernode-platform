@@ -12,13 +12,11 @@ RSpec.describe Ai::TrajectoryService, type: :service do
   # Helper to create a team execution with tasks
   def create_team_execution(status: 'completed', task_count: 3)
     team = create(:ai_agent_team, account: account)
-    workflow = create(:ai_workflow, :active, account: account, creator: user)
-    run = create(:ai_workflow_run, :completed, workflow: workflow, account: account)
 
     # Use a stub for team_execution since the actual model depends on orchestration
     execution = double('team_execution',
       id: SecureRandom.uuid,
-      workflow_run_id: run.id,
+      workflow_run_id: SecureRandom.uuid,
       objective: 'Test objective',
       input_context: { 'param1' => 'value1' },
       agent_team_id: team.id,

@@ -207,11 +207,6 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     end
 
     it 'identifies performance anomalies' do
-      workflow = create(:ai_workflow, account: account)
-      5.times do
-        create(:ai_workflow_run, :failed, workflow: workflow, account: account)
-      end
-
       get '/api/v1/ai/analytics/recommendations'
 
       expect(response).to have_http_status(:ok)

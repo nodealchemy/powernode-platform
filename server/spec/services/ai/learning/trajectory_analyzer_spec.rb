@@ -37,7 +37,6 @@ RSpec.describe Ai::Learning::TrajectoryAnalyzer, type: :service do
       it 'does not query any models' do
         expect(Ai::Agent).not_to receive(:where)
         expect(Ai::AgentTeam).not_to receive(:where)
-        expect(Ai::Workflow).not_to receive(:where)
 
         service.analyze
       end
@@ -222,15 +221,6 @@ RSpec.describe Ai::Learning::TrajectoryAnalyzer, type: :service do
         results = service.send(:analyze_failure_modes)
         expect(results).to be_empty
       end
-    end
-
-    it 'handles exceptions gracefully' do
-      allow(Ai::Workflow).to receive(:where).and_raise(StandardError, 'Workflow query failed')
-
-      expect(Rails.logger).to receive(:error).with(/Failure mode analysis failed/)
-
-      results = service.send(:analyze_failure_modes)
-      expect(results).to eq([])
     end
   end
 
