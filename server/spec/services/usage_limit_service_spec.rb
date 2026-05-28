@@ -2,197 +2,52 @@
 
 require 'rails_helper'
 
-RSpec.describe Billing::UsageLimitService, type: :service do
+# Entitlements::UsageLimitService is a CORE service that gates core resources
+# (users, API keys, webhooks, workers). Limits are only enforced when billing is
+# active (business extension loaded + :business_mode on). In core mode — the state
+# of the public/self-hosted release and the default test environment — every limit
+# is unlimited and all features are enabled.
+#
+# This spec covers the core-mode (billing-absent) behavior. The business-mode
+# enforcement behavior (subscription/plan-driven limits) is covered in the business
+# extension's own suite, where Billing::Subscription / Billing::Plan are loaded.
+RSpec.describe Entitlements::UsageLimitService, type: :service do
   let(:account) { create(:account) }
-  let(:subscription) { create(:subscription, account: account) }
-  let(:plan) { create(:plan, :with_limits) }
 
   before do
-    subscription.update!(plan: plan)
+    # Sanity: these tests assert the billing-absent path.
+    expect(Shared::FeatureGateService.billing_enabled?).to be(false)
   end
 
-  describe '.can_add_user?' do
-    context 'when under user limit' do
-      before do
-        plan.update!(limits: { 'max_users' => 5 })
-        create_list(:user, 2, account: account)
-      end
-
-      it 'returns true' do
-        expect(Billing::UsageLimitService.can_add_user?(account)).to be true
-      end
+  describe 'core mode (billing absent) — unlimited' do
+    it 'allows adding users regardless of count' do
+      create_list(:user, 25, account: account)
+      expect(Entitlements::UsageLimitService.can_add_user?(account)).to be true
     end
 
-    context 'when at user limit' do
-      before do
-        plan.update!(limits: { 'max_users' => 3 })
-        create_list(:user, 3, account: account)
-      end
-
-      it 'returns false' do
-        expect(Billing::UsageLimitService.can_add_user?(account)).to be false
-      end
+    it 'allows creating API keys regardless of count' do
+      create_list(:api_key, 25, :active, account: account)
+      expect(Entitlements::UsageLimitService.can_create_api_key?(account)).to be true
     end
 
-    context 'when over user limit' do
-      before do
-        plan.update!(limits: { 'max_users' => 2 })
-        create_list(:user, 3, account: account)
-      end
-
-      it 'returns false' do
-        expect(Billing::UsageLimitService.can_add_user?(account)).to be false
-      end
+    it 'allows creating webhooks regardless of count' do
+      create_list(:webhook_endpoint, 25, :active, account: account)
+      expect(Entitlements::UsageLimitService.can_create_webhook?(account)).to be true
     end
 
-    context 'when plan has unlimited users' do
-      before do
-        plan.update!(limits: { 'max_users' => 9999 })
-        create_list(:user, 100, account: account)
-      end
-
-      it 'returns true' do
-        expect(Billing::UsageLimitService.can_add_user?(account)).to be true
-      end
+    it 'allows creating workers regardless of count' do
+      create_list(:worker, 25, account: account)
+      expect(Entitlements::UsageLimitService.can_create_worker?(account)).to be true
     end
 
-    context 'when account has no subscription' do
-      let(:account_without_subscription) { create(:account) }
-
-      it 'returns false' do
-        expect(Billing::UsageLimitService.can_add_user?(account_without_subscription)).to be false
-      end
-    end
-  end
-
-  describe '.can_create_api_key?' do
-    context 'when under API key limit' do
-      before do
-        plan.update!(limits: { 'max_api_keys' => 5 })
-        create_list(:api_key, 2, :active, account: account)
-      end
-
-      it 'returns true' do
-        expect(Billing::UsageLimitService.can_create_api_key?(account)).to be true
-      end
+    it 'never reports limits as reached' do
+      create_list(:user, 25, account: account)
+      expect(Entitlements::UsageLimitService.has_reached_limits?(account)).to be false
     end
 
-    context 'when at API key limit' do
-      before do
-        plan.update!(limits: { 'max_api_keys' => 3 })
-        create_list(:api_key, 3, :active, account: account)
-      end
-
-      it 'returns false' do
-        expect(Billing::UsageLimitService.can_create_api_key?(account)).to be false
-      end
-    end
-
-    context 'when has revoked API keys' do
-      before do
-        plan.update!(limits: { 'max_api_keys' => 3 })
-        create_list(:api_key, 2, :active, account: account)
-        create_list(:api_key, 2, :revoked, account: account)
-      end
-
-      it 'only counts active API keys' do
-        expect(Billing::UsageLimitService.can_create_api_key?(account)).to be true
-      end
-    end
-
-    context 'when plan has unlimited API keys' do
-      before do
-        plan.update!(limits: { 'max_api_keys' => 999 })
-        create_list(:api_key, 50, :active, account: account)
-      end
-
-      it 'returns true' do
-        expect(Billing::UsageLimitService.can_create_api_key?(account)).to be true
-      end
-    end
-  end
-
-  describe '.can_create_webhook?' do
-    let(:user) { create(:user, account: account) }
-
-    context 'when under webhook limit' do
-      before do
-        plan.update!(limits: { 'max_webhooks' => 5 })
-        create_list(:webhook_endpoint, 2, :active, account: account)
-      end
-
-      it 'returns true' do
-        expect(Billing::UsageLimitService.can_create_webhook?(account)).to be true
-      end
-    end
-
-    context 'when at webhook limit' do
-      before do
-        plan.update!(limits: { 'max_webhooks' => 3 })
-        create_list(:webhook_endpoint, 3, :active, account: account)
-      end
-
-      it 'returns false' do
-        expect(Billing::UsageLimitService.can_create_webhook?(account)).to be false
-      end
-    end
-
-    context 'when has inactive webhooks' do
-      before do
-        plan.update!(limits: { 'max_webhooks' => 3 })
-        create_list(:webhook_endpoint, 2, :active, account: account)
-        create_list(:webhook_endpoint, 2, :inactive, account: account)
-      end
-
-      it 'only counts active webhooks' do
-        expect(Billing::UsageLimitService.can_create_webhook?(account)).to be true
-      end
-    end
-
-    context 'when plan has unlimited webhooks' do
-      before do
-        plan.update!(limits: { 'max_webhooks' => 999 })
-        create_list(:webhook_endpoint, 50, :active, account: account)
-      end
-
-      it 'returns true' do
-        expect(Billing::UsageLimitService.can_create_webhook?(account)).to be true
-      end
-    end
-  end
-
-  describe '.can_create_worker?' do
-    context 'when under worker limit' do
-      before do
-        plan.update!(limits: { 'max_workers' => 5 })
-        create_list(:worker, 2, account: account)
-      end
-
-      it 'returns true' do
-        expect(Billing::UsageLimitService.can_create_worker?(account)).to be true
-      end
-    end
-
-    context 'when at worker limit' do
-      before do
-        plan.update!(limits: { 'max_workers' => 3 })
-        create_list(:worker, 3, account: account)
-      end
-
-      it 'returns false' do
-        expect(Billing::UsageLimitService.can_create_worker?(account)).to be false
-      end
-    end
-
-    context 'when plan has unlimited workers' do
-      before do
-        plan.update!(limits: { 'max_workers' => 999 })
-        create_list(:worker, 50, account: account)
-      end
-
-      it 'returns true' do
-        expect(Billing::UsageLimitService.can_create_worker?(account)).to be true
-      end
+    it 'reports an unlimited ceiling for any limit type' do
+      expect(Entitlements::UsageLimitService.get_limit(account, 'max_users')).to eq(9999)
+      expect(Entitlements::UsageLimitService.get_limit(account, 'max_api_keys')).to eq(9999)
     end
   end
 
@@ -206,99 +61,33 @@ RSpec.describe Billing::UsageLimitService, type: :service do
       create_list(:worker, 1, account: account)
     end
 
-    it 'returns correct usage counts' do
-      expect(Billing::UsageLimitService.current_usage(account, 'max_users')).to eq(4) # 3 + 1 existing
-      expect(Billing::UsageLimitService.current_usage(account, 'max_api_keys')).to eq(2)
-      expect(Billing::UsageLimitService.current_usage(account, 'max_webhooks')).to eq(4)
-      expect(Billing::UsageLimitService.current_usage(account, 'max_workers')).to eq(1)
+    it 'returns real usage counts (billing-agnostic)' do
+      expect(Entitlements::UsageLimitService.current_usage(account, 'max_users')).to eq(4) # 3 + 1 existing
+      expect(Entitlements::UsageLimitService.current_usage(account, 'max_api_keys')).to eq(2)
+      expect(Entitlements::UsageLimitService.current_usage(account, 'max_webhooks')).to eq(4)
+      expect(Entitlements::UsageLimitService.current_usage(account, 'max_workers')).to eq(1)
     end
   end
 
-  describe '.usage_summary' do
+  describe '.usage_summary in core mode' do
     let!(:user) { create(:user, account: account) }
 
     before do
-      plan.update!(limits: {
-        'max_users' => 10,
-        'max_api_keys' => 5,
-        'max_webhooks' => 8,
-        'max_workers' => 3
-      })
-
       create_list(:user, 2, account: account) # 3 total with existing user
       create_list(:api_key, 1, :active, account: account)
-      create_list(:webhook_endpoint, 4, :active, account: account)
-      create_list(:worker, 2, account: account)
     end
 
-    it 'returns comprehensive usage summary' do
-      summary = Billing::UsageLimitService.usage_summary(account)
+    it 'returns an unlimited summary that still reflects real current counts' do
+      summary = Entitlements::UsageLimitService.usage_summary(account)
 
       expect(summary['max_users'][:current]).to eq(3)
-      expect(summary['max_users'][:limit]).to eq(10)
-      expect(summary['max_users'][:percentage]).to eq(30.0)
-      expect(summary['max_users'][:available]).to eq(7)
-      expect(summary['max_users'][:unlimited]).to be false
+      expect(summary['max_users'][:unlimited]).to be true
+      expect(summary['max_users'][:limit]).to eq(9999)
+      expect(summary['max_users'][:percentage]).to eq(0)
+      expect(summary['max_users'][:available]).to eq(Float::INFINITY)
 
       expect(summary['max_api_keys'][:current]).to eq(1)
-      expect(summary['max_api_keys'][:limit]).to eq(5)
-      expect(summary['max_api_keys'][:available]).to eq(4)
-
-      expect(summary['max_webhooks'][:current]).to eq(4)
-      expect(summary['max_webhooks'][:percentage]).to eq(50.0)
-
-      expect(summary['max_workers'][:current]).to eq(2)
-      expect(summary['max_workers'][:percentage]).to eq(66.7)
-    end
-  end
-
-  describe '.has_reached_limits?' do
-    context 'when no limits are reached' do
-      before do
-        plan.update!(limits: {
-          'max_users' => 10,
-          'max_api_keys' => 5,
-          'max_webhooks' => 8,
-          'max_workers' => 5
-        })
-        create_list(:user, 2, account: account)
-        create_list(:api_key, 1, :active, account: account)
-      end
-
-      it 'returns false' do
-        expect(Billing::UsageLimitService.has_reached_limits?(account)).to be false
-      end
-    end
-
-    context 'when any limit is reached' do
-      before do
-        plan.update!(limits: {
-          'max_users' => 3,
-          'max_api_keys' => 5,
-          'max_webhooks' => 8,
-          'max_workers' => 5
-        })
-        create_list(:user, 3, account: account)
-        create_list(:api_key, 1, :active, account: account)
-      end
-
-      it 'returns true' do
-        expect(Billing::UsageLimitService.has_reached_limits?(account)).to be true
-      end
-    end
-  end
-
-  describe '.get_limit' do
-    before do
-      plan.update!(limits: { 'max_users' => 25 })
-    end
-
-    it 'returns the specific limit value' do
-      expect(Billing::UsageLimitService.get_limit(account, 'max_users')).to eq(25)
-    end
-
-    it 'returns 0 for missing limit' do
-      expect(Billing::UsageLimitService.get_limit(account, 'non_existent')).to eq(0)
+      expect(summary['max_api_keys'][:unlimited]).to be true
     end
   end
 end

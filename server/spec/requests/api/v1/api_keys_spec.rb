@@ -4,14 +4,9 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::ApiKeys', type: :request do
   let(:account) { create(:account) }
-  let(:plan) { create(:plan, :with_limits) }
   let(:admin_user) { create(:user, :admin, account: account) }
   let(:user_with_account_manage) { create(:user, account: account, permissions: [ 'account.manage' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
-
-  before do
-    create(:subscription, :active, account: account, plan: plan)
-  end
 
   describe 'GET /api/v1/api_keys' do
     let(:headers) { auth_headers_for(admin_user) }

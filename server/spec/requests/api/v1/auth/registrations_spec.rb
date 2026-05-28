@@ -4,6 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
   before do
+    # Public account registration is a SaaS/business capability (require_saas_mode gates
+    # on business_loaded?). In core mode it is intentionally disabled (single self-hosted
+    # account; additional users join via invitation, not signup).
+    skip 'registration requires SaaS/business mode' unless Shared::FeatureGateService.business_loaded?
     allow(WorkerJobService).to receive(:enqueue_job).and_return({ 'status' => 'queued' })
     allow(WorkerJobService).to receive(:enqueue_notification_email).and_return({ 'status' => 'queued' })
   end
@@ -93,6 +97,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       let(:params_with_plan) { valid_params.merge(plan_id: plan.id) }
 
       before do
+        skip "requires business billing models" unless defined?(Billing::Subscription)
         allow(Shared::FeatureGateService).to receive(:billing_enabled?).and_return(true)
       end
 

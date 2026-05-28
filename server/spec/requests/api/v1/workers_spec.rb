@@ -120,7 +120,7 @@ RSpec.describe 'Api::V1::Workers', type: :request do
 
     context 'with valid params' do
       it 'creates a new worker' do
-        allow(Billing::UsageLimitService).to receive(:can_create_worker?).and_return(true)
+        allow(Entitlements::UsageLimitService).to receive(:can_create_worker?).and_return(true)
 
         expect {
           post '/api/v1/workers', params: valid_params, headers: headers, as: :json
@@ -135,7 +135,7 @@ RSpec.describe 'Api::V1::Workers', type: :request do
 
     context 'when worker limit reached' do
       it 'returns error' do
-        allow(Billing::UsageLimitService).to receive(:can_create_worker?).and_return(false)
+        allow(Entitlements::UsageLimitService).to receive(:can_create_worker?).and_return(false)
 
         post '/api/v1/workers', params: valid_params, headers: headers, as: :json
 
@@ -145,7 +145,7 @@ RSpec.describe 'Api::V1::Workers', type: :request do
 
     context 'with invalid params' do
       it 'returns validation error' do
-        allow(Billing::UsageLimitService).to receive(:can_create_worker?).and_return(true)
+        allow(Entitlements::UsageLimitService).to receive(:can_create_worker?).and_return(true)
         invalid_params = { worker: { name: nil } }
 
         post '/api/v1/workers', params: invalid_params, headers: headers, as: :json

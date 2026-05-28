@@ -5,7 +5,8 @@ require 'rails_helper'
 RSpec.describe WebhookEvent, type: :model do
   describe 'associations' do
     it { should belong_to(:account).optional }
-    it { should belong_to(:payment).optional }
+    # :payment (Billing::Payment) association is added by the business extension's
+    # webhook_event decorator and is covered by the business suite.
   end
 
   describe 'validations' do

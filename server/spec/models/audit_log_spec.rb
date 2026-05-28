@@ -95,7 +95,7 @@ RSpec.describe AuditLog, type: :model do
   describe "class methods" do
     let(:account) { create(:account) }
     let(:user) { create(:user, account: account) }
-    let(:resource) { create(:subscription, account: account) }
+    let(:resource) { create(:webhook_endpoint, account: account) }
 
     describe ".log_action" do
       it "creates an audit log with all required fields" do
@@ -114,7 +114,7 @@ RSpec.describe AuditLog, type: :model do
 
         expect(audit).to be_persisted
         expect(audit.action).to eq("create")
-        expect(audit.resource_type).to eq("Billing::Subscription")
+        expect(audit.resource_type).to eq("WebhookEndpoint")
         expect(audit.resource_id).to eq(resource.id)
         expect(audit.user).to eq(user)
         expect(audit.account).to eq(account)
@@ -185,6 +185,7 @@ RSpec.describe AuditLog, type: :model do
 
     describe ".log_payment" do
       it "creates payment audit log" do
+        skip "requires business billing models" unless defined?(Billing::Payment)
         invoice = create(:invoice, account: account)
         payment = create(:payment, invoice: invoice, amount_cents: 2999, status: "succeeded")
 
@@ -207,6 +208,7 @@ RSpec.describe AuditLog, type: :model do
 
     describe ".log_subscription_change" do
       it "creates subscription change audit log" do
+        skip "requires business billing models" unless defined?(Billing::Subscription)
         subscription = create(:subscription, account: account)
 
         audit = AuditLog.log_subscription_change(

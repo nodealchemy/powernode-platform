@@ -7,15 +7,13 @@ RSpec.describe Account, type: :model do
 
   describe "associations" do
     it { should have_many(:users).dependent(:destroy) }
-    it { should have_one(:subscription).dependent(:destroy) }
     it { should have_many(:invitations).dependent(:destroy) }
     it { should have_many(:account_delegations).dependent(:destroy) }
     it { should have_many(:audit_logs).dependent(:destroy) }
-    it { should have_many(:payment_methods).dependent(:destroy) }
     it { should have_many(:webhook_events).dependent(:destroy) }
-    it { should have_many(:revenue_snapshots).dependent(:destroy) }
-    it { should have_many(:invoices).through(:subscription) }
-    it { should have_many(:payments) }
+    # Billing/revenue associations (subscription, payment_methods, invoices,
+    # payments, revenue_snapshots) are added by the business extension's
+    # account decorator and are covered by the business extension's suite.
   end
 
   describe "validations" do
@@ -124,6 +122,7 @@ RSpec.describe Account, type: :model do
     let(:account) { create(:account) }
 
     it "returns the subscription" do
+      skip "requires business billing models" unless defined?(Billing::Subscription)
       subscription = create(:subscription, account: account, status: "active")
 
       expect(account.current_subscription).to eq(subscription)
@@ -138,6 +137,7 @@ RSpec.describe Account, type: :model do
     let(:account) { create(:account) }
 
     it "returns true when account has active subscription" do
+      skip "requires business billing models" unless defined?(Billing::Subscription)
       create(:subscription, account: account, status: "active")
 
       expect(account.has_active_subscription?).to be true
@@ -152,6 +152,7 @@ RSpec.describe Account, type: :model do
     let(:account) { create(:account) }
 
     it "returns subscription status when subscription exists" do
+      skip "requires business billing models" unless defined?(Billing::Subscription)
       create(:subscription, account: account, status: "active")
 
       expect(account.subscription_status).to eq("active")
@@ -166,6 +167,7 @@ RSpec.describe Account, type: :model do
     let(:account) { create(:account) }
 
     it "returns true when subscription is on trial" do
+      skip "requires business billing models" unless defined?(Billing::Subscription)
       subscription = create(:subscription, account: account, status: "trialing")
       allow(subscription).to receive(:on_trial?).and_return(true)
 

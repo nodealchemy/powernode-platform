@@ -114,7 +114,7 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
 
   describe 'PATCH /api/v1/internal/accounts/:account_id/anonymize_payments' do
     before do
-      skip 'Business billing module not loaded' unless FactoryBot.factories.registered?(:payment)
+      skip 'Business billing module not loaded' unless defined?(Billing::Payment)
       create_list(:payment, 3, account: account)
     end
 

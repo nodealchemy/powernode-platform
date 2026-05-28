@@ -56,6 +56,7 @@ RSpec.describe 'Api::V1::Accounts', type: :request do
       end
 
       it 'includes subscription data when subscription exists' do
+        skip "requires business billing models" unless defined?(Billing::Subscription)
         subscription = create(:subscription, :active, account: account, plan: plan)
 
         get "/api/v1/accounts/#{account.id}", headers: headers, as: :json

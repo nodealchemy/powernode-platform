@@ -43,7 +43,6 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       allow(account).to receive(:ai_agent_executions).and_return(ai_executions_rel)
       allow(ai_executions_rel).to receive(:where).and_return(ai_executions_rel)
       allow(ai_executions_rel).to receive(:count).and_return(0)
-      allow(account).to receive(:subscription).and_return(nil)
 
       # Stub security gate
       security_gate = instance_double(Ai::Security::SecurityGateService)
@@ -198,7 +197,6 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
         allow(account).to receive(:ai_agent_executions).and_return(ai_executions_rel)
         allow(ai_executions_rel).to receive(:where).and_return(ai_executions_rel)
         allow(ai_executions_rel).to receive(:count).and_return(200)
-        allow(account).to receive(:subscription).and_return(nil)
       end
 
       it 'raises ValidationError for rate limit' do

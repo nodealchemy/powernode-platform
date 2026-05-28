@@ -5,12 +5,9 @@ require 'rails_helper'
 RSpec.describe Api::V1::FilesController, type: :controller do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
-  let(:subscription) { create(:subscription, account: account) }
-  let(:plan) { create(:plan, :with_limits) }
   let(:file_storage) { create(:file_storage, account: account, is_default: true) }
 
   before do
-    subscription.update!(plan: plan)
     sign_in_as_user(user)
     file_storage # Ensure storage exists
   end

@@ -7,12 +7,6 @@ RSpec.describe 'Api::V1::Users', type: :request do
   let(:other_account) { create(:account) }
   let(:admin_user) { create(:user, account: account, permissions: [ 'admin.user.read', 'admin.user.create', 'admin.user.delete', 'users.read', 'users.update' ]) }
   let(:regular_user) { create(:user, account: account) }
-  let(:plan) { create(:plan) }
-
-  before do
-    # Create a subscription for the account to enable user creation
-    create(:subscription, :active, account: account, plan: plan)
-  end
 
   describe 'GET /api/v1/users' do
     let(:headers) { auth_headers_for(admin_user) }

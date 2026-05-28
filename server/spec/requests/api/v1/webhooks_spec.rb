@@ -4,14 +4,9 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Webhooks', type: :request do
   let(:account) { create(:account) }
-  let(:plan) { create(:plan, limits: { 'max_webhooks' => 100 }) }
   let(:admin_user) { create(:user, :admin, account: account) }
   let(:user_with_webhook_permission) { create(:user, account: account, permissions: [ 'webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
-
-  before do
-    create(:subscription, :active, account: account, plan: plan)
-  end
 
   describe 'GET /api/v1/webhooks' do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
