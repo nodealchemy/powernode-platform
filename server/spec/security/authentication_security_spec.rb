@@ -361,6 +361,10 @@ RSpec.describe 'Authentication Security', type: :request do
 
     it 'sets secure cookie flags in production' do
       allow(Rails.env).to receive(:production?).and_return(true)
+      # The refresh-token cookie's Secure flag is gated on `!Rails.env.local?`
+      # (secure in every non-dev/test env), so simulate a non-local env — the
+      # `production?` stub alone doesn't change `local?`.
+      allow(Rails.env).to receive(:local?).and_return(false)
 
       post '/api/v1/auth/login', params: {
         email: user.email,
