@@ -158,11 +158,16 @@ already self-guard. `plan_composer_service_spec` `let(:plan)` is `Ai::GoalPlan` 
    Pre-existing bug; not regressed by this session.
 
 ## Deferred in this landing (follow-ups)
-- **Security-service governance guards** (§B): 12 `ExtensionRegistry.loaded?("business")` guards in
-  `pii_redaction_service`/`agent_anomaly_detection_service` to remove (governance models are core now).
-- **Webhook internal controller** (above): reconcile to core `WebhookDelivery` + worker contract.
-- **Usage migration/schema purity:** `usage_tracking_system` migration + tables remain in core schema (harmless
-  empty tables in core mode); the usage *code* is fully in business. Optionally move the migration to business later.
+- ~~**Security-service governance guards**~~ — **DONE**: removed the 12 `ExtensionRegistry.loaded?("business")`
+  guards in `pii_redaction_service`/`agent_anomaly_detection_service`; core now logs governance unconditionally
+  (their specs, which assert that logging, pass).
+- ~~**Webhook internal controller**~~ — **DONE**: `internal/webhook_deliveries_controller` reconciled to core
+  `WebhookDelivery` + the worker contract (was raising `UnknownAttributeError`).
+- **Usage migration/schema purity** — **RESOLVED (non-issue).** The `usage_*` tables must live in core's
+  `schema.rb`: the business engine runs inside the core app against the shared DB, and its `UsageEvent`/`UsageQuota`
+  models query those tables. The *models* live in business; the *tables* live in the shared schema by necessity
+  (same as the billing tables). Nothing to move.
+- **AI workflow-run subsystem teardown** — still open; see the dedicated section below.
 
 ## Follow-up: AI workflow-run subsystem teardown (scoped effort — NOT done)
 
