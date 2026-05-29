@@ -7,7 +7,12 @@ RSpec.describe Ai::ConciergeService do
 
   let(:account) { create(:account) }
   let(:user) { user_with_permissions("ai.conversations.create", "ai.missions.manage", account: account) }
-  let(:provider) { create(:ai_provider, provider_type: "openai") }
+  # Non-tool-capable provider (ollama) so #process_message routes through the
+  # action-grammar path (call_concierge_legacy → WorkerLlmClient#complete), which
+  # is what these specs stub. Tool-capable providers (openai/anthropic) route
+  # through ConciergeToolBridge#execute_tool_loop (complete_with_tools) instead —
+  # see Ai::ConciergeService::TOOL_CAPABLE_PROVIDERS and #tool_bridge_available?.
+  let(:provider) { create(:ai_provider, provider_type: "ollama") }
   let(:credential) { create(:ai_provider_credential, provider: provider, account: account, is_active: true) }
   let(:agent) do
     create(:ai_agent, account: account, provider: provider, is_concierge: true, status: "active")

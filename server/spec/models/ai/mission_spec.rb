@@ -13,8 +13,21 @@ RSpec.describe Ai::Mission, type: :model do
     it { is_expected.to have_many(:approvals).class_name("Ai::MissionApproval") }
 
     # Self-Serve Hardening M4 Slice A — optional pointer at an
-    # `Account::TeamDelegation` (per-team isolation).
-    it { is_expected.to belong_to(:delegation).class_name("Account::TeamDelegation").optional }
+    # `Account::TeamDelegation` (per-team isolation). That class ships in the
+    # business extension (private), so it is NOT loadable in core mode. The
+    # shoulda `class_name` matcher constantizes both sides, which fails when
+    # the target class is absent — assert the declared reflection options
+    # directly instead (same core-safe pattern as the supply_chain file
+    # association specs). Verifies macro, optionality, class_name, and FK
+    # without forcing constant resolution.
+    it "declares an optional delegation belongs_to backed by Account::TeamDelegation" do
+      reflection = described_class.reflect_on_association(:delegation)
+      expect(reflection).to be_present
+      expect(reflection.macro).to eq(:belongs_to)
+      expect(reflection.options[:optional]).to be(true)
+      expect(reflection.options[:class_name]).to eq("::Account::TeamDelegation")
+      expect(reflection.options[:foreign_key]).to eq("delegation_id")
+    end
   end
 
   describe "validations" do
