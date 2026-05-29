@@ -7,7 +7,7 @@ FactoryBot.define do
     association :requested_by, factory: :user
     request_id { SecureRandom.uuid }
     status { "pending" }
-    source_type { "Ai::Workflow" }
+    source_type { "Ai::AgentExecution" }
     source_id { SecureRandom.uuid }
     description { Faker::Lorem.paragraph }
     request_data { { reason: "Deployment approval required" } }
@@ -72,10 +72,6 @@ FactoryBot.define do
     trait :cancelled do
       status { "cancelled" }
       completed_at { Time.current }
-    end
-
-    trait :for_workflow do
-      source_type { "Ai::Workflow" }
     end
 
     trait :for_agent do

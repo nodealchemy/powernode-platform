@@ -47,7 +47,7 @@ RSpec.describe Ai::Memory::StorageService, type: :service do
     it 'stores context information' do
       entry = service.store_experiential(
         content: 'Task completed',
-        context: { 'task_id' => 'abc123', 'workflow_run_id' => 'xyz789' }
+        context: { 'task_id' => 'abc123', 'mission_id' => 'xyz789' }
       )
 
       expect(entry.metadata['context']).to include('task_id' => 'abc123')

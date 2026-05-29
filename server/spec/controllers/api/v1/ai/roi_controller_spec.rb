@@ -56,11 +56,6 @@ RSpec.describe Api::V1::Ai::RoiController, type: :controller do
         expect(response).to have_http_status(:forbidden)
       end
 
-      it 'returns 403 for by_workflow' do
-        get :by_workflow
-        expect(response).to have_http_status(:forbidden)
-      end
-
       it 'returns 403 for by_agent' do
         get :by_agent
         expect(response).to have_http_status(:forbidden)
@@ -190,17 +185,6 @@ RSpec.describe Api::V1::Ai::RoiController, type: :controller do
   # ============================================================================
   # BREAKDOWN BY WORKFLOW / AGENT / PROVIDER
   # ============================================================================
-
-  describe 'GET #by_workflow' do
-    it 'returns ROI by workflow' do
-      allow(cost_service).to receive(:roi_by_workflow).and_return([])
-
-      get :by_workflow
-      expect(response).to have_http_status(:ok)
-      expect(json_response['success']).to be true
-      expect(json_response['data']['workflows']).to be_an(Array)
-    end
-  end
 
   describe 'GET #by_agent' do
     it 'returns ROI by agent' do

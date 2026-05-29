@@ -74,7 +74,7 @@ RSpec.describe Api::V1::Ai::AiOpsController, type: :controller do
   describe 'GET #dashboard' do
     it 'returns dashboard data' do
       allow(dashboard_service).to receive(:aiops_dashboard).and_return({
-        total_executions: 100, active_workflows: 5, error_rate: 0.02
+        total_executions: 100, error_rate: 0.02
       })
 
       get :dashboard
@@ -116,7 +116,7 @@ RSpec.describe Api::V1::Ai::AiOpsController, type: :controller do
   describe 'GET #overview' do
     it 'returns system overview' do
       allow(dashboard_service).to receive(:system_overview).and_return({
-        running_workflows: 3, active_agents: 10
+        active_agents: 10
       })
 
       get :overview
@@ -167,18 +167,8 @@ RSpec.describe Api::V1::Ai::AiOpsController, type: :controller do
   end
 
   # ============================================================================
-  # WORKFLOW & AGENT METRICS
+  # AGENT METRICS
   # ============================================================================
-
-  describe 'GET #workflows' do
-    it 'returns workflow metrics' do
-      allow(dashboard_service).to receive(:ops_workflow_metrics).and_return([])
-
-      get :workflows
-      expect(response).to have_http_status(:ok)
-      expect(json_response['data']).to have_key('workflows')
-    end
-  end
 
   describe 'GET #agents' do
     it 'returns agent metrics' do

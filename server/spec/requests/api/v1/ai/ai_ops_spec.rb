@@ -203,30 +203,6 @@ RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/aiops/workflows' do
-    let(:workflow_data) do
-      [
-        { id: SecureRandom.uuid, name: 'Test Workflow', executions: 100 }
-      ]
-    end
-
-    before do
-      allow(service).to receive(:ops_workflow_metrics).and_return(workflow_data)
-    end
-
-    context 'with permission' do
-      it 'returns workflow metrics' do
-        get '/api/v1/ai/aiops/workflows',
-            headers: headers
-
-        expect_success_response
-        data = json_response_data
-        expect(data).to have_key('workflows')
-        expect(data).to have_key('time_range')
-      end
-    end
-  end
-
   describe 'GET /api/v1/ai/aiops/agents' do
     let(:agent_data) do
       [

@@ -58,7 +58,6 @@ RSpec.describe 'Api::V1::Ai::Finops', type: :request do
     before do
       allow(cost_service).to receive(:cost_breakdown_by_provider).and_return([])
       allow(cost_service).to receive(:cost_breakdown_by_model).and_return([])
-      allow(cost_service).to receive(:cost_breakdown_by_workflow).and_return([])
       allow(cost_service).to receive(:cost_breakdown_by_agent).and_return([])
       allow(cost_service).to receive(:daily_cost_breakdown).and_return({})
     end

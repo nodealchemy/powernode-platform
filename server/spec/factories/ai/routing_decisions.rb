@@ -129,10 +129,6 @@ FactoryBot.define do
       end
     end
 
-    trait :for_workflow do
-      association :workflow_run, factory: :ai_workflow_run, strategy: :build
-    end
-
     trait :for_agent do
       association :agent_execution, factory: :ai_agent_execution, strategy: :build
     end

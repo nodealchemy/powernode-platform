@@ -23,7 +23,6 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     # Stub analytics services to prevent complex database queries from failing
     allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate).and_return({
       summary: {
-        workflows: { total: 5, active: 3, executions: 7, success_rate: 0.714 },
         agents: { total: 3, active: 2, executions: 5, success_rate: 0.8 },
         conversations: { total: 2, active: 1, messages: 10 },
         cost: { total: 10.50, trend: nil, budget_utilization: nil }
@@ -34,7 +33,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
         success_rate_by_day: {},
         messages_by_day: {}
       },
-      highlights: { top_workflows: [], recent_failures: [], top_agents: [], cost_leaders: [] },
+      highlights: { recent_failures: [], top_agents: [], cost_leaders: [] },
       quick_stats: {
         today: { executions: 2, cost: 3.0, messages: 5 },
         yesterday: { executions: 1, cost: 2.0, messages: 3 },
@@ -45,7 +44,6 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     })
 
     allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_summary_metrics).and_return({
-      workflows: { total: 5, active: 3, executions: 7, success_rate: 0.714 },
       agents: { total: 3, active: 2, executions: 5, success_rate: 0.8 },
       conversations: { total: 2, active: 1, messages: 10 },
       cost: { total: 10.50, trend: nil, budget_utilization: nil }
@@ -56,7 +54,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     })
 
     allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_highlights).and_return({
-      top_workflows: [], top_agents: [], recent_failures: [], cost_leaders: []
+      top_agents: [], recent_failures: [], cost_leaders: []
     })
 
     allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_quick_stats).and_return({
@@ -71,7 +69,6 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     })
 
     allow_any_instance_of(Ai::Analytics::MetricsService).to receive(:all_metrics).and_return({
-      workflows: { total_workflows: 5, active_workflows: 3 },
       agents: { total: 3, active: 2 },
       providers: { total_providers: 1, active_providers: 1, providers: [] },
       executions: { total_node_executions: 0 },
@@ -79,9 +76,9 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     })
 
     allow_any_instance_of(Ai::Analytics::CostAnalysisService).to receive(:full_analysis).and_return({
-      total_cost: { total: 0.0, workflow_cost: 0.0, node_cost: 0.0, currency: 'USD' },
+      total_cost: { total: 0.0, currency: 'USD' },
       cost_trend: { current_period_cost: 0.0, previous_period_cost: 0.0, change_percentage: nil },
-      cost_by_provider: [], cost_by_agent: [], cost_by_workflow: [], cost_by_model: [],
+      cost_by_provider: [], cost_by_agent: [], cost_by_model: [],
       daily_costs: {}, budget_status: {}, optimization_potential: { total_potential_savings: 0.0, opportunities: [] },
       budget_forecast: nil, anomalies: []
     })
@@ -127,8 +124,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
 
       dashboard_data = json_response['data']['dashboard']
 
-      # Summary contains nested workflow/agent/conversation/cost metrics
-      expect(dashboard_data['summary']).to have_key('workflows')
+      # Summary contains nested agent/conversation/cost metrics
       expect(dashboard_data['summary']).to have_key('agents')
       expect(dashboard_data['summary']).to have_key('conversations')
       expect(dashboard_data['summary']).to have_key('cost')
@@ -163,22 +159,22 @@ RSpec.describe 'AI Analytics Integration', type: :request do
 
       # Verify summary is present
       expect(dashboard_data['summary']).to be_present
-      expect(dashboard_data['summary']['workflows']).to have_key('executions')
+      expect(dashboard_data['summary']['agents']).to have_key('executions')
     end
 
     it 'provides real-time analytics updates' do
-      # Verify dashboard returns consistent workflow execution data
+      # Verify dashboard returns consistent agent execution data
       get '/api/v1/ai/analytics/dashboard', params: { time_range: '1d' }
 
       expect(response).to have_http_status(:ok)
-      workflow_execs = json_response['data']['dashboard']['summary']['workflows']['executions']
-      expect(workflow_execs).to be_a(Integer)
+      agent_execs = json_response['data']['dashboard']['summary']['agents']['executions']
+      expect(agent_execs).to be_a(Integer)
 
       # Verify subsequent request also returns valid data
       get '/api/v1/ai/analytics/dashboard', params: { time_range: '1d' }
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['data']['dashboard']['summary']['workflows']['executions']).to be_a(Integer)
+      expect(json_response['data']['dashboard']['summary']['agents']['executions']).to be_a(Integer)
     end
   end
 

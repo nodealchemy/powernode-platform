@@ -30,19 +30,19 @@ RSpec.describe Ai::ExecutionEvent, type: :model do
 
     describe '.by_source_type' do
       let!(:agent_event) { create(:ai_execution_event, account: account, source_type: 'Ai::Agent') }
-      let!(:workflow_event) { create(:ai_execution_event, account: account, source_type: 'Ai::Workflow') }
+      let!(:mission_event) { create(:ai_execution_event, account: account, source_type: 'Ai::Mission') }
 
       it 'returns events for the specified source type' do
         expect(described_class.by_source_type('Ai::Agent')).to include(agent_event)
-        expect(described_class.by_source_type('Ai::Agent')).not_to include(workflow_event)
+        expect(described_class.by_source_type('Ai::Agent')).not_to include(mission_event)
       end
 
       it 'returns all events when source type is nil' do
-        expect(described_class.by_source_type(nil)).to include(agent_event, workflow_event)
+        expect(described_class.by_source_type(nil)).to include(agent_event, mission_event)
       end
 
       it 'returns all events when source type is blank' do
-        expect(described_class.by_source_type('')).to include(agent_event, workflow_event)
+        expect(described_class.by_source_type('')).to include(agent_event, mission_event)
       end
     end
 

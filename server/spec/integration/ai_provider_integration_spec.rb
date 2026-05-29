@@ -224,7 +224,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
           cost: { total: 0.0, trend: nil, budget_utilization: nil }
         },
         trends: { executions_by_day: {}, cost_by_day: {}, success_rate_by_day: {}, messages_by_day: {} },
-        highlights: { top_workflows: [], recent_failures: [], top_agents: [], cost_leaders: [] },
+        highlights: { recent_failures: [], top_agents: [], cost_leaders: [] },
         quick_stats: {
           today: { executions: 0, cost: 0.0, messages: 0 },
           yesterday: { executions: 0, cost: 0.0, messages: 0 },
@@ -246,7 +246,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
       })
 
       allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_highlights).and_return({
-        top_workflows: [], top_agents: [], recent_failures: [], cost_leaders: []
+        top_agents: [], recent_failures: [], cost_leaders: []
       })
 
       allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_quick_stats).and_return({

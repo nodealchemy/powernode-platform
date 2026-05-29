@@ -2,7 +2,6 @@
 
 FactoryBot.define do
   factory :ai_shared_context_pool, class: "Ai::SharedContextPool" do
-    association :workflow_run, factory: :ai_workflow_run
     pool_id { SecureRandom.uuid }
     pool_type { "shared_memory" }
     scope { "workflow" }

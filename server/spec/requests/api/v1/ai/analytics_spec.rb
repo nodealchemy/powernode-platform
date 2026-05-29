@@ -246,38 +246,6 @@ RSpec.describe 'Api::V1::Ai::Analytics', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/analytics/workflows/:workflow_id' do
-    let!(:workflow) do
-      create(:ai_workflow, account: account, name: 'Test Workflow', workflow_type: 'ai', status: 'active')
-    end
-
-    before do
-      allow(metrics_service).to receive(:workflow_specific_metrics).and_return({})
-    end
-
-    context 'with permission' do
-      it 'returns workflow-specific analytics' do
-        get "/api/v1/ai/analytics/workflows/#{workflow.id}",
-            headers: headers,
-            as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data).to have_key('workflow_analytics')
-      end
-    end
-
-    context 'when workflow not found' do
-      it 'returns not found error' do
-        get "/api/v1/ai/analytics/workflows/#{SecureRandom.uuid}",
-            headers: headers,
-            as: :json
-
-        expect_error_response('Workflow not found', 404)
-      end
-    end
-  end
-
   describe 'GET /api/v1/ai/analytics/agents/:agent_id' do
     let!(:agent) do
       create(:ai_agent, account: account, name: 'Test Agent', agent_type: 'assistant', status: 'active')

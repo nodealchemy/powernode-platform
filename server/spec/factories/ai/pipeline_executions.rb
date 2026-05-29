@@ -134,9 +134,6 @@ FactoryBot.define do
       association :devops_installation, factory: :ai_devops_template_installation
     end
 
-    trait :with_workflow_run do
-      association :workflow_run, factory: :ai_workflow_run
-    end
 
     trait :with_deployment_risks do
       after(:create) do |execution|

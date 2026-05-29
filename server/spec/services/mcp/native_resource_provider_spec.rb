@@ -51,23 +51,6 @@ RSpec.describe Mcp::NativeResourceProvider, type: :model do
       end
     end
 
-    context "with AI workflows" do
-      let!(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      it "includes active AI workflows" do
-        result = provider.list_resources
-        uris = result[:resources].map { |r| r[:uri] }
-        expect(uris).to include("powernode://ai/workflows/#{workflow.id}")
-      end
-
-      it "excludes non-active AI workflows" do
-        create(:ai_workflow, account: account, status: "draft")
-        result = provider.list_resources
-        workflow_resources = result[:resources].select { |r| r[:uri].start_with?("powernode://ai/workflows/") }
-        expect(workflow_resources.length).to eq(1)
-      end
-    end
-
     context "with prompt templates" do
       let!(:template) { create(:shared_prompt_template, account: account) }
 
@@ -137,20 +120,6 @@ RSpec.describe Mcp::NativeResourceProvider, type: :model do
         parsed = JSON.parse(content[:text])
         expect(parsed["name"]).to eq(agent.name)
         expect(parsed["id"]).to eq(agent.id)
-      end
-    end
-
-    context "AI workflows" do
-      let!(:workflow) { create(:ai_workflow, :active, account: account) }
-
-      it "reads AI workflow by id URI" do
-        result = provider.read_resource(uri: "powernode://ai/workflows/#{workflow.id}")
-        content = result[:contents].first
-
-        expect(content[:mimeType]).to eq("application/json")
-        parsed = JSON.parse(content[:text])
-        expect(parsed["name"]).to eq(workflow.name)
-        expect(parsed["id"]).to eq(workflow.id)
       end
     end
 

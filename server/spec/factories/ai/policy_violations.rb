@@ -71,10 +71,6 @@ FactoryBot.define do
       source_type { "Ai::Agent" }
     end
 
-    trait :from_workflow do
-      source_type { "Ai::Workflow" }
-    end
-
     trait :from_conversation do
       source_type { "Ai::Conversation" }
     end

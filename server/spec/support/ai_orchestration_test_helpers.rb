@@ -111,8 +111,6 @@ module AiOrchestrationTestHelpers
   def stub_mcp_services
     protocol = instance_double('Mcp::ProtocolService')
     registry = instance_double('Mcp::RegistryService')
-    event_store = instance_double('Mcp::ExecutionEventStore')
-    tracer = instance_double('Mcp::ExecutionTracer')
 
     allow(protocol).to receive(:initialize_session)
     allow(protocol).to receive(:send_message)
@@ -121,18 +119,9 @@ module AiOrchestrationTestHelpers
     allow(registry).to receive(:validate_agent)
     allow(registry).to receive(:get_agent_capabilities)
 
-    allow(event_store).to receive(:record_event)
-    allow(event_store).to receive(:get_execution_history).and_return([])
-
-    allow(tracer).to receive(:start_span)
-    allow(tracer).to receive(:end_span)
-    allow(tracer).to receive(:record_metric)
-
     {
       protocol: protocol,
-      registry: registry,
-      event_store: event_store,
-      tracer: tracer
+      registry: registry
     }
   end
 

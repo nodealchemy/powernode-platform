@@ -7,7 +7,6 @@ RSpec.describe Ai::A2aTask, type: :model do
     it { should belong_to(:account) }
     it { should belong_to(:from_agent).class_name('Ai::Agent').optional }
     it { should belong_to(:to_agent).class_name('Ai::Agent').optional }
-    it { should belong_to(:workflow_run).class_name('Ai::WorkflowRun').optional }
     it { should have_many(:events).class_name('Ai::A2aTaskEvent').dependent(:destroy) }
   end
 

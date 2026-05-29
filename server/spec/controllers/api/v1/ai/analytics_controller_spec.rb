@@ -12,10 +12,9 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
   let(:analytics_manage_user) { create(:user, account: account, permissions: [ 'ai.analytics.read', 'ai.analytics.create', 'ai.analytics.manage', 'ai.analytics.export' ]) }
 
   # Test data
-  let(:workflow) { create(:ai_workflow, account: account, name: 'Test Workflow') }
   let(:agent) { create(:ai_agent, account: account, name: 'Test Agent') }
-  let!(:completed_runs) { create_list(:ai_workflow_run, 5, workflow: workflow, status: 'completed', total_cost: 1.50, duration_ms: 5000) }
-  let!(:failed_runs) { create_list(:ai_workflow_run, 2, workflow: workflow, status: 'failed') }
+  let!(:completed_runs) { create_list(:ai_agent_execution, 5, :completed, account: account, cost_usd: 1.50, duration_ms: 5000) }
+  let!(:failed_runs) { create_list(:ai_agent_execution, 2, :failed, account: account) }
 
   before do
     @request.headers['Content-Type'] = 'application/json'
@@ -28,12 +27,10 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
     # --- DashboardService stubs ---
     allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate).and_return({
       summary: {
-        total_workflows: 5,
         total_agents: 3,
         total_executions: 7,
         success_rate: 0.714,
         total_cost: 10.50,
-        workflows: { total: 5, active: 3, executions: 7, success_rate: 0.714 },
         agents: { total: 3, active: 2, executions: 5, success_rate: 0.8 },
         conversations: { total: 2, active: 1, messages: 10 },
         cost: { total: 10.50, trend: nil, budget_utilization: nil }
@@ -41,21 +38,17 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       trends: [
         { date: Date.current.to_s, executions: 3, cost: 5.0 }
       ],
-      highlights: { top_workflows: [], recent_failures: [] },
+      highlights: { recent_failures: [] },
       quick_stats: {
         today: { executions: 2, cost: 3.0, messages: 5 },
         yesterday: { executions: 1, cost: 2.0, messages: 3 },
         this_week: { executions: 5, cost: 8.0, messages: 12 }
       },
-      workflows: [
-        { id: 'w1', name: 'Test Workflow', executions: 7 }
-      ],
       resource_usage: { providers: {}, models: {}, tokens: { total_input_tokens: 0, total_output_tokens: 0, total_tokens: 0 } },
       recent_activity: []
     })
 
     allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_summary_metrics).and_return({
-      workflows: { total: 5, active: 3, executions: 7, success_rate: 0.714 },
       agents: { total: 3, active: 2, executions: 5, success_rate: 0.8 },
       conversations: { total: 2, active: 1, messages: 10 },
       cost: { total: 10.50, trend: nil, budget_utilization: nil }
@@ -69,7 +62,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
     })
 
     allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_highlights).and_return({
-      top_workflows: [],
       top_agents: [],
       recent_failures: [],
       cost_leaders: []
@@ -99,15 +91,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
 
     # --- MetricsService stubs ---
     allow_any_instance_of(Ai::Analytics::MetricsService).to receive(:all_metrics).and_return({
-      workflows: {
-        total: 5,
-        active: 3,
-        inactive: 2,
-        total_workflows: 5,
-        active_workflows: 3,
-        total_executions: 7,
-        success_rate: 0.714
-      },
       agents: {
         total: 3,
         active: 2,
@@ -123,9 +106,7 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
         total: 7,
         completed: 5,
         failed: 2,
-        success_rate: 0.714,
-        total_node_executions: 10,
-        avg_nodes_per_workflow: 2.0
+        success_rate: 0.714
       },
       performance: {
         throughput: { executions_per_hour: 0.29, executions_per_day: 7.0 },
@@ -134,25 +115,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
         error_budget: { target_slo: 99.9, actual_success_rate: 71.4, remaining_budget: -28.5, budget_consumed: 100 }
       }
     })
-
-    allow_any_instance_of(Ai::Analytics::MetricsService).to receive(:workflow_specific_metrics) do |_service, wf|
-      {
-        workflow: { id: wf.id, name: wf.name },
-        workflow_id: wf.id,
-        workflow_name: wf.name,
-        runs: { total: 7, completed: 5, failed: 2 },
-        total_executions: 7,
-        successful_executions: 5,
-        failed_executions: 2,
-        performance: { avg_duration_ms: 5000.0 },
-        costs: { total: 10.50, average_per_run: 1.50 },
-        success_rate: 71.4,
-        average_duration: 5000.0,
-        average_duration_ms: 5000.0,
-        total_cost: 10.50,
-        average_cost_per_execution: 1.50
-      }
-    end
 
     allow_any_instance_of(Ai::Analytics::MetricsService).to receive(:agent_specific_metrics) do |_service, ag|
       {
@@ -175,7 +137,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       cost_trend: { current_period_cost: 10.50, previous_period_cost: 8.0, change_percentage: 31.25 },
       cost_by_provider: [],
       cost_by_agent: [],
-      cost_by_workflow: [ { workflow_id: 'w1', workflow_name: 'Test', total_cost: 10.50 } ],
       cost_by_model: [],
       daily_costs: {},
       budget_status: {},
@@ -220,8 +181,7 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
         min_ms: 3000.0,
         max_ms: 7000.0,
         std_dev_ms: 1200.0,
-        by_hour: {},
-        by_workflow: []
+        by_hour: {}
       },
       success_rates: {
         total_executions: 7,
@@ -241,7 +201,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
         total_errors: 2,
         error_rate: 28.57,
         by_error_type: {},
-        by_workflow: [],
         by_node_type: {},
         recent_errors: []
       },
@@ -252,8 +211,7 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
         queue_metrics: { avg_queue_time_ms: 0 }
       },
       bottlenecks: {
-        slow_workflows: [],
-        recommendations: [ 'Consider optimizing long-running workflows' ]
+        recommendations: [ 'Consider optimizing long-running executions' ]
       },
       sla_compliance: {},
       performance_trends: {}
@@ -261,7 +219,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
 
     allow_any_instance_of(Ai::Analytics::PerformanceAnalysisService).to receive(:identify_bottlenecks).and_return({
       bottlenecks: [],
-      slow_workflows: [],
       recommendations: []
     })
 
@@ -269,7 +226,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       total_errors: 2,
       error_rate: 0.0,
       by_error_type: {},
-      by_workflow: [],
       by_node_type: {},
       recent_errors: []
     })
@@ -314,7 +270,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
         json = JSON.parse(response.body)
         summary = json['data']['dashboard']['summary']
         expect(summary).to include(
-          'total_workflows',
           'total_agents',
           'total_executions',
           'success_rate',
@@ -332,13 +287,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
           'period'
         )
         expect(json['data']['time_range']['period']).to eq('7d')
-      end
-
-      it 'includes workflow metrics' do
-        get :dashboard
-
-        json = JSON.parse(response.body)
-        expect(json['data']['dashboard']['workflows']).to be_an(Array)
       end
 
       it 'includes trend data' do
@@ -422,7 +370,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
         json = JSON.parse(response.body)
         expect(json['success']).to be true
         expect(json['data']['metrics']).to include(
-          'workflows',
           'agents',
           'providers',
           'executions',
@@ -435,17 +382,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
 
         json = JSON.parse(response.body)
         expect(json['data']['time_range_seconds']).to eq(7.days.to_i)
-      end
-
-      it 'includes workflow metrics' do
-        get :metrics
-
-        json = JSON.parse(response.body)
-        expect(json['data']['metrics']['workflows']).to include(
-          'total',
-          'active',
-          'inactive'
-        )
       end
 
       it 'includes execution metrics' do
@@ -503,7 +439,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
           'total_cost',
           'cost_trend',
           'cost_by_provider',
-          'cost_by_workflow',
           'optimization_potential',
           'budget_forecast'
         )
@@ -583,7 +518,7 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
 
         json = JSON.parse(response.body)
         bottlenecks = json['data']['performance_analysis']['bottlenecks']
-        expect(bottlenecks).to include('slow_workflows', 'recommendations')
+        expect(bottlenecks).to include('recommendations')
       end
     end
   end
@@ -642,9 +577,8 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       end
 
       it 'includes recommendation details' do
-        # Create expensive workflow to trigger recommendation
-        expensive_workflow = create(:ai_workflow, account: account)
-        create_list(:ai_workflow_run, 10, workflow: expensive_workflow, status: 'completed', total_cost: 15.0)
+        # Create expensive executions to trigger recommendation
+        create_list(:ai_agent_execution, 10, :completed, account: account, cost_usd: 15.0)
 
         get :recommendations
 
@@ -659,63 +593,8 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
   end
 
   # =============================================================================
-  # WORKFLOW & AGENT ANALYTICS
+  # AGENT ANALYTICS
   # =============================================================================
-
-  describe 'GET #workflow_analytics' do
-    context 'with valid permissions' do
-      before { sign_in analytics_read_user }
-
-      it 'returns workflow-specific analytics' do
-        get :workflow_analytics, params: { workflow_id: workflow.id }
-
-        expect(response).to have_http_status(:success)
-        json = JSON.parse(response.body)
-        expect(json['success']).to be true
-        expect(json['data']['workflow_analytics']).to include(
-          'workflow',
-          'runs',
-          'performance',
-          'costs',
-          'success_rate',
-          'average_duration'
-        )
-      end
-
-      it 'includes workflow summary' do
-        get :workflow_analytics, params: { workflow_id: workflow.id }
-
-        json = JSON.parse(response.body)
-        workflow_data = json['data']['workflow_analytics']['workflow']
-        expect(workflow_data['id']).to eq(workflow.id)
-        expect(workflow_data['name']).to eq('Test Workflow')
-      end
-
-      it 'calculates success rate' do
-        get :workflow_analytics, params: { workflow_id: workflow.id }
-
-        json = JSON.parse(response.body)
-        success_rate = json['data']['workflow_analytics']['success_rate']
-        expect(success_rate).to be_a(Float)
-      end
-
-      it 'returns not found for nonexistent workflow' do
-        get :workflow_analytics, params: { workflow_id: 'nonexistent' }
-
-        expect(response).to have_http_status(:not_found)
-        json = JSON.parse(response.body)
-        expect(json['error']).to include('not found')
-      end
-
-      it 'prevents access to other account workflows' do
-        other_workflow = create(:ai_workflow)
-
-        get :workflow_analytics, params: { workflow_id: other_workflow.id }
-
-        expect(response).to have_http_status(:not_found)
-      end
-    end
-  end
 
   describe 'GET #agent_analytics' do
     context 'with valid permissions' do

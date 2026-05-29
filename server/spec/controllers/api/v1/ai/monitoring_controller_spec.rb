@@ -31,7 +31,6 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
     allow_any_instance_of(Monitoring::UnifiedService).to receive(:get_system_overview).and_return({
       total_providers: 2,
-      total_workflows: 3,
       total_agents: 5
     })
 
@@ -291,7 +290,6 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
           'database',
           'redis',
           'providers',
-          'workflows',
           'agents',
           'workers'
         )

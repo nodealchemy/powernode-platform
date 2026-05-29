@@ -95,7 +95,7 @@ FactoryBot.define do
 
     trait :timeout_adjustment do
       recommendation_type { "timeout_adjustment" }
-      target_type { "Ai::Workflow" }
+      target_type { "Ai::Agent" }
       current_config do
         {
           "timeout_ms" => 30000,
@@ -145,7 +145,7 @@ FactoryBot.define do
 
     trait :cost_optimization do
       recommendation_type { "cost_optimization" }
-      target_type { "Ai::Workflow" }
+      target_type { "Ai::Agent" }
       current_config do
         {
           "monthly_cost" => 500.00,

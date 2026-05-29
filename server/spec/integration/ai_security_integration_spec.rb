@@ -427,7 +427,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       })
 
       allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_highlights).and_return({
-        top_workflows: [], top_agents: [], recent_failures: [], cost_leaders: []
+        top_agents: [], recent_failures: [], cost_leaders: []
       })
 
       allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_quick_stats).and_return({

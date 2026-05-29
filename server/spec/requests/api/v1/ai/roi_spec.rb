@@ -126,21 +126,6 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/roi/by_workflow' do
-    context 'with proper permissions' do
-      it 'returns ROI by workflow' do
-        workflow_data = [ { workflow_id: 'w1', roi: 2.0 } ]
-        allow(roi_service).to receive(:roi_by_workflow).and_return(workflow_data)
-
-        get '/api/v1/ai/roi/by_workflow', headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['workflows']).to eq(workflow_data.map(&:deep_stringify_keys))
-      end
-    end
-  end
-
   describe 'GET /api/v1/ai/roi/by_agent' do
     context 'with proper permissions' do
       it 'returns ROI by agent' do

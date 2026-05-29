@@ -12,23 +12,8 @@ RSpec.describe Ai::Analytics::MetricsService do
 
       expect(result).to be_a(Hash)
       expect(result.keys).to contain_exactly(
-        :workflows, :agents, :providers, :executions, :performance
+        :agents, :providers, :executions, :performance
       )
-    end
-  end
-
-  describe "#workflow_metrics" do
-    context "with no data" do
-      it "returns zero counts" do
-        result = service.workflow_metrics
-
-        expect(result[:total_workflows]).to eq(0)
-        expect(result[:active_workflows]).to eq(0)
-        expect(result[:total_executions]).to eq(0)
-        expect(result[:successful_executions]).to eq(0)
-        expect(result[:failed_executions]).to eq(0)
-        expect(result[:success_rate]).to be_nil
-      end
     end
   end
 

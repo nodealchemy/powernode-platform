@@ -31,11 +31,6 @@ FactoryBot.define do
     attributable_id { nil }
     metadata { {} }
 
-    trait :workflow do
-      metric_type { "workflow" }
-      attributable_type { "Ai::Workflow" }
-    end
-
     trait :agent do
       metric_type { "agent" }
       attributable_type { "Ai::Agent" }

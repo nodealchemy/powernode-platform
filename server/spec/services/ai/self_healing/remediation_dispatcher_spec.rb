@@ -13,7 +13,7 @@ RSpec.describe Ai::SelfHealing::RemediationDispatcher, type: :service do
   end
 
   describe '.dispatch' do
-    let(:trigger_source) { 'Ai::WorkflowRun' }
+    let(:trigger_source) { 'agent_execution' }
     let(:trigger_event) { 'circuit_breaker_opened' }
     let(:context) { { service_type: 'provider', provider_id: SecureRandom.uuid } }
 
@@ -114,49 +114,6 @@ RSpec.describe Ai::SelfHealing::RemediationDispatcher, type: :service do
             end
           end
 
-          context 'workflow_node_failed with transient error' do
-            it 'determines workflow_retry action for Timeout::Error' do
-              expect(Ai::RemediationLog).to receive(:create!).with(
-                hash_including(action_type: 'workflow_retry')
-              )
-
-              described_class.dispatch(
-                account: account,
-                trigger_source: trigger_source,
-                trigger_event: 'workflow_node_failed',
-                context: { error_class: 'Timeout::Error', execution_id: SecureRandom.uuid }
-              )
-            end
-
-            it 'determines workflow_retry action for Faraday::TimeoutError' do
-              expect(Ai::RemediationLog).to receive(:create!).with(
-                hash_including(action_type: 'workflow_retry')
-              )
-
-              described_class.dispatch(
-                account: account,
-                trigger_source: trigger_source,
-                trigger_event: 'workflow_node_failed',
-                context: { error_class: 'Faraday::TimeoutError', execution_id: SecureRandom.uuid }
-              )
-            end
-          end
-
-          context 'workflow_node_failed with non-transient error' do
-            it 'determines alert_escalation action' do
-              expect(Ai::RemediationLog).to receive(:create!).with(
-                hash_including(action_type: 'alert_escalation')
-              )
-
-              described_class.dispatch(
-                account: account,
-                trigger_source: trigger_source,
-                trigger_event: 'workflow_node_failed',
-                context: { error_class: 'ArgumentError' }
-              )
-            end
-          end
-
           context 'repeated_failures event' do
             it 'determines alert_escalation action' do
               expect(Ai::RemediationLog).to receive(:create!).with(
@@ -168,21 +125,6 @@ RSpec.describe Ai::SelfHealing::RemediationDispatcher, type: :service do
                 trigger_source: trigger_source,
                 trigger_event: 'repeated_failures',
                 context: {}
-              )
-            end
-          end
-
-          context 'stuck_execution event' do
-            it 'determines workflow_retry action' do
-              expect(Ai::RemediationLog).to receive(:create!).with(
-                hash_including(action_type: 'workflow_retry')
-              )
-
-              described_class.dispatch(
-                account: account,
-                trigger_source: trigger_source,
-                trigger_event: 'stuck_execution',
-                context: { execution_id: SecureRandom.uuid }
               )
             end
           end
@@ -235,63 +177,6 @@ RSpec.describe Ai::SelfHealing::RemediationDispatcher, type: :service do
               trigger_source: trigger_source,
               trigger_event: 'circuit_breaker_opened',
               context: { service_type: 'provider', provider_id: SecureRandom.uuid }
-            )
-          end
-        end
-
-        describe 'workflow retry execution' do
-          it 'skips when no execution_id is specified' do
-            expect(Ai::RemediationLog).to receive(:create!).with(
-              hash_including(result: 'skipped', result_message: 'No execution specified')
-            )
-
-            described_class.dispatch(
-              account: account,
-              trigger_source: trigger_source,
-              trigger_event: 'stuck_execution',
-              context: {}
-            )
-          end
-
-          it 'calls WorkflowRecoveryService with the execution_id' do
-            execution_id = SecureRandom.uuid
-            workflow_run = double('WorkflowRun', id: execution_id)
-            allow(Ai::WorkflowRun).to receive(:find_by).with(id: execution_id).and_return(workflow_run)
-
-            recovery_mock = double('WorkflowRecoveryService')
-            allow(Ai::WorkflowRecoveryService).to receive(:new).and_return(recovery_mock)
-            allow(recovery_mock).to receive(:attempt_retry).with(execution_id)
-
-            expect(Ai::RemediationLog).to receive(:create!).with(
-              hash_including(result: 'success')
-            )
-
-            described_class.dispatch(
-              account: account,
-              trigger_source: trigger_source,
-              trigger_event: 'stuck_execution',
-              context: { execution_id: execution_id }
-            )
-          end
-
-          it 'handles WorkflowRecoveryService failures' do
-            execution_id = SecureRandom.uuid
-            workflow_run = double('WorkflowRun', id: execution_id)
-            allow(Ai::WorkflowRun).to receive(:find_by).with(id: execution_id).and_return(workflow_run)
-
-            recovery_mock = double('WorkflowRecoveryService')
-            allow(Ai::WorkflowRecoveryService).to receive(:new).and_return(recovery_mock)
-            allow(recovery_mock).to receive(:attempt_retry).and_raise(StandardError, 'Recovery failed')
-
-            expect(Ai::RemediationLog).to receive(:create!).with(
-              hash_including(result: 'failure', result_message: 'Retry failed: Recovery failed')
-            )
-
-            described_class.dispatch(
-              account: account,
-              trigger_source: trigger_source,
-              trigger_event: 'stuck_execution',
-              context: { execution_id: execution_id }
             )
           end
         end
@@ -412,55 +297,4 @@ RSpec.describe Ai::SelfHealing::RemediationDispatcher, type: :service do
     end
   end
 
-  describe 'transient error detection' do
-    before do
-      allow(Shared::FeatureFlagService).to receive(:enabled?).with(:self_healing_remediation).and_return(true)
-      allow(Ai::RemediationLog).to receive(:hourly_count).and_return(0)
-    end
-
-    %w[
-      Timeout::Error Net::ReadTimeout Net::OpenTimeout
-      Faraday::TimeoutError Faraday::ConnectionFailed
-      HTTP::TimeoutError HTTP::ConnectionError
-    ].each do |error_class|
-      it "recognizes #{error_class} as a transient error and triggers workflow_retry" do
-        expect(Ai::RemediationLog).to receive(:create!).with(
-          hash_including(action_type: 'workflow_retry')
-        )
-
-        described_class.dispatch(
-          account: account,
-          trigger_source: 'Ai::WorkflowRun',
-          trigger_event: 'workflow_node_failed',
-          context: { error_class: error_class, execution_id: SecureRandom.uuid }
-        )
-      end
-    end
-
-    it 'does not recognize non-transient errors as transient' do
-      expect(Ai::RemediationLog).to receive(:create!).with(
-        hash_including(action_type: 'alert_escalation')
-      )
-
-      described_class.dispatch(
-        account: account,
-        trigger_source: 'Ai::WorkflowRun',
-        trigger_event: 'workflow_node_failed',
-        context: { error_class: 'NoMethodError' }
-      )
-    end
-
-    it 'does not recognize nil error_class as transient' do
-      expect(Ai::RemediationLog).to receive(:create!).with(
-        hash_including(action_type: 'alert_escalation')
-      )
-
-      described_class.dispatch(
-        account: account,
-        trigger_source: 'Ai::WorkflowRun',
-        trigger_event: 'workflow_node_failed',
-        context: { error_class: nil }
-      )
-    end
-  end
 end

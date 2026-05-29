@@ -73,10 +73,6 @@ FactoryBot.define do
       source_type { "Ai::Agent" }
     end
 
-    trait :from_workflow do
-      source_type { "Ai::Workflow" }
-    end
-
     trait :from_team_execution do
       source_type { "Ai::TeamExecution" }
     end

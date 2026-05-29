@@ -68,11 +68,6 @@ FactoryBot.define do
       resource_type { "Ai::Agent" }
     end
 
-    trait :workflow_run do
-      action_type { "workflow_run" }
-      resource_type { "Ai::Workflow" }
-    end
-
     trait :data_access do
       action_type { "data_access" }
       resource_type { "Ai::DataClassification" }

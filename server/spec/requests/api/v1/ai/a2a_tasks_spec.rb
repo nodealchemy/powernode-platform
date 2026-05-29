@@ -86,17 +86,6 @@ RSpec.describe 'Api::V1::Ai::A2aTasks', type: :request do
         expect_success_response
       end
 
-      it 'filters by workflow_run_id' do
-        workflow_run = create(:ai_workflow_run, account: account)
-        create(:ai_a2a_task, :with_workflow_run, workflow_run: workflow_run, account: account)
-
-        get "/api/v1/ai/a2a/tasks?workflow_run_id=#{workflow_run.id}",
-            headers: headers,
-            as: :json
-
-        expect_success_response
-      end
-
       it 'filters by since timestamp' do
         old_task = create(:ai_a2a_task, account: account, created_at: 2.days.ago)
         create(:ai_a2a_task, account: account, created_at: 1.hour.ago)

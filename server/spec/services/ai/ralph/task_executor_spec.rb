@@ -149,37 +149,6 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
       end
     end
 
-    context 'with workflow execution type' do
-      let(:workflow) { create(:ai_workflow, account: account, status: "active") }
-      let(:workflow_run) { double("WorkflowRun", id: SecureRandom.uuid) }
-      let(:runs_relation) { double("runs") }
-
-      before do
-        task.update!(execution_type: "workflow")
-        allow(task).to receive(:executor).and_return(nil)
-        allow(task).to receive(:find_matching_executor).and_return(workflow)
-        allow(ralph_loop).to receive(:default_agent).and_return(nil)
-        allow(task).to receive(:record_execution_attempt!)
-        allow(task).to receive(:update!)
-        allow(WorkerJobService).to receive(:enqueue_ai_workflow_execution)
-        # Stub workflow.runs.create! because the service passes `triggered_by:`
-        # which doesn't match the model's `triggered_by_user` association
-        allow(workflow).to receive(:runs).and_return(runs_relation)
-        allow(runs_relation).to receive(:create!).and_return(workflow_run)
-        # RalphLoop doesn't have `created_by` method - service bug
-        without_partial_double_verification do
-          allow(ralph_loop).to receive(:created_by).and_return(user)
-        end
-      end
-
-      it 'creates a workflow run and queues execution' do
-        result = executor.execute
-
-        expect(result[:success]).to be true
-        expect(result[:executor_type]).to eq("workflow")
-        expect(result[:message]).to include("Workflow execution queued")
-      end
-    end
 
     context 'with unknown execution type' do
       before do

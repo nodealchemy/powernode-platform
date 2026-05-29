@@ -231,19 +231,19 @@ RSpec.describe Ai::Memory::WorkingMemoryService, type: :service do
     end
   end
 
-  describe 'with workflow context' do
-    let(:workflow_run) { create(:ai_workflow_run, account: account) }
-    let(:workflow_service) do
-      described_class.new(agent: agent, account: account, workflow_run: workflow_run)
+  describe 'with mission context' do
+    let(:mission) { create(:ai_mission, account: account) }
+    let(:mission_service) do
+      described_class.new(agent: agent, account: account, mission: mission)
     end
 
-    before { workflow_service.clear }
+    before { mission_service.clear }
 
-    it 'isolates memory by workflow run' do
-      workflow_service.store('workflow_key', 'workflow_value')
+    it 'isolates memory by mission' do
+      mission_service.store('mission_key', 'mission_value')
 
-      expect(workflow_service.retrieve('workflow_key')).to eq('workflow_value')
-      expect(service.retrieve('workflow_key')).to be_nil
+      expect(mission_service.retrieve('mission_key')).to eq('mission_value')
+      expect(service.retrieve('mission_key')).to be_nil
     end
   end
 

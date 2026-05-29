@@ -591,12 +591,11 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
       expect(json_response["result"]["resources"]).to be_an(Array)
     end
 
-    it "includes KB articles, agents, workflows, and prompts" do
+    it "includes KB articles, agents, and prompts" do
       # Create resources
       category = create(:kb_category)
       create(:kb_article, :published, category: category, author: user)
       create(:ai_agent, account: account, status: "active")
-      create(:ai_workflow, :active, account: account, creator: user)
       create(:shared_prompt_template, account: account, created_by: user)
 
       post mcp_endpoint,
@@ -608,7 +607,6 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
 
       expect(uris.any? { |u| u.start_with?("powernode://kb/articles/") }).to be true
       expect(uris.any? { |u| u.start_with?("powernode://ai/agents/") }).to be true
-      expect(uris.any? { |u| u.start_with?("powernode://ai/workflows/") }).to be true
       expect(uris.any? { |u| u.start_with?("powernode://ai/prompts/") }).to be true
     end
 

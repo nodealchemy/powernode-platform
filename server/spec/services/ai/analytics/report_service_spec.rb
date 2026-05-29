@@ -7,13 +7,11 @@ RSpec.describe Ai::Analytics::ReportService do
   let(:user) { create(:user, account: account) }
   let(:service) { described_class.new(account: account, user: user, time_range: 30.days) }
 
-  let(:workflow) { create(:ai_workflow, :active, account: account) }
-
   describe "REPORT_TYPES" do
     it "defines the expected report types" do
       expect(described_class::REPORT_TYPES).to contain_exactly(
         "executive_summary", "cost_analysis", "performance_analysis",
-        "workflow_analysis", "agent_analysis", "custom"
+        "agent_analysis", "custom"
       )
     end
   end
@@ -33,7 +31,7 @@ RSpec.describe Ai::Analytics::ReportService do
       before do
         # Create some data so sub-services have something to work with
         3.times do
-          create(:ai_workflow_run, :completed, workflow: workflow)
+          create(:ai_agent_execution, :completed, account: account)
         end
 
         # Stub MetricsService to avoid hitting columns that may not exist (e.g. execution_time_ms)
@@ -44,10 +42,6 @@ RSpec.describe Ai::Analytics::ReportService do
           total_tokens_used: 0, total_cost: 0.0
         })
         allow(mock_metrics_service).to receive(:agent_specific_metrics).and_return({})
-        allow(mock_metrics_service).to receive(:workflow_metrics).and_return({
-          total_workflows: 1, active_workflows: 1, total_executions: 3
-        })
-        allow(mock_metrics_service).to receive(:workflow_specific_metrics).and_return({})
       end
 
       described_class::REPORT_TYPES.each do |report_type|
@@ -76,7 +70,7 @@ RSpec.describe Ai::Analytics::ReportService do
 
     context "executive_summary report" do
       before do
-        3.times { create(:ai_workflow_run, :completed, workflow: workflow) }
+        3.times { create(:ai_agent_execution, :completed, account: account) }
       end
 
       it "includes expected sections" do
@@ -85,14 +79,14 @@ RSpec.describe Ai::Analytics::ReportService do
 
         expect(data).to include(:title, :highlights, :kpis, :trends,
                                 :cost_summary, :performance_summary,
-                                :top_workflows, :recent_issues)
+                                :recent_issues)
         expect(data[:title]).to eq("Executive Summary Report")
       end
     end
 
     context "cost_analysis report" do
       before do
-        3.times { create(:ai_workflow_run, :completed, workflow: workflow) }
+        3.times { create(:ai_agent_execution, :completed, account: account) }
       end
 
       it "includes cost sections" do
@@ -100,14 +94,14 @@ RSpec.describe Ai::Analytics::ReportService do
         data = result[:data]
 
         expect(data).to include(:title, :total_cost, :cost_trend,
-                                :cost_by_provider, :cost_by_workflow)
+                                :cost_by_provider)
         expect(data[:title]).to eq("Cost Analysis Report")
       end
     end
 
     context "performance_analysis report" do
       before do
-        3.times { create(:ai_workflow_run, :completed, workflow: workflow) }
+        3.times { create(:ai_agent_execution, :completed, account: account) }
       end
 
       it "includes performance sections" do
@@ -118,28 +112,6 @@ RSpec.describe Ai::Analytics::ReportService do
                                 :throughput, :error_rates, :bottlenecks,
                                 :sla_compliance, :trends)
         expect(data[:title]).to eq("Performance Analysis Report")
-      end
-    end
-
-    context "workflow_analysis report" do
-      before do
-        3.times { create(:ai_workflow_run, :completed, workflow: workflow) }
-      end
-
-      it "includes workflow sections" do
-        result = service.generate(type: :workflow_analysis)
-        data = result[:data]
-
-        expect(data).to include(:title, :summary, :top_performers,
-                                :needs_attention, :execution_trends)
-        expect(data[:title]).to eq("Workflow Analysis Report")
-      end
-
-      it "supports workflow_ids option" do
-        result = service.generate(type: :workflow_analysis, options: { workflow_ids: [workflow.id] })
-        data = result[:data]
-
-        expect(data[:workflow_details]).to be_an(Array)
       end
     end
 
@@ -177,7 +149,7 @@ RSpec.describe Ai::Analytics::ReportService do
 
     context "custom report" do
       before do
-        3.times { create(:ai_workflow_run, :completed, workflow: workflow) }
+        3.times { create(:ai_agent_execution, :completed, account: account) }
       end
 
       it "generates report with specified sections" do

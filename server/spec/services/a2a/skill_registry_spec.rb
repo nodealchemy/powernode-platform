@@ -11,25 +11,12 @@ RSpec.describe A2a::SkillRegistry do
       expect(skills).not_to be_empty
     end
 
-    it "includes workflow skills" do
-      workflow_skills = skills.select { |s| s[:category] == "workflows" }
-      expect(workflow_skills).not_to be_empty
-
-      skill_ids = workflow_skills.map { |s| s[:id] }
-      expect(skill_ids).to include("workflows.list", "workflows.execute")
-    end
-
     it "includes agent skills" do
       agent_skills = skills.select { |s| s[:category] == "agents" }
       expect(agent_skills).not_to be_empty
 
       skill_ids = agent_skills.map { |s| s[:id] }
       expect(skill_ids).to include("agents.list", "agents.execute")
-    end
-
-    it "includes devops skills" do
-      devops_skills = skills.select { |s| s[:category] == "devops" }
-      expect(devops_skills).not_to be_empty
     end
 
     it "includes memory skills" do
@@ -60,10 +47,10 @@ RSpec.describe A2a::SkillRegistry do
 
   describe ".find_skill" do
     it "finds skill by id" do
-      skill = described_class.find_skill("workflows.list")
+      skill = described_class.find_skill("agents.list")
 
       expect(skill).to be_present
-      expect(skill[:name]).to eq("List Workflows")
+      expect(skill[:name]).to eq("List Agents")
     end
 
     it "returns nil for unknown skill" do
@@ -74,10 +61,10 @@ RSpec.describe A2a::SkillRegistry do
 
   describe ".skills_by_category" do
     it "returns skills in a category" do
-      skills = described_class.skills_by_category("workflows")
+      skills = described_class.skills_by_category("agents")
 
       expect(skills).not_to be_empty
-      expect(skills.all? { |s| s[:category] == "workflows" }).to be true
+      expect(skills.all? { |s| s[:category] == "agents" }).to be true
     end
 
     it "returns empty array for unknown category" do

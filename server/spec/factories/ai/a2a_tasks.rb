@@ -44,10 +44,6 @@ FactoryBot.define do
       started_at { Time.current }
     end
 
-    trait :with_workflow_run do
-      association :workflow_run, factory: :ai_workflow_run
-    end
-
     trait :with_artifacts do
       artifacts do
         [
