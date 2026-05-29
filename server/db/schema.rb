@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_28_120100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -3400,6 +3400,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
     t.integer "graph_depth", default: 2
     t.uuid "knowledge_base_id", null: false
     t.jsonb "metadata", default: {}
+    t.uuid "mission_id"
     t.vector "query_embedding", limit: 1536
     t.float "query_latency_ms"
     t.text "query_text", null: false
@@ -3412,11 +3413,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
     t.integer "top_k", default: 5
     t.datetime "updated_at", null: false
     t.uuid "user_id"
-    t.uuid "workflow_run_id"
     t.index ["account_id", "created_at"], name: "index_ai_rag_queries_on_account_id_and_created_at"
     t.index ["account_id"], name: "index_ai_rag_queries_on_account_id"
     t.index ["knowledge_base_id", "created_at"], name: "index_ai_rag_queries_on_knowledge_base_id_and_created_at"
     t.index ["knowledge_base_id"], name: "index_ai_rag_queries_on_knowledge_base_id"
+    t.index ["mission_id"], name: "index_ai_rag_queries_on_mission_id"
     t.index ["query_embedding"], name: "idx_rag_queries_embedding", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["status"], name: "index_ai_rag_queries_on_status"
     t.index ["user_id"], name: "index_ai_rag_queries_on_user_id"
@@ -4252,6 +4253,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
     t.jsonb "input_context", default: {}
     t.integer "messages_exchanged", default: 0
     t.jsonb "metadata", default: {}
+    t.uuid "mission_id"
     t.text "objective"
     t.jsonb "output_result", default: {}
     t.datetime "paused_at"
@@ -4269,7 +4271,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
     t.integer "total_tokens_used", default: 0
     t.uuid "triggered_by_id"
     t.datetime "updated_at", null: false
-    t.uuid "workflow_run_id"
     t.index ["account_id", "status"], name: "index_ai_team_executions_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_team_executions_on_account_id"
     t.index ["agent_team_id", "created_at"], name: "index_ai_team_executions_on_agent_team_id_and_created_at"
@@ -4277,6 +4278,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
     t.index ["ai_conversation_id"], name: "index_ai_team_executions_on_ai_conversation_id"
     t.index ["control_signal"], name: "index_ai_team_executions_on_control_signal"
     t.index ["execution_id"], name: "index_ai_team_executions_on_execution_id", unique: true
+    t.index ["mission_id"], name: "index_ai_team_executions_on_mission_id"
     t.index ["started_at"], name: "index_ai_team_executions_on_started_at"
     t.index ["triggered_by_id"], name: "index_ai_team_executions_on_triggered_by_id"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'paused'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying, 'awaiting_approval'::character varying]::text[])", name: "check_team_execution_status"
@@ -13543,6 +13545,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
   add_foreign_key "ai_quarantine_records", "accounts"
   add_foreign_key "ai_rag_queries", "accounts"
   add_foreign_key "ai_rag_queries", "ai_knowledge_bases", column: "knowledge_base_id"
+  add_foreign_key "ai_rag_queries", "ai_missions", column: "mission_id"
   add_foreign_key "ai_rag_queries", "users"
   add_foreign_key "ai_ralph_iterations", "ai_ralph_loops", column: "ralph_loop_id"
   add_foreign_key "ai_ralph_iterations", "ai_ralph_tasks", column: "ralph_task_id"
@@ -13627,6 +13630,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_120000) do
   add_foreign_key "ai_team_executions", "accounts"
   add_foreign_key "ai_team_executions", "ai_agent_teams", column: "agent_team_id"
   add_foreign_key "ai_team_executions", "ai_conversations"
+  add_foreign_key "ai_team_executions", "ai_missions", column: "mission_id"
   add_foreign_key "ai_team_executions", "users", column: "approval_decided_by_id"
   add_foreign_key "ai_team_executions", "users", column: "triggered_by_id"
   add_foreign_key "ai_team_messages", "ai_team_channels", column: "channel_id"
