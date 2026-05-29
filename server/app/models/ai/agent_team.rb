@@ -60,15 +60,6 @@ module Ai
     # Public Methods
     # ==========================================
 
-    # Execute team with given input
-    def execute(input:, user:)
-      raise ArgumentError, "Team must be active" unless active?
-      raise ArgumentError, "Team must have at least one member" if members.empty?
-
-      orchestrator = Ai::AgentTeamOrchestrator.new(team: self, user: user)
-      orchestrator.execute(input: input)
-    end
-
     # Get team lead member (if any)
     def team_lead
       members.find_by(is_lead: true)

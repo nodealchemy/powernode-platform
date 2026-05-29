@@ -10,6 +10,7 @@ module Ai
     belongs_to :account
     belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase", foreign_key: "knowledge_base_id"
     belongs_to :user, optional: true
+    belongs_to :mission, class_name: "Ai::Mission", foreign_key: "mission_id", optional: true
 
     # Validations
     validates :query_text, presence: true

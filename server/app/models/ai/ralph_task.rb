@@ -10,7 +10,7 @@ module Ai
     TERMINAL_STATUSES = %w[passed failed skipped].freeze
 
     # Execution type enumeration - determines which type of executor handles this task
-    EXECUTION_TYPES = %w[agent workflow pipeline a2a_task container human community].freeze
+    EXECUTION_TYPES = %w[agent pipeline a2a_task container human community].freeze
 
     # Capability match strategies for executor selection
     CAPABILITY_STRATEGIES = %w[all any weighted].freeze

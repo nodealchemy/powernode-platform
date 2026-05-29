@@ -12,6 +12,7 @@ module Ai
     belongs_to :triggered_by, class_name: "User", foreign_key: "triggered_by_id", optional: true
     belongs_to :conversation, class_name: "Ai::Conversation", foreign_key: "ai_conversation_id", optional: true
     belongs_to :approval_decided_by, class_name: "User", foreign_key: "approval_decided_by_id", optional: true
+    belongs_to :mission, class_name: "Ai::Mission", foreign_key: "mission_id", optional: true
 
     has_many :tasks, class_name: "Ai::TeamTask", foreign_key: :team_execution_id, dependent: :destroy
     has_many :messages, class_name: "Ai::TeamMessage", foreign_key: :team_execution_id, dependent: :destroy
