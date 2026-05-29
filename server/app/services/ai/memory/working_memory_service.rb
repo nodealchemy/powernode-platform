@@ -9,11 +9,11 @@ module Ai
       DEFAULT_TTL = 1.hour
       MAX_TTL = 24.hours
 
-      def initialize(agent:, account:, task: nil, workflow_run: nil)
+      def initialize(agent:, account:, task: nil, mission: nil)
         @agent = agent
         @account = account
         @task = task
-        @workflow_run = workflow_run
+        @mission = mission
         @redis = redis_client
       end
 
@@ -147,25 +147,25 @@ module Ai
         store_scratch_pad("#{existing}\n\n#{content}")
       end
 
-      # ==================== Workflow Integration ====================
+      # ==================== Mission Integration ====================
 
-      # Get working memory for entire workflow run
-      def workflow_memory
-        return {} unless @workflow_run
+      # Get working memory for an entire mission
+      def mission_memory
+        return {} unless @mission
 
         WorkingMemoryService.new(
           agent: @agent,
           account: @account,
-          workflow_run: @workflow_run
+          mission: @mission
         ).all
       end
 
-      # Share memory between agents in a workflow
+      # Share memory between agents in a mission
       def share_with_agent(target_agent, key, value, ttl: DEFAULT_TTL)
         target_service = WorkingMemoryService.new(
           agent: target_agent,
           account: @account,
-          workflow_run: @workflow_run
+          mission: @mission
         )
 
         target_service.store("shared:#{@agent.id}:#{key}", value, ttl: ttl)
@@ -230,7 +230,7 @@ module Ai
           context_id: context_id,
           agent_id: @agent.id,
           task_id: @task&.task_id,
-          workflow_run_id: @workflow_run&.run_id
+          mission_id: @mission&.id
         }
       end
 
@@ -251,7 +251,7 @@ module Ai
       def context_id
         @context_id ||= begin
           parts = [ @account.id, @agent.id ]
-          parts << @workflow_run.id if @workflow_run
+          parts << @mission.id if @mission
           parts << @task.id if @task
           parts.join(":")
         end

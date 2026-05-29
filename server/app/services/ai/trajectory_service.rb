@@ -13,7 +13,6 @@ module Ai
       trajectory = Ai::Trajectory.create!(
         account: account,
         team_execution_id: team_execution.id,
-        workflow_run_id: team_execution.workflow_run_id,
         title: "Execution: #{team_execution.objective || 'Team Task'}",
         status: "building",
         trajectory_type: "task_completion",

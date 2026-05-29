@@ -259,7 +259,7 @@ module Ai
         def calculate_experiential_confidence(context)
           base = 0.5
           base += 0.1 if context["task_id"].present?
-          base += 0.1 if context["workflow_run_id"].present?
+          base += 0.1 if context["mission_id"].present?
           base += 0.1 if context["duration_ms"].present?
           base += 0.1 if context["from_agent_id"].present?
           [base, 1.0].min

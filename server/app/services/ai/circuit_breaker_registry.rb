@@ -144,17 +144,6 @@ class Ai::CircuitBreakerRegistry
       protect(service_name: service_name, config: config, &block)
     end
 
-    def execute_node_with_protection(node_execution, &block)
-      service_name = determine_service_name(node_execution)
-      config = extract_circuit_breaker_config(node_execution)
-      protect(service_name: service_name, config: config, &block)
-    rescue CircuitBreakerCore::CircuitOpenError => e
-      handle_circuit_open_error(node_execution, service_name, e)
-    rescue StandardError => e
-      Rails.logger.error "[CircuitBreakerRegistry] Error executing node with protection: #{e.message}"
-      raise
-    end
-
     def monitor_and_alert
       summary = health_summary
 
@@ -204,76 +193,6 @@ class Ai::CircuitBreakerRegistry
       )
     rescue StandardError => e
       Rails.logger.error "[CircuitBreakerRegistry] Failed to broadcast: #{e.message}"
-    end
-
-    def determine_service_name(node_execution)
-      node = node_execution.node
-      case node.node_type
-      when "ai_agent"
-        agent_id = node.configuration["agent_id"]
-        agent = Ai::Agent.find_by(id: agent_id)
-        provider = agent&.provider&.provider_type || "unknown_ai_provider"
-        "provider:#{provider}"
-      when "api_call"
-        domain = begin
-          URI.parse(node.configuration["url"]).host || "unknown"
-        rescue StandardError
-          "unknown"
-        end
-        "external_api:#{domain}"
-      when "webhook"
-        "webhook:#{node.configuration['webhook_name']}"
-      else
-        "workflow_node:#{node.node_type}"
-      end
-    end
-
-    def extract_circuit_breaker_config(node_execution)
-      node = node_execution.node
-      workflow = node_execution.workflow_run.workflow
-      node_config = node.configuration["circuit_breaker"] || {}
-      workflow_config = workflow.configuration["circuit_breaker"] || {}
-      workflow_config.merge(node_config).symbolize_keys
-    end
-
-    def handle_circuit_open_error(node_execution, service_name, error)
-      Rails.logger.error "[CircuitBreakerRegistry] Circuit open for #{service_name}: #{error.message}"
-
-      node_execution.update(
-        status: "failed",
-        error_type: "circuit_breaker_open",
-        error_details: {
-          message: error.message,
-          service: service_name,
-          circuit_state: "open",
-          timestamp: Time.current.iso8601
-        }
-      )
-
-      workflow_run = node_execution.workflow_run
-      config = workflow_run.workflow.configuration["circuit_breaker"] || {}
-      if config["pause_on_open"] != false
-        workflow_run.with_lock do
-          workflow_run.reload
-          return if %w[completed failed cancelled].include?(workflow_run.status)
-
-          workflow_run.update!(
-            status: "paused",
-            metadata: (workflow_run.metadata || {}).merge(
-              "paused_reason" => "circuit_breaker_open",
-              "paused_service" => service_name,
-              "paused_at" => Time.current.iso8601
-            )
-          )
-        end
-
-        ActionCable.server.broadcast(
-          "ai_workflow_run_#{workflow_run.run_id}",
-          { type: "workflow_paused", reason: "circuit_breaker_open", service: service_name, timestamp: Time.current.iso8601 }
-        )
-      end
-
-      raise error
     end
 
     def alert_unhealthy_services(summary)

@@ -52,11 +52,6 @@ module Ai
           end.sort_by { |a| -a[:total_cost] }
         end
 
-        # Cost breakdown by workflow (stub - workflows have been removed)
-        def cost_breakdown_by_workflow
-          []
-        end
-
         # Cost breakdown by model
         def cost_breakdown_by_model
           start_time = time_range.ago

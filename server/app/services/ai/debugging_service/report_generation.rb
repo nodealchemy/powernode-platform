@@ -172,23 +172,9 @@ class Ai::DebuggingService
       }
     end
 
-    def fetch_application_logs(execution)
-      # Fetch from workflow run logs if available
-      return [] unless execution.respond_to?(:workflow_run) && execution.workflow_run
-
-      execution.workflow_run.workflow_run_logs
-        .where(created_at: (execution.started_at || 1.hour.ago)..Time.current)
-        .order(created_at: :desc)
-        .limit(50)
-        .map do |log|
-          {
-            timestamp: log.created_at.iso8601,
-            level: log.log_level,
-            message: log.message,
-            context: log.context_data
-          }
-        end
-    rescue StandardError
+    def fetch_application_logs(_execution)
+      # Application logs were sourced from the removed Ai::WorkflowRun#workflow_run_logs.
+      # No mission-level equivalent exists yet; return empty until a new source is wired.
       []
     end
 

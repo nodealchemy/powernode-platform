@@ -151,7 +151,7 @@ module Ai
       { success: true, sandbox: sandbox }
     end
 
-    def record_interaction(sandbox:, interaction_type:, request_data:, response_data:, provider_type: nil, model_name: nil, workflow_run: nil, latency_ms: nil, tokens_input: 0, tokens_output: 0, cost: 0)
+    def record_interaction(sandbox:, interaction_type:, request_data:, response_data:, provider_type: nil, model_name: nil, latency_ms: nil, tokens_input: 0, tokens_output: 0, cost: 0)
       return unless sandbox.recording_enabled
 
       Ai::RecordedInteraction.record!(
@@ -160,19 +160,18 @@ module Ai
         interaction_type: interaction_type,
         provider_type: provider_type,
         model_name: model_name,
-        source_workflow_run: workflow_run,
         request_data: request_data,
         response_data: response_data,
         latency_ms: latency_ms,
         tokens_input: tokens_input,
         tokens_output: tokens_output,
         cost: cost,
-        sequence_number: next_sequence_number(sandbox, workflow_run)
+        sequence_number: next_sequence_number(sandbox)
       )
     end
 
-    def replay_recording(sandbox, workflow_run)
-      interactions = sandbox.recorded_interactions.for_workflow_run(workflow_run)
+    def replay_recording(sandbox)
+      interactions = sandbox.recorded_interactions.ordered
       interactions.map(&:replay_data)
     end
 
@@ -346,10 +345,8 @@ module Ai
       end
     end
 
-    def next_sequence_number(sandbox, workflow_run)
-      return nil unless workflow_run
-
-      max = sandbox.recorded_interactions.for_workflow_run(workflow_run).maximum(:sequence_number)
+    def next_sequence_number(sandbox)
+      max = sandbox.recorded_interactions.maximum(:sequence_number)
       (max || 0) + 1
     end
 

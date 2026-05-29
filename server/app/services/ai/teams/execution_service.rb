@@ -22,7 +22,7 @@ module Ai
           triggered_by: user,
           objective: params[:objective],
           input_context: params[:input_context] || {},
-          workflow_run_id: params[:workflow_run_id]
+          mission_id: params[:mission_id]
         )
 
         # Create initial tasks based on objective

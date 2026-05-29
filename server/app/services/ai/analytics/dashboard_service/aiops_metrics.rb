@@ -118,10 +118,6 @@ module Ai
 
         def ops_provider_comparison(ops_time_range: 1.hour) = ::Ai::ProviderMetric.provider_comparison(account, time_range: ops_time_range)
 
-        def ops_workflow_metrics(_ops_time_range = 1.hour)
-          []
-        end
-
         def ops_agent_metrics(ops_time_range = 1.hour)
           start_time = ops_time_range.ago
 

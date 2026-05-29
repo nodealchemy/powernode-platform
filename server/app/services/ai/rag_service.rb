@@ -180,7 +180,7 @@ module Ai
         top_k: params[:top_k] || 5,
         similarity_threshold: params[:threshold] || 0.7,
         filters: params[:filters] || {},
-        workflow_run_id: params[:workflow_run_id],
+        mission_id: params[:mission_id],
         agent_execution_id: params[:agent_execution_id]
       )
 

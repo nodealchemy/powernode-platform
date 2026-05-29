@@ -131,7 +131,6 @@ module Ai
           account: @account,
           routing_rule: matching_rule,
           selected_provider: provider,
-          workflow_run_id: request_context[:workflow_run_id],
           agent_execution_id: request_context[:agent_execution_id],
           request_type: request_context[:request_type] || "completion",
           request_metadata: request_context.except(:exclude_providers),

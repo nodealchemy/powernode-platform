@@ -25,37 +25,10 @@ module Ai
       # @return [Hash] All metrics
       def all_metrics
         {
-          workflows: workflow_metrics,
           agents: agent_metrics,
           providers: provider_metrics,
           executions: execution_metrics,
           performance: performance_metrics
-        }
-      end
-
-      # Get workflow-level metrics (now based on agent executions)
-      # @return [Hash] Execution metrics formerly tracked at workflow level
-      def workflow_metrics
-        start_time = time_range.ago
-        executions = agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
-
-        {
-          total_workflows: 0,
-          active_workflows: 0,
-          template_workflows: 0,
-          total_executions: executions.count,
-          successful_executions: executions.where(status: "completed").count,
-          failed_executions: executions.where(status: "failed").count,
-          cancelled_executions: executions.where(status: "cancelled").count,
-          success_rate: calculate_execution_success_rate(executions),
-          average_duration_ms: executions.where(status: "completed").average(:duration_ms)&.to_f&.round(2),
-          median_duration_ms: calculate_median_duration(executions),
-          p95_duration_ms: calculate_percentile_duration(executions, 95),
-          p99_duration_ms: calculate_percentile_duration(executions, 99),
-          total_cost: executions.sum(:cost_usd).to_f.round(6),
-          average_cost_per_execution: calculate_avg_execution_cost(executions),
-          executions_by_status: executions.group(:status).count,
-          executions_by_trigger: {}
         }
       end
 
@@ -144,26 +117,6 @@ module Ai
           },
           availability: calculate_availability(start_time),
           error_budget: calculate_error_budget(executions)
-        }
-      end
-
-      # Get metrics for a specific workflow (stub - workflows have been removed)
-      # @param workflow [Object] Workflow reference (ignored)
-      # @return [Hash] Empty workflow metrics
-      def workflow_specific_metrics(_workflow)
-        {
-          workflow_id: nil,
-          workflow_name: nil,
-          total_executions: 0,
-          successful_executions: 0,
-          failed_executions: 0,
-          success_rate: nil,
-          average_duration_ms: nil,
-          total_cost: 0,
-          average_cost_per_execution: nil,
-          node_performance: [],
-          execution_timeline: {},
-          trigger_distribution: {}
         }
       end
 

@@ -118,16 +118,15 @@ module Ai
         {
           title: "Executive Summary Report",
           highlights: [
-            "Total AI Executions: #{dashboard[:summary][:workflows][:executions]}",
-            "Success Rate: #{(dashboard[:summary][:workflows][:success_rate] || 0) * 100}%",
+            "Total AI Executions: #{dashboard[:summary][:agents][:executions]}",
+            "Success Rate: #{(dashboard[:summary][:agents][:success_rate] || 0) * 100}%",
             "Total Cost: $#{cost[:total]}",
-            "Active Workflows: #{dashboard[:summary][:workflows][:active]}"
+            "Active Agents: #{dashboard[:summary][:agents][:active]}"
           ],
           kpis: {
-            executions: dashboard[:summary][:workflows][:executions],
-            success_rate: dashboard[:summary][:workflows][:success_rate],
+            executions: dashboard[:summary][:agents][:executions],
+            success_rate: dashboard[:summary][:agents][:success_rate],
             total_cost: cost[:total],
-            active_workflows: dashboard[:summary][:workflows][:active],
             active_agents: dashboard[:summary][:agents][:active]
           },
           trends: dashboard[:trends],
@@ -139,7 +138,6 @@ module Ai
             response_times: performance.analyze_response_times.slice(:avg_ms, :p95_ms),
             success_rates: performance.analyze_success_rates.slice(:success_rate, :failure_rate)
           },
-          top_workflows: dashboard[:highlights][:top_workflows],
           recent_issues: dashboard[:highlights][:recent_failures]
         }
       end
@@ -152,7 +150,6 @@ module Ai
           total_cost: cost_service.calculate_total_cost,
           cost_trend: cost_service.calculate_cost_trend,
           cost_by_provider: cost_service.cost_breakdown_by_provider,
-          cost_by_workflow: cost_service.cost_breakdown_by_workflow,
           cost_by_model: cost_service.cost_breakdown_by_model,
           daily_costs: cost_service.daily_cost_breakdown,
           budget_status: cost_service.budget_analysis,
