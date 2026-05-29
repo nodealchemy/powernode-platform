@@ -172,6 +172,8 @@ module Ai
         create_recipe_skill(params)
       when "create_team_from_spec"
         create_team_from_spec(params)
+      when "approve_mission_gate"
+        approve_mission_gate(params)
       else
         @conversation.add_assistant_message("Unknown action type: #{action_type}")
       end
@@ -622,6 +624,40 @@ module Ai
       end
     rescue JSON::ParserError
       @conversation.add_assistant_message("Action completed.")
+    end
+
+    # Route an operator's inline approval/rejection of a mission gate
+    # (rendered as an actionable card on infrastructure-mission approval
+    # gates) through the canonical approval engine. Reuses
+    # OrchestratorService#handle_approval! rather than duplicating gate
+    # bookkeeping — that method records the Ai::MissionApproval, honors the
+    # second-signature gate, and advances (or rolls back) the mission.
+    def approve_mission_gate(params)
+      mission_id = params["mission_id"] || params[:mission_id]
+      mission = @account.ai_missions.find_by(id: mission_id)
+      unless mission
+        @conversation.add_assistant_message("I couldn't find that mission to approve.")
+        return
+      end
+
+      gate = (params["gate"] || params[:gate] || mission.current_phase).to_s
+      decision = (params["decision"] || params[:decision] || "approved").to_s
+      comment = params["comment"] || params[:comment]
+
+      ::Ai::Missions::OrchestratorService.new(mission: mission).handle_approval!(
+        gate: gate, user: @user, decision: decision, comment: comment
+      )
+
+      mission.reload
+      if decision == "approved"
+        @conversation.add_assistant_message(
+          "✅ Approved **#{gate.humanize}** for **#{mission.name}** — now in **#{mission.current_phase&.humanize}**."
+        )
+      else
+        @conversation.add_assistant_message(
+          "↩️ Sent **#{mission.name}** back from **#{gate.humanize}** for revision."
+        )
+      end
     end
 
     def summarize_tool_result(tool_name, result)
@@ -1124,7 +1160,14 @@ module Ai
     end
 
     def handle_approval(body)
-      @conversation.add_assistant_message("Approval handling noted. Please use the mission detail page for formal approvals.")
+      mission = @account.ai_missions.in_progress.to_a.select(&:awaiting_approval?).max_by(&:updated_at)
+      unless mission
+        @conversation.add_assistant_message("There are no missions awaiting approval right now.")
+        return
+      end
+
+      decision = body.to_s.match?(/\b(reject|deny|decline|disapprove)\b/i) ? "rejected" : "approved"
+      approve_mission_gate("mission_id" => mission.id, "gate" => mission.current_phase, "decision" => decision)
     end
 
     # =========================================================================

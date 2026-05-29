@@ -233,6 +233,37 @@ RSpec.describe Ai::ConciergeService do
       end
     end
 
+    context "approve_mission_gate" do
+      let(:mission) do
+        create(:ai_mission, account: account, created_by: user, mission_type: "infrastructure",
+               status: "active", current_phase: "review_plan",
+               custom_phases: [
+                 { "key" => "compose_plan", "requires_approval" => false },
+                 { "key" => "review_plan", "requires_approval" => true },
+                 { "key" => "execute", "requires_approval" => false }
+               ])
+      end
+
+      it "routes an approval-gate confirmation through the OrchestratorService engine" do
+        orchestrator = instance_double(Ai::Missions::OrchestratorService)
+        allow(Ai::Missions::OrchestratorService).to receive(:new).with(mission: mission).and_return(orchestrator)
+        expect(orchestrator).to receive(:handle_approval!).with(
+          hash_including(gate: "review_plan", user: user, decision: "approved")
+        )
+
+        service.handle_confirmed_action("approve_mission_gate", {
+          "mission_id" => mission.id, "gate" => "review_plan", "decision" => "approved"
+        })
+      end
+
+      it "tells the operator when the mission no longer exists" do
+        service.handle_confirmed_action("approve_mission_gate", {
+          "mission_id" => "00000000-0000-0000-0000-000000000000"
+        })
+        expect(conversation.messages.last.content).to include("couldn't find")
+      end
+    end
+
     context "unknown action" do
       it "responds with unknown action message" do
         service.handle_confirmed_action("unknown_action", {})

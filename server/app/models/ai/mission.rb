@@ -275,13 +275,34 @@ module Ai
         "Mission **#{name}** entered **#{phase.humanize}** phase (#{phase_progress}% complete)"
       end
 
-      conversation.add_system_message(message, content_metadata: {
-        "activity_type" => "mission_#{approval_gate_phases.include?(phase) ? 'approval_required' : 'phase_changed'}",
+      is_gate = approval_gate_phases.include?(phase)
+      metadata = {
+        "activity_type" => "mission_#{is_gate ? 'approval_required' : 'phase_changed'}",
         "mission_id" => id,
         "mission_name" => name,
         "phase" => phase,
         "phase_progress" => phase_progress
-      })
+      }
+
+      # Inline approval affordance — lets the operator approve/reject a
+      # provisioning gate directly from the concierge chat (routed via
+      # ConciergeService#handle_confirmed_action → OrchestratorService#handle_approval!).
+      # Scoped to infrastructure missions so development-mission gates that
+      # need richer input (feature selection, PRD edits) keep their modal UX.
+      if is_gate && mission_type == "infrastructure"
+        metadata.merge!(
+          "concierge_action" => true,
+          "action_type" => "approve_mission_gate",
+          "action_params" => { "mission_id" => id, "gate" => phase, "decision" => "approved" },
+          "actions" => [
+            { "type" => "confirm", "label" => "Approve", "style" => "primary", "params" => { "decision" => "approved" } },
+            { "type" => "reject", "label" => "Reject", "style" => "danger", "params" => { "decision" => "rejected" } }
+          ],
+          "action_context" => { "type" => "mission_approval", "action_type" => "approve_mission_gate", "status" => "pending" }
+        )
+      end
+
+      conversation.add_system_message(message, content_metadata: metadata)
 
       # Push a real-time notification for approval gates
       if approval_gate_phases.include?(phase)
