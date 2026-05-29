@@ -44,7 +44,7 @@ jest.mock('@/features/ai/chat/components/ChatStreamingRenderer', () => ({
 }));
 
 // Avoid pulling in chatApi via the real ConciergeActionCard
-jest.mock('@/features/ai/chat/components/ConciergeActionCard', () => ({
+jest.mock('@/shared/components/concierge/ConciergeActionCard', () => ({
   ConciergeActionCard: ({ actionContext }: { actionContext: { action_type: string } }) => (
     <div data-testid="concierge-action-card">{actionContext.action_type}</div>
   ),

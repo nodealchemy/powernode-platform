@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Loader2, Server, Bot, Globe, Cpu, ExternalLink } from 'lucide-react';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { ChatStreamingRenderer } from '@/features/ai/chat/components/ChatStreamingRenderer';
-import { ConciergeActionCard } from '@/features/ai/chat/components/ConciergeActionCard';
+import { ConciergeActionCard } from '@/shared/components/concierge/ConciergeActionCard';
+import { chatApi } from '@/features/ai/chat/services/chatApi';
 import { logger } from '@/shared/utils/logger';
 import apiClient from '@/shared/services/apiClient';
 import { UpgradeRequiredCard, type UpgradeReason } from './UpgradeRequiredCard';
@@ -330,7 +331,6 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
 
                   {isAI && !upgradeRequired && isProvisioningAction && (
                     <ConciergeActionCard
-                      conversationId={conversationId}
                       actions={
                         meta.actions ?? [
                           { type: 'confirm', label: 'Confirm', style: 'primary' },
@@ -344,6 +344,7 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
                         resolved_at: meta.action_context?.resolved_at,
                       }}
                       actionParams={meta.action_params ?? {}}
+                      onConfirm={(actionType, actionParams) => chatApi.confirmConciergeAction(conversationId, actionType, actionParams)}
                       onConfirmed={handleConciergeConfirmed}
                     />
                   )}

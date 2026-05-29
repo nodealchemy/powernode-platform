@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Check, Pencil, Clock, Rocket, GitBranch, Users, Code } from 'lucide-react';
-import { chatApi } from '../services/chatApi';
+import { Check, Pencil, Clock, Rocket, GitBranch, Users, Code, X } from 'lucide-react';
 
 interface ConciergeAction {
   type: string;
   label: string;
   style: string;
+  params?: Record<string, unknown>;
 }
 
 interface ConciergeActionContext {
@@ -16,10 +16,17 @@ interface ConciergeActionContext {
 }
 
 interface ConciergeActionCardProps {
-  conversationId: string;
   actions: ConciergeAction[];
   actionContext: ConciergeActionContext;
   actionParams: Record<string, unknown>;
+  /**
+   * Invoked when the operator confirms, rejects, or submits a modification.
+   * The caller owns the API transport — this component is presentational and
+   * lives in shared/, so it must not import a feature service. The passed
+   * params merge actionParams with any per-action params and (for modify) the
+   * modification text.
+   */
+  onConfirm: (actionType: string, actionParams: Record<string, unknown>) => Promise<void> | void;
   onConfirmed?: () => void;
 }
 
@@ -31,10 +38,10 @@ const actionIcons: Record<string, React.ElementType> = {
 };
 
 export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
-  conversationId,
   actions,
   actionContext,
   actionParams,
+  onConfirm,
   onConfirmed,
 }) => {
   const [loading, setLoading] = useState(false);
@@ -43,12 +50,16 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
 
   const isPending = actionContext.status === 'pending';
   const isConfirmed = actionContext.status === 'confirmed';
+  const isRejected = actionContext.status === 'rejected';
   const Icon = actionIcons[actionContext.action_type] || Rocket;
 
-  const handleConfirm = async () => {
+  // confirm + reject both resolve the gate through the caller's transport —
+  // the per-action params (e.g. { decision: 'approved' } / 'rejected' )
+  // override the message-level defaults.
+  const handleAction = async (action: ConciergeAction) => {
     setLoading(true);
     try {
-      await chatApi.confirmConciergeAction(conversationId, actionContext.action_type, actionParams);
+      await onConfirm(actionContext.action_type, { ...actionParams, ...(action.params ?? {}) });
       onConfirmed?.();
     } finally {
       setLoading(false);
@@ -59,8 +70,7 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
     if (!modifyText.trim()) return;
     setLoading(true);
     try {
-      const modifiedParams = { ...actionParams, user_modification: modifyText };
-      await chatApi.confirmConciergeAction(conversationId, actionContext.action_type, modifiedParams);
+      await onConfirm(actionContext.action_type, { ...actionParams, user_modification: modifyText });
       setShowModify(false);
       setModifyText('');
       onConfirmed?.();
@@ -76,6 +86,17 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-theme-success/10 text-theme-success">
             <Check className="h-3.5 w-3.5" />
             Action Confirmed
+            {actionContext.resolved_at && (
+              <span className="text-theme-text-tertiary ml-1">
+                {new Date(actionContext.resolved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </span>
+        )}
+        {isRejected && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-theme-danger/10 text-theme-danger">
+            <X className="h-3.5 w-3.5" />
+            Action Rejected
             {actionContext.resolved_at && (
               <span className="text-theme-text-tertiary ml-1">
                 {new Date(actionContext.resolved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -101,16 +122,20 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
           {actions.map((action) => (
             <button
               key={action.type}
-              onClick={action.type === 'confirm' ? handleConfirm : () => setShowModify(true)}
+              onClick={action.type === 'modify' ? () => setShowModify(true) : () => handleAction(action)}
               disabled={loading}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 transition-all ${
                 action.style === 'primary'
                   ? 'bg-theme-interactive-primary text-white hover:opacity-90'
-                  : 'bg-theme-surface border border-theme text-theme-primary hover:bg-theme-surface-hover'
+                  : action.style === 'danger'
+                    ? 'bg-theme-danger/10 border border-theme-danger/30 text-theme-danger hover:bg-theme-danger/20'
+                    : 'bg-theme-surface border border-theme text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >
               {action.type === 'confirm' ? (
                 <Check className="h-4 w-4" />
+              ) : action.type === 'reject' ? (
+                <X className="h-4 w-4" />
               ) : (
                 <Pencil className="h-4 w-4" />
               )}
