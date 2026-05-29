@@ -788,6 +788,16 @@ module Ai
               "mission_id" => mission.id,
               "brief" => brief
             },
+            # node_instance_id is unknown at compose time — the runner resolves
+            # it at runtime from the upstream provision_full_stack step's
+            # outputs (data.outputs.node_instance_ids, first instance).
+            "depends_on_outputs" => {
+              "node_instance_id" => {
+                "from_step" => last_provision.step_number,
+                "path" => "outputs.node_instance_ids",
+                "select" => "first"
+              }
+            },
             "on_failure" => "rollback"
           }
         )

@@ -730,6 +730,23 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
         expect(deploy_step.dependencies).to eq([provision_step.step_number])
       end
 
+      it "wires node_instance_id from the upstream provision step's outputs (cross-step data flow)" do
+        make_node_module("nodejs-runtime")
+        svc = described_class.new(account: account, mission: mission_for(brief_with_repo))
+        plan = svc.compose!
+
+        deploy_step = plan.steps.find { |s| s.execution_config["skill"] == "deploy_app_code" }
+        provision_step = plan.steps.find { |s| s.execution_config["skill"] == "provision_full_stack" }
+
+        mapping = deploy_step.execution_config["depends_on_outputs"]
+        expect(mapping).to be_present
+        expect(mapping["node_instance_id"]).to eq(
+          "from_step" => provision_step.step_number,
+          "path" => "outputs.node_instance_ids",
+          "select" => "first"
+        )
+      end
+
       it "deploy_app_code step is step_type=provisioning_skill (not collapsed with provision_full_stack)" do
         make_node_module("nodejs-runtime")
         svc = described_class.new(account: account, mission: mission_for(brief_with_repo))

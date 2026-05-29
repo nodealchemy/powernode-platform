@@ -218,6 +218,16 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
       expect(fake_executor_class.rollback_calls).to eq([{ node_id: "n-1" }])
     end
 
+    it "flattens a nested 'outputs' sub-hash so rollback hooks receive ids as flat kwargs" do
+      # Mirrors the nested-outputs convention (provision_full_stack et al.):
+      # ids live under data.outputs.*, but rollback hooks declare them flat.
+      # Without flattening, shallow symbolize would never surface node_id and
+      # the rollback would silently no-op.
+      step1.metadata = { "last_outputs" => { "count" => 1, "outputs" => { "node_id" => "n-9" } } }
+      runner.rollback_step!(step1)
+      expect(fake_executor_class.rollback_calls.last).to include(node_id: "n-9")
+    end
+
     it "marks the step rolled_back and returns success" do
       result = runner.rollback_step!(step1)
       expect(result[:success]).to be true
@@ -245,14 +255,69 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
     end
   end
 
+  describe "#execute_step! — cross-step data flow (depends_on_outputs)" do
+    # A provider step produces nested array outputs; a consumer step declares
+    # depends_on_outputs to pull a scalar from the provider's recorded outputs.
+    # Mirrors the real provision_full_stack → deploy_app_code contract, where
+    # the provider emits data.outputs.node_instance_ids (plural array, nested)
+    # and the consumer needs node_instance_id (singular scalar, required).
+    let(:provider_step) do
+      build_step(id: "prov", step_number: 1, dependencies: [], skill: "provision_full_stack", on_failure: "continue")
+    end
+    let(:consumer_step) do
+      build_step(
+        id: "cons", step_number: 2, dependencies: [1], skill: "provision_full_stack", on_failure: "continue",
+        depends_on_outputs: {
+          "node_instance_id" => { "from_step" => 1, "path" => "outputs.node_instance_ids", "select" => "first" }
+        }
+      )
+    end
+    let(:plan) { build_plan([provider_step, consumer_step]) }
+
+    before { runner.execute! }
+
+    it "threads a predecessor's nested array output into the consumer's scalar input" do
+      fake_executor_class.execute_result = { success: true, data: { "outputs" => { "node_instance_ids" => %w[ni-1 ni-2] } } }
+      runner.execute_step!(provider_step)
+
+      fake_executor_class.execute_result = { success: true, data: {} }
+      runner.execute_step!(consumer_step)
+
+      expect(fake_executor_class.execute_calls.last).to include(node_instance_id: "ni-1")
+    end
+
+    it "honors the 'all' selector (passes the whole array through unchanged)" do
+      consumer_step.execution_config["depends_on_outputs"]["node_instance_id"]["select"] = "all"
+      fake_executor_class.execute_result = { success: true, data: { "outputs" => { "node_instance_ids" => %w[ni-1 ni-2] } } }
+      runner.execute_step!(provider_step)
+
+      fake_executor_class.execute_result = { success: true, data: {} }
+      runner.execute_step!(consumer_step)
+
+      expect(fake_executor_class.execute_calls.last[:node_instance_id]).to eq(%w[ni-1 ni-2])
+    end
+
+    it "leaves the input unset when the upstream output is missing (no nil clobber)" do
+      fake_executor_class.execute_result = { success: true, data: { "outputs" => {} } }
+      runner.execute_step!(provider_step)
+
+      fake_executor_class.execute_calls.clear
+      fake_executor_class.execute_result = { success: true, data: {} }
+      runner.execute_step!(consumer_step)
+
+      expect(fake_executor_class.execute_calls.last).not_to have_key(:node_instance_id)
+    end
+  end
+
   # =========================================================================
   # Helpers — minimal in-memory step / plan doubles that mimic the
   # Ai::GoalPlan / Ai::GoalPlanStep duck type the runner consumes.
   # =========================================================================
 
-  def build_step(id:, step_number:, dependencies:, skill:, on_failure:)
+  def build_step(id:, step_number:, dependencies:, skill:, on_failure:, depends_on_outputs: nil)
     inputs = { template_id: "tmpl-1", count: 1 }
     cfg = { "skill" => skill, "inputs" => inputs, "on_failure" => on_failure }
+    cfg["depends_on_outputs"] = depends_on_outputs if depends_on_outputs
     OpenStruct.new(
       id: id,
       step_number: step_number,

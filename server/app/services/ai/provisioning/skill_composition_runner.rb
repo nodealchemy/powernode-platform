@@ -121,7 +121,7 @@ module Ai
 
         config = step_config(step)
         skill_name = config["skill"] || config[:skill]
-        inputs = (config["inputs"] || config[:inputs] || {})
+        inputs = merge_depends_on_outputs(step, config, config["inputs"] || config[:inputs] || {})
         on_failure = config["on_failure"] || config[:on_failure] || "continue"
 
         begin
@@ -176,7 +176,7 @@ module Ai
           outputs = recorded_outputs_for(step)
           executor = build_executor(executor_class)
           if executor.respond_to?(rollback_hook)
-            executor.public_send(rollback_hook, **(outputs.is_a?(Hash) ? symbolize(outputs) : {}))
+            executor.public_send(rollback_hook, **rollback_kwargs(outputs))
           end
         end
 
@@ -367,6 +367,105 @@ module Ai
         return {} unless step.respond_to?(:metadata)
         meta = step.metadata.is_a?(Hash) ? step.metadata : {}
         meta["last_outputs"] || meta[:last_outputs] || {}
+      end
+
+      # ===== Cross-step data flow =====
+      #
+      # A step may declare `execution_config["depends_on_outputs"]` to pull
+      # values produced by predecessor steps into its own inputs at runtime —
+      # the mechanism that lets `provision_full_stack` hand its
+      # `node_instance_ids` to a downstream `deploy_app_code` step that could
+      # not know them at compose time. Shape:
+      #
+      #   "depends_on_outputs" => {
+      #     "<input_key>" => {
+      #       "from_step" => <Integer predecessor step_number>,
+      #       "path"      => "<dot.path into that step's recorded outputs>", # default: input_key
+      #       "select"    => "first" | "last" | "all" | <Integer index>      # default: "all"
+      #     }
+      #   }
+      #
+      # Resolved values overwrite any compose-time placeholder for the same
+      # key. A missing/blank upstream value is skipped (never clobbers an
+      # existing input with nil). Lookups tolerate both string and symbol keys
+      # so values survive the JSON round-trip the per-step worker dispatch
+      # forces (predecessor outputs are persisted to step metadata between jobs).
+      def merge_depends_on_outputs(step, config, inputs)
+        mapping = config["depends_on_outputs"] || config[:depends_on_outputs]
+        return inputs unless mapping.is_a?(Hash) && mapping.any?
+
+        upstream = upstream_outputs_for(step)
+        resolved = inputs.dup
+
+        mapping.each do |input_key, spec|
+          spec = spec.is_a?(Hash) ? spec : {}
+          from = (spec["from_step"] || spec[:from_step]).to_i
+          source = upstream[from]
+          next unless source.is_a?(Hash)
+
+          path = (spec["path"] || spec[:path] || input_key).to_s
+          value = select_output(dig_path(source, path), spec["select"] || spec[:select])
+          next if value.nil?
+
+          key = input_key.to_s
+          resolved.delete(key)
+          resolved.delete(key.to_sym)
+          resolved[key] = value
+        end
+
+        resolved
+      end
+
+      # Build { predecessor_step_number => recorded_outputs_hash } for the
+      # steps this step depends on. Reads each predecessor's persisted
+      # metadata["last_outputs"] via recorded_outputs_for.
+      def upstream_outputs_for(step)
+        deps = Array(step.respond_to?(:dependencies) ? step.dependencies : []).map(&:to_i)
+        return {} if deps.empty?
+
+        deps_set = deps.to_set
+        steps_in_order.each_with_object({}) do |s, acc|
+          num = s.step_number.to_i
+          acc[num] = recorded_outputs_for(s) if deps_set.include?(num)
+        end
+      end
+
+      # Walk a dot-delimited path into a (possibly nested) hash, tolerating
+      # both string and symbol keys at each level.
+      def dig_path(hash, path)
+        path.to_s.split(".").reduce(hash) do |acc, key|
+          break nil unless acc.is_a?(Hash)
+          acc.key?(key) ? acc[key] : acc[key.to_sym]
+        end
+      end
+
+      # Apply an array selector to a resolved value. Non-arrays pass through
+      # for "first"/"last"; "all" (and nil) returns the value untouched.
+      def select_output(value, selector)
+        case selector
+        when nil, "all"  then value
+        when "first"     then value.is_a?(Array) ? value.first : value
+        when "last"      then value.is_a?(Array) ? value.last : value
+        when Integer     then Array(value)[selector]
+        when /\A-?\d+\z/  then Array(value)[selector.to_i]
+        else value
+        end
+      end
+
+      # Build the kwargs handed to a rollback hook from a step's recorded
+      # outputs. Executors on the nested-outputs convention store ids under a
+      # top-level "outputs" sub-hash (e.g. provision_full_stack →
+      # { outputs: { node_instance_ids: [...] } }), but their rollback hooks
+      # declare those ids as flat kwargs (rollback_provision_full_stack(
+      # node_instance_ids:, ...)). symbolize is shallow, so without flattening
+      # the ids never reach the hook and rollback silently no-ops. Merge the
+      # nested sub-hash up one level so flat- AND nested-convention executors
+      # both receive their ids; the hook's **_extras swallows the rest.
+      def rollback_kwargs(outputs)
+        return {} unless outputs.is_a?(Hash)
+        nested = outputs["outputs"] || outputs[:outputs]
+        merged = nested.is_a?(Hash) ? outputs.merge(nested) : outputs
+        symbolize(merged)
       end
 
       # ===== Failure handling =====
