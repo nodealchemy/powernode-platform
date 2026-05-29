@@ -251,7 +251,7 @@ class RagApiService extends BaseApiService {
       top_k?: number;
       threshold?: number;
       filters?: Record<string, unknown>;
-      workflow_run_id?: string;
+      mission_id?: string;
       agent_execution_id?: string;
     }
   ): Promise<QueryResult> {

@@ -44,7 +44,6 @@ export interface AiOpsDashboard {
     avg_latency_ms: number;
     p95_latency_ms: number;
     active_providers: number;
-    active_workflows: number;
     active_agents: number;
   };
   trends: {
@@ -61,13 +60,6 @@ export interface AiOpsDashboard {
     avg_latency_ms: number;
     cost_usd: number;
   }>;
-  top_workflows: Array<{
-    id: string;
-    name: string;
-    executions: number;
-    success_rate: number;
-    avg_duration_ms: number;
-  }>;
   recent_errors: Array<{
     timestamp: string;
     source_type: string;
@@ -83,7 +75,6 @@ export interface SystemHealth {
   overall_score: number;
   components: {
     providers: ComponentHealth;
-    workflows: ComponentHealth;
     agents: ComponentHealth;
     infrastructure: ComponentHealth;
   };
@@ -181,21 +172,6 @@ export interface ProviderComparison {
   timestamp: string;
 }
 
-export interface WorkflowMetrics {
-  workflows: Array<{
-    id: string;
-    name: string;
-    total_executions: number;
-    successful_executions: number;
-    failed_executions: number;
-    success_rate: number;
-    avg_duration_ms: number;
-    total_cost_usd: number;
-    last_execution_at?: string;
-  }>;
-  time_range: TimeRangeInfo;
-}
-
 export interface AgentMetrics {
   agents: Array<{
     id: string;
@@ -216,7 +192,6 @@ export interface AgentMetrics {
 export interface CostAnalysisData {
   total_cost_usd: number;
   cost_by_provider: Record<string, number>;
-  cost_by_workflow: Record<string, number>;
   cost_by_agent: Record<string, number>;
   daily_costs: Array<{
     date: string;
@@ -377,15 +352,6 @@ class AiOpsApiService extends BaseApiService {
   // ==========================================================================
   // Workflow & Agent Metrics
   // ==========================================================================
-
-  /**
-   * Get workflow metrics
-   * GET /api/v1/ai/aiops/workflows
-   */
-  async getWorkflowMetrics(timeRange?: string): Promise<WorkflowMetrics> {
-    const queryString = timeRange ? `?time_range=${timeRange}` : '';
-    return this.get<WorkflowMetrics>(`${this.basePath}/workflows${queryString}`);
-  }
 
   /**
    * Get agent metrics

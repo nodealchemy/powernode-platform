@@ -105,7 +105,6 @@ export interface A2aTask {
   to_agent_id?: string;
   from_agent_card_id?: string;
   to_agent_card_id?: string;
-  workflow_run_id?: string;
   parent_task_id?: string;
 
   // A2A Message
@@ -262,7 +261,6 @@ export interface A2aTaskFilters {
   status?: A2aTaskStatus;
   from_agent_id?: string;
   to_agent_id?: string;
-  workflow_run_id?: string;
   external?: boolean;
   since?: string;
   page?: number;
@@ -274,7 +272,6 @@ export interface SubmitA2aTaskRequest {
   to_agent_card_id?: string;
   external_endpoint?: string;
   from_agent_id?: string;
-  workflow_run_id?: string;
   message?: A2aMessage;
   text?: string; // Simplified input
   metadata?: Record<string, unknown>;

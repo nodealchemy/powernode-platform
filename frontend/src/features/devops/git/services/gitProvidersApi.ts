@@ -23,5 +23,4 @@ export {
   runnersApi,
   schedulesApi,
   approvalsApi,
-  triggersApi,
 } from './git';

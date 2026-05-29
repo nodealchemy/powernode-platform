@@ -13,7 +13,6 @@ import { webhooksApi } from './webhooksApi';
 import { runnersApi } from './runnersApi';
 import { schedulesApi } from './schedulesApi';
 import { approvalsApi } from './approvalsApi';
-import { triggersApi } from './triggersApi';
 
 /**
  * Unified Git Providers API
@@ -43,9 +42,6 @@ export const gitProvidersApi = {
 
   // Approvals
   ...approvalsApi,
-
-  // Triggers
-  ...triggersApi,
 };
 
 // Export individual APIs for direct imports
@@ -57,4 +53,3 @@ export { webhooksApi } from './webhooksApi';
 export { runnersApi } from './runnersApi';
 export { schedulesApi } from './schedulesApi';
 export { approvalsApi } from './approvalsApi';
-export { triggersApi } from './triggersApi';

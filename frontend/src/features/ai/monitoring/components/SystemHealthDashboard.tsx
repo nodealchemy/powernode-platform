@@ -9,7 +9,6 @@ import {
   RefreshCw,
   Server,
   Users,
-  Workflow,
   XCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
@@ -191,25 +190,6 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
                     <p className="text-sm font-medium text-theme-primary">AI Agents</p>
                     <p className="text-xs text-theme-tertiary">
                       {healthData.system.active_agents} active
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <Badge variant={getHealthStatusBadge(healthData.system.status)} size="sm">
-                {healthData.system.status}
-              </Badge>
-            </div>
-
-            {/* Workflows - from native system object */}
-            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme">
-              <div className="flex items-center gap-3">
-                {getComponentStatusIcon(healthData.system.status)}
-                <div className="flex items-center gap-2">
-                  <Workflow className="h-4 w-4 text-theme-tertiary" />
-                  <div>
-                    <p className="text-sm font-medium text-theme-primary">Workflows</p>
-                    <p className="text-xs text-theme-tertiary">
-                      {healthData.system.active_workflows} active, {healthData.system.running_executions} running
                     </p>
                   </div>
                 </div>

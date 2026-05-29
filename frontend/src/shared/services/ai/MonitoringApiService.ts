@@ -41,7 +41,6 @@ export interface MonitoringDashboard {
   };
   // Native overview data from backend
   overview: {
-    active_workflows: number;
     active_agents: number;
     total_executions_today: number;
     total_cost_today: number;
@@ -107,7 +106,6 @@ export interface HealthStatus {
   system: {
     status: 'healthy' | 'degraded' | 'unhealthy';
     uptime?: number;
-    active_workflows: number;
     active_agents: number;
     running_executions: number;
   };
@@ -215,7 +213,6 @@ class MonitoringApiService extends BaseApiService {
       time_range_seconds?: number;
       overview?: {
         status?: string;
-        active_workflows?: number;
         active_agents?: number;
         total_executions_today?: number;
         total_cost_today?: number;
@@ -247,26 +244,6 @@ class MonitoringApiService extends BaseApiService {
             executions?: number;
             success_rate?: number;
           }>;
-        };
-        workflows?: {
-          total_workflows?: number;
-          active_workflows?: number;
-          workflows?: Array<{
-            id: string;
-            name: string;
-            status: string;
-            total_runs?: number;
-            successful_runs?: number;
-            failed_runs?: number;
-            success_rate?: number;
-            avg_duration?: number;
-            total_cost?: string;
-          }>;
-          aggregated?: {
-            total_runs?: number;
-            successful_runs?: number;
-            failed_runs?: number;
-          };
         };
         system?: {
           health?: {
@@ -322,7 +299,6 @@ class MonitoringApiService extends BaseApiService {
       },
       // Pass native overview for direct use
       overview: {
-        active_workflows: nativeOverview?.active_workflows || 0,
         active_agents: nativeOverview?.active_agents || 0,
         total_executions_today: nativeOverview?.total_executions_today || 0,
         total_cost_today: nativeOverview?.total_cost_today || 0,

@@ -74,7 +74,7 @@ export interface ExecutionInput {
 }
 
 export interface ExecutionContext {
-  workflow_run_id?: string;
+  mission_id?: string;
   triggered_by?: string;
   environment?: string;
   [key: string]: unknown;

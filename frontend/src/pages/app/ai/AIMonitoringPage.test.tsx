@@ -73,7 +73,6 @@ jest.mock('@/features/ai/monitoring/components/MonitoringOverviewCards', () => (
         <>
           <span>Active Providers: {dashboardData.providers?.length || 0}</span>
           <span>AI Agents: {dashboardData.agents?.total || 0}</span>
-          <span>Active Workflows: {dashboardData.workflows?.running || 0}</span>
         </>
       )}
     </div>
@@ -301,7 +300,6 @@ describe('AIMonitoringPage', () => {
     timestamp: '2024-01-15T10:00:00Z',
     system: {
       status: 'healthy',
-      active_workflows: 5,
       active_agents: 8,
       running_executions: 3
     },

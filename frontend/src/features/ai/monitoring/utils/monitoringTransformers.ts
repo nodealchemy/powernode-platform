@@ -14,7 +14,6 @@ export const transformDashboardData = (dashboard: MonitoringDashboard): Monitori
       // Use native overview from backend
       total_providers: dashboard.providers?.length || 0,
       total_agents: dashboard.overview?.active_agents || dashboard.agents?.total || 0,
-      total_workflows: dashboard.overview?.active_workflows || 0,
       active_conversations: 0,
       system_uptime: 0,
       last_updated: new Date().toISOString(),

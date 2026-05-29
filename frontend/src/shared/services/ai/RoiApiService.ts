@@ -16,7 +16,6 @@ import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/servic
  * - GET /api/v1/ai/roi/dashboard - ROI dashboard
  * - GET /api/v1/ai/roi/summary - Summary metrics
  * - GET /api/v1/ai/roi/trends - ROI trends
- * - GET /api/v1/ai/roi/by_workflow - ROI by workflow
  * - GET /api/v1/ai/roi/by_agent - ROI by agent
  * - GET /api/v1/ai/roi/by_provider - Cost by provider
  * - GET /api/v1/ai/roi/cost_breakdown - Detailed cost breakdown
@@ -74,12 +73,6 @@ export interface RoiDashboard {
     }>;
   };
   top_performers: {
-    workflows: Array<{
-      id: string;
-      name: string;
-      roi_percentage: number;
-      value_generated_usd: number;
-    }>;
     agents: Array<{
       id: string;
       name: string;

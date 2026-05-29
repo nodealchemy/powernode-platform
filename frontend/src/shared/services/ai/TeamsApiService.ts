@@ -608,7 +608,7 @@ class TeamsApiService extends BaseApiService {
     data: {
       objective: string;
       input_context?: Record<string, unknown>;
-      workflow_run_id?: string;
+      mission_id?: string;
       tasks?: Array<{
         description: string;
         expected_output?: string;

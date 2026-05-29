@@ -1,7 +1,6 @@
 export interface SystemOverview {
   total_providers: number;
   total_agents: number;
-  total_workflows: number;
   active_conversations: number;
   system_uptime: number;
   last_updated: string;
@@ -26,7 +25,6 @@ export interface SystemHealthData {
   components: {
     providers: ComponentHealthStatus;
     agents: ComponentHealthStatus;
-    workflows: ComponentHealthStatus;
     conversations: ComponentHealthStatus;
     infrastructure: ComponentHealthStatus;
   };
@@ -126,56 +124,6 @@ export interface ProviderDistribution {
   execution_count: number;
   success_rate: number;
   avg_cost: number;
-}
-
-export interface WorkflowMetrics {
-  id: string;
-  name: string;
-  status: 'active' | 'draft' | 'inactive';
-  version: string;
-  health_score: number;
-  performance: PerformanceMetrics;
-  usage: WorkflowUsageMetrics;
-  runs: WorkflowRunSummary;
-  nodes: WorkflowNodeSummary;
-  triggers: WorkflowTriggerSummary;
-  alerts: Alert[];
-  last_run: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkflowUsageMetrics extends UsageMetrics {
-  runs_count: number;
-  nodes_executed: number;
-}
-
-export interface WorkflowRunSummary {
-  running: number;
-  completed: number;
-  failed: number;
-  cancelled: number;
-}
-
-export interface WorkflowNodeSummary {
-  total_nodes: number;
-  node_performance: NodePerformance[];
-}
-
-export interface NodePerformance {
-  node_id: string;
-  node_type: string;
-  node_name: string;
-  avg_execution_time: number;
-  success_rate: number;
-  failure_rate: number;
-}
-
-export interface WorkflowTriggerSummary {
-  manual: number;
-  scheduled: number;
-  webhook: number;
-  api: number;
 }
 
 export interface ConversationMetrics {
@@ -345,7 +293,6 @@ export interface MonitoringDashboardData {
     system?: SystemMetrics;
     providers?: ProvidersSummary;
     agents?: AgentsSummary;
-    workflows?: WorkflowsSummary;
     conversations?: ConversationsSummary;
     costs?: CostsSummary;
     alerts?: AlertSummary;
@@ -369,17 +316,6 @@ export interface ProvidersSummary {
 export interface AgentsSummary {
   active: number;
   running_executions: number;
-  completed_today: number;
-  failed_today: number;
-  healthy: number;
-  degraded: number;
-  unhealthy: number;
-  active_alerts: number;
-}
-
-export interface WorkflowsSummary {
-  active: number;
-  running: number;
   completed_today: number;
   failed_today: number;
   healthy: number;

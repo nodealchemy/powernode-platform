@@ -7,7 +7,6 @@ import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/servic
  * Replaces the following old controllers:
  * - ai_analytics_controller
  * - reports_controller
- * - workflow_analytics_controller
  *
  * New endpoint structure:
  * - GET  /api/v1/ai/analytics/dashboard

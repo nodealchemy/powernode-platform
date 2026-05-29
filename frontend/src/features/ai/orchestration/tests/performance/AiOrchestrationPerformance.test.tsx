@@ -132,7 +132,7 @@ describe('AI Orchestration Performance Test Infrastructure', () => {
     }
 
     function generateMockActivity() {
-      const types = ['agent_executed', 'workflow_completed', 'provider_health_changed'] as const;
+      const types = ['agent_executed', 'provider_health_changed'] as const;
       const statuses = ['success', 'info', 'warning', 'error'] as const;
 
       return {
@@ -188,41 +188,6 @@ describe('AI Orchestration Performance Test Infrastructure', () => {
   });
 
   describe('Performance Test Data Structures', () => {
-    it('mock workflow data has correct shape for performance testing', () => {
-      const mockLargeWorkflow = {
-        id: 'large-workflow-1',
-        name: 'Large Performance Test Workflow',
-        description: 'Workflow with many nodes for performance testing',
-        status: 'active',
-        trigger_type: 'manual',
-        created_at: '2024-01-15T10:00:00Z',
-        ai_workflow_nodes: Array.from({ length: 50 }, (_, i) => ({
-          id: `node-${i}`,
-          node_id: `node-${i}`,
-          node_type: 'ai_agent',
-          name: `Node ${i}`,
-          position_x: (i % 10) * 150,
-          position_y: Math.floor(i / 10) * 100,
-          configuration: { agent_id: `agent-${i % 5}` }
-        })),
-        ai_workflow_edges: Array.from({ length: 49 }, (_, i) => ({
-          id: `edge-${i}`,
-          source_node_id: `node-${i}`,
-          target_node_id: `node-${i + 1}`
-        })),
-        statistics: {
-          total_executions: 500,
-          successful_executions: 485,
-          failed_executions: 15,
-          average_execution_time: 15000
-        }
-      };
-
-      expect(mockLargeWorkflow.ai_workflow_nodes).toHaveLength(50);
-      expect(mockLargeWorkflow.ai_workflow_edges).toHaveLength(49);
-      expect(mockLargeWorkflow.statistics.total_executions).toBe(500);
-    });
-
     it('mock execution updates have correct shape', () => {
       const executionUpdate = {
         type: 'node_execution_update',

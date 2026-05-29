@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Settings, Users, Zap, Clock, CheckCircle, DollarSign, Activity } from 'lucide-react';
+import { Bell, Settings, Users, Clock, CheckCircle, DollarSign, Activity } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { MonitoringDashboardData, Alert } from '@/shared/types/monitoring';
 
@@ -37,18 +37,6 @@ export const MonitoringOverviewCards: React.FC<MonitoringOverviewCardsProps> = (
             <div className="min-w-0">
               <p className="text-xs text-theme-tertiary truncate">Agents</p>
               <p className="text-lg font-bold text-theme-primary">{overview.total_agents}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-3">
-          <div className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-theme-primary shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs text-theme-tertiary truncate">Workflows</p>
-              <p className="text-lg font-bold text-theme-primary">{overview.total_workflows}</p>
             </div>
           </div>
         </CardContent>
