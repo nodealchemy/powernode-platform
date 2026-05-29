@@ -11,6 +11,11 @@ module Ai
         "system_storage_chown_status"               => "Ai::Tools::SystemStorageOwnerTool",
         "system_storage_chown_retry"                => "Ai::Tools::SystemStorageOwnerTool",
 
+        # === Ingress / public exposure / ACME provisioning ===
+        "system_reverse_proxy_compose"      => "Ai::Tools::SystemIngressTool",
+        "system_expose_service_publicly"    => "Ai::Tools::SystemIngressTool",
+        "system_acme_provision_certificate" => "Ai::Tools::SystemIngressTool",
+
         "system_list_nodes" => "Ai::Tools::SystemFleetTool",
         "system_get_node" => "Ai::Tools::SystemFleetTool",
         "system_create_node" => "Ai::Tools::SystemFleetTool",
