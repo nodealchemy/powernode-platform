@@ -19,7 +19,7 @@ module Api
         include ::Ai::RoiShared
 
         before_action :validate_permissions
-        before_action :set_time_range, only: [ :dashboard, :trends, :by_workflow, :by_agent, :by_provider, :cost_breakdown ]
+        before_action :set_time_range, only: [ :dashboard, :trends, :by_agent, :by_provider, :cost_breakdown ]
 
         # ==========================================================================
         # DASHBOARD
@@ -86,17 +86,6 @@ module Api
         # ==========================================================================
         # BREAKDOWN ANALYSIS
         # ==========================================================================
-
-        # GET /api/v1/ai/roi/by_workflow
-        def by_workflow
-          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
-          workflow_data = service.roi_by_workflow(@time_range)
-
-          render_success({
-            workflows: workflow_data,
-            time_range: time_range_info
-          })
-        end
 
         # GET /api/v1/ai/roi/by_agent
         def by_agent

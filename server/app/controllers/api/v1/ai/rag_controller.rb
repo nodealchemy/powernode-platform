@@ -184,7 +184,7 @@ module Api
         def query_params
           params.permit(
             :query, :strategy, :top_k, :threshold,
-            :workflow_run_id, :agent_execution_id, filters: {}
+            :mission_id, :agent_execution_id, filters: {}
           )
         end
 

@@ -207,7 +207,7 @@ module Api
 
           account = Account.find(params[:account_id])
           service = Monitoring::UnifiedService.new(account: account)
-          metrics = service.get_dashboard(time_range: 1.hour, components: %w[system providers agents workflows])
+          metrics = service.get_dashboard(time_range: 1.hour, components: %w[system providers agents])
 
           ActionCable.server.broadcast(
             "ai_orchestration_#{params[:account_id]}",

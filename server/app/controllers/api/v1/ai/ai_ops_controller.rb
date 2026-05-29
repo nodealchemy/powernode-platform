@@ -18,7 +18,7 @@ module Api
         include AuditLogging
 
         before_action :validate_permissions
-        before_action :set_time_range, only: [ :dashboard, :providers, :workflows, :agents, :cost_analysis ]
+        before_action :set_time_range, only: [ :dashboard, :providers, :agents, :cost_analysis ]
 
         # ==========================================================================
         # DASHBOARD
@@ -111,21 +111,6 @@ module Api
           render_success({
             comparison: comparison,
             timestamp: Time.current.iso8601
-          })
-        end
-
-        # ==========================================================================
-        # WORKFLOW METRICS
-        # ==========================================================================
-
-        # GET /api/v1/ai/aiops/workflows
-        def workflows
-          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
-          workflow_data = service.ops_workflow_metrics(@time_range)
-
-          render_success({
-            workflows: workflow_data,
-            time_range: time_range_info
           })
         end
 

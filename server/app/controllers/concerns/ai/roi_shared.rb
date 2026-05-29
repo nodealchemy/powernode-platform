@@ -12,7 +12,7 @@ module Ai
 
     def validate_permissions
       case action_name
-      when "dashboard", "summary", "trends", "daily_metrics", "by_workflow",
+      when "dashboard", "summary", "trends", "daily_metrics",
            "by_agent", "by_provider", "cost_breakdown", "attributions",
            "metrics", "show_metric", "projections", "recommendations", "compare"
         require_permission("ai.roi.read")

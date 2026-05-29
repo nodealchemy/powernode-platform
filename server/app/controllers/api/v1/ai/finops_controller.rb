@@ -51,7 +51,6 @@ module Api
             cost_breakdown: {
               by_provider: cost_service.cost_breakdown_by_provider,
               by_model: cost_service.cost_breakdown_by_model,
-              by_workflow: cost_service.cost_breakdown_by_workflow,
               by_agent: cost_service.cost_breakdown_by_agent,
               daily: cost_service.daily_cost_breakdown
             },

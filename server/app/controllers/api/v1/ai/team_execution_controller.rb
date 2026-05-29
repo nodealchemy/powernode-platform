@@ -205,7 +205,7 @@ module Api
 
         def execution_params
           params.permit(
-            :objective, :workflow_run_id, input_context: {},
+            :objective, :mission_id, input_context: {},
             tasks: [ :description, :expected_output, :task_type, :role_id, { input_data: {} } ]
           )
         end

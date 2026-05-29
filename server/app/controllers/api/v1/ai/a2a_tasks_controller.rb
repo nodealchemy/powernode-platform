@@ -20,7 +20,6 @@ module Api
           scope = scope.where(status: params[:status]) if params[:status].present?
           scope = scope.from_agent(params[:from_agent_id]) if params[:from_agent_id].present?
           scope = scope.to_agent(params[:to_agent_id]) if params[:to_agent_id].present?
-          scope = scope.for_workflow_run(params[:workflow_run_id]) if params[:workflow_run_id].present?
           scope = scope.external_tasks if params[:external] == "true"
           scope = scope.internal_tasks if params[:external] == "false"
 
