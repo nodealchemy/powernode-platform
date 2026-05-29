@@ -17,6 +17,10 @@ module Ai
 
     attribute :dependencies, :json, default: -> { [] }
     attribute :execution_config, :json, default: -> { {} }
+    # Structured per-step scratch space. SkillCompositionRunner records each
+    # step's produced outputs under metadata["last_outputs"] for rollback hooks
+    # and cross-step data flow (depends_on_outputs). Backed by a jsonb column.
+    attribute :metadata, :json, default: -> { {} }
 
     scope :pending, -> { where(status: "pending") }
     scope :completed, -> { where(status: "completed") }

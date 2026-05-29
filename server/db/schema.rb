@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_120100) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_28_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2247,6 +2247,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_120100) do
     t.decimal "estimated_cost_usd", precision: 10, scale: 4
     t.integer "estimated_duration_minutes"
     t.jsonb "execution_config", default: {}
+    t.jsonb "metadata", default: {}, null: false
     t.uuid "plan_id", null: false
     t.uuid "ralph_task_id"
     t.text "result_summary"
