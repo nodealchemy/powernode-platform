@@ -6,7 +6,9 @@ require "rails_helper"
 # Mirrors the system_fleet_tool_spec.rb shape: invoke .execute(params:) directly,
 # assert success_result/error_result content. Service layer (IntentCaptureService,
 # PlanComposerService, SkillCompositionRunner) is stubbed so the tool's
-# routing + persistence logic is the unit under test.
+# routing + persistence logic is the unit under test. Compose routes through
+# Ai::Missions::ComposerRouter — a provisioning-shaped brief selects
+# PlanComposerService; a novel intent selects MissionComposer.
 RSpec.describe Ai::Tools::ProvisioningTool do
   let(:account) { create(:account) }
   let(:user)    { create(:user, account: account) }
@@ -193,7 +195,7 @@ RSpec.describe Ai::Tools::ProvisioningTool do
 
   describe "platform_provisioning_compose_plan" do
     it "delegates to PlanComposerService and returns the DAG plus M1 enrichments" do
-      mission = create_mission!(brief: { "intent" => "x" })
+      mission = create_mission!(brief: { "intent" => "x", "preferred_provider" => "aws" })
       goal = create_goal_for(mission)
       plan = create_plan_with_step!(goal, skill: "provision_full_stack")
 
@@ -223,8 +225,22 @@ RSpec.describe Ai::Tools::ProvisioningTool do
       expect(risk[:score]).to be_between(0, 100)
     end
 
+    it "routes a novel/general intent to MissionComposer (not PlanComposerService)" do
+      mission = create_mission!(brief: { "intent" => "orchestrate a federated multi-cluster mesh" })
+      goal = create_goal_for(mission)
+      plan = create_plan_with_step!(goal, skill: "provision_full_stack")
+
+      expect_any_instance_of(::Ai::Missions::MissionComposer)
+        .to receive(:compose!).and_return(plan)
+      expect(::Ai::Provisioning::PlanComposerService).not_to receive(:new)
+
+      r = call("platform_provisioning_compose_plan", mission_id: mission.id)
+      expect(r[:success]).to be true
+      expect(r[:data][:plan_id]).to eq(plan.id)
+    end
+
     it "surfaces BriefMissingError as an error_result" do
-      mission = create_mission!
+      mission = create_mission!(brief: { "intent" => "x", "preferred_provider" => "aws" })
       expect_any_instance_of(::Ai::Provisioning::PlanComposerService)
         .to receive(:compose!)
         .and_raise(::Ai::Provisioning::PlanComposerService::BriefMissingError.new("no brief"))
@@ -241,7 +257,7 @@ RSpec.describe Ai::Tools::ProvisioningTool do
 
     context "M2 BYOC routing — multi-provider clarification" do
       it "forwards the PlanComposer clarification payload as a success_result" do
-        mission = create_mission!(brief: { "intent" => "x" })
+        mission = create_mission!(brief: { "intent" => "x", "regions" => ["us-east-1"] })
 
         clarification = {
           clarification_needed: true,
@@ -268,7 +284,7 @@ RSpec.describe Ai::Tools::ProvisioningTool do
       end
 
       it "does not advance the mission past compose_plan when clarification is returned" do
-        mission = create_mission!(brief: { "intent" => "x" }, phase: "compose_plan")
+        mission = create_mission!(brief: { "intent" => "x", "regions" => ["us-east-1"] }, phase: "compose_plan")
 
         expect_any_instance_of(::Ai::Provisioning::PlanComposerService)
           .to receive(:compose!).and_return(

@@ -27,11 +27,21 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
   end
 
   # POST /api/v1/internal/ai/provisioning/missions/:mission_id/compose_plan
+  #
+  # Hybrid composer routing. A side-effect-free predicate inspects the brief
+  # and picks ONE composer up front — we never try-then-discard, because
+  # PlanComposerService persists on success (a discarded attempt would leak a
+  # real plan). A recognized provisioning scenario routes to the constrained
+  # PlanComposerService; a novel/general intent routes to the LLM-driven
+  # Ai::Missions::MissionComposer. Both stamp the same
+  # mission.configuration["plan"]["plan_id"], so #execute is unchanged. A nil
+  # return means the account hit its LLM cost cap — we surface plan_id: nil
+  # rather than falling back to the other (also cost-capped) composer.
   def compose_plan
-    service = ::Ai::Provisioning::PlanComposerService.new(
-      account: @mission.account,
-      mission: @mission
-    )
+    # Hybrid routing (shared with the concierge tool + public REST paths):
+    # recognized provisioning scenarios -> PlanComposerService, novel/general
+    # intents -> MissionComposer. Both stamp the same plan_id pointer.
+    service = ::Ai::Missions::ComposerRouter.new(account: @mission.account, mission: @mission).select
     plan = service.compose!
 
     persist_plan_pointer(plan)

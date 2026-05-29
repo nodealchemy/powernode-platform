@@ -165,7 +165,11 @@ module Ai
 
       def compose_plan(params)
         mission = find_mission!(params[:mission_id])
-        result = ::Ai::Provisioning::PlanComposerService.new(account: account, mission: mission).compose!
+        # Hybrid routing: recognized provisioning scenarios -> PlanComposerService,
+        # novel/general intents -> MissionComposer. This is the concierge chat path,
+        # so it MUST route identically to the worker-job + REST paths.
+        composer = ::Ai::Missions::ComposerRouter.new(account: account, mission: mission).select
+        result = composer.compose!
 
         # M2 BYOC routing — when the account has multiple providers configured
         # AND the brief lacks an unambiguous preferred_provider, PlanComposer
@@ -194,7 +198,11 @@ module Ai
         snapshot = ::Ai::Provisioning::PlanSnapshotService.new(account: account).snapshot(plan: plan)
         success_result(snapshot.merge(mission_id: mission.id))
       rescue ::Ai::Provisioning::PlanComposerService::BriefMissingError,
-             ::Ai::Provisioning::PlanComposerService::AgentMissingError => e
+             ::Ai::Provisioning::PlanComposerService::AgentMissingError,
+             ::Ai::Missions::MissionComposer::CompositionError => e
+        # MissionComposer (the novel-intent route) raises CompositionError for an
+        # empty intent / no agent-bound skills / no valid steps — surface it as a
+        # graceful error_result like the PlanComposerService failure modes.
         error_result(e.message)
       end
 

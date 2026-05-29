@@ -487,9 +487,12 @@ module Api
         end
 
         def compose_new_provisioning_plan(mission)
-          composer = ::Ai::Provisioning::PlanComposerService.new(
+          # Hybrid routing (shared with the worker-job + concierge paths):
+          # recognized provisioning scenarios -> PlanComposerService, novel/general
+          # intents -> MissionComposer. Only reached when no cached plan exists.
+          composer = ::Ai::Missions::ComposerRouter.new(
             account: current_account, mission: mission
-          )
+          ).select
           result = composer.compose!
 
           if result.is_a?(Hash) && result[:clarification_needed]
@@ -500,6 +503,8 @@ module Api
           end
 
           unless result
+            # Both composers expose cap_exceeded_payload (set when the LLM cost
+            # cap gates composition); surface the upgrade message when present.
             render_error(composer.cap_exceeded_payload ? "LLM cost cap exceeded" : "Plan composition returned no plan",
                          :unprocessable_content)
             return nil
@@ -507,7 +512,8 @@ module Api
 
           result
         rescue ::Ai::Provisioning::PlanComposerService::BriefMissingError,
-               ::Ai::Provisioning::PlanComposerService::AgentMissingError => e
+               ::Ai::Provisioning::PlanComposerService::AgentMissingError,
+               ::Ai::Missions::MissionComposer::CompositionError => e
           render_error(e.message, :unprocessable_content)
           nil
         end
