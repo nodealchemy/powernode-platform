@@ -28,6 +28,11 @@ namespace :system do
           next
         end
 
+        # Skip the abstract base class — it intentionally raises from
+        # `.descriptor` (it has no skill_descriptor of its own) and is a
+        # superclass, not a real skill. Matching `*_executor.rb` sweeps it in.
+        next if klass == ::System::Ai::Skills::BaseSkillExecutor
+
         unless klass.respond_to?(:descriptor)
           load_failures << { path: path, error: "no .descriptor class method" }
           next
@@ -35,7 +40,7 @@ namespace :system do
 
         begin
           descriptor = klass.descriptor
-        rescue StandardError => e
+        rescue StandardError, NotImplementedError => e
           load_failures << { path: path, error: "descriptor raised #{e.class}: #{e.message}" }
           next
         end

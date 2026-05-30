@@ -159,6 +159,10 @@ module Ai
         "system_sdwan_accept_federation_peer"  => "Ai::Tools::SdwanTool",
         "system_sdwan_revoke_federation_peer"  => "Ai::Tools::SdwanTool",
         "system_sdwan_federation_scan"         => "Ai::Tools::SdwanTool",
+        # Phase 3 (Federation & Multi-Site) — SDWAN-first composer skills
+        "system_sdwan_federation_compose"      => "Ai::Tools::SdwanTool",
+        "system_multi_tenant_isolation"        => "Ai::Tools::SdwanTool",
+        "system_service_discovery_compose"     => "Ai::Tools::SdwanTool",
         # Slice 9a: routing layer (static subnet routing)
         "system_sdwan_update_peer_lan_subnets"        => "Ai::Tools::SdwanTool",
         "system_sdwan_update_network_routing_mode"    => "Ai::Tools::SdwanTool",
