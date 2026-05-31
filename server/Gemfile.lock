@@ -389,6 +389,7 @@ GEM
       racc (~> 1.4)
     nokogiri (1.19.3-x86_64-linux-musl)
       racc (~> 1.4)
+    openssl (3.3.3)
     opentelemetry-api (1.8.0)
       logger
     opentelemetry-common (0.23.0)
@@ -744,6 +745,7 @@ DEPENDENCIES
   mini_magick (~> 5.0)
   money-rails
   neighbor
+  openssl (~> 3.3)
   opentelemetry-exporter-otlp (~> 0.28)
   opentelemetry-instrumentation-action_pack (~> 0.9)
   opentelemetry-instrumentation-active_record (~> 0.7)

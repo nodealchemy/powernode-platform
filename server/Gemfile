@@ -13,6 +13,11 @@ gem "bcrypt", "~> 3.1.7"
 # JWT authentication
 gem "jwt"
 
+# Ed25519 X.509 signing for the node-enrollment CA. Pin openssl ahead of
+# Ruby's default (3.1.0), whose X509 #sign bindings raise TypeError on a nil
+# digest for EdDSA; 3.3+ signs Ed25519 CSRs/certs correctly (verify=true).
+gem "openssl", "~> 3.3"
+
 # UUID generation for UUIDv7 primary keys
 gem "uuid7", "~> 0.2.0"
 
