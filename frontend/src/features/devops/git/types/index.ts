@@ -6,5 +6,4 @@ export * from './webhooks';
 export * from './runners';
 export * from './schedules';
 export * from './approvals';
-export * from './triggers';
 export * from './commits';
