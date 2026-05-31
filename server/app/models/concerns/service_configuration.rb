@@ -318,6 +318,14 @@ module ServiceConfiguration
         url = "#{proto}://#{host}"
         port = request.headers["X-Forwarded-Port"] || request.port.to_s
         url += ":#{port}" unless default_port?(proto, port)
+
+        # Split-origin deployments (e.g. dev: the SPA runs on a different port
+        # than the API) set FRONTEND_URL explicitly. Honor it when it points at
+        # a different origin than this request — otherwise the OAuth consent
+        # redirect loops back to the API host, which serves no SPA routes.
+        explicit = ENV["FRONTEND_URL"].presence&.chomp("/")
+        return explicit if explicit && explicit != url
+
         url
       end
     end
