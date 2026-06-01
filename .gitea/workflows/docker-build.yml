@@ -16,7 +16,7 @@ on:
       - '.gitea/workflows/docker-build.yml'
 
 env:
-  REGISTRY: ${{ vars.REGISTRY }}
+  REGISTRY: ${{ secrets.REGISTRY_HOST || 'registry.example.com' }}
   IMAGE_TAG: ${{ gitea.event.inputs.tag || 'dev-latest' }}
 
 jobs:
