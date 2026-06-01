@@ -74,14 +74,14 @@ module Ai
             }
           },
           "code_prune_stale" => {
-            description: "Find and remove/archive code nodes for files that no longer exist on disk. Use dry_run to preview.",
+            description: "Find and remove/archive code nodes for files that no longer exist on disk (async — dispatched to the worker; result written to shared memory, retrieve via read_shared_memory). Use dry_run to preview.",
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
               dry_run: { type: "boolean", required: false, description: "Preview without executing (default true)" }
             }
           },
           "code_bulk_index" => {
-            description: "Trigger codebase indexing. Parses source files, creates knowledge graph nodes/edges, and generates embeddings.",
+            description: "Trigger codebase indexing (async — dispatched to the worker; returns immediately). Parses source files, creates knowledge graph nodes/edges, and generates embeddings. Track progress with code_index_status.",
             parameters: {
               repository_id: { type: "string", required: false, description: "Git repository ID, name, or full_name" },
               base_path: { type: "string", required: false, description: "Filesystem path to codebase root" },
@@ -262,71 +262,59 @@ module Ai
       # ─── Prune Stale ───────────────────────────────────────────────
 
       def prune_stale(params)
-        _repo, kb, bp = resolve_project_context(params)
+        _repo, _kb, bp = resolve_project_context(params)
         dry_run = params[:dry_run] != false # default true
+        result_key = "code_intel.prune_stale.#{params[:repository_id].presence || File.basename(bp)}"
 
-        file_nodes = kb.knowledge_graph_nodes
-                        .where(account: account, node_type: "code_entity", entity_type: "file", status: "active")
-
-        stale_nodes = []
-        stale_edges = []
-
-        file_nodes.find_each(batch_size: 100) do |node|
-          full_path = File.join(bp, node.name)
-          next if File.exist?(full_path)
-
-          stale_nodes << { id: node.id, name: node.name, entity_type: node.entity_type }
-
-          # Also collect child nodes (symbols defined in this file)
-          children = kb.knowledge_graph_nodes
-                        .where(account: account, node_type: "code_entity", status: "active")
-                        .where("properties->>'file_path' = ?", node.name)
-
-          children.each do |child|
-            stale_nodes << { id: child.id, name: child.name, entity_type: child.entity_type }
-          end
-
-          # Collect edges
-          edges = Ai::KnowledgeGraphEdge.where(account: account, status: "active")
-                                         .where("source_node_id = :id OR target_node_id = :id", id: node.id)
-          edges.each do |edge|
-            stale_edges << { id: edge.id, relation_type: edge.relation_type }
-          end
-        end
-
-        unless dry_run
-          stale_node_ids = stale_nodes.map { |n| n[:id] }.uniq
-          stale_edge_ids = stale_edges.map { |e| e[:id] }.uniq
-
-          Ai::KnowledgeGraphEdge.where(id: stale_edge_ids).update_all(status: "archived") if stale_edge_ids.any?
-          Ai::KnowledgeGraphNode.where(id: stale_node_ids).update_all(status: "archived") if stale_node_ids.any?
-        end
+        # Scans every indexed file node against disk (+ child nodes/edges) —
+        # long-running on large repos → dispatch to the worker. The pruned-node
+        # summary is written to the 'default' shared-memory pool under
+        # result_key (retrieve via read_shared_memory). Logic lives in
+        # Ai::Codebase::StalePruneService.
+        WorkerJobService.enqueue_ai_code_analysis(
+          operation: "prune_stale",
+          account_id: account.id,
+          base_path: bp,
+          repository_id: params[:repository_id],
+          result_key: result_key,
+          options: { "dry_run" => dry_run }
+        )
 
         {
           success: true,
+          status: "enqueued",
           dry_run: dry_run,
-          pruned_nodes: stale_nodes.uniq { |n| n[:id] },
-          pruned_edges: stale_edges.uniq { |e| e[:id] },
-          summary: {
-            nodes_affected: stale_nodes.uniq { |n| n[:id] }.size,
-            edges_affected: stale_edges.uniq { |e| e[:id] }.size
-          }
+          result_key: result_key,
+          retrieve_via: "read_shared_memory(pool_id: 'default', key: '#{result_key}')",
+          message: "Stale-node prune (#{dry_run ? 'dry run' : 'apply'}) dispatched to the worker."
         }
       end
 
       # ─── Bulk Index ────────────────────────────────────────────────
 
       def bulk_index(params)
-        _repo, kb, bp = resolve_project_context(params)
+        _repo, _kb, bp = resolve_project_context(params)
         incremental = params[:incremental] != false # default true
 
-        service = Ai::Codebase::IndexingService.new(
-          account: account,
-          knowledge_base: kb,
-          base_path: bp
+        # AST parse + embeddings across the whole repo is long-running →
+        # dispatch to the worker (which drives the server's internal
+        # /codebase/index endpoint). Returns immediately so the MCP call
+        # never blocks or times out.
+        WorkerJobService.enqueue_ai_codebase_index(
+          account_id: account.id,
+          base_path: bp,
+          repository_id: params[:repository_id],
+          path: params[:path],
+          incremental: incremental
         )
 
-        service.index(path: params[:path], incremental: incremental)
+        {
+          success: true,
+          status: "enqueued",
+          message: "Codebase #{incremental ? 'incremental' : 'full'} re-index dispatched to the worker. Track progress with code_index_status.",
+          base_path: bp,
+          incremental: incremental
+        }
       end
 
       # ─── Helpers ───────────────────────────────────────────────────

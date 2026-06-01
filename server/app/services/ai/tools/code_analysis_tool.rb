@@ -61,7 +61,7 @@ module Ai
             }
           },
           "code_find_duplicates" => {
-            description: "Find semantically duplicate code using embedding similarity. Groups duplicates and recommends which to keep.",
+            description: "Find semantically duplicate code using embedding similarity (async — dispatched to the worker; result written to shared memory, retrieve via read_shared_memory). Groups duplicates and recommends which to keep.",
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
               threshold: { type: "number", required: false, description: "Similarity threshold 0-1 (default: 0.95)" },
@@ -190,15 +190,34 @@ module Ai
       def find_duplicates(params)
         return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
 
-        _repo, kb, _bp = resolve_project_context(params)
+        _repo, _kb, bp = resolve_project_context(params)
+        result_key = "code_intel.find_duplicates.#{params[:repository_id]}"
 
-        service = Ai::Codebase::DuplicateDetectionService.new(account: account, knowledge_base: kb)
-        service.detect(
-          threshold: (params[:threshold] || 0.95).to_f,
-          entity_types: params[:entity_types]&.map(&:to_s),
-          scope_path: params[:scope_path],
-          top_k: (params[:top_k] || 30).to_i
+        # Embedding-similarity scan across all indexed symbols is long-running →
+        # dispatch to the worker (which drives the server's internal
+        # /codebase/analyze endpoint). Duplicate groups are written to the
+        # 'default' shared-memory pool under result_key.
+        WorkerJobService.enqueue_ai_code_analysis(
+          operation: "find_duplicates",
+          account_id: account.id,
+          base_path: bp,
+          repository_id: params[:repository_id],
+          result_key: result_key,
+          options: {
+            "threshold" => (params[:threshold] || 0.95).to_f,
+            "entity_types" => params[:entity_types]&.map(&:to_s),
+            "scope_path" => params[:scope_path],
+            "top_k" => (params[:top_k] || 30).to_i
+          }.compact
         )
+
+        {
+          success: true,
+          status: "enqueued",
+          result_key: result_key,
+          retrieve_via: "read_shared_memory(pool_id: 'default', key: '#{result_key}')",
+          message: "Duplicate detection dispatched to the worker."
+        }
       end
 
       def analyze_section(params)

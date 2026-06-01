@@ -21,9 +21,12 @@ class AiCodebaseIndexJob < BaseJob
              base_path: base_path,
              incremental: incremental)
 
-    response = api_client.post(
+    # Indexing can run for minutes (AST parse + embeddings) — use the
+    # long-running path (3600s) instead of the default 120s timeout. The
+    # payload is the request body itself (NOT wrapped in a `body:` key).
+    response = api_client.post_with_circuit_breaker(
       "/api/v1/internal/codebase/index",
-      body: {
+      {
         account_id: account_id,
         base_path: base_path,
         repository_id: repository_id,

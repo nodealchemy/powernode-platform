@@ -212,6 +212,7 @@ Rails.application.routes.draw do
         # Codebase intelligence indexing
         scope :codebase do
           post :index, to: "codebase#index_codebase"
+          post :analyze, to: "codebase#analyze"
         end
 
         # AI provisioning phase-job endpoints (capture_intent, compose_plan,

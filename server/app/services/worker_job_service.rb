@@ -372,6 +372,45 @@ class WorkerJobService
     end
 
     # ==========================================
+    # Codebase Intelligence Jobs (long-running: AST parse + embeddings)
+    # ==========================================
+
+    # Enqueue codebase indexing. The worker drives the server's internal
+    # /codebase/index endpoint (long-tolerant), keeping this off the MCP/user
+    # request path so it never times out.
+    def enqueue_ai_codebase_index(account_id:, base_path:, repository_id: nil, path: nil, incremental: true)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiCodebaseIndexJob",
+        "args" => [ {
+          "account_id" => account_id,
+          "base_path" => base_path,
+          "repository_id" => repository_id,
+          "path" => path,
+          "incremental" => incremental
+        }.compact ],
+        "queue" => "default"
+      })
+    end
+
+    # Enqueue a long-running codebase analysis (prune_stale, find_duplicates).
+    # The worker drives the server's internal /codebase/analyze endpoint, which
+    # writes the result to the 'default' shared-memory pool under result_key.
+    def enqueue_ai_code_analysis(operation:, account_id:, base_path:, result_key:, repository_id: nil, options: {})
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiCodeAnalysisJob",
+        "args" => [ {
+          "operation" => operation,
+          "account_id" => account_id,
+          "base_path" => base_path,
+          "repository_id" => repository_id,
+          "result_key" => result_key,
+          "options" => options
+        }.compact ],
+        "queue" => "default"
+      })
+    end
+
+    # ==========================================
     # DevOps Jobs (CI/CD Pipelines, Integrations)
     # ==========================================
 
