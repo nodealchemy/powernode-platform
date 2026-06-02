@@ -59,6 +59,16 @@ module Ai
               model: { type: "string", required: false, description: "Override the triage LLM model" }
             }
           },
+          "code_find_duplicates" => {
+            description: "Detect copy-paste code clones via jscpd (token-based) + AI triage. Async — dispatched to the worker; the categorized result (extract_candidate / acceptable / generated / coincidental, with suggested actions) is written to shared memory, retrieve via read_shared_memory.",
+            parameters: {
+              repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
+              scope_paths: { type: "array", required: false, description: "Subdirs to scan (default: frontend/src, server/app, worker/app)" },
+              min_tokens: { type: "integer", required: false, description: "Clone size floor in tokens (default: 50)" },
+              triage: { type: "boolean", required: false, description: "Run LLM triage of clone groups (default: true)" },
+              model: { type: "string", required: false, description: "Override the triage LLM model" }
+            }
+          },
           "code_analyze_section" => {
             description: "Run focused dead code + duplicate analysis on a codebase section. Omit section to auto-discover sections. Use scope_path to limit discovery to a subtree.",
             parameters: {
@@ -82,6 +92,7 @@ module Ai
         when "static_analysis" then static_analysis(params)
         when "index_status" then index_status(params)
         when "dead_code" then dead_code(params)
+        when "find_duplicates" then find_duplicates(params)
         when "analyze_section" then analyze_section(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
@@ -189,6 +200,38 @@ module Ai
           result_key: result_key,
           retrieve_via: "read_shared_memory(pool_id: 'default', key: '#{result_key}')",
           message: "Dead-code analysis (analyzers + AI triage) dispatched to the worker."
+        }
+      end
+
+      def find_duplicates(params)
+        return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
+
+        _repo, _kb, bp = resolve_project_context(params)
+        result_key = "code_intel.find_duplicates.#{params[:repository_id]}"
+
+        # jscpd clone detection + LLM triage is long-running → dispatch to the
+        # worker. The categorized clone report is written to the 'default'
+        # shared-memory pool under result_key.
+        WorkerJobService.enqueue_ai_code_analysis(
+          operation: "find_duplicates",
+          account_id: account.id,
+          base_path: bp,
+          repository_id: params[:repository_id],
+          result_key: result_key,
+          options: {
+            "scope_paths" => params[:scope_paths]&.map(&:to_s),
+            "min_tokens" => params[:min_tokens],
+            "triage" => params[:triage] != false,
+            "model" => params[:model]
+          }.compact
+        )
+
+        {
+          success: true,
+          status: "enqueued",
+          result_key: result_key,
+          retrieve_via: "read_shared_memory(pool_id: 'default', key: '#{result_key}')",
+          message: "Duplicate (clone) detection (jscpd + AI triage) dispatched to the worker."
         }
       end
 

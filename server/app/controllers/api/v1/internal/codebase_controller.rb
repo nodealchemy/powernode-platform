@@ -66,6 +66,15 @@ class Api::V1::Internal::CodebaseController < Api::V1::Internal::InternalBaseCon
             triage: opts.fetch("triage", true),
             model: opts["model"]
           )
+      when "find_duplicates"
+        Ai::Codebase::DuplicateAnalysisService
+          .new(account: account, base_path: base_path)
+          .detect(
+            scope_paths: opts["scope_paths"],
+            min_tokens: (opts["min_tokens"] || 50).to_i,
+            triage: opts.fetch("triage", true),
+            model: opts["model"]
+          )
       else
         render_error("Unknown operation: #{operation.presence || '(blank)'}", status: :unprocessable_content)
         return
