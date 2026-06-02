@@ -63,7 +63,7 @@ module Security
         # Traefik's own chain-check against our-CA-only is authoritative and we
         # trust the forwarded subject CN. Once symmetric federation is enabled
         # the PEM is always forwarded, so this path is inert in that posture.
-        info_subject_cn(request)
+        forwarded_subject_cn(request)
       end
 
       # Verify the request's forwarded cert against the GIVEN anchors (rather
@@ -79,6 +79,19 @@ module Security
         result.verified? ? result.subject_cn : nil
       end
 
+      # The subject CN from Traefik's passTLSClientCert Info header (URL-encoded
+      # `Subject="CN=<value>"`). The single home for forwarded-CN parsing — used
+      # by verify_request's no-PEM path AND by FederationApi::BaseController to
+      # resolve the calling peer before its per-peer signature check.
+      def forwarded_subject_cn(request)
+        info = request.headers[SUBJECT_HEADER].presence
+        return nil unless info
+
+        decoded = ::CGI.unescape(info)
+        match = decoded.match(/\bCN\s*=\s*"?([^,"]+)"?/i)
+        match && match[1]&.strip
+      end
+
       private
 
       def forwarded_pem(request)
@@ -86,17 +99,6 @@ module Security
         return nil unless raw
 
         reconstruct_pem(::CGI.unescape(raw))
-      end
-
-      # The verified subject CN from Traefik's passTLSClientCert Info header
-      # (URL-encoded `Subject="CN=<value>"`). Used only on the no-PEM path.
-      def info_subject_cn(request)
-        info = request.headers[SUBJECT_HEADER].presence
-        return nil unless info
-
-        decoded = ::CGI.unescape(info)
-        match = decoded.match(/\bCN\s*=\s*"?([^,"]+)"?/i)
-        match && match[1]&.strip
       end
 
       # Traefik's passTLSClientCert(pem:true) forwards the leaf either as a full
