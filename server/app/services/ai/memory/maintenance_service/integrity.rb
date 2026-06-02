@@ -89,22 +89,7 @@ module Ai
           knowledge_scope = knowledge_scope.accessible_by("global") if scope == :global
 
           knowledge_scope.find_each do |entry|
-            results[:total] += 1
-            result = verify(entry)
-
-            if result[:unsealed]
-              results[:unsealed] += 1
-            elsif result[:valid]
-              results[:verified] += 1
-            else
-              results[:failed] += 1
-              results[:entries] << {
-                id: entry.id,
-                title: entry.title,
-                type: "SharedKnowledge",
-                result: result
-              }
-            end
+            process_audit_entry(entry, "SharedKnowledge", results, title: entry.title)
           end
 
           Rails.logger.info(
@@ -240,7 +225,7 @@ module Ai
             end
         end
 
-        def process_audit_entry(entry, type_label, results)
+        def process_audit_entry(entry, type_label, results, title: nil)
           results[:total] += 1
           result = verify(entry)
 
@@ -250,11 +235,9 @@ module Ai
             results[:verified] += 1
           else
             results[:failed] += 1
-            results[:entries] << {
-              id: entry.id,
-              type: type_label,
-              result: result
-            }
+            failed = { id: entry.id, type: type_label, result: result }
+            failed[:title] = title if title
+            results[:entries] << failed
           end
         end
       end

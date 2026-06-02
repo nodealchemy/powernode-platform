@@ -347,22 +347,26 @@ module Ai
           stats[:errors] += 1
         end
 
-        def merge_compound_learnings(keeper, duplicate)
-          new_importance = [keeper.importance_score, duplicate.importance_score].max
-          new_confidence = [keeper.confidence_score, duplicate.confidence_score].max
-          combined_access = keeper.access_count + duplicate.access_count
-
+        # Merge a duplicate's importance/confidence/access into the keeper and
+        # stamp merge provenance, then run the caller's type-specific finalizer
+        # on the duplicate. compound_learnings scores are NOT NULL (default 0.5),
+        # so the || 0 guard is a no-op there and a safety net for context entries.
+        def merge_scored_duplicate(keeper, duplicate)
           keeper.update!(
-            importance_score: new_importance,
-            confidence_score: new_confidence,
-            access_count: combined_access,
+            importance_score: [keeper.importance_score || 0, duplicate.importance_score || 0].max,
+            confidence_score: [keeper.confidence_score || 0, duplicate.confidence_score || 0].max,
+            access_count: keeper.access_count + duplicate.access_count,
             metadata: (keeper.metadata || {}).merge(
               "merged_ids" => ((keeper.metadata || {})["merged_ids"] || []) + [duplicate.id],
               "last_merge_at" => Time.current.iso8601
             )
           )
 
-          duplicate.supersede!(keeper)
+          yield(keeper, duplicate)
+        end
+
+        def merge_compound_learnings(keeper, duplicate)
+          merge_scored_duplicate(keeper, duplicate) { |k, d| d.supersede!(k) }
         end
 
         def merge_shared_knowledge(keeper, duplicate)
@@ -384,21 +388,7 @@ module Ai
         end
 
         def merge_context_entries(keeper, duplicate)
-          new_importance = [keeper.importance_score || 0, duplicate.importance_score || 0].max
-          new_confidence = [keeper.confidence_score || 0, duplicate.confidence_score || 0].max
-          combined_access = keeper.access_count + duplicate.access_count
-
-          keeper.update!(
-            importance_score: new_importance,
-            confidence_score: new_confidence,
-            access_count: combined_access,
-            metadata: (keeper.metadata || {}).merge(
-              "merged_ids" => ((keeper.metadata || {})["merged_ids"] || []) + [duplicate.id],
-              "last_merge_at" => Time.current.iso8601
-            )
-          )
-
-          duplicate.archive!
+          merge_scored_duplicate(keeper, duplicate) { |_k, d| d.archive! }
         end
 
         def map_memory_type_to_category(memory_type)
