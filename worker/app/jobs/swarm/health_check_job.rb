@@ -8,6 +8,8 @@ module Swarm
   # Queue: devops_default
   # Retry: 2
   class HealthCheckJob < BaseJob
+    include DockerClientConcern
+
     sidekiq_options queue: "devops_default", retry: 2
 
     DOCKER_API_VERSION = "v1.41"
@@ -52,7 +54,7 @@ module Swarm
       log_info "Checking cluster health", cluster_id: cluster["id"], name: cluster["name"]
 
       connection = fetch_connection_details(cluster["id"])
-      docker = build_docker_client(connection)
+      docker = build_docker_client(connection, timeout: 15, open_timeout: 5)
 
       alerts = []
 
@@ -94,23 +96,6 @@ module Swarm
     def fetch_connection_details(cluster_id)
       response = api_client.get("/api/v1/internal/devops/swarm/clusters/#{cluster_id}/connection")
       response.dig("data", "connection")
-    end
-
-    def build_docker_client(connection)
-      scheme = connection["tls_enabled"] ? "https" : "http"
-      base_url = "#{scheme}://#{connection['host']}:#{connection['port']}/#{DOCKER_API_VERSION}"
-
-      Faraday.new(url: base_url) do |f|
-        if connection["tls_enabled"]
-          f.ssl.client_cert = OpenSSL::X509::Certificate.new(connection["client_cert"])
-          f.ssl.client_key = OpenSSL::PKey::RSA.new(connection["client_key"])
-          f.ssl.ca_file = connection["ca_cert_path"] if connection["ca_cert_path"]
-          f.ssl.verify = connection.fetch("tls_verify", true)
-        end
-        f.options.timeout = 15
-        f.options.open_timeout = 5
-        f.adapter Faraday.default_adapter
-      end
     end
 
     def check_api_ping(docker)

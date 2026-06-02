@@ -5,6 +5,8 @@ require "openssl"
 
 module Docker
   class HostSyncJob < BaseJob
+    include DockerClientConcern
+
     sidekiq_options queue: "devops_default", retry: 2
 
     DOCKER_API_VERSION = "v1.45"
@@ -40,7 +42,7 @@ module Docker
       log_info "Syncing Docker host", host_id: host["id"], name: host["name"]
 
       connection = fetch_connection_details(host["id"])
-      docker = build_docker_client(connection)
+      docker = build_docker_client(connection, timeout: 30)
 
       containers = fetch_docker_containers(docker)
       images = fetch_docker_images(docker)
@@ -57,31 +59,6 @@ module Docker
     def fetch_connection_details(host_id)
       response = api_client.get("/api/v1/internal/devops/docker/hosts/#{host_id}/connection")
       response.dig("data", "connection")
-    end
-
-    def build_docker_client(connection)
-      ssl_options = {}
-
-      if connection["tls_enabled"]
-        ssl_options[:client_cert] = OpenSSL::X509::Certificate.new(connection["client_cert"])
-        ssl_options[:client_key] = OpenSSL::PKey::RSA.new(connection["client_key"])
-        ssl_options[:verify] = connection.fetch("tls_verify", true)
-      end
-
-      scheme = connection["tls_enabled"] ? "https" : "http"
-      base_url = "#{scheme}://#{connection['host']}:#{connection['port']}/#{DOCKER_API_VERSION}"
-
-      Faraday.new(url: base_url) do |f|
-        if connection["tls_enabled"]
-          f.ssl.client_cert = ssl_options[:client_cert]
-          f.ssl.client_key = ssl_options[:client_key]
-          f.ssl.ca_file = connection["ca_cert_path"] if connection["ca_cert_path"]
-          f.ssl.verify = ssl_options[:verify]
-        end
-        f.options.timeout = 30
-        f.options.open_timeout = 10
-        f.adapter Faraday.default_adapter
-      end
     end
 
     def fetch_docker_containers(docker)

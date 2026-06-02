@@ -8,6 +8,8 @@ module Swarm
   # Queue: devops_high
   # Retry: 1
   class ServiceUpdateJob < BaseJob
+    include DockerClientConcern
+
     sidekiq_options queue: "devops_high", retry: 1
 
     DOCKER_API_VERSION = "v1.41"
@@ -75,23 +77,6 @@ module Swarm
     def fetch_connection_details(cluster_id)
       response = api_client.get("/api/v1/internal/devops/swarm/clusters/#{cluster_id}/connection")
       response.dig("data", "connection")
-    end
-
-    def build_docker_client(connection)
-      scheme = connection["tls_enabled"] ? "https" : "http"
-      base_url = "#{scheme}://#{connection['host']}:#{connection['port']}/#{DOCKER_API_VERSION}"
-
-      Faraday.new(url: base_url) do |f|
-        if connection["tls_enabled"]
-          f.ssl.client_cert = OpenSSL::X509::Certificate.new(connection["client_cert"])
-          f.ssl.client_key = OpenSSL::PKey::RSA.new(connection["client_key"])
-          f.ssl.ca_file = connection["ca_cert_path"] if connection["ca_cert_path"]
-          f.ssl.verify = connection.fetch("tls_verify", true)
-        end
-        f.options.timeout = 60
-        f.options.open_timeout = 10
-        f.adapter Faraday.default_adapter
-      end
     end
 
     def perform_service_update(docker, deployment, service_docker_id)
