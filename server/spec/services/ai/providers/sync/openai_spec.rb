@@ -47,12 +47,22 @@ RSpec.describe Ai::Providers::Sync::Openai do
         expect(provider.supported_models).to be_present
       end
 
-      it "filters out non-chat models" do
+      it "filters out embedding models" do
         Ai::ProviderManagementService.send(:sync_openai_models, provider)
         provider.reload
         model_ids = provider.supported_models.map { |m| m["id"] }
         expect(model_ids).not_to include("text-embedding-ada-002")
-        expect(model_ids).not_to include("dall-e-3")
+      end
+
+      it "includes image generation models with the image_generation capability" do
+        # DALL-E models are intentionally collected (since the image-generation
+        # feature, 4efba9f4) and carry the image_generation capability rather
+        # than being filtered out as non-chat models.
+        Ai::ProviderManagementService.send(:sync_openai_models, provider)
+        provider.reload
+        dalle = provider.supported_models.find { |m| m["id"] == "dall-e-3" }
+        expect(dalle).to be_present
+        expect(dalle["capabilities"]).to include("image_generation")
       end
 
       it "filters out instruct models" do
