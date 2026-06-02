@@ -20,17 +20,7 @@ module Ai
 
         def complete(messages:, model:, **opts)
           body = build_chat_body(messages, model, stream: false, **opts)
-          url = build_chat_url
-          response = HTTParty.post(url, headers: headers, body: body.to_json, timeout: 300)
-
-          case response.code
-          when 200
-            build_ollama_response(JSON.parse(response.body), model)
-          else
-            handle_error(response.code, response.parsed_response)
-          end
-        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ETIMEDOUT => e
-          build_error_response("Ollama connection failed: #{e.message}")
+          post_chat(body, model)
         end
 
         def stream(messages:, model:, **opts, &block)
@@ -141,23 +131,23 @@ module Ai
           body = build_chat_body(messages, model, stream: false, **opts)
           body[:tools] = ollama_tools
 
-          url = build_chat_url
-          response = HTTParty.post(url, headers: headers, body: body.to_json, timeout: 300)
-
-          case response.code
-          when 200
-            build_ollama_response(JSON.parse(response.body), model)
-          else
-            handle_error(response.code, response.parsed_response)
-          end
-        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ETIMEDOUT => e
-          build_error_response("Ollama connection failed: #{e.message}")
+          post_chat(body, model)
         end
 
         def complete_structured(messages:, schema:, model:, **opts)
           body = build_chat_body(messages, model, stream: false, **opts)
           body[:format] = schema[:schema] || schema
 
+          post_chat(body, model)
+        end
+
+        private
+
+        # Shared non-streaming POST → response path for complete /
+        # complete_with_tools / complete_structured. Ollama uses a 300s timeout
+        # and its own response/error shaping, so this is local rather than
+        # BaseAdapter#http_post (which is 120s + RequestError-based).
+        def post_chat(body, model)
           url = build_chat_url
           response = HTTParty.post(url, headers: headers, body: body.to_json, timeout: 300)
 
@@ -170,8 +160,6 @@ module Ai
         rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ETIMEDOUT => e
           build_error_response("Ollama connection failed: #{e.message}")
         end
-
-        private
 
         def build_chat_body(messages, model, stream: false, **opts)
           formatted = messages.map do |m|

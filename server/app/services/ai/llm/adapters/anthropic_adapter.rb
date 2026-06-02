@@ -346,24 +346,6 @@ module Ai
           end
         end
 
-        def handle_error(status, parsed)
-          error_msg = if parsed.is_a?(Hash)
-                        parsed.dig("error", "message") || parsed["error"] || "Unknown error"
-                      else
-                        parsed.to_s
-                      end
-          error_msg = error_msg.to_json if error_msg.is_a?(Hash)
-
-          build_error_response("#{error_msg} (HTTP #{status})", status_code: status)
-        end
-
-        def safe_parse_json(str)
-          return str unless str.is_a?(String)
-
-          JSON.parse(str)
-        rescue JSON::ParserError
-          str
-        end
       end
     end
   end
