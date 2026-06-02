@@ -96,7 +96,7 @@ All MCP actions grouped by subsystem. Full parameter docs: [reference/auto/mcp-t
 | Challenges | `generate_self_challenge`, `get_challenge_result`, `list_challenges` |
 | Graph | `search_knowledge_graph`, `reason_knowledge_graph`, `get_graph_node`, `list_graph_nodes`, `get_graph_neighbors`, `graph_statistics`, `get_subgraph`, `extract_to_knowledge_graph` |
 | Codebase Discovery | `code_context_tree`, `code_file_skeleton`, `code_semantic_search`, `code_identifier_search`, `code_semantic_navigate`, `code_feature_hub` |
-| Codebase Analysis | `code_blast_radius`, `code_static_analysis`, `code_index_status`, `code_analyze_section`, `code_dead_code`, `code_find_duplicates` |
+| Codebase Analysis | `code_blast_radius`, `code_static_analysis`, `code_index_status`, `code_analyze_section`, `code_dead_code` |
 | Codebase Memory | `code_upsert_node`, `code_create_relation`, `code_search_graph`, `code_prune_stale`, `code_bulk_index` |
 | Autonomy (Safety) | `emergency_halt`, `emergency_resume`, `kill_switch_status` |
 | Autonomy (Goals) | `create_agent_goal`, `list_agent_goals`, `update_agent_goal`, `decompose_goal` |

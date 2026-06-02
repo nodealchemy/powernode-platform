@@ -29,11 +29,9 @@ module Ai
       # Analyze a specific section by path prefix.
       # @param section [String] Section path prefix or discovered section name
       # @param dead_code [Boolean] Run dead code detection (default: true)
-      # @param duplicates [Boolean] Run duplicate detection (default: true)
-      # @param duplicate_threshold [Float] Similarity threshold (default: 0.92)
       # @param min_dead_score [Float] Minimum deadness score (default: 0.5)
       # @return [Hash] Combined analysis results
-      def analyze_section(section:, dead_code: true, duplicates: true, duplicate_threshold: 0.92, min_dead_score: 0.5)
+      def analyze_section(section:, dead_code: true, min_dead_score: 0.5)
         scope_path = section
         node_count = count_nodes(scope_path)
 
@@ -54,15 +52,6 @@ module Ai
             scope_path: scope_path,
             min_score: min_dead_score,
             top_k: 30
-          )
-        end
-
-        if duplicates
-          dup_svc = DuplicateDetectionService.new(account: @account, knowledge_base: @knowledge_base)
-          result[:duplicates] = dup_svc.detect(
-            scope_path: scope_path,
-            threshold: duplicate_threshold,
-            top_k: 20
           )
         end
 

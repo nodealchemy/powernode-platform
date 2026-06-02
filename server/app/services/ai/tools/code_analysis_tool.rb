@@ -60,16 +60,6 @@ module Ai
               top_k: { type: "integer", required: false, description: "Max results (default: 50)" }
             }
           },
-          "code_find_duplicates" => {
-            description: "Find semantically duplicate code using embedding similarity (async — dispatched to the worker; result written to shared memory, retrieve via read_shared_memory). Groups duplicates and recommends which to keep.",
-            parameters: {
-              repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
-              threshold: { type: "number", required: false, description: "Similarity threshold 0-1 (default: 0.95)" },
-              entity_types: { type: "array", required: false, description: "Filter: method, function, class (default: method, function)" },
-              scope_path: { type: "string", required: false, description: "Limit to files under this path prefix" },
-              top_k: { type: "integer", required: false, description: "Max duplicate groups (default: 30)" }
-            }
-          },
           "code_analyze_section" => {
             description: "Run focused dead code + duplicate analysis on a codebase section. Omit section to auto-discover sections. Use scope_path to limit discovery to a subtree.",
             parameters: {
@@ -93,7 +83,6 @@ module Ai
         when "static_analysis" then static_analysis(params)
         when "index_status" then index_status(params)
         when "dead_code" then dead_code(params)
-        when "find_duplicates" then find_duplicates(params)
         when "analyze_section" then analyze_section(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
@@ -187,39 +176,6 @@ module Ai
         )
       end
 
-      def find_duplicates(params)
-        return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
-
-        _repo, _kb, bp = resolve_project_context(params)
-        result_key = "code_intel.find_duplicates.#{params[:repository_id]}"
-
-        # Embedding-similarity scan across all indexed symbols is long-running →
-        # dispatch to the worker (which drives the server's internal
-        # /codebase/analyze endpoint). Duplicate groups are written to the
-        # 'default' shared-memory pool under result_key.
-        WorkerJobService.enqueue_ai_code_analysis(
-          operation: "find_duplicates",
-          account_id: account.id,
-          base_path: bp,
-          repository_id: params[:repository_id],
-          result_key: result_key,
-          options: {
-            "threshold" => (params[:threshold] || 0.95).to_f,
-            "entity_types" => params[:entity_types]&.map(&:to_s),
-            "scope_path" => params[:scope_path],
-            "top_k" => (params[:top_k] || 30).to_i
-          }.compact
-        )
-
-        {
-          success: true,
-          status: "enqueued",
-          result_key: result_key,
-          retrieve_via: "read_shared_memory(pool_id: 'default', key: '#{result_key}')",
-          message: "Duplicate detection dispatched to the worker."
-        }
-      end
-
       def analyze_section(params)
         return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
 
@@ -233,8 +189,6 @@ module Ai
         service.analyze_section(
           section: params[:section],
           dead_code: params[:dead_code] != false,
-          duplicates: params[:duplicates] != false,
-          duplicate_threshold: (params[:duplicate_threshold] || 0.92).to_f,
           min_dead_score: (params[:min_dead_score] || 0.5).to_f
         )
       end

@@ -36,8 +36,8 @@ class Api::V1::Internal::CodebaseController < Api::V1::Internal::InternalBaseCon
   end
 
   # POST /api/v1/internal/codebase/analyze
-  # Runs a long-running codebase analysis (prune_stale, find_duplicates) driven
-  # by AiCodeAnalysisJob. Writes the result to the account's "default"
+  # Runs a long-running codebase analysis (prune_stale) driven by
+  # AiCodeAnalysisJob. Writes the result to the account's "default"
   # shared-memory pool under result_key (when given) and returns it.
   def analyze
     account = Account.find(params[:account_id])
@@ -58,15 +58,6 @@ class Api::V1::Internal::CodebaseController < Api::V1::Internal::InternalBaseCon
         Ai::Codebase::StalePruneService
           .new(account: account, knowledge_base: kb, base_path: base_path)
           .prune(dry_run: opts.fetch("dry_run", true))
-      when "find_duplicates"
-        Ai::Codebase::DuplicateDetectionService
-          .new(account: account, knowledge_base: kb)
-          .detect(
-            threshold: (opts["threshold"] || 0.95).to_f,
-            entity_types: opts["entity_types"],
-            scope_path: opts["scope_path"],
-            top_k: (opts["top_k"] || 30).to_i
-          )
       else
         render_error("Unknown operation: #{operation.presence || '(blank)'}", status: :unprocessable_content)
         return
