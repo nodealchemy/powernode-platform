@@ -98,7 +98,15 @@ module Security
         raw = request.headers[PEM_HEADER].presence
         return nil unless raw
 
-        reconstruct_pem(::CGI.unescape(raw))
+        # Traefik's passTLSClientCert(pem:true) forwards EITHER a percent-encoded
+        # PEM (with %-escapes incl. the BEGIN/END markers + newlines) OR a bare
+        # base64 DER body (standard base64 with +,/,= — NOT url-encoded; this is
+        # what powernode-reverse-proxy emits). Only unescape the former:
+        # CGI.unescape turns a literal '+' into a space, which reconstruct_pem's
+        # whitespace strip then deletes — silently corrupting bare-base64 DER.
+        # '%' never appears in base64, so it cleanly discriminates the encodings.
+        decoded = raw.include?("%") ? ::CGI.unescape(raw) : raw
+        reconstruct_pem(decoded)
       end
 
       # Traefik's passTLSClientCert(pem:true) forwards the leaf either as a full

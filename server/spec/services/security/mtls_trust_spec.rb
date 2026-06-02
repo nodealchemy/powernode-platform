@@ -62,6 +62,24 @@ RSpec.describe Security::MtlsTrust do
       expect(described_class.verify_request(r)).to eq("node-instance-9")
     end
 
+    it "reconstructs a RAW bare-base64 DER cert as the reverse proxy actually forwards it" do
+      # powernode-reverse-proxy / Traefik passTLSClientCert(pem:true) forwards
+      # the leaf as bare base64 DER — no BEGIN/END, standard base64 (+,/,=),
+      # and NOT url-encoded. Regression (two-platform live mTLS smoke,
+      # 2026-06-02): CGI.unescape turns a literal '+' into a space which the
+      # whitespace strip then deletes, corrupting the DER so verification fails.
+      leaf = nil
+      bare = nil
+      10.times do
+        leaf = sign_leaf("node-instance-9", our[0], our[1])
+        bare = Base64.strict_encode64(leaf.to_der)
+        break if bare.include?("+")
+      end
+      expect(bare).to include("+"), "need a '+' in the base64 to exercise the bug"
+      r = req(described_class::PEM_HEADER => bare) # RAW — exactly as forwarded, not CGI.escaped
+      expect(described_class.verify_request(r)).to eq("node-instance-9")
+    end
+
     it "returns nil for a cert signed by a FOREIGN CA that cloned our CN" do
       foreign = build_ca("Powernode Internal CA")
       leaf = sign_leaf("node-instance-9", foreign[0], foreign[1])
