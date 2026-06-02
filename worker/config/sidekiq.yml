@@ -529,6 +529,14 @@
       queue: system
       description: 'Tick federation peer heartbeats + state machine'
 
+    # Federation mTLS Phase 2 (symmetric) — refresh peer CA anchors hourly so a
+    # peer that rotates its CA has its new certs honored within the hour.
+    federation_trust_bundle_refresh:
+      cron: '40 * * * *'
+      class: FederationTrustBundleRefreshJob
+      queue: system
+      description: 'Refresh symmetric federation peer CA trust bundles'
+
     # P4.6.9 — Subscription monitor every hour. Renews active subscriptions'
     # grants 7d before expiry; suspends subscriptions whose offerings
     # transitioned to retired (30d grace); flags grant-validation failures.
