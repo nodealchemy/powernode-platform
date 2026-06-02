@@ -2,6 +2,7 @@
 
 class AiMissionTestJob < BaseJob
   include AiJobsConcern
+  include MissionReportingConcern
 
   sidekiq_options queue: 'ai_execution', retry: 3
 
@@ -97,13 +98,5 @@ class AiMissionTestJob < BaseJob
       result: { tests_skipped: true, reason: "Timed out or no run ID" },
       expected_phase: 'testing'
     })
-  end
-
-  def report_failure(mission_id, error_message)
-    backend_api_patch("/api/v1/ai/missions/#{mission_id}", {
-      mission: { status: "failed", error_message: error_message }
-    })
-  rescue StandardError => e
-    log_warn("Failed to report mission failure", error: e.message)
   end
 end

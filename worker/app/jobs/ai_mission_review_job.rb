@@ -2,6 +2,7 @@
 
 class AiMissionReviewJob < BaseJob
   include AiJobsConcern
+  include MissionReportingConcern
 
   sidekiq_options queue: 'ai_execution', retry: 3
 
@@ -60,15 +61,5 @@ class AiMissionReviewJob < BaseJob
     log_error("Mission review job failed", exception: e, mission_id: params['mission_id'])
     report_failure(params['mission_id'], e.message) if params['mission_id']
     raise
-  end
-
-  private
-
-  def report_failure(mission_id, error_message)
-    backend_api_patch("/api/v1/ai/missions/#{mission_id}", {
-      mission: { status: "failed", error_message: error_message }
-    })
-  rescue StandardError => e
-    log_warn("Failed to report mission failure", error: e.message)
   end
 end

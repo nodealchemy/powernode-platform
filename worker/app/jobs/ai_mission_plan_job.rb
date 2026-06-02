@@ -2,6 +2,7 @@
 
 class AiMissionPlanJob < BaseJob
   include AiJobsConcern
+  include MissionReportingConcern
 
   sidekiq_options queue: 'ai_execution', retry: 3
 
@@ -88,13 +89,5 @@ class AiMissionPlanJob < BaseJob
     parts << "## Feature: #{selected_feature['title']}\n#{selected_feature['description']}" if selected_feature['title']
     parts << "## Repository Analysis\n#{(mission['analysis_result'] || {}).to_json}" if mission['analysis_result'].present?
     parts.join("\n\n")
-  end
-
-  def report_failure(mission_id, error_message)
-    backend_api_patch("/api/v1/ai/missions/#{mission_id}", {
-      mission: { status: "failed", error_message: error_message }
-    })
-  rescue StandardError => e
-    log_warn("Failed to report mission failure", error: e.message)
   end
 end
