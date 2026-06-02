@@ -59,52 +59,12 @@ RSpec.describe A2a::SkillRegistry do
     end
   end
 
-  describe ".skills_by_category" do
-    it "returns skills in a category" do
-      skills = described_class.skills_by_category("agents")
-
-      expect(skills).not_to be_empty
-      expect(skills.all? { |s| s[:category] == "agents" }).to be true
-    end
-
-    it "returns empty array for unknown category" do
-      skills = described_class.skills_by_category("unknown")
-      expect(skills).to be_empty
-    end
-  end
-
-  describe ".register_skill" do
-    after do
-      described_class.reload!
-    end
-
-    it "registers a new skill" do
-      described_class.register_skill(
-        id: "custom.skill",
-        name: "Custom Skill",
-        description: "A custom skill",
-        category: "custom",
-        handler: "CustomHandler.execute"
-      )
-
-      skill = described_class.find_skill("custom.skill")
-      expect(skill).to be_present
-      expect(skill[:name]).to eq("Custom Skill")
-    end
-  end
-
   describe ".reload!" do
-    it "reloads the skill registry" do
+    it "rebuilds the platform skill set" do
       original_count = described_class.platform_skills.count
 
-      described_class.register_skill(
-        id: "temp.skill",
-        name: "Temp",
-        description: "Temp",
-        category: "temp",
-        handler: "Temp.execute"
-      )
-
+      # Inject a transient skill directly, then confirm reload! rebuilds it away
+      described_class.platform_skills << { id: "temp.skill", name: "Temp" }
       expect(described_class.platform_skills.count).to eq(original_count + 1)
 
       described_class.reload!

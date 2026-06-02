@@ -13,15 +13,6 @@ module A2a
         platform_skills.find { |s| s[:id] == skill_id }
       end
 
-      def skills_by_category(category)
-        platform_skills.select { |s| s[:category] == category }
-      end
-
-      def register_skill(skill)
-        @platform_skills ||= []
-        @platform_skills << normalize_skill(skill)
-      end
-
       def reload!
         @platform_skills = build_platform_skills
       end

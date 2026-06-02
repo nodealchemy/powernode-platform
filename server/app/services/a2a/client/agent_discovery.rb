@@ -59,19 +59,6 @@ module A2a
           { healthy: false, error: e.message }
         end
 
-        # Bulk discover agents from a list of URLs
-        def bulk_discover(urls)
-          results = {}
-
-          # Use parallel processing for efficiency
-          threads = urls.map do |url|
-            Thread.new { results[url] = discover(url) }
-          end
-
-          threads.each(&:join)
-          results
-        end
-
         private
 
         def normalize_url(url)

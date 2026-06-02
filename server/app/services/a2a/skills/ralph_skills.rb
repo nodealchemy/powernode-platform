@@ -198,25 +198,6 @@ module A2a
         }
       end
 
-      # Get iterations for a Ralph loop
-      def list_iterations(input, task = nil)
-        ralph_loop = find_loop(input["loop_id"])
-        return not_found_error("Loop") unless ralph_loop
-
-        scope = ralph_loop.ralph_iterations.recent
-        scope = scope.where(status: input["status"]) if input["status"].present?
-        scope = scope.where(ralph_task_id: input["task_id"]) if input["task_id"].present?
-
-        limit = [ (input["limit"] || 20).to_i, 100 ].min
-
-        {
-          output: {
-            iterations: scope.limit(limit).map(&:iteration_summary),
-            total: scope.count
-          }
-        }
-      end
-
       # Parse PRD and create tasks
       def parse_prd(input, task = nil)
         ralph_loop = find_loop(input["loop_id"])

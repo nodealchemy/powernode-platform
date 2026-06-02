@@ -136,27 +136,4 @@ RSpec.describe A2a::Client::AgentDiscovery do
     end
   end
 
-  describe ".bulk_discover" do
-    let(:urls) do
-      [
-        "https://agent1.example.com",
-        "https://agent2.example.com"
-      ]
-    end
-
-    before do
-      stub_request(:get, "https://agent1.example.com/.well-known/agent-card.json")
-        .to_return(status: 200, body: { "name" => "Agent 1", "url" => "https://agent1.example.com/a2a" }.to_json)
-      stub_request(:get, "https://agent2.example.com/.well-known/agent-card.json")
-        .to_return(status: 200, body: { "name" => "Agent 2", "url" => "https://agent2.example.com/a2a" }.to_json)
-    end
-
-    it "discovers multiple agents in parallel" do
-      results = described_class.bulk_discover(urls)
-
-      expect(results.keys).to match_array(urls)
-      expect(results[urls.first][:card]["name"]).to eq("Agent 1")
-      expect(results[urls.last][:card]["name"]).to eq("Agent 2")
-    end
-  end
 end
