@@ -13,6 +13,8 @@ module System
   #   System::VolumeManagementJob.perform_async(volume_id, operation_id, 'check')
   #
   class VolumeManagementJob < BaseJob
+    include OperationReportingConcern
+
     VALID_COMMANDS = %w[attach detach provision check recover].freeze
 
     sidekiq_options queue: 'system',
@@ -254,20 +256,6 @@ module System
       track_error_metric("volume_#{command}_cloud_failed")
 
       result
-    end
-
-    def update_operation_status(operation_id, status, error_message: nil)
-      return unless operation_id
-
-      with_api_retry do
-        api_client.patch("/api/v1/internal/system/operations/#{operation_id}", {
-          status: status,
-          error_message: error_message,
-          completed_at: %w[complete failed].include?(status) ? Time.current.iso8601 : nil
-        }.compact)
-      end
-    rescue StandardError => e
-      log_warn('Failed to update operation status', operation_id: operation_id, error: e.message)
     end
   end
 end

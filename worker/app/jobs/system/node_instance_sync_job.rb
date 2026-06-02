@@ -16,6 +16,8 @@ module System
   #   System::NodeInstanceSyncJob.perform_async(nil, operation_id, 'sync_all', node_id: node_id)
   #
   class NodeInstanceSyncJob < BaseJob
+    include OperationReportingConcern
+
     VALID_COMMANDS = %w[sync cleanse sync_all].freeze
 
     sidekiq_options queue: 'system',
@@ -167,32 +169,6 @@ module System
       log_warn('Instance not found', instance_id: instance_id)
       update_operation_status(operation_id, 'failed', error_message: 'Instance not found') if operation_id
       { success: false, error: 'Instance not found' }
-    end
-
-    def update_operation_status(operation_id, status, error_message: nil)
-      return unless operation_id
-
-      with_api_retry do
-        api_client.patch("/api/v1/internal/system/operations/#{operation_id}", {
-          status: status,
-          error_message: error_message,
-          completed_at: %w[complete failed].include?(status) ? Time.current.iso8601 : nil
-        }.compact)
-      end
-    rescue StandardError => e
-      log_warn('Failed to update operation status', operation_id: operation_id, error: e.message)
-    end
-
-    def update_operation_progress(operation_id, progress)
-      return unless operation_id
-
-      with_api_retry do
-        api_client.patch("/api/v1/internal/system/operations/#{operation_id}", {
-          progress: progress
-        })
-      end
-    rescue StandardError => e
-      log_warn('Failed to update operation progress', operation_id: operation_id, error: e.message)
     end
   end
 end

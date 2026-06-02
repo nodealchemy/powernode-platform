@@ -13,6 +13,8 @@ module System
   #   System::NodeInstanceControlJob.perform_async(instance_id, operation_id, 'terminate')
   #
   class NodeInstanceControlJob < BaseJob
+    include OperationReportingConcern
+
     VALID_COMMANDS = %w[start stop reboot terminate].freeze
 
     sidekiq_options queue: 'system',
@@ -134,20 +136,6 @@ module System
       track_error_metric("instance_#{command}_cloud_failed")
 
       { success: false, error: error_message }
-    end
-
-    def update_operation_status(operation_id, status, error_message: nil)
-      return unless operation_id
-
-      with_api_retry do
-        api_client.patch("/api/v1/internal/system/operations/#{operation_id}", {
-          status: status,
-          error_message: error_message,
-          completed_at: %w[complete failed].include?(status) ? Time.current.iso8601 : nil
-        }.compact)
-      end
-    rescue StandardError => e
-      log_warn('Failed to update operation status', operation_id: operation_id, error: e.message)
     end
   end
 end

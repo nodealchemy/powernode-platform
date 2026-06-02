@@ -13,6 +13,8 @@ module System
   #   System::ImageCreateJob.perform_async('architecture', architecture_id, operation_id, 'img')
   #
   class ImageCreateJob < BaseJob
+    include OperationReportingConcern
+
     VALID_IMAGE_TYPES = %w[instance architecture].freeze
     VALID_IMAGE_FORMATS = %w[img iso].freeze
 
@@ -188,46 +190,6 @@ module System
       track_error_metric("image_#{image_format}_create_failed")
 
       { success: false, error: error_message }
-    end
-
-    def update_operation_status(operation_id, status, error_message: nil)
-      return unless operation_id
-
-      with_api_retry do
-        api_client.patch("/api/v1/internal/system/operations/#{operation_id}", {
-          status: status,
-          error_message: error_message,
-          completed_at: %w[complete failed].include?(status) ? Time.current.iso8601 : nil
-        }.compact)
-      end
-    rescue StandardError => e
-      log_warn('Failed to update operation status', operation_id: operation_id, error: e.message)
-    end
-
-    def update_operation_progress(operation_id, progress)
-      return unless operation_id
-
-      with_api_retry do
-        api_client.patch("/api/v1/internal/system/operations/#{operation_id}", {
-          progress: progress
-        })
-      end
-    rescue StandardError => e
-      log_warn('Failed to update operation progress', operation_id: operation_id, error: e.message)
-    end
-
-    def add_operation_event(operation_id, event_type, message)
-      return unless operation_id
-
-      with_api_retry do
-        api_client.post("/api/v1/internal/system/operations/#{operation_id}/events", {
-          event_type: event_type,
-          message: message,
-          timestamp: Time.current.iso8601
-        })
-      end
-    rescue StandardError => e
-      log_warn('Failed to add operation event', operation_id: operation_id, error: e.message)
     end
   end
 end
