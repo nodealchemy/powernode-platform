@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_02_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10324,12 +10324,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_130000) do
     t.jsonb "endpoints", default: [], null: false
     t.datetime "expires_at"
     t.jsonb "extension_slugs", default: [], null: false
+    t.string "inbound_subject", limit: 255
     t.datetime "last_capability_sync_at"
     t.datetime "last_handshake_at"
     t.datetime "last_heartbeat_at"
     t.jsonb "metadata", default: {}, null: false
     t.datetime "migrated_to_vault_at"
-    t.uuid "node_certificate_id"
+    t.uuid "outbound_certificate_id"
     t.uuid "parent_peer_id"
     t.string "peer_kind", limit: 32, default: "sdwan_only", null: false
     t.string "platform_version", limit: 64
@@ -10342,14 +10343,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_130000) do
     t.string "spawn_role", limit: 16
     t.string "status", default: "proposed", null: false
     t.jsonb "sync_cursor", default: {}, null: false
+    t.text "trusted_ca_pem"
     t.datetime "updated_at", null: false
     t.string "vault_path"
     t.index ["acceptance_token_digest"], name: "index_federation_peers_on_token_digest", where: "(acceptance_token_digest IS NOT NULL)"
     t.index ["account_id", "remote_instance_id"], name: "idx_sdwan_federation_peers_unique_remote", unique: true
     t.index ["account_id"], name: "index_system_federation_peers_on_account_id"
     t.index ["data_residency"], name: "idx_federation_peers_data_residency"
+    t.index ["inbound_subject"], name: "index_federation_peers_on_inbound_subject", unique: true, where: "(inbound_subject IS NOT NULL)"
     t.index ["last_heartbeat_at"], name: "idx_federation_peers_platform_heartbeat", where: "((peer_kind)::text = 'platform'::text)"
-    t.index ["node_certificate_id"], name: "index_system_federation_peers_on_node_certificate_id"
+    t.index ["outbound_certificate_id"], name: "index_system_federation_peers_on_outbound_certificate_id"
     t.index ["parent_peer_id"], name: "index_system_federation_peers_on_parent_peer_id"
     t.index ["peer_kind", "status"], name: "idx_federation_peers_kind_status"
     t.index ["peer_kind"], name: "index_system_federation_peers_on_peer_kind"
@@ -14117,7 +14120,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_130000) do
   add_foreign_key "system_federation_network_bridges", "system_federation_peers", column: "federation_peer_id", on_delete: :cascade
   add_foreign_key "system_federation_peers", "accounts"
   add_foreign_key "system_federation_peers", "system_federation_peers", column: "parent_peer_id", on_delete: :nullify
-  add_foreign_key "system_federation_peers", "system_node_certificates", column: "node_certificate_id", on_delete: :nullify
+  add_foreign_key "system_federation_peers", "system_node_certificates", column: "outbound_certificate_id"
   add_foreign_key "system_federation_schema_compatibility", "accounts"
   add_foreign_key "system_federation_service_offerings", "accounts", on_delete: :cascade
   add_foreign_key "system_federation_service_offerings", "sdwan_virtual_ips", column: "backend_vip_id", on_delete: :nullify
