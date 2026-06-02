@@ -5,7 +5,7 @@
 class AiCodebaseIndexJob < BaseJob
   include AiJobsConcern
 
-  sidekiq_options queue: "default", retry: 2
+  sidekiq_options queue: "code_intel", retry: 2
 
   def execute(params)
     validate_required_params(params, "account_id", "base_path")
@@ -32,20 +32,23 @@ class AiCodebaseIndexJob < BaseJob
         repository_id: repository_id,
         path: path,
         incremental: incremental
-      }.compact
+      }.compact,
+      circuit_breaker: :code_intel
     )
 
-    if response.success?
-      data = response.parsed_response
+    # handle_response returns the parsed JSON body (Hash) on 2xx and raises
+    # BackendApiClient::ApiError on HTTP error. The body is the server's
+    # render_success envelope: { "success" => true, "data" => {...} }.
+    if response["success"]
+      data = response["data"] || {}
       log_info("Codebase indexing completed",
                account_id: account_id,
-               files_processed: data.dig("data", "files_processed"),
-               nodes_created: data.dig("data", "nodes_created"))
+               files_processed: data["files_processed"],
+               nodes_created: data["nodes_created"])
     else
       log_error("Codebase indexing failed",
                 account_id: account_id,
-                status: response.code,
-                error: response.body)
+                error: response["error"] || response)
     end
   end
 end

@@ -388,11 +388,11 @@ class WorkerJobService
           "path" => path,
           "incremental" => incremental
         }.compact ],
-        "queue" => "default"
+        "queue" => "code_intel"
       })
     end
 
-    # Enqueue a long-running codebase analysis (prune_stale, find_duplicates).
+    # Enqueue a long-running codebase analysis (prune_stale).
     # The worker drives the server's internal /codebase/analyze endpoint, which
     # writes the result to the 'default' shared-memory pool under result_key.
     def enqueue_ai_code_analysis(operation:, account_id:, base_path:, result_key:, repository_id: nil, options: {})
@@ -406,7 +406,7 @@ class WorkerJobService
           "result_key" => result_key,
           "options" => options
         }.compact ],
-        "queue" => "default"
+        "queue" => "code_intel"
       })
     end
 

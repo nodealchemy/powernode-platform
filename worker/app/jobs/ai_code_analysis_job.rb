@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# Background job for long-running codebase analysis (prune_stale,
-# find_duplicates) via the server's internal API. These scans iterate the full
-# code knowledge graph (file-existence checks, embedding-similarity), so they
+# Background job for long-running codebase analysis (prune_stale) via the
+# server's internal API. These scans iterate the full code knowledge graph
+# (file-existence checks), so they
 # run on the worker rather than blocking the MCP/user request path.
 #
 # The server-side endpoint writes the result to the account's "default"
@@ -11,7 +11,7 @@
 class AiCodeAnalysisJob < BaseJob
   include AiJobsConcern
 
-  sidekiq_options queue: "default", retry: 2
+  sidekiq_options queue: "code_intel", retry: 2
 
   def execute(params)
     validate_required_params(params, "operation", "account_id", "base_path", "result_key")
@@ -33,20 +33,23 @@ class AiCodeAnalysisJob < BaseJob
         repository_id: params["repository_id"],
         result_key: params["result_key"],
         options: params["options"] || {}
-      }.compact
+      }.compact,
+      circuit_breaker: :code_intel
     )
 
-    if response.success?
-      data = response.parsed_response
+    # handle_response returns the parsed JSON body (Hash) on 2xx and raises
+    # BackendApiClient::ApiError on HTTP error. The body is the server's
+    # render_success envelope: { "success" => true, "data" => {...} }.
+    if response["success"]
+      data = response["data"] || {}
       log_info("Codebase analysis completed",
                operation: operation,
                result_key: params["result_key"],
-               summary: data.dig("data", "summary"))
+               summary: data["summary"])
     else
       log_error("Codebase analysis failed",
                 operation: operation,
-                status: response.code,
-                error: response.body)
+                error: response["error"] || response)
     end
   end
 end

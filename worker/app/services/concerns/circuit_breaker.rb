@@ -288,6 +288,23 @@ module CircuitBreaker
     breaker.call(&block)
   end
 
+  # Dedicated circuit breaker for long-running codebase intelligence ops
+  # (index / prune_stale). These drive synchronous server-side
+  # scans — AST parse + embeddings over thousands of files, full-graph
+  # file-existence and embedding-similarity passes — that routinely exceed the
+  # default 120s. Its own breaker name so a slow index can't trip the shared
+  # backend_api breaker for unrelated worker jobs.
+  def with_code_intel_circuit_breaker(&block)
+    breaker = CircuitBreakerRegistry.instance.get_breaker(
+      'code_intel',
+      failure_threshold: 10,
+      recovery_timeout: 60,
+      timeout: 3600  # 60 minutes — full-repo index + embeddings is very long-running
+    )
+
+    breaker.call(&block)
+  end
+
   def circuit_breaker_status
     CircuitBreakerRegistry.instance.status
   end

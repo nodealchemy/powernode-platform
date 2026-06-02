@@ -53,6 +53,18 @@ Sidekiq.configure_server do |config|
   concurrency = ENV.fetch('WORKER_CONCURRENCY', '25').to_i
   config.redis = { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'), size: concurrency + 10 }
 
+  # Dedicated capsule for long-running codebase-intelligence jobs
+  # (AiCodebaseIndexJob / AiCodeAnalysisJob → index, prune_stale).
+  # Its own thread pool isolates these multi-minute, embedding-heavy scans from
+  # the main pool, so a long index never head-of-line-blocks other queues.
+  # Concurrency 1 serializes code-intel work (the index completes before any
+  # analysis runs) which also prevents concurrent scans from contending on the
+  # pgvector HNSW index. Override with CODE_INTEL_CONCURRENCY.
+  config.capsule("code_intel") do |cap|
+    cap.concurrency = ENV.fetch('CODE_INTEL_CONCURRENCY', '1').to_i
+    cap.queues = %w[code_intel]
+  end
+
   # Fast shutdown: on SIGTERM, signal training sessions to exit their tick loop
   # immediately instead of waiting for Sidekiq's 300s timeout.
   # Also stop venue WS managers to prevent reconnect loops during shutdown.
