@@ -79,12 +79,4 @@ export function useOnlineStatus(): OnlineStatus {
   };
 }
 
-/**
- * Simple version that just returns boolean online status
- */
-export function useIsOnline(): boolean {
-  const { isOnline } = useOnlineStatus();
-  return isOnline;
-}
-
 export default useOnlineStatus;

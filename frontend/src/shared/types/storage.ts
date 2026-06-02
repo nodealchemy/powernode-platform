@@ -106,20 +106,6 @@ export interface SMBStorageConfig {
   mount_options?: string;
 }
 
-export type StorageProviderConfig =
-  | { provider_type: 'local'; configuration: LocalStorageConfig }
-  | { provider_type: 's3'; configuration: S3StorageConfig }
-  | { provider_type: 'azure_blob'; configuration: AzureBlobStorageConfig }
-  | { provider_type: 'gcs'; configuration: GCSStorageConfig }
-  | { provider_type: 'nfs'; configuration: NFSStorageConfig }
-  | { provider_type: 'smb'; configuration: SMBStorageConfig }
-  // S3-compatible providers use S3StorageConfig
-  | { provider_type: 'backblaze_b2'; configuration: S3StorageConfig }
-  | { provider_type: 'digitalocean_spaces'; configuration: S3StorageConfig }
-  | { provider_type: 'cloudflare_r2'; configuration: S3StorageConfig }
-  | { provider_type: 'minio'; configuration: S3StorageConfig }
-  | { provider_type: 'wasabi'; configuration: S3StorageConfig };
-
 export type AllStorageConfigs =
   | LocalStorageConfig
   | S3StorageConfig

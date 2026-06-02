@@ -37,27 +37,3 @@ export function getErrorMessage(error: unknown): string {
 export function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
-
-/**
- * Safely extracts a string property from an unknown object
- */
-export function getStringProperty(
-  obj: unknown,
-  key: string
-): string | undefined {
-  if (!isObject(obj)) return undefined;
-  const value = obj[key];
-  return typeof value === 'string' ? value : undefined;
-}
-
-/**
- * Safely extracts a number property from an unknown object
- */
-export function getNumberProperty(
-  obj: unknown,
-  key: string
-): number | undefined {
-  if (!isObject(obj)) return undefined;
-  const value = obj[key];
-  return typeof value === 'number' ? value : undefined;
-}

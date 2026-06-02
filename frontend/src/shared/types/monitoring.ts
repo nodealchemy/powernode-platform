@@ -346,12 +346,6 @@ export interface ResourcesSummary {
 }
 
 // WebSocket event types
-export interface MonitoringWebSocketMessage {
-  type: string;
-  data?: unknown;
-  timestamp: string;
-  [key: string]: unknown;
-}
 
 export interface ComponentTestResult {
   success: boolean;
@@ -385,26 +379,5 @@ export type MonitoringComponent =
   | 'costs'
   | 'alerts'
   | 'resources';
-
-export type MonitoringInterval = 'real-time' | 'fast' | 'normal' | 'slow';
-
 export type HealthStatus = 'excellent' | 'good' | 'fair' | 'degraded' | 'critical';
-
-export type ComponentStatus = 'healthy' | 'degraded' | 'unhealthy' | 'critical' | 'unknown';
-
 // Callback interfaces for monitoring service
-export interface MonitoringCallbacks {
-  onConnect?: () => void;
-  onDisconnect?: () => void;
-  onError?: (error: unknown) => void;
-  onDashboardUpdate?: (data: MonitoringDashboardData) => void;
-  onSystemHealthUpdate?: (data: SystemHealthData) => void;
-  onComponentUpdate?: (component: MonitoringComponent, data: unknown) => void;
-  onAlertUpdate?: (alerts: Alert[]) => void;
-  onAlertTriggered?: (alert: Alert) => void;
-  onAlertAcknowledged?: (alertId: string, acknowledgedBy: string) => void;
-  onAlertResolved?: (alertId: string, resolvedBy: string) => void;
-  onPerformanceUpdate?: (component: MonitoringComponent, data: PerformanceMetrics) => void;
-  onResourceUpdate?: (data: ResourceUtilization) => void;
-  onComponentTested?: (componentType: string, componentId: string, result: ComponentTestResult) => void;
-}

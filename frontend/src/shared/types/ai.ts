@@ -319,35 +319,6 @@ export interface AiAgentExecution {
 }
 
 // API Request/Response Types
-export interface CreateProviderCredentialRequest {
-  credential: {
-    ai_provider_id: string;
-    name: string;
-    credentials: Record<string, unknown>;
-    access_scopes?: string[];
-    rate_limits?: Record<string, unknown>;
-    expires_at?: string;
-  };
-}
-
-export interface CreateAiAgentRequest {
-  agent: {
-    ai_provider_id: string;
-    name: string;
-    description?: string;
-    agent_type: string;
-    configuration: AgentConfiguration;
-    metadata?: Record<string, unknown>;
-  };
-}
-
-export interface CreateConversationRequest {
-  conversation: {
-    ai_agent_id: string;
-    title: string;
-    metadata?: Record<string, unknown>;
-  };
-}
 
 export interface SendMessageRequest {
   content: string;
@@ -369,34 +340,7 @@ export interface ExecuteAgentRequest {
 }
 
 // Provider Test Results
-export interface ProviderTestResult {
-  success: boolean;
-  response_time_ms?: number;
-  provider?: string;
-  model?: string;
-  error?: string;
-  error_details?: Record<string, unknown>;
-}
-
-export interface BulkTestResult {
-  credential_id: string;
-  credential_name: string;
-  provider_name: string;
-  success: boolean;
-  response_time_ms?: number;
-  error?: string;
-}
-
 // Analytics and Usage Types
-export interface ProviderUsageSummary {
-  total_executions: number;
-  successful_executions: number;
-  failed_executions: number;
-  total_tokens_used: number;
-  estimated_cost: number;
-  avg_response_time: number;
-  success_rate: number;
-}
 
 export interface SystemHealthStatus {
   overall_health: 'healthy' | 'degraded' | 'unhealthy';
@@ -447,157 +391,6 @@ export interface ConversationChannelMessage {
   timestamp?: string;
 }
 
-export interface ExecutionChannelMessage {
-  type: 'subscription_confirmed' | 'execution_started' | 'execution_progress' | 'execution_log' | 'execution_error' | 'execution_complete' | 'execution_cancelled' | 'execution_heartbeat' | 'execution_final_status' | 'execution_logs' | 'execution_metrics' | 'execution_artifacts' | 'error';
-  execution_id?: string;
-  status?: string;
-  progress?: number;
-  status_message?: string;
-  started_at?: string;
-  completed_at?: string;
-  duration_seconds?: number;
-  success?: boolean;
-  cancelled_by?: string;
-  cancelled_at?: string;
-  reason?: string;
-  log?: {
-    id: string;
-    level: 'debug' | 'info' | 'warn' | 'error';
-    message: string;
-    timestamp: string;
-    metadata: Record<string, unknown>;
-  };
-  logs?: Array<{
-    id: string;
-    level: string;
-    message: string;
-    timestamp: string;
-    metadata: Record<string, unknown>;
-  }>;
-  pagination?: {
-    page: number;
-    per_page: number;
-    total_count: number;
-  };
-  metrics?: {
-    duration_seconds: number;
-    tokens_used: number;
-    api_calls: number;
-    cost_estimate: number;
-    memory_usage_mb?: number;
-    error_count: number;
-    retry_count: number;
-  };
-  performance?: {
-    avg_response_time: number;
-    throughput: number;
-    success_rate: number;
-  };
-  artifacts?: Array<{
-    name: string;
-    type: string;
-    size: number;
-    url: string;
-    metadata: Record<string, unknown>;
-    created_at: string;
-  }>;
-  result_summary?: {
-    success: boolean;
-    output_size: number;
-    artifacts_count: number;
-    tokens_used: number;
-  };
-  result_preview?: {
-    output_size: number;
-    error_count: number;
-    has_artifacts: boolean;
-    metrics_available: boolean;
-  };
-  agent?: {
-    id: string;
-    name: string;
-  };
-  updated_at?: string;
-  timestamp?: string;
-  system_stats?: Record<string, unknown>;
-  health_status?: string;
-  error_message?: string;
-  error_details?: Record<string, unknown>;
-}
-
-export interface MonitoringChannelMessage {
-  type: 'initial_monitoring_status' | 'monitoring_update' | 'system_alert' | 'provider_status_update' | 'account_metrics_update' | 'execution_anomaly' | 'performance_degradation' | 'alert_history' | 'monitoring_config_updated' | 'detailed_system_metrics' | 'detailed_account_metrics' | 'detailed_provider_metrics' | 'detailed_providers_metrics' | 'detailed_agent_metrics' | 'detailed_agents_metrics' | 'alert_acknowledged' | 'error';
-  status?: {
-    system?: SystemHealthStatus;
-    account?: AccountMetrics;
-    providers?: Array<{
-      id: string;
-      name: string;
-      health_status: string;
-      active_credentials: number;
-      recent_executions: number;
-      success_rate: number;
-    }>;
-    agents?: Array<{
-      id: string;
-      name: string;
-      status: string;
-      executions_today: number;
-      success_rate: number;
-      last_execution?: string;
-    }>;
-    executions?: {
-      total_recent: number;
-      running: number;
-      completed: number;
-      failed: number;
-      cancelled: number;
-      avg_duration: number;
-    };
-  };
-  interval?: string;
-  components?: string[];
-  timestamp?: string;
-  data?: {
-    system_health?: Record<string, unknown>;
-    account_metrics?: Record<string, unknown>;
-    provider_health?: Record<string, unknown>;
-  };
-  alert?: Record<string, unknown>;
-  provider_id?: string;
-  provider_name?: string;
-  account_id?: string;
-  metrics?: Record<string, unknown>;
-  execution_id?: string;
-  anomaly?: Record<string, unknown>;
-  component?: string;
-  alerts?: Array<{
-    id: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
-    component: string;
-    title: string;
-    message: string;
-    metadata: Record<string, unknown>;
-    acknowledged: boolean;
-    acknowledged_at?: string;
-    acknowledged_by?: string;
-    created_at: string;
-    resolved_at?: string;
-  }>;
-  pagination?: {
-    page: number;
-    per_page: number;
-    total_count: number;
-  };
-  alert_id?: string;
-  acknowledged_by?: string;
-  acknowledged_at?: string;
-  time_range?: string;
-  agent_id?: string;
-  generated_at?: string;
-  message?: string;
-}
-
 // Pagination and Filtering
 export interface PaginationParams {
   page?: number;
@@ -609,36 +402,6 @@ export interface ProvidersFilters extends PaginationParams {
   capability?: string;
   search?: string;
   sort?: 'name' | 'priority' | 'created_at';
-}
-
-export interface CredentialsFilters extends PaginationParams {
-  provider_id?: string;
-  active?: boolean;
-  default_only?: boolean;
-  search?: string;
-  sort?: 'name' | 'provider' | 'last_used' | 'created_at';
-}
-
-export interface AgentsFilters extends PaginationParams {
-  provider_id?: string;
-  agent_type?: string;
-  status?: string;
-  search?: string;
-  sort?: 'name' | 'provider' | 'created_at' | 'last_used';
-}
-
-export interface ConversationsFilters extends PaginationParams {
-  agent_id?: string;
-  status?: string;
-  search?: string;
-  sort?: 'title' | 'created_at' | 'updated_at' | 'last_activity';
-}
-
-export interface ExecutionsFilters extends PaginationParams {
-  agent_id?: string;
-  status?: string;
-  sort?: 'created_at' | 'started_at' | 'completed_at' | 'duration';
-  time_range?: string;
 }
 
 // Advanced Conversation Analytics

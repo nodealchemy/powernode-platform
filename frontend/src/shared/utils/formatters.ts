@@ -169,24 +169,6 @@ export function capitalize(str: string): string {
 }
 
 /**
- * Converts snake_case or kebab-case to Title Case
- *
- * @param str - String to convert
- * @returns Title case string
- *
- * @example
- * toTitleCase('hello_world') // 'Hello World'
- * toTitleCase('hello-world') // 'Hello World'
- */
-export function toTitleCase(str: string): string {
-  return str
-    .replace(/[-_]/g, ' ')
-    .split(' ')
-    .map(word => capitalize(word))
-    .join(' ');
-}
-
-/**
  * Truncates a string to a maximum length with ellipsis
  *
  * @param str - String to truncate
@@ -196,25 +178,6 @@ export function toTitleCase(str: string): string {
 export function truncate(str: string, maxLength: number): string {
   if (!str || str.length <= maxLength) return str;
   return `${str.slice(0, maxLength - 3)}...`;
-}
-
-/**
- * Formats a phone number to standard US format
- *
- * @param phone - Phone number string
- * @returns Formatted phone number (e.g., '(555) 123-4567')
- */
-export function formatPhoneNumber(phone: string): string {
-  const cleaned = phone.replace(/\D/g, '');
-
-  if (cleaned.length === 10) {
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-  }
-  if (cleaned.length === 11 && cleaned.startsWith('1')) {
-    return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
-  }
-
-  return phone;
 }
 
 /**
@@ -368,24 +331,6 @@ export function calculateDiscountedPrice(
 }
 
 /**
- * Calculates yearly price from monthly price with optional discount
- *
- * @param monthlyPriceCents - Monthly price in cents
- * @param annualDiscountPercent - Discount percentage for annual billing (default: 0)
- * @returns Yearly price in cents
- */
-export function calculateYearlyPrice(
-  monthlyPriceCents: number,
-  annualDiscountPercent = 0
-): number {
-  const yearlyBase = monthlyPriceCents * 12;
-  if (annualDiscountPercent > 0) {
-    return Math.round(yearlyBase * (1 - annualDiscountPercent / 100));
-  }
-  return yearlyBase;
-}
-
-/**
  * Calculates savings amount and percentage for yearly billing
  *
  * @param monthlyPriceCents - Monthly price in cents
@@ -408,33 +353,6 @@ export function calculateAnnualSavings(
     savingsCents,
     savingsPercent,
     formattedSavings: formatCurrency(savingsCents),
-  };
-}
-
-/**
- * Formats proration amount with appropriate sign
- *
- * @param prorationCents - Proration amount in cents (positive = charge, negative = credit)
- * @param currency - ISO 4217 currency code
- * @returns Formatted proration string
- */
-export function formatProration(
-  prorationCents: number,
-  currency = 'USD'
-): {
-  formatted: string;
-  isCredit: boolean;
-  isCharge: boolean;
-} {
-  const isCredit = prorationCents < 0;
-  const isCharge = prorationCents > 0;
-  const absAmount = Math.abs(prorationCents);
-  const formatted = formatCurrency(absAmount, currency);
-
-  return {
-    formatted: isCredit ? `-${formatted}` : formatted,
-    isCredit,
-    isCharge,
   };
 }
 
@@ -496,18 +414,4 @@ export function isPromotionalDiscountActive(discountInfo: PlanDiscountInfo): boo
   const hasNotEnded = !endDate || endDate >= now;
 
   return hasStarted && hasNotEnded;
-}
-
-/**
- * Gets days remaining until a promotional discount ends
- */
-export function getPromotionalDiscountDaysRemaining(discountInfo: PlanDiscountInfo): number | null {
-  if (!discountInfo.promotional_discount_end) return null;
-
-  const endDate = new Date(discountInfo.promotional_discount_end);
-  const now = new Date();
-  const diffTime = endDate.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  return diffDays > 0 ? diffDays : null;
 }

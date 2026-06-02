@@ -278,13 +278,6 @@ export function getStatusBorderClass(color: StatusColor): string {
   return borderClasses[color];
 }
 
-/**
- * Gets complete status badge classes
- */
-export function getStatusBadgeClasses(color: StatusColor): string {
-  return `${getStatusBgClass(color)} ${getStatusTextClass(color)} ${getStatusBorderClass(color)}`;
-}
-
 // ============================================================
 // Helper Functions
 // ============================================================
@@ -295,28 +288,4 @@ export function getStatusBadgeClasses(color: StatusColor): string {
 function capitalize(str: string): string {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, ' ');
-}
-
-/**
- * Checks if a status is considered "active" or positive
- */
-export function isPositiveStatus(status: string): boolean {
-  const positiveStatuses = ['active', 'paid', 'succeeded', 'completed', 'approved'];
-  return positiveStatuses.includes(status.toLowerCase());
-}
-
-/**
- * Checks if a status is considered "negative" or problematic
- */
-export function isNegativeStatus(status: string): boolean {
-  const negativeStatuses = ['failed', 'cancelled', 'canceled', 'overdue', 'unpaid', 'rejected', 'expired'];
-  return negativeStatuses.includes(status.toLowerCase());
-}
-
-/**
- * Checks if a status requires attention
- */
-export function requiresAttention(status: string): boolean {
-  const attentionStatuses = ['pending', 'past_due', 'requires_action', 'incomplete', 'suspended'];
-  return attentionStatuses.includes(status.toLowerCase());
 }

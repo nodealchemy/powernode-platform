@@ -151,22 +151,6 @@ export interface PluginInstallation {
   updated_at: string;
 }
 
-export interface PluginReview {
-  id: string;
-  plugin_id: string;
-  rating: number;
-  review_text?: string;
-  is_verified_purchase: boolean;
-  plugin_version: string;
-  user: {
-    id: string;
-    email: string;
-    full_name: string;
-  };
-  created_at: string;
-  updated_at: string;
-}
-
 // API Request/Response Types
 export interface CreatePluginMarketplaceRequest {
   marketplace: {

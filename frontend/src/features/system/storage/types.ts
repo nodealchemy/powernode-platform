@@ -58,10 +58,3 @@ export interface StorageAssignmentsListResponse {
   assignments: StorageAssignment[];
   meta?: { total_count?: number; page?: number; per_page?: number };
 }
-
-export interface BulkAssignDryRunRow {
-  node_instance_id: string;
-  node_instance_name: string;
-  mount_path: string;
-  encryption_mode: EncryptionMode;
-}

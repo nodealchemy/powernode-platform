@@ -252,10 +252,3 @@ export function useDevopsRunsWebSocket(
 
   return { isConnected };
 }
-
-export function disconnectDevopsWebSocket() {
-  if (wsManager) {
-    wsManager.disconnect();
-    wsManager = null;
-  }
-}

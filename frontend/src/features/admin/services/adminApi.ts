@@ -54,24 +54,6 @@ export interface SystemSettings {
   uptime: string | number;
 }
 
-export interface UserManagementData {
-  total_users: number;
-  users_by_role: Record<string, number>;
-  users_by_status: Record<string, number>;
-  recent_registrations: number;
-  email_verification_pending: number;
-}
-
-export interface SecuritySettingsData {
-  failed_login_attempts_today: number;
-  locked_accounts: number;
-  recent_security_events: number;
-  suspicious_activities: Array<{
-    type: string;
-    count: number;
-  }>;
-}
-
 export interface AdminUser {
   id: string;
   email: string;

@@ -162,21 +162,6 @@ export interface HealthStatus {
   last_checked: string;
 }
 
-export interface ConfigValidationResult {
-  valid: boolean;
-  errors: string[];
-}
-
-export interface ConnectivityTestResult {
-  [serviceName: string]: {
-    status: 'healthy' | 'unhealthy' | 'unreachable';
-    response_code?: number;
-    response_time_ms?: number;
-    url?: string;
-    error?: string;
-  };
-}
-
 export interface GeneratedConfig {
   proxy_type: string;
   config: string;

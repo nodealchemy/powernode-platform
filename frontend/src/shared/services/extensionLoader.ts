@@ -107,18 +107,3 @@ registerAllExtensions();
 export async function loadAllExtensions(): Promise<void> {
   // No-op: extensions are registered synchronously at module import.
 }
-
-/** Check if a specific extension is loaded */
-export function isExtensionLoaded(slug: string): boolean {
-  return loaded.has(slug);
-}
-
-/** Get all loaded extension slugs */
-export function getLoadedExtensions(): string[] {
-  return Array.from(loaded.keys());
-}
-
-/** Get manifest for a loaded extension */
-export function getExtensionManifest(slug: string): ExtensionManifest | undefined {
-  return loaded.get(slug);
-}

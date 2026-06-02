@@ -5,12 +5,6 @@ export const fetchSandboxes = async (): Promise<SandboxInstance[]> => {
   const response = await apiClient.get('/ai/container_sandboxes');
   return response.data?.data?.sandboxes || [];
 };
-
-export const fetchSandbox = async (id: string): Promise<SandboxInstance> => {
-  const response = await apiClient.get(`/ai/container_sandboxes/${id}`);
-  return response.data?.data?.sandbox;
-};
-
 export const fetchSandboxMetrics = async (id: string): Promise<SandboxMetrics> => {
   const response = await apiClient.get(`/ai/container_sandboxes/${id}/metrics`);
   return response.data?.data?.metrics;

@@ -6,21 +6,6 @@
 
 export type AutonomyLevel = 'block' | 'require_approval' | 'notify_and_proceed' | 'auto_approve';
 
-export interface AutonomyPolicy {
-  id?: string;
-  action_category: string;
-  scope: 'global' | 'agent' | 'action_type';
-  policy: AutonomyLevel;
-  priority?: number;
-  is_active?: boolean;
-  agent_id?: string | null;
-  agent_name?: string | null;
-  approval_chain_id?: string | null;
-  approval_chain_name?: string | null;
-  conditions?: Record<string, unknown>;
-  preferred_channels?: string[];
-}
-
 /**
  * Configuration for the parameterized useAutonomyConfig hook so any extension
  * can wire up a Settings UI against its own API endpoints. Trading and System
@@ -33,14 +18,6 @@ export interface AutonomyConfigSource {
   updateEndpoint: string;
   /** Map agent display name → role string used in the PATCH body (extension-specific). */
   roleForAgent: (agentName: string) => string | undefined;
-}
-
-export interface AutonomyAgentInfo {
-  id: string;
-  name: string;
-  status?: string;
-  trust_tier?: string | null;
-  overall_score?: number | null;
 }
 
 /** Per-agent policy map: { agentName: { action: level } } — frontend working state */

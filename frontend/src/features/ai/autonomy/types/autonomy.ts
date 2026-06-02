@@ -341,11 +341,6 @@ export interface InterventionPolicy {
 }
 
 // ===== Goal Detail =====
-
-export interface AgentGoalDetail extends AgentGoal {
-  sub_goals?: AgentGoal[];
-}
-
 // ===== Policy Resolution =====
 
 export interface PolicyResolutionResult {

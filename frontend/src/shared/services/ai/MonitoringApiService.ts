@@ -85,12 +85,6 @@ export interface MonitoringDashboard {
   };
 }
 
-export interface HealthComponentStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  message?: string;
-  response_time_ms?: number;
-}
-
 /**
  * Native backend health response format
  * Matches Rails Ai::MonitoringHealthService#comprehensive_health_check output

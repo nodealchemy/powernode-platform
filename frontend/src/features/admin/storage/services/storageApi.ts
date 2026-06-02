@@ -4,13 +4,6 @@ import {
   StorageProviderFormData,
   StorageConnectionTestResult,
 } from '@/shared/types/storage';
-
-export interface StorageApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
 export const storageApi = {
   /**
    * Get all storage providers

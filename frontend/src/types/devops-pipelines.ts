@@ -61,7 +61,6 @@ export interface DevopsPromptTemplateFormData {
 }
 
 // Pipeline types
-export type DevopsTriggerEvent = 'pull_request' | 'push' | 'issues' | 'issue_comment' | 'release' | 'schedule' | 'manual';
 
 export interface DevopsPipelineTriggers {
   pull_request?: string[];

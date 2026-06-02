@@ -306,9 +306,3 @@ export function useAIOrchestrationMonitor() {
 }
 
 // Cleanup function for app shutdown
-export function disconnectAIOrchestrationMonitor() {
-  if (monitorInstance) {
-    monitorInstance.disconnect();
-    monitorInstance = null;
-  }
-}

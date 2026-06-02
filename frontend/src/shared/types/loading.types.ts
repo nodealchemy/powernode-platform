@@ -8,22 +8,5 @@ export interface LoadingState {
   progress?: number;
 }
 
-export interface AsyncLoadingState<T = any> extends LoadingState {
-  data?: T;
-  error?: string;
-  lastUpdated?: Date;
-}
-
 export type LoadingStateKey = string;
-
-export interface GlobalLoadingState {
-  [key: LoadingStateKey]: LoadingState;
-}
-
 // Loading state action types
-export type LoadingAction = 
-  | { type: 'START_LOADING'; key: string; priority?: LoadingPriority; message?: string }
-  | { type: 'STOP_LOADING'; key: string }
-  | { type: 'SET_PROGRESS'; key: string; progress: number }
-  | { type: 'SET_ERROR'; key: string; error: string }
-  | { type: 'CLEAR_ALL' };

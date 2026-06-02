@@ -74,13 +74,6 @@ export interface DetailedAuditLogStats extends AuditLogStats {
   error_trend: Record<string, number>;
 }
 
-export interface AuditLogsPagination {
-  current_page: number;
-  per_page: number;
-  total_pages: number;
-  total_count: number;
-}
-
 export interface AuditLogsResponse {
   success: boolean;
   data: AuditLog[];

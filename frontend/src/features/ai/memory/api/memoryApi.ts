@@ -1,6 +1,5 @@
 import api from '@/shared/services/api';
 import type {
-  MemoryEntry,
   SharedKnowledgeEntry,
   MemoryStats,
   MemoryTier,
@@ -35,14 +34,6 @@ export async function fetchMemoryStats(agentId: string): Promise<MemoryStats> {
     long_term: stats?.long_term || defaults.long_term,
     shared: stats?.shared || defaults.shared,
   };
-}
-
-export async function fetchMemoryEntries(agentId: string, tier: MemoryTier): Promise<MemoryEntry[]> {
-  const { data } = await api.get(`/ai/agents/${agentId}/tiered_memory`, { params: { tier } });
-  const result = data.data;
-  if (Array.isArray(result)) return result;
-  if (result?.entries && Array.isArray(result.entries)) return result.entries;
-  return [];
 }
 
 export async function fetchMemoryEntriesPaginated(
@@ -88,17 +79,6 @@ export async function fetchSharedKnowledge(): Promise<SharedKnowledgeEntry[]> {
   if (result?.entries && Array.isArray(result.entries)) return result.entries;
   if (result?.data && Array.isArray(result.data)) return result.data;
   return [];
-}
-
-export async function writeMemory(params: {
-  agent_id: string;
-  key: string;
-  value: unknown;
-  tier: MemoryTier;
-  session_id?: string;
-}): Promise<MemoryEntry> {
-  const { data } = await api.post<{ data: MemoryEntry }>(`/ai/agents/${params.agent_id}/tiered_memory`, params);
-  return data.data;
 }
 
 export async function deleteMemory(params: {

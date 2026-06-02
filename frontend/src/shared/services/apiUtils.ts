@@ -54,33 +54,6 @@ export function wrapError<T = never>(error: string | unknown): APIResponse<T> {
 }
 
 /**
- * Wraps list data with pagination info
- */
-export function wrapListResponse<T>(
-  data: T[],
-  pagination: PaginationInfo
-): ListResponse<T> {
-  return {
-    success: true,
-    data,
-    pagination,
-  };
-}
-
-/**
- * Normalizes pagination response from different API formats
- * Handles various pagination key naming conventions
- */
-export function normalizePagination(raw: Record<string, unknown>): PaginationInfo {
-  return {
-    page: (raw.page ?? raw.current_page ?? 1) as number,
-    perPage: (raw.per_page ?? raw.perPage ?? 20) as number,
-    total: (raw.total ?? raw.total_count ?? 0) as number,
-    totalPages: (raw.pages ?? raw.total_pages ?? 0) as number,
-  };
-}
-
-/**
  * Extracts data from API response, handling nested data property
  */
 export function extractData<T>(response: { data?: T } | T): T {
@@ -88,55 +61,6 @@ export function extractData<T>(response: { data?: T } | T): T {
     return (response as { data: T }).data;
   }
   return response as T;
-}
-
-/**
- * Checks if response indicates success
- */
-export function isSuccessResponse<T>(response: APIResponse<T>): response is APIResponse<T> & { data: T } {
-  return response.success === true && response.data !== undefined;
-}
-
-/**
- * Checks if response indicates error
- */
-export function isErrorResponse<T>(response: APIResponse<T>): response is APIResponse<T> & { error: string } {
-  return response.success === false || response.error !== undefined;
-}
-
-/**
- * Safe API call wrapper with error handling
- * Catches errors and returns standardized error response
- */
-export async function safeApiCall<T>(
-  apiCall: () => Promise<T>
-): Promise<APIResponse<T>> {
-  try {
-    const data = await apiCall();
-    return wrapSuccess(data);
-  } catch (error) {
-    return wrapError(error);
-  }
-}
-
-/**
- * Builds query string from params object
- * Filters out undefined/null values
- */
-export function buildQueryParams(params: Record<string, unknown>): URLSearchParams {
-  const searchParams = new URLSearchParams();
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      if (Array.isArray(value)) {
-        value.forEach(v => searchParams.append(key, String(v)));
-      } else {
-        searchParams.set(key, String(value));
-      }
-    }
-  });
-
-  return searchParams;
 }
 
 /**

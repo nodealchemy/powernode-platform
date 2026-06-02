@@ -121,18 +121,6 @@ export function getValidationErrors(error: unknown): string[] {
 }
 
 /**
- * Creates a detailed API error object from unknown error
- */
-export function createApiError(error: unknown): ApiErrorDetails {
-  return {
-    message: getErrorMessage(error),
-    status: getErrorStatus(error),
-    errors: getValidationErrors(error),
-    originalError: error,
-  };
-}
-
-/**
  * Checks if error is a network error (no response)
  */
 export function isNetworkError(error: unknown): boolean {
@@ -179,34 +167,4 @@ export function isValidationError(error: unknown): boolean {
 export function isServerError(error: unknown): boolean {
   const status = getErrorStatus(error);
   return status !== undefined && status >= 500 && status < 600;
-}
-
-/**
- * Gets a user-friendly error message based on error type
- */
-export function getUserFriendlyError(error: unknown): string {
-  if (isNetworkError(error)) {
-    return 'Unable to connect to the server. Please check your internet connection.';
-  }
-  if (isAuthError(error)) {
-    return 'Your session has expired. Please log in again.';
-  }
-  if (isForbiddenError(error)) {
-    return 'You do not have permission to perform this action.';
-  }
-  if (isNotFoundError(error)) {
-    return 'The requested resource was not found.';
-  }
-  if (isValidationError(error)) {
-    const errors = getValidationErrors(error);
-    if (errors.length > 0) {
-      return errors.join('. ');
-    }
-    return 'Please check your input and try again.';
-  }
-  if (isServerError(error)) {
-    return 'A server error occurred. Please try again later.';
-  }
-
-  return getErrorMessage(error);
 }
