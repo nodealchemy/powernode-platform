@@ -352,26 +352,6 @@ module Devops
         request["X-GitHub-Api-Version"] = "2022-11-28"
       end
 
-      def map_status(state)
-        {
-          STATUS_PENDING => "pending",
-          STATUS_RUNNING => "pending",
-          STATUS_SUCCESS => "success",
-          STATUS_FAILURE => "failure",
-          STATUS_ERROR => "error",
-          STATUS_CANCELLED => "failure"
-        }[state] || "pending"
-      end
-
-      def normalize_status(state)
-        {
-          "pending" => STATUS_PENDING,
-          "success" => STATUS_SUCCESS,
-          "failure" => STATUS_FAILURE,
-          "error" => STATUS_ERROR
-        }[state] || STATUS_PENDING
-      end
-
       def normalize_commit_status(status)
         {
           id: status["id"],
@@ -381,71 +361,6 @@ module Devops
           target_url: status["target_url"],
           created_at: status["created_at"],
           updated_at: status["updated_at"]
-        }
-      end
-
-      def normalize_pull_request(pr)
-        {
-          id: pr["id"],
-          number: pr["number"],
-          title: pr["title"],
-          body: pr["body"],
-          state: pr["state"],
-          merged: pr["merged"],
-          draft: pr["draft"] || false,
-          head: {
-            ref: pr.dig("head", "ref"),
-            sha: pr.dig("head", "sha"),
-            repo: pr.dig("head", "repo", "full_name")
-          },
-          base: {
-            ref: pr.dig("base", "ref"),
-            sha: pr.dig("base", "sha"),
-            repo: pr.dig("base", "repo", "full_name")
-          },
-          user: {
-            login: pr.dig("user", "login"),
-            id: pr.dig("user", "id")
-          },
-          html_url: pr["html_url"],
-          created_at: pr["created_at"],
-          updated_at: pr["updated_at"],
-          merged_at: pr["merged_at"],
-          mergeable: pr["mergeable"]
-        }
-      end
-
-      def normalize_comment(comment)
-        {
-          id: comment["id"],
-          body: comment["body"],
-          user: {
-            login: comment.dig("user", "login"),
-            id: comment.dig("user", "id")
-          },
-          html_url: comment["html_url"],
-          created_at: comment["created_at"],
-          updated_at: comment["updated_at"]
-        }
-      end
-
-      def normalize_repository(repo)
-        {
-          id: repo["id"],
-          name: repo["name"],
-          full_name: repo["full_name"],
-          description: repo["description"],
-          private: repo["private"],
-          fork: repo["fork"],
-          default_branch: repo["default_branch"],
-          clone_url: repo["clone_url"],
-          ssh_url: repo["ssh_url"],
-          html_url: repo["html_url"],
-          owner: {
-            login: repo.dig("owner", "login"),
-            id: repo.dig("owner", "id")
-          },
-          permissions: repo["permissions"]
         }
       end
 

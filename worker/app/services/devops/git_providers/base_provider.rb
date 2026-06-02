@@ -317,14 +317,97 @@ module Devops
         end
       end
 
-      # Map normalized status to provider-specific status
+      # Map normalized status to provider-specific status. Gitea and GitHub
+      # share this mapping; GitLab overrides it. (Lifted here via the
+      # git-provider clone audit — was duplicated in both subclasses.)
       def map_status(state)
-        raise NotImplementedError
+        {
+          STATUS_PENDING => "pending",
+          STATUS_RUNNING => "pending",
+          STATUS_SUCCESS => "success",
+          STATUS_FAILURE => "failure",
+          STATUS_ERROR => "error",
+          STATUS_CANCELLED => "failure"
+        }[state] || "pending"
       end
 
-      # Normalize provider-specific status to standard status
+      # Normalize provider-specific status to standard status. GitLab overrides.
       def normalize_status(state)
-        raise NotImplementedError
+        {
+          "pending" => STATUS_PENDING,
+          "success" => STATUS_SUCCESS,
+          "failure" => STATUS_FAILURE,
+          "error" => STATUS_ERROR
+        }[state] || STATUS_PENDING
+      end
+
+      # Shape a provider PR payload into the normalized form. Gitea/GitHub share
+      # this exactly; GitLab uses normalize_merge_request instead.
+      def normalize_pull_request(pr)
+        {
+          id: pr["id"],
+          number: pr["number"],
+          title: pr["title"],
+          body: pr["body"],
+          state: pr["state"],
+          merged: pr["merged"],
+          draft: pr["draft"] || false,
+          head: {
+            ref: pr.dig("head", "ref"),
+            sha: pr.dig("head", "sha"),
+            repo: pr.dig("head", "repo", "full_name")
+          },
+          base: {
+            ref: pr.dig("base", "ref"),
+            sha: pr.dig("base", "sha"),
+            repo: pr.dig("base", "repo", "full_name")
+          },
+          user: {
+            login: pr.dig("user", "login"),
+            id: pr.dig("user", "id")
+          },
+          html_url: pr["html_url"],
+          created_at: pr["created_at"],
+          updated_at: pr["updated_at"],
+          merged_at: pr["merged_at"],
+          mergeable: pr["mergeable"]
+        }
+      end
+
+      # Shape a provider comment payload into the normalized form (Gitea/GitHub).
+      def normalize_comment(comment)
+        {
+          id: comment["id"],
+          body: comment["body"],
+          user: {
+            login: comment.dig("user", "login"),
+            id: comment.dig("user", "id")
+          },
+          html_url: comment["html_url"],
+          created_at: comment["created_at"],
+          updated_at: comment["updated_at"]
+        }
+      end
+
+      # Shape a provider repository payload into the normalized form (Gitea/GitHub).
+      def normalize_repository(repo)
+        {
+          id: repo["id"],
+          name: repo["name"],
+          full_name: repo["full_name"],
+          description: repo["description"],
+          private: repo["private"],
+          fork: repo["fork"],
+          default_branch: repo["default_branch"],
+          clone_url: repo["clone_url"],
+          ssh_url: repo["ssh_url"],
+          html_url: repo["html_url"],
+          owner: {
+            login: repo.dig("owner", "login"),
+            id: repo.dig("owner", "id")
+          },
+          permissions: repo["permissions"]
+        }
       end
     end
 
