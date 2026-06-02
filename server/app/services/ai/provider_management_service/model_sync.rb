@@ -305,6 +305,41 @@ class Ai::ProviderManagementService
         raise StandardError, error_message
       end
 
+      # Shared fetch path for Bearer-auth providers that expose a JSON model
+      # list (OpenAI-compatible and friends). Yields the parsed model array for
+      # provider-specific mapping; the block returns the supported_models array
+      # to persist. Raises via handle_sync_failure on missing credentials /
+      # non-success / HTTP+JSON errors — identical fall-through to the
+      # per-provider methods it replaces. success_label lets a provider log a
+      # different name on success than on failure (e.g. X.AI vs Grok).
+      def sync_bearer_models(provider, url:, label:, models_key: "data", success_label: nil)
+        success_label ||= label
+        credential = provider.provider_credentials.active.where(account_id: provider.account_id).first
+
+        if credential
+          begin
+            api_key = credential.credentials["api_key"]
+            response = HTTP.headers(
+              "Authorization" => "Bearer #{api_key}",
+              "Content-Type" => "application/json"
+            ).timeout(15).get(url)
+
+            if response.status.success?
+              api_data = JSON.parse(response.body.to_s)
+              supported_models = yield(api_data[models_key] || [])
+
+              provider.update(supported_models: supported_models)
+              Rails.logger.info "Successfully synced #{supported_models.length} models from #{success_label} API for provider #{provider.id}"
+              return true
+            end
+          rescue HTTP::Error, JSON::ParserError => e
+            Rails.logger.error "Error fetching #{label} models: #{e.message}, falling back to static models"
+          end
+        end
+
+        handle_sync_failure(provider, "Failed to sync #{label} models: no valid credentials or API error")
+      end
+
       def format_model_size(size_bytes)
         return "Unknown" unless size_bytes
 
