@@ -132,6 +132,9 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+
+  # Dead-method detection (heuristic, ruby_parser-based) [https://github.com/seattlerb/debride]
+  gem "debride", require: false
 end
 
 gem "database_cleaner-active_record", "~> 2.2", group: :test
