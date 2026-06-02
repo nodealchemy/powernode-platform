@@ -51,13 +51,12 @@ module Ai
             }
           },
           "code_dead_code" => {
-            description: "Find unreferenced, orphaned, or dead code in the codebase. Scores candidates by usage, connections, and recency.",
+            description: "Detect dead code via language-native analyzers (ts-prune for TS, debride for Ruby) + grep verification + AI triage. Async — dispatched to the worker; the categorized result (real_dead / public_api / dynamic_dispatch / test_only / uncertain) is written to shared memory, retrieve via read_shared_memory.",
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
-              entity_types: { type: "array", required: false, description: "Filter: method, function, class (default: method, function, class)" },
-              scope_path: { type: "string", required: false, description: "Limit to files under this path prefix (e.g. 'extensions/trading')" },
-              min_score: { type: "number", required: false, description: "Minimum deadness score 0-1 (default: 0.5)" },
-              top_k: { type: "integer", required: false, description: "Max results (default: 50)" }
+              languages: { type: "array", required: false, description: "Subset of [typescript, ruby] (default: both)" },
+              triage: { type: "boolean", required: false, description: "Run LLM triage of verified candidates (default: true)" },
+              model: { type: "string", required: false, description: "Override the triage LLM model" }
             }
           },
           "code_analyze_section" => {
@@ -165,15 +164,32 @@ module Ai
       def dead_code(params)
         return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
 
-        _repo, kb, _bp = resolve_project_context(params)
+        _repo, _kb, bp = resolve_project_context(params)
+        result_key = "code_intel.dead_code.#{params[:repository_id]}"
 
-        service = Ai::Codebase::DeadCodeDetectionService.new(account: account, knowledge_base: kb)
-        service.detect(
-          entity_types: params[:entity_types]&.map(&:to_s),
-          scope_path: params[:scope_path],
-          min_score: (params[:min_score] || 0.5).to_f,
-          top_k: (params[:top_k] || 50).to_i
+        # Analyzer-driven (ts-prune/debride) + grep-verify + LLM triage is
+        # long-running → dispatch to the worker. The categorized result is
+        # written to the 'default' shared-memory pool under result_key.
+        WorkerJobService.enqueue_ai_code_analysis(
+          operation: "dead_code",
+          account_id: account.id,
+          base_path: bp,
+          repository_id: params[:repository_id],
+          result_key: result_key,
+          options: {
+            "languages" => params[:languages]&.map(&:to_s),
+            "triage" => params[:triage] != false,
+            "model" => params[:model]
+          }.compact
         )
+
+        {
+          success: true,
+          status: "enqueued",
+          result_key: result_key,
+          retrieve_via: "read_shared_memory(pool_id: 'default', key: '#{result_key}')",
+          message: "Dead-code analysis (analyzers + AI triage) dispatched to the worker."
+        }
       end
 
       def analyze_section(params)

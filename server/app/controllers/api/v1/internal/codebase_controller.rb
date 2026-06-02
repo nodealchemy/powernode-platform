@@ -58,6 +58,14 @@ class Api::V1::Internal::CodebaseController < Api::V1::Internal::InternalBaseCon
         Ai::Codebase::StalePruneService
           .new(account: account, knowledge_base: kb, base_path: base_path)
           .prune(dry_run: opts.fetch("dry_run", true))
+      when "dead_code"
+        Ai::Codebase::DeadCodeAnalysisService
+          .new(account: account, base_path: base_path)
+          .detect(
+            languages: opts["languages"].presence || %w[typescript ruby],
+            triage: opts.fetch("triage", true),
+            model: opts["model"]
+          )
       else
         render_error("Unknown operation: #{operation.presence || '(blank)'}", status: :unprocessable_content)
         return
