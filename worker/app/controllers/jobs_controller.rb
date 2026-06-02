@@ -147,45 +147,60 @@ class JobsController
     end
   end
 
+  # Authenticate, read and JSON-parse an LLM proxy request body, then validate
+  # the shared agent_id/credential_id + messages (+ optional schema) shape.
+  # Returns [data, nil] on success or [nil, error_response] on any failure, so
+  # callers can `return error if error`. Shared by the llm_* proxy actions.
+  def parse_llm_request(request, require_schema: false)
+    return [nil, error_response(401, 'Unauthorized')] unless authenticated?(request)
+
+    begin
+      data = JSON.parse(request.body.read)
+    rescue JSON::ParserError
+      return [nil, error_response(400, 'Invalid JSON')]
+    end
+
+    messages = data['messages']
+    valid = (data['agent_id'].present? || data['credential_id'].present?) &&
+            messages.is_a?(Array) && messages.any?
+    valid &&= data['schema'].is_a?(Hash) if require_schema
+
+    unless valid
+      detail = require_schema ? 'Missing agent_id/credential_id, messages, or schema parameter'
+                              : 'Missing agent_id/credential_id or messages parameter'
+      return [nil, error_response(422, detail)]
+    end
+
+    [data, nil]
+  end
+
+  # Route an LLM call at either an inline provider_config (credential_id path)
+  # or a server-resolved agent_id. Mutates and returns llm_opts.
+  def apply_llm_provider_target(llm_opts, data)
+    if data['credential_id'].present?
+      llm_opts[:provider_config] = build_inline_provider_config(data)
+    else
+      llm_opts[:agent_id] = data['agent_id']
+    end
+    llm_opts
+  end
+
   # POST /api/v1/llm/complete
   # Synchronous LLM completion -- called by server's LLM proxy.
   # Accepts either agent_id (worker fetches provider config from server) or
   # credential_id + provider_type + provider_base_url (skips the callback).
   def llm_complete(request)
-    unless authenticated?(request)
-      return error_response(401, 'Unauthorized')
-    end
+    data, error = parse_llm_request(request)
+    return error if error
 
     begin
-      body = request.body.read
-      data = JSON.parse(body)
-    rescue JSON::ParserError
-      return error_response(400, 'Invalid JSON')
-    end
-
-    messages = data['messages']
-    agent_id = data['agent_id']
-    credential_id = data['credential_id']
-
-    unless (agent_id.present? || credential_id.present?) && messages.is_a?(Array) && messages.any?
-      return error_response(422, 'Missing agent_id/credential_id or messages parameter')
-    end
-
-    begin
-      client = build_llm_proxy_client
       opts = {}
       opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
       opts[:temperature] = data['temperature'] if data['temperature']
       opts[:system_prompt] = data['system_prompt'] if data['system_prompt']
 
-      llm_opts = { messages: messages, model: data['model'], **opts }
-      if credential_id.present?
-        llm_opts[:provider_config] = build_inline_provider_config(data)
-      else
-        llm_opts[:agent_id] = agent_id
-      end
-
-      result = client.complete(**llm_opts)
+      llm_opts = apply_llm_provider_target({ messages: data['messages'], model: data['model'], **opts }, data)
+      result = build_llm_proxy_client.complete(**llm_opts)
       success_response(result)
     rescue StandardError => e
       PowernodeWorker.application.logger.error "LLM complete failed: #{e.message}"
@@ -197,40 +212,17 @@ class JobsController
   # Synchronous LLM completion with tool-calling -- called by server's LLM proxy.
   # Accepts either agent_id or credential_id + provider info (skips provider_config callback).
   def llm_complete_with_tools(request)
-    unless authenticated?(request)
-      return error_response(401, 'Unauthorized')
-    end
+    data, error = parse_llm_request(request)
+    return error if error
 
     begin
-      body = request.body.read
-      data = JSON.parse(body)
-    rescue JSON::ParserError
-      return error_response(400, 'Invalid JSON')
-    end
-
-    messages = data['messages']
-    agent_id = data['agent_id']
-    credential_id = data['credential_id']
-
-    unless (agent_id.present? || credential_id.present?) && messages.is_a?(Array) && messages.any?
-      return error_response(422, 'Missing agent_id/credential_id or messages parameter')
-    end
-
-    begin
-      client = build_llm_proxy_client
       opts = {}
       opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
       opts[:temperature] = data['temperature'] if data['temperature']
       opts[:tool_choice] = data['tool_choice'] if data['tool_choice']
 
-      llm_opts = { messages: messages, tools: data['tools'] || [], model: data['model'], **opts }
-      if credential_id.present?
-        llm_opts[:provider_config] = build_inline_provider_config(data)
-      else
-        llm_opts[:agent_id] = agent_id
-      end
-
-      result = client.complete_with_tools(**llm_opts)
+      llm_opts = apply_llm_provider_target({ messages: data['messages'], tools: data['tools'] || [], model: data['model'], **opts }, data)
+      result = build_llm_proxy_client.complete_with_tools(**llm_opts)
       success_response(result)
     rescue StandardError => e
       PowernodeWorker.application.logger.error "LLM complete_with_tools failed: #{e.message}"
@@ -243,27 +235,10 @@ class JobsController
   # The server-side caller handles streaming to clients via ActionCable.
   # Accepts either agent_id or credential_id + provider info (skips provider_config callback).
   def llm_stream(request)
-    unless authenticated?(request)
-      return error_response(401, 'Unauthorized')
-    end
+    data, error = parse_llm_request(request)
+    return error if error
 
     begin
-      body = request.body.read
-      data = JSON.parse(body)
-    rescue JSON::ParserError
-      return error_response(400, 'Invalid JSON')
-    end
-
-    messages = data['messages']
-    agent_id = data['agent_id']
-    credential_id = data['credential_id']
-
-    unless (agent_id.present? || credential_id.present?) && messages.is_a?(Array) && messages.any?
-      return error_response(422, 'Missing agent_id/credential_id or messages parameter')
-    end
-
-    begin
-      client = build_llm_proxy_client
       opts = {}
       opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
       opts[:temperature] = data['temperature'] if data['temperature']
@@ -271,14 +246,8 @@ class JobsController
 
       # Use standard complete -- the worker collects the full response.
       # Streaming to the end user is handled server-side via ActionCable.
-      llm_opts = { messages: messages, model: data['model'], **opts }
-      if credential_id.present?
-        llm_opts[:provider_config] = build_inline_provider_config(data)
-      else
-        llm_opts[:agent_id] = agent_id
-      end
-
-      result = client.complete(**llm_opts)
+      llm_opts = apply_llm_provider_target({ messages: data['messages'], model: data['model'], **opts }, data)
+      result = build_llm_proxy_client.complete(**llm_opts)
       success_response(result)
     rescue StandardError => e
       PowernodeWorker.application.logger.error "LLM stream failed: #{e.message}"
@@ -290,40 +259,15 @@ class JobsController
   # Synchronous structured JSON output completion -- called by server's LLM proxy.
   # Accepts either agent_id or credential_id + provider info (skips provider_config callback).
   def llm_complete_structured(request)
-    unless authenticated?(request)
-      return error_response(401, 'Unauthorized')
-    end
+    data, error = parse_llm_request(request, require_schema: true)
+    return error if error
 
     begin
-      body = request.body.read
-      data = JSON.parse(body)
-    rescue JSON::ParserError
-      return error_response(400, 'Invalid JSON')
-    end
-
-    messages = data['messages']
-    schema = data['schema']
-    agent_id = data['agent_id']
-    credential_id = data['credential_id']
-
-    unless (agent_id.present? || credential_id.present?) && messages.is_a?(Array) && messages.any? && schema.is_a?(Hash)
-      return error_response(422, 'Missing agent_id/credential_id, messages, or schema parameter')
-    end
-
-    begin
-      client = build_llm_proxy_client
       opts = {}
       opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
 
-      llm_opts = { messages: messages, schema: schema, model: data['model'], **opts }
-      if credential_id.present?
-        llm_opts[:provider_config] = build_inline_provider_config(data)
-      else
-        llm_opts[:agent_id] = agent_id
-      end
-
-      result = client.complete_structured(**llm_opts
-      )
+      llm_opts = apply_llm_provider_target({ messages: data['messages'], schema: data['schema'], model: data['model'], **opts }, data)
+      result = build_llm_proxy_client.complete_structured(**llm_opts)
       success_response(result)
     rescue StandardError => e
       PowernodeWorker.application.logger.error "LLM complete_structured failed: #{e.message}"
