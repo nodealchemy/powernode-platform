@@ -69,13 +69,19 @@ module ApplicationCable
     # Worker (connection is rejected immediately to avoid the JWT arm
     # producing a misleading downstream error).
     def authenticate_worker_via_mtls
-      info = request.headers["X-Forwarded-Tls-Client-Cert-Info"].presence
-      return false unless info
+      # No client cert at all → user-JWT arm takes over (browsers have none).
+      return false unless Security::MtlsTrust.client_cert_presented?(request)
 
-      decoded = CGI.unescape(info)
-      match = decoded.match(/\bCN\s*=\s*"?([^,"]+)"?/i)
-      cn = match && match[1].strip
-      return false if cn.blank?
+      # A cert IS present → it must verify against OUR CA (Federation mTLS
+      # Phase 2: peer CAs share the Traefik bundle, so a peer-CA-signed cert
+      # must not impersonate a worker here). On any failure, reject — a forged
+      # cert must not get a second chance via the JWT arm.
+      cn = Security::MtlsTrust.verify_request(request)
+      if cn.blank?
+        Rails.logger.warn "ActionCable: client cert present but not verified against our CA; rejecting"
+        reject_unauthorized_connection
+        return true
+      end
 
       worker = Worker.find_by(node_instance_id: cn)
       if worker&.active?
