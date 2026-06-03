@@ -28,6 +28,7 @@ module Ai
         "system_get_instance" => "Ai::Tools::SystemFleetTool",
         "system_find_node_with_gpu" => "Ai::Tools::SystemFleetTool",
         "system_list_instance_types_by_gpu" => "Ai::Tools::SystemFleetTool",
+        "system_deploy_inference_server" => "Ai::Tools::SystemFleetTool",
         "system_provision_instance" => "Ai::Tools::SystemFleetTool",
         "system_terminate_instance" => "Ai::Tools::SystemFleetTool",
         "system_destroy_instance" => "Ai::Tools::SystemFleetTool",
