@@ -45,12 +45,13 @@ module Ai
             }
           },
           "docker_create_container" => {
-            description: "Create a new Docker container on a host",
+            description: "Create a new Docker container on a host. `runtime` sets the OCI runtime (e.g. 'runsc' for gVisor isolation, substrate L0) via HostConfig.Runtime — the runtime must be registered on the host's Docker daemon.",
             parameters: {
               host_id: { type: "string", required: false, description: "Docker host ID, slug, or name" },
               name: { type: "string", required: true, description: "Container name" },
               image: { type: "string", required: true, description: "Docker image to use" },
               env: { type: "array", required: false, description: "Environment variables as KEY=VALUE strings" },
+              runtime: { type: "string", required: false, description: "OCI runtime for isolation (e.g. 'runsc' for gVisor) — sets HostConfig.Runtime" },
               params: { type: "object", required: false, description: "Additional Docker container parameters" }
             }
           },
@@ -198,6 +199,13 @@ module Ai
 
         create_params = (params[:params] || {}).symbolize_keys
         create_params[:Env] = params[:env] if params[:env].present?
+        # L0 isolation consumption: route the container through an OCI runtime
+        # (e.g. runsc for gVisor) via HostConfig.Runtime, without clobbering any
+        # other HostConfig the caller supplied.
+        if params[:runtime].present?
+          host_config = (create_params[:HostConfig] ||= {})
+          host_config[:Runtime] = params[:runtime].to_s
+        end
 
         result = manager.create_container(name: params[:name], image: params[:image], params: create_params)
         { success: true, container_id: result["Id"], message: "Container created" }
