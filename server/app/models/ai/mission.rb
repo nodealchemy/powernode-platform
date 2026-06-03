@@ -7,7 +7,7 @@ module Ai
     include Auditable
 
     # ==================== Constants ====================
-    MISSION_TYPES = %w[development research operations infrastructure custom].freeze
+    MISSION_TYPES = %w[development research operations infrastructure agent_fleet custom].freeze
 
     STATUSES = %w[draft active paused completed failed cancelled].freeze
     TERMINAL_STATUSES = %w[completed failed cancelled].freeze
