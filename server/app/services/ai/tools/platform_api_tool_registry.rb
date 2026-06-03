@@ -16,6 +16,12 @@ module Ai
         "system_expose_service_publicly"    => "Ai::Tools::SystemIngressTool",
         "system_acme_provision_certificate" => "Ai::Tools::SystemIngressTool",
 
+        # === ACME certificate lifecycle (DNS-01 issuance, renewal, revocation) ===
+        "system_acme_get_certificate"       => "Ai::Tools::SystemAcmeTool",
+        "system_acme_renew_certificate"     => "Ai::Tools::SystemAcmeTool",
+        "system_acme_revoke_certificate"    => "Ai::Tools::SystemAcmeTool",
+        "system_acme_create_dns_credential" => "Ai::Tools::SystemAcmeTool",
+
         "system_list_nodes" => "Ai::Tools::SystemFleetTool",
         "system_get_node" => "Ai::Tools::SystemFleetTool",
         "system_create_node" => "Ai::Tools::SystemFleetTool",
@@ -73,6 +79,8 @@ module Ai
 
         "system_list_templates" => "Ai::Tools::SystemFleetTool",
         "system_get_template" => "Ai::Tools::SystemFleetTool",
+        "system_create_template" => "Ai::Tools::SystemFleetTool",
+        "system_update_instance" => "Ai::Tools::SystemFleetTool",
         "system_assign_module_to_template" => "Ai::Tools::SystemFleetTool",
         "system_list_modules" => "Ai::Tools::SystemFleetTool",
         "system_get_module" => "Ai::Tools::SystemFleetTool",
@@ -168,8 +176,11 @@ module Ai
         "system_sdwan_get_federation_peer"     => "Ai::Tools::SdwanTool",
         "system_sdwan_propose_federation_peer" => "Ai::Tools::SdwanTool",
         "system_sdwan_accept_federation_peer"  => "Ai::Tools::SdwanTool",
+        "system_sdwan_update_federation_peer"  => "Ai::Tools::SdwanTool",
         "system_sdwan_revoke_federation_peer"  => "Ai::Tools::SdwanTool",
         "system_sdwan_federation_scan"         => "Ai::Tools::SdwanTool",
+        "system_sdwan_set_data_residency"      => "Ai::Tools::SdwanTool",
+        "system_sdwan_get_audit_log"           => "Ai::Tools::SdwanTool",
         # Phase 3 (Federation & Multi-Site) — SDWAN-first composer skills
         "system_sdwan_federation_compose"      => "Ai::Tools::SdwanTool",
         "system_multi_tenant_isolation"        => "Ai::Tools::SdwanTool",
