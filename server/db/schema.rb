@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_02_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_02_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -11325,6 +11325,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_170000) do
     t.index ["section_or_group"], name: "idx_packages_section"
   end
 
+  create_table "system_peer_capability_signing_keys", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.text "encrypted_credentials"
+    t.string "handle", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "migrated_to_vault_at"
+    t.string "public_key_b64", null: false
+    t.string "revocation_reason"
+    t.datetime "revoked_at"
+    t.uuid "rotated_from_id"
+    t.datetime "updated_at", null: false
+    t.string "vault_path"
+    t.index ["account_id", "handle"], name: "idx_on_account_id_handle_f2428572a0", unique: true
+    t.index ["account_id"], name: "index_system_peer_capability_signing_keys_on_account_id"
+    t.index ["rotated_from_id"], name: "index_system_peer_capability_signing_keys_on_rotated_from_id"
+  end
+
   create_table "system_platform_deployments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
@@ -14212,6 +14230,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_170000) do
   add_foreign_key "system_package_repository_platforms", "system_node_platforms", column: "node_platform_id", on_delete: :cascade
   add_foreign_key "system_package_repository_platforms", "system_package_repositories", column: "package_repository_id", on_delete: :cascade
   add_foreign_key "system_packages", "system_package_repositories", column: "package_repository_id", on_delete: :cascade
+  add_foreign_key "system_peer_capability_signing_keys", "accounts"
+  add_foreign_key "system_peer_capability_signing_keys", "system_peer_capability_signing_keys", column: "rotated_from_id"
   add_foreign_key "system_platform_deployments", "accounts", on_delete: :cascade
   add_foreign_key "system_platform_deployments", "sdwan_virtual_ips", column: "virtual_ip_id", on_delete: :nullify
   add_foreign_key "system_platform_deployments", "system_node_templates", column: "node_template_id", on_delete: :restrict

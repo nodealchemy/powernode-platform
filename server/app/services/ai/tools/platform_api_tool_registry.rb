@@ -35,6 +35,7 @@ module Ai
         "system_authorize_peer_call" => "Ai::Tools::SystemFleetTool",
         "system_launch_agent_fleet" => "Ai::Tools::SystemFleetTool",
         "system_agent_fleet_status" => "Ai::Tools::SystemFleetTool",
+        "system_mint_peer_capability_token" => "Ai::Tools::SystemFleetTool",
         "system_provision_instance" => "Ai::Tools::SystemFleetTool",
         "system_terminate_instance" => "Ai::Tools::SystemFleetTool",
         "system_destroy_instance" => "Ai::Tools::SystemFleetTool",
