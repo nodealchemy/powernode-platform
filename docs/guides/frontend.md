@@ -21,7 +21,6 @@
 - [Dashboards and charts](#dashboards-and-charts)
 - [Admin panels and bulk operations](#admin-panels-and-bulk-operations)
 - [Reliability UI components](#reliability-ui-components)
-- [Plugin management surface](#plugin-management-surface)
 - [Accessibility, theming, and i18n](#accessibility-theming-and-i18n)
 - [Related guides](#related-guides)
 - [Materials previously at](#materials-previously-at)
@@ -652,62 +651,6 @@ The panel highlights when a node is using the workflow default vs. an override, 
 
 The reliability surfaces consume `useWorkflowExecutionChannel` for live updates as nodes retry, recover, or trip breakers. Backend broadcasts state transitions; the UI reflects them within ~100ms.
 
-## Plugin management surface
-
-The platform supports a **Universal Plugin System** for AI workflows, providers, and other extension points. The plugin management UI integrates seamlessly into the existing admin surface.
-
-### Component hierarchy
-
-```mermaid
-flowchart TB
-    PMP[PluginsManagementPage]
-    Browse[PluginMarketplaceBrowser]
-    Installed[InstalledPluginsList]
-    Detail[PluginDetailPanel]
-    Config[PluginConfigEditor]
-    Install[InstallPluginWizard]
-
-    PMP --> Browse
-    PMP --> Installed
-    Browse --> Detail
-    Installed --> Detail
-    Detail --> Config
-    Browse --> Install
-```
-
-### Navigation integration
-
-A single "Plugins" entry in the admin nav exposes:
-
-- Marketplace browser (search, filter by category, sort by popularity)
-- Installed plugins list (with status: active, disabled, error, update-available)
-- Plugin detail (description, version history, permissions requested, dependencies)
-- Configuration editor (per-plugin settings, gated by `plugins.configure` permission)
-
-### Workflows
-
-1. **Discover and install** — operator browses marketplace, reviews plugin permissions and dependencies, confirms install, plugin loads on next worker restart (or hot-reload if supported).
-2. **Configure** — operator opens plugin detail, edits config (JSON schema-driven form), saves, plugin re-initializes.
-3. **Disable / uninstall** — soft-disable via Flipper flag (no restart); hard-uninstall removes manifest and migrates data (only on confirm).
-4. **Upgrade** — marketplace surfaces available updates; operator reviews changelog and breaking-change notes before applying.
-
-### Permission requirements
-
-| Permission | Scope |
-|---|---|
-| `plugins.browse` | View marketplace |
-| `plugins.install` | Install new plugins |
-| `plugins.configure` | Modify plugin configuration |
-| `plugins.toggle` | Enable/disable installed plugins |
-| `plugins.uninstall` | Remove plugins |
-
-### Design principles
-
-- **Unified experience** — plugin management lives alongside AI providers and workflows in the admin nav, not as a separate "marketplace" silo.
-- **Permission-gated** — all actions check explicit permissions; no role-based shortcuts.
-- **Theme-aware** — full dark/light mode via theme classes.
-- **Mobile-first** — marketplace browser is responsive; install wizard works on tablet.
-
 ## Accessibility, theming, and i18n
 
 ### Accessibility
@@ -746,6 +689,5 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/frontend/API_INTEGRATION_PATTERNS.md`
 - `docs/frontend/FEATURE_DEVELOPMENT_GUIDE.md`
 - `docs/frontend/RELIABILITY_UI_COMPONENTS.md`
-- `docs/frontend/PLUGIN_MANAGEMENT_FRONTEND_DESIGN.md`
 
 _Last verified: 2026-06-03_

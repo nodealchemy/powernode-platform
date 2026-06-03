@@ -1,6 +1,6 @@
 # Content Management Guide
 
-> How to author, publish, and integrate knowledge base articles and content pages — including AI-driven content workflows.
+> How to author, publish, and manage knowledge base articles and content pages.
 
 > Status: active
 
@@ -14,8 +14,6 @@
 - [API surface](#api-surface)
 - [Frontend feature layout](#frontend-feature-layout)
 - [Content workflow lifecycle](#content-workflow-lifecycle)
-- [Workflow node integration](#workflow-node-integration)
-- [Blog generation pipeline (KB integration)](#blog-generation-pipeline-kb-integration)
 - [Search](#search)
 - [Access control](#access-control)
 - [RAG and AI knowledge separation](#rag-and-ai-knowledge-separation)
@@ -24,7 +22,7 @@
 
 ## What this guide covers
 
-The platform ships with two distinct content systems: a full-featured **Knowledge Base** (articles, categories, tags, full-text search, editorial workflows, moderated comments, view analytics) and lighter-weight **Content Pages** (standalone markdown pages with SEO metadata). This guide is for content engineers, AI-workflow authors integrating content publishing into mission pipelines, and operators managing the editorial lifecycle.
+The platform ships with two distinct content systems: a full-featured **Knowledge Base** (articles, categories, tags, full-text search, editorial workflows, moderated comments, view analytics) and lighter-weight **Content Pages** (standalone markdown pages with SEO metadata). This guide is for content engineers and operators managing the editorial lifecycle.
 
 ## Prerequisites
 
@@ -218,184 +216,6 @@ stateDiagram-v2
 5. Eventually content is **Archived** (still queryable for history, hidden from public views)
 
 Workflows are surfaced in the admin UI under Content → Workflows. The Sidekiq cron sweeps overdue workflows daily and notifies assignees.
-
-## Workflow node integration
-
-AI workflows can read, create, update, search, and publish content as part of mission pipelines. Nine workflow node types ship with the platform:
-
-### Knowledge Base nodes
-
-| Node type | Purpose | Visual theme |
-|---|---|---|
-| `kb_article_create` | Create article with full metadata | Green / Plus icon |
-| `kb_article_read` | Retrieve by ID or slug | Blue / Eye icon |
-| `kb_article_update` | Selective field update via checkbox toggles | Orange / Edit icon |
-| `kb_article_search` | Full-text search with filters and sorting | Purple / Search icon |
-| `kb_article_publish` | Publish + optional public/featured | Emerald / Rocket icon |
-
-### Page nodes
-
-| Node type | Purpose | Visual theme |
-|---|---|---|
-| `page_create` | Create page with SEO metadata, auto-slug | Teal / Plus icon |
-| `page_read` | Retrieve by ID or slug | Cyan / Eye icon |
-| `page_update` | Selective field update | Amber / Edit icon |
-| `page_publish` | Status → published | Indigo / Check icon |
-
-### Common features
-
-- Template variable support via `{{variable}}` syntax
-- Connection orientation control (vertical/horizontal)
-- Optional output variable naming
-- Validation with explicit error messages
-
-### Update node pattern (progressive disclosure)
-
-Update nodes use checkboxes to enable/disable specific field updates — fields render only when their checkbox is checked. This prevents accidental overwrites of unchanged fields:
-
-```
-☑ Update title       [Title input]
-☐ Update content
-☑ Update status      [Status dropdown]
-☐ Update tags
-```
-
-### Identifier flexibility
-
-Read/Update/Publish nodes accept either `id` (UUID) or `slug` (human-readable). The executor resolves whichever is provided.
-
-### Database vs. model validation
-
-When extending the workflow node types, remember PostgreSQL CHECK constraints and ActiveRecord validations are separate layers — both must be updated. The original content-management nodes shipped with a CHECK constraint update but a missing `AiWorkflowNode` validation update, which caused 422 responses on save. The fix added all new node types to:
-
-```ruby
-validates :node_type, presence: true, inclusion: {
-  in: %w[
-    start end trigger
-    ai_agent prompt_template data_processor transform
-    condition loop delay merge split
-    database file validator
-    email notification
-    api_call webhook scheduler
-    human_approval sub_workflow
-    kb_article_create kb_article_read kb_article_update kb_article_search kb_article_publish
-    page_create page_read page_update page_publish
-  ],
-  message: 'must be a valid node type'
-}
-```
-
-## Blog generation pipeline (KB integration)
-
-The platform ships a reference blog generation workflow demonstrating end-to-end content automation: research → outline → draft → edit → SEO optimize → image generate → markdown format → save to KB.
-
-```mermaid
-flowchart TB
-    Input[Input: topic, keywords, audience, tone]
-    Research[Research Agent]
-    Outline[Outline Agent]
-    Writer[Writer Agent]
-    Editor[Editor Agent]
-    SEO[SEO Agent parallel]
-    Images[Image Suggestion + Generation parallel]
-    Format[Markdown Formatter]
-    KB[KB Article Create]
-    End[End: returns kb_article_id]
-
-    Input --> Research
-    Research --> Outline
-    Outline --> Writer
-    Writer --> Editor
-    Editor --> SEO
-    Editor --> Images
-    SEO --> Format
-    Images --> Format
-    Format --> KB
-    KB --> End
-```
-
-### KB node configuration
-
-```ruby
-{
-  'title'        => '{{markdown_formatter.seo_data.optimized_meta.title}}',
-  'content'      => '{{markdown_formatter.markdown}}',
-  'excerpt'      => '{{markdown_formatter.seo_data.optimized_meta.description}}',
-  'category_id'  => 'blog-posts',
-  'status'       => 'published',
-  'tags'         => '{{markdown_formatter.seo_data.optimized_meta.keywords}}',
-  'is_public'    => true,
-  'is_featured'  => false,
-  'slug'         => '{{markdown_formatter.seo_data.optimized_meta.url_slug}}',
-  'author_id'    => '{{workflow.creator_id}}',
-  'publish_date' => '{{workflow.current_timestamp}}',
-  'output_variable' => 'kb_article_id',
-  'orientation'  => 'vertical',
-  'metadata' => {
-    'source'           => 'ai_mission',
-    'mission_id'       => '{{mission.id}}',
-    'word_count'       => '{{editor_output.word_count}}',
-    'quality_score'    => '{{editor_output.quality_score}}',
-    'seo_score'        => '{{seo_output.seo_score}}',
-    'has_images'       => true,
-    'image_count'      => '{{image_data.total_images_recommended}}',
-    'generation_model' => '{{mission.ai_provider.model}}',
-    'created_at'       => '{{workflow.current_timestamp}}'
-  }
-}
-```
-
-### Template variable best practices
-
-Deep nested object access works — reference by full path:
-
-```ruby
-# CORRECT
-'{{markdown_formatter.seo_data.optimized_meta.title}}'
-
-# WRONG — skips levels
-'{{seo_data.title}}'
-```
-
-Arrays are serialized automatically when referenced as a whole — array index access is not supported:
-
-```ruby
-# CORRECT — KB executor handles array
-'{{markdown_formatter.seo_data.optimized_meta.keywords}}'
-
-# WRONG — array index in template
-'{{keywords[0]}}'
-```
-
-Reference outputs by node ID, not display name:
-
-```ruby
-# CORRECT
-'{{kb_article_1.kb_article_id}}'
-
-# WRONG
-'{{Save to Knowledge Base.article_id}}'
-```
-
-### End-node output mapping
-
-```ruby
-output_mapping: {
-  markdown:      '{{markdown_formatter.markdown}}',
-  metadata:      '{{markdown_formatter.metadata}}',
-  seo_data:      '{{markdown_formatter.seo_data}}',
-  image_data:    '{{markdown_formatter.image_data}}',
-  blog_content:  '{{markdown_formatter.blog_content}}',
-  kb_article_id: '{{kb_article_1.kb_article_id}}'
-}
-```
-
-### Use cases
-
-- **Content teams** — full automation from topic to published article with embedded SEO and images
-- **Knowledge management** — every AI-generated article auto-organizes into the searchable repository
-- **Marketing** — published articles are immediately ready for campaign integration via the API
-- **Analytics** — every article carries a unique ID for performance attribution back to the mission and model that produced it
 
 ## Search
 

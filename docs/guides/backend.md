@@ -751,6 +751,6 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md`
 - `docs/services/ANALYTICS_ENGINEER.md`
 
-The two specialist guides for billing and payments (`BILLING_ENGINE_DEVELOPER_SPECIALIST.md`, `PAYMENT_INTEGRATION_SPECIALIST.md`) and the BaaS API reference (`BAAS_API_REFERENCE.md`) moved into [`docs/guides/extensions.md`](extensions.md) because they describe extension-resident functionality. `NODE_EXECUTOR_REFERENCE.md` moved to [`docs/reference/node-executors.md`](../reference/node-executors.md). `BACKEND_SERVICE_ARCHITECTURE.md` was consolidated into [`docs/concepts/architecture.md`](../concepts/architecture.md).
+The two specialist guides for billing and payments (`BILLING_ENGINE_DEVELOPER_SPECIALIST.md`, `PAYMENT_INTEGRATION_SPECIALIST.md`) and the BaaS API reference (`BAAS_API_REFERENCE.md`) moved into [`docs/guides/extensions.md`](extensions.md) because they describe extension-resident functionality. `BACKEND_SERVICE_ARCHITECTURE.md` was consolidated into [`docs/concepts/architecture.md`](../concepts/architecture.md).
 
 _Last verified: 2026-06-03_
