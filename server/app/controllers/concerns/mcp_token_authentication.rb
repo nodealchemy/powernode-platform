@@ -12,6 +12,12 @@ module McpTokenAuthentication
   private
 
   def authenticate_mcp_request
+    # mTLS arm (AI/MCP workload substrate L2): an enrolled fleet instance presents
+    # its node client cert (Traefik-forwarded). Verify it against OUR CA and resolve
+    # the NodeInstance as the MCP principal. Falls through to the OAuth path when a
+    # cert is absent or doesn't verify — the existing User/OAuth flow is unchanged.
+    return if authenticate_via_node_mtls
+
     token_string = extract_bearer_token
 
     unless token_string.present?
@@ -28,6 +34,30 @@ module McpTokenAuthentication
     end
   end
 
+  # mTLS principal arm. Returns true when a verified node client cert resolves to a
+  # live NodeInstance (now the MCP principal); false otherwise (caller falls through
+  # to OAuth). Fail-closed: no cert, unverifiable cert, or no injected resolver →
+  # false. Only fires when a cert is actually presented, so OAuth clients (no cert)
+  # are unaffected. Instance principals are sessionless (request/response only).
+  def authenticate_via_node_mtls
+    return false unless ::Security::MtlsTrust.client_cert_presented?(request)
+
+    cn = ::Security::MtlsTrust.verify_request(request)
+    return false if cn.blank?
+
+    principal = ::Mcp::Principal.for_instance_cn(cn)
+    return false if principal.nil? || !principal.account&.active?
+
+    @current_mcp_principal = principal
+    @current_account = principal.account
+    @current_user = nil
+    true
+  end
+
+  def current_mcp_principal
+    @current_mcp_principal
+  end
+
   def authenticate_via_doorkeeper_token(doorkeeper_token)
     user = User.find_by(id: doorkeeper_token.resource_owner_id)
 
@@ -38,6 +68,7 @@ module McpTokenAuthentication
 
     @current_user = user
     @current_account = user.account
+    @current_mcp_principal = ::Mcp::Principal.for_user(user)
     @doorkeeper_token = doorkeeper_token
 
     # Capture OAuth application on the MCP session if present

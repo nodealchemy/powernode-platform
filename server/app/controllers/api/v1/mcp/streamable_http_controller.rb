@@ -456,7 +456,11 @@ module Api
             { "name" => defn[:id], "description" => defn[:description], "inputSchema" => defn[:input_schema] }
           end
 
-          { "tools" => platform_tools + introspection_tools }
+          all_tools = platform_tools + introspection_tools
+          # Instance principals get a default-deny, grant-scoped catalog; users keep
+          # the full list (their per-tool permissions gate execution).
+          tools = current_mcp_principal ? current_mcp_principal.filter_tools(all_tools) : all_tools
+          { "tools" => tools }
         end
 
         def handle_tools_call(params)
@@ -465,6 +469,16 @@ module Api
 
           unless tool_name.present?
             render_jsonrpc_error(nil, -32602, "Missing required parameter: name")
+            return nil
+          end
+
+          # Instance principals are default-deny: gate execution against the
+          # instance's grant. This is the authorization gate that prevents an
+          # authenticated instance from reaching the user:nil internal-caller
+          # permission bypass below. (Users fall through; their per-tool
+          # permission check still applies inside the registrar.)
+          if current_mcp_principal&.instance? && !current_mcp_principal.may_invoke?(tool_name)
+            render_jsonrpc_error(nil, -32000, "Tool not permitted for this instance principal: #{tool_name}")
             return nil
           end
 
