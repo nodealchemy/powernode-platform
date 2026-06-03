@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-# Phase-5 (reap) job for the system_agent_fleet mission template.
+# Phase-5 (reap) job for the system_agent_fleet mission template (L3).
 # Terminates (or returns to pool) the ephemeral members and disables their
-# peers, then the mission completes.
-class AiAgentFleetReapJob < AiAgentFleetPhaseJob
-  private
+# peers; the mission then completes. Shared body: AiAgentFleetPhaseExecution.
+class AiAgentFleetReapJob < BaseJob
+  include AiAgentFleetPhaseExecution
 
-  def phase
-    "reap"
-  end
+  sidekiq_options queue: "ai_execution", retry: 3
+
+  PHASE = "reap"
 end

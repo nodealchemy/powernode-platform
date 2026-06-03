@@ -1,22 +1,21 @@
 # frozen_string_literal: true
 
-# AI/MCP workload substrate L3 — shared base for agent-fleet mission phase
-# jobs. Never enqueued directly: core's Ai::Missions::OrchestratorService
-# dispatches the CONCRETE subclasses by job_class string (from the
-# system_agent_fleet mission template). Each subclass POSTs to the extension's
-# worker_api agent_fleet endpoint for its phase; that controller runs
-# System::AgentFleetMissionService and self-advances the mission.
+# Shared execution for AI/MCP workload substrate L3 agent-fleet mission phase
+# jobs. Each concrete job (AiAgentFleet{Plan,Provision,Delegate,Aggregate,Reap}Job)
+# is `< BaseJob`, `include`s this, and defines a PHASE constant. The job POSTs its
+# phase to the extension worker_api; that controller runs
+# System::AgentFleetMissionService#<phase>! and self-advances the mission.
 #
-# Per worker convention the worker is API-only with the server; api_client
-# presents the worker's mTLS client cert (BackendApiClient), which the
-# worker_api BaseController verifies against our internal CA.
-class AiAgentFleetPhaseJob < BaseJob
-  sidekiq_options queue: "ai_execution", retry: 3
-
+# This is a concern (not a base class) on purpose: worker/config/boot.rb loads
+# app/jobs/concerns/** BEFORE the job-file glob, so `include` is load-order-safe.
+# A shared base class would be required mid-glob and break (a subclass file can
+# sort before its parent) — which is why the AiProvisioning* jobs avoid one too.
+module AiAgentFleetPhaseExecution
   def execute(params)
     params = (params || {}).transform_keys(&:to_s)
     validate_required_params(params, "mission_id", "account_id")
     mission_id = params["mission_id"]
+    phase = self.class::PHASE
     log_info("[#{self.class.name}] #{phase} starting", mission_id: mission_id)
 
     result = api_client.post(
@@ -37,12 +36,6 @@ class AiAgentFleetPhaseJob < BaseJob
   end
 
   private
-
-  # Phase key — overridden by each concrete job. Maps to both the worker_api
-  # route segment and the mission template phase key.
-  def phase
-    raise NotImplementedError, "#{self.class.name} must define #phase"
-  end
 
   def report_failure(mission_id, message)
     return unless mission_id

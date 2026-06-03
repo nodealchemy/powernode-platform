@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-# Phase-0 (plan_fleet) job for the system_agent_fleet mission template.
-# Validates the fleet_spec + composes the normalized plan, then the mission
-# advances to the review_fleet approval gate.
-class AiAgentFleetPlanJob < AiAgentFleetPhaseJob
-  private
+# Phase-0 (plan_fleet) job for the system_agent_fleet mission template (L3).
+# Validates the fleet_spec + composes the plan; the mission then advances to the
+# review_fleet approval gate. Shared body: AiAgentFleetPhaseExecution.
+class AiAgentFleetPlanJob < BaseJob
+  include AiAgentFleetPhaseExecution
 
-  def phase
-    "plan_fleet"
-  end
+  sidekiq_options queue: "ai_execution", retry: 3
+
+  PHASE = "plan_fleet"
 end
