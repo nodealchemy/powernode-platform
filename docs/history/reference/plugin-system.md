@@ -1,6 +1,14 @@
 # Plugin System Reference
 
-> Authoritative reference for the universal plugin system: AI providers, workflow nodes, integrations.
+> **ARCHIVED 2026-06-03** — Preserved for historical context. The universal plugin
+> system has been **completely removed** from the codebase. All seven tables
+> (`plugins`, `plugin_marketplaces`, `plugin_installations`, `plugin_reviews`,
+> `plugin_dependencies`, `ai_provider_plugins`, `workflow_node_plugins`) were
+> dropped (migration `20260201200001_drop_plugin_system_tables`, which is
+> explicitly irreversible) and the associated models, services, controllers, and
+> frontend components no longer exist. See current docs for current state.
+
+> Historical reference for the (now removed) universal plugin system: AI providers, workflow nodes, integrations.
 
 ## Table of Contents
 
@@ -530,12 +538,12 @@ cd frontend && CI=true npm test PluginsApiService.test.ts
 
 ## Related docs
 
-- [node-executors.md](node-executors.md) — Built-in workflow node executors
-- [../concepts/mcp-and-tools.md](../concepts/mcp-and-tools.md) — MCP tools sibling system
-- [../guides/extensions.md](../guides/extensions.md) — Writing extensions
+- [node-executors.md](node-executors.md) — Built-in workflow node executors (also archived; removed subsystem)
+- [../../concepts/mcp-and-tools.md](../../concepts/mcp-and-tools.md) — MCP tools sibling system
+- [../../guides/extensions.md](../../guides/extensions.md) — Writing extensions
 
 ## Materials previously at
 
 - `docs/platform/UNIVERSAL_PLUGIN_SYSTEM.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

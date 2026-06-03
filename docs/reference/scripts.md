@@ -1,5 +1,7 @@
 # Scripts Reference
 
+> Status: active
+
 > Authoritative catalogue of repository-level scripts under `scripts/`.
 
 ## Table of Contents
@@ -206,4 +208,4 @@ Inside `scripts/trading/` (only meaningful when the trading extension is enabled
 
 - `docs/infrastructure/SCRIPTS_REFERENCE.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

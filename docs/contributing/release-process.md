@@ -195,4 +195,4 @@ Pre-release entries (`0.3.0-rc.1`) get their own section that gets squashed into
 - Git Rules section of the root CLAUDE.md
 - Release Process section of `docs/GITHUB_SETUP.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

@@ -1,5 +1,7 @@
 # Platform Architecture
 
+> Status: active
+
 > How the Rails API, Sidekiq worker, and React frontend compose into mission control for AI agent fleets.
 
 ## Table of Contents
@@ -20,7 +22,7 @@
 
 Powernode is a three-process platform: a Rails 8 API (`server/`), a standalone Sidekiq worker (`worker/`), and a React TypeScript frontend (`frontend/`). The two backend processes communicate exclusively over HTTP and a shared Redis instance — they share no database connections, no ActiveRecord models, and no gems. This isolation is the platform's most important architectural rule and the one most often violated in early contributions.
 
-Around the three core processes orbit several optional extensions (`extensions/business`, `extensions/system`, `extensions/marketing`, `extensions/supply-chain`, `extensions/trading`), each a self-contained git submodule that mounts into the parent and can be disabled without affecting the core. The core platform itself runs as single-user self-hosted when no extensions are present; extensions add multi-tenant billing, node lifecycle management, content marketing, supply-chain workflows, or trading capability respectively.
+Around the three core processes orbit five optional extensions, each a self-contained git submodule that mounts into the parent and can be disabled without affecting the core. Three are public (`extensions/system`, `extensions/supply-chain`, `extensions/marketing` — mirrored on GitHub and listed in `.gitmodules`); two are private remote-only (`extensions/business`, `extensions/trading`). The core platform itself runs in **core mode** — single-user self-hosted with all core features unlocked — when `business`/`trading` are absent; extensions add node lifecycle management, supply-chain workflows, content marketing, multi-tenant billing, or trading capability respectively.
 
 This document is the canonical reference for how the processes relate, where services live, what conventions controllers and jobs must follow, and how files flow between user uploads and the worker.
 
@@ -40,7 +42,7 @@ flowchart LR
         Redis0[(Redis DB 0<br/>cache + ActionCable)]
     end
 
-    subgraph Worker["worker/ — Sidekiq 7.2"]
+    subgraph Worker["worker/ — Sidekiq 8"]
         BaseJob[BaseJob hierarchy<br/>circuit breakers<br/>idempotency helpers]
         WorkerSvc[Worker services<br/>BackendApiClient<br/>LlmProxyClient]
         Redis1[(Redis DB 1<br/>queues only)]
@@ -116,7 +118,7 @@ See [`concepts/agents-and-autonomy.md`](./agents-and-autonomy.md) for the orches
 
 ## Worker isolation
 
-The worker is a Sidekiq 7.2 process with zero direct database access — every data operation goes through the Rails API. The isolation provides three benefits: crashes in job processing cannot corrupt the database, the worker can scale independently of the API, and the API surface itself becomes the contract that gates every state mutation.
+The worker is a Sidekiq 8 process with zero direct database access — every data operation goes through the Rails API. The isolation provides three benefits: crashes in job processing cannot corrupt the database, the worker can scale independently of the API, and the API surface itself becomes the contract that gates every state mutation.
 
 ### Job hierarchy
 
@@ -673,4 +675,4 @@ This concept consolidates content from:
 - `docs/platform/FILE_MANAGEMENT_SYSTEM.md`
 - `docs/platform/PLATFORM_PATTERNS_AND_STANDARDS.md` (normative parts; residual content slated for archive)
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

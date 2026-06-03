@@ -2,6 +2,8 @@
 
 > How to build React + TypeScript pages, components, hooks, and dashboards in the Powernode platform.
 
+> Status: active
+
 ## Table of Contents
 
 - [What this guide covers](#what-this-guide-covers)
@@ -33,7 +35,7 @@ If you're building a new feature, start at [Feature-based layout](#feature-based
 ## Prerequisites
 
 - Node 20+, a running platform (`docs/getting-started/01-quickstart.md`)
-- Familiarity with React 19, TypeScript 5, Tailwind CSS 4
+- Familiarity with React 19, TypeScript 6, Tailwind CSS 4
 - Read the root [`CLAUDE.md`](../../CLAUDE.md) "Frontend Patterns" table at least once
 
 ## Stack and architecture
@@ -42,7 +44,7 @@ If you're building a new feature, start at [Feature-based layout](#feature-based
 |---|---|
 | Framework | React 19 |
 | Bundler | Vite 7 |
-| Language | TypeScript 5 |
+| Language | TypeScript 6 |
 | Styling | Tailwind CSS 4 (theme classes only) |
 | Global state | Redux Toolkit |
 | Server state | TanStack Query (React Query) |
@@ -728,7 +730,6 @@ The platform is timezone-agnostic. The server stores all timestamps in UTC; the 
 - [Accessibility](accessibility.md) — WCAG AA standards
 - [`docs/concepts/chat-and-realtime.md`](../concepts/chat-and-realtime.md) — channel inventory
 - [`docs/reference/theme-system.md`](../reference/theme-system.md) — theme tokens
-- [`docs/reference/plugin-system.md`](../reference/plugin-system.md) — Universal Plugin System reference
 
 ## Materials previously at
 
@@ -747,4 +748,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/frontend/RELIABILITY_UI_COMPONENTS.md`
 - `docs/frontend/PLUGIN_MANAGEMENT_FRONTEND_DESIGN.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

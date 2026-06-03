@@ -194,4 +194,4 @@ The validation workflow runs `npm run lint` on every PR. The stricter `lint:secu
 - Sections of the root CLAUDE.md (Permission-Based Access Control, Frontend Patterns, Backend Patterns, Cryptographic Material Safety, Bulk Operation Safety, Design Principles, Architecture Principles, Terminology)
 - `docs/frontend/ESLINT_GUIDE.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

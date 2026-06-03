@@ -2,6 +2,8 @@
 
 > How to deploy, configure, and operate the Powernode platform — including the built-in CI/CD subsystem and Docker/Swarm orchestration.
 
+> Status: active
+
 ## Table of Contents
 
 - [What this guide covers](#what-this-guide-covers)
@@ -33,7 +35,7 @@ The platform's distinguishing feature in this space is its **integrated DevOps s
 
 - Linux host (Ubuntu 24.04 or similar), root access for systemd
 - Docker 24+, optionally Docker Swarm initialized
-- PostgreSQL 15+ with pgvector
+- PostgreSQL with pgvector
 - Redis 7+
 - Familiarity with the platform's [architecture](../concepts/architecture.md) and [backend](backend.md) conventions
 
@@ -599,4 +601,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/platform/DEVOPS_PLATFORM_GUIDE.md`
 - `docs/worker/CI_CD_ARCHITECTURE.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

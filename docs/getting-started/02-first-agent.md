@@ -60,7 +60,7 @@ _Section pending — will detail how to leave the platform in a known state afte
 Common failure modes the finished tutorial should cover:
 
 - Provider credentials missing or invalid → check `platform.provider_health` and review the seed step in [01-quickstart.md](./01-quickstart.md).
-- Agent execution fails with `permission_denied` → confirm the user has the `ai.agents.execute` permission via the Permission Reference.
+- Agent execution fails with `permission_denied` → confirm the user has the `ai.agents.execute` permission (see [concepts/permissions.md](../concepts/permissions.md)).
 - MCP session not established → check `platform.discover_claude_sessions`; restart the backend if no session is visible.
 
 ## What's next
@@ -71,4 +71,4 @@ Common failure modes the finished tutorial should cover:
 
 ---
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

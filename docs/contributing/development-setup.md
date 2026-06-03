@@ -25,7 +25,7 @@ This guide covers the full contributor path: prerequisites, cloning the repo, in
 |-------------|---------|----------------|
 | Node.js | 20+ | `node --version` |
 | Ruby | 3.2.8 (pinned) | `ruby --version` |
-| PostgreSQL | 16+ | `psql --version` |
+| PostgreSQL | recent release with the `vector` extension available (embeddings use pgvector via the `neighbor` gem) | `psql --version` |
 | Redis | 7+ | `redis-server --version` |
 | Docker | 24+ | `docker --version` |
 
@@ -310,4 +310,4 @@ sudo systemctl start powernode-worker@default
 - `docs/frontend/EXTERNAL_PROXY_QUICKSTART.md`
 - `docs/frontend/REVERSE_PROXY_SETUP.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

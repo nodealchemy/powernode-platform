@@ -1,5 +1,7 @@
 # Data Sources
 
+> Status: active
+>
 > When to use this runbook: registering, rotating, and troubleshooting external data-API integrations consumed by AI agents and workflows.
 
 ## Table of Contents
@@ -265,4 +267,4 @@ curl -X PATCH \
 
 - `docs/platform/DATA_SOURCES.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

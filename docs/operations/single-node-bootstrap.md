@@ -1,5 +1,7 @@
 # Single-Node Bootstrap (systemd installer path)
 
+> Status: active
+>
 > When to use this runbook: deploying Powernode to a fresh Linux host as the **systemd-managed installation** — backend, worker, worker-web, frontend, and reverse-proxy as native services with apt-installed PostgreSQL + Redis underneath. This is the path used by `dev.ipnode.net`, the `ops` control plane, and (with `--production`) the first Vultr cutover before the modular self-host migration.
 >
 > If you want the Docker Compose path instead (legacy, deprecated by 2026-08-01), see [`production-deployment.md`](production-deployment.md). If you want the long-term modular self-host path via the Go agent + System modules, that's a separate runbook (see [Golden Eclipse M3+](../../extensions/system/docs/CONTAINER_RUNTIMES.md)).
@@ -281,9 +283,9 @@ bundle exec rails db:create db:migrate db:seed
 
 > **Gotcha #7**: `Ai::CodeReview` was BOTH an ActiveRecord model class (`app/models/ai/code_review.rb` → `class CodeReview`) AND a services namespace (`app/services/ai/code_review/*.rb` → `module Ai; module CodeReview`). A Ruby constant can't be both. **Fix**: rename services dir to plural `code_reviews/` and update module declarations inside to `module CodeReviews`. Matches the platform's existing convention of singular-model-class + plural-services-namespace (e.g. `Ai::Agent` model + `app/services/ai/agents/`).
 
-> **Gotcha #8**: `app/services/mcp/workflow_executor.rb` is dead code — its 7 concern files (`broadcasting.rb`, `data_flow.rb`, etc.) plus `concerns/ai_workflow_service.rb` were deleted in commit `a61ca9ef` "remove ai workflow services" but the orchestrator file itself was missed. **Fix**: delete it (no remaining references).
+> **Gotcha #8** _(✅ resolved in master)_: the MCP workflow orchestrator (`workflow_executor.rb`) was dead code — its 7 concern files (`broadcasting.rb`, `data_flow.rb`, etc.) plus `concerns/ai_workflow_service.rb` were deleted in commit `a61ca9ef` "remove ai workflow services" but the orchestrator file itself was missed. **Fixed**: the file has since been deleted (no remaining references).
 
-> **Gotcha #9**: `app/controllers/api/v1/ai/intelligence/baas_controller.rb` defines `class BaasController` but with the BaaS acronym in `inflections.rb`, Zeitwerk expects `class BaaSController` (matching the BaaS model namespace at `app/models/baas.rb`). **Fix**: rename the class declaration to `BaaSController`.
+> **Gotcha #9** _(✅ resolved in master)_: the BaaS controller (`baas_controller.rb`) declared `class BaasController`, but with the BaaS acronym in `inflections.rb` Zeitwerk expects `class BaaSController` (matching the `BaaS` model namespace). **Fixed**: the class was renamed to `BaaSController`.
 
 > **Gotcha #10**: Rails 8.1 includes the `solid_cache`, `solid_queue`, and `solid_cable` gems which auto-load `SolidCache::Record`, `SolidQueue::Record`, `SolidCable::Record` at boot — each calls `connects_to(database: { writing: :cache | :queue | :cable })`. Even if you override `CACHE_STORE=redis_cache_store`, `QUEUE_ADAPTER=async`, and `cable.yml` to use Redis, the gems still get required and their `Record` classes still demand the named databases exist in `database.yml`. **Fix**: extend `database.yml` `production:` block to multi-database with stubs for `primary`, `cache`, `queue`, `cable` all pointing to the same Postgres database. The Solid* gems will connect but won't actually be used because the env overrides keep them out of the request path. Future cleanup: `gem ... require: false` would let us drop the database stubs entirely.
 
@@ -427,3 +429,7 @@ ACME setup (Step 12) is intentionally kept manual — choosing the right DNS pro
 - **Vault integration**: Step 12 currently uses database fallback for credentials. Production deployments should deploy Vault first (`docs/infrastructure/vault-example/`) and have `Acme::DnsCredential.store_in_vault` write to a real Vault.
 - **RS256 JWT in production**: HS256 is acceptable but RS256 is preferred for any deployment where the JWT could be inspected by an untrusted party. Generate the RSA pair in `powernode-bootstrap.sh secrets`, base64-encode the PEM, and decode in the backend wrapper script.
 - **Modular self-host migration**: The systemd installer path is canonical *for now* but slated to be replaced by the Go agent + System modules path under Golden Eclipse M3+. This runbook should be marked deprecated and a `single-node-modular-bootstrap.md` written when that landed.
+
+---
+
+_Last verified: 2026-06-03_

@@ -1,5 +1,7 @@
 # Performance Tuning
 
+> Status: active
+
 > When to use this runbook: tuning Powernode's throughput, latency, and resource usage when capacity planning, investigating slow queries, or hardening for production load.
 
 ## Table of Contents
@@ -469,8 +471,4 @@ If a tuning change degrades performance:
 - [ai-operations.md](ai-operations.md) — AI-specific operational procedures
 - [docker-swarm.md](docker-swarm.md) — Multi-host scaling
 
-## Materials previously at
-
-- `docs/infrastructure/PERFORMANCE_OPTIMIZER.md` (2025-08-24; rewritten 2026-05-17 for current platform identity)
-
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

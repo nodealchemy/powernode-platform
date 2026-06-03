@@ -1,5 +1,7 @@
 # Accessibility Guide (WCAG AA)
 
+> Status: active
+
 > How to keep the Powernode platform's frontend accessible. These standards are normative — they gate PRs.
 
 ## Table of Contents
@@ -547,4 +549,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 
 - `docs/platform/ACCESSIBILITY_COMPLIANCE_STANDARDS.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

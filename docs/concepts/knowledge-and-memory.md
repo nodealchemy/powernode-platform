@@ -1,5 +1,7 @@
 # Knowledge and Memory
 
+> Status: active
+
 > How Powernode agents persist context across executions, retrieve documents via RAG, manage skill capabilities, and link content through the knowledge graph.
 
 ## Table of Contents
@@ -705,4 +707,4 @@ This concept consolidates content from:
 - `docs/platform/SKILL_GRAPH_REFERENCE.md`
 - `docs/platform/CONTENT_LINKING.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

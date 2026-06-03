@@ -1,5 +1,7 @@
 # AI Orchestration API
 
+> Status: active
+>
 > Authoritative reference for the `/api/v1/ai/*` HTTP surface served by the Rails backend.
 
 ## Table of Contents
@@ -12,7 +14,7 @@
 
 ## Overview
 
-The AI orchestration surface lives under `/api/v1/ai/` and is served by controllers in `server/app/controllers/api/v1/ai/` (including the `security/` subdirectory). All endpoints require JWT bearer authentication and permission-based authorization (see [permissions](#permission-requirements)). Responses follow the standard envelope documented in [overview.md](overview.md).
+The AI orchestration surface lives under `/api/v1/ai/` and is served by 80 controllers in `server/app/controllers/api/v1/ai/` (including the `security/` subdirectory). All endpoints require JWT bearer authentication and permission-based authorization (see [permissions](#permission-requirements)). Responses follow the standard envelope documented in [overview.md](overview.md). The controller index below is a curated grouping of the primary surfaces.
 
 ```json
 // Success
@@ -313,4 +315,4 @@ Full reference: [websocket.md](websocket.md).
 
 - `docs/platform/AI_ORCHESTRATION_API_REFERENCE.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

@@ -2,7 +2,7 @@
 
 > Status: active
 
-How to author a system-extension skill executor — the unit of work that backs every entry in the `Ai::Skill` catalog. The post-2026-05 refactor consolidated all 40+ executors onto a shared `BaseSkillExecutor` parent class, a `binds_to` DSL, and a registry-driven binding seed; this guide reflects that pattern and is the canonical reference for new authors.
+How to author a system-extension skill executor — the unit of work that backs every entry in the `Ai::Skill` catalog. The post-2026-05 refactor consolidated every executor onto a shared `BaseSkillExecutor` parent class, a `binds_to` DSL, and a registry-driven binding seed; this guide reflects that pattern and is the canonical reference for new authors. The current roster is **48 executors across 7 categories** — see the auto-generated [`SKILL_EXECUTOR_CATALOG.md`](../../extensions/system/docs/SKILL_EXECUTOR_CATALOG.md) for the live inventory (do not hand-edit it).
 
 ## Table of Contents
 
@@ -31,7 +31,7 @@ Skill executors live alongside — but are distinct from — **MCP tools** (see 
 | Concern | Location |
 |---------|----------|
 | Executor classes | `extensions/system/server/app/services/system/ai/skills/<name>_executor.rb` |
-| Shared base | `extensions/system/server/app/services/system/ai/skills/base_executor.rb` |
+| Shared base | `extensions/system/server/app/services/system/ai/skills/base_skill_executor.rb` |
 | CRUD parent | `extensions/system/server/app/services/system/ai/skills/crud_factory.rb` |
 | Binding registry | `extensions/system/server/app/services/system/ai/skills/skill_bindings.rb` |
 | Skill catalog seed | `extensions/system/server/db/seeds/system_skills_seed.rb` |
@@ -42,7 +42,7 @@ Naming follows `<purpose>_executor.rb`. The class itself is `System::Ai::Skills:
 
 ## The `BaseSkillExecutor` contract
 
-Every executor inherits from `System::Ai::Skills::BaseSkillExecutor` (or `CrudFactory`, which itself inherits from it). The base class is small and stable; read `extensions/system/server/app/services/system/ai/skills/base_executor.rb` for the canonical source. The contract has four moving parts.
+Every executor inherits from `System::Ai::Skills::BaseSkillExecutor` (or `CrudFactory`, which itself inherits from it). The base class is small and stable; read `extensions/system/server/app/services/system/ai/skills/base_skill_executor.rb` for the canonical source. The contract has four moving parts.
 
 ### Required class-scope DSL
 
@@ -101,7 +101,7 @@ The base class provides everything subclasses need:
 |--------|--------------|
 | `success(payload)` | Canonical success shape — `{ success: true, data: payload }` |
 | `failure(msg)` | Canonical failure shape — `{ success: false, error: msg }` |
-| `tool(klass)` | Builds an `Ai::Tools::*Tool` instance with the executor's `account`, `agent`, `user` already passed in. Replaces the 40+ sites that previously hand-constructed tool instances. |
+| `tool(klass)` | Builds an `Ai::Tools::*Tool` instance with the executor's `account`, `agent`, `user` already passed in. Replaces the many sites that previously hand-constructed tool instances. |
 | `validate_inputs!(inputs)` | Default required-input enforcement — any descriptor input with `required: true` must be non-nil in `inputs`, otherwise `ArgumentError`. Override for richer validation (enum membership, type coercion, mutual exclusion). |
 | `audit_log_start(inputs)` | Tagged `Rails.logger.info` for entry — invoked automatically. |
 | `audit_log_finish(result)` | Tagged `Rails.logger.info` for exit — invoked automatically. |
@@ -498,4 +498,4 @@ If the spec passes and the verification runners report `1`, you're done.
 - [`backend.md`](backend.md) — Rails conventions, service boundaries, and the worker contract
 - [`testing.md`](testing.md) — broader RSpec conventions for backend specs
 
-_Last verified: 2026-05-19_
+_Last verified: 2026-06-03_

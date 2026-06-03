@@ -2,6 +2,8 @@
 
 > How to keep the Powernode platform — including its AI agent fleet — secure end to end.
 
+> Status: active
+
 ## Table of Contents
 
 - [What this guide covers](#what-this-guide-covers)
@@ -600,4 +602,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/platform/AI_SECURITY_GUARDRAILS.md`
 - `docs/platform/SUPPLY_CHAIN_SECURITY.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

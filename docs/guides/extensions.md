@@ -1,5 +1,7 @@
 # Writing a Powernode Extension
 
+> Status: active
+
 > How to scaffold, register, and ship a new extension that plugs into the core platform.
 
 ## Table of Contents
@@ -470,4 +472,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md` — content not merged here; lives in `extensions/business`
 - `docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md` — content not merged here; lives in `extensions/business`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

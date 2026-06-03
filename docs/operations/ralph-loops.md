@@ -409,4 +409,4 @@ curl -s http://localhost:4567/queues.json | jq '.queues | map(select(.queue == "
 - [worker-operations.md](worker-operations.md) - worker job dispatch, queue depth, restart safety
 - [../concepts/agents-and-autonomy.md](../concepts/agents-and-autonomy.md) - Ralph Loops conceptual model
 
-_Last verified: 2026-05-19_
+_Last verified: 2026-06-03_

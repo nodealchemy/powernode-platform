@@ -1,5 +1,9 @@
 # M1 Self-Serve Acceptance
 
+> **ARCHIVED 2026-06-03** — Preserved for historical context. See current docs for current state.
+>
+> Status: archived. This is a point-in-time M1 milestone checklist for the **self-serve activation funnel**, which depends on the private **business** (billing) and **system** extensions. It is **not part of core mode** (single-user self-hosted, business/trading absent) and is not an evergreen base runbook. Retained only as a record of the M1 slice acceptance flow.
+>
 > When to use this runbook: smoke-checking the M1 self-serve activation funnel after any change touching the four sliced systems (foundation, ProCloudProvider, billing, frontend polish).
 
 ## Table of Contents
@@ -173,12 +177,13 @@ If the funnel breaks mid-test:
 
 ## Related runbooks
 
-- [production-deployment.md](production-deployment.md) — Initial platform install
-- [ai-operations.md](ai-operations.md) — Mission and worker procedures
-- [data-sources.md](data-sources.md) — External API quota patterns
+- [production-deployment.md](../operations/production-deployment.md) — Initial platform install
+- [ai-operations.md](../operations/ai-operations.md) — Mission and worker procedures
+- [data-sources.md](../operations/data-sources.md) — External API quota patterns
 
 ## Materials previously at
 
 - `docs/m1_selfserve_acceptance.md`
+- `docs/operations/self-serve-acceptance.md` (archived here 2026-06-03)
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

@@ -2,6 +2,8 @@
 
 > How to author, publish, and integrate knowledge base articles and content pages — including AI-driven content workflows.
 
+> Status: active
+
 ## Table of Contents
 
 - [What this guide covers](#what-this-guide-covers)
@@ -468,4 +470,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/platform/CONTENT_MANAGEMENT_NODES_IMPLEMENTATION.md`
 - `docs/platform/BLOG_KB_INTEGRATION.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

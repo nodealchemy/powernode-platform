@@ -1,5 +1,7 @@
 # WebSocket Channels (ActionCable)
 
+> Status: active
+>
 > Authoritative reference for every ActionCable channel served by the Rails backend.
 
 ## Table of Contents
@@ -167,32 +169,6 @@ Mission lifecycle events: status/phase transitions, approval gates, and errors.
 
 ## Platform Channels
 
-### AnalyticsChannel
-
-**File:** `server/app/channels/analytics_channel.rb`
-
-Real-time analytics dashboard updates.
-
-| Param | Required | Description |
-|-------|----------|-------------|
-| `account_id` | No | Account scope (omit for global, requires `admin.access`) |
-
-**Events:** `analytics_connection_established`, metric updates.
-
-### CustomerChannel
-
-**File:** `server/app/channels/customer_channel.rb`
-
-Customer data updates for admin users.
-
-| Param | Required | Description |
-|-------|----------|-------------|
-| `account_id` | Yes | Account ID |
-
-**Stream:** `customer_updates_{account_id}`
-
-**Authorization:** Admin users only.
-
 ### McpChannel
 
 **File:** `server/app/channels/mcp_channel.rb`
@@ -320,4 +296,4 @@ Worker tool dispatch protocol channel. Used for pushing tool invocations from wo
 
 - `docs/platform/ACTIONCABLE_CHANNELS_REFERENCE.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

@@ -1,5 +1,7 @@
 # Daily Summaries
 
+> Status: active
+>
 > When to use this runbook: operating the admin-only daily-summary feature that produces a Markdown snapshot of key operational metrics per account each day.
 
 ## Table of Contents
@@ -163,10 +165,10 @@ Expected:
 
 ## Rollback
 
-To unpublish a problematic summary:
+To unpublish a problematic summary (reverts it to `draft` — `Page` status is `draft|published` only):
 
 ```bash
-rails runner "::Page.find_by(slug: 'daily-summary-2026-05-16')&.update!(status: 'archived')"
+rails runner "::Page.find_by(slug: 'daily-summary-2026-05-16')&.update!(status: 'draft')"
 ```
 
 Or delete:
@@ -208,4 +210,4 @@ Re-run on-demand generation afterwards if needed.
 
 - `docs/platform/DAILY_SUMMARIES.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

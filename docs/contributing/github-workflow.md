@@ -174,4 +174,4 @@ Run `rg "subscription platform" docs/ README.md` against your branch. Wave 0 of 
 
 - `docs/GITHUB_SETUP.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

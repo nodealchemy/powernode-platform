@@ -1,5 +1,7 @@
 # Incident Response Runbook
 
+> Status: active
+
 > **When to use this runbook**: a Powernode service is degraded or down, agent activity is misbehaving, or a security event needs containment. Use the [Triage decision tree](#triage-decision-tree) to find the right section quickly.
 
 ## Contents
@@ -296,3 +298,5 @@ Run within 5 business days of any SEV1/SEV2. Blameless format.
 - [docker-swarm.md](./docker-swarm.md) — Swarm-specific operations
 - [ai-operations.md](./ai-operations.md) — AI agent operations
 - [observability.md](./observability.md) — log aggregation + monitoring
+
+_Last verified: 2026-06-03_

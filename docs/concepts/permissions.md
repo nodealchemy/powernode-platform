@@ -1,5 +1,7 @@
 # Permissions
 
+> Status: active
+
 > Permission-based access control. Frontend uses permissions only; roles exist purely as backend permission groupings.
 
 ## Table of Contents
@@ -25,7 +27,7 @@ Powernode access control follows one absolute mandate: **use permissions, never 
 
 This concept doc explains why, defines the naming convention, shows the correct backend and frontend patterns, walks through the three-tier permission structure (resource / admin / system), and documents the role catalog. The canonical permission registry — the live list of every permission with its description and current role assignments — lives at [`reference/permissions.md`](../reference/permissions.md).
 
-Permission counts and category totals reflect the most recent audit; for current numbers, run `cd server && rails runner "puts Permission.count"` or query `platform.search_knowledge` for "permission system".
+The open-source base ships **367 static permissions** (`Permissions::ALL_PERMISSIONS`). The live `Permission.count` in a running deployment is higher — extensions register their own permissions on load, so the DB total is extension-inclusive. For current numbers, run `cd server && rails runner "puts Permission.count"` or query `platform.search_knowledge` for "permission system"; never hardcode the live total in docs.
 
 ## Core principle
 
@@ -503,4 +505,4 @@ This concept consolidates content from:
 - `docs/platform/PERMISSION_SYSTEM_REFERENCE.md`
 - `docs/platform/ROLES_PERMISSIONS_COMPREHENSIVE_ANALYSIS.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

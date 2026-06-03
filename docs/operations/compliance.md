@@ -1,5 +1,7 @@
 # Compliance Posture
 
+> Status: active
+>
 > **When to use this runbook**: planning a deployment that must satisfy regulatory requirements (GDPR, CCPA, HIPAA, PCI DSS, SOC 2), responding to a security questionnaire from a prospective customer, or evidencing compliance during an audit.
 
 This document describes what Powernode-the-software supports out of the box, what it leaves to operator configuration, and what it explicitly does **not** claim. **Powernode-the-software is not certified for any specific compliance regime.** Certification is operator-owned — this doc tells you what the platform makes easy versus hard.
@@ -158,3 +160,5 @@ Adding a new action: extend the appropriate `*_ACTIONS` constant in `server/app/
 - [observability.md](./observability.md) — log retention configuration
 - `server/app/models/concerns/audit_actions.rb` — canonical action list
 - `server/config/initializers/pci_compliance.rb` — PCI parameter filtering
+
+_Last verified: 2026-06-03_

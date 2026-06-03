@@ -1,5 +1,7 @@
 # Theme System Reference
 
+> Status: active
+
 > Authoritative reference for theme-aware Tailwind classes used by the React frontend.
 
 ## Table of Contents
@@ -168,7 +170,7 @@ The only allowed hardcoded color is `text-white` on coloured backgrounds:
 
 ### Tailwind Configuration
 
-The project uses **Tailwind CSS v4.1** with CSS-first configuration.
+The project uses **Tailwind CSS 4** with CSS-first configuration.
 
 - Theme classes are defined via CSS custom properties in `frontend/src/index.css`.
 - Dark mode uses the `dark` class on the `<html>` element.
@@ -187,4 +189,4 @@ The project uses **Tailwind CSS v4.1** with CSS-first configuration.
 
 - `docs/platform/THEME_SYSTEM_REFERENCE.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

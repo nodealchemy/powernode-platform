@@ -1,5 +1,7 @@
 # Permissions Registry
 
+> Status: active
+>
 > Authoritative reference for the permission strings recognised by Powernode access control.
 
 ## Table of Contents
@@ -86,7 +88,7 @@ end
 
 ## Permission Categories
 
-Permissions are organised by prefix. The seeder is the source of truth; counts shown below are illustrative — query the runtime registry for current numbers.
+Permissions are organised by prefix. The base platform ships **367 static permissions** (`Permissions::ALL_PERMISSIONS`); the live database total is higher when extensions are loaded (extension permissions register on boot), so query the runtime registry (`GET /api/v1/permissions`) for the current extension-inclusive count rather than relying on a hardcoded figure. The seeder is the source of truth for the base set.
 
 | Category | Description |
 |----------|-------------|
@@ -206,10 +208,10 @@ const filteredNavItems = navigationItems.filter(item => {
 - [../guides/backend.md](../guides/backend.md) — `has_permission?` patterns
 - [../guides/frontend.md](../guides/frontend.md) — Permission-gated UI
 - [api/overview.md](api/overview.md) — Endpoint-level permission requirements
-- Source of truth: `server/app/services/permission_seeder.rb`
+- Source of truth: `server/config/permissions.rb` (`Permissions::ALL_PERMISSIONS`), seeded by `server/app/services/permission_seeder.rb`
 
 ## Materials previously at
 
 - `docs/platform/PERMISSION_SYSTEM_REFERENCE.md` (registry portions)
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

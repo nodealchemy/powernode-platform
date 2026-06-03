@@ -1,5 +1,7 @@
 # Frontend Dead Exports Audit — 2026-06-01
 
+> **ARCHIVED 2026-06-03** — Preserved for historical context. See [current docs](../README.md) for current state.
+
 Tech-debt scan output. **Candidates, not confirmed deletions** — verify each before removing.
 
 ## Method

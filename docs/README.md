@@ -30,4 +30,4 @@ Open-source mission control for AI agent fleets.
 - All active docs end with a `_Last verified:_` footer.
 - See [contributing/doc-conventions.md](contributing/doc-conventions.md) for the full conventions.
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

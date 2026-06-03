@@ -1,6 +1,13 @@
 # Node Executor Reference
 
-> Authoritative reference for workflow node executors used by the MCP workflow orchestrator.
+> **ARCHIVED 2026-06-03** — Preserved for historical context. The MCP workflow
+> orchestrator and its `node_executors/` tree (`Mcp::AiWorkflowOrchestrator`,
+> `server/app/services/mcp/node_executors/`) have been removed from the codebase.
+> None of the executors, validators, or the output contract described below remain.
+> See current docs for current state. (The `Devops::*Executor` classes are an
+> unrelated, still-present subsystem.)
+
+> Historical reference for workflow node executors that were used by the (now removed) MCP workflow orchestrator.
 
 ## Table of Contents
 
@@ -314,12 +321,12 @@ raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
 
 ## Related docs
 
-- [plugin-system.md](plugin-system.md) — Custom node types via plugins
-- [../concepts/agents-and-autonomy.md](../concepts/agents-and-autonomy.md) — Agent design
-- [../guides/backend.md](../guides/backend.md) — Service patterns
+- [plugin-system.md](plugin-system.md) — Universal plugin system (also archived; removed subsystem)
+- [../../concepts/agents-and-autonomy.md](../../concepts/agents-and-autonomy.md) — Agent design
+- [../../guides/backend.md](../../guides/backend.md) — Service patterns
 
 ## Materials previously at
 
 - `docs/backend/NODE_EXECUTOR_REFERENCE.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

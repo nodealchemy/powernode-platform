@@ -1,5 +1,7 @@
 # AI Operations
 
+> Status: active
+>
 > When to use this runbook: monitoring, alerting, and incident response for the AI orchestration platform.
 
 ## Table of Contents
@@ -282,4 +284,4 @@ systemctl status powernode-worker@default
 
 - `docs/platform/AI_ORCHESTRATION_OPERATIONS.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

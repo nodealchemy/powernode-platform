@@ -1,5 +1,7 @@
 # API Overview
 
+> Status: active
+>
 > Authoritative reference for the Powernode HTTP API surface.
 
 ## Table of Contents
@@ -15,7 +17,7 @@
 
 ## Overview
 
-Powernode exposes a JSON HTTP API under `/api/v1` from the Rails backend (`server/`). All endpoints follow a unified response envelope, use JWT bearer tokens, and serve three classes of caller: the React frontend, the standalone Sidekiq worker, and external integrators. Real-time channels live on the same host via ActionCable; see [websocket.md](websocket.md). AI orchestration endpoints (88 controllers under `/api/v1/ai/`) are catalogued in [ai.md](ai.md).
+Powernode exposes a JSON HTTP API under `/api/v1` from the Rails backend (`server/`). All endpoints follow a unified response envelope, use JWT bearer tokens, and serve three classes of caller: the React frontend, the standalone Sidekiq worker, and external integrators. Real-time channels live on the same host via ActionCable; see [websocket.md](websocket.md). AI orchestration endpoints (80 controllers under `/api/v1/ai/`) are catalogued in [ai.md](ai.md).
 
 ## Communication Architecture
 
@@ -395,7 +397,7 @@ These endpoints are available when the `business` extension is loaded; in core m
 
 ### AI Orchestration
 
-See [ai.md](ai.md) for the full AI orchestration surface (88 controllers under `/api/v1/ai/`).
+See [ai.md](ai.md) for the full AI orchestration surface (80 controllers under `/api/v1/ai/`).
 
 ## Worker → Backend Endpoints
 
@@ -653,4 +655,4 @@ if (response.success) {
 - `docs/platform/API_COMMUNICATIONS.md`
 - `docs/platform/API_RESPONSE_STANDARDS.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

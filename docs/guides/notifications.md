@@ -2,6 +2,8 @@
 
 > How to send and receive notifications across email, SMS, in-app, push, and real-time channels on the Powernode platform.
 
+> Status: DRAFT — target architecture. **Shipped today:** in-app notifications (`Notification` model + `NotificationChannel` ActionCable realtime, see [`../concepts/chat-and-realtime.md`](../concepts/chat-and-realtime.md)) and transactional email (`NotificationService.send_email` → worker `email` queue → `EmailDelivery` tracking record). **Not yet shipped (forward-looking sections below):** SMS, web/mobile push, multi-provider/failover email routing, and persisted `EmailTemplate`/`SmsTemplate` records. The `SmsService`, `RealtimeNotificationService`, and user-facing `PushNotificationService` classes described here are not present; the real entry point is `NotificationService` (`send_email` / `send_in_app` / `send_all` / `send_system_alert` / `send_to_account`). Treat unshipped channels as design intent, not API contract.
+
 ## Table of Contents
 
 - [What this guide covers](#what-this-guide-covers)
@@ -437,4 +439,4 @@ This guide consolidates content from:
 
 - `docs/services/NOTIFICATION_ENGINEER.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

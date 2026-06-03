@@ -174,4 +174,4 @@ If your content is a one-off discovery memo or "we did X on this date" report, i
 
 ---
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

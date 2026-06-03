@@ -26,7 +26,7 @@ Powernode is open-source mission control for AI agent fleets. This quickstart ge
 |-------------|---------|----------------|
 | Node.js | 20+ | `node --version` |
 | Ruby | 3.2.8 (pinned) | `ruby --version` |
-| PostgreSQL | 16+ | `psql --version` |
+| PostgreSQL + pgvector | recent stable, `pgvector` extension installed | `psql --version` |
 | Redis | 7+ | `redis-server --version` |
 | Docker | 24+ | `docker --version` |
 
@@ -208,4 +208,4 @@ More common errors live in [04-troubleshooting.md](./04-troubleshooting.md).
 
 - `docs/QUICKSTART.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

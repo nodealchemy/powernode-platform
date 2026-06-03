@@ -1,5 +1,7 @@
 # Observability: Logs, Metrics, Traces
 
+> Status: active
+>
 > **When to use this runbook**: deploying log aggregation for a Powernode environment, adding a new service to log routing, debugging why expected logs aren't showing up in Grafana.
 
 ## Contents
@@ -213,3 +215,5 @@ The compactor needs time to free space (`retention_delete_delay: 2h`). If disk i
 - [docker-swarm.md](./docker-swarm.md) — Swarm-specific deploys
 - [incident-response.md](./incident-response.md) — uses these logs during incidents
 - [performance-tuning.md](./performance-tuning.md) — metrics-driven tuning
+
+_Last verified: 2026-06-03_

@@ -438,4 +438,4 @@ Ai::InterventionPolicy.category_registered?("system.sdwan.peer_revocation")
 - `server/app/services/ai/intervention_policy_service.rb` - resolution algorithm
 - `server/app/models/ai/intervention_policy.rb` - schema, scopes, condition evaluation
 
-_Last verified: 2026-05-19_
+_Last verified: 2026-06-03_

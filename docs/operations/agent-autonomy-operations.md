@@ -346,4 +346,4 @@ If you've already restored the wrong revision, `platform.emergency_halt` halts a
 - [../concepts/agents-and-autonomy.md](../concepts/agents-and-autonomy.md) - trust scoring conceptual model
 - [worker-operations.md](worker-operations.md) - maintenance jobs that touch trust scores
 
-_Last verified: 2026-05-19_
+_Last verified: 2026-06-03_

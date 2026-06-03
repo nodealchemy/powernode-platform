@@ -1,5 +1,7 @@
 # Database Schema Reference
 
+> Status: active
+>
 > Authoritative reference for the Powernode PostgreSQL schema: model namespaces, key tables, conventions.
 
 ## Table of Contents
@@ -11,7 +13,7 @@
 
 ## Overview
 
-The Powernode backend uses PostgreSQL with UUIDv7 primary keys across all tables. Models are organised into namespaces that reflect feature domains. This reference catalogues every namespace, summarises the tables per area, and documents the schema conventions that controllers, migrations, and seeds must follow.
+The Powernode backend uses PostgreSQL (with pgvector for embeddings) and UUIDv7 primary keys across all tables. Models live under `server/app/models/` in 13 namespace directories that reflect feature domains (`account`, `ai`, `chat`, `database`, `data_management`, `devops`, `file_management`, `knowledge_base`, `mcp`, `monitoring`, `review`, `shared`, `supply_chain`), alongside the top-level core models. This reference catalogues each namespace, summarises the tables per area, and documents the schema conventions that controllers, migrations, and seeds must follow.
 
 ## Model Namespaces
 
@@ -152,6 +154,41 @@ The largest namespace — covers the entire AI platform.
 |-------|-------------|
 | `FeatureGate` | Extension feature gating |
 
+### `Review::` Namespace
+
+App-marketplace review and moderation models.
+
+| Model | Description |
+|-------|-------------|
+| `Response` | Review/response records |
+| `HelpfulnessVote` | Helpfulness voting on responses |
+| `ModerationAction` | Moderation decisions |
+| `MediaAttachment` | Review media attachments |
+| `Notification` | Review notifications |
+| `NotificationDelivery` | Notification delivery tracking |
+| `NotificationPreference` | Per-user notification preferences |
+
+### `SupplyChain::` Namespace
+
+SBOM, attestation, and vulnerability models (active when the `supply-chain` extension is loaded).
+
+| Area | Examples |
+|------|----------|
+| SBOM | `Sbom`, `SbomComponent`, `SbomDiff`, `SbomVulnerability` |
+| Scanning | `VulnerabilityScan`, `ScanTemplate`, `ScanExecution`, `ScanInstance`, `VulnerabilityFeed` |
+| Provenance & Signing | `BuildProvenance`, `Attestation`, `Attribution`, `SigningKey`, `VerificationLog` |
+| Images & Policy | `ContainerImage`, `ImagePolicy`, `License`, `LicensePolicy`, `LicenseDetection`, `LicenseViolation` |
+| Vendor & Risk | `Vendor`, `VendorMonitoringEvent`, `CveMonitor`, `RiskAssessment`, `RemediationPlan`, `Report` |
+| Questionnaires | `QuestionnaireTemplate`, `QuestionnaireResponse` |
+
+### `Mcp::` Namespace
+
+MCP protocol principal records. (The MCP server/tool/session/execution models listed under [Top-Level Models](#top-level-models) above are not namespaced; only `Principal` lives under `Mcp::`.)
+
+| Model | Description |
+|-------|-------------|
+| `Principal` | MCP authentication principal (token-bearing caller identity) |
+
 ## Key Relationships
 
 ```mermaid
@@ -211,4 +248,4 @@ After modifying seeds, run `cd server && rails db:seed` and verify completion.
 
 - `docs/backend/DATABASE_SCHEMA_REFERENCE.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

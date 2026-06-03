@@ -1,6 +1,10 @@
 # Production Deployment
 
+> Status: active
+>
 > When to use this runbook: deploying Powernode to a production server for the first time, or performing a release deployment to an existing production environment.
+>
+> **Docker Compose path note:** this runbook documents the Docker Compose deployment, which is **deprecated by 2026-08-01** in favour of the systemd installer path. For new single-node installs prefer [`single-node-bootstrap.md`](single-node-bootstrap.md).
 
 ## Table of Contents
 
@@ -449,7 +453,7 @@ If you see "permission denied" creating files: ensure the backend process can wr
 - [worker-operations.md](worker-operations.md) — Sidekiq worker procedures
 - [ai-operations.md](ai-operations.md) — AI orchestration runbooks
 - [performance-tuning.md](performance-tuning.md) — Throughput and latency tuning
-- [self-serve-acceptance.md](self-serve-acceptance.md) — Self-serve funnel checklist
+- [postgres-backup.md](postgres-backup.md) — PostgreSQL backup and restore procedures
 
 ## Materials previously at
 
@@ -457,4 +461,4 @@ If you see "permission denied" creating files: ensure the backend process can wr
 - `docs/platform/PRODUCTION_READINESS_CHECKLIST.md`
 - `docs/platform/DEFAULT_LOCAL_STORAGE_SETUP.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

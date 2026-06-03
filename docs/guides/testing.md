@@ -2,6 +2,8 @@
 
 > How to write and run automated and manual tests across the Powernode platform's backend, frontend, and AI surfaces.
 
+> Status: active
+
 ## Table of Contents
 
 - [What this guide covers](#what-this-guide-covers)
@@ -536,4 +538,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 
 E2E testing moved to its own guide: [`docs/guides/e2e-testing.md`](e2e-testing.md).
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

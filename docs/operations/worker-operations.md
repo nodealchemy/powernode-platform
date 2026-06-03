@@ -1,5 +1,7 @@
 # Worker Operations
 
+> Status: active
+>
 > When to use this runbook: operating the standalone Sidekiq worker that powers asynchronous platform jobs.
 
 ## Table of Contents
@@ -230,18 +232,22 @@ The largest category — covers the entire AI platform. Selected examples:
 
 ## Queue Configuration
 
-Weighted-priority queues defined in `worker/config/sidekiq.yml`:
+`worker/config/sidekiq.yml` declares **31 weighted-priority queues** (higher weight = higher priority). Queues marked _(ext)_ only carry traffic when the matching extension worker is loaded; in core mode they stay empty:
 
 | Priority | Queues |
 |----------|--------|
-| **3 (Critical)** | `critical`, `high`, `subscription_lifecycle`, `ai_cancellations`, `devops_high` |
-| **2 (Standard)** | `ai_agents`, `ai_conversations`, `ai_execution`, `ai_orchestration`, `ai_testing`, `devops_default`, `devops_webhooks`, `file_processing`, `services`, `billing`, `billing_scheduler`, `compliance`, `email`, `reports`, `integrations`, `mcp` |
-| **1 (Low)** | `notifications`, `analytics`, `schedules`, `webhooks`, `maintenance`, `default` |
+| **3 (Critical)** | `critical`, `high`, `subscription_lifecycle`, `ai_cancellations`, `devops_high`, `system` _(system ext)_, `trading_critical` _(trading ext)_ |
+| **2 (Standard)** | `ai_agents`, `ai_conversations`, `ai_execution`, `ai_orchestration`, `ai_testing`, `devops_default`, `devops_webhooks`, `file_processing`, `services`, `compliance`, `email`, `reports`, `integrations`, `mcp`, `billing` _(business ext)_, `billing_scheduler` _(business ext)_, `trading_training` _(trading ext)_ |
+| **1 (Low)** | `notifications`, `analytics`, `schedules`, `webhooks`, `maintenance`, `default`, `trading_batch` _(trading ext)_ |
+
+> **Extension queues:** `compliance` (GDPR jobs) ships with core. `system` carries System-extension fleet jobs (`WorkerDispatch`'s default queue). `billing` / `billing_scheduler` belong to the **business** extension — the business worker also contributes its own cron block via `extensions/business/worker/config/sidekiq_billing.yml`, which loads only when the business worker is enabled. `trading_*` belong to the **trading** extension.
+
+> **`code_intel` capsule:** the long-running codebase-intelligence jobs (`AiCodebaseIndexJob`, `AiCodeAnalysisJob`) run on a **dedicated Sidekiq capsule** defined in `worker/config/application.rb`, **not** in the 31-queue list above. The capsule has its own isolated, low-concurrency thread pool (`CODE_INTEL_CONCURRENCY`, default `1`) so multi-minute, embedding-heavy index/prune scans never head-of-line-block the main queues or contend on the pgvector HNSW index.
 
 Defaults:
 
 ```yaml
-concurrency: 5        # Override via WORKER_CONCURRENCY env var
+concurrency: 25       # Override via WORKER_CONCURRENCY env var
 timeout: 300          # 5 minutes global timeout
 redis: redis://localhost:6379/1
 ```
@@ -450,4 +456,4 @@ To roll back a problematic job class:
 
 - `docs/worker/WORKER_OPERATIONS_GUIDE.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

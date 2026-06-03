@@ -207,3 +207,5 @@ factory usage, align assertions to the decoupled contract).
 decouple-vs-remove for that subsystem, then refactor live code + its specs together, verify with a single
 serialized rspec per subsystem. The `:ai_workflow` factory is gone repo-wide, so any spec still calling
 `create(:ai_workflow*)` fails at setup until its subsystem is addressed.
+
+_Last verified: 2026-06-03_

@@ -1,5 +1,7 @@
 # Cost and FinOps
 
+> Status: active
+
 > AI cost tracking, hierarchical budgets with transaction locking, ROI metrics, provider pricing reference, and optimization automation.
 
 ## Table of Contents
@@ -470,4 +472,4 @@ This concept consolidates content from:
 - `docs/platform/AI_PROVIDER_PRICING_REFERENCE.md`
 - `docs/platform/AI_PROVIDER_ROUTING.md` (cost portions only; routing logic primary in `agents-and-autonomy.md`)
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

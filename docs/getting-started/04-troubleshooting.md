@@ -180,4 +180,4 @@ Never `git add extensions/<name>/some-file.rb` from the parent — that only sta
 
 - Sections of the root CLAUDE.md (Service Management, Auth, Frontend Patterns, Theme System)
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

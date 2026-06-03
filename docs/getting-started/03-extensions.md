@@ -111,4 +111,4 @@ Plans, executor patterns, and the FeatureGateService contract are documented in 
 - The "Business Submodule" section of the root CLAUDE.md
 - The "Submodule Safety" section of the root CLAUDE.md
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

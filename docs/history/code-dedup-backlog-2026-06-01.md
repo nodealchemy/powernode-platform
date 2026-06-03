@@ -1,5 +1,7 @@
 # Code De-duplication — Progress & Backlog (2026-06-01)
 
+> **ARCHIVED 2026-06-03** — Preserved for historical context. See [current docs](../README.md) for current state.
+
 Driven by the rebuilt `code_find_duplicates` scan (jscpd detect → LLM triage,
 200 clones detected, 120 triaged, 97 `extract_candidate`). This document
 records what was extracted, the methodology, the **deceptive near-clones that

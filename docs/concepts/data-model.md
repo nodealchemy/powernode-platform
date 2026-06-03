@@ -1,5 +1,7 @@
 # Data Model
 
+> Status: active
+
 > UUIDv7 primary keys, PostgreSQL schema conventions, and the model namespaces that organize the codebase.
 
 ## Table of Contents
@@ -172,7 +174,7 @@ Use the `::` separator in `class_name:` strings: `"Ai::AgentTeam"` not `"AiAgent
 
 ## Model namespaces
 
-The model layer is organized into ten major namespaces. The exact count of models per namespace changes constantly; treat this section as a structural map rather than a count source.
+The model layer is organized into 13 namespace directories (`account`, `ai`, `chat`, `database`, `data_management`, `devops`, `file_management`, `knowledge_base`, `mcp`, `monitoring`, `review`, `shared`, `supply_chain`) plus roughly 60 top-level models. The exact count of models per namespace changes constantly; treat this section as a structural map rather than a count source. For a live total, run `cd server && rails runner "puts ApplicationRecord.descendants.size"`.
 
 ```mermaid
 flowchart TB
@@ -186,6 +188,9 @@ flowchart TB
     DM[DataManagement::<br/>RetentionPolicy, SanitizationRule, DataExport]
     DB[Database::<br/>Connection, QueryHistory]
     Mon[Monitoring::<br/>HealthCheck, ServiceStatus]
+    Mcp[Mcp::<br/>protocol infrastructure]
+    Review[Review::<br/>code-review records]
+    SC[SupplyChain::<br/>SBOM, attestations, signatures]
     Shared[Shared::<br/>FeatureGate]
 
     Top --> Ai
@@ -197,8 +202,13 @@ flowchart TB
     Top --> DM
     Top --> DB
     Top --> Mon
+    Top --> Mcp
+    Top --> Review
+    Top --> SC
     Top --> Shared
 ```
+
+`Mcp::` models also have a flat top-level alias group (`McpServer`, `McpTool`, `McpSession`, `McpToolExecution`, listed below) — both the namespaced directory and the top-level classes exist. `Review::` and `SupplyChain::` back the Code Factory review records and the supply-chain extension (SBOM / cosign / attestations) respectively.
 
 ### Top-level models
 
@@ -274,6 +284,9 @@ Largest namespace — covers the entire AI platform:
 | `DataManagement::` | Retention policies, PII sanitization, GDPR data exports |
 | `Database::` | External database connections, query history |
 | `Monitoring::` | Health checks, service status |
+| `Mcp::` | MCP protocol infrastructure (server, tool, session, execution records) |
+| `Review::` | Code Factory review records |
+| `SupplyChain::` | SBOM, cosign signatures, attestations (supply-chain extension) |
 | `Shared::` | Feature gates for extension-aware code |
 
 For exhaustive per-table detail, see [`reference/database-schema.md`](../reference/database-schema.md).
@@ -594,4 +607,4 @@ This concept consolidates content from:
 - `docs/platform/UUID_DEVELOPMENT_GUIDELINES.md`
 - `docs/backend/DATABASE_SCHEMA_REFERENCE.md` (highlights only; full reference retained at `reference/database-schema.md`)
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

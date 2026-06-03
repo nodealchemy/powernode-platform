@@ -1,5 +1,7 @@
 # MCP and Tools
 
+> Status: active
+
 > Model Context Protocol — how AI sessions invoke `platform.*` tools, how workflows dispatch nodes, and where the tool registry lives.
 
 ## Table of Contents
@@ -652,4 +654,4 @@ This concept consolidates content from:
 - `docs/platform/MCP_INTEGRATION_GUIDE.md`
 - `docs/platform/MCP_CONFIGURATION.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

@@ -1,5 +1,7 @@
 # Docker Swarm Operations
 
+> Status: active
+>
 > When to use this runbook: operating Docker hosts and Swarm clusters that Powernode manages via its DevOps API.
 
 ## Table of Contents
@@ -195,6 +197,8 @@ Low-level Docker Engine API communication with TLS support.
 
 ## API Endpoints
 
+Every operation below is also exposed as a `docker_*` MCP tool (containers, services, stacks, clusters/nodes, secrets/configs, hosts, images, networks, volumes) for agent-driven orchestration. For the full per-tool parameter list see the auto-generated catalog: [reference/auto/mcp-tools.md](../reference/auto/mcp-tools.md).
+
 ### Docker Endpoints
 
 ```
@@ -387,4 +391,4 @@ Container instances record security violations:
 
 - `docs/infrastructure/DOCKER_SWARM_OPERATIONS.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

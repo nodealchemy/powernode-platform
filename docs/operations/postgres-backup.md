@@ -1,5 +1,7 @@
 # PostgreSQL Backup & Restore Runbook
 
+> Status: active
+
 > **When to use this runbook**: planning a backup strategy for a new Powernode deployment, automating backups on an existing deployment, recovering from data loss, or running a quarterly restore drill.
 > Companion to [production-deployment.md](./production-deployment.md), which references but does not deeply cover backup procedure.
 
@@ -223,3 +225,5 @@ If PITR is required for compliance, retain WAL archives for at least the legal r
 - [production-deployment.md](./production-deployment.md) — initial deployment + service management
 - [docker-swarm.md](./docker-swarm.md) — Swarm-specific operations
 - [performance-tuning.md](./performance-tuning.md) — Postgres tuning parameters
+
+_Last verified: 2026-06-03_

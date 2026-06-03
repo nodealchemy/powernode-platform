@@ -8,13 +8,16 @@ Each entry below is intentional: the doc shows the **intended** MCP
 shape, with a callout explaining that the wrapper is forthcoming and
 operators should use the REST endpoint today.
 
-## Known-aspirational catalog (as of 2026-05-17 Wave 4 pass)
+## Known-aspirational catalog (as of 2026-06-03)
 
-_None at time of harness landing._ The initial Wave 4 run of
-`check-mcp-actions.sh` will populate this table with any unknown actions
-discovered. The system extension's own harness already maintains the
-authoritative aspirational list for its `system_*` actions — those are
-out of scope here.
+The system extension maintains the authoritative aspirational list for its
+`system_*` actions (`extensions/system/docs/.verify/ASPIRATIONAL_MCP.md`) — those
+are out of scope here. Platform (non-system) actions the harness reports as unknown:
+
+| Action | Doc | Note |
+|--------|-----|------|
+| `cost_analysis` | `docs/operations/incident-response.md` | Real MCP action exposed by the running server (present in the live tool list as `platform.cost_analysis`); not matched by the static `check-mcp-actions.sh` grep of `platform_api_tool_registry.rb`. Treat as an expected unknown — the documented usage is correct. |
+| `recent_events` | `docs/operations/incident-response.md` | Real MCP action exposed by the running server (`platform.recent_events`); same static-grep limitation. Treat as an expected unknown. |
 
 If the platform's `check-mcp-actions.sh` flags a non-system action that
 should be aspirational rather than fixed in the docs, add a row in the

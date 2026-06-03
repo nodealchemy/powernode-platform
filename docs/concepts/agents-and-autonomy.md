@@ -1,5 +1,7 @@
 # Agents and Autonomy
 
+> Status: active
+
 > How Powernode runs AI agents — orchestration, missions, Ralph Loops, trust scoring, governance gates, provider routing, and concierge delegation.
 
 ## Table of Contents
@@ -1169,4 +1171,4 @@ This concept consolidates content from:
 - `docs/platform/MODEL_ROUTER_GUIDE.md`
 - `docs/platform/RALPH_LOOPS_GUIDE.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

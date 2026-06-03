@@ -1,5 +1,7 @@
 # End-to-End Testing Guide
 
+> Status: active
+
 > How to write and run Playwright browser tests against the Powernode platform.
 
 ## Table of Contents
@@ -40,26 +42,25 @@ This guide is for engineers writing or running cross-browser E2E coverage of pla
 e2e/
 ├── fixtures/
 │   ├── auth.ts                        # Authentication helpers
+│   ├── assertions.ts                  # Shared assertion helpers
 │   └── test-data.ts                   # Test data constants and uniqueness helpers
-├── pages/                             # Page Object Models
-│   ├── login.page.ts
-│   └── ai/
-│       ├── providers.page.ts
-│       ├── agents.page.ts
-│       ├── workflows.page.ts
-│       ├── conversations.page.ts
-│       ├── agent-teams.page.ts
-│       └── monitoring.page.ts
-├── ai/                                # AI test specs
-│   ├── providers.spec.ts
-│   ├── agents.spec.ts
-│   ├── conversations.spec.ts
-│   ├── workflows.spec.ts
-│   ├── agent-teams.spec.ts
-│   └── monitoring.spec.ts
-├── global-setup.ts                    # Auth state setup
+├── pages/                             # Page Object Models, organized by feature domain
+│   ├── auth/                          # login.page.ts, register.page.ts
+│   ├── account/                       # profile, team, billing
+│   ├── admin/                         # users, roles, settings
+│   ├── ai/                            # providers, agents, conversations, agent-teams, monitoring, ...
+│   ├── devops/                        # pipelines, repositories, runners, containers, ...
+│   ├── system/                        # health, modules, audit-logs
+│   ├── business/                      # plans, customers, analytics (business extension)
+│   ├── supply-chain/                  # dashboard (supply-chain extension)
+│   └── dashboard.page.ts
+├── ai/                                # AI test specs (providers, agents, conversations, ...)
+├── devops/, system/, account/, ...    # spec dirs mirror the page-object domains
+├── global-setup.ts                    # Auth state setup (writes e2e/.auth/user.json)
 └── .auth/                             # Cached auth state (gitignored)
 ```
+
+Page objects are grouped by feature domain under `e2e/pages/<domain>/`, and the spec directories mirror those domains. The full set tracks the app's feature surface — list the current layout with `find e2e/pages -name '*.page.ts'`.
 
 ```mermaid
 flowchart LR
@@ -391,7 +392,7 @@ Run the full suite across Chromium, Firefox, and WebKit at least weekly. WebKit 
 
 - Increase per-test timeout (`test.setTimeout(60_000)`)
 - Set `workers: 1` to eliminate parallel race conditions
-- Verify the API and frontend services finish booting before tests start (`global-setup.ts` should poll until `/api/v1/health` returns 200)
+- Verify the API and frontend services finish booting before tests start — the `webServer` block in `playwright.config.ts` polls the Rails health endpoint (`http://localhost:3000/up`) and the frontend before the suite runs
 
 ### Authentication fails
 
@@ -427,4 +428,4 @@ This guide consolidates content from:
 
 - `docs/testing/PLAYWRIGHT_E2E_TESTING.md`
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_

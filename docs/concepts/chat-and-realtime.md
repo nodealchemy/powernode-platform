@@ -1,5 +1,7 @@
 # Chat and Real-Time
 
+> Status: active
+
 > Multi-platform chat, the singleton WebSocket pattern, and the ActionCable channel layout.
 
 ## Table of Contents
@@ -354,27 +356,31 @@ Multiple components can subscribe to the same channel; each receives the same me
 
 ## ActionCable channel layout
 
-The platform exposes 17 ActionCable channels. The summary table below covers subscription params and purpose; full per-channel detail (every event name, every payload shape, every authorization rule) is in [`reference/api/websocket.md`](../reference/api/websocket.md).
+The platform defines 19 concrete ActionCable channels (plus the two `ApplicationCable` base classes that every channel inherits from). The summary table below covers subscription params and purpose; full per-channel detail (every event name, every payload shape, every authorization rule) is in [`reference/api/websocket.md`](../reference/api/websocket.md).
 
 | Channel | Subscription Params | Purpose |
 |---------|---------------------|---------|
 | `AiAgentExecutionChannel` | `execution_id` | Agent execution monitoring |
 | `AiConversationChannel` | `conversation_id` | AI chat messaging |
+| `AiConversationsListChannel` | — | Conversation list updates |
 | `AiOrchestrationChannel` | `type`, `id` | Unified AI orchestration |
 | `AiStreamingChannel` | `execution_id` / `conversation_id` | Token streaming |
-| `AiWorkflowMonitoringChannel` | `workflow_id` | Workflow analytics |
-| `AiWorkflowOrchestrationChannel` | — | Account workflow events |
-| `AnalyticsChannel` | `account_id` | Real-time analytics |
 | `CodeFactoryChannel` | `type`, `id` | Code Factory updates |
-| `CustomerChannel` | `account_id` | Customer data (admin) |
 | `DevopsPipelineChannel` | `account_id`, `pipeline_id` | CI/CD pipeline status |
 | `GitJobLogsChannel` | `repository_id`, `pipeline_id`, `job_id` | Live log streaming |
 | `McpChannel` | — | MCP protocol transport |
 | `MissionChannel` | `type`, `id` | Mission progress |
 | `NotificationChannel` | `account_id` | Notifications |
 | `SubscriptionChannel` | `account_id` | Subscription changes |
+| `SupplyChainChannel` | `account_id` | Supply-chain extension events |
 | `TeamChannelChannel` | `channel_id` | Team messaging |
 | `TeamExecutionChannel` | `team_id` | Team execution monitoring |
+| `TradingChannel` | `account_id` | Trading extension events |
+| `TradingTrainingChannel` | `account_id` | Trading training events |
+| `WorkerDataChannel` | — | Worker → server data transport |
+| `WorkerToolDispatchChannel` | — | Worker tool-dispatch transport |
+
+`SupplyChainChannel`, `TradingChannel`, and `TradingTrainingChannel` are present in core but only carry traffic when the corresponding extension is loaded (trading is private remote-only; supply-chain is a public extension).
 
 ## AiOrchestrationChannel deep dive
 
@@ -734,4 +740,4 @@ This concept consolidates content from:
 - `docs/platform/WEBSOCKET_AND_REALTIME.md`
 - `docs/platform/ACTIONCABLE_CHANNELS_REFERENCE.md` (summary only; full reference relocated to `reference/api/websocket.md`)
 
-_Last verified: 2026-05-17_
+_Last verified: 2026-06-03_
