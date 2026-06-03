@@ -101,7 +101,6 @@ module Api
             scenario_type: scenario.scenario_type,
             status: scenario.status,
             target_type: scenario.target_type,
-            target_workflow_id: scenario.target_workflow_id,
             target_agent_id: scenario.target_agent_id,
             input_data: scenario.input_data,
             expected_output: scenario.expected_output,

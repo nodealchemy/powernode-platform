@@ -232,7 +232,6 @@ module Api
             name: benchmark.name,
             description: benchmark.description,
             status: benchmark.status,
-            target_workflow_id: benchmark.target_workflow_id,
             target_agent_id: benchmark.target_agent_id,
             baseline_metrics: benchmark.baseline_metrics,
             thresholds: benchmark.thresholds,

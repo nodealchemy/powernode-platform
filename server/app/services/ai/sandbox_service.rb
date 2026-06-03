@@ -34,12 +34,11 @@ module Ai
     end
 
     # Test Scenarios
-    def create_scenario(sandbox:, name:, scenario_type:, target_workflow: nil, target_agent: nil, user: nil, description: nil, input_data: {}, expected_output: {}, assertions: [], timeout_seconds: 300)
+    def create_scenario(sandbox:, name:, scenario_type:, target_agent: nil, user: nil, description: nil, input_data: {}, expected_output: {}, assertions: [], timeout_seconds: 300)
       Ai::TestScenario.create!(
         account: account,
         sandbox: sandbox,
         created_by: user,
-        target_workflow: target_workflow,
         target_agent: target_agent,
         name: name,
         scenario_type: scenario_type,
@@ -176,11 +175,10 @@ module Ai
     end
 
     # Performance Benchmarks
-    def create_benchmark(name:, sandbox: nil, target_workflow: nil, target_agent: nil, baseline_metrics: {}, thresholds: {}, user: nil, description: nil)
+    def create_benchmark(name:, sandbox: nil, target_agent: nil, baseline_metrics: {}, thresholds: {}, user: nil, description: nil)
       Ai::PerformanceBenchmark.create!(
         account: account,
         sandbox: sandbox,
-        target_workflow: target_workflow,
         target_agent: target_agent,
         created_by: user,
         name: name,
@@ -299,22 +297,13 @@ module Ai
 
       return mock.get_response if mock
 
-      # Execute the actual target
-      if scenario.target_workflow.present?
-        execute_workflow_in_sandbox(sandbox, scenario)
-      elsif scenario.target_agent.present?
+      # Execute the actual target. The AI workflow engine was removed, so
+      # only agent targets are executable.
+      if scenario.target_agent.present?
         execute_agent_in_sandbox(sandbox, scenario)
       else
         { error: "No target specified" }
       end
-    end
-
-    def execute_workflow_in_sandbox(sandbox, scenario)
-      orchestrator = Mcp::AiWorkflowOrchestrator.new(account: account)
-      result = orchestrator.execute(scenario.target_workflow_id, sandbox_mode: true)
-      { executed: true, workflow_id: scenario.target_workflow_id, sandbox_id: sandbox.id, output: result }
-    rescue StandardError => e
-      { executed: false, workflow_id: scenario.target_workflow_id, error: e.message }
     end
 
     def execute_agent_in_sandbox(sandbox, scenario)
@@ -336,9 +325,7 @@ module Ai
     end
 
     def determine_provider_type(scenario)
-      if scenario.target_workflow.present?
-        "workflow"
-      elsif scenario.target_agent.present?
+      if scenario.target_agent.present?
         "agent"
       else
         "unknown"
@@ -354,7 +341,6 @@ module Ai
       scenario = Ai::TestScenario.new(
         account: account,
         sandbox: benchmark.sandbox,
-        target_workflow: benchmark.target_workflow,
         target_agent: benchmark.target_agent,
         input_data: benchmark.baseline_metrics["input_data"] || {},
         scenario_type: "benchmark"

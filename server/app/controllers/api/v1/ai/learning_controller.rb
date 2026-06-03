@@ -138,7 +138,6 @@ module Api
             account: current_account,
             name: params[:name],
             target_agent_id: params[:agent_id],
-            target_workflow_id: params[:workflow_id],
             thresholds: params[:thresholds] || {},
             status: "active"
           )
@@ -394,7 +393,6 @@ module Api
             name: benchmark.name,
             status: benchmark.status,
             target_agent_id: benchmark.target_agent_id,
-            target_workflow_id: benchmark.target_workflow_id,
             baseline_metrics: benchmark.baseline_metrics,
             latest_results: benchmark.latest_results,
             latest_score: benchmark.latest_score,
