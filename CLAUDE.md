@@ -8,7 +8,7 @@ Development guidance for **Powernode**: open-source mission control for AI agent
 governance, swarm coordination, MCP-native runtime, and the fleet substrate
 (bare-metal / VM / container lifecycle) underneath. Open-source under MIT.
 
-- **Backend**: Rails 8 API (`./server`) — JWT auth, UUIDv7 primary keys, 525+ MCP tool actions across 60 classes
+- **Backend**: Rails 8 API (`./server`) — JWT auth, UUIDv7 primary keys, 546+ MCP tool actions across 62 classes
 - **Frontend**: React TypeScript (`./frontend`) — theme-aware, Tailwind CSS
 - **Worker**: Sidekiq standalone (`./worker`) — API-only communication
 - **System**: Git submodule (`./extensions/system`) — node lifecycle, module CRUD, fleet autonomy, on-node Go agent, initramfs, SDWAN, federation. **Public on GitHub** (MIT) at `nodealchemy/powernode-system`, private on Gitea.
@@ -377,11 +377,10 @@ The platform runs automated maintenance (see `worker/config/sidekiq.yml`). Claud
 - `docs/getting-started/` - Tutorials for first-time users
 - `docs/concepts/` - Architecture, agents, knowledge/memory, permissions, data model, MCP, chat, cost
 - `docs/guides/` - Role-themed how-to (backend, frontend, testing, devops, security, extensions, etc.)
-- `docs/reference/` - API contracts, schema, scripts, theme system, plugin system
+- `docs/reference/` - API contracts, schema, scripts, theme system
 - `docs/reference/auto/` - **Auto-generated** (MCP tools, skills, knowledge graph, learnings) — do not edit
 - `docs/operations/` - Production runbooks (deployment, swarm, AI ops, worker, perf)
 - `docs/contributing/` - Dev setup, conventions, GitHub workflow, doc conventions, release process
-- `docs/history/` - Archived audits and plans
 
 ---
 

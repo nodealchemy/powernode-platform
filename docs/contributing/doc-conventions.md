@@ -9,7 +9,7 @@ This page captures the conventions that came out of the 2026-05 docs modernizati
 ## Table of Contents
 
 - [Layout principles](#layout-principles)
-- [The archive rule](#the-archive-rule)
+- [No in-tree archive](#no-in-tree-archive)
 - [The auto-gen rule](#the-auto-gen-rule)
 - [Mermaid diagrams](#mermaid-diagrams)
 - [Footer: last verified](#footer-last-verified)
@@ -33,23 +33,14 @@ docs/
 │   └── auto/            <- AUTO-GENERATED; never hand-edit
 ├── operations/          <- runbooks for production
 ├── contributing/        <- contributor handbook (you are here)
-├── history/             <- archived audits + plans
 └── .verify/             <- broken-link + drift detection
 ```
 
 When in doubt, ask: "who reads this and why?" Visitors get `getting-started/`. New contributors get `contributing/`. Operators get `operations/`. Architects get `concepts/`. Everyone else gets `reference/`.
 
-## The archive rule
+## No in-tree archive
 
-Point-in-time records (audits, completed plans, phase reports) move to `docs/history/`. They never get deleted — their value is historical context — but they MUST carry an ARCHIVED banner so a casual reader knows they are not current.
-
-The banner format:
-
-```markdown
-> **ARCHIVED YYYY-MM-DD** — Preserved for historical context. See [current docs](../../README.md) for current state.
-```
-
-`check-archive-banners.sh` in `docs/.verify/` fails if any file under `docs/**/history/` is missing this banner in its first 10 lines.
+Point-in-time records (audits, completed plans, phase reports) are **not** kept in the docs tree — git history is the archive. Don't create a `history/` directory under `docs/`. If you need to reference a past state, link to the relevant commit. Docs that live in the tree should describe the platform as it is today; anything that has become a "we did X on this date" record belongs in the commit/PR that did it, not in `docs/`.
 
 ## The auto-gen rule
 
@@ -129,10 +120,9 @@ Every doc has a status banner near the top, immediately after the title and one-
 ```markdown
 > Status: active
 > Status: stub — expand as the platform matures
-> Status: ARCHIVED YYYY-MM-DD
 ```
 
-The first is the default. The second is for placeholder docs we intend to grow. The third is the archive banner described above.
+The first is the default. The second is for placeholder docs we intend to grow.
 
 ## Verification harness
 
@@ -140,7 +130,6 @@ The first is the default. The second is for placeholder docs we intend to grow. 
 
 ```bash
 bash docs/.verify/check-links.sh           # broken-link gate (REQUIRED)
-bash docs/.verify/check-archive-banners.sh # archive banner enforcement
 bash docs/.verify/check-auto-gen-headers.sh # auto-gen header enforcement
 bash docs/.verify/check-counts.sh          # advisory: catches likely-to-drift numbers
 bash docs/.verify/check-code-refs.sh       # opt-in: validates backtick path-shaped strings
@@ -168,9 +157,8 @@ bash docs/.verify/check-mcp-actions.sh     # opt-in: validates MCP action refere
 | Generated reference | `reference/auto/<topic>.md` |
 | Production runbook | `operations/` |
 | Contributor handbook (this page, conventions, release process) | `contributing/` |
-| Completed audit or finished plan | `history/audits/` or `history/plans/` (with ARCHIVED banner) |
 
-If your content is a one-off discovery memo or "we did X on this date" report, it almost certainly belongs in `history/`, not in a top-level subtree.
+If your content is a one-off discovery memo or "we did X on this date" report, it belongs in the commit/PR that did the work (git history), not in a top-level subtree.
 
 ---
 

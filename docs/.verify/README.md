@@ -1,14 +1,14 @@
 # Platform Documentation Verification Harness
 
-Six read-only bash scripts that audit the `docs/` corpus and root meta
+Five read-only bash scripts that audit the `docs/` corpus and root meta
 files for common drift classes: broken markdown links, missing code path
-references, unknown MCP action names, archive banner enforcement,
-auto-gen marker enforcement, and advisory count-drift.
+references, unknown MCP action names, auto-gen marker enforcement, and
+advisory count-drift.
 
 **All scripts are read-only.** They never modify the file tree.
 
 The single hard gate before `git push` is `check-links.sh`; the other
-five are tools reviewers run on demand.
+four are tools reviewers run on demand.
 
 ## Scripts
 
@@ -18,7 +18,6 @@ five are tools reviewers run on demand.
 | `check-code-refs.sh` | Every backtick-quoted path-shaped string (`server/app/...`, `frontend/src/...`, etc.) exists | no | 0=clean, 1=missing, 2=invocation error |
 | `check-mcp-actions.sh` | Every `platform.<action>(` call site exists in `server/app/services/ai/tools/platform_api_tool_registry.rb` | no | 0=clean (or registry unreachable), 1=unknown, 2=invocation error |
 | `check-counts.sh` | Advisory regex scan for drift-prone hardcoded counts | no (non-failing) | always 0 |
-| `check-archive-banners.sh` | Every `docs/history/**/*.md` has `**ARCHIVED` in first 10 lines | no | 0=clean, 1=missing |
 | `check-auto-gen-headers.sh` | Every `docs/reference/auto/*.md` has `<!-- AUTO-GENERATED` in first 5 lines | no | 0=clean, 1=missing |
 
 ## Running locally
@@ -30,7 +29,6 @@ bash docs/.verify/check-links.sh
 bash docs/.verify/check-code-refs.sh
 bash docs/.verify/check-mcp-actions.sh
 bash docs/.verify/check-counts.sh
-bash docs/.verify/check-archive-banners.sh
 bash docs/.verify/check-auto-gen-headers.sh
 ```
 
@@ -38,7 +36,7 @@ Run any one in isolation, or wire them together:
 
 ```bash
 set -e
-for s in check-links check-code-refs check-mcp-actions check-counts check-archive-banners check-auto-gen-headers; do
+for s in check-links check-code-refs check-mcp-actions check-counts check-auto-gen-headers; do
   echo "--- $s ---"
   bash "docs/.verify/${s}.sh"
 done
@@ -74,7 +72,7 @@ UNKNOWN actions (referenced via platform.X() but not in registry):
 
 | Scope | Included | Excluded |
 |-------|----------|----------|
-| Files audited | `docs/**/*.md` + root `README.md` + `CLAUDE.md` + `CONTRIBUTING.md` + `CODE_OF_CONDUCT.md` + `SECURITY.md` + `CHANGELOG.md` | `docs/history/**` (archived; may reference deleted paths), `docs/reference/auto/**` (auto-gen; refreshed nightly), `docs/.verify/**` (self), `docs/_consolidation-map.json`, `docs/_redirects.json`, anything inside `extensions/*` (submodule territory) |
+| Files audited | `docs/**/*.md` + root `README.md` + `CLAUDE.md` + `CONTRIBUTING.md` + `CODE_OF_CONDUCT.md` + `SECURITY.md` + `CHANGELOG.md` | `docs/reference/auto/**` (auto-gen; refreshed nightly), `docs/.verify/**` (self), `docs/_consolidation-map.json`, `docs/_redirects.json`, anything inside `extensions/*` (submodule territory) |
 | Path checks | Platform paths (`server/`, `frontend/`, `worker/`, `scripts/`, `config/`, `docs/`, `initramfs/`) and submodule directories (`extensions/<slug>/` existence only) | URLs, paths with spaces, glob patterns, paths inside submodules past the slug |
 | MCP actions | Call-site syntax `platform.<action>(` | Prose mentions, table entries, blockquote text, comment lines |
 
