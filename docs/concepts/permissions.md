@@ -27,7 +27,7 @@ Powernode access control follows one absolute mandate: **use permissions, never 
 
 This concept doc explains why, defines the naming convention, shows the correct backend and frontend patterns, walks through the three-tier permission structure (resource / admin / system), and documents the role catalog. The canonical permission registry — the live list of every permission with its description and current role assignments — lives at [`reference/permissions.md`](../reference/permissions.md).
 
-The open-source base ships **367 static permissions** (`Permissions::ALL_PERMISSIONS`). The live `Permission.count` in a running deployment is higher — extensions register their own permissions on load, so the DB total is extension-inclusive. For current numbers, run `cd server && rails runner "puts Permission.count"` or query `platform.search_knowledge` for "permission system"; never hardcode the live total in docs.
+The open-source base ships **371 static permissions** (`Permissions::ALL_PERMISSIONS`). The live `Permission.count` in a running deployment is higher — extensions register their own permissions on load, so the DB total is extension-inclusive. For current numbers, run `cd server && rails runner "puts Permission.count"` or query `platform.search_knowledge` for "permission system"; never hardcode the live total in docs.
 
 ## Core principle
 
