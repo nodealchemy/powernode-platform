@@ -10,6 +10,11 @@ jest.mock('@/shared/services/ai', () => ({
   },
 }));
 
+const mockAddNotification = jest.fn();
+jest.mock('@/shared/hooks/useNotifications', () => ({
+  useNotifications: () => ({ addNotification: mockAddNotification }),
+}));
+
 import { chatChannelsApi, agentsApi } from '@/shared/services/ai';
 
 const mockedTransferSession = chatChannelsApi.transferSession as jest.Mock;
@@ -121,7 +126,9 @@ describe('SessionTransferModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /transfer/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Transfer failed')).toBeInTheDocument();
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error' })
+      );
     });
   });
 
@@ -130,7 +137,9 @@ describe('SessionTransferModal', () => {
     render(<SessionTransferModal {...defaultProps} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to load agents')).toBeInTheDocument();
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error' })
+      );
     });
   });
 

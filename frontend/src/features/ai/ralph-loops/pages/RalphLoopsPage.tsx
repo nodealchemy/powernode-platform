@@ -146,7 +146,7 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
       showNotification(`PRD tasks saved successfully (${tasks.length} tasks)`, 'success');
       loadLoop(selectedLoop.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save PRD');
+      showNotification(err instanceof Error ? err.message : 'Failed to save PRD', 'error');
     }
   };
 

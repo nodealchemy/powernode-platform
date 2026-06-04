@@ -9,11 +9,12 @@ jest.mock('@/shared/services/ai', () => ({
   },
 }));
 
-// Mock useNotifications hook
+// Mock useNotifications hook — stable addNotification ref so loadTasks'
+// useCallback (which lists addNotification as a dep) doesn't churn and re-fire
+// its effect, matching production where the hook memoizes addNotification.
+const mockAddNotification = jest.fn();
 jest.mock('@/shared/hooks/useNotifications', () => ({
-  useNotifications: () => ({
-    addNotification: jest.fn(),
-  }),
+  useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 
 describe('TaskList', () => {

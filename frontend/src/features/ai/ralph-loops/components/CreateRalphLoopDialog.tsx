@@ -6,6 +6,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
 import { agentsApi } from '@/shared/services/ai/AgentsApiService';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import type { CreateRalphLoopRequest } from '@/shared/services/ai/types/ralph-types';
 
 interface CreateRalphLoopDialogProps {
@@ -32,6 +33,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [agents, setAgents] = useState<AgentOption[]>([]);
+  const { addNotification } = useNotifications();
 
   useEffect(() => {
     if (isOpen) {
@@ -75,7 +77,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
       onCreated(response.ralph_loop.id);
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create loop');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to create loop' });
     } finally {
       setLoading(false);
     }

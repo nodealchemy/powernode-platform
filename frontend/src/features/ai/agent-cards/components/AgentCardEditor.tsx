@@ -8,7 +8,6 @@ import {
 import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Loading } from '@/shared/components/ui/Loading';
-import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { cn } from '@/shared/utils/cn';
 import type { AgentCard } from '@/shared/services/ai/types/a2a-types';
 import { useAgentCardForm } from './useAgentCardForm';
@@ -66,8 +65,6 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
           }
         />
       </Card>
-
-      {form.error && <ErrorAlert message={form.error} />}
 
       <CardPreview validationResult={form.validationResult} />
 

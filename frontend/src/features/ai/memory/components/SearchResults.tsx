@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify';
 import { contextApi } from '../api/contextApi';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import type { SearchResult, SearchParams, EntryType } from '../types/context';
 
 interface SearchResultsProps {
@@ -12,6 +13,7 @@ interface SearchResultsProps {
 }
 
 export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
+  const { addNotification } = useNotifications();
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,7 +21,6 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
   const [selectedTypes, setSelectedTypes] = useState<EntryType[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
-  const [error, setError] = useState<string | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +28,6 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
 
     setIsSearching(true);
     setHasSearched(true);
-    setError(null);
 
     const params: SearchParams = {
       query: searchQuery,
@@ -49,7 +49,7 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
     } else {
       setResults([]);
       setTotalResults(0);
-      setError(response.error || 'Search failed');
+      addNotification({ type: 'error', message: response.error || 'Search failed' });
     }
 
     setIsSearching(false);
@@ -143,17 +143,6 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
       {/* Results */}
       {hasSearched && (
         <div>
-          {error && (
-            <div className="flex items-center justify-between p-3 mb-4 bg-theme-error/10 border border-theme-error/30 rounded-lg">
-              <span className="text-sm text-theme-error">{error}</span>
-              <button
-                onClick={() => setError(null)}
-                className="text-sm text-theme-error hover:text-theme-error/80 font-medium"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-theme-secondary">
               {isSearching ? (

@@ -30,8 +30,8 @@ import {
 import { WebhookTest } from './WebhookTest';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
-import SuccessAlert from '@/shared/components/ui/SuccessAlert';
 import Pagination from '@/shared/components/ui/Pagination';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface WebhookDetailsProps {
   webhook: WebhookEndpoint;
@@ -46,12 +46,11 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
   onDelete,
   onToggleStatus
 }) => {
+  const { addNotification } = useNotifications();
   const [detailedWebhook, setDetailedWebhook] = useState<DetailedWebhookEndpoint | null>(null);
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingDeliveries, setLoadingDeliveries] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [showSecretToken, setShowSecretToken] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
   type WebhookTabKey = 'overview' | 'deliveries' | 'test';
@@ -74,25 +73,24 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
   useEffect(() => {
     const loadWebhookDetails = async () => {
       setLoading(true);
-      setError(null);
 
       try {
         const response = await webhooksApi.getWebhook(webhook.id);
-        
+
         if (response.success && response.data) {
           setDetailedWebhook(response.data);
         } else {
-          setError(response.error || 'Failed to load webhook details');
+          addNotification({ type: 'error', message: response.error || 'Failed to load webhook details' });
         }
       } catch (_error) {
-        setError('An unexpected error occurred while loading webhook details');
+        addNotification({ type: 'error', message: 'An unexpected error occurred while loading webhook details' });
       } finally {
         setLoading(false);
       }
     };
 
     loadWebhookDetails();
-  }, [webhook.id]);
+  }, [webhook.id, addNotification]);
 
   // Load delivery history
   const loadDeliveries = useCallback(async (page = 1) => {
@@ -109,14 +107,14 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
         setDeliveries(response.data.deliveries);
         setDeliveryPagination(response.data.pagination);
       } else {
-        setError(response.error || 'Failed to load delivery history');
+        addNotification({ type: 'error', message: response.error || 'Failed to load delivery history' });
       }
     } catch (_error) {
-      setError('Failed to load delivery history');
+      addNotification({ type: 'error', message: 'Failed to load delivery history' });
     } finally {
       setLoadingDeliveries(false);
     }
-  }, [webhook.id, deliveryFilters.per_page]);
+  }, [webhook.id, deliveryFilters.per_page, addNotification]);
 
   // Load deliveries when tab changes or filters change
   useEffect(() => {
@@ -131,9 +129,9 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
     
     try {
       await navigator.clipboard.writeText(detailedWebhook.secret_token);
-      setSuccess('Secret token copied to clipboard');
+      addNotification({ type: 'success', message: 'Secret token copied to clipboard' });
     } catch (_error) {
-      setError('Failed to copy secret token');
+      addNotification({ type: 'error', message: 'Failed to copy secret token' });
     }
   };
 
@@ -165,10 +163,6 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Success/Error Messages */}
-      {success && <SuccessAlert message={success} onClose={() => setSuccess(null)} />}
-      {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
-
       {/* Header */}
       <div className="bg-theme-background rounded-lg border border-theme p-6">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
@@ -573,8 +567,8 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
           {activeTab === 'test' && (
             <WebhookTest
               webhook={webhook}
-              onSuccess={(message) => setSuccess(message)}
-              onError={(error) => setError(error)}
+              onSuccess={(message) => addNotification({ type: 'success', message })}
+              onError={(error) => addNotification({ type: 'error', message: error })}
             />
           )}
         </div>
@@ -596,11 +590,11 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
               <WebhookTest
                 webhook={webhook}
                 onSuccess={(message) => {
-                  setSuccess(message);
+                  addNotification({ type: 'success', message });
                   setShowTestModal(false);
                 }}
                 onError={(error) => {
-                  setError(error);
+                  addNotification({ type: 'error', message: error });
                   setShowTestModal(false);
                 }}
               />

@@ -11,8 +11,8 @@ import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { chatChannelsApi } from '@/shared/services/ai';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { ChannelCard } from './ChannelCard';
-import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { cn } from '@/shared/utils/cn';
 import type { ChatChannelSummary, ChatPlatform, ChannelFilters } from '@/shared/services/ai';
 
@@ -46,9 +46,9 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   onSettingsChannel,
   className,
 }) => {
+  const { addNotification } = useNotifications();
   const [channels, setChannels] = useState<ChatChannelSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [platformFilter, setPlatformFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,7 +57,6 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   const loadChannels = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const filters: ChannelFilters = { per_page: 50 };
       if (platformFilter) filters.platform = platformFilter as ChatPlatform;
@@ -67,11 +66,11 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       setChannels(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load channels');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to load channels' });
     } finally {
       setLoading(false);
     }
-  }, [platformFilter, statusFilter]);
+  }, [platformFilter, statusFilter, addNotification]);
 
   useEffect(() => {
     loadChannels();
@@ -82,7 +81,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       await chatChannelsApi.connectChannel(channel.id);
       loadChannels();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect channel');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to connect channel' });
     }
   };
 
@@ -91,7 +90,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       await chatChannelsApi.disconnectChannel(channel.id);
       loadChannels();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to disconnect channel');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to disconnect channel' });
     }
   };
 
@@ -165,9 +164,6 @@ export const ChannelList: React.FC<ChannelListProps> = ({
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>
-
-      {/* Error */}
-      {error && <ErrorAlert message={error} />}
 
       {/* Channel Grid */}
       {filteredChannels.length === 0 ? (

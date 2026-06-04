@@ -29,7 +29,6 @@ export function useAgentCardForm({ cardId, onSave }: UseAgentCardFormOptions) {
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: string[] } | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [agents, setAgents] = useState<AiAgent[]>([]);
 
   const [name, setName] = useState('');
@@ -115,7 +114,11 @@ export function useAgentCardForm({ cardId, onSave }: UseAgentCardFormOptions) {
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load agent card');
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: err instanceof Error ? err.message : 'Failed to load agent card',
+      });
     } finally {
       setLoading(false);
     }
@@ -187,10 +190,12 @@ export function useAgentCardForm({ cardId, onSave }: UseAgentCardFormOptions) {
       });
 
   const handleSave = async () => {
-    if (!name.trim()) { setError('Name is required'); return; }
+    if (!name.trim()) {
+      addNotification({ type: 'error', title: 'Error', message: 'Name is required' });
+      return;
+    }
     try {
       setSaving(true);
-      setError(null);
       const parsedSkills = parseSkills();
       if (isEditMode && cardId) {
         const updateData: UpdateAgentCardRequest = {
@@ -220,7 +225,6 @@ export function useAgentCardForm({ cardId, onSave }: UseAgentCardFormOptions) {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save agent card';
-      setError(message);
       addNotification({ type: 'error', title: 'Error', message });
     } finally {
       setSaving(false);
@@ -228,7 +232,7 @@ export function useAgentCardForm({ cardId, onSave }: UseAgentCardFormOptions) {
   };
 
   return {
-    loading, saving, validating, validationResult, error, agents, isEditMode,
+    loading, saving, validating, validationResult, agents, isEditMode,
     name, setName, description, setDescription, visibility, setVisibility,
     endpointUrl, setEndpointUrl, selectedAgentId, setSelectedAgentId,
     skills, streamingEnabled, setStreamingEnabled,

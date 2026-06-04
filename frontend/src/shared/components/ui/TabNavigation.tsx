@@ -15,6 +15,7 @@ interface TabNavigationProps {
   className?: string;
 }
 
+/** @deprecated Use the path-based tab pattern (see src/pages/app/admin/AdminSettingsPage.tsx) or src/shared/components/layout/TabContainer for state-based tabs. This variant is retained only for existing callers and should not be used in new code. */
 export const TabNavigation: React.FC<TabNavigationProps> = ({ tabs, className = '' }) => {
   const location = useLocation();
   const currentPath = location.pathname;

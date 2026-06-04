@@ -9,6 +9,11 @@ jest.mock('@/shared/services/ai', () => ({
   },
 }));
 
+const mockAddNotification = jest.fn();
+jest.mock('@/shared/hooks/useNotifications', () => ({
+  useNotifications: () => ({ addNotification: mockAddNotification }),
+}));
+
 import { chatChannelsApi } from '@/shared/services/ai';
 
 const mockedGetChannel = chatChannelsApi.getChannel as jest.Mock;
@@ -133,7 +138,9 @@ describe('ChannelSettingsModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Save failed')).toBeInTheDocument();
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error' })
+      );
     });
   });
 
@@ -189,7 +196,9 @@ describe('ChannelSettingsModal', () => {
     render(<ChannelSettingsModal {...defaultProps} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Load failed')).toBeInTheDocument();
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error' })
+      );
     });
   });
 

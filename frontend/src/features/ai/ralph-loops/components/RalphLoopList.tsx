@@ -11,7 +11,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
 import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { RalphLoopCard } from './RalphLoopCard';
-import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
 import type { RalphLoopSummary, RalphLoopFilters, RalphLoopStatus } from '@/shared/services/ai/types/ralph-types';
 
@@ -43,11 +43,11 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
 }) => {
   const [loops, setLoops] = useState<RalphLoopSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [agentFilter, setAgentFilter] = useState<string>('');
   const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const { addNotification } = useNotifications();
 
   // Load agents for filter dropdown
   useEffect(() => {
@@ -63,7 +63,6 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
   const loadLoops = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const filters: RalphLoopFilters = { per_page: 50 };
       if (statusFilter) filters.status = statusFilter as RalphLoopStatus;
@@ -73,11 +72,11 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
       setLoops(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load loops');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to load loops' });
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, agentFilter]);
+  }, [statusFilter, agentFilter, addNotification]);
 
   useEffect(() => {
     loadLoops();
@@ -97,7 +96,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
       await ralphLoopsApi.startLoop(loop.id);
       loadLoops();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start loop');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to start loop' });
     }
   };
 
@@ -106,7 +105,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
       await ralphLoopsApi.pauseLoop(loop.id);
       loadLoops();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to pause loop');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to pause loop' });
     }
   };
 
@@ -115,7 +114,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
       await ralphLoopsApi.resumeLoop(loop.id);
       loadLoops();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to resume loop');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to resume loop' });
     }
   };
 
@@ -172,9 +171,6 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>
-
-      {/* Error */}
-      {error && <ErrorAlert message={error} />}
 
       {/* Loop Grid */}
       {loops.length === 0 ? (

@@ -23,6 +23,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
 import type { RalphIterationSummary, RalphIteration, RalphIterationStatus } from '@/shared/services/ai/types/ralph-types';
 
@@ -243,29 +244,28 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
   const [iterations, setIterations] = useState<RalphIterationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedIteration, setExpandedIteration] = useState<RalphIteration | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const { addNotification } = useNotifications();
 
   // Load first page
   const loadIterations = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       const response = await ralphLoopsApi.getIterations(loopId, { per_page: PAGE_SIZE, page: 1 });
       setIterations(response.items || []);
       setPage(1);
       setHasMore((response.pagination?.current_page ?? 1) < (response.pagination?.total_pages ?? 1));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load iterations');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to load iterations' });
     } finally {
       setLoading(false);
     }
-  }, [loopId]);
+  }, [loopId, addNotification]);
 
   // Load next page (append)
   const loadMore = useCallback(async () => {
@@ -332,7 +332,7 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
       const response = await ralphLoopsApi.getIteration(loopId, iteration.id);
       setExpandedIteration(response.iteration);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load iteration details');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to load iteration details' });
     } finally {
       setLoadingDetail(false);
     }
@@ -355,13 +355,6 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>
-
-      {/* Error */}
-      {error && (
-        <div className="p-3 rounded-lg bg-theme-status-error/10 text-theme-status-error text-sm">
-          {error}
-        </div>
-      )}
 
       {/* Iteration List */}
       {iterations.length === 0 ? (

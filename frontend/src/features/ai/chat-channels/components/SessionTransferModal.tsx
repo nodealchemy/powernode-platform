@@ -5,6 +5,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { chatChannelsApi, agentsApi } from '@/shared/services/ai';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import type { ChatSessionSummary } from '@/shared/services/ai';
 
 interface Agent {
@@ -25,16 +26,15 @@ export const SessionTransferModal: React.FC<SessionTransferModalProps> = ({
   session,
   onTransferred,
 }) => {
+  const { addNotification } = useNotifications();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetchingAgents, setFetchingAgents] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setSelectedAgentId('');
-      setError(null);
       loadAgents();
     }
   }, [isOpen]);
@@ -47,7 +47,7 @@ export const SessionTransferModal: React.FC<SessionTransferModalProps> = ({
         (response.items || []).map((a) => ({ id: a.id, name: a.name }))
       );
     } catch {
-      setError('Failed to load agents');
+      addNotification({ type: 'error', message: 'Failed to load agents' });
     } finally {
       setFetchingAgents(false);
     }
@@ -58,12 +58,12 @@ export const SessionTransferModal: React.FC<SessionTransferModalProps> = ({
 
     try {
       setLoading(true);
-      setError(null);
       await chatChannelsApi.transferSession(session.id, selectedAgentId);
+      addNotification({ type: 'success', message: 'Session transferred successfully' });
       onTransferred();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to transfer session');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to transfer session' });
     } finally {
       setLoading(false);
     }
@@ -101,12 +101,6 @@ export const SessionTransferModal: React.FC<SessionTransferModalProps> = ({
                 @{session.platform_username}
               </p>
             )}
-          </div>
-        )}
-
-        {error && (
-          <div className="p-3 rounded-lg bg-theme-danger/10 text-theme-danger text-sm">
-            {error}
           </div>
         )}
 

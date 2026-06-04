@@ -12,6 +12,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { communityAgentsApi } from '@/shared/services/ai';
 import { FederationPartnerCard } from './FederationPartnerCard';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
 import type { FederationPartnerSummary, FederationPartnerFilters, FederationStatus, TrustLevel } from '@/shared/services/ai';
 
@@ -44,9 +45,9 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
   onCreatePartner,
   className,
 }) => {
+  const { addNotification } = useNotifications();
   const [partners, setPartners] = useState<FederationPartnerSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [trustFilter, setTrustFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,7 +56,6 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
   const loadPartners = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const filters: FederationPartnerFilters = { per_page: 50 };
       if (statusFilter) filters.status = statusFilter as FederationStatus;
@@ -65,11 +65,14 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
       setPartners(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load federation partners');
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load federation partners',
+      });
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, trustFilter]);
+  }, [statusFilter, trustFilter, addNotification]);
 
   useEffect(() => {
     loadPartners();
@@ -80,7 +83,10 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
       await communityAgentsApi.verifyFederationKey(partner.id);
       loadPartners();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to verify partner');
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to verify partner',
+      });
     }
   };
 
@@ -89,7 +95,10 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
       await communityAgentsApi.syncFederationPartner(partner.id);
       loadPartners();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sync agents');
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to sync agents',
+      });
     }
   };
 
@@ -163,13 +172,6 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>
-
-      {/* Error */}
-      {error && (
-        <div className="p-4 rounded-lg bg-theme-status-error/10 text-theme-status-error">
-          {error}
-        </div>
-      )}
 
       {/* Partner Grid */}
       {filteredPartners.length === 0 ? (

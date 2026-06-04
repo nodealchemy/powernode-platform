@@ -13,7 +13,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { communityAgentsApi } from '@/shared/services/ai';
 import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import { AgentCard } from './AgentCard';
-import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
 import type { CommunityAgentSummary, CommunityAgentFilters } from '@/shared/services/ai';
 import type { SkillCategory } from '@/features/ai/skills/types';
@@ -36,9 +36,9 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
   onInvokeAgent,
   className,
 }) => {
+  const { addNotification } = useNotifications();
   const [agents, setAgents] = useState<CommunityAgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -71,7 +71,6 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
   const loadAgents = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const filters: CommunityAgentFilters = {
         per_page: 50,
@@ -86,11 +85,14 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
       setAgents(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load agents');
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load agents',
+      });
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, categoryFilter, skillFilter, verifiedOnly, sortBy]);
+  }, [searchQuery, categoryFilter, skillFilter, verifiedOnly, sortBy, addNotification]);
 
   useEffect(() => {
     loadAgents();
@@ -180,9 +182,6 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </form>
-
-      {/* Error */}
-      {error && <ErrorAlert message={error} />}
 
       {/* Agent Grid */}
       {agents.length === 0 ? (

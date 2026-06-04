@@ -14,6 +14,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { chatChannelsApi } from '@/shared/services/ai';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
 import type { ChatSessionSummary, SessionFilters, SessionStatus } from '@/shared/services/ai';
 
@@ -51,16 +52,15 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
   onCloseSession,
   className,
 }) => {
+  const { addNotification } = useNotifications();
   const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [totalCount, setTotalCount] = useState(0);
 
   const loadSessions = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const filters: SessionFilters = {
         channel_id: channelId,
@@ -72,11 +72,11 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
       setSessions(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load sessions');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to load sessions' });
     } finally {
       setLoading(false);
     }
-  }, [channelId, statusFilter]);
+  }, [channelId, statusFilter, addNotification]);
 
   useEffect(() => {
     loadSessions();
@@ -97,7 +97,7 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
       loadSessions();
       onCloseSession?.(session);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to close session');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to close session' });
     }
   };
 
@@ -147,13 +147,6 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
           </Button>
         </div>
       </div>
-
-      {/* Error */}
-      {error && (
-        <div className="p-3 rounded-lg bg-theme-danger/10 text-theme-danger text-sm">
-          {error}
-        </div>
-      )}
 
       {/* Sessions List */}
       {sessions.length === 0 ? (

@@ -18,6 +18,7 @@ interface BreadcrumbAwareTabNavigationProps {
   onTabChange?: (tabId: string, tab: Tab) => void;
 }
 
+/** @deprecated Use the path-based tab pattern (see src/pages/app/admin/AdminSettingsPage.tsx) or src/shared/components/layout/TabContainer for state-based tabs. This variant is retained only for existing callers and should not be used in new code. */
 export const BreadcrumbAwareTabNavigation: React.FC<BreadcrumbAwareTabNavigationProps> = ({
   pageId,
   tabs,

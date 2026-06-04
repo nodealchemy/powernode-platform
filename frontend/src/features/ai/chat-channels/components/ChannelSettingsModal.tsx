@@ -4,6 +4,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Loading } from '@/shared/components/ui/Loading';
 import { chatChannelsApi } from '@/shared/services/ai';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import type { ChatChannel, ChannelRoutingConfig, ChannelAgentPersonality } from '@/shared/services/ai';
 
 interface ChannelSettingsModalProps {
@@ -38,10 +39,10 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
   channelId,
   onSaved,
 }) => {
+  const { addNotification } = useNotifications();
   const [channel, setChannel] = useState<ChatChannel | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'routing' | 'personality'>('general');
   const [formData, setFormData] = useState({
     name: '',
@@ -75,7 +76,6 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
   const loadChannel = async (id: string) => {
     try {
       setLoading(true);
-      setError(null);
       const response = await chatChannelsApi.getChannel(id);
       const ch = response.channel;
       setChannel(ch);
@@ -93,7 +93,7 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
       }
       setWebhookUrl(ch.webhook_url || null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load channel');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to load channel' });
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,6 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
 
     try {
       setSaving(true);
-      setError(null);
       await chatChannelsApi.updateChannel(channelId, {
         name: formData.name,
         rate_limit_per_minute: formData.rate_limit_per_minute,
@@ -113,10 +112,11 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
         routing_config: routingConfig,
         agent_personality: personality,
       });
+      addNotification({ type: 'success', message: 'Channel settings saved' });
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save settings');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to save settings' });
     } finally {
       setSaving(false);
     }
@@ -130,8 +130,9 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
       const response = await chatChannelsApi.regenerateToken(channelId);
       setWebhookUrl(response.webhook_url);
       setChannel(response.channel);
+      addNotification({ type: 'success', message: 'Webhook token regenerated' });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to regenerate token');
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Failed to regenerate token' });
     } finally {
       setRegenerating(false);
     }
@@ -434,12 +435,6 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
         </div>
       ) : (
         <div className="space-y-4">
-          {error && (
-            <div className="p-3 rounded-lg bg-theme-danger/10 text-theme-danger text-sm">
-              {error}
-            </div>
-          )}
-
           {/* Tabs */}
           <div className="flex border-b border-theme">
             {tabs.map((tab) => (

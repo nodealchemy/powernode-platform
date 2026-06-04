@@ -18,8 +18,8 @@ import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
-import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { a2aTasksApiService } from '@/shared/services/ai';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
 import type { A2aTask, A2aTaskFilters } from '@/shared/services/ai/types/a2a-types';
 
@@ -43,15 +43,15 @@ const statusConfig: Record<
 export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) => {
   const [tasks, setTasks] = useState<A2aTask[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [totalCount, setTotalCount] = useState(0);
 
+  const { addNotification } = useNotifications();
+
   const loadTasks = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const filters: A2aTaskFilters = { per_page: 50 };
       if (statusFilter) filters.status = statusFilter as A2aTaskFilters['status'];
@@ -60,11 +60,14 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
       setTasks(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load tasks');
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load tasks',
+      });
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, addNotification]);
 
   useEffect(() => {
     loadTasks();
@@ -163,11 +166,8 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
         </span>
       </div>
 
-      {/* Error state */}
-      {error && <ErrorAlert message={error} />}
-
       {/* Empty state */}
-      {!loading && filteredTasks.length === 0 && !error && (
+      {!loading && filteredTasks.length === 0 && (
         <EmptyState
           icon={Activity}
           title="No A2A tasks found"
