@@ -235,7 +235,9 @@ loop_record.ralph_tasks.where(status: "failed").pluck(:id, :name, :error_message
 ```ruby
 task = Ai::RalphTask.find(task_id)
 task.update!(status: "pending", error_message: nil, execution_attempts: 0)
-WorkerJobService.enqueue_ai_ralph_task(task.id)
+# Single-task re-queue is not exposed directly — re-run the parent loop:
+WorkerJobService.enqueue_ai_ralph_loop_run_all(task.ralph_loop_id, stop_on_error: false)
+# or dispatch one iteration via REST: POST /api/v1/ai/ralph_loops/<loop_id>/run_iteration
 ```
 
 5. Restart the loop. If the loop is in `failed` state, use `reset!` then `start_loop`:
@@ -282,7 +284,7 @@ Cascade behavior:
 - `Ai::RalphIteration` records: destroyed (these hold execution output, token usage, learnings)
 - ActionCable subscriptions on `AiOrchestrationChannel` for this loop: cleaned up on next tick
 
-Audit log entry `ai.ralph_loops.delete` is recorded against `Audit::Event` before destruction.
+Audit log entry `ai.ralph_loops.delete` is recorded against `AuditLog` before destruction.
 
 ## Common patterns
 
@@ -345,7 +347,7 @@ After any intervention:
 
 - `platform.get_ralph_loop(loop_id: ...)` returns expected `status` and `schedule_paused`
 - `platform.get_ralph_loop_statistics` shows the loop in the correct bucket
-- `GET /api/v1/ai/monitoring/health` returns `data.healthy: true`
+- `GET /api/v1/ai/monitoring/health` returns `data.status: "healthy"` (and `data.health_score >= 80`)
 - Worker is consuming jobs: `journalctl -u powernode-worker@default --since "5 minutes ago" | grep -c RalphTask` should increase if iterations are firing
 - `sudo scripts/systemd/powernode-installer.sh status` reports all services active
 
@@ -409,4 +411,4 @@ curl -s http://localhost:4567/queues.json | jq '.queues | map(select(.queue == "
 - [worker-operations.md](worker-operations.md) - worker job dispatch, queue depth, restart safety
 - [../concepts/agents-and-autonomy.md](../concepts/agents-and-autonomy.md) - Ralph Loops conceptual model
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

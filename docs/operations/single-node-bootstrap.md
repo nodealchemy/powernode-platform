@@ -285,7 +285,9 @@ bundle exec rails db:create db:migrate db:seed
 
 > **Gotcha #8** _(✅ resolved in master)_: the MCP workflow orchestrator (`workflow_executor.rb`) was dead code — its 7 concern files (`broadcasting.rb`, `data_flow.rb`, etc.) plus `concerns/ai_workflow_service.rb` were deleted in commit `a61ca9ef` "remove ai workflow services" but the orchestrator file itself was missed. **Fixed**: the file has since been deleted (no remaining references).
 
-> **Gotcha #9** _(✅ resolved in master)_: the BaaS controller (`baas_controller.rb`) declared `class BaasController`, but with the BaaS acronym in `inflections.rb` Zeitwerk expects `class BaaSController` (matching the `BaaS` model namespace). **Fixed**: the class was renamed to `BaaSController`.
+> **Status: not yet implemented** — the rename below has NOT landed in master. The controller still declares `class BaasController` and `inflections.rb` still defines the `BaaS` acronym, so the bug is still present in the tree (boot impact is limited only because this runbook's core-mode flow disables the business extension where the controller lives, per gotcha #5). Treat the fix as planned, not done.
+>
+> **Gotcha #9** _(⚠ open — see status note above)_: the BaaS controller (`baas_controller.rb`) declares `class BaasController`, but with the BaaS acronym in `inflections.rb` Zeitwerk expects `class BaaSController` (matching the `BaaS` model namespace). **Planned fix**: rename the class to `BaaSController`.
 
 > **Gotcha #10**: Rails 8.1 includes the `solid_cache`, `solid_queue`, and `solid_cable` gems which auto-load `SolidCache::Record`, `SolidQueue::Record`, `SolidCable::Record` at boot — each calls `connects_to(database: { writing: :cache | :queue | :cable })`. Even if you override `CACHE_STORE=redis_cache_store`, `QUEUE_ADAPTER=async`, and `cable.yml` to use Redis, the gems still get required and their `Record` classes still demand the named databases exist in `database.yml`. **Fix**: extend `database.yml` `production:` block to multi-database with stubs for `primary`, `cache`, `queue`, `cable` all pointing to the same Postgres database. The Solid* gems will connect but won't actually be used because the env overrides keep them out of the request path. Future cleanup: `gem ... require: false` would let us drop the database stubs entirely.
 
@@ -327,7 +329,7 @@ All five services should be active:
 Smoke test:
 
 ```bash
-curl -sI http://localhost:3000/health        # → HTTP/1.1 200
+curl -sI http://localhost:3000/api/v1/health # → HTTP/1.1 200
 curl -sI http://localhost:3001               # → HTTP 200 (frontend dev server)
 ```
 
@@ -358,11 +360,21 @@ dest = System::AcmeDnsCredential.create!(account: Account.first, name: src.name,
 dest.store_in_vault(api_token: token)
 ```
 
-Trigger first cert issuance:
+Trigger first cert issuance. `Acme::CertificateManager#issue!` takes a single `certificate:` keyword (a `System::AcmeCertificate` record) — common_name, dns_credential, issuer, and email are all read off that record. Create the record first, then issue:
 
 ```ruby
-mgr = Acme::CertificateManager.new
-mgr.issue!(common_name: "ops.ipnode.net", dns_credential: cred, email: "admin@example.com")
+cert = System::AcmeCertificate.create!(
+  account: Account.first,
+  common_name: "ops.ipnode.net",
+  dns_credential: cred,
+  challenge_type: "dns-01",            # one of AcmeCertificate::CHALLENGE_TYPES
+  issuer: "letsencrypt-prod",          # one of AcmeCertificate::ISSUERS
+                                       #   (letsencrypt-prod / letsencrypt-staging / internal-ca)
+  metadata: { "acme_email" => "admin@example.com" }  # email is resolved from
+  # metadata["acme_email"], else POWERNODE_ACME_EMAIL env, else the account's admin user
+)
+Acme::CertificateManager.new.issue!(certificate: cert)
+# (or the class-method form: Acme::CertificateManager.issue!(certificate: cert))
 ```
 
 `Acme::RenewalSweepService` (background job, runs daily) handles renewals from here on.
@@ -377,11 +389,11 @@ openssl s_client -connect <external-hostname>:443 -servername <external-hostname
 ## Verification checklist
 
 - [ ] All 5 systemd services active (`systemctl status 'powernode-*' --no-pager`)
-- [ ] `curl http://localhost:3000/health` returns 200 with `{status: "ok"}` JSON
+- [ ] `curl http://localhost:3000/api/v1/health` returns 200 with `{status: "healthy"}` JSON
 - [ ] `psql -U powernode -h localhost -d powernode_production -c 'SELECT 1'` succeeds with the DB password
 - [ ] Sidekiq web UI reachable at `http://localhost:4567` (worker-web)
 - [ ] `bundle exec rails runner 'puts Worker.system_worker.account_id'` returns a non-nil UUID
-- [ ] `Acme::CertificateManager.new.list_certs.any? { |c| c.status == "active" }` is true (after Step 12 issuance)
+- [ ] `System::AcmeCertificate.where(status: "valid").any?` is true (after Step 12 issuance — successful issuance transitions the cert to `valid`; there is no `CertificateManager#list_certs` method)
 - [ ] External HTTPS endpoint serves a Let's Encrypt cert (not self-signed, not Cloudflare edge)
 
 ## Troubleshooting
@@ -396,7 +408,7 @@ openssl s_client -connect <external-hostname>:443 -servername <external-hostname
 | `Zeitwerk::NameError: expected file .../decorators/models/account_decorator.rb to define constant Models::AccountDecorator` | Extension engines add `app/decorators` to autoload_paths but the files monkey-patch core (no own constant) | Already fixed in master (gotcha #6); each engine has `Rails.autoloaders.main.ignore(decorators_path)` |
 | `CodeReview is not a module (TypeError)` | `Ai::CodeReview` was both model class and services namespace (gotcha #7) | Already fixed in master; services renamed to `Ai::CodeReviews::*` |
 | `uninitialized constant Mcp::WorkflowExecutor::AiWorkflowService` | Dead code (gotcha #8) | Already fixed in master; orphan file deleted |
-| `Zeitwerk::NameError: expected ... BaaSController, but didn't` | Controller defined `BaasController`; with the BaaS acronym Zeitwerk expects `BaaSController` (gotcha #9) | Already fixed in master |
+| `Zeitwerk::NameError: expected ... BaaSController, but didn't` | Controller defines `BaasController`; with the BaaS acronym Zeitwerk expects `BaaSController` (gotcha #9) | **Not yet fixed** — rename has not landed. Disable the `business` extension (gotcha #5) to avoid eager-loading the controller, or rename `BaasController` → `BaaSController` |
 | `The 'cache'/'queue'/'cable' database is not configured for the 'production' environment` | Solid* gems demand named DBs even when env overrides disable them (gotcha #10) | Already fixed in master; database.yml production has multi-db stubs |
 | `Gem::LoadError: sidekiq is not part of the bundle` | Server doesn't bundle sidekiq directly (gotcha #11) | Set `QUEUE_ADAPTER=async` in backend-default.conf |
 | Frontend service: `sh: 1: vite: not found` | npm packages not installed (gotcha #12) | `cd frontend && npm install` before starting the service |
@@ -432,4 +444,4 @@ ACME setup (Step 12) is intentionally kept manual — choosing the right DNS pro
 
 ---
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

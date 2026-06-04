@@ -67,7 +67,7 @@ curl -X POST http://localhost:3000/api/v1/ai/kill_switch/halt \
 ```
 
 **What it does**:
-- Marks all AI activity as suspended in `ai_kill_switch_state`.
+- Marks the account as suspended via `accounts.ai_suspended` (set by `account.suspend_ai!`); the halt/resume events are logged to `ai_kill_switch_events`.
 - Existing in-flight AI jobs (worker `ai_agents`, `ai_orchestration`, `ai_execution` queues) check the suspension flag and bail out at safe checkpoints. Tool calls that have already been emitted will complete; new calls are blocked.
 - The chat surface refuses new prompt submissions.
 - Non-AI workloads (webhook delivery, billing, report generation) are not affected.
@@ -78,7 +78,7 @@ curl -X POST http://localhost:3000/api/v1/ai/kill_switch/halt \
 platform.kill_switch_status()
 ```
 
-Returns `{ halted: bool, halted_at: ..., halted_by: ..., reason: ... }`.
+Returns `{ halted: bool, since: ..., snapshot_preview: ..., latest_event: { reason, triggered_by, created_at } }`.
 
 ### Resume
 
@@ -166,9 +166,9 @@ After remediation, lift the kill switch and monitor `platform.recent_events()` f
 
 1. **Engage kill switch** to prevent further automated actions with the leaked credential.
 2. **Rotate the credential**:
-   - User: force password reset via admin UI or `User.find(...).request_password_reset!`
-   - API key: `User.find(...).api_keys.find(...).revoke!`
-   - Worker JWT: `Worker.find(...).rotate_token!` (or restart the worker — JWT is short-lived)
+   - User: force password reset via the admin UI (console: `User.find(...).reset_password!(new_password, token)`)
+   - API key: regenerate via the admin UI (console: `ApiKey.find(...).regenerate_key!`)
+   - Worker JWT: restart the worker — its token is regenerated on create and is short-lived
    - Vault-backed secret: rotate via Vault, then `VaultCredential` re-fetches on next access
 3. **Audit the trail** — `AuditLog.where(user_id: ..., created_at: <leak window>).order(:created_at)`.
 4. **Notify affected accounts** if any non-self resources were accessed during the window.
@@ -299,4 +299,4 @@ Run within 5 business days of any SEV1/SEV2. Blameless format.
 - [ai-operations.md](./ai-operations.md) — AI agent operations
 - [observability.md](./observability.md) — log aggregation + monitoring
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

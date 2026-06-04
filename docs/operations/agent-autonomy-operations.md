@@ -197,7 +197,7 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" \
 The backing service is `Ai::Autonomy::TrustEngineService#emergency_demote!`. From a Rails console:
 
 ```ruby
-engine = Ai::Autonomy::TrustEngineService.new(account: Account.find_by(slug: "default"))
+engine = Ai::Autonomy::TrustEngineService.new(account: Account.first) # or Account.find_by(subdomain: "...") / Account.find("<uuid>")
 engine.emergency_demote!(agent: Ai::Agent.find(id), reason: "Security policy violation")
 ```
 
@@ -290,7 +290,7 @@ platform.update_intervention_policy(
 
 After any intervention, confirm three signals:
 
-1. **Backend health** — `GET /api/v1/ai/monitoring/health` returns `data.healthy: true`.
+1. **Backend health** — `GET /api/v1/ai/monitoring/health` returns `data.status: "healthy"` (and `data.health_score >= 80`).
 2. **Autonomy dashboard** — `GET /api/v1/ai/autonomy/trust_scores` returns the new tier for the affected agent.
 3. **Kill switch state** — `platform.kill_switch_status` returns `halted: false` (or `true` if you intentionally halted as part of the procedure).
 
@@ -317,12 +317,12 @@ platform.update_agent_trust_score(
 
 The emergency demotion's evaluation history entry stays in `ai_agent_trust_scores.evaluation_history` as an audit artifact even after restoring the tier.
 
-**Restore agent configuration from history** (when the agent itself was modified, not just the trust score). The `Ai::Agent` model is `Auditable` - its prior state is recoverable from `Audit::Event` records:
+**Restore agent configuration from history** (when the agent itself was modified, not just the trust score). The `Ai::Agent` model is `Auditable` - its prior state is recoverable from `AuditLog` records (written with `resource_type`/`resource_id`, `old_values`/`new_values`):
 
 ```ruby
 agent = Ai::Agent.find(id)
-event = Audit::Event.where(auditable: agent).order(created_at: :desc).limit(5).each_with_index { |e, i| puts "#{i}: #{e.action} #{e.created_at} #{e.metadata}" }
-# Inspect, then manually update agent fields from event.metadata["before"] payload.
+AuditLog.where(resource_type: "Ai::Agent", resource_id: agent.id).order(created_at: :desc).limit(5).each_with_index { |e, i| puts "#{i}: #{e.action} #{e.created_at} #{e.old_values} -> #{e.new_values}" }
+# Inspect, then manually update agent fields from the event's old_values payload.
 ```
 
 If you've already restored the wrong revision, `platform.emergency_halt` halts all AI activity while you investigate. See [ralph-loops.md#rollback](ralph-loops.md#rollback) for the kill switch flow.
@@ -346,4 +346,4 @@ If you've already restored the wrong revision, `platform.emergency_halt` halts a
 - [../concepts/agents-and-autonomy.md](../concepts/agents-and-autonomy.md) - trust scoring conceptual model
 - [worker-operations.md](worker-operations.md) - maintenance jobs that touch trust scores
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

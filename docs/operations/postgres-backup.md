@@ -117,7 +117,7 @@ A backup smaller than ~10% of the previous successful backup is suspicious — i
    ```bash
    sudo -u postgres psql -d postgres -c "SELECT name FROM pg_available_extensions WHERE name IN ('vector','pgcrypto');"
    ```
-   Both rows must come back. Install via `apt install postgresql-15-pgvector` (or the version-matched package) before continuing.
+   Both rows must come back. Install via `apt install postgresql-16-pgvector` (or the version-matched package — the platform standardizes on PostgreSQL 16) before continuing.
 3. Validate the backup file integrity:
    ```bash
    gunzip -t /backups/powernode_20260518_020000.sql.gz && echo "gzip OK"
@@ -194,7 +194,7 @@ A failed drill is a P1 — your stated RTO does not hold until it is resolved.
 
 - **Extension binary version**: pgvector 0.5.0 changed index format. If you restore a 0.5+ backup onto a 0.4.x server you will get index-corruption errors. Match the extension version on the restore target. Check with `SELECT extversion FROM pg_extension WHERE extname = 'vector';`.
 - **HNSW build time**: HNSW indexes are large. On a database with millions of vector rows, the `CREATE INDEX` statements emitted by `pg_dump` can take 30+ minutes on restore. Plan recovery windows accordingly.
-- **Embedding column sizes**: existing embedding columns are 1536 dims (OpenAI) and 768 dims (Ollama-default). A dump preserves these; if you change embedding model post-restore, you will need to re-embed via `cd worker && bundle exec rails ai:reembed`.
+- **Embedding column sizes**: existing embedding columns are 1536 dims (OpenAI) and 768 dims (Ollama-default). A dump preserves these. If you change embedding model post-restore you will need to re-embed. There is **no** `ai:reembed` rake task — the worker ships no rake tasks. Re-embedding is driven by the worker's scheduled `AiSkillLifecycleMaintenanceJob` (the monthly run re-embeds skills — see [worker-operations.md](./worker-operations.md) Scheduled Jobs); for other vector columns there is currently no one-shot operator command, so treat a full re-embed as a manual/not-yet-automated step.
 
 ## Point-in-time recovery (PITR)
 
@@ -226,4 +226,4 @@ If PITR is required for compliance, retain WAL archives for at least the legal r
 - [docker-swarm.md](./docker-swarm.md) — Swarm-specific operations
 - [performance-tuning.md](./performance-tuning.md) — Postgres tuning parameters
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

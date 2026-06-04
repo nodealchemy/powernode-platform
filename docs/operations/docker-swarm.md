@@ -208,12 +208,13 @@ GET    /api/v1/devops/docker/hosts/:id
 PUT    /api/v1/devops/docker/hosts/:id
 DELETE /api/v1/devops/docker/hosts/:id
 
-GET    /api/v1/devops/docker/containers
-GET    /api/v1/devops/docker/images
-GET    /api/v1/devops/docker/networks
-GET    /api/v1/devops/docker/volumes
-GET    /api/v1/devops/docker/events
-GET    /api/v1/devops/docker/activities
+# Sub-resources are nested under a host (hosts/:host_id/...)
+GET    /api/v1/devops/docker/hosts/:host_id/containers
+GET    /api/v1/devops/docker/hosts/:host_id/images
+GET    /api/v1/devops/docker/hosts/:host_id/networks
+GET    /api/v1/devops/docker/hosts/:host_id/volumes
+GET    /api/v1/devops/docker/hosts/:host_id/events
+GET    /api/v1/devops/docker/hosts/:host_id/activities
 ```
 
 ### Swarm Endpoints
@@ -225,15 +226,16 @@ GET    /api/v1/devops/swarm/clusters/:id
 PUT    /api/v1/devops/swarm/clusters/:id
 DELETE /api/v1/devops/swarm/clusters/:id
 
-GET    /api/v1/devops/swarm/nodes
-GET    /api/v1/devops/swarm/services
-GET    /api/v1/devops/swarm/stacks
-GET    /api/v1/devops/swarm/deployments
-GET    /api/v1/devops/swarm/events
-GET    /api/v1/devops/swarm/networks
-GET    /api/v1/devops/swarm/volumes
-GET    /api/v1/devops/swarm/secrets
-GET    /api/v1/devops/swarm/configs
+# Sub-resources are nested under a cluster (clusters/:cluster_id/...)
+GET    /api/v1/devops/swarm/clusters/:cluster_id/nodes
+GET    /api/v1/devops/swarm/clusters/:cluster_id/services
+GET    /api/v1/devops/swarm/clusters/:cluster_id/stacks
+GET    /api/v1/devops/swarm/clusters/:cluster_id/deployments
+GET    /api/v1/devops/swarm/clusters/:cluster_id/events
+GET    /api/v1/devops/swarm/clusters/:cluster_id/networks
+GET    /api/v1/devops/swarm/clusters/:cluster_id/volumes
+GET    /api/v1/devops/swarm/clusters/:cluster_id/secrets
+GET    /api/v1/devops/swarm/clusters/:cluster_id/configs
 ```
 
 ## Procedure — Adding a New Docker Host
@@ -287,7 +289,7 @@ After each operation:
 ### Rolling Back a Swarm Service
 
 ```bash
-curl -X POST https://api.powernode.example.com/api/v1/devops/swarm/services/:id/rollback \
+curl -X POST https://api.powernode.example.com/api/v1/devops/swarm/clusters/:cluster_id/services/:id/rollback \
   -H "Authorization: Bearer <jwt>"
 ```
 
@@ -299,11 +301,13 @@ docker service rollback <service-id>
 
 ### Rolling Back a Stack Deployment
 
-Re-deploy the previous Compose file from `Devops::SwarmDeployment` history:
+There is no dedicated `redeploy` route for `deployments` (the deployments resource is read-only — `index`/`show` — and exists for history tracking). To roll back a stack, re-deploy the previous known-good Compose file via the stack `deploy` member action. Look up the prior Compose source from `Devops::SwarmDeployment` history, then:
 
 ```bash
-curl -X POST https://api.powernode.example.com/api/v1/devops/swarm/deployments/:previous_id/redeploy \
-  -H "Authorization: Bearer <jwt>"
+curl -X POST https://api.powernode.example.com/api/v1/devops/swarm/clusters/:cluster_id/stacks/:id/deploy \
+  -H "Authorization: Bearer <jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{ "compose_file": "<previous compose YAML>" }'
 ```
 
 ## Monitoring
@@ -391,4 +395,4 @@ Container instances record security violations:
 
 - `docs/infrastructure/DOCKER_SWARM_OPERATIONS.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

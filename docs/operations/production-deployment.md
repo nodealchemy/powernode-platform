@@ -103,8 +103,12 @@ REDIS_PASSWORD=<strong-password>
 
 # Application secrets — generate each via: openssl rand -hex 64
 SECRET_KEY_BASE=<64-char-hex>
-JWT_SECRET=<64-char-hex>
+JWT_SECRET_KEY=<64-char-hex>   # NOTE: the app reads JWT_SECRET_KEY, NOT JWT_SECRET
 WORKER_API_KEY=<random-string>
+
+# JWT algorithm — production defaults to RS256, which requires JWT_PRIVATE_KEY
+# (an RSA PEM). Set JWT_ALGORITHM=HS256 to use the HMAC secret above instead.
+JWT_ALGORITHM=HS256
 
 # Domain configuration
 DOMAIN=powernode.example.com
@@ -147,7 +151,7 @@ Add these secrets to your Git provider's CI secret store:
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Database credentials |
 | `REDIS_PASSWORD` | Redis password |
 | `SECRET_KEY_BASE` | Rails secret key |
-| `JWT_SECRET` | JWT signing secret |
+| `JWT_SECRET_KEY` | JWT signing secret (the app reads `JWT_SECRET_KEY`, not `JWT_SECRET`) |
 | `WORKER_API_KEY` | Worker authentication key |
 | `DOMAIN` | Production domain |
 | `VITE_API_URL` | Frontend API URL |
@@ -183,7 +187,7 @@ cd server
 bundle exec rails runner lib/tasks/create_default_storage.rb
 ```
 
-Frontend storage management lives at `/system/storage` and requires `admin.storage.read` or `admin.storage.manage`. Cloud providers (S3, GCS, Azure) are configurable via the same UI; configuration values are encrypted automatically via `AiCredentialEncryptionService` with the `encrypted:` prefix. Sensitive keys protected: `access_key_id`, `secret_access_key`, `password`, `api_key`, `credentials`.
+Frontend storage management lives at `/system/storage` and requires `admin.storage.read` or `admin.storage.manage`. Cloud providers (S3, GCS, Azure) are configurable via the same UI; configuration values are encrypted automatically via `Security::CredentialEncryptionService` with the `encrypted:` prefix. Sensitive keys protected: `access_key_id`, `secret_access_key`, `password`, `api_key`, `credentials`.
 
 Status values:
 - `active` — operational
@@ -243,10 +247,10 @@ export BACKUP_DIR=/backups
 
 | Endpoint | Purpose |
 |----------|---------|
-| `/health` | Basic health check (load balancer) |
-| `/health/detailed` | Detailed component status |
-| `/health/ready` | Kubernetes readiness probe |
-| `/health/live` | Kubernetes liveness probe |
+| `/api/v1/health` | Basic health check (load balancer) |
+| `/api/v1/health/detailed` | Detailed component status |
+| `/api/v1/health/ready` | Kubernetes readiness probe |
+| `/api/v1/health/live` | Kubernetes liveness probe |
 | `/up` | Rails native health check |
 
 ### Sentry Error Tracking
@@ -292,10 +296,10 @@ services:
 
 ```bash
 # Basic service health
-curl https://api.powernode.example.com/health
+curl https://api.powernode.example.com/api/v1/health
 
 # Detailed component status
-curl https://api.powernode.example.com/health/detailed
+curl https://api.powernode.example.com/api/v1/health/detailed
 
 # Frontend loads
 curl -I https://powernode.example.com
@@ -306,7 +310,7 @@ Verify storage providers were created for each account:
 ```bash
 cd server
 bundle exec rails runner "
-FileStorage.includes(:account).find_each do |storage|
+FileManagement::Storage.includes(:account).find_each do |storage|
   puts \"#{storage.account.name}: #{storage.name} - #{storage.is_default ? 'DEFAULT' : 'Secondary'}\"
 end
 "
@@ -326,7 +330,7 @@ docker compose -f docker/docker-compose.prod.yml exec backend bundle exec rails 
 docker compose -f docker/docker-compose.prod.yml exec backend bundle exec rails db:rollback STEP=N
 ```
 
-4. Confirm via `/health/detailed`
+4. Confirm via `/api/v1/health/detailed`
 
 ## Production Readiness Checklist
 
@@ -461,4 +465,4 @@ If you see "permission denied" creating files: ensure the backend process can wr
 - `docs/platform/PRODUCTION_READINESS_CHECKLIST.md`
 - `docs/platform/DEFAULT_LOCAL_STORAGE_SETUP.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

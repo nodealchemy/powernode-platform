@@ -179,8 +179,8 @@ The largest category — covers the entire AI platform. Selected examples:
 | Job | Queue | Description |
 |-----|-------|-------------|
 | `Docker::EventCleanupJob` | `maintenance` | Docker event cleanup |
-| `Docker::HealthCheckJob` | `maintenance` | Docker host health checks |
-| `Docker::HostSyncJob` | `maintenance` | Docker host synchronisation |
+| `Docker::HealthCheckJob` | `devops_default` | Docker host health checks |
+| `Docker::HostSyncJob` | `devops_default` | Docker host synchronisation |
 
 ### Git
 
@@ -236,7 +236,7 @@ The largest category — covers the entire AI platform. Selected examples:
 
 | Priority | Queues |
 |----------|--------|
-| **3 (Critical)** | `critical`, `high`, `subscription_lifecycle`, `ai_cancellations`, `devops_high`, `system` _(system ext)_, `trading_critical` _(trading ext)_ |
+| **3 (Critical)** | `critical`, `high`, `subscription_lifecycle` _(business ext)_, `ai_cancellations`, `devops_high`, `system` _(system ext)_, `trading_critical` _(trading ext)_ |
 | **2 (Standard)** | `ai_agents`, `ai_conversations`, `ai_execution`, `ai_orchestration`, `ai_testing`, `devops_default`, `devops_webhooks`, `file_processing`, `services`, `compliance`, `email`, `reports`, `integrations`, `mcp`, `billing` _(business ext)_, `billing_scheduler` _(business ext)_, `trading_training` _(trading ext)_ |
 | **1 (Low)** | `notifications`, `analytics`, `schedules`, `webhooks`, `maintenance`, `default`, `trading_batch` _(trading ext)_ |
 
@@ -293,11 +293,11 @@ All cron schedules live in `worker/config/sidekiq.yml`.
 
 | Schedule | Job | Queue | Description |
 |----------|-----|-------|-------------|
-| Every minute | `Docker::HostSyncJob` | `devops_default` | Sync Docker host state |
-| Every minute | `Swarm::ClusterSyncJob` | `devops_default` | Sync Swarm cluster state |
-| Every 5m | `Docker::HealthCheckJob` | `devops_default` | Docker host health |
-| Every 5m | `Swarm::HealthCheckJob` | `devops_default` | Swarm cluster health |
-| Every 5m | `Git::RunnerHealthCheckJob` | `devops_default` | Git runner health |
+| Every 10m | `Docker::HostSyncJob` | `devops_default` | Sync Docker host state |
+| Every 5m | `Swarm::ClusterSyncJob` | `devops_default` | Sync Swarm cluster state |
+| Every 10m | `Docker::HealthCheckJob` | `devops_default` | Docker host health |
+| Every 10m | `Swarm::HealthCheckJob` | `devops_default` | Swarm cluster health |
+| Every 10m | `Git::RunnerHealthCheckJob` | `devops_default` | Git runner health |
 | Every 10m | `AiProviderHealthCheckJob` | `ai_orchestration` | AI provider health |
 | Hourly :00 | `Devops::ApprovalExpiryJob` | `default` | Expire DevOps approvals |
 | Hourly | `AiBudgetRolloverJob` | `ai_orchestration` | Roll over expired budgets |
@@ -401,7 +401,6 @@ Shared concerns in `worker/app/jobs/concerns/` provide:
 - `ai_cost_calculation_concern.rb` — AI cost tracking
 - `chat_streaming_concern.rb` — Chat response streaming
 - `health_check_steps_concern.rb` / `health_data_fetchers_concern.rb` — Health check helpers
-- `metrics_tracking.rb` — Metrics collection
 - `reports/*.rb` — CSV / PDF / XLSX report generation concerns
 
 ## Verification
@@ -456,4 +455,4 @@ To roll back a problematic job class:
 
 - `docs/worker/WORKER_OPERATIONS_GUIDE.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

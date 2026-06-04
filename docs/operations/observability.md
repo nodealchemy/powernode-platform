@@ -171,9 +171,11 @@ If you add a new component that should ship logs to Loki:
 
 The repo ships `configs/monitoring/grafana-dashboards.yml` and a `grafana-dashboards/` directory. Prometheus scrape config is operator-owned — point Prometheus at:
 
+> **Status: not yet implemented** — there is no `yabeda-rails`/`yabeda-prometheus`-backed `/metrics` endpoint today, and no yabeda gem (active or commented) exists in `server/Gemfile`. The actual APM/monitoring gems are `sentry-ruby`/`sentry-rails`, `skylight` (optional), and OpenTelemetry (opt-in via `OTEL_ENABLED=true` + `bundle install --with opentelemetry`). The Rails-app Prometheus `/metrics` path below is planned; adding the yabeda gems is the intended path to enable it.
+
 | Endpoint | What it exposes |
 |----------|-----------------|
-| `http://backend:3000/metrics` | Rails app metrics (request counts, latency histograms via `yabeda-rails`) — emitted only if the `yabeda-prometheus` gem is enabled. As of 2026-05, NOT enabled by default; uncomment in `server/Gemfile` and re-bundle to opt in. |
+| `http://backend:3000/metrics` | Rails app metrics (request counts, latency histograms via `yabeda-rails`) — _planned_; requires adding the `yabeda-prometheus` gem to `server/Gemfile` and re-bundling. Not present today (see status callout above). |
 | `http://worker:4567/metrics` | Worker HTTP API metrics (job dispatch counts, queue depth) |
 | `cAdvisor`, `node_exporter` | Standard host + container metrics — deploy via the same observability compose file |
 
@@ -216,4 +218,4 @@ The compactor needs time to free space (`retention_delete_delay: 2h`). If disk i
 - [incident-response.md](./incident-response.md) — uses these logs during incidents
 - [performance-tuning.md](./performance-tuning.md) — metrics-driven tuning
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

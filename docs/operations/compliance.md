@@ -150,7 +150,7 @@ Adding a new action: extend the appropriate `*_ACTIONS` constant in `server/app/
 | "Show me the change-management trail for production deploys" | `git log --since=...` + CI pipeline records (see `docs/operations/production-deployment.md`) |
 | "Show me failed login attempts" | `AuditLog.where(action: 'login_failed', created_at: <window>)` |
 | "Show me data exports" | `AuditLog.where(action: 'gdpr.data_export', created_at: <window>)` (verify action present in your release) |
-| "Show me kill switch activations" | `ai_kill_switch_states` table; cross-reference `AuditLog.where(action: 'ai.kill_switch.activate')` |
+| "Show me kill switch activations" | `Ai::KillSwitchEvent.where(event_type: 'halt')` (or `account.ai_kill_switch_events.halts`) on the `ai_kill_switch_events` table |
 | "Prove this user's data was deleted" | `Compliance::AccountTerminationJob` records; `AuditLog.where(action: 'gdpr.account_terminated', user_id: X)` |
 
 ## See also
@@ -161,4 +161,4 @@ Adding a new action: extend the appropriate `*_ACTIONS` constant in `server/app/
 - `server/app/models/concerns/audit_actions.rb` — canonical action list
 - `server/config/initializers/pci_compliance.rb` — PCI parameter filtering
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

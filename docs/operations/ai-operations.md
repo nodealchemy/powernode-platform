@@ -210,7 +210,7 @@ Roughly 2 hours per month.
 
 After any intervention:
 
-- `GET /api/v1/ai/monitoring/health` → `data.healthy: true`
+- `GET /api/v1/ai/monitoring/health` → `data.status: "healthy"` (and `data.health_score >= 80`)
 - `GET /api/v1/ai/missions?status=stuck` → returns no items
 - `sudo scripts/systemd/powernode-installer.sh status` → all services `active`
 
@@ -236,10 +236,10 @@ Performance targets:
 
 If an intervention destabilises an agent or mission:
 
-1. `POST /api/v1/ai/autonomy/kill_switch` → emergency halt
+1. `POST /api/v1/ai/kill_switch/halt` → emergency halt
 2. Investigate via `GET /api/v1/ai/kill_switch/status`
-3. Restore from the most recent good agent state (via admin UI or rails console: `Ai::Agent.find(id).restore_from_history!(version: N)`)
-4. `POST /api/v1/ai/autonomy/kill_switch/release` once safe
+3. Restore from the most recent good agent state via the admin UI, or reconstruct it from `AuditLog` rows (read `AuditLog.where(resource_type: 'Ai::Agent', resource_id: agent.id)` and re-apply `old_values`) — see [agent-autonomy-operations.md#rollback](agent-autonomy-operations.md#rollback)
+4. `POST /api/v1/ai/kill_switch/resume` once safe
 
 ## Troubleshooting
 
@@ -284,4 +284,4 @@ systemctl status powernode-worker@default
 
 - `docs/platform/AI_ORCHESTRATION_OPERATIONS.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_
