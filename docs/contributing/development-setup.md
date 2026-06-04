@@ -119,7 +119,7 @@ Do not run `rails server`, `sidekiq`, or `npm start` directly when systemd units
 | Rails API | `powernode-backend@default` | 3000 | SIGUSR2 reload (~30 ms) via `scripts/reload-backend.sh` |
 | Sidekiq | `powernode-worker@default` | — | Full restart (~28 s drain) |
 | Worker HTTP API | `powernode-worker-web@default` | 4567 | If port 4567 is refused, restart THIS service |
-| Frontend (Vite) | `powernode-frontend@default` | 5173 | Full restart |
+| Frontend (Vite) | `powernode-frontend@default` | 3001 | Full restart |
 
 ## Run the tests
 
@@ -168,36 +168,23 @@ Then:
 
 ```bash
 cd frontend
-cp .env.proxy .env.local      # template
+cp .env.proxy .env.local      # template, then edit the values above
 npm run dev -- --host 0.0.0.0
-```
-
-Or use the helper script:
-
-```bash
-cd frontend && ./scripts/dev-proxy.sh
 ```
 
 ### External proxy preset
 
-If you have an existing reverse proxy on your dev host (e.g. `dev-1.example.com`), use the external-proxy preset:
-
-```bash
-cd frontend
-./scripts/dev-external-proxy.sh
-```
-
-This sets `VITE_BEHIND_PROXY=true`, points HMR at `wss://<proxy-host>/@vite/hmr`, and serves on port 3001 bound to all interfaces so your proxy can reach it.
-
-Manual form:
+If you have an existing reverse proxy on your dev host (e.g. `dev-1.example.com`), use the same single `vite.config.ts` and drive it entirely through the proxy env vars — there is no separate config file. Set the values in `.env.local` (or export them inline):
 
 ```bash
 cd frontend
 export VITE_BEHIND_PROXY=true
 export VITE_PROXY_HOST=dev-1.example.com
 export VITE_PROXY_PROTOCOL=https
-npx vite --config vite.config.external-proxy.ts --host 0.0.0.0
+npm run dev -- --host 0.0.0.0
 ```
+
+This binds Vite on port 3001 across all interfaces and points HMR at the proxy host so your existing reverse proxy can reach it.
 
 ### Nginx template
 
@@ -207,7 +194,7 @@ server {
     server_name app.example.com;
 
     location / {
-        proxy_pass http://localhost:5173;
+        proxy_pass http://localhost:3001;
         proxy_http_version 1.1;
 
         proxy_set_header Host $host;
@@ -221,7 +208,7 @@ server {
     }
 
     location ~ ^/@vite/(client|hmr) {
-        proxy_pass http://localhost:5173;
+        proxy_pass http://localhost:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -310,4 +297,4 @@ sudo systemctl start powernode-worker@default
 - `docs/frontend/EXTERNAL_PROXY_QUICKSTART.md`
 - `docs/frontend/REVERSE_PROXY_SETUP.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_
