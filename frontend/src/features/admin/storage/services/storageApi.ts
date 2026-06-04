@@ -4,12 +4,33 @@ import {
   StorageProviderFormData,
   StorageConnectionTestResult,
 } from '@/shared/types/storage';
+
+// Response envelopes — the backend wraps payloads as { data: { storage(s) } }
+// but some endpoints return the payload flattened at the body root, so each
+// shape allows both. Replaces the previous `<any>` generics.
+interface StorageListResponse {
+  data?: { storages?: StorageProvider[] };
+  storages?: StorageProvider[];
+}
+interface StorageItemResponse {
+  data?: { storage?: StorageProvider };
+  storage?: StorageProvider;
+  error?: string;
+}
+interface StorageTestPayload {
+  connected?: boolean;
+  success?: boolean;
+  message?: string;
+  details?: StorageConnectionTestResult['details'];
+}
+type StorageTestResponse = StorageTestPayload & { data?: StorageTestPayload };
+
 export const storageApi = {
   /**
    * Get all storage providers
    */
   getProviders: async (): Promise<StorageProvider[]> => {
-    const response = await apiClient.get<any>(
+    const response = await apiClient.get<StorageListResponse>(
       '/storage'
     );
     // Backend returns storages array in data.storages
@@ -21,7 +42,7 @@ export const storageApi = {
    * Get a single storage provider by ID
    */
   getProvider: async (id: string): Promise<StorageProvider> => {
-    const response = await apiClient.get<any>(
+    const response = await apiClient.get<StorageItemResponse>(
       `/storage/${id}`
     );
     const storage = response.data.data?.storage || response.data.storage;
@@ -35,7 +56,7 @@ export const storageApi = {
    * Create a new storage provider
    */
   createProvider: async (data: StorageProviderFormData): Promise<StorageProvider> => {
-    const response = await apiClient.post<any>(
+    const response = await apiClient.post<StorageItemResponse>(
       '/storage',
       {
         name: data.name,
@@ -60,7 +81,7 @@ export const storageApi = {
     id: string,
     data: Partial<StorageProviderFormData>
   ): Promise<StorageProvider> => {
-    const response = await apiClient.put<any>(
+    const response = await apiClient.put<StorageItemResponse>(
       `/storage/${id}`,
       {
         name: data.name,
@@ -88,7 +109,7 @@ export const storageApi = {
    * Test connection to a storage provider
    */
   testConnection: async (id: string): Promise<StorageConnectionTestResult> => {
-    const response = await apiClient.post<any>(
+    const response = await apiClient.post<StorageTestResponse>(
       `/storage/${id}/test`
     );
     const result = response.data.data || response.data;
@@ -103,7 +124,7 @@ export const storageApi = {
    * Set a storage provider as default
    */
   setDefault: async (id: string): Promise<StorageProvider> => {
-    const response = await apiClient.post<any>(
+    const response = await apiClient.post<StorageItemResponse>(
       `/storage/${id}/set_default`
     );
     const storage = response.data.data?.storage || response.data.storage;

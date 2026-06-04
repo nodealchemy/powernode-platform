@@ -137,6 +137,27 @@ export interface AuditLogExportResponse {
   error?: string;
 }
 
+export interface ActivityTimelineEntry {
+  timestamp?: string;
+  action?: string;
+  count?: number;
+  user_email?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface RiskAnalysis {
+  averageRiskScore: number;
+  highRiskPercentage: number;
+  topRiskActions: Array<{ action: string; count: number; averageRisk?: number }>;
+  riskTrend: Record<string, number>;
+}
+
+export interface CleanupResult {
+  deleted_count?: number;
+  cutoff_date?: string;
+}
+
 // API Service
 export const auditLogsApi = {
   // Get audit logs with filters and pagination
@@ -209,7 +230,7 @@ export const auditLogsApi = {
   },
 
   // Get activity timeline for analytics
-  async getActivityTimeline(limit = 50): Promise<any[]> {
+  async getActivityTimeline(limit = 50): Promise<ActivityTimelineEntry[]> {
     try {
       const response = await api.get(`/audit_logs/activity_timeline?limit=${limit}`);
       return response.data;
@@ -219,7 +240,7 @@ export const auditLogsApi = {
   },
 
   // Get risk analysis data
-  async getRiskAnalysis(timeRange?: string): Promise<any> {
+  async getRiskAnalysis(timeRange?: string): Promise<RiskAnalysis> {
     try {
       const params = timeRange ? `?time_range=${timeRange}` : '';
       const response = await api.get(`/audit_logs/risk_analysis${params}`);
@@ -295,7 +316,7 @@ export const auditLogsApi = {
 
   // Cleanup old audit logs
    
-  async cleanup(cutoffDate: Date): Promise<{ success: boolean; message?: string; error?: string; data?: any }> {
+  async cleanup(cutoffDate: Date): Promise<{ success: boolean; message?: string; error?: string; data?: CleanupResult }> {
     try {
       const response = await api.delete('/audit_logs/cleanup', {
         params: {
