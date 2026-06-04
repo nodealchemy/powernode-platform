@@ -46,6 +46,7 @@ The exhaustive table-by-table reference (every column, every index) lives at [`r
 |-----------|------|-------------|
 | Timestamp | 48 | Unix timestamp with millisecond precision |
 | Version | 4 | Always `7` |
+| Variant | 2 | RFC 9562 variant bits (always `10`) |
 | Random | 74 | Cryptographically random data |
 
 ### Why UUIDv7 over alternatives
@@ -118,7 +119,7 @@ end
 
 ```ruby
 # Gemfile
-gem 'uuid7', '~> 0.1'  # Pinned for Ruby 3.2 compat — SecureRandom.uuid_v7 needs Ruby 3.3+
+gem 'uuid7', '~> 0.2.0'  # Pinned for Ruby 3.2 compat — SecureRandom.uuid_v7 needs Ruby 3.3+
 ```
 
 `UUID7.generate` is the canonical way to obtain a UUIDv7 in the codebase. Do not use `SecureRandom.uuid_v7` (Ruby 3.3+ only; repo pins 3.2) or `SecureRandom.uuid` (UUIDv4).
@@ -129,8 +130,9 @@ gem 'uuid7', '~> 0.1'  # Pinned for Ruby 3.2 compat — SecureRandom.uuid_v7 nee
 
 ```ruby
 create_table :example_table, id: :uuid do |t|
-  # PostgreSQL native UUID type
-  # No default value — Rails handles generation via UuidGenerator
+  # PostgreSQL native UUID type. The schema carries a gen_random_uuid() DB-level
+  # default (a UUIDv4 safety net), but the UuidGenerator before_create callback
+  # overrides it with a UUIDv7 before insert — so committed rows get UUIDv7.
   t.timestamps
 end
 ```
@@ -607,4 +609,4 @@ This concept consolidates content from:
 - `docs/platform/UUID_DEVELOPMENT_GUIDELINES.md`
 - `docs/backend/DATABASE_SCHEMA_REFERENCE.md` (highlights only; full reference retained at `reference/database-schema.md`)
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

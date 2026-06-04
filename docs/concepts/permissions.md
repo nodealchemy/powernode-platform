@@ -301,7 +301,7 @@ Roles exist solely as a backend mechanism to assign groups of permissions to use
 |------|---------|---------------------|
 | `member` | Basic account member with standard access | `analytics.view`, `api.read`, `invoice.view`, `subscription.cancel`, `team.view`, `user.edit_self`, `webhook.view`, basic admin views |
 | `manager` | Team manager with content and team management | Member permissions + app/listing/review management, content publishing, API management, team management |
-| `billing_admin` | Financial operations specialist | `billing.*`, `admin.billing.*`, `plans.*`, `invoice.*` |
+| `billing_admin` _(business extension)_ | Financial operations specialist — created only when the business extension's seeds run; absent in core mode | `billing.*`, `admin.billing.*`, `plans.*`, `invoice.*` |
 | `developer` | Marketplace application development | `app.*`, `listing.*`, marketplace operations, API management |
 | `owner` | Full account management authority | All resource permissions + selected admin permissions for account management |
 | `content_manager` | Knowledge base content management | `kb.view`, `kb.write`, `kb.manage` |
@@ -313,25 +313,28 @@ Roles exist solely as a backend mechanism to assign groups of permissions to use
 | `admin` | Full system administration (excludes maintenance operations) |
 | `super_admin` | Ultimate system authority with programmatic access to all permissions |
 
-#### Super admin programmatic grant
+#### Universal-access (`system.admin`) programmatic grant
 
-`super_admin` does not need explicit `role_permissions` rows; it gets all permissions programmatically:
+Universal access is granted when any of a user's roles holds the `system.admin` permission — **not** via a `super_admin?` role check. A role carrying `system.admin` gets all permissions programmatically, without explicit `role_permissions` rows for every permission:
 
 ```ruby
 # User model
 def has_permission?(permission_name)
-  return true if super_admin?  # Bypasses all checks
+  # Any role granting the system.admin permission bypasses all checks
+  return true if roles.joins(:permissions).exists?(permissions: { name: 'system.admin' })
   permissions.exists?(name: permission_name)
 end
 
 def permissions
-  if super_admin?
+  if roles.joins(:permissions).exists?(permissions: { name: 'system.admin' })
     Permission.all
   else
     Permission.joins(:roles).where(roles: { id: role_ids })
   end
 end
 ```
+
+The `super_admin?` method exists (`has_role?('super_admin')`) but is **not** what grants universal access; the `system.admin` permission is.
 
 **Benefits:** Universal access without explicit storage; automatic inclusion of new permissions; simplified permission management.
 
@@ -343,6 +346,8 @@ end
 |------|---------|
 | `system_worker` | Full automation with system-level operations — background workers, maintenance automation. Holds all `system.*` permissions (database, jobs, health, cache, storage, services) |
 | `task_worker` | Limited task execution — restricted worker processes, specific task automation. Holds basic operations: `worker.*`, `jobs.process`, `health.report`, `api.internal` |
+
+The core `Permissions::ROLES` constant also defines `ci_worker` and `ai_specialist` (automation roles), omitted from this table for brevity.
 
 ### Role progression
 
@@ -419,7 +424,7 @@ The first pattern fails because `current_user.permissions` returns ActiveRecord 
 
 ```sql
 CREATE TABLE roles (
-  id UUID PRIMARY KEY DEFAULT gen_ulid(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR UNIQUE NOT NULL,
   display_name VARCHAR,
   description TEXT,
@@ -427,7 +432,7 @@ CREATE TABLE roles (
 );
 
 CREATE TABLE permissions (
-  id UUID PRIMARY KEY DEFAULT gen_ulid(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR UNIQUE NOT NULL,
   resource VARCHAR NOT NULL,
   action VARCHAR NOT NULL,
@@ -435,7 +440,7 @@ CREATE TABLE permissions (
 );
 
 CREATE TABLE role_permissions (
-  id UUID PRIMARY KEY DEFAULT gen_ulid(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   role_id UUID REFERENCES roles(id),
   permission_id UUID REFERENCES permissions(id)
 );
@@ -505,4 +510,4 @@ This concept consolidates content from:
 - `docs/platform/PERMISSION_SYSTEM_REFERENCE.md`
 - `docs/platform/ROLES_PERMISSIONS_COMPREHENSIVE_ANALYSIS.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

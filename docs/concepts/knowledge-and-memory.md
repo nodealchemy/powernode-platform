@@ -59,7 +59,7 @@ flowchart TB
 ### Short-term memory
 
 ```ruby
-MEMORY_TYPES = %w[task_context conversation tool_result reflection observation]
+MEMORY_TYPES = %w[general conversation tool_result observation plan state]
 DEFAULT_TTL = 3600  # 1 hour
 
 # Per-agent session entries with TTL
@@ -375,7 +375,7 @@ Pipeline:
 4. **Scoring** — ranks results by relevance
 5. **Summary building** — generates community summaries for context
 
-Constants: `MAX_SEED_NODES = 5`, `SEED_DISTANCE_THRESHOLD = 0.8`, `MAX_COMMUNITIES = 10`, `COMMUNITY_MIN_SIZE = 3`.
+Constants: `MAX_SEED_NODES = 5`, `MAX_COMMUNITY_DEPTH = 3`, `MAX_COMMUNITIES = 5`, `SEED_DISTANCE_THRESHOLD = 0.5`, `COMMUNITY_MIN_SIZE = 2`.
 
 ### Agentic RAG
 
@@ -391,7 +391,7 @@ Per-round pipeline:
 
 1. **Search** — runs hybrid search
 2. **Rerank** — re-scores results for relevance
-3. **Sufficiency check** — `MIN_RELEVANT_RESULTS = 3`, `MIN_AVG_SCORE = 0.5`
+3. **Sufficiency check** — `MIN_RELEVANT_RESULTS = 3`, `MIN_AVG_SCORE = 0.6`
 4. **Gap identification** — what's missing from the results?
 5. **Query reformulation** — LLM rewrites query to fill gaps
 6. **Synthesis** — LLM generates answer from accumulated results
@@ -417,7 +417,7 @@ query.quality_score  # computed quality metric
 
 ```ruby
 SEARCH_MODES = %w[vector keyword graph hybrid]
-FUSION_METHODS = %w[rrf weighted simple]
+FUSION_METHODS = %w[rrf weighted cascade]
 
 # Class method for optimization analysis
 Ai::HybridSearchResult.avg_latency_for(mode)
@@ -446,7 +446,7 @@ The Skill Graph manages reusable capabilities that agents can possess and execut
 | `Ai::Skill` | Core skill definition with category, status, execution context |
 | `Ai::AgentSkill` | Many-to-many link between agents and skills |
 | `Ai::SkillConflict` | Detected conflicts between overlapping skills |
-| `Ai::SkillProposal` | Workflow for proposing new skills (submit → approve → create) |
+| `Ai::SkillProposal` | Workflow for proposing new skills (draft → proposed → approved → created) |
 | `Ai::SkillUsageRecord` | Tracks skill execution outcomes |
 | `Ai::SkillVersion` | Version history with A/B testing support |
 
@@ -454,14 +454,13 @@ The Skill Graph manages reusable capabilities that agents can possess and execut
 
 ```ruby
 CATEGORIES = %w[
-  code_generation code_review testing debugging deployment
-  documentation analysis communication planning research
-  data_processing security monitoring optimization
-  integration automation design architecture
-  project_management devops operations
+  productivity sales customer_support product_management marketing
+  legal finance data business_search bio_research skill_management
+  code_intelligence testing_qa devops security sre_observability
+  database_ops release_management research documentation trading
 ]
 
-STATUSES = %w[draft active deprecated archived]
+STATUSES = %w[active inactive draft]
 ```
 
 ### Skill lifecycle
@@ -469,15 +468,16 @@ STATUSES = %w[draft active deprecated archived]
 ```mermaid
 flowchart LR
     Research[Research<br/>topic analysis]
-    Proposal[SkillProposal<br/>submitted]
-    Review[under_review]
+    Draft[SkillProposal<br/>draft]
+    Proposed[proposed]
     Approval[approved]
+    CreatedProposal[created]
     Created[Ai::Skill<br/>active]
     Active[in use]
     Deprecated[deprecated]
     Archived[archived]
 
-    Research --> Proposal --> Review --> Approval --> Created --> Active
+    Research --> Draft --> Proposed --> Approval --> CreatedProposal --> Created --> Active
     Active --> Deprecated --> Archived
 ```
 
@@ -510,10 +510,10 @@ Pipeline: research (via `ResearchService`) → propose (with inferred category +
 `Ai::SkillConflict` records overlapping or contradictory skills:
 
 ```ruby
-CONFLICT_TYPES = %w[overlap contradiction dependency version_mismatch naming]
-SEVERITIES = %w[low medium high critical]
-STATUSES = %w[detected acknowledged resolved dismissed]
-SEVERITY_WEIGHTS = { "low" => 1, "medium" => 2, "high" => 4, "critical" => 8 }
+CONFLICT_TYPES = %w[duplicate overlapping circular_dependency stale orphan version_drift]
+SEVERITIES = %w[critical high medium low]
+STATUSES = %w[detected reviewing auto_resolved resolved dismissed]
+SEVERITY_WEIGHTS = { "critical" => 4, "high" => 3, "medium" => 2, "low" => 1 }
 
 conflict.resolve!
 conflict.dismiss!
@@ -525,9 +525,9 @@ conflict.calculate_priority!
 `Ai::SkillVersion` tracks version history with A/B testing:
 
 ```ruby
-CHANGE_TYPES = %w[major minor patch hotfix experimental]
+CHANGE_TYPES = %w[manual evolution consolidation ab_test]
 
-version.record_outcome!(success: true)
+version.record_outcome!(successful: true)
 version.activate!  # Make this version active
 ```
 
@@ -683,7 +683,7 @@ The knowledge, memory, and skill subsystems run on automated maintenance schedul
 | Skill gap detection | 3:00 AM monthly | Identifies missing capabilities across teams |
 | Shared knowledge maintenance | Daily | Import from learnings, recalculate quality scores, audit stale entries |
 | Escalation timeout | Every 15 min | Auto-escalate overdue escalations |
-| Goal maintenance | Every 6 hours | Auto-abandon stale goals |
+| Goal maintenance | Daily (04:30 UTC) | Auto-abandon stale goals |
 | Observation pipeline | Every 30 min | Collect sensor data for autonomous agents |
 | Observation cleanup | Daily | Delete expired and old processed observations |
 | Proposal expiry | Every hour | Expire overdue unreviewed proposals |
@@ -707,4 +707,4 @@ This concept consolidates content from:
 - `docs/platform/SKILL_GRAPH_REFERENCE.md`
 - `docs/platform/CONTENT_LINKING.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

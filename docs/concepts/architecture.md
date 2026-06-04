@@ -54,7 +54,7 @@ flowchart LR
     API --> Services
     API <--> Redis0
     BaseJob <-- "HTTP + WORKER_SERVICE_TOKEN JWT" --> API
-    WorkerSvc <-- "LLM proxy /internal/ai/llm" --> API
+    WorkerSvc <-- "tool registry + reasoning /internal/ai/llm" --> API
     BaseJob <--> Redis1
 ```
 
@@ -94,9 +94,9 @@ The Rails service layer is organized by domain under `server/app/services/`. The
 | `audit/` | Audit log services |
 | `admin/` | Admin panel services (daily summaries, maintenance) |
 | `accounts/` | Account management |
-| `analytics/` | Analytics processing |
-| `notifications/` | Notification delivery |
-| `marketplace/` | Marketplace services (community agents) |
+| `analytics/` | Analytics processing (business extension) |
+| `notification_service.rb` | Notification delivery (single top-level file, not a namespace directory) |
+| `marketplace/` | Marketplace services — community agents (business extension) |
 | `system/` | System-level services (when system extension active) |
 
 Live counts of services and models live in the auto-generated reference: see [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md) for the tool catalog and `cd server && rails stats` for service file counts.
@@ -105,7 +105,7 @@ Live counts of services and models live in the auto-generated reference: see [`r
 
 | Service | File | Purpose |
 |---------|------|---------|
-| `Ai::AgentOrchestrationService` | `agent_orchestration_service.rb` | Primary agent execution orchestrator with provider selection, token tracking, streaming |
+| `Ai::Agents::ExecutionService` | `ai/agents/execution_service.rb` | Primary agent execution orchestrator with provider selection, token tracking, streaming |
 | `Ai::McpAgentExecutor` | `mcp_agent_executor.rb` | Executes agents through the MCP protocol |
 | `Ai::ProviderLoadBalancerService` | `provider_load_balancer_service.rb` | Load balancing across providers with five strategies |
 | `Ai::ProviderCircuitBreakerService` | `provider_circuit_breaker_service.rb` | Circuit breaker pattern for provider resilience |
@@ -191,7 +191,7 @@ The worker authenticates with the server using JWTs signed by `WORKER_SERVICE_TO
 | `BackendApiClient` | Primary CRUD client — accounts, subscriptions, analytics, AI, DevOps |
 | `ApiClient` | Base HTTP client for analytics and reporting endpoints |
 | `WebAuthApiClient` | Sidekiq Web UI authentication (isolated circuit breaker) |
-| `LlmProxyClient` | Routes LLM calls through the server's `internal/ai/llm` endpoints for tool calling, structured output, and memory injection |
+| `LlmProxyClient` | Calls LLM providers **directly** for completions/structured output (`complete`, `complete_with_tools`, `complete_structured`); only `tool_definitions`, `dispatch_tool`, and `execute_with_reasoning` (reasoning orchestration) route through the server's `internal/ai/llm` endpoints |
 
 Two auth helpers distinguish normal worker calls from elevated system operations: `PrimaryServiceAuth` (worker → server) and `SystemWorkerAuth` (system-level).
 
@@ -216,6 +216,8 @@ The worker uses `sidekiq-scheduler` (config: `worker/config/sidekiq.yml`). Sched
 - Weekly (Sunday) / Monthly (1st): backup schema sync, skill lifecycle weekly/monthly passes
 
 ## File processing subsystem
+
+> **Status: not yet implemented** — Today only the server-side dispatch (`FileStorageService` building job-class name strings) and the worker's `FileProcessing::VirusScanJob` exist. The `ThumbnailGenerationJob`, `MetadataExtractionJob`, `VideoProcessingJob`, `AudioProcessingJob`, and the `FileProcessingWorker` base class described below are **not yet built** in the worker — the dispatch contract is in place but has no executor for these types. The section below documents the planned design.
 
 The file processing pipeline is a worker subsystem that handles thumbnail generation, metadata extraction, and audio/video processing for user uploads. It illustrates how the worker boundary is enforced even for high-bandwidth binary data.
 
@@ -333,7 +335,7 @@ erDiagram
     }
 ```
 
-Sensitive storage credentials are encrypted with `AiCredentialEncryptionService`; credentials marked with the `encrypted:` prefix are auto-decrypted on provider instantiation.
+Sensitive storage credentials are encrypted with `Security::CredentialEncryptionService`; credentials marked with the `encrypted:` prefix are auto-decrypted on provider instantiation.
 
 ### `FileStorageService` interface
 
@@ -575,7 +577,7 @@ end
 |-------|--------|
 | Backend | `Rails.application.credentials` for secrets, environment for endpoint URLs |
 | Worker | Environment variables (`WORKER_SERVICE_TOKEN`, `BACKEND_API_URL`, `REDIS_URL`) |
-| Frontend | Build-time `process.env.REACT_APP_*` |
+| Frontend | Build-time `import.meta.env.VITE_*` (Vite), with `REACT_APP_*` as a legacy fallback |
 
 ### Error handling
 
@@ -675,4 +677,4 @@ This concept consolidates content from:
 - `docs/platform/FILE_MANAGEMENT_SYSTEM.md`
 - `docs/platform/PLATFORM_PATTERNS_AND_STANDARDS.md` (normative parts; residual content slated for archive)
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

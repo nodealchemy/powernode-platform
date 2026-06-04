@@ -245,12 +245,14 @@ The Powernode frontend uses a **singleton WebSocket connection pattern** — one
    - 100% backward compatible API
 
 3. **Specialized hooks** (all use `useWebSocket` internally)
-   - `useSubscriptionWebSocket` — Subscription management
    - `useCustomerWebSocket` — Customer channel
    - `useAnalyticsWebSocket` — Analytics events
    - `useSettingsWebSocket` — Settings updates
-   - `useWorkflowExecution` — Workflow execution updates
-   - `useConversationSocket` — Chat conversation streaming
+   - `useNotificationWebSocket` — Notification events
+   - `useMcpWebSocket` — MCP protocol transport
+   - `usePageWebSocket` — Page collaboration updates
+   - `useAiStreamingWebSocket` — AI token streaming
+   - `useConversationSocket` — Chat conversation streaming (lives under `frontend/src/features/ai/components/conversation/`)
 
 ### Performance impact
 
@@ -740,4 +742,4 @@ This concept consolidates content from:
 - `docs/platform/WEBSOCKET_AND_REALTIME.md`
 - `docs/platform/ACTIONCABLE_CHANNELS_REFERENCE.md` (summary only; full reference relocated to `reference/api/websocket.md`)
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

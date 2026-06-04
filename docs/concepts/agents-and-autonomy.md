@@ -77,7 +77,7 @@ flowchart TB
 
 | Service | Subsystem |
 |---------|-----------|
-| `Ai::AgentOrchestrationService` | Agent execution |
+| `Ai::Agents::ExecutionService` | Agent execution |
 | `Ai::Missions::OrchestratorService` | Mission lifecycle |
 | `Ai::Ralph::ExecutionService` | Ralph Loop execution |
 | `Ai::CodeFactory::OrchestratorService` | Code review pipeline |
@@ -160,11 +160,16 @@ stateDiagram-v2
 
 ### Mission types and phases
 
+`MISSION_TYPES = %w[development research operations infrastructure agent_fleet custom]`.
+
 | Type | Pipeline |
 |------|----------|
 | `development` | Full 12-phase pipeline with all approval gates |
 | `research` | Subset of phases for investigation and analysis tasks |
 | `operations` | Subset of phases for infrastructure and operational tasks |
+| `infrastructure` | Provisioning/operational missions (has dedicated `infrastructure?` logic and provisioning-conversation tagging) |
+| `agent_fleet` | Fleet-oriented missions for launching/coordinating agent fleets |
+| `custom` | User-defined mission with a custom phase set |
 
 ### Approval gates
 
@@ -209,7 +214,7 @@ Jobs dispatch through `WorkerJobService` to the `ai_execution` queue. When an ap
 | `POST` | `/api/v1/ai/missions/:id/start` | `ai.missions.manage` |
 | `POST` | `/api/v1/ai/missions/:id/approve` | `ai.missions.manage` |
 | `POST` | `/api/v1/ai/missions/:id/reject` | `ai.missions.manage` |
-| `POST` | `/api/v1/ai/missions/:id/pause` / `resume` / `cancel` / `retry_phase` | `ai.missions.manage` |
+| `POST` | `/api/v1/ai/missions/:id/pause` / `resume` / `cancel` / `retry` (action: `retry_phase`) | `ai.missions.manage` |
 | `POST` | `/api/v1/ai/missions/:id/{analyze_repo,generate_prd,create_branch,run_tests,deploy,create_pr,cleanup_deployment,advance}` | `ai.missions.manage` |
 
 Full endpoint list in [`reference/api/ai.md`](../reference/api/ai.md).
@@ -245,7 +250,7 @@ flowchart TB
 
 | Model | Purpose |
 |-------|---------|
-| `Ai::RalphLoop` | Container — holds tasks, iterations, scheduling mode (`manual`, `scheduled`, `continuous`, `event_triggered`) |
+| `Ai::RalphLoop` | Container — holds tasks, iterations, scheduling mode (`manual`, `scheduled`, `continuous`, `event_triggered`, `autonomous`) |
 | `Ai::RalphTask` | Individual task with dependency tracking and executor routing |
 | `Ai::RalphIteration` | Single execution attempt — records output, tokens, learnings, commit SHA |
 
@@ -262,6 +267,8 @@ Tasks route to executors by `execution_type`:
 | `container` | `ContainerOrchestrationService` | Container-based execution |
 | `human` | Notification | Creates notification for human review |
 | `community` | A2A external | External agent federation |
+
+> **Status: not yet implemented** — `workflow` is not wired through `RalphTask` yet: it is absent from `RalphTask::EXECUTION_TYPES` (`agent pipeline a2a_task container human community`) so a task with `execution_type: "workflow"` fails model validation, and `TaskExecutor` has no `workflow` dispatch branch (it falls through to "Unknown execution type"). The other six rows are live; `workflow` routing is planned.
 
 ### AgenticLoop
 
@@ -363,7 +370,7 @@ pending → reviewing → clean | dirty | stale
 
 ### Remediation loop
 
-`RemediationLoopService` makes up to 3 AI-powered fix attempts on review findings, using `Ai::AgentOrchestrationService` to execute remediation agents. Extracts `CompoundLearning` on completion.
+`RemediationLoopService` makes up to 3 AI-powered fix attempts on review findings, using `Ai::McpAgentExecutor` to execute remediation agents. Extracts `CompoundLearning` on completion.
 
 ### Integration with Missions and Ralph
 
@@ -498,16 +505,16 @@ weight.clamp(1, 10).round
 stateDiagram-v2
     [*] --> CLOSED
     CLOSED --> OPEN: failures >= 5
-    OPEN --> HALF_OPEN: after RESET_TIMEOUT (30s)
-    HALF_OPEN --> CLOSED: 3 successes
+    OPEN --> HALF_OPEN: after timeout_duration (60s)
+    HALF_OPEN --> CLOSED: 2 successes
     HALF_OPEN --> OPEN: failure
 ```
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `FAILURE_THRESHOLD` | 5 | Failures before opening |
-| `RESET_TIMEOUT` | 30s | Time before half-open probe |
-| `SUCCESS_THRESHOLD` | 3 | Successes to close from half-open |
+| `failure_threshold` | 5 | Failures before opening |
+| `timeout_duration` | 60_000 ms (60s) | Time before half-open probe |
+| `success_threshold` | 2 | Successes to close from half-open |
 
 ### Provider metrics
 
@@ -933,17 +940,17 @@ goal.fail!(reason:)       # active → failed
 goal.update_progress!(50) # Update completion percentage
 ```
 
-`AiGoalMaintenanceJob` runs every 6 hours to auto-abandon stale goals (inactive for 30+ days).
+`AiGoalMaintenanceJob` runs daily (04:30 UTC) to auto-abandon stale goals (inactive for 30+ days).
 
 ### Observation pipeline
 
 Environmental sensing system that collects data from multiple sensors and feeds it to agents.
 
-`Ai::AgentObservation` records observations with `sensor_type` (`knowledge_health`, `platform_health`, `recommendation`, `peer_agent`, `workspace`, `code_change`, `budget`), `observation_type` (`anomaly`, `degradation`, `opportunity`, `recommendation`, `request`, `alert`), and `severity` (`info`, `warning`, `critical`).
+`Ai::AgentObservation` records observations with `sensor_type` (`knowledge_health`, `platform_health`, `recommendation`, `peer_agent`, `workspace`, `code_change`, `budget`, `goal_progress`, `stigmergic_signal`, `governance`), `observation_type` (`anomaly`, `degradation`, `opportunity`, `recommendation`, `request`, `alert`), and `severity` (`info`, `warning`, `critical`).
 
 **Rate limiting:** 100 observations/hour/agent. Deduplication fingerprint prevents duplicates within 15-minute windows.
 
-Seven sensors in `server/app/services/ai/autonomy/sensors/`:
+Ten sensors in `server/app/services/ai/autonomy/sensors/`:
 
 | Sensor | Monitors |
 |--------|----------|
@@ -954,6 +961,9 @@ Seven sensors in `server/app/services/ai/autonomy/sensors/`:
 | `WorkspaceActivitySensor` | Workspace messages, user requests |
 | `CodeChangeSensor` | Repository changes, CI/CD events |
 | `BudgetSensor` | Budget utilization, spending anomalies |
+| `GoalProgressSensor` | Agent goal progress and stalls |
+| `GovernanceSensor` | Governance findings and policy violations |
+| `StigmergicSignalSensor` | Stigmergic coordination signals from shared memory |
 
 `AiObservationPipelineJob` runs every 30 minutes; `AiObservationCleanupJob` runs daily.
 
@@ -980,7 +990,7 @@ Resolution by specificity: agent-specific > action-type-specific > global. `poli
 
 Structured change proposals from agents that require human review.
 
-`Ai::AgentProposal` types: `feature`, `knowledge_update`, `code_change`, `architecture`, `process_improvement`, `configuration`. Statuses: `pending_review`, `approved`, `rejected`, `implemented`, `withdrawn`. Priorities: `low`, `medium`, `high`, `critical`.
+`Ai::AgentProposal` types: `feature`, `knowledge_update`, `code_change`, `architecture`, `process_improvement`, `configuration`, `sweep_execution`. Statuses: `pending_review`, `approved`, `rejected`, `implemented`, `withdrawn`. Priorities: `low`, `medium`, `high`, `critical`.
 
 **Review deadline:** Defaults to 72 hours. `AiProposalExpiryJob` runs hourly to expire unreviewed proposals.
 
@@ -1119,7 +1129,7 @@ import { compoundLearningApi } from '@/features/ai/learning/services/compoundLea
 | `ai.agents.create/execute/read/manage` | Agent management and execution |
 | `ai.teams.create/execute/read/manage` | Team operations |
 | `ai.missions.read/manage` | Mission operations |
-| `ai.providers.manage` | Provider management |
+| `ai.providers.read/create/update/delete` | Provider management |
 | `ai.routing.read/manage/optimize` | Model router |
 | `ai.code_factory.read/manage` | Code Factory |
 | `ai.monitoring.read` / `ai.analytics.read` | Dashboards |
@@ -1140,7 +1150,7 @@ See [`concepts/permissions.md`](./permissions.md) for the full permission system
 |---------|------------------|-----|
 | WebSocket not connecting | Permission missing (`ai_orchestration.read`) | Check `currentUser.permissions` includes the channel's read perm |
 | Mission stuck in a phase | Sidekiq worker not running, or phase job failed | `systemctl status powernode-worker@default`; `journalctl -u powernode-worker@default -f` |
-| Circuit breakers always open | Provider unreachable or failure threshold too low | Check `/api/v1/internal/ai/providers/:id/health`; reset via `CircuitBreaker.find(id).reset!` |
+| Circuit breakers always open | Provider unreachable or failure threshold too low | Check `/api/v1/internal/ai/providers/:id/health`; reset via `Ai::CircuitBreaker.find(id).attempt_reset!` (or `.close!` to force-close) |
 | API calls 401-ing | Token expired | Frontend auto-refreshes; if persistent, re-login |
 | Permission denied | User missing required permission | `console.log(currentUser?.permissions)` to verify |
 
@@ -1171,4 +1181,4 @@ This concept consolidates content from:
 - `docs/platform/MODEL_ROUTER_GUIDE.md`
 - `docs/platform/RALPH_LOOPS_GUIDE.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_
