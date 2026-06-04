@@ -251,7 +251,13 @@ class AiConversationChannel < ApplicationCable::Channel
           action_context: message.content_metadata["action_context"],
           concierge_action: message.content_metadata["concierge_action"],
           action_params: message.content_metadata["action_params"],
-          mentions: message.content_metadata["mentions"]
+          mentions: message.content_metadata["mentions"],
+          # Rich chat cards + A2UI surfaces ride content_metadata too; without
+          # these the live ActionCable broadcast silently strips them (they'd
+          # only survive on the immediate HTTP response). .compact drops them
+          # when absent, so existing messages are unaffected.
+          cards: message.content_metadata["cards"],
+          a2ui_surface: message.content_metadata["a2ui_surface"]
         ).compact
       end
 
