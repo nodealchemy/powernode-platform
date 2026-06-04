@@ -1,5 +1,7 @@
 # Mermaid Render Parity — Gitea + GitHub
 
+> Status: active
+
 The platform doc corpus contains Mermaid diagrams across `docs/concepts/`,
 `docs/guides/`, and `docs/operations/`. Both Gitea (≥ v1.17) and the
 GitHub mirror render Mermaid natively, but not always identically. This
@@ -93,3 +95,5 @@ pass), render parity was confirmed via:
 
 - [`README.md`](./README.md) — verification harness overview
 - `../contributing/doc-conventions.md` — Mermaid authoring guidelines
+
+_Last verified: 2026-06-04_

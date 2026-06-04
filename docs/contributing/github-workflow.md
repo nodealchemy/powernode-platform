@@ -28,7 +28,7 @@ Powernode uses a `develop` → `feature/*` → `release/*` → `master` workflow
 | `release/<x.y.z>` | Hardening branches cut from `develop` when preparing a release. Bug fixes during the freeze land here. |
 | `master` | Release-only. Tagged once a release branch is verified. Force-pushes are forbidden. |
 
-The platform parent and the `extensions/system` submodule are dual-remoted (private Gitea origin + public GitHub mirror). Releases push to both.
+The platform parent and the `extensions/system` submodule are dual-remoted to the public GitHub mirror (`origin`) and the private Gitea upstream (`ipnode`). Releases push to both.
 
 ## Tag naming
 
@@ -133,7 +133,7 @@ Under **Settings > General**, the public mirror enables:
 
 ## GitHub Actions
 
-The repo ships workflows under `.github/workflows/`. The most important one for contributors is the validation workflow that runs on every PR: it executes the same `./scripts/validate.sh` you can run locally.
+CI workflows currently live under `.gitea/workflows/` (the private Gitea side): `ai-agent-execution.yml` and `docker-build.yml`. A GitHub-side validation workflow that runs `./scripts/validate.sh` on every PR is not yet present on the public mirror — for now, run `./scripts/validate.sh` locally (it also fires via the pre-push hook installed by `scripts/install-git-hooks.sh`) before opening a PR.
 
 Maintainer secrets (`NPM_TOKEN`, `DEPLOY_KEY`, etc.) are managed under **Settings > Secrets and variables > Actions**. Contributors do not need them.
 
@@ -174,4 +174,4 @@ Run `rg "subscription platform" docs/ README.md` against your branch. Wave 0 of 
 
 - `docs/GITHUB_SETUP.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

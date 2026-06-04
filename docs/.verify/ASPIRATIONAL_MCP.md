@@ -1,5 +1,7 @@
 # Aspirational MCP Actions — Documented Backlog
 
+> Status: active
+
 The `check-mcp-actions.sh` harness may report unknown actions because
 some docs reference `platform.X(...)` MCP syntax for actions that aren't
 yet in the platform's `server/app/services/ai/tools/platform_api_tool_registry.rb`.
@@ -55,3 +57,5 @@ one of three things happened:
 - `../reference/auto/mcp-tools.md` — current platform MCP action catalog (auto-generated)
 - `server/app/services/ai/tools/platform_api_tool_registry.rb` — source of truth for registered actions
 - `extensions/system/docs/.verify/ASPIRATIONAL_MCP.md` — system extension's aspirational catalog (system_* actions)
+
+_Last verified: 2026-06-04_

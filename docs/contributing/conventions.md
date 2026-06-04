@@ -111,35 +111,30 @@ These rules are absolute. They apply equally to humans and AI agents.
 
 ## Frontend linting
 
-The frontend uses a multi-tier ESLint configuration to balance security, code quality, and developer experience.
+The frontend uses a single ESLint flat config (`eslint.config.mjs`) with context-scoped overrides to balance security, code quality, and developer experience.
 
-### Configuration files
+### Configuration file
 
-| File | Purpose | Usage |
-|------|---------|-------|
-| `.eslintrc.js` | Daily development; balanced security with smart overrides | `npm run lint` |
-| `.eslintrc.production.js` | Strict production-readiness checks | `npm run lint:production` |
-| `.eslintrc.security.js` | Security-focused audit | `npm run lint:security` |
+| File | Purpose |
+|------|---------|
+| `eslint.config.mjs` | The one flat config. A base ruleset for `**/*.{ts,tsx,js,jsx}` plus file-glob-scoped overrides that tighten or relax rules per context (see "Rule overrides by context" below) |
 
 ### npm scripts
 
 ```bash
-npm run lint            # daily linting
+npm run lint            # lint src/**/*.{ts,tsx}
 npm run lint:fix        # auto-fix
-npm run lint:security   # CI security audit
-npm run lint:production # production readiness
-npm run lint:check      # check ESLint config itself
+npm run lint:check      # inspect the resolved ESLint config (eslint --inspect-config)
 ```
 
 ### Object injection rule strategy
 
-ESLint's `security/detect-object-injection` flags dynamic object property access. The plugin generates many false positives in our admin context. Our approach:
+ESLint's `security/detect-object-injection` flags dynamic object property access. The plugin generates many false positives in our admin context. Our approach (all expressed as file-glob overrides in `eslint.config.mjs`):
 
-- **Development:** disabled globally (too many false positives).
+- **Base (all files):** disabled globally (too many false positives).
 - **Admin components:** disabled — authenticated and permission-controlled.
 - **UI design system components:** disabled — props are controlled.
-- **Public components:** enabled with explicit overrides.
-- **Production:** warn level with required `eslint-disable` comments.
+- **Public components:** enabled (`error`) via the `**/public/**` override.
 
 Safe patterns (authenticated context):
 
@@ -159,16 +154,16 @@ obj.__proto__ = malicious;      // prevented
 
 ### Rule overrides by context
 
-| Path | Rule overrides |
-|------|----------------|
-| `**/admin/**/*.tsx` | `security/detect-object-injection: 'off'`, `security/detect-possible-timing-attacks: 'off'` |
-| `**/shared/components/ui/**/*.tsx` | `security/detect-object-injection: 'off'` |
-| `**/public/**/*.tsx` | `security/detect-object-injection: 'error'`, `security/detect-possible-timing-attacks: 'error'` |
-| `**/*.test.tsx` | `no-console: 'off'`, `security/detect-object-injection: 'off'` |
+| File glob | Rule overrides |
+|-----------|----------------|
+| `**/admin/**/*.{ts,tsx}`, `**/features/admin/**/*.{ts,tsx}` | `security/detect-object-injection: 'off'`, `security/detect-possible-timing-attacks: 'off'` |
+| `**/shared/components/ui/**/*.{ts,tsx}` | `security/detect-object-injection: 'off'` |
+| `**/public/**/*.{ts,tsx}`, `**/pages/public/**/*.{ts,tsx}` | `security/detect-object-injection: 'error'`, `security/detect-possible-timing-attacks: 'error'` |
+| `**/*.test.{js,ts,tsx}`, `**/*.spec.{js,ts,tsx}`, `**/__tests__/**`, `**/tests/**` | `no-console: 'off'`, `@typescript-eslint/no-explicit-any: 'off'`, `security/detect-object-injection: 'off'` |
 
 ### Build interaction
 
-If the production lint config breaks your build, run with the dev config:
+If a lint error blocks your build, suppress lint failures for that build:
 
 ```bash
 ESLINT_NO_DEV_ERRORS=true npm run build
@@ -176,7 +171,7 @@ ESLINT_NO_DEV_ERRORS=true npm run build
 
 ### CI integration
 
-The validation workflow runs `npm run lint` on every PR. The stricter `lint:security` and `lint:production` runs are reserved for release branches.
+There is no GitHub-side validation workflow that runs `npm run lint` on PRs today; linting is run locally (`npm run lint`) and via the pre-push hook. Wire a lint job into `.gitea/workflows/` (or a future GitHub workflow) when CI linting is added.
 
 ## Terminology
 
@@ -194,4 +189,4 @@ The validation workflow runs `npm run lint` on every PR. The stricter `lint:secu
 - Sections of the root CLAUDE.md (Permission-Based Access Control, Frontend Patterns, Backend Patterns, Cryptographic Material Safety, Bulk Operation Safety, Design Principles, Architecture Principles, Terminology)
 - `docs/frontend/ESLINT_GUIDE.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

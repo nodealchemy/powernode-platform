@@ -133,5 +133,7 @@ git push --no-verify
   parity between Gitea and the GitHub mirror
 - [`ASPIRATIONAL_MCP.md`](./ASPIRATIONAL_MCP.md) — known-aspirational
   MCP action catalog (expected unknowns)
+
+_Last verified: 2026-06-04_
 - `../contributing/doc-conventions.md` — authoring rules these scripts
   validate
