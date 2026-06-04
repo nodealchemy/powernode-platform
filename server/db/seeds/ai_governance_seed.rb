@@ -282,20 +282,28 @@ puts "  ✅ #{chains_count} approval chains created"
 # ---------------------------------------------------------------------------
 # Account Credits (1)
 # ---------------------------------------------------------------------------
-puts "\n  💰 Creating account credits..."
+# Account credits are a BUSINESS-extension capability (Ai::AccountCredit lives in
+# extensions/business). Guard behind business_loaded? so this core governance
+# seed runs cleanly in core mode, where the model is absent.
+# See docs/concepts/core-business-boundary.md.
+if Shared::FeatureGateService.business_loaded?
+  puts "\n  💰 Creating account credits..."
 
-Ai::AccountCredit.find_or_create_by!(account: admin_account) do |credit|
-  credit.balance = 10_000.0
-  credit.lifetime_credits_purchased = 10_000.0
-  credit.last_purchase_at = Time.current
-  credit.settings = {
-    'low_balance_threshold' => 500.0,
-    'auto_recharge' => false,
-    'notification_email' => 'admin@powernode.org'
-  }
+  Ai::AccountCredit.find_or_create_by!(account: admin_account) do |credit|
+    credit.balance = 10_000.0
+    credit.lifetime_credits_purchased = 10_000.0
+    credit.last_purchase_at = Time.current
+    credit.settings = {
+      'low_balance_threshold' => 500.0,
+      'auto_recharge' => false,
+      'notification_email' => 'admin@powernode.org'
+    }
+  end
+
+  puts "  ✅ Account credits: #{Ai::AccountCredit.find_by(account: admin_account)&.balance} balance"
+else
+  puts "\n  ⏭️  Account credits skipped (business extension not loaded — core mode)"
 end
-
-puts "  ✅ Account credits: #{Ai::AccountCredit.find_by(account: admin_account)&.balance} balance"
 
 # ---------------------------------------------------------------------------
 # Agent Cards — A2A Protocol v0.3 (5)
@@ -425,6 +433,6 @@ puts "  ✅ #{cards_count} agent cards created"
 puts "\n📊 AI Governance Summary:"
 puts "   Compliance Policies: #{Ai::CompliancePolicy.where(account: admin_account).count}"
 puts "   Approval Chains: #{Ai::ApprovalChain.where(account: admin_account).count}"
-puts "   Account Credits Balance: #{Ai::AccountCredit.find_by(account: admin_account)&.balance}"
+puts "   Account Credits Balance: #{Ai::AccountCredit.find_by(account: admin_account)&.balance}" if Shared::FeatureGateService.business_loaded?
 puts "   Agent Cards: #{Ai::AgentCard.where(account: admin_account).count}"
 puts "✅ AI Governance seeding completed!"
