@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { logger } from '@/shared/utils/logger';
-import apiClient from '@/shared/services/apiClient';
+import { onboardingApi } from './services/onboardingApi';
 
 /**
  * Provider categories supported by the unified onboarding wizard.
@@ -342,12 +342,6 @@ export const PROVIDER_LABELS: Record<ProviderCategory, Record<ProviderTypeSlug, 
   },
 };
 
-interface TestResponseEnvelope {
-  data?: { valid?: boolean; error?: string };
-  valid?: boolean;
-  error?: string;
-}
-
 export type CredentialTestStatus = 'idle' | 'testing' | 'valid' | 'invalid';
 
 export interface ProviderCredentialFormProps {
@@ -521,14 +515,13 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
     setTestStatus('testing');
     setTestMessage(null);
     try {
-      const response = await apiClient.post<TestResponseEnvelope>(testEndpoint, {
-        provider_id: providerId ?? providerType,
-        provider_type: providerType,
-        provider_category: category,
+      const inner = await onboardingApi.testCredentials({
+        endpoint: testEndpoint,
+        providerId: providerId ?? providerType,
+        providerType,
+        category,
         credentials: values,
       });
-      const envelope = response.data ?? {};
-      const inner = envelope.data ?? envelope;
       if (inner.valid) {
         setTestStatus('valid');
         setTestMessage(null);

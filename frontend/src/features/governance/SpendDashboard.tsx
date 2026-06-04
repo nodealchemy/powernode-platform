@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, RefreshCw, TrendingUp } from 'lucide-react';
-import { apiClient } from '@/shared/services/apiClient';
 import { logger } from '@/shared/utils/logger';
+import { governanceSpendApi } from './services/governanceSpendApi';
 
 /**
  * SpendDashboard — M4 Enterprise governance pane.
@@ -93,8 +93,8 @@ export const SpendDashboard: React.FC<SpendDashboardProps> = ({
       else setLoading(true);
       setError(null);
       try {
-        const response = await apiClient.get<SpendSummary>(endpoint);
-        setSummary(response.data);
+        const data = await governanceSpendApi.getSpendSummary(endpoint);
+        setSummary(data);
       } catch (err) {
         logger.error('SpendDashboard fetch failed', { error: err });
         setError('Unable to load spend summary');

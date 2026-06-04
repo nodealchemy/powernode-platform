@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardList, Loader2, Server, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
-import apiClient from '@/shared/services/apiClient';
 import { logger } from '@/shared/utils/logger';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { ProvisioningPlanReview } from './ProvisioningPlanReview';
+import { provisioningApi } from './services/provisioningApi';
 import type { ProjectBrief, ProvisioningPlan } from './types';
 import type { AiMessage } from '@/shared/types/ai';
 
@@ -91,12 +91,11 @@ export const MissionStatusBar: React.FC<MissionStatusBarProps> = ({ messages, cl
       return;
     }
     let cancelled = false;
-    apiClient
-      .get<{ data?: { mission?: MissionState } }>(`/ai/missions/${missionId}`)
-      .then((r) => {
+    provisioningApi
+      .getMission(missionId)
+      .then((m) => {
         if (cancelled) return;
-        const m = r.data?.data?.mission;
-        if (m) setMission({ current_phase: m.current_phase ?? null, status: m.status ?? null });
+        if (m) setMission(m);
       })
       .catch((err) => logger.warn('MissionStatusBar: mission fetch failed', { missionId, err }));
     return () => { cancelled = true; };
@@ -111,10 +110,7 @@ export const MissionStatusBar: React.FC<MissionStatusBarProps> = ({ messages, cl
     if (!missionId) return;
     setLoadingPlan(true);
     try {
-      const r = await apiClient.post<{ data?: { plan?: ProvisioningPlan; brief?: ProjectBrief } }>(
-        `/ai/missions/${missionId}/compose_plan`
-      );
-      const env = r.data?.data;
+      const env = await provisioningApi.composePlan(missionId);
       if (!env?.plan) {
         addNotification({ type: 'error', title: 'Plan unavailable', message: 'Plan not ready yet.' });
         return;
@@ -133,7 +129,7 @@ export const MissionStatusBar: React.FC<MissionStatusBarProps> = ({ messages, cl
   const handleApprove = useCallback(async () => {
     if (!missionId) return;
     try {
-      await apiClient.post(`/ai/missions/${missionId}/approve`);
+      await provisioningApi.approveMission(missionId);
       addNotification({ type: 'success', message: 'Plan approved. Provisioning started.' });
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
@@ -149,7 +145,7 @@ export const MissionStatusBar: React.FC<MissionStatusBarProps> = ({ messages, cl
   const handleReject = useCallback(async (reason?: string) => {
     if (!missionId) return;
     try {
-      await apiClient.post(`/ai/missions/${missionId}/reject`, { reason });
+      await provisioningApi.rejectMission(missionId, reason);
       addNotification({ type: 'success', message: 'Plan rejected.' });
     } catch (err) {
       logger.error('Reject failed', { missionId, err });

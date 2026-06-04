@@ -3,12 +3,12 @@ import { CheckCircle2, ClipboardList, Layers, Server, TrendingUp, Wrench } from 
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
-import apiClient from '@/shared/services/apiClient';
 import { logger } from '@/shared/utils/logger';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import type { ChatCard } from '@/shared/types/ai';
 import { BriefCard } from './BriefCard';
 import { ProvisioningPlanReview } from './ProvisioningPlanReview';
+import { provisioningApi } from './services/provisioningApi';
 import type { ProjectBrief, ProvisioningPlan, PlanStep, RiskFactor } from './types';
 import { PlatformDeploymentWizardCard } from './PlatformDeploymentWizardCard';
 
@@ -67,10 +67,9 @@ const PlanReviewLauncher: React.FC<PlanReviewLauncherProps> = ({ card, missionId
       // in the background so a stale card still shows but updates if the
       // mission moved on.
       setIsOpen(true);
-      apiClient
-        .post<{ data?: { plan?: ProvisioningPlan; brief?: ProjectBrief } }>(`/ai/missions/${missionId}/compose_plan`)
-        .then((r) => {
-          const env = r.data?.data;
+      provisioningApi
+        .composePlan(missionId)
+        .then((env) => {
           if (env?.plan) setPlan(env.plan);
           if (env?.brief) setBrief(env.brief);
         })
@@ -80,10 +79,7 @@ const PlanReviewLauncher: React.FC<PlanReviewLauncherProps> = ({ card, missionId
 
     setLoading(true);
     try {
-      const r = await apiClient.post<{ data?: { plan?: ProvisioningPlan; brief?: ProjectBrief } }>(
-        `/ai/missions/${missionId}/compose_plan`
-      );
-      const env = r.data?.data;
+      const env = await provisioningApi.composePlan(missionId);
       if (!env?.plan) {
         addNotification({ type: 'error', title: 'Plan unavailable', message: 'Plan composition returned no plan.' });
         return;
@@ -101,7 +97,7 @@ const PlanReviewLauncher: React.FC<PlanReviewLauncherProps> = ({ card, missionId
 
   const handleApprove = useCallback(async () => {
     try {
-      await apiClient.post(`/ai/missions/${missionId}/approve`);
+      await provisioningApi.approveMission(missionId);
       addNotification({ type: 'success', message: 'Plan approved. Provisioning started.' });
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
@@ -118,7 +114,7 @@ const PlanReviewLauncher: React.FC<PlanReviewLauncherProps> = ({ card, missionId
 
   const handleReject = useCallback(async (reason?: string) => {
     try {
-      await apiClient.post(`/ai/missions/${missionId}/reject`, { reason });
+      await provisioningApi.rejectMission(missionId, reason);
       addNotification({ type: 'success', message: 'Plan rejected. Continue refining in chat.' });
     } catch (err) {
       logger.error('Failed to reject plan', { missionId, err });

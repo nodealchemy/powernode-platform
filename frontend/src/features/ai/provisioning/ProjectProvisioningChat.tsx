@@ -6,7 +6,7 @@ import { ConciergeActionCard } from '@/shared/components/concierge/ConciergeActi
 import { chatApi } from '@/features/ai/chat/services/chatApi';
 import { logger } from '@/shared/utils/logger';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import apiClient from '@/shared/services/apiClient';
+import { provisioningApi } from './services/provisioningApi';
 import { UpgradeRequiredCard, type UpgradeReason } from './UpgradeRequiredCard';
 
 export interface BriefCardData {
@@ -143,8 +143,8 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
     if (!conversationId) return;
     setLoading(true);
     try {
-      const response = await apiClient.get(`/ai/conversations/${conversationId}/messages`);
-      const data = (response.data?.data ?? response.data ?? {}) as FetchedMessages;
+      const payload = await provisioningApi.getConversationMessages(conversationId);
+      const data = ((payload as { data?: unknown } | undefined)?.data ?? payload ?? {}) as FetchedMessages;
       const fetched: ProvisioningChatMessage[] = Array.isArray(data)
         ? (data as ProvisioningChatMessage[])
         : Array.isArray(data.messages)
@@ -236,9 +236,7 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
           },
         ]);
         setInput('');
-        await apiClient.post(`/ai/conversations/${conversationId}/messages`, {
-          message: { content },
-        });
+        await provisioningApi.sendConversationMessage(conversationId, content);
       } catch (err) {
         logger.error('Failed to send provisioning message', err);
         addNotification({ type: 'error', message: 'Failed to send message' });

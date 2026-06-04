@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { logger } from '@/shared/utils/logger';
-import apiClient from '@/shared/services/apiClient';
+import { onboardingApi } from './services/onboardingApi';
 import {
   PROVIDER_FIELD_SCHEMAS,
   PROVIDER_LABELS,
@@ -173,20 +173,6 @@ const CATEGORY_DESCRIPTIONS: Record<ProviderCategory, { title: string; subtitle:
       'Where source code lives for the deploy_app_code skill. Optional — skip if you only need infrastructure provisioning.',
   },
 };
-
-interface CompleteResponseEnvelope {
-  data?: { onboarding_completed_at?: string | null };
-  onboarding_completed_at?: string | null;
-}
-
-interface OnboardingStatusResponse {
-  data?: {
-    completed?: boolean;
-    has_credentials?: boolean;
-    completed_at?: string | null;
-    categories?: Partial<Record<ProviderCategory, { has_credentials: boolean; count: number; available: boolean }>>;
-  };
-}
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'skipped';
 type CompleteStatus = 'idle' | 'completing' | 'done' | 'error';
@@ -406,9 +392,8 @@ export const FirstRunWizard: React.FC<FirstRunWizardProps> = ({
     let cancelled = false;
     const loadStatus = async () => {
       try {
-        const response = await apiClient.get<OnboardingStatusResponse>('/onboarding/status');
+        const cats = await onboardingApi.getStatus();
         if (cancelled) return;
-        const cats = response.data?.data?.categories ?? {};
         dispatch({
           type: 'STATUS_LOADED',
           categories: {
@@ -483,65 +468,31 @@ export const FirstRunWizard: React.FC<FirstRunWizardProps> = ({
 
         if (category === 'cloud') {
           // Single POST — backend auto-creates the provider.
-          const response = await apiClient.post<{ data?: { id?: string; provider_credential?: { id?: string } } }>(
-            '/system/provider_credentials',
-            {
-              provider_id: cat.providerType,
-              provider_type: cat.providerType,
-              credentials: cat.credentials,
-            }
-          );
-          const inner = response.data?.data ?? {};
-          credentialId = inner.provider_credential?.id ?? inner.id ?? null;
+          credentialId = await onboardingApi.createCloudCredential({
+            providerType: cat.providerType,
+            credentials: cat.credentials,
+          });
         } else if (category === 'ai') {
           // Two-step: create provider, then create credential under it.
-          const providerResp = await apiClient.post<{ data?: { provider?: { id?: string } } }>(
-            '/ai/providers',
-            {
-              provider: {
-                provider_type: cat.providerType,
-                name: PROVIDER_LABELS.ai[cat.providerType] ?? cat.providerType,
-              },
-            }
-          );
-          const providerId = providerResp.data?.data?.provider?.id;
+          const providerId = await onboardingApi.createAiProvider({
+            providerType: cat.providerType,
+            name: PROVIDER_LABELS.ai[cat.providerType] ?? cat.providerType,
+          });
           if (!providerId) throw new Error('AI provider creation did not return an id');
-          const credResp = await apiClient.post<{ data?: { credential?: { id?: string } } }>(
-            `/ai/providers/${providerId}/credentials`,
-            {
-              credential: {
-                name: 'Onboarding',
-                credentials: cat.credentials,
-                is_active: true,
-                is_default: true,
-              },
-            }
-          );
-          credentialId = credResp.data?.data?.credential?.id ?? null;
+          credentialId = await onboardingApi.createAiCredential({
+            providerId,
+            credentials: cat.credentials,
+          });
         } else if (category === 'git') {
-          const providerResp = await apiClient.post<{ data?: { provider?: { id?: string } } }>(
-            '/git/providers',
-            {
-              provider: {
-                provider_type: cat.providerType,
-                name: PROVIDER_LABELS.git[cat.providerType] ?? cat.providerType,
-              },
-            }
-          );
-          const providerId = providerResp.data?.data?.provider?.id;
+          const providerId = await onboardingApi.createGitProvider({
+            providerType: cat.providerType,
+            name: PROVIDER_LABELS.git[cat.providerType] ?? cat.providerType,
+          });
           if (!providerId) throw new Error('Git provider creation did not return an id');
-          const credResp = await apiClient.post<{ data?: { credential?: { id?: string } } }>(
-            `/git/providers/${providerId}/credentials`,
-            {
-              credential: {
-                name: 'Onboarding',
-                credentials: cat.credentials,
-                is_active: true,
-                is_default: true,
-              },
-            }
-          );
-          credentialId = credResp.data?.data?.credential?.id ?? null;
+          credentialId = await onboardingApi.createGitCredential({
+            providerId,
+            credentials: cat.credentials,
+          });
         }
 
         dispatch({ type: 'SAVE_SUCCESS', category, id: credentialId });
@@ -565,9 +516,9 @@ export const FirstRunWizard: React.FC<FirstRunWizardProps> = ({
       const lastCategoryWithCredential = (['cloud', 'ai', 'git'] as ProviderCategory[])
         .map((c) => state.categories[c])
         .find((c) => c.savedCredentialId);
-      await apiClient.post<CompleteResponseEnvelope>('/onboarding/complete', {
-        provider_credential_id: lastCategoryWithCredential?.savedCredentialId ?? null,
-        provider_type: lastCategoryWithCredential?.providerType ?? null,
+      await onboardingApi.complete({
+        providerCredentialId: lastCategoryWithCredential?.savedCredentialId ?? null,
+        providerType: lastCategoryWithCredential?.providerType ?? null,
       });
       dispatch({ type: 'COMPLETE_SUCCESS' });
     } catch (err) {

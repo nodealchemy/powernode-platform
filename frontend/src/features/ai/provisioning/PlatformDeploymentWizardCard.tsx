@@ -2,10 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { Server, AlertCircle, CheckCircle2, Copy, Check, KeyRound, Rocket, HardDrive } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
-import apiClient from '@/shared/services/apiClient';
 import { logger } from '@/shared/utils/logger';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import type { ChatCard } from '@/shared/types/ai';
+import { provisioningApi, type CreateVolumeRequest } from './services/provisioningApi';
 
 /**
  * Renders the `platform_deployment_wizard` ChatCard inline in concierge
@@ -195,7 +195,7 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
     setCreatingVolume(true);
     setCreateVolumeError(null);
     try {
-      const body: Record<string, unknown> = {
+      const body: CreateVolumeRequest = {
         name: newVolume.name.trim(),
         size_gb: sizeGb,
         transport: newVolume.transport,
@@ -204,13 +204,7 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
         body.nfs_server = newVolume.nfs_server.trim();
         body.nfs_export_path = newVolume.nfs_export_path.trim();
       }
-      const response = await apiClient.post<{ data?: { volume?: AvailableVolume & { transport?: string } } }>(
-        '/system/platform/volumes',
-        body,
-      );
-      const created = (response.data?.data?.volume ?? null) as
-        | (AvailableVolume & { transport?: string })
-        | null;
+      const created = await provisioningApi.createPlatformVolume(body);
       if (!created?.id) {
         setCreateVolumeError('Volume created but no id returned — check the volumes list.');
         return;
@@ -273,11 +267,8 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
         }
         // else: auto-pick (orchestrator selects smallest matching)
       }
-      const response = await apiClient.post<{ data?: WizardDonePayload }>(
-        '/system/platform/deployments',
-        body,
-      );
-      const data = (response.data?.data || response.data) as WizardDonePayload;
+      const payload = await provisioningApi.createPlatformDeployment(body);
+      const data = ((payload as { data?: WizardDonePayload } | undefined)?.data || payload) as WizardDonePayload;
       setResult(data);
       addNotification({ type: 'success', message: `Platform deployment queued — ${data.mode}` });
     } catch (err: unknown) {
