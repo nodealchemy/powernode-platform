@@ -24,7 +24,7 @@ If you hit a problem during install or first run, scan this page before diving i
 |---------|--------------|-----|
 | `connection refused` on port 3000 | Backend not running | `sudo systemctl status powernode-backend@default`; restart if dead |
 | `connection refused` on port 4567 | Worker HTTP API down (NOT the Sidekiq process) | Restart `powernode-worker-web@default`, not `powernode-worker@default` |
-| `connection refused` on port 5173 | Frontend dev server stopped | `sudo systemctl restart powernode-frontend@default` |
+| `connection refused` on port 3001 | Frontend dev server stopped | `sudo systemctl restart powernode-frontend@default` |
 | Two backends fighting for 3000 | Manual `rails server` started alongside the systemd unit | Kill the manual process; rely on the systemd unit |
 | Worker stuck "deactivating" | Sidekiq draining in-flight jobs | Wait 30 s; if still stuck, `stop` + `start` (not `restart`) |
 
@@ -33,7 +33,7 @@ Service unit names:
 - `powernode-backend@default` (Rails API, port 3000)
 - `powernode-worker@default` (Sidekiq, no HTTP port)
 - `powernode-worker-web@default` (worker HTTP control plane, port 4567)
-- `powernode-frontend@default` (Vite, port 5173)
+- `powernode-frontend@default` (Vite, port 3001)
 
 ## Authentication and JWTs
 

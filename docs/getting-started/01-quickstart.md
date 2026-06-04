@@ -70,10 +70,10 @@ The installer creates four service units (`powernode-backend@default`, `powernod
 
 | Service | URL |
 |---------|-----|
-| Frontend | http://localhost:5173 |
+| Frontend | http://localhost:3001 |
 | Backend API | http://localhost:3000 |
 | API health | http://localhost:3000/api/v1/health |
-| Sidekiq Web | http://localhost:4567 |
+| Worker HTTP control plane | http://localhost:4567 (Sidekiq dashboard at http://localhost:4567/sidekiq) |
 
 If anything is unreachable, see [Troubleshooting](#troubleshooting).
 
@@ -86,7 +86,7 @@ cd server && bundle exec rails c
 User.create!(email: 'dev@example.com', password: 'DevPassword123!', name: 'Developer')
 ```
 
-Log in at http://localhost:5173 with the credentials you just created.
+Log in at http://localhost:3001 with the credentials you just created.
 
 ## Running tests
 
@@ -208,4 +208,4 @@ More common errors live in [04-troubleshooting.md](./04-troubleshooting.md).
 
 - `docs/QUICKSTART.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

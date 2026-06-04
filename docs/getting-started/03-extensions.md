@@ -39,7 +39,7 @@ Each extension under `extensions/<name>/` is a self-contained git submodule with
 
 External clones from the public GitHub mirror will receive the three public extensions plus an empty parent pointer for the two private ones; the platform will boot in "core mode minus business + trading" by default.
 
-The public submodules are dual-remoted: `origin` points at the private Gitea mirror (used for releases), and `github` points at the public mirror. Maintainers push to both; external contributors only ever see the GitHub side.
+The public submodules are dual-remoted: `origin` points at the public GitHub mirror, and `ipnode` points at the private Gitea upstream (used for releases). Maintainers push to both; external contributors only ever see the GitHub side.
 
 ## Core mode vs extension mode
 
@@ -52,7 +52,7 @@ Core mode is the default. When the platform boots with no `extensions/business/`
 
 - The `Shared::FeatureGateService.business_loaded?` check returns `false`.
 - All paywalls and plan-limits short-circuit (everything is "allowed").
-- The frontend's `__BUSINESS__` build flag is `false`; nav items marked `businessOnly: true` are hidden.
+- The frontend's `__EXTENSIONS__` build constant omits `'business'`, so `__EXTENSIONS__.includes('business')` is `false` and the business UI surfaces are hidden.
 
 There is nothing to configure — you get this automatically.
 
@@ -87,8 +87,8 @@ Three rules matter when committing:
 Three mechanisms gate features:
 
 - **Backend:** `Shared::FeatureGateService.business_loaded?` (or the equivalent for `trading`, etc.) controls model instantiation, controller availability, and skill registration.
-- **Frontend:** the `__BUSINESS__` build flag is wired into Vite at build time and hides UI surfaces when the extension is absent.
-- **Navigation:** the nav config respects `businessOnly: true` and similar flags so disabled extensions disappear cleanly from the sidebar.
+- **Frontend:** Vite injects the `__EXTENSIONS__` constant (an array of enabled extension slugs) at build time; UI surfaces gate on `__EXTENSIONS__.includes('business')` and hide when the extension is absent.
+- **Navigation:** the nav config checks extension-slug presence via `__EXTENSIONS__.includes(slug)` so disabled extensions disappear cleanly from the sidebar.
 
 A feature that crosses the boundary should pick one mechanism and stick with it. Never use two — the result is invariably a half-hidden surface that confuses users.
 
@@ -111,4 +111,4 @@ Plans, executor patterns, and the FeatureGateService contract are documented in 
 - The "Business Submodule" section of the root CLAUDE.md
 - The "Submodule Safety" section of the root CLAUDE.md
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_
