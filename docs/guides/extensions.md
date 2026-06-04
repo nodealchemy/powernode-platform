@@ -123,7 +123,7 @@ Every extension MUST have an `extension.json` at its root:
 | Field | Purpose |
 |---|---|
 | `slug` | Filesystem name; used as namespace prefix (`marketing` → `Marketing::Campaign`) |
-| `feature_flag` | Flipper flag (`<slug>_mode`); runtime enable/disable without restart |
+| `feature_flag` | Optional, informational only. `Shared::FeatureGateService` always derives the Flipper flag as `<slug>_mode` regardless of this field, so it can be omitted (the shipped `marketing` manifest does; the `system` manifest sets `system_mode` for documentation). Used for runtime enable/disable without restart |
 | `capabilities` | Optional list of feature strings the extension provides; used by `Shared::FeatureGateService.available?` |
 | `components` | Which subtrees the extension contributes (drop the key if you ship none of that layer) |
 | `dependencies` | Other extension slugs required to be loaded first |
@@ -152,7 +152,7 @@ Shared::FeatureGateService.business_loaded?                 # specific predicate
 Shared::FeatureGateService.core_mode?                       # zero extensions loaded
 ```
 
-Frontend gating uses build flags (e.g., `__BUSINESS__`) injected at bundle time, plus a `businessOnly: true` marker on nav entries.
+Frontend gating uses the build-time `__EXTENSIONS__` array (the list of active slugs) injected at bundle time; nav entries are gated by `__EXTENSIONS__.includes('<slug>')`.
 
 ## Core mode vs. extension mode
 
@@ -269,12 +269,12 @@ Core imports always use `@/`. Intra-extension imports use the extension's alias.
 Vite injects build-time flags for each loaded extension. Use them to dead-code-eliminate extension-only sections:
 
 ```typescript
-if (__BUSINESS__) {
+if (__EXTENSIONS__.includes('business')) {
   // billing UI only rendered when business loaded
 }
 ```
 
-The flag is `__<SLUG_UPPER>__` for each extension (e.g., `__MARKETING__`, `__SUPPLY_CHAIN__`).
+`__EXTENSIONS__` is the build-time array of active slugs (and `__DISABLED_EXTENSIONS__` lists removed ones); gate any extension section with `__EXTENSIONS__.includes('<slug>')`.
 
 ### Nav entries
 
@@ -346,7 +346,7 @@ The platform ships with five extensions; you can study any of them as exemplars.
 |---|---|---|
 | `system` | Public (MIT, GitHub) | Node lifecycle, fleet autonomy, modules, SDWAN, container runtimes, on-node Go agent |
 | `marketing` | Public (MIT, GitHub) | Campaigns, content calendar, email lists, social media |
-| `supply-chain` | Public (MIT, GitHub) | Procurement, inventory, supplier management |
+| `supply-chain` | Public (MIT, GitHub) | SBOM management, vulnerability scanning, attestations, container/license compliance |
 | `business` | Private | Billing, BaaS, reseller, AI publisher |
 | `trading` | Private (currently disabled) | Trading strategies, market data |
 
@@ -472,4 +472,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md` — content not merged here; lives in `extensions/business`
 - `docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md` — content not merged here; lives in `extensions/business`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_
