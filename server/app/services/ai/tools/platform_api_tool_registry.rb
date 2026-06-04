@@ -88,6 +88,7 @@ module Ai
         "system_promote_module_version" => "Ai::Tools::SystemFleetTool",
         "system_drift_report" => "Ai::Tools::SystemFleetTool",
         "system_list_tasks" => "Ai::Tools::SystemFleetTool",
+        "system_get_task" => "Ai::Tools::SystemFleetTool",
         "system_cancel_task" => "Ai::Tools::SystemFleetTool",
         # Slice 7 — instance pools
         "system_list_instance_pools" => "Ai::Tools::SystemFleetTool",
@@ -106,6 +107,7 @@ module Ai
         "system_create_cve" => "Ai::Tools::SystemFleetTool",
         "system_delete_cve" => "Ai::Tools::SystemFleetTool",
         "system_unassign_module_from_template" => "Ai::Tools::SystemFleetTool",
+        "system_update_module_assignment" => "Ai::Tools::SystemFleetTool",
         # Gap remediation slice 3 — pool ops + canary marking
         "system_return_pooled_instance" => "Ai::Tools::SystemFleetTool",
         "system_delete_instance_pool" => "Ai::Tools::SystemFleetTool",
@@ -133,6 +135,7 @@ module Ai
         # Gap remediation slice 5 — disk image CI
         "system_list_disk_image_publications" => "Ai::Tools::SystemFleetTool",
         "system_set_default_disk_image_publication" => "Ai::Tools::SystemFleetTool",
+        "system_revert_disk_image" => "Ai::Tools::SystemFleetTool",
         "system_set_disk_image_retention" => "Ai::Tools::SystemFleetTool",
         "system_provision_ci_worker" => "Ai::Tools::SystemFleetTool",
         "system_terminate_ci_worker" => "Ai::Tools::SystemFleetTool",

@@ -8,7 +8,7 @@ Development guidance for **Powernode**: open-source mission control for AI agent
 governance, swarm coordination, MCP-native runtime, and the fleet substrate
 (bare-metal / VM / container lifecycle) underneath. Open-source under MIT.
 
-- **Backend**: Rails 8 API (`./server`) — JWT auth, UUIDv7 primary keys, 555 MCP tool actions across 63 classes
+- **Backend**: Rails 8 API (`./server`) — JWT auth, UUIDv7 primary keys, 558 MCP tool actions across 63 classes
 - **Frontend**: React TypeScript (`./frontend`) — theme-aware, Tailwind CSS
 - **Worker**: Sidekiq standalone (`./worker`) — API-only communication
 - **System**: Git submodule (`./extensions/system`) — node lifecycle, module CRUD, fleet autonomy, on-node Go agent, initramfs, SDWAN, federation. **Public on GitHub** (MIT) at `nodealchemy/powernode-system`, private on Gitea.
@@ -310,6 +310,7 @@ All `platform.*` tools by area — see [reference/auto/mcp-tools.md](docs/refere
 - **Codebase Intelligence** (14): `code_context_tree`, `code_file_skeleton`, `code_semantic_search`, `code_identifier_search`, `code_semantic_navigate`, `code_feature_hub`, `code_blast_radius`, `code_static_analysis`, `code_index_status`, `code_upsert_node`, `code_create_relation`, `code_search_graph`, `code_prune_stale`, `code_bulk_index`
 - **DevOps & CI/CD** (6): `create_gitea_repository`, `update_gitea_repository`, `dispatch_to_runner`, `trigger_pipeline`, `list_pipelines`, `get_pipeline_status`
 - **Storage Ownership** (4): `system_assign_storage_owner`, `system_list_storage_assignments_by_owner`, `system_storage_chown_status`, `system_storage_chown_retry`
+- **System Fleet** (3): `system_get_task`, `system_revert_disk_image`, `system_update_module_assignment`
 
 ### Docker Management (52 tools)
 Grouped by area — see [reference/auto/mcp-tools.md](docs/reference/auto/mcp-tools.md) for full per-tool params.
