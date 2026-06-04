@@ -970,6 +970,9 @@ if Rails.env.development? || Rails.env.test?
   puts "\n🌐 Loading AI Data Sources..."
   load Rails.root.join('db', 'seeds', 'ai_data_sources_seed.rb')
 
+  puts "\n🛡️ Loading AI Governance (compliance policies + approval chains)..."
+  load Rails.root.join('db', 'seeds', 'ai_governance_seed.rb')
+
   # Seed AI model pricing from hardcoded constant
   if defined?(Ai::ProviderManagementService::MODEL_PRICING) && Ai::ModelPricing.count == 0
     puts "\n💰 Seeding AI model pricing..."

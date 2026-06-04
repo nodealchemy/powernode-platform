@@ -23,7 +23,7 @@ This guide covers the full contributor path: prerequisites, cloning the repo, in
 
 | Requirement | Version | Verify Command |
 |-------------|---------|----------------|
-| Node.js | 20+ | `node --version` |
+| Node.js | 24.13 (LTS; >=24.9 required) | `node --version` |
 | Ruby | 3.2.8 (pinned) | `ruby --version` |
 | PostgreSQL | recent release with the `vector` extension available (embeddings use pgvector via the `neighbor` gem) | `psql --version` |
 | Redis | 7+ | `redis-server --version` |
@@ -43,13 +43,13 @@ git submodule update --init --recursive
 
 The `extensions/business` and `extensions/trading` submodules are private; they will be absent for external contributors and the platform falls back to single-user core mode automatically. See [getting-started/03-extensions.md](../getting-started/03-extensions.md).
 
-**Maintainers with the private submodules** run **full mode** — private extensions declared and loaded into the Rails bundle. The committed `server/Gemfile.lock` is always public-only, so opt in explicitly when installing and in the server's runtime environment:
+**Maintainers with the private submodules** run **full mode** — private extensions declared and loaded into the Rails bundle. The committed `server/Gemfile.lock` stays public-only; full mode uses a *separate* bundle, `server/Gemfile.full`, whose lock (`server/Gemfile.full.lock`) is gitignored:
 
 ```bash
-POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1 bundle install   # in server/
+BUNDLE_GEMFILE=Gemfile.full bundle install   # in server/
 ```
 
-This drifts your *working* `server/Gemfile.lock` to include the private gems — leave it unstaged. The pre-commit hook only checks the *staged* lock, so it won't block unrelated commits, and you should never commit the full-mode lock. See [dependency loading](../guides/extensions.md#dependency-loading-public-only-lockfile).
+This writes `server/Gemfile.full.lock` (gitignored) and leaves the committed `server/Gemfile.lock` untouched — no working-tree drift to remember not to stage. To run the server against the full bundle, set `BUNDLE_GEMFILE=<server>/Gemfile.full` and `POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1` in its runtime environment. See [dependency loading](../guides/extensions.md#dependency-loading-public-only-lockfile).
 
 ## Install dependencies
 
