@@ -28,6 +28,7 @@ import { PlanApprovalActions } from '@/features/ai/chat/components/PlanApprovalA
 import { ConciergeActionCard } from '@/shared/components/concierge/ConciergeActionCard';
 import { chatApi } from '@/features/ai/chat/services/chatApi';
 import { ChatProvisioningCardSlot } from '@/features/ai/provisioning/ChatProvisioningCardSlot';
+import { A2uiChatCardSlot } from '@/features/ai/a2ui';
 import type { AiMessage } from '@/shared/types/ai';
 import { cleanMessageContent, formatTimestamp, parseMentions } from './utils';
 
@@ -426,9 +427,18 @@ export const MessageList = React.memo<MessageListProps>(({
               inline preview with a deep-link to /app/system/provision. */}
           {isAI && message.metadata?.cards?.length ? (
             <div className="space-y-2">
-              {message.metadata.cards.map((card, i) => (
-                <ChatProvisioningCardSlot key={`${card.kind}-${i}`} card={card} />
-              ))}
+              {message.metadata.cards.map((card, i) =>
+                card.kind === 'a2ui_surface' ? (
+                  <A2uiChatCardSlot
+                    key={`${card.kind}-${i}`}
+                    card={card}
+                    conversationId={conversationId}
+                    messageId={message.id}
+                  />
+                ) : (
+                  <ChatProvisioningCardSlot key={`${card.kind}-${i}`} card={card} />
+                )
+              )}
             </div>
           ) : null}
 

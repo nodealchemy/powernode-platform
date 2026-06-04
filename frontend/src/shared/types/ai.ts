@@ -208,7 +208,10 @@ export type ChatCardKind =
   // D3 — Platform deployment wizard. Two-shape payload: form (no mode
   // supplied → render the inline form) and done (mode set → show the
   // success summary + acceptance_token for federated mode).
-  | 'platform_deployment_wizard';
+  | 'platform_deployment_wizard'
+  // A2UI (Google's declarative generative-UI spec, v0.9) surface. payload is an
+  // A2uiSurfacePayload (see features/ai/a2ui); rendered by A2uiChatCardSlot.
+  | 'a2ui_surface';
 
 export interface ChatCard {
   kind: ChatCardKind;
