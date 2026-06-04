@@ -32,14 +32,12 @@ export const ContextInjectionPreview: React.FC<ContextInjectionPreviewProps> = (
   const [includeTypes, setIncludeTypes] = useState<MemoryType[]>(['factual', 'experiential']);
   const [response, setResponse] = useState<ContextInjectionResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const { addNotification } = useNotifications();
 
   const handleGenerate = async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const request: ContextInjectionRequest = {
         query: query || undefined,
@@ -50,7 +48,10 @@ export const ContextInjectionPreview: React.FC<ContextInjectionPreviewProps> = (
       const result = await memoryApiService.getContextInjection(agentId, request);
       setResponse(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate context');
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to generate context',
+      });
     } finally {
       setLoading(false);
     }
@@ -155,12 +156,6 @@ export const ContextInjectionPreview: React.FC<ContextInjectionPreviewProps> = (
             </>
           )}
         </Button>
-
-        {error && (
-          <div className="p-3 bg-theme-danger/10 border border-theme-danger/30 rounded-lg text-theme-danger text-sm">
-            {error}
-          </div>
-        )}
 
         {response && (
           <div className="space-y-4 pt-4 border-t border-theme">

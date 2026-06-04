@@ -9,11 +9,10 @@ jest.mock('@/shared/services/ai', () => ({
   },
 }));
 
-// Mock useNotifications hook
+// Mock useNotifications hook — stable ref for assertions + dep-array safety
+const mockAddNotification = jest.fn();
 jest.mock('@/shared/hooks/useNotifications', () => ({
-  useNotifications: () => ({
-    addNotification: jest.fn(),
-  }),
+  useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 
 describe('ContextInjectionPreview', () => {
@@ -166,7 +165,9 @@ describe('ContextInjectionPreview', () => {
     fireEvent.click(generateButton);
 
     await waitFor(() => {
-      expect(screen.getByText(/generation failed/i)).toBeInTheDocument();
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error' })
+      );
     });
   });
 

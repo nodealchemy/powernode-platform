@@ -20,6 +20,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { containerExecutionApi } from '@/shared/services/ai';
 import { cn } from '@/shared/utils/cn';
 import type { ContainerTemplateSummary, ContainerTemplateFilters, TemplateVisibility, TemplateStatus } from '@/shared/services/ai';
@@ -53,9 +54,9 @@ export const TemplateList: React.FC<TemplateListProps> = ({
   onExecuteTemplate,
   className,
 }) => {
+  const { addNotification } = useNotifications();
   const [templates, setTemplates] = useState<ContainerTemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<string>('popular');
   const [showPublic, setShowPublic] = useState(false);
@@ -64,7 +65,6 @@ export const TemplateList: React.FC<TemplateListProps> = ({
   const loadTemplates = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const filters: ContainerTemplateFilters = {
         per_page: 50,
@@ -78,11 +78,14 @@ export const TemplateList: React.FC<TemplateListProps> = ({
       setTemplates(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load templates');
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load templates',
+      });
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, sortBy, showPublic]);
+  }, [searchQuery, sortBy, showPublic, addNotification]);
 
   useEffect(() => {
     loadTemplates();
@@ -148,13 +151,6 @@ export const TemplateList: React.FC<TemplateListProps> = ({
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </form>
-
-      {/* Error */}
-      {error && (
-        <div className="p-4 rounded-lg bg-theme-status-error/10 text-theme-status-error">
-          {error}
-        </div>
-      )}
 
       {/* Template Grid */}
       {templates.length === 0 ? (

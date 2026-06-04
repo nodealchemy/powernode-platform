@@ -7,6 +7,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { containerExecutionApi } from '@/shared/services/ai';
 import { ContainerCard } from './ContainerCard';
 import { cn } from '@/shared/utils/cn';
@@ -42,6 +43,7 @@ export const ContainerList: React.FC<ContainerListProps> = ({
   onViewLogs,
   className,
 }) => {
+  const { addNotification } = useNotifications();
   const [containers, setContainers] = useState<ContainerInstanceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +93,10 @@ export const ContainerList: React.FC<ContainerListProps> = ({
       loadContainers();
       onCancelContainer?.(container);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel container');
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to cancel container',
+      });
     }
   };
 

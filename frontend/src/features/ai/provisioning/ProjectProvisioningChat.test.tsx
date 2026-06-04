@@ -2,6 +2,14 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { ProjectProvisioningChat } from './ProjectProvisioningChat';
 import type { ProvisioningChatMessage } from './ProjectProvisioningChat';
 
+// Component now surfaces load/send failures via the global notification hook
+// (useNotifications → useDispatch internally), so mock it to avoid needing a
+// redux <Provider> in these unit tests.
+const mockAddNotification = jest.fn();
+jest.mock('@/shared/hooks/useNotifications', () => ({
+  useNotifications: () => ({ addNotification: mockAddNotification }),
+}));
+
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 

@@ -4,7 +4,7 @@ import {
   AccountGitWebhookConfig,
 } from '../services/git/accountWebhooksApi';
 import { PaginationInfo } from '../types';
-import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import { useNotification } from '@/shared/hooks/useNotification';
 
 interface AccountWebhooksListProps {
   onViewDetails?: (webhook: AccountGitWebhookConfig) => void;
@@ -24,10 +24,10 @@ const healthColors: Record<string, string> = {
 };
 
 export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onViewDetails }) => {
+  const { showNotification } = useNotification();
   const [webhooks, setWebhooks] = useState<AccountGitWebhookConfig[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [, setShowCreateModal] = useState(false);
@@ -35,7 +35,6 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
 
   const fetchWebhooks = async (page = 1) => {
     setIsLoading(true);
-    setError(null);
     try {
       const params: Parameters<typeof accountWebhooksApi.getAccountWebhooks>[0] = {
         page,
@@ -54,7 +53,10 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
       setWebhooks(result.webhooks);
       setPagination(result.pagination);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load webhooks');
+      showNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to load webhooks',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +72,10 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
       const result = await accountWebhooksApi.toggleAccountWebhookStatus(webhook.id);
       setWebhooks((prev) => prev.map((w) => (w.id === webhook.id ? result.webhook : w)));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to toggle status');
+      showNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to toggle status',
+      });
     } finally {
       setActionLoading(null);
     }
@@ -86,7 +91,10 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
       await accountWebhooksApi.deleteAccountWebhook(webhook.id);
       setWebhooks((prev) => prev.filter((w) => w.id !== webhook.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete webhook');
+      showNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to delete webhook',
+      });
     } finally {
       setActionLoading(null);
     }
@@ -98,7 +106,10 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
       await accountWebhooksApi.testAccountWebhook(webhook.id);
       // Could show a success message here
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to test webhook');
+      showNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to test webhook',
+      });
     } finally {
       setActionLoading(null);
     }
@@ -152,9 +163,6 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
           ))}
         </div>
       </div>
-
-      {/* Error Message */}
-      {error && <ErrorAlert message={error} />}
 
       {/* Loading State */}
       {isLoading && (

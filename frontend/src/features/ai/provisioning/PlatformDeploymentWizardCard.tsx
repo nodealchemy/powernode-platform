@@ -140,7 +140,6 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
   const [spawnMode, setSpawnMode] = useState((defaults.spawn_mode as string) || 'managed_child');
   const [parentUrl, setParentUrl] = useState(window.location.origin);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<WizardDonePayload | null>(null);
   // VOL.3 — storage state. volumeId='' + skipVolume=false means
   // "auto-pick a matching volume if available"; volumeId='__skip__'
@@ -246,11 +245,10 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
 
   const handleSubmit = async () => {
     if (!validation.ok) {
-      setError(validation.errs[0] ?? 'Form invalid');
+      addNotification({ type: 'error', message: validation.errs[0] ?? 'Form invalid' });
       return;
     }
     setSubmitting(true);
-    setError(null);
     try {
       const body: Record<string, unknown> = {
         mode,
@@ -285,7 +283,7 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Deploy failed';
       logger.error('PlatformDeploymentWizard submit failed', { err });
-      setError(msg);
+      addNotification({ type: 'error', message: msg });
     } finally {
       setSubmitting(false);
     }
@@ -301,13 +299,6 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
         <Rocket className="w-5 h-5 text-theme-info" />
         <h3 className="font-semibold text-theme-primary">Deploy a New Platform</h3>
       </div>
-
-      {error && (
-        <div className="p-2 bg-theme-danger text-theme-danger text-sm rounded flex items-start gap-2 mb-3">
-          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
 
       <div className="space-y-3">
         <Field label="Mode">

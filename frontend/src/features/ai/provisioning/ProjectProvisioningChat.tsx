@@ -5,6 +5,7 @@ import { ChatStreamingRenderer } from '@/features/ai/chat/components/ChatStreami
 import { ConciergeActionCard } from '@/shared/components/concierge/ConciergeActionCard';
 import { chatApi } from '@/features/ai/chat/services/chatApi';
 import { logger } from '@/shared/utils/logger';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import apiClient from '@/shared/services/apiClient';
 import { UpgradeRequiredCard, type UpgradeReason } from './UpgradeRequiredCard';
 
@@ -133,10 +134,10 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const { subscribe, isConnected } = useWebSocket();
+  const { addNotification } = useNotifications();
 
   const fetchMessages = useCallback(async () => {
     if (!conversationId) return;
@@ -150,14 +151,13 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
           ? data.messages
           : [];
       setMessages(fetched);
-      setError(null);
     } catch (err) {
       logger.error('Failed to load provisioning conversation messages', err);
-      setError('Failed to load messages');
+      addNotification({ type: 'error', message: 'Failed to load messages' });
     } finally {
       setLoading(false);
     }
-  }, [conversationId]);
+  }, [conversationId, addNotification]);
 
   useEffect(() => {
     fetchMessages();
@@ -241,12 +241,12 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
         });
       } catch (err) {
         logger.error('Failed to send provisioning message', err);
-        setError('Failed to send message');
+        addNotification({ type: 'error', message: 'Failed to send message' });
       } finally {
         setSending(false);
       }
     },
-    [input, sending, conversationId]
+    [input, sending, conversationId, addNotification]
   );
 
   const handleStarterChip = useCallback((prompt: string) => {
@@ -266,11 +266,6 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
             <div className="flex items-center gap-2 text-theme-secondary text-sm">
               <Loader2 className="h-4 w-4 animate-spin text-theme-info" />
               Loading conversation…
-            </div>
-          )}
-          {error && (
-            <div className="px-3 py-2 text-sm rounded-md bg-theme-danger/10 text-theme-danger border border-theme-danger/30">
-              {error}
             </div>
           )}
           {messages.length === 0 && !loading && (
