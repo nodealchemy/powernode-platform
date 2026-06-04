@@ -6,7 +6,7 @@ import {
   HardDrive, Workflow, Server, GitBranch,
   Plug, BookOpen, UserCog, Activity, ShieldCheck,
   Container, Boxes,
-  Play, Rocket
+  Play, Rocket, DollarSign, TrendingUp, Code2
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -284,6 +284,73 @@ export const defaultNavigationConfig: NavigationConfig = {
       collapsible: true,
       defaultExpanded: true,
       order: 11
+    },
+    // Cost section - AI FinOps, ROI, and credit usage (wired-up orphan features)
+    {
+      id: 'cost',
+      name: 'Cost',
+      items: [
+        {
+          id: 'cost-finops',
+          name: 'FinOps',
+          href: '/app/ai/cost/finops',
+          icon: DollarSign,
+          description: 'AI cost management, budgets, and optimization',
+          permissions: ['ai.finops.view'],
+          order: 1
+        },
+        {
+          id: 'cost-roi',
+          name: 'ROI',
+          href: '/app/ai/cost/roi',
+          icon: TrendingUp,
+          description: 'AI return-on-investment analytics',
+          permissions: ['ai.roi.read'],
+          order: 2
+        },
+        {
+          id: 'cost-credits',
+          name: 'Credits',
+          href: '/app/ai/observability/credits',
+          icon: CreditCard,
+          description: 'AI credit usage and balance',
+          permissions: ['ai.analytics.read'],
+          order: 3
+        }
+      ],
+      permissions: ['ai.finops.view', 'ai.roi.read', 'ai.analytics.read'],
+      collapsible: true,
+      defaultExpanded: true,
+      order: 12
+    },
+    // Developer section - API portal, docs, and execution traces (wired-up orphan features)
+    {
+      id: 'developer',
+      name: 'Developer',
+      items: [
+        {
+          id: 'developer-portal',
+          name: 'Developer Portal',
+          href: '/app/developer',
+          icon: Code2,
+          description: 'API documentation, code samples, and API keys',
+          permissions: ['api.manage_keys'],
+          order: 1
+        },
+        {
+          id: 'developer-traces',
+          name: 'Execution Traces',
+          href: '/app/developer/traces',
+          icon: Activity,
+          description: 'Distributed traces for AI agent and tool execution',
+          permissions: ['ai_monitoring.read'],
+          order: 2
+        }
+      ],
+      permissions: ['api.manage_keys', 'ai_monitoring.read'],
+      collapsible: true,
+      defaultExpanded: true,
+      order: 13
     },
   ],
   

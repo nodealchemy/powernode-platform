@@ -2,20 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, Modal, LoadingSpinner } from '@/shared/components/ui';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { api } from '@/shared/services/api';
+import { apiKeysApi, type ApiKey } from '@/features/devops/api-keys/services/apiKeysApi';
 import { getErrorMessage } from '@/shared/utils/errorHandling';
 import { formatDate } from '@/shared/utils/formatters';
-
-interface ApiKey {
-  id: string;
-  name: string;
-  key_preview: string;
-  scopes: string[];
-  status: 'active' | 'inactive' | 'revoked';
-  last_used_at?: string;
-  expires_at?: string;
-  created_at: string;
-}
 
 export const ApiKeyManager: React.FC = () => {
   const { addNotification } = useNotifications();
@@ -42,9 +31,11 @@ export const ApiKeyManager: React.FC = () => {
   const loadApiKeys = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get('/api/v1/api_keys');
-      if (response.data.success) {
-        setApiKeys(response.data.data || []);
+      const response = await apiKeysApi.getApiKeys();
+      if (response.success) {
+        setApiKeys(response.data.api_keys || []);
+      } else {
+        addNotification({ type: 'error', message: response.error || 'Failed to load API keys' });
       }
     } catch (error) {
       addNotification({ type: 'error', message: getErrorMessage(error) });
@@ -65,15 +56,17 @@ export const ApiKeyManager: React.FC = () => {
 
     setIsCreating(true);
     try {
-      const response = await api.post('/api/v1/api_keys', {
+      const response = await apiKeysApi.createApiKey({
         name: newKeyName,
         scopes: selectedScopes,
       });
 
-      if (response.data.success) {
-        setNewKey(response.data.data.full_key);
+      if (response.success && response.data) {
+        setNewKey(response.data.key_value ?? null);
         loadApiKeys();
         addNotification({ type: 'success', message: 'API key created successfully' });
+      } else {
+        addNotification({ type: 'error', message: response.error || 'Failed to create API key' });
       }
     } catch (error) {
       addNotification({ type: 'error', message: getErrorMessage(error) });
@@ -90,10 +83,12 @@ export const ApiKeyManager: React.FC = () => {
       variant: 'danger',
       onConfirm: async () => {
         try {
-          const response = await api.delete(`/api/v1/api_keys/${keyId}`);
-          if (response.data.success) {
+          const response = await apiKeysApi.deleteApiKey(keyId);
+          if (response.success) {
             loadApiKeys();
             addNotification({ type: 'success', message: 'API key revoked successfully' });
+          } else {
+            addNotification({ type: 'error', message: response.error || 'Failed to revoke API key' });
           }
         } catch (error) {
           addNotification({ type: 'error', message: getErrorMessage(error) });
@@ -175,7 +170,7 @@ export const ApiKeyManager: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-4 text-sm text-theme-tertiary">
                       <code className="bg-theme-surface-hover px-2 py-1 rounded font-mono">
-                        {key.key_preview}
+                        {key.masked_key}
                       </code>
                       <span>Created: {formatDate(key.created_at)}</span>
                       <span>Last used: {formatDateOptional(key.last_used_at)}</span>

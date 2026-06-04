@@ -19,21 +19,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { cn } from '@/shared/utils/cn';
-
-// Types
-interface TraceSummary {
-  trace_id: string;
-  name: string;
-  type: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  started_at: string | null;
-  completed_at: string | null;
-  duration_ms: number | null;
-  span_count: number;
-  total_tokens: number;
-  total_cost: number;
-  error: boolean;
-}
+import { executionTracesApi, type ExecutionTraceSummary as TraceSummary } from '../services/executionTracesApi';
 
 interface TraceListProps {
   onSelectTrace: (traceId: string) => void;
@@ -84,25 +70,12 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
       setLoading(true);
       setError(null);
 
-      const params = new URLSearchParams();
-      if (typeFilter) params.append('type', typeFilter);
-      if (statusFilter) params.append('status', statusFilter);
-      params.append('limit', '50');
-
-      const response = await fetch(`/api/v1/ai/execution_traces?${params}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
+      const data = await executionTracesApi.listTraces({
+        type: typeFilter || undefined,
+        status: statusFilter || undefined,
+        limit: 50,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to load traces');
-      }
-
-      const data = await response.json();
-      setTraces(data.data || []);
+      setTraces(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load traces');
     } finally {

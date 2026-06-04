@@ -9,7 +9,7 @@ import { TraceSpanRow } from './TraceSpanRow';
 import { SpanDetailPanel } from './SpanDetailPanel';
 import { TraceTimeline } from './TraceTimeline';
 
-interface TraceSummary {
+export interface TraceSummary {
   total_spans: number;
   llm_calls: number;
   tool_executions: number;
@@ -18,7 +18,7 @@ interface TraceSummary {
   failed_spans: number;
 }
 
-interface TraceData {
+export interface TraceData {
   trace_id: string;
   name: string;
   type: string;

@@ -55,6 +55,13 @@ const KnowledgePage = React.lazy(() => import('./ai/KnowledgePage').then(m => ({
 const InfrastructurePage = React.lazy(() => import('./ai/InfrastructurePage').then(m => ({ default: m.InfrastructurePage })));
 // AiBillingPage absorbed into Observability (Credits & FinOps tabs)
 
+// Cost section (wired-up orphans: FinOps + ROI dashboards)
+const FinOpsPage = React.lazy(() => import('@/features/ai/finops/pages/FinOpsPage').then(m => ({ default: m.FinOpsPage })));
+const RoiDashboard = React.lazy(() => import('@/features/ai/roi/components/RoiDashboard'));
+// Developer section (wired-up orphans: Developer Portal + Execution Traces)
+const DeveloperPortal = React.lazy(() => import('@/features/developer/pages/DeveloperPortal').then(m => ({ default: m.DeveloperPortal })));
+const ExecutionTracesPage = React.lazy(() => import('./ai/ExecutionTracesPage').then(m => ({ default: m.ExecutionTracesPage })));
+
 // AI Sub-pages
 const AIDebugPage = React.lazy(() => import('./ai').then(m => ({ default: m.AIDebugPage })));
 const AgentDetailPage = React.lazy(() => import('./ai/AgentDetailPage').then(m => ({ default: m.AgentDetailPage })));
@@ -408,6 +415,14 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/devops/templates" element={<DevOpsTemplatesPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
+
+        {/* Cost Pages — FinOps + ROI (Cost nav section) */}
+        <Route path="/ai/cost/finops" element={<FinOpsPage />} />
+        <Route path="/ai/cost/roi" element={<RoiDashboard />} />
+
+        {/* Developer Pages — Portal + Execution Traces (Developer nav section) */}
+        <Route path="/developer/traces" element={<ExecutionTracesPage />} />
+        <Route path="/developer" element={<DeveloperPortal />} />
 
         {/* Core Pages */}
         <Route path="/content/pages" element={<PagesPage />} />
