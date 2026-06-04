@@ -8,7 +8,7 @@ Development guidance for **Powernode**: open-source mission control for AI agent
 governance, swarm coordination, MCP-native runtime, and the fleet substrate
 (bare-metal / VM / container lifecycle) underneath. Open-source under MIT.
 
-- **Backend**: Rails 8 API (`./server`) — JWT auth, UUIDv7 primary keys, 546+ MCP tool actions across 62 classes
+- **Backend**: Rails 8 API (`./server`) — JWT auth, UUIDv7 primary keys, 555 MCP tool actions across 63 classes
 - **Frontend**: React TypeScript (`./frontend`) — theme-aware, Tailwind CSS
 - **Worker**: Sidekiq standalone (`./worker`) — API-only communication
 - **System**: Git submodule (`./extensions/system`) — node lifecycle, module CRUD, fleet autonomy, on-node Go agent, initramfs, SDWAN, federation. **Public on GitHub** (MIT) at `nodealchemy/powernode-system`, private on Gitea.
@@ -46,7 +46,7 @@ Use `platform.discover_skills` with a task description to find the right special
 - **Staged commits**: Group changes into logical commits by concern (models, services, controllers, frontend, tests, config) — never one monolithic commit
 
 ### Business Submodule (`./extensions/business`)
-Private remote-only (not committed to public repo). **Path aliases**: `@business/` for intra-business imports, `@/` for core shared imports. **Core mode** when absent: single-user self-hosted, all features unlocked, no billing/SaaS. **Feature gating**: `Shared::FeatureGateService.business_loaded?` (backend), `__BUSINESS__` build flag (frontend), `businessOnly: true` on nav items. For git/commit rules see [Submodule Safety](#submodule-safety-critical).
+Private remote-only (not committed to public repo). **Path aliases**: `@business/` for intra-business imports, `@/` for core shared imports. **Core mode** when absent: single-user self-hosted, all features unlocked, no billing/SaaS. **Feature gating**: `Shared::FeatureGateService.business_loaded?` (backend), `__EXTENSIONS__.includes('business')` build-time gate (frontend, also drives nav visibility). For git/commit rules see [Submodule Safety](#submodule-safety-critical).
 
 ### Permission-Based Access Control (CRITICAL)
 **Frontend MUST use permissions ONLY - NEVER roles for access control**
@@ -174,7 +174,7 @@ journalctl -u powernode-backend@default -f      # Tail service logs
 | Rails API | `powernode-backend@default` | 3000 | SIGUSR2 reload (~30ms) via `scripts/reload-backend.sh`. Auto-reloaded by Stop hook after `.rb` edits |
 | Sidekiq | `powernode-worker@default` | — | Full restart (~28s drain). **Wait 30s** before checking status — "deactivating" is normal during drain |
 | Worker HTTP API | `powernode-worker-web@default` | 4567 | If port 4567 refused, restart THIS service, not `powernode-worker` |
-| Frontend | `powernode-frontend@default` | 5173 | Full restart |
+| Frontend | `powernode-frontend@default` | 3001 | Full restart |
 
 **Stuck worker**: If worker is draining >30s, use `sudo systemctl stop powernode-worker@default && sudo systemctl start powernode-worker@default` (stop+start, not restart)
 **Never restart worker multiple times** in quick succession — batch code changes, ONE restart at end
