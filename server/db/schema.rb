@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_02_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_04_040000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10459,6 +10459,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_180000) do
     t.check_constraint "severity::text = ANY (ARRAY['low'::character varying::text, 'medium'::character varying::text, 'high'::character varying::text, 'critical'::character varying::text])", name: "ck_fleet_events_severity"
   end
 
+  create_table "system_fleet_remediation_outcomes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_id"
+    t.string "signal_kind", null: false
+    t.string "fingerprint", null: false
+    t.string "action_category"
+    t.string "correlation_id"
+    t.string "resource_ref"
+    t.string "status", default: "pending", null: false
+    t.datetime "acted_at", null: false
+    t.datetime "settle_until", null: false
+    t.datetime "validated_at"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status", "settle_until"], name: "idx_fleet_remediation_pending_due"
+    t.index ["account_id"], name: "idx_fleet_remediation_outcomes_account"
+    t.index ["fingerprint"], name: "index_system_fleet_remediation_outcomes_on_fingerprint"
+  end
+
   create_table "system_gitops_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.boolean "auto_apply", default: false, null: false
@@ -14153,6 +14173,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_180000) do
   add_foreign_key "system_federation_service_subscriptions", "system_federation_grants", column: "federation_grant_id", on_delete: :restrict
   add_foreign_key "system_federation_service_subscriptions", "system_federation_peers", column: "federation_peer_id", on_delete: :cascade
   add_foreign_key "system_fleet_events", "accounts"
+  add_foreign_key "system_fleet_remediation_outcomes", "accounts"
   add_foreign_key "system_gitops_repositories", "accounts"
   add_foreign_key "system_gitops_sync_runs", "system_gitops_repositories", column: "gitops_repository_id"
   add_foreign_key "system_instance_mount_points", "system_node_instances", column: "node_instance_id"
