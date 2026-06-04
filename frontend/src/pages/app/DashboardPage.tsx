@@ -417,7 +417,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/debug" element={<AIDebugPage />} />
 
         {/* Cost Pages — FinOps + ROI (Cost nav section) */}
-        <Route path="/ai/cost/finops" element={<FinOpsPage />} />
+        <Route path="/ai/cost/finops/*" element={<FinOpsPage />} />
         <Route path="/ai/cost/roi" element={<RoiDashboard />} />
 
         {/* Developer Pages — Portal + Execution Traces (Developer nav section) */}
