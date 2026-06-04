@@ -149,38 +149,54 @@ describe('DropdownMenu', () => {
   });
 
   describe('alignment', () => {
+    // The menu is portaled to document.body and positioned via fixed inline
+    // styles (computed from the trigger's bounding rect), not Tailwind
+    // absolute/left-0/right-0 classes. Right-align anchors the menu's right
+    // edge (inline `right` set, `left` unset); left-align anchors the left
+    // edge (inline `left` set, `right` unset).
     it('aligns right by default', () => {
       renderDropdown();
       fireEvent.click(screen.getByText('Open Menu'));
 
-      const menu = document.querySelector('.absolute.right-0');
+      const menu = document.querySelector<HTMLElement>('.z-\\[10000\\]');
       expect(menu).toBeInTheDocument();
+      expect(menu?.style.position).toBe('fixed');
+      expect(menu?.style.right).not.toBe('');
+      expect(menu?.style.left).toBe('');
     });
 
     it('aligns left when specified', () => {
       renderDropdown(defaultItems, { align: 'left' });
       fireEvent.click(screen.getByText('Open Menu'));
 
-      const menu = document.querySelector('.absolute.left-0');
+      const menu = document.querySelector<HTMLElement>('.z-\\[10000\\]');
       expect(menu).toBeInTheDocument();
+      expect(menu?.style.position).toBe('fixed');
+      expect(menu?.style.left).not.toBe('');
+      expect(menu?.style.right).toBe('');
     });
   });
 
   describe('width', () => {
+    // Width is applied as an inline style on the portaled menu, resolved from
+    // the Tailwind `w-N` shorthand to rem (N * 0.25rem), rather than emitting
+    // the `w-N` class directly. Default `w-48` -> 12rem; `w-64` -> 16rem.
     it('uses default width', () => {
       renderDropdown();
       fireEvent.click(screen.getByText('Open Menu'));
 
-      const menu = document.querySelector('.w-48');
+      const menu = document.querySelector<HTMLElement>('.z-\\[10000\\]');
       expect(menu).toBeInTheDocument();
+      expect(menu?.style.width).toBe('12rem');
     });
 
     it('uses custom width', () => {
       renderDropdown(defaultItems, { width: 'w-64' });
       fireEvent.click(screen.getByText('Open Menu'));
 
-      const menu = document.querySelector('.w-64');
+      const menu = document.querySelector<HTMLElement>('.z-\\[10000\\]');
       expect(menu).toBeInTheDocument();
+      expect(menu?.style.width).toBe('16rem');
     });
   });
 

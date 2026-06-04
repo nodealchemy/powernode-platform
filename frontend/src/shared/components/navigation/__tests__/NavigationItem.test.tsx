@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { NavigationItem } from '../NavigationItem';
 import type { NavigationItem as NavItem } from '@/shared/types/navigation';
 
@@ -14,8 +14,16 @@ jest.mock('react-router-dom', () => ({
 jest.mock('@/shared/hooks/NavigationContext', () => ({
   useNavigation: () => ({
     hasPermission: () => mockHasPermissionResult,
+    config: { items: [], sections: [] },
   }),
 }));
+
+// Probe component to surface the current router location in the DOM so we can
+// assert that native <Link> navigation actually changed the path.
+const LocationProbe = () => {
+  const location = useLocation();
+  return <div data-testid="location-probe">{location.pathname}</div>;
+};
 
 const renderItem = (item: NavItem) => {
   return render(
@@ -37,9 +45,18 @@ describe('NavigationItem', () => {
   });
 
   it('navigates when clicked (normal item)', () => {
-    renderItem({ id: 'test', name: 'Normal Link', href: '/app/test', icon: 'T' });
+    // The component navigates via a native <Link>, so assert the router path
+    // actually changed rather than expecting a programmatic navigate() call.
+    render(
+      <MemoryRouter initialEntries={['/app']}>
+        <NavigationItem item={{ id: 'test', name: 'Normal Link', href: '/app/test', icon: 'T' }} />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/app');
     fireEvent.click(screen.getByText('Normal Link'));
-    expect(mockNavigate).toHaveBeenCalledWith('/app/test');
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/test');
   });
 
   it('dispatches CustomEvent instead of navigating when action is "open-chat"', () => {

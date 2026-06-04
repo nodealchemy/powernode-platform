@@ -139,7 +139,11 @@ describe('Sidebar', () => {
     it('renders sidebar with logo', () => {
       renderSidebar(defaultProps);
 
-      expect(screen.getByText('P')).toBeInTheDocument();
+      // Logo is an <img> (asset imports resolve to the "test-file-stub" stub
+      // module under the jest asset transform), alongside the wordmark text.
+      const logo = screen.getByAltText('Powernode');
+      expect(logo).toBeInTheDocument();
+      expect(logo).toHaveAttribute('src', 'test-file-stub');
       expect(screen.getByText('Powernode')).toBeInTheDocument();
     });
 
@@ -361,9 +365,12 @@ describe('Sidebar', () => {
     it('renders logo icon', () => {
       renderSidebar(defaultProps);
 
-      const logoIcon = screen.getByText('P');
+      // The logo icon is an <img> with object-cover sizing; the asset import
+      // resolves to the "test-file-stub" stub module in tests.
+      const logoIcon = screen.getByAltText('Powernode');
       expect(logoIcon).toBeInTheDocument();
-      expect(logoIcon).toHaveClass('text-white', 'font-bold');
+      expect(logoIcon.tagName).toBe('IMG');
+      expect(logoIcon).toHaveClass('object-cover');
     });
   });
 });

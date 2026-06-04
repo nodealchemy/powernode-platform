@@ -18,7 +18,6 @@ import { settingsApi } from '@/shared/services/settings/settingsApi';
 import { TwoFactorVerification } from '@/features/account/auth/components/TwoFactorVerification';
 import { DomainChangeNotice } from '@/shared/components/ui/DomainChangeNotice';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
-import logoIcon from '@/assets/images/logo-icon.png';
 
 
 interface LocationState {
@@ -174,8 +173,8 @@ export const LoginPage: React.FC = () => {
           {/* Modern Logo and Title */}
           <div className="text-center">
             <Link to="/welcome" className="inline-block group">
-              <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl transition-all duration-200 group-hover:scale-105 overflow-hidden">
-                <img src={logoIcon} alt="Powernode" className="w-16 h-16 object-cover" />
+              <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl transition-all duration-200 group-hover:scale-105 bg-theme-interactive-primary">
+                <span className="text-white font-bold text-3xl">P</span>
               </div>
             </Link>
             <h1 className="text-3xl font-bold mb-2 text-theme-primary">
@@ -336,7 +335,7 @@ export const LoginPage: React.FC = () => {
 
                 <div className="mt-6 text-center">
                   <Link
-                    to="/pricing"
+                    to="/plans"
                     className="btn-theme btn-theme-secondary w-full inline-flex justify-center items-center space-x-2 py-3 px-4 border border-theme rounded-xl text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
                   >
                     <span>Create your account</span>

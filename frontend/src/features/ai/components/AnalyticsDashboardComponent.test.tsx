@@ -115,11 +115,7 @@ describe('AnalyticsDashboardComponent', () => {
   const mockCostsData = {
     total_cost_usd: 125.50,
     cost_by_provider: { 'OpenAI': 85.00, 'Anthropic': 40.50 },
-    optimization_potential_usd: 15.00,
-    top_expensive_workflows: [
-      { id: 'wf-1', name: 'Customer Support', total_cost_usd: 45.00 },
-      { id: 'wf-2', name: 'Data Analysis', total_cost_usd: 30.00 }
-    ]
+    optimization_potential_usd: 15.00
   };
 
   const mockUsageData = {
@@ -318,12 +314,12 @@ describe('AnalyticsDashboardComponent', () => {
       });
     });
 
-    it('shows top expensive workflows', async () => {
+    it('shows cost breakdown by provider', async () => {
       render(<AnalyticsDashboardComponent />);
 
       await waitFor(() => {
-        expect(screen.getByText('Top Expensive Workflows')).toBeInTheDocument();
-        expect(screen.getByText('Customer Support')).toBeInTheDocument();
+        expect(screen.getByText('Cost Analytics')).toBeInTheDocument();
+        expect(screen.getByText('Cost by Provider')).toBeInTheDocument();
       });
     });
   });

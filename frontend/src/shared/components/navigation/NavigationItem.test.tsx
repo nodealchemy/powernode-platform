@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { NavigationItem } from './NavigationItem';
 import { NavigationItem as NavItem } from '@/shared/types/navigation';
 import { Home } from 'lucide-react';
@@ -16,12 +16,12 @@ jest.mock('@/shared/hooks/NavigationContext', () => ({
   }),
 }));
 
-// Mock react-router-dom navigate
-const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate,
-}));
+// Probe component to surface the current router location in the DOM so we can
+// assert that native <Link> navigation actually changed the path.
+const LocationProbe = () => {
+  const location = useLocation();
+  return <div data-testid="location-probe">{location.pathname}</div>;
+};
 
 describe('NavigationItem', () => {
   const defaultItem: NavItem = {
@@ -70,15 +70,33 @@ describe('NavigationItem', () => {
       expect(icon).toBeInTheDocument();
     });
 
-    it('renders string emoji icon', () => {
-      const itemWithEmoji: NavItem = {
+    it('resolves a string icon to a Lucide icon component', () => {
+      // String icons are interpreted as Lucide icon names and rendered as SVGs,
+      // not printed as literal text.
+      const itemWithLucideName: NavItem = {
+        ...defaultItem,
+        icon: 'Home',
+      };
+
+      const { container } = renderNavigationItem(itemWithLucideName);
+
+      const icon = container.querySelector('svg');
+      expect(icon).toBeInTheDocument();
+    });
+
+    it('falls back to the Puzzle icon for an unknown string icon', () => {
+      // A non-Lucide string (e.g. an emoji) is not a valid icon name, so the
+      // component renders the Puzzle fallback SVG rather than the raw string.
+      const itemWithUnknownIcon: NavItem = {
         ...defaultItem,
         icon: '🏠',
       };
 
-      renderNavigationItem(itemWithEmoji);
+      const { container } = renderNavigationItem(itemWithUnknownIcon);
 
-      expect(screen.getByText('🏠')).toBeInTheDocument();
+      const icon = container.querySelector('svg.lucide-puzzle');
+      expect(icon).toBeInTheDocument();
+      expect(screen.queryByText('🏠')).not.toBeInTheDocument();
     });
   });
 
@@ -219,13 +237,24 @@ describe('NavigationItem', () => {
   });
 
   describe('click handling', () => {
-    it('navigates programmatically on click', () => {
-      renderNavigationItem();
+    it('navigates to the item href on click', () => {
+      // Render with a location probe so we can assert that native <Link>
+      // navigation actually changed the router path.
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <NavigationItem item={defaultItem} />
+          <LocationProbe />
+        </MemoryRouter>
+      );
+
+      // Starts at the initial route, not the item's destination.
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/');
 
       const link = screen.getByRole('link');
       fireEvent.click(link);
 
-      expect(mockNavigate).toHaveBeenCalledWith('/app');
+      // Native <Link> navigation updates the router location to the href.
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/app');
     });
   });
 

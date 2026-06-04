@@ -112,9 +112,9 @@ describe('AdminSettingsTabs', () => {
     );
 
     await waitFor(() => {
-      // Should see Overview (no specific permissions required) and Performance (basic permission)
+      // Should see Overview (no specific permissions required) and Infrastructure (basic permission)
       expect(screen.getAllByText('Overview')).toHaveLength(2); // Desktop and mobile
-      expect(screen.getAllByText('Performance')).toHaveLength(2); // Desktop and mobile
+      expect(screen.getAllByText('Infrastructure')).toHaveLength(2); // Desktop and mobile
 
       // Should NOT see permission-restricted tabs
       expect(screen.queryByText('Email Settings')).not.toBeInTheDocument();

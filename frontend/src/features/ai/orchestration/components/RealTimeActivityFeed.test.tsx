@@ -274,7 +274,8 @@ describe('RealTimeActivityFeed', () => {
       await waitFor(() => {
         // Should show filter buttons for activity types
         expect(screen.getByText('Agent Executions')).toBeInTheDocument();
-        expect(screen.getByText('Workflow Completed')).toBeInTheDocument();
+        expect(screen.getByText('Conversations')).toBeInTheDocument();
+        expect(screen.getByText('Provider Health')).toBeInTheDocument();
       });
     });
   });

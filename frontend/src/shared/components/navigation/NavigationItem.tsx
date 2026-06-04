@@ -22,18 +22,20 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
   const { hasPermission, config } = useNavigation();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
+  // Collect all sibling nav hrefs for "more specific match" checks.
+  // Computed before the permission gate below so every hook runs
+  // unconditionally on every render (Rules of Hooks).
+  const allNavHrefs = useMemo(() => {
+    const hrefs = new Set<string>();
+    config?.items?.forEach(i => hrefs.add(i.href));
+    config?.sections?.forEach(s => s.items.forEach(i => hrefs.add(i.href)));
+    return hrefs;
+  }, [config]);
+
   // Check permissions - ONLY use permissions, ignore roles
   if (!hasPermission(item.permissions)) {
     return null;
   }
-
-  // Collect all sibling nav hrefs for "more specific match" checks
-  const allNavHrefs = useMemo(() => {
-    const hrefs = new Set<string>();
-    config.items.forEach(i => hrefs.add(i.href));
-    config.sections?.forEach(s => s.items.forEach(i => hrefs.add(i.href)));
-    return hrefs;
-  }, [config]);
 
   // Check if item is active - exact match or most specific prefix match
   const isActive = (() => {

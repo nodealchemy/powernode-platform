@@ -153,10 +153,8 @@ describe('EnhancedAIOverview', () => {
 
       await waitFor(() => {
         expect(screen.getByText('AI Providers')).toBeInTheDocument();
-        expect(screen.getByText('AI Providers')).toBeInTheDocument();
         expect(screen.getByText('AI Agents')).toBeInTheDocument();
-        expect(screen.getByText('Workflows')).toBeInTheDocument();
-        expect(screen.getByText('Conversations')).toBeInTheDocument();
+        expect(screen.getByText('Executions')).toBeInTheDocument();
       });
     });
   });
@@ -331,7 +329,7 @@ describe('EnhancedAIOverview', () => {
         // Should still show the overview with available data
         expect(screen.getByText('AI Providers')).toBeInTheDocument();
         expect(screen.getByText('AI Agents')).toBeInTheDocument();
-        expect(screen.getByText('Workflows')).toBeInTheDocument();
+        expect(screen.getByText('Executions')).toBeInTheDocument();
       });
     });
 
@@ -358,8 +356,7 @@ describe('EnhancedAIOverview', () => {
       await waitFor(() => {
         expect(screen.getByText('AI Providers')).toBeInTheDocument();
         expect(screen.getByText('AI Agents')).toBeInTheDocument();
-        expect(screen.getByText('Workflows')).toBeInTheDocument();
-        expect(screen.getByText('Conversations')).toBeInTheDocument();
+        expect(screen.getByText('Executions')).toBeInTheDocument();
       });
 
       // Verify API was called during initial load

@@ -87,7 +87,7 @@ export const validateThemeConsistency = () => {
     // Check for proper theme class usage
     const themeElements = {
       'bg-theme-surface': document.querySelectorAll('[class*="bg-theme-surface"]').length,
-      'bg-theme-background': document.querySelectorAll('[class*="bg-theme-background-secondary"]').length,
+      'bg-theme-background': document.querySelectorAll('[class*="bg-theme-background"]').length,
       'text-theme-primary': document.querySelectorAll('[class*="text-theme-primary"]').length,
       'input-theme': document.querySelectorAll('.input-theme').length,
       'btn-theme': document.querySelectorAll('[class*="btn-theme"]').length,

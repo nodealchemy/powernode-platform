@@ -453,7 +453,10 @@ describe('usePermissions', () => {
       expect(screen.getByTestId('any-user-permission')).toHaveTextContent('Has user permissions');
       expect(screen.getByTestId('all-admin-permissions')).toHaveTextContent('Full admin');
       expect(screen.getByTestId('is-system-admin')).toHaveTextContent('System Admin');
-      expect(screen.getByTestId('is-account-manager')).toHaveTextContent('Not Account Manager');
+      // A system-admin holds account-management capability (admin.user.update via
+      // the system.admin universal grant), so isAccountManager is true — the
+      // permission model is capability-based, not role-exclusive.
+      expect(screen.getByTestId('is-account-manager')).toHaveTextContent('Account Manager');
       expect(screen.getByTestId('is-admin')).toHaveTextContent('Admin');
     });
 

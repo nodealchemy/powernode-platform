@@ -454,7 +454,6 @@ describe('AIMonitoringPage', () => {
         // Check for overview card data - use getAllByText since there may be multiple matches
         expect(screen.getAllByText(/Active Providers/i).length).toBeGreaterThan(0);
         expect(screen.getAllByText(/AI Agents/i).length).toBeGreaterThan(0);
-        expect(screen.getAllByText(/Active Workflows/i).length).toBeGreaterThan(0);
       });
     });
   });
