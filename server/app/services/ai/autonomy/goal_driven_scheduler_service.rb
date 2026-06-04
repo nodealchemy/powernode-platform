@@ -88,7 +88,11 @@ module Ai
       end
 
       def kill_switch_active?
-        Ai::KillSwitchEvent.where(account_id: @account.id, status: "active").exists?
+        # The canonical halt signal is account.ai_suspended? (set by
+        # KillSwitchService#emergency_halt!). Ai::KillSwitchEvent is an audit
+        # log of halt/resume events — it has no "active"/"status" column, so a
+        # status-based query here is a silent no-op. Always go through the service.
+        Ai::Autonomy::KillSwitchService.new(account: @account).halted?
       end
 
       def duty_cycle_exceeded?
