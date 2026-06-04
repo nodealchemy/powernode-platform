@@ -25,7 +25,7 @@ Core platform models not in a namespace.
 |-------|-------------|
 | `User` | Platform users with authentication and permissions |
 | `Account` | Multi-tenant account (one per organisation) |
-| `Role` | Permission grouping (system.admin, account.manager, etc.) |
+| `Role` | Permission grouping (super_admin, owner, admin, manager, member, etc.) |
 | `Permission` | Individual permission entry — see [permissions.md](permissions.md) |
 | `RolePermission` | Role-to-permission join table |
 | `Plan` | Subscription plan with features/limits (extension-gated) |
@@ -248,4 +248,4 @@ After modifying seeds, run `cd server && rails db:seed` and verify completion.
 
 - `docs/backend/DATABASE_SCHEMA_REFERENCE.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

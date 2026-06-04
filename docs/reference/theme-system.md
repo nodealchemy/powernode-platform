@@ -14,7 +14,7 @@
 
 ## Overview
 
-All components MUST use theme-aware Tailwind classes (`bg-theme-*`, `text-theme-*`, `border-theme-*`). Hardcoded color classes (e.g. `bg-white`, `text-gray-700`, `bg-red-500`) are forbidden — a pre-commit hook rejects them. The classes resolve via CSS custom properties defined in `frontend/src/index.css`, with light/dark mode toggled by the `dark` class on `<html>`.
+All components MUST use theme-aware Tailwind classes (`bg-theme-*`, `text-theme-*`, `border-theme-*`). Hardcoded color classes (e.g. `bg-white`, `text-gray-700`, `bg-red-500`) are forbidden — a pre-commit hook rejects them. The classes resolve via CSS custom properties; the `bg-/text-/border-theme-*` utilities and their token mappings are defined in `frontend/src/assets/styles/tailwind-theme.css`, and the light/dark `--color-*` values in `frontend/src/assets/styles/themes.css` (`frontend/src/index.css` only `@import`s them). Light/dark mode is toggled by the `dark` class on `<html>`.
 
 > **Theme class allowlist gotcha:** `bg-theme-secondary` / `bg-theme-tertiary` / `bg-theme-*-bg` DO NOT EXIST. Use `bg-theme-surface`, `bg-theme-background-secondary`, or `bg-theme-{success,warning,danger,info}` (no `-bg` suffix). Using non-existent classes silently produces white-on-white rendering.
 
@@ -76,8 +76,8 @@ All components MUST use theme-aware Tailwind classes (`bg-theme-*`, `text-theme-
 |-----------|-------------|-------|
 | `bg-blue-600` | `bg-theme-primary` | Primary button |
 | `hover:bg-blue-700` | `hover:bg-theme-primary-hover` | Primary hover |
-| `bg-gray-200` | `bg-theme-secondary` | Secondary button |
-| `hover:bg-gray-300` | `hover:bg-theme-secondary-hover` | Secondary hover |
+| `bg-gray-200` | `bg-theme-interactive-secondary` | Secondary button |
+| `hover:bg-gray-300` | `hover:bg-theme-interactive-secondary-hover` | Secondary hover |
 
 ## Component Examples
 
@@ -99,7 +99,7 @@ All components MUST use theme-aware Tailwind classes (`bg-theme-*`, `text-theme-
 </button>
 
 // Secondary
-<button className="bg-theme-secondary text-theme-primary hover:bg-theme-secondary-hover">
+<button className="bg-theme-interactive-secondary text-theme-primary hover:bg-theme-interactive-secondary-hover">
   Cancel
 </button>
 
@@ -172,7 +172,7 @@ The only allowed hardcoded color is `text-white` on coloured backgrounds:
 
 The project uses **Tailwind CSS 4** with CSS-first configuration.
 
-- Theme classes are defined via CSS custom properties in `frontend/src/index.css`.
+- Theme classes are defined via CSS custom properties in `frontend/src/assets/styles/tailwind-theme.css` (utilities + token mapping) and `frontend/src/assets/styles/themes.css` (light/dark values); `frontend/src/index.css` is only the import entry point.
 - Dark mode uses the `dark` class on the `<html>` element.
 - Theme-aware classes (`bg-theme-*`, `text-theme-*`) are custom utilities built on CSS variables.
 - Configuration: `frontend/tailwind.config.js`.
@@ -189,4 +189,4 @@ The project uses **Tailwind CSS 4** with CSS-first configuration.
 
 - `docs/platform/THEME_SYSTEM_REFERENCE.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

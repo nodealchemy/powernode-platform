@@ -67,6 +67,18 @@ Real-time messaging for AI chat conversations.
 
 **Authorization:** Conversation must belong to user's account.
 
+### AiConversationsListChannel
+
+**File:** `server/app/channels/ai_conversations_list_channel.rb`
+
+List-level CRUD events for the chat sidebar — distinct from `AiConversationChannel` (which broadcasts message-level events inside a single conversation). Auto-scoped to the current user's account; no params required.
+
+**Stream:** `ai_conversations_list:account_{account_id}`
+
+**Events:** `subscription.confirmed`, `conversation_created`, `conversation_updated`, `conversation_destroyed`.
+
+**Authorization:** Requires an authenticated user with an account; account-scoped.
+
 ### AiOrchestrationChannel
 
 **File:** `server/app/channels/ai_orchestration_channel.rb`
@@ -296,4 +308,4 @@ Worker tool dispatch protocol channel. Used for pushing tool invocations from wo
 
 - `docs/platform/ACTIONCABLE_CHANNELS_REFERENCE.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

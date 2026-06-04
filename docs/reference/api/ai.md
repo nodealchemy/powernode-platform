@@ -147,7 +147,6 @@ For the full live tool catalogue exposed via MCP, see [../auto/mcp-tools.md](../
 | `MonitoringController` | `/ai/monitoring` | System health |
 | `AnalyticsController` | `/ai/analytics` | Metrics |
 | `AnalyticsReportsController` | `/ai/analytics_reports` | Report generation |
-| `ValidationStatisticsController` | `/ai/validation_statistics` | Validation stats |
 | `DevopsRiskReviewController` | `/ai/devops_risk_review` | Risk assessment |
 | `SelfHealingController` | `/ai/self_healing` | Self-healing ops |
 | `FinopsController` | `/ai/finops` | Financial operations |
@@ -241,7 +240,7 @@ GET    /api/v1/ai/providers/:id/credentials    # Credential management
 GET    /api/v1/internal/ai/providers/:id/health # Health check (wrapped in `data:`)
 ```
 
-Permission: `ai.providers.manage`.
+Permissions: `ai.providers.read` (read), `ai.providers.create` / `ai.providers.update` / `ai.providers.delete` (write).
 
 ### Data Source Endpoints
 
@@ -276,9 +275,9 @@ Permission: `admin.access`.
 | Agents | `ai.agents.read` | `ai.agents.create` / `ai.agents.manage` |
 | Teams | `ai.teams.read` | `ai.teams.manage` |
 | Missions | `ai.missions.read` | `ai.missions.manage` |
-| Ralph Loops | `ai.ralph.read` / `ai.missions.read` | `ai.ralph.manage` |
+| Ralph Loops | `ai.workflows.read` | `ai.workflows.create` / `ai.workflows.update` / `ai.workflows.delete` / `ai.workflows.execute` |
 | Code Factory | `ai.code_factory.read` | `ai.code_factory.manage` |
-| Providers | `ai.providers.manage` | `ai.providers.manage` |
+| Providers | `ai.providers.read` | `ai.providers.create` / `ai.providers.update` / `ai.providers.delete` |
 | Model Router | `ai.routing.read` | `ai.routing.manage` / `ai.routing.optimize` |
 | Monitoring | `ai.monitoring.read` | n/a |
 | Analytics | `ai.analytics.read` | n/a |
@@ -315,4 +314,4 @@ Full reference: [websocket.md](websocket.md).
 
 - `docs/platform/AI_ORCHESTRATION_API_REFERENCE.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

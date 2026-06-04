@@ -88,7 +88,7 @@ end
 
 ## Permission Categories
 
-Permissions are organised by prefix. The base platform ships **367 static permissions** (`Permissions::ALL_PERMISSIONS`); the live database total is higher when extensions are loaded (extension permissions register on boot), so query the runtime registry (`GET /api/v1/permissions`) for the current extension-inclusive count rather than relying on a hardcoded figure. The seeder is the source of truth for the base set.
+Permissions are organised by prefix. The base platform ships **371 static permissions** (`Permissions::ALL_PERMISSIONS`); the live database total is higher when extensions are loaded (extension permissions register on boot), so query the runtime registry (`GET /api/v1/permissions`) for the current extension-inclusive count rather than relying on a hardcoded figure. The seeder is the source of truth for the base set.
 
 | Category | Description |
 |----------|-------------|
@@ -140,6 +140,8 @@ Permissions are organised by prefix. The base platform ships **367 static permis
 
 **Role assignments:** `ai.kill_switch.manage` is automatically assigned to `owner` and `admin` roles.
 
+> **Registration source:** Apart from `ai.autonomy.manage` (which lives in `Permissions::ALL_PERMISSIONS`), the AI Autonomy permissions above are defined and seeded by a separate file, `server/db/seeds/ai_autonomy_permissions.rb` — not by `permission_seeder.rb`.
+
 ## Common Permission Patterns
 
 ```
@@ -164,10 +166,15 @@ Roles exist only for permission grouping in the backend. Frontend code NEVER che
 
 | Role | Description | Typical Permissions |
 |------|-------------|---------------------|
-| `system.admin` | Full system access | All permissions |
-| `account.manager` | Account management | Account-scoped permissions |
-| `account.member` | Basic access | Read-only permissions |
-| `billing.manager` | Billing operations | Billing-related permissions (extension-gated) |
+| `super_admin` | Full system access | All permissions |
+| `owner` | Account owner | Account-scoped permissions |
+| `admin` | Administrator | Admin-scoped permissions |
+| `manager` | Account management | Management permissions |
+| `member` | Basic access | Read-only permissions |
+| `developer` | Developer access | DevOps / engineering permissions |
+| `content_manager` | Content management | Content / CMS permissions |
+
+Worker roles (`system_worker`, `task_worker`, `ci_worker`, `ai_specialist`) also exist for service-to-service authorization.
 
 ## API Response Format
 
@@ -208,10 +215,10 @@ const filteredNavItems = navigationItems.filter(item => {
 - [../guides/backend.md](../guides/backend.md) — `has_permission?` patterns
 - [../guides/frontend.md](../guides/frontend.md) — Permission-gated UI
 - [api/overview.md](api/overview.md) — Endpoint-level permission requirements
-- Source of truth: `server/config/permissions.rb` (`Permissions::ALL_PERMISSIONS`), seeded by `server/app/services/permission_seeder.rb`
+- Source of truth: `server/config/permissions.rb` (`Permissions::ALL_PERMISSIONS`), seeded by `server/app/services/permission_seeder.rb`. AI Autonomy permissions are registered separately via `server/db/seeds/ai_autonomy_permissions.rb`.
 
 ## Materials previously at
 
 - `docs/platform/PERMISSION_SYSTEM_REFERENCE.md` (registry portions)
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

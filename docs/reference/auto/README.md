@@ -27,6 +27,6 @@ If you want a local Markdown snapshot for browsing, run `cd server && bundle exe
 
 ## Verification
 
-`docs/.verify/check-auto-gen-headers.sh` confirms every tracked file here begins with the `<!-- AUTO-GENERATED -->` marker. Hand-edits to tracked auto-gen files are rejected by the harness at push time.
+`docs/.verify/check-auto-gen-headers.sh` confirms every auto-generated file here begins with the `<!-- AUTO-GENERATED -->` marker. Hand-edits to tracked auto-gen files are rejected by the harness at push time.
 
 The `manifest.yml` next to this README is the machine-readable source of truth for each file's regeneration command and source.
