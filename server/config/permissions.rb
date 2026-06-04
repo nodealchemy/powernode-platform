@@ -125,6 +125,14 @@ module Permissions
     "ai.analytics.read" => "View AI usage analytics",
     "ai.analytics.export" => "Export AI analytics data",
 
+    # AI Orchestration - FinOps / ROI / Execution Traces
+    # (these back the Cost + Developer nav sections; previously referenced by
+    # controllers but never registered, which 403'd the features for everyone)
+    "ai.finops.view" => "View AI FinOps cost management",
+    "ai.roi.read" => "View AI ROI analytics",
+    "ai.roi.manage" => "Manage AI ROI configuration",
+    "ai_monitoring.read" => "View AI execution traces and monitoring",
+
     # AI Orchestration - Templates
     "ai.templates.read" => "View AI agent templates",
     "ai.templates.install" => "Install AI agent templates",
@@ -614,6 +622,7 @@ module Permissions
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate", "ai.conversations.manage",
         "ai.messages.read", "ai.messages.create", "ai.messages.update", "ai.messages.delete",
         "ai.analytics.read", "ai.analytics.export",
+        "ai.finops.view", "ai.roi.read", "ai.roi.manage", "ai_monitoring.read",
         "ai.templates.read", "ai.templates.install", "ai.templates.create", "ai.templates.publish",
         "ai.prompt_templates.read", "ai.prompt_templates.write",
         # MCP permissions
@@ -852,6 +861,7 @@ module Permissions
         "ai.conversations.manage",
         "ai.messages.read", "ai.messages.create", "ai.messages.update", "ai.messages.delete",
         "ai.analytics.read", "ai.analytics.export",
+        "ai.finops.view", "ai.roi.read", "ai.roi.manage", "ai_monitoring.read",
         "ai.templates.read", "ai.templates.install", "ai.templates.create", "ai.templates.publish",
         "ai.prompt_templates.read", "ai.prompt_templates.write",
         # MCP permissions
