@@ -6,9 +6,15 @@ require "json"
 # Scans extensions/*/extension.json for gems with components.server: true.
 # Skips slugs marked disabled in config/extensions_state.json so a disabled
 # extension never becomes a path gem (its Engine is never loaded).
-def discover_extension_gems
-  discover_extension_gems_by_visibility[:public] +
-    discover_extension_gems_by_visibility[:private]
+#
+# Every entry point takes an optional `base_dir` (defaulting to this file's
+# own directory — the repo root) purely for testability: production callers
+# (the Gemfile) pass nothing and read the real tree, while specs point the
+# whole discovery at a fixture root. The default preserves the original
+# behavior exactly, so no call site changes.
+def discover_extension_gems(base_dir = __dir__)
+  discover_extension_gems_by_visibility(base_dir)[:public] +
+    discover_extension_gems_by_visibility(base_dir)[:private]
 end
 
 # Partition discovered extensions by visibility — "public" = listed in
@@ -34,13 +40,13 @@ end
 # (server/Gemfile.full just flips this flag and re-uses the base Gemfile.)
 # The committed lock is plain `bundle lock` (no env / no BUNDLE_GEMFILE);
 # scripts/regen-public-lockfile.sh remains as a convenience wrapper.
-def discover_extension_gems_by_visibility
+def discover_extension_gems_by_visibility(base_dir = __dir__)
   include_private = ENV["POWERNODE_INCLUDE_PRIVATE_EXTENSIONS"] == "1"
-  dir = File.join(__dir__, "extensions")
+  dir = File.join(base_dir, "extensions")
   return { public: [], private: [] } unless Dir.exist?(dir)
 
-  disabled = disabled_extension_slugs
-  public_slugs = public_extension_slugs
+  disabled = disabled_extension_slugs(base_dir)
+  public_slugs = public_extension_slugs(base_dir)
 
   result = { public: [], private: [] }
   Dir.children(dir).sort.each do |slug|
@@ -70,16 +76,16 @@ end
 # .gitmodules is absent (e.g., a stripped checkout); in that case every
 # discovered extension falls through to :private and the Gemfile's
 # optional-group bundler config skips them all by default.
-def public_extension_slugs
-  gitmodules = File.join(__dir__, ".gitmodules")
+def public_extension_slugs(base_dir = __dir__)
+  gitmodules = File.join(base_dir, ".gitmodules")
   return [] unless File.exist?(gitmodules)
   File.read(gitmodules).scan(%r{^\s*path\s*=\s*extensions/([^\s]+)$}).flatten
 rescue IOError, SystemCallError
   []
 end
 
-def disabled_extension_slugs
-  state_file = File.join(__dir__, "config", "extensions_state.json")
+def disabled_extension_slugs(base_dir = __dir__)
+  state_file = File.join(base_dir, "config", "extensions_state.json")
   return [] unless File.exist?(state_file)
 
   state = JSON.parse(File.read(state_file))
