@@ -33,7 +33,7 @@ If you're building a new feature, start at [Feature-based layout](#feature-based
 
 ## Prerequisites
 
-- Node 20+, a running platform (`docs/getting-started/01-quickstart.md`)
+- Node 24.13 (LTS; >=24.9 required), a running platform (`docs/getting-started/01-quickstart.md`)
 - Familiarity with React 19, TypeScript 6, Tailwind CSS 4
 - Read the root [`CLAUDE.md`](../../CLAUDE.md) "Frontend Patterns" table at least once
 

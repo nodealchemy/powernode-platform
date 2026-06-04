@@ -24,7 +24,7 @@ Powernode is open-source mission control for AI agent fleets. This quickstart ge
 
 | Requirement | Version | Verify Command |
 |-------------|---------|----------------|
-| Node.js | 20+ | `node --version` |
+| Node.js | 24.13 (LTS; >=24.9 required) | `node --version` |
 | Ruby | 3.2.8 (pinned) | `ruby --version` |
 | PostgreSQL + pgvector | recent stable, `pgvector` extension installed | `psql --version` |
 | Redis | 7+ | `redis-server --version` |

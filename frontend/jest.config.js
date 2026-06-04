@@ -8,6 +8,9 @@ module.exports = {
   ],
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   transform: {
+    // Static assets -> stub module. Must be a transform (not just
+    // moduleNameMapper) so it applies under --experimental-vm-modules.
+    '\\.(png|jpg|jpeg|gif|webp|svg|ico)$': '<rootDir>/src/__mocks__/fileTransform.js',
     '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', {
       presets: [
         ['@babel/preset-env', { targets: { node: 'current' } }],
@@ -28,7 +31,6 @@ module.exports = {
     '^@/assets/(.*)$': '<rootDir>/src/assets/$1',
     '^axios$': 'axios/dist/node/axios.cjs',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
-    '\\.(svg|png|jpg|jpeg|gif|webp)$': '<rootDir>/src/__mocks__/fileMock.js',
     '@uiw/react-md-editor': '<rootDir>/src/__mocks__/@uiw/react-md-editor.js',
     'react-markdown': '<rootDir>/src/__mocks__/react-markdown.js'
   },
