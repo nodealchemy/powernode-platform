@@ -1,0 +1,124 @@
+name: Extensions bundle
+
+# Guards the public-extension bundle mechanism (the Gemfile.full full-mode
+# bundle + the public-only Gemfile.lock + the repo-root extensions_loader_helper
+# discovery). Two invariants, one per job:
+#
+#   1. lockfile-public-only — the COMMITTED server/Gemfile.lock must declare
+#      only public-extension gems, so a clone WITHOUT the private submodules can
+#      `bundle install --frozen`. Pure bash, mirrors the docs.yml convention;
+#      always runnable on the docs.yml runner. (scripts/check-lockfile-public-only.sh)
+#
+#   2. core-mode-seed — a fresh CORE-mode checkout (public extensions only; no
+#      business/trading) must `rails db:seed` cleanly. This is the regression
+#      guard for a seed that smuggles a business-only constant into a core seed
+#      path — the exact class of bug that crashed the AI-governance seed with
+#      `NameError: uninitialized constant Ai::AccountCredit` until it was guarded
+#      behind Shared::FeatureGateService.business_loaded?.
+#
+# Scoped to PRs that touch the bundle mechanism, the loader, or the seeds, so it
+# stays cheap. core-mode-seed is the repo's first DB-backed CI job — see the two
+# runner-dependent knobs noted on its `env:` block.
+
+on:
+  pull_request:
+    paths:
+      - 'server/Gemfile'
+      - 'server/Gemfile.lock'
+      - 'server/Gemfile.full'
+      - 'extensions_loader_helper.rb'
+      - '.gitmodules'
+      - 'config/extensions_state.json'
+      - 'server/db/seeds.rb'
+      - 'server/db/seeds/**'
+      - 'scripts/check-lockfile-public-only.sh'
+      - '.gitea/workflows/extensions-bundle.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # The committed lock must be installable on a private-submodule-less clone.
+  # Reads the git index (post-checkout == committed), so no submodules needed.
+  # ---------------------------------------------------------------------------
+  lockfile-public-only:
+    runs-on: [self-hosted, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Committed lock declares only public-extension gems
+        run: bash scripts/check-lockfile-public-only.sh
+
+  # ---------------------------------------------------------------------------
+  # A core-mode checkout (public submodules only — business/trading are not in
+  # .gitmodules, so they stay absent) must seed without referencing a
+  # business-only constant. Reproduces a fresh core install's `rails db:seed`.
+  # ---------------------------------------------------------------------------
+  core-mode-seed:
+    runs-on: [self-hosted, ubuntu-24.04]
+    services:
+      postgres:
+        # pgvector image: db/schema.rb enables the `vector` extension, which
+        # the stock postgres image does not ship.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: powernode
+          POSTGRES_PASSWORD: powernode_dev
+          POSTGRES_DB: powernode_development
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U powernode"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      # development reproduces the real scenario: a fresh core install runs
+      # `rails db:seed` in development, never test, and the governance seed has
+      # no env gate (seeds.rb gates are `development? || test?`).
+      RAILS_ENV: development
+      # RUNNER KNOB 1 (DB host): host-backend self-hosted runners publish service
+      # ports to localhost (as docs.yml runs bash directly on the host). If THIS
+      # runner uses act_runner's Docker backend (the job itself runs in a
+      # container), change to "postgres" and the REDIS_URL host to "redis".
+      DATABASE_HOST: localhost
+      DATABASE_USER: powernode
+      POWERNODE_DATABASE_PASSWORD: powernode_dev
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Public submodules only == core mode. business/trading aren't in
+          # .gitmodules, so recursive checkout leaves them absent — exactly the
+          # tree a public clone / core install has.
+          submodules: recursive
+
+      # RUNNER KNOB 2 (Ruby): uses the same GitHub-action mechanism as
+      # actions/checkout@v4 (already proven on this runner by docs.yml). If the
+      # runner instead has a pinned system Ruby, drop this step.
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.8'
+
+      - name: Install gems (frozen, public-only — proves the committed lock resolves in core mode)
+        working-directory: server
+        run: |
+          bundle config set --local frozen true
+          bundle install --jobs 4 --retry 3
+
+      - name: Create database and load schema
+        working-directory: server
+        run: bundle exec rails db:create db:schema:load
+
+      - name: Seed must not crash in core mode (NameError regression guard)
+        working-directory: server
+        run: bundle exec rails db:seed
