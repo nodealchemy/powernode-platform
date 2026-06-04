@@ -1,0 +1,87 @@
+name: Docs checks
+
+# Documentation verification harness for the powernode-platform parent repo.
+# Wires the read-only docs/.verify/*.sh scripts into CI on doc-touching PRs.
+#
+# GATING POLICY:
+#   - check-links.sh            -> HARD gate (broken markdown links fail the job)
+#   - check-code-refs.sh        -> advisory (continue-on-error)
+#   - check-mcp-actions.sh      -> advisory (continue-on-error)
+#   - check-counts.sh           -> advisory (continue-on-error)
+#   - check-auto-gen-headers.sh -> advisory (continue-on-error)
+#
+# OPERATOR OVERRIDE:
+#   Include `[docs-skip-verify]` in the head commit message to skip every
+#   verify step. The guard step reads the real head commit message via git
+#   and gates the rest.
+#
+# SUBMODULES:
+#   check-mcp-actions.sh reads the platform tool registry at
+#   server/app/services/ai/tools/platform_api_tool_registry.rb, and
+#   check-code-refs.sh asserts the existence of extensions/<slug>/ submodule
+#   directories. We check out submodules recursively so both run against a
+#   complete tree (matches the parent-checkout convention in the system
+#   extension's ci.yaml).
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - 'CLAUDE.md'
+      - 'CONTRIBUTING.md'
+      - 'README.md'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: [self-hosted, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Read the actual head commit message and decide whether to skip.
+      # We read it from git (not the event payload) so the marker works
+      # regardless of Gitea's pull_request payload shape.
+      - name: Check for skip marker
+        id: guard
+        run: |
+          msg="$(git log -1 --pretty=%B)"
+          if printf '%s' "$msg" | grep -qF '[docs-skip-verify]'; then
+            echo "[docs-skip-verify] found in head commit — skipping doc verification."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # HARD gate: broken markdown links fail the build.
+      - name: check-links (gate)
+        if: steps.guard.outputs.skip != 'true'
+        run: bash docs/.verify/check-links.sh
+
+      # Advisory: missing code-path references are reported but do not fail.
+      - name: check-code-refs (advisory)
+        if: steps.guard.outputs.skip != 'true'
+        continue-on-error: true
+        run: bash docs/.verify/check-code-refs.sh
+
+      # Advisory: unknown MCP actions are reported but do not fail.
+      - name: check-mcp-actions (advisory)
+        if: steps.guard.outputs.skip != 'true'
+        continue-on-error: true
+        run: bash docs/.verify/check-mcp-actions.sh
+
+      # Advisory: hardcoded-count drift is reported but does not fail.
+      - name: check-counts (advisory)
+        if: steps.guard.outputs.skip != 'true'
+        continue-on-error: true
+        run: bash docs/.verify/check-counts.sh
+
+      # Advisory: auto-gen header enforcement is reported but does not fail.
+      - name: check-auto-gen-headers (advisory)
+        if: steps.guard.outputs.skip != 'true'
+        continue-on-error: true
+        run: bash docs/.verify/check-auto-gen-headers.sh
