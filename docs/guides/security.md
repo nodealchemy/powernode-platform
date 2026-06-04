@@ -101,6 +101,8 @@ Tokens carry `kid` (key ID) so the platform can rotate signing keys without inva
 
 TOTP with backup codes:
 
+> **Status: illustrative** — `MfaService` is a representative example, not a shipped class (no `MfaService` exists in the codebase yet). It shows the intended TOTP + backup-code shape.
+
 ```ruby
 class MfaService
   TOTP_SETTINGS = {
@@ -121,6 +123,8 @@ end
 ```
 
 ## Session security
+
+> **Status: illustrative** — the `session_security.rb` initializer shown below is representative; that initializer is not present in the codebase today (the shipped initializer covering cross-origin/edge config is `server/config/initializers/cors.rb`). The session-hardening behavior described under "Session middleware additionally" is the intended shape.
 
 ```ruby
 # config/initializers/session_security.rb
@@ -189,6 +193,8 @@ If you find yourself wanting to violate one of these rules, stop and route throu
 
 Sensitive data is encrypted with AES-256-GCM and a context-specific key derived from the master key via PBKDF2 (10,000 iterations, SHA-256):
 
+> **Status: illustrative** — `DataEncryptionService` below is a representative example of the AES-256-GCM scheme, not a shipped class. The real encryption service is `Security::CredentialEncryptionService` (`server/app/services/security/credential_encryption_service.rb`).
+
 ```ruby
 class DataEncryptionService
   ENCRYPTION_ALGORITHM = 'AES-256-GCM'.freeze
@@ -235,14 +241,28 @@ class DataEncryptionService
 end
 ```
 
-Use it via the `VaultCredential` concern on models that hold encrypted attributes:
+The real encryption surface is `Security::CredentialEncryptionService`. `Ai::ProviderCredential` uses it directly — it stores ciphertext in `encrypted_credentials` (+ `encryption_key_id`) and encrypts/decrypts via the service rather than a per-attribute macro:
 
 ```ruby
 class Ai::ProviderCredential < ApplicationRecord
-  include VaultCredential
-  vault_credential :api_key
+  include Auditable
+
+  # Persisted: encrypted_credentials, encryption_key_id
+
+  def credentials_hash
+    Security::CredentialEncryptionService.decrypt(encrypted_credentials)
+  end
+
+  def store_credentials!(hash)
+    update!(
+      encrypted_credentials: Security::CredentialEncryptionService.encrypt(hash, namespace: "ai"),
+      encryption_key_id:     Security::CredentialEncryptionService.current_key_id("ai")
+    )
+  end
 end
 ```
+
+For provider-level secrets that should live in Vault instead of the database, use the `VaultCredential` concern's real surface: set `self.vault_credential_type = "..."` on the model and call `store_in_vault(data)` / `migrate_to_vault!` (there is no `vault_credential :attr` class macro).
 
 ### PII handling
 
@@ -261,7 +281,7 @@ class Api::V1::Webhooks::ProviderController < ApplicationController
   before_action :verify_signature
 
   def receive
-    WorkerJobService.enqueue('provider_event', request.raw_post)
+    WorkerJobService.enqueue_job('ProviderEventJob', args: [request.raw_post])
     head :accepted
   rescue StandardError => e
     Rails.logger.error("Webhook processing failed: #{e.message}")
@@ -321,6 +341,8 @@ end
 ```
 
 ### Security headers
+
+> **Status: illustrative** — `SecurityHeadersMiddleware` is a representative example showing the intended response headers, not a shipped class (no such middleware exists yet).
 
 ```ruby
 class SecurityHeadersMiddleware
@@ -467,7 +489,7 @@ record.past_cooldown?    # true once cooldown elapsed
 record.auto_restorable?  # true if active and past scheduled_restore_at
 ```
 
-A nightly job (`AiQuarantineRestoreJob`) sweeps `restorable` records and lifts the quarantine if no further incidents are recorded during cooldown.
+> **Status: not yet implemented** — there is no `AiQuarantineRestoreJob` and no scheduled entry in `worker/config/sidekiq.yml`; nothing runs the restore sweep on a schedule today. The logic exists only as service methods: `Ai::Security::QuarantineService#auto_restore_expired!` (with `#restorable_records`), which must be invoked manually. Planned: a nightly job that sweeps `restorable` records and lifts the quarantine if no further incidents are recorded during cooldown.
 
 ## Supply chain security
 
@@ -602,4 +624,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/platform/AI_SECURITY_GUARDRAILS.md`
 - `docs/platform/SUPPLY_CHAIN_SECURITY.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

@@ -2,7 +2,9 @@
 
 > Status: active
 
-> How to keep the Powernode platform's frontend accessible. These standards are normative — they gate PRs.
+> How to keep the Powernode platform's frontend accessible. These standards are normative.
+
+> **Status: automated axe enforcement not yet implemented** — the WCAG AA *standards* in this guide are normative and reviewed manually in code review, but the automated tooling described below (axe-core pre-commit hook, CI axe sweep, `jest-axe` component tests, and the `npm run a11y:*` / `theme:a11y-check` scripts) is **not wired up today**: `jest-axe` / `@axe-core/react` are not installed, no test uses `toHaveNoViolations`, and no pre-commit or CI step runs axe. Treat the enforcement sections as the target pipeline, not current behavior. Today, accessibility is enforced by manual code review only.
 
 ## Table of Contents
 
@@ -28,14 +30,14 @@
 
 ## What this guide covers
 
-This document establishes the **mandatory** accessibility standards for the Powernode platform. WCAG 2.1 Level AA compliance is non-negotiable for any UI shipped on `master` — pre-commit hooks, CI checks, and code reviews all validate the rules below.
+This document establishes the **mandatory** accessibility standards for the Powernode platform. WCAG 2.1 Level AA compliance is non-negotiable for any UI shipped on `master`. Today these rules are validated in **code review**; the pre-commit and CI axe automation described below is the planned enforcement pipeline, not yet wired up (see the status callout at the top of this guide).
 
 The audience is every frontend engineer. The rules apply uniformly to admin panels, end-user surfaces, content management UI, and AI interaction surfaces.
 
 ## Prerequisites
 
 - Read [`docs/guides/frontend.md`](frontend.md) — accessibility builds on the theme + form patterns there
-- Install `@axe-core/react`, `jest-axe`, and `@testing-library/jest-dom` in your dev environment
+- `@testing-library/jest-dom` is installed; `@axe-core/react` and `jest-axe` are **not** yet project dependencies — install them only if you want to run the (planned) automated axe checks described below
 - A screen reader for manual testing (NVDA on Windows, VoiceOver on macOS, Orca on Linux)
 
 ## Compliance target
@@ -175,7 +177,7 @@ const FocusTrap: React.FC<{ children: React.ReactNode; active: boolean }> = ({ c
 
 ### Restore focus on close
 
-When a modal closes, focus must return to the element that opened it. The shared `Modal` component handles this — call it via `<Modal onClose={...} returnFocusTo={triggerRef}>`.
+When a modal closes, focus must return to the element that opened it. Implement this with the focus-trap pattern above plus capturing the trigger element on open and calling `.focus()` on it after close. (Note: the shared `Modal` at `frontend/src/shared/components/ui/Modal.tsx` does not currently expose a `returnFocusTo`/focus-restore prop — the snippet below is illustrative, not a reference to an existing prop.)
 
 ## Semantic HTML and ARIA
 
@@ -441,7 +443,9 @@ In addition to "Skip to main content," provide:
 ### Respect `prefers-reduced-motion`
 
 ```tsx
-const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+// Illustrative — there is no shared `useMediaQuery` hook in the frontend today;
+// use window.matchMedia directly or add a hook before copying this verbatim.
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const transitionClasses = reducedMotion ? '' : 'transition-all duration-200';
 ```
 
@@ -454,6 +458,8 @@ The theme provider exposes a high-contrast variant. The user's OS-level preferen
 ## Automated testing
 
 ### Component tests with jest-axe
+
+> **Status: not yet implemented.** `jest-axe` is not a project dependency yet — install it first (`npm i -D jest-axe`) before the example below will run. No current test uses `toHaveNoViolations`.
 
 ```typescript
 import { render } from '@testing-library/react';
@@ -480,18 +486,20 @@ describe('SettingsForm', () => {
 
 ### Pre-commit script
 
-A pre-commit script runs axe-core on changed components and fails the commit on violations.
+> **Status: not yet implemented.** Planned: a pre-commit script that runs axe-core on changed components and fails the commit on violations. No such hook exists today (`scripts/pre-commit-quality-check.sh` has no axe step).
 
 ### Continuous monitoring
 
+> **Status: not yet implemented.** The scripts below are the planned monitoring surface; none of `a11y:scorecard`, `a11y:metrics`, or `theme:a11y-check` exist in `frontend/package.json` yet, so running them returns "missing script."
+
 ```bash
-# Generate accessibility scorecard
+# Generate accessibility scorecard (planned)
 npm run a11y:scorecard
 
-# Track over time
+# Track over time (planned)
 npm run a11y:metrics
 
-# Validate theme contrast compliance
+# Validate theme contrast compliance (planned)
 npm run theme:a11y-check
 ```
 
@@ -527,13 +535,13 @@ Before merging significant UI changes, walk through:
 
 ## Enforcement
 
-Accessibility is enforced at three layers:
+Accessibility enforcement is **manual code review today**. The pre-commit and CI layers below are the planned (not-yet-wired-up) automation — see the status callout at the top of this guide:
 
-| Layer | Mechanism |
-|---|---|
-| Pre-commit | axe-core runs on changed components; commits fail on violations |
-| CI | Full axe-core sweep on every PR; PRs blocked on regressions |
-| Code review | Manual review of new patterns against this guide |
+| Layer | Mechanism | Status |
+|---|---|---|
+| Pre-commit | axe-core runs on changed components; commits fail on violations | Planned (not implemented) |
+| CI | Full axe-core sweep on every PR; PRs blocked on regressions | Planned (not implemented) |
+| Code review | Manual review of new patterns against this guide | Active |
 
 User testing (real assistive-tech users walking through new flows) runs ad-hoc per major release.
 
@@ -549,4 +557,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 
 - `docs/platform/ACCESSIBILITY_COMPLIANCE_STANDARDS.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

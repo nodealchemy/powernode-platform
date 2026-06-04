@@ -210,7 +210,7 @@ sequenceDiagram
     API-->>C: 401 if invalid, otherwise sets current_user
 ```
 
-`Authentication` concern (`app/controllers/concerns/authentication.rb`) handles all token decoding. The login endpoint is `POST /api/v1/auth/login` and returns `{ access_token, refresh_token, user }` (field name is `access_token`, not `token`).
+`Authentication` concern (`app/controllers/concerns/authentication.rb`) handles all token decoding. The login endpoint is `POST /api/v1/auth/login` and returns `{ user, account, access_token, expires_at }` in the body, with the refresh token delivered as an httpOnly cookie (not in the JSON body). The access-token field name is `access_token`, not `token`.
 
 ### Permission-based access control (HARD RULE)
 
@@ -367,6 +367,8 @@ add_index :payments,      %i[subscription_id created_at]
 
 ### Service object pattern
 
+> **Note:** `BaseService` and `ServiceResult` below are a *recommended* convention teams may introduce — they are not shipped shared infrastructure today (no top-level `BaseService`/`ServiceResult` exists in `server/app/services`; only namespaced base classes like `RateLimiting::BaseService`). Treat this as a teaching example, not an importable API.
+
 ```ruby
 # frozen_string_literal: true
 
@@ -431,16 +433,18 @@ Server-side, "enqueueing" means calling the worker over HTTP:
 ```ruby
 # server/app/services/worker_job_service.rb
 class WorkerJobService
-  class WorkerServiceError < StandardError; end
-
-  def self.enqueue(job_type, payload, queue: 'default')
-    response = worker_client.post('/jobs', {
-      job_type: job_type, job_data: payload, queue: queue
-    })
-    raise WorkerServiceError, response.error unless response.success?
-    response.data
+  # The real class exposes a generic enqueue_job plus dozens of specific
+  # enqueue_* helpers (enqueue_ai_agent_execution, enqueue_notification_email,
+  # enqueue_devops_pipeline_execution, …). There is NO generic `enqueue`.
+  def self.enqueue_job(job_class, options = {})
+    # POSTs to /api/v1/jobs with { job_class:, args: } on the worker HTTP API
   end
 end
+
+# Prefer the specific helper for known job types:
+WorkerJobService.enqueue_notification_email('subscription_renewed', subscription_id: id)
+# Or the generic form for ad-hoc dispatch:
+WorkerJobService.enqueue_job('Billing::SubscriptionRenewalJob', args: { subscription_id: id })
 ```
 
 ## Background jobs (worker)
@@ -464,7 +468,7 @@ class BaseJob
 
   def perform(*args)
     @started_at = Time.current
-    logger.info "Starting #{self.class.name} args=#{sanitize_args(args)}"
+    logger.info "Starting #{self.class.name} with args: #{args.inspect}"
     execute(*args)
     logger.info "Completed #{self.class.name} in #{(Time.current - @started_at).round(2)}s"
   rescue StandardError => e
@@ -502,10 +506,6 @@ class BaseJob
 
   def retryable_error?(e)
     [408, 429, 500, 502, 503, 504].include?(e.status)
-  end
-
-  def sanitize_args(args)
-    args.map { |a| a.is_a?(Hash) ? a.except('password', 'token', 'secret_key') : a }
   end
 end
 ```
@@ -573,7 +573,11 @@ For scheduled jobs that are part of the platform's autonomy loop (decay, consoli
 
 ### Job lifecycle observability
 
-Every job logs start/complete/failure with class name and duration via `BaseJob#perform`. For metrics, mount `JobMetricsMiddleware` in the server-middleware chain. Failed jobs route to a dead set; the `death_handlers` block notifies via `JobFailureNotificationService`.
+Every job logs start/complete/failure with class name and duration via `BaseJob#perform`, and records attempt/success/failure counters into Redis through the `record_execution_*` helpers.
+
+> **Status: not yet implemented** — Today `BaseJob#perform` only does start/complete/failure logging plus the `record_execution_*` Redis counters. The metrics middleware and dead-set notification below are planned: `JobMetricsMiddleware`, the `death_handlers` block, and `JobFailureNotificationService` do not exist in `worker/` or `server/` yet.
+
+For metrics, mount `JobMetricsMiddleware` in the server-middleware chain. Failed jobs route to a dead set; the `death_handlers` block notifies via `JobFailureNotificationService`.
 
 ## Realtime via ActionCable
 
@@ -593,7 +597,7 @@ module ApplicationCable
 
     def find_verified_user
       token = request.params[:token]
-      decoded = token && JwtService.decode(token)
+      decoded = token && Security::JwtService.decode(token)
       User.find(decoded[:user_id]) if decoded
     rescue ActiveRecord::RecordNotFound
       reject_unauthorized_connection
@@ -635,8 +639,10 @@ flowchart LR
     Dashboard -->|reads pre-computed snapshot| Snapshot
 ```
 
+Illustrative example — `Analytics::AgentExecutionMetricsService` / `Analytics::ExecutionMetricsSnapshot` are not real classes in `server/app`; they show the recommended snapshot pattern (and the `BaseService` convention from above), not shipped code.
+
 ```ruby
-# app/services/analytics/agent_execution_metrics_service.rb
+# app/services/analytics/agent_execution_metrics_service.rb (illustrative)
 class Analytics::AgentExecutionMetricsService < BaseService
   attribute :start_date, :date
   attribute :end_date,   :date
@@ -702,7 +708,7 @@ class Api::V1::Webhooks::GiteaController < ApplicationController
   before_action :verify_gitea_signature
 
   def push
-    WorkerJobService.enqueue('gitea_push_event', request.raw_post)
+    WorkerJobService.enqueue_job('Git::WebhookProcessingJob', args: { event: 'push', payload: request.raw_post })
     head :accepted
   rescue StandardError => e
     Rails.logger.error("Webhook processing failed: #{e.message}")
@@ -753,4 +759,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 
 The two specialist guides for billing and payments (`BILLING_ENGINE_DEVELOPER_SPECIALIST.md`, `PAYMENT_INTEGRATION_SPECIALIST.md`) and the BaaS API reference (`BAAS_API_REFERENCE.md`) moved into [`docs/guides/extensions.md`](extensions.md) because they describe extension-resident functionality. `BACKEND_SERVICE_ARCHITECTURE.md` was consolidated into [`docs/concepts/architecture.md`](../concepts/architecture.md).
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

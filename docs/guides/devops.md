@@ -49,7 +49,7 @@ flowchart TB
     Backend[powernode-backend@default Rails API :3000]
     Worker[powernode-worker@default Sidekiq]
     WorkerWeb[powernode-worker-web@default Sidekiq Web :4567]
-    Frontend[powernode-frontend@default Vite/Nginx :5173/3002]
+    Frontend[powernode-frontend@default Vite/Nginx :3001]
     Postgres[(PostgreSQL)]
     Redis[(Redis)]
 
@@ -71,7 +71,7 @@ flowchart TB
 | Rails API | `powernode-backend@default` | 3000 | SIGUSR2 reload (~30ms) via `scripts/reload-backend.sh` |
 | Sidekiq worker | `powernode-worker@default` | — | Full restart (~28s drain). Wait 30s before checking status |
 | Sidekiq Web | `powernode-worker-web@default` | 4567 | Restart THIS service if port 4567 refuses connections |
-| Frontend | `powernode-frontend@default` | 5173 (dev) / 3002 (prod) | Full restart |
+| Frontend | `powernode-frontend@default` | 3001 | Full restart |
 
 ```bash
 # Initial install
@@ -126,7 +126,7 @@ The systemd templated units read `<service>-<instance>.conf` to populate environ
 | `DATABASE_URL` | (from database.yml) | PostgreSQL connection string |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis (cache + ActionCable) |
 | `SECRET_KEY_BASE` | (generated) | Rails secret |
-| `JWT_SECRET` | (generated) | JWT signing key |
+| `JWT_SECRET_KEY` | (generated) | JWT signing key (the app reads `JWT_SECRET_KEY`, not `JWT_SECRET`) |
 | `JWT_EXPIRATION` | `24` | JWT expiry (hours) |
 | `CORS_ORIGINS` | `http://localhost:3001` | Comma-separated allowed origins |
 
@@ -206,7 +206,7 @@ EDITOR=vim rails credentials:edit --environment production
 
 - JWT secrets rotate with a 24-hour grace period
 - Worker API tokens live in `/etc/powernode/worker-*.conf`
-- AI provider keys are encrypted in the database via `Ai::CredentialEncryptionService`
+- AI provider keys are encrypted in the database via `Security::CredentialEncryptionService`
 - Provider-level credentials can also be stored in Vault via `VaultCredential` concern — see [security guide](security.md)
 
 ### Hard rules
@@ -289,10 +289,11 @@ ALWAYS use CI/CD pipelines (Gitea Actions) for building production Docker images
 
 | Endpoint | Description |
 |---|---|
-| `/health` | Basic check (200 if process up) |
-| `/health/detailed` | Subsystem status (DB, Redis, providers) |
-| `/health/ready` | Readiness probe (Kubernetes/Swarm) |
-| `/health/live` | Liveness probe |
+| `/up` | Root-level basic liveness (`rails/health#show` — 200 if the app boots) |
+| `/api/v1/health` | Basic check (200 if process up) |
+| `/api/v1/health/detailed` | Subsystem status (DB, Redis, providers) |
+| `/api/v1/health/ready` | Readiness probe (Kubernetes/Swarm) |
+| `/api/v1/health/live` | Liveness probe |
 
 Health checks verify database connectivity, Redis connectivity, memory usage, and disk space.
 
@@ -377,8 +378,8 @@ The worker NEVER executes Docker operations directly, SSHs into servers, or perf
 
 ```ruby
 # Same interface across providers
-provider = CiCd::GitProviders::ProviderFactory.from_record(git_provider)
-git_ops  = CiCd::GitOperationsService.new(provider_config: config)
+provider = Devops::GitProviders::ProviderFactory.from_record(git_provider)
+git_ops  = Devops::GitOperationsService.new(provider_config: config)
 
 git_ops.update_status(repo: 'org/repo', sha: 'abc123', state: 'success',
                       context: 'ci/powernode', description: 'All checks passed')
@@ -399,7 +400,7 @@ git_ops.trigger_workflow(repo: 'org/repo', workflow: 'deploy.yml',
 ### Webhook normalization
 
 ```ruby
-normalizer = CiCd::GitProviders::WebhookNormalizer.new
+normalizer = Devops::GitProviders::WebhookNormalizer.new
 payload = normalizer.normalize(raw_payload, headers)
 # => { provider: :gitea, event_type: :push, repository: 'org/repo', ref: 'refs/heads/main', ... }
 ```
@@ -573,9 +574,11 @@ For backup, recovery, and migration runbooks, see [`docs/operations/production-d
 
 ### Metrics
 
-- Sidekiq Web UI at `:4567` (auth via `SIDEKIQ_USERNAME`/`SIDEKIQ_PASSWORD` env vars)
-- `/metrics` endpoint exports Prometheus-format metrics
-- Application Performance Monitoring via Skylight (`SKYLIGHT_AUTHENTICATION` env var)
+- Sidekiq Web UI at `:4567` (auth via platform JWT access token or email+password — `SidekiqWebAuth` middleware, validated against the backend session API; the port is `SIDEKIQ_WEB_PORT`, default 4567)
+
+> **Status: not yet implemented** — the Prometheus exporter is force-disabled in `server/config/initializers/metrics.rb` (`if Rails.env.test? || true`) and there is no root-level `/metrics` route, so no Prometheus metrics are exported today. Planned: a `/metrics` Prometheus surface served by a separate `prometheus_exporter` process once the `|| true` disable is removed.
+
+> **Status: not yet implemented** — Skylight APM (`SKYLIGHT_AUTHENTICATION` env var) is not wired: the `skylight` gem is loaded `require: false` with no initializer or `skylight.yml`. Planned as an optional APM integration. (Sentry, by contrast, is wired via `SENTRY_DSN`.)
 
 ### Alerting
 
@@ -601,4 +604,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/platform/DEVOPS_PLATFORM_GUIDE.md`
 - `docs/worker/CI_CD_ARCHITECTURE.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

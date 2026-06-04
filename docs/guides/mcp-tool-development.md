@@ -232,7 +232,7 @@ Create a new tool file at `server/app/services/ai/tools/<feature>_tool.rb` (e.g.
 module Ai
   module Tools
     # Generate and enumerate operator-facing reports (usage, audit, billing).
-    # Reports are queued via Worker::JobDispatch and surface via a separate
+    # Reports are queued via WorkerJobService and surface via a separate
     # API; this tool exposes the AI-callable entry points.
     class ExampleReportTool < BaseTool
       REQUIRED_PERMISSION = "example.reports.manage"
@@ -289,7 +289,7 @@ module Ai
           requested_by_id: @user&.id
         )
 
-        ::Worker::JobDispatch.enqueue("ExampleReportGenerateJob", report_id: report.id)
+        WorkerJobService.enqueue_job("ExampleReportGenerateJob", args: [ report.id ])
 
         success_result(
           report_id: report.id,
@@ -406,7 +406,7 @@ RSpec.describe Ai::Tools::ExampleReportTool do
   describe "#execute" do
     context "example_generate_report" do
       it "queues a report and returns the id" do
-        allow(::Worker::JobDispatch).to receive(:enqueue)
+        allow(WorkerJobService).to receive(:enqueue_job)
 
         result = tool.execute(params: {
           action: "example_generate_report",
@@ -415,9 +415,9 @@ RSpec.describe Ai::Tools::ExampleReportTool do
 
         expect(result[:success]).to be true
         expect(result.dig(:data, :status)).to eq("queued")
-        expect(::Worker::JobDispatch).to have_received(:enqueue).with(
+        expect(WorkerJobService).to have_received(:enqueue_job).with(
           "ExampleReportGenerateJob",
-          hash_including(report_id: kind_of(String))
+          hash_including(args: [ kind_of(String) ])
         )
       end
 
@@ -530,4 +530,4 @@ If the catalogue grep returns no hits, the action wasn't registered. Re-check th
 - [`backend.md`](backend.md) — Rails conventions for services, controllers, and the worker boundary
 - [`testing.md`](testing.md) — RSpec conventions, factories, and shared examples
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

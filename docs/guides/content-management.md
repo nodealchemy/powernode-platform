@@ -215,7 +215,11 @@ stateDiagram-v2
 4. Editors schedule updates by creating an `update` workflow (article stays published; new draft branch happens via revision)
 5. Eventually content is **Archived** (still queryable for history, hidden from public views)
 
-Workflows are surfaced in the admin UI under Content → Workflows. The Sidekiq cron sweeps overdue workflows daily and notifies assignees.
+Workflows are surfaced in the admin UI under Content → Workflows.
+
+> **Status: not yet implemented** — overdue workflows are detectable today via the `KnowledgeBase::Workflow.overdue` scope and `#overdue?` (surfaced in the UI), but no scheduled Sidekiq job sweeps them or notifies assignees. The daily-cron sweep below is planned.
+
+The Sidekiq cron sweeps overdue workflows daily and notifies assignees.
 
 ## Search
 
@@ -290,4 +294,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/platform/CONTENT_MANAGEMENT_NODES_IMPLEMENTATION.md`
 - `docs/platform/BLOG_KB_INTEGRATION.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

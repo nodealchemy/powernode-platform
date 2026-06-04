@@ -308,17 +308,16 @@ RSpec.describe WidgetDispatchJob do
 
   describe '#execute' do
     before do
-      stub_api(:post, '/widgets/widget-uuid/dispatch',
-               response: { 'success' => true, 'data' => { 'dispatched' => true } })
+      stub_backend_api_success(:post, '/widgets/widget-uuid/dispatch', { 'dispatched' => true })
     end
 
     it 'calls the dispatch endpoint via api_client' do
       described_class.new.execute(job_args)
-      expect(api_stub).to have_been_requested
+      expect_api_request(:post, '/widgets/widget-uuid/dispatch')
     end
 
     it 'raises on api failure to trigger retry' do
-      stub_api(:post, '/widgets/widget-uuid/dispatch', status: 500, response: { 'error' => 'boom' })
+      stub_backend_api_error(:post, '/widgets/widget-uuid/dispatch', status: 500, error_message: 'boom')
       expect { described_class.new.execute(job_args) }.to raise_error(BackendApiClient::ApiError)
     end
   end
@@ -334,20 +333,23 @@ Notes:
 
 ### Setup
 
-```typescript
-// jest.config.ts
-import type { Config } from 'jest';
-
-const config: Config = {
-  preset: 'ts-jest',
+```javascript
+// jest.config.js
+/** @type {import('jest').Config} */
+module.exports = {
   testEnvironment: 'jsdom',
-  setupFilesAfterEach: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
+  // Transforms via babel-jest (NOT ts-jest):
+  transform: {
+    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', {
+      presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript'],
+    }],
+  },
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@/shared/(.*)$': '<rootDir>/src/shared/$1',
     '\\.(css|scss)$': 'identity-obj-proxy',
   },
 };
-export default config;
 ```
 
 ### Component testing pattern
@@ -538,4 +540,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 
 E2E testing moved to its own guide: [`docs/guides/e2e-testing.md`](e2e-testing.md).
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

@@ -127,7 +127,7 @@ frontend/src/
 │   └── ...
 ├── shared/                    # Cross-feature primitives
 │   ├── components/            # PageContainer, TabContainer, modals, buttons
-│   ├── hooks/                 # useForm, useWebSocket, useInfiniteResourceList
+│   ├── hooks/                 # useForm, useWebSocket (useInfiniteResourceList: planned, not yet extracted)
 │   ├── services/              # apiClient, auth helpers
 │   ├── utils/                 # logger, formatters
 │   └── types/
@@ -476,7 +476,10 @@ export const widgetsApiService = {
 
 ### Infinite scroll lists
 
+> **Status: not yet extracted** — `useInfiniteResourceList` is the prescribed shared abstraction for infinite scroll, but it does not exist in `frontend/src` yet. The only infinite-scroll hook today is the feature-local `useInfiniteMemory` (`frontend/src/features/ai/memory/hooks/`). Until the shared hook is extracted, follow that hook's intersection-observer + React Query `useInfiniteQuery` pattern. The signature below is the intended shape, not an importable API.
+
 ```typescript
+// Intended shape once useInfiniteResourceList is extracted:
 const { items, fetchMore, isLoading, sentinelRef } = useInfiniteResourceList({
   queryKey: ['widgets'],
   fetchPage: (page) => widgetsApiService.list({ page, per_page: 30 }),
@@ -690,4 +693,4 @@ This guide consolidates content from these legacy paths (preserved in git histor
 - `docs/frontend/FEATURE_DEVELOPMENT_GUIDE.md`
 - `docs/frontend/RELIABILITY_UI_COMPONENTS.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

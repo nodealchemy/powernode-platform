@@ -74,21 +74,16 @@ The `Notification` model is the canonical record for any cross-channel event. Pe
 | `user_id` | Recipient |
 | `account_id` | Account scope (for multi-tenant) |
 | `title`, `message` | Display content |
-| `notification_type` | `system | billing | security | feature | social` |
-| `priority` | `low | medium | high | critical` |
+| `notification_type` | Granular type enum (`Notification::TYPES`, 24 values: `system_alert`, `billing_reminder`, `subscription_update`, `security_alert`, `feature_announcement`, … `autonomy_approval_rejected`). Required. |
+| `category` | Coarse grouping (`Notification::CATEGORIES`): `general | billing | security | account | system | workflow | ai`. String, defaults to `general`. |
+| `severity` | Human-facing level: `info | success | warning | error | critical`. String, defaults to `info` (validated). |
+| `priority` | Integer ordering hint, default `0` (not an enum). |
 | `action_url`, `action_label` | Optional CTA |
+| `icon` | Optional display icon |
 | `metadata` | JSON for type-specific data |
 | `read_at` | NULL until user marks read |
-
-Notification types carry display defaults:
-
-| Type | Icon | Color | Default priority |
-|---|---|---|---|
-| `system` | wrench | blue | medium |
-| `billing` | card | green | high |
-| `security` | lock | red | critical |
-| `feature` | sparkle | purple | low |
-| `social` | people | orange | low |
+| `dismissed_at` | NULL until user dismisses |
+| `expires_at` | NULL or future cutoff after which the notification is inactive |
 
 ## Email
 
@@ -205,31 +200,31 @@ SmsTemplateManager.render_sms_template(:verification, code: '123456', app_name: 
 
 ## In-app realtime
 
-In-app notifications stream over ActionCable. The `NotificationChannel` subscribes the user to a personal channel (`notifications:user:<id>`) and optionally an account-wide channel if they have `account.notifications` permission.
+In-app notifications stream over ActionCable. The shipped `NotificationChannel` is **account-scoped**: a client subscribes with an `account_id`, and the channel authorizes the current user for that account before streaming. There is no per-user `notifications:user:<id>` stream — notifications are broadcast to the account and the client filters by recipient.
 
 ### Channel subscription
 
 ```ruby
 class NotificationChannel < ApplicationCable::Channel
   def subscribed
-    stream_from "notifications:user:#{current_user.id}"
-    if current_user.has_permission?('account.notifications')
-      stream_from "notifications:account:#{current_user.account_id}"
+    account_id = params[:account_id]
+
+    if current_user && authorized_for_account?(account_id)
+      stream_for_account(current_account)
+      transmit(type: "connection_established", message: "Connected to real-time notifications")
+    else
+      reject
     end
-    NotificationPresenceService.mark_online(current_user)
   end
 
-  def unsubscribed
-    NotificationPresenceService.mark_offline(current_user)
-  end
-
-  def mark_as_read(data)
-    Notification.where(id: data['notification_ids'], user_id: current_user.id, read_at: nil)
-                .update_all(read_at: Time.current, updated_at: Time.current)
-    broadcast_unread_count(current_user)
+  # Client can send a ping to test connection
+  def ping(data = {})
+    transmit(type: "pong", server_timestamp: Time.current.iso8601)
   end
 end
 ```
+
+> **Note:** A per-user channel, presence tracking, and a `mark_as_read` channel action are design intent only — they are not part of the shipped `NotificationChannel`. Marking notifications read goes through the REST API, and broadcasts are emitted via the channel's class methods (`broadcast_new_notification`, `broadcast_notification_read`, `broadcast_notification_dismissed`).
 
 ### Server-side broadcast
 
@@ -439,4 +434,4 @@ This guide consolidates content from:
 
 - `docs/services/NOTIFICATION_ENGINEER.md`
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_

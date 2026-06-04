@@ -258,7 +258,7 @@ When `policy: "require_approval"` matches, the autonomy framework creates an `Ai
 - Uses the default account approval chain (single step, owner approval, 24h timeout), OR
 - Uses the chain specified by `approval_chain_id` on the matched policy
 
-Approval chains live in `Ai::ApprovalChain` (provided by the business extension - present when the platform is running in business mode). A chain has steps, a `timeout_action` (`reject` or `escalate`), and a `timeout_hours` per step. The fleet autonomy seed builds a single-step 4-hour chain:
+Approval chains live in `Ai::ApprovalChain` - a core model (table `ai_approval_chains`) available in all modes, including core mode. A chain has steps, a `timeout_action` (`reject` or `escalate`), and a `timeout_hours` per step. The fleet autonomy seed builds a single-step 4-hour chain:
 
 ```ruby
 fleet_chain = Ai::ApprovalChain.find_or_initialize_by(
@@ -287,7 +287,7 @@ platform.create_intervention_policy(
 )
 ```
 
-When the chain times out without approval, `timeout_action: "reject"` rejects the deferred operation; the action never executes. `timeout_action: "escalate"` advances to the next chain step. The `Ai::ApprovalChainTimeoutJob` runs periodically to enforce timeouts - if the worker is unhealthy, timeouts may lag; see [ralph-loops.md#troubleshooting](../operations/ralph-loops.md#troubleshooting).
+When the chain times out without approval, `timeout_action: "reject"` rejects the deferred operation; the action never executes. `timeout_action: "escalate"` advances to the next chain step. Note: there is **no dedicated approval-chain-timeout sweeper job scheduled** today - no job sweeps `Ai::ApprovalChain` `timeout_hours`. The closest scheduled enforcement is `AiEscalationTimeoutJob` (sidekiq-cron `ai_escalation_timeout`, every 15m), which auto-escalates overdue `escalation`-category items; if the worker is unhealthy, that enforcement may lag. See [ralph-loops.md#troubleshooting](../operations/ralph-loops.md#troubleshooting).
 
 Approve or reject a pending operation:
 
@@ -403,7 +403,7 @@ when "silent"
 end
 ```
 
-5. **Add an executor for `require_approval`.** Deferred operations carry an `executor_class` that runs after approval. The executor implements `call(deferred_operation)` and performs the action. Place it under the extension's `app/services/<extension>/ai/skills/` directory.
+5. **Add an executor for `require_approval`.** Deferred operations carry an `executor_class` that runs after approval. The executor exposes a class method `execute(params, deferred_operation:)` (and optionally `preview(params)`); `executor_class` is constantized and the method is called synchronously by `Ai::DeferredOperation#execute_now!`. Place it under the extension's `app/services/<extension>/ai/skills/` directory.
 
 6. **Run the seed to install defaults:**
 
@@ -438,4 +438,4 @@ Ai::InterventionPolicy.category_registered?("system.sdwan.peer_revocation")
 - `server/app/services/ai/intervention_policy_service.rb` - resolution algorithm
 - `server/app/models/ai/intervention_policy.rb` - schema, scopes, condition evaluation
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-04_
