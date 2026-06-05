@@ -12,6 +12,7 @@ import { FloatingChatWidget } from '@/features/ai/chat/components/FloatingChatWi
 import { AgentDetailModal } from '@/features/ai/agents/components/AgentDetailModal';
 import { TeamDetailModal } from '@/features/ai/agent-teams/components/TeamDetailModal';
 import { MissionDetailModal } from '@/features/missions/components/MissionDetailModal';
+import { EntityReferenceHost } from '@/shared/components/entity/EntityReferenceHost';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -53,6 +54,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           <AgentDetailModal />
           <TeamDetailModal />
           <MissionDetailModal />
+          <EntityReferenceHost />
         </div>
       </ChatWindowProvider>
     </NavigationProvider>
