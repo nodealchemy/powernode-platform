@@ -2,23 +2,25 @@ name: Extensions bundle
 
 # Guards the public-extension bundle mechanism (the Gemfile.full full-mode
 # bundle + the public-only Gemfile.lock + the repo-root extensions_loader_helper
-# discovery). Two invariants, one per job:
+# discovery). Two invariants:
 #
 #   1. lockfile-public-only — the COMMITTED server/Gemfile.lock must declare
 #      only public-extension gems, so a clone WITHOUT the private submodules can
-#      `bundle install --frozen`. Pure bash, mirrors the docs.yml convention;
-#      always runnable on the docs.yml runner. (scripts/check-lockfile-public-only.sh)
+#      `bundle install --frozen`. Pure bash. (scripts/check-lockfile-public-only.sh)
 #
 #   2. core-mode-seed — a fresh CORE-mode checkout (public extensions only; no
-#      business/trading) must `rails db:seed` cleanly. This is the regression
-#      guard for a seed that smuggles a business-only constant into a core seed
-#      path — the exact class of bug that crashed the AI-governance seed with
-#      `NameError: uninitialized constant Ai::AccountCredit` until it was guarded
-#      behind Shared::FeatureGateService.business_loaded?.
+#      business/trading) must `rails db:seed` cleanly. Regression guard for the
+#      class of bug where a core seed reaches a business-only constant, a
+#      business-seeded NOT-NULL FK, an extension-owned skill, or a stale data
+#      shape that only fails on first create (all of which crashed a fresh
+#      core-install db:seed until guarded/relocated).
 #
-# Scoped to PRs that touch the bundle mechanism, the loader, or the seeds, so it
-# stays cheap. core-mode-seed is the repo's first DB-backed CI job — see the two
-# runner-dependent knobs noted on its `env:` block.
+# Runner facts mirror the system extension's proven Gitea CI
+# (extensions/system/.gitea/workflows/ci.yaml): this act-runner runs jobs in a
+# bridge-network container, so service sidecars are reached via the docker
+# bridge gateway 172.17.0.1 (NOT localhost — own loopback; NOT service-name DNS
+# — no per-job network), and ports must bind 0.0.0.0:PORT:PORT (a bare
+# PORT:PORT is parsed as HostIP="invalid IP" and never published).
 
 on:
   pull_request:
@@ -39,61 +41,84 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
+  # Reap sidecars leaked by a previously cancelled run (act-runner doesn't clean
+  # them up on external SIGKILL — they keep ports 5432/6379 bound and the next
+  # run's services: block fails to start). Best-effort. Mirrors the system
+  # extension CI's ci-hygiene job. core-mode-seed depends on this for a clean slate.
+  # ---------------------------------------------------------------------------
+  ci-hygiene:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Reap stale CI sidecar containers (ports 5432/6379)
+        run: |
+          set +e
+          for port in 6379 5432; do
+            stale=$(docker ps --format '{{.ID}} {{.Ports}}' | awk -v p=":$port->" 'index($0, p) {print $1}')
+            [ -n "$stale" ] && echo "$stale" | xargs -r docker rm -f
+          done
+          docker rm -f $(docker ps -aq --filter "ancestor=redis:7") 2>/dev/null
+          docker rm -f $(docker ps -aq --filter "ancestor=pgvector/pgvector:pg16") 2>/dev/null
+          exit 0
+
+  # ---------------------------------------------------------------------------
   # The committed lock must be installable on a private-submodule-less clone.
   # Reads the git index (post-checkout == committed), so no submodules needed.
   # ---------------------------------------------------------------------------
   lockfile-public-only:
-    runs-on: [self-hosted, ubuntu-24.04]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Committed lock declares only public-extension gems
         run: bash scripts/check-lockfile-public-only.sh
 
   # ---------------------------------------------------------------------------
-  # A core-mode checkout (public submodules only — business/trading are not in
-  # .gitmodules, so they stay absent) must seed without referencing a
-  # business-only constant. Reproduces a fresh core install's `rails db:seed`.
+  # A core-mode checkout (public submodules only — business/trading aren't in
+  # .gitmodules, so they stay absent) must `rails db:seed` cleanly. Reproduces a
+  # fresh core install's seed bootstrap.
   # ---------------------------------------------------------------------------
   core-mode-seed:
-    runs-on: [self-hosted, ubuntu-24.04]
+    needs: ci-hygiene
+    runs-on: ubuntu-24.04
     services:
       postgres:
-        # pgvector image: db/schema.rb enables the `vector` extension, which
-        # the stock postgres image does not ship.
+        # pgvector image: db/schema.rb enables `vector` + `pgcrypto`; the stock
+        # postgres image rejects `CREATE EXTENSION vector` during schema:load.
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: powernode
-          POSTGRES_PASSWORD: powernode_dev
-          POSTGRES_DB: powernode_development
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: powernode_test
         ports:
-          - 5432:5432
+          # Explicit 0.0.0.0 — bare 5432:5432 leaves HostIP="invalid IP" in this
+          # act-runner and never actually binds to the host.
+          - 0.0.0.0:5432:5432
         options: >-
-          --health-cmd "pg_isready -U powernode"
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 12
       redis:
         image: redis:7
         ports:
-          - 6379:6379
+          - 0.0.0.0:6379:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 12
     env:
-      # development reproduces the real scenario: a fresh core install runs
-      # `rails db:seed` in development, never test, and the governance seed has
-      # no env gate (seeds.rb gates are `development? || test?`).
-      RAILS_ENV: development
-      # RUNNER KNOB 1 (DB host): host-backend self-hosted runners publish service
-      # ports to localhost (as docs.yml runs bash directly on the host). If THIS
-      # runner uses act_runner's Docker backend (the job itself runs in a
-      # container), change to "postgres" and the REDIS_URL host to "redis".
-      DATABASE_HOST: localhost
-      DATABASE_USER: powernode
-      POWERNODE_DATABASE_PASSWORD: powernode_dev
-      REDIS_URL: redis://localhost:6379/0
+      # test is hermetic + CI-proven (the system extension CI uses it), and the
+      # governance seed runs under it (seeds.rb gate is `development? || test?`).
+      RAILS_ENV: test
+      BUNDLE_FROZEN: "true"
+      # Sidecars publish to the host; the bridge-network job reaches them at the
+      # docker bridge gateway. Set both the URL form and the discrete vars the
+      # parent database.yml reads (host/user/password), so neither path matters.
+      DATABASE_URL: postgres://postgres:postgres@172.17.0.1:5432/powernode_test
+      DATABASE_HOST: 172.17.0.1
+      DATABASE_USER: postgres
+      POWERNODE_DATABASE_PASSWORD: postgres
+      REDIS_URL: redis://172.17.0.1:6379/0
     steps:
       - uses: actions/checkout@v4
         with:
@@ -102,23 +127,29 @@ jobs:
           # tree a public clone / core install has.
           submodules: recursive
 
-      # RUNNER KNOB 2 (Ruby): uses the same GitHub-action mechanism as
-      # actions/checkout@v4 (already proven on this runner by docs.yml). If the
-      # runner instead has a pinned system Ruby, drop this step.
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2.8'
-
-      - name: Install gems (frozen, public-only — proves the committed lock resolves in core mode)
-        working-directory: server
-        run: |
-          bundle config set --local frozen true
-          bundle install --jobs 4 --retry 3
+          ruby-version: 3.2.8
+          # frozen install (BUNDLE_FROZEN above) proves the committed public-only
+          # lock resolves in a core checkout.
+          bundler-cache: true
+          working-directory: server
 
       - name: Create database and load schema
         working-directory: server
         run: bundle exec rails db:create db:schema:load
 
-      - name: Seed must not crash in core mode (NameError regression guard)
+      - name: Seed must bootstrap a fresh core install cleanly
         working-directory: server
         run: bundle exec rails db:seed
+
+      # Post-job sidecar cleanup (normal completion + most cancellations).
+      # Pairs with ci-hygiene which catches the SIGKILL case before the next run.
+      - name: Reap own sidecars
+        if: always()
+        run: |
+          set +e
+          for port in 6379 5432; do
+            docker ps --format '{{.ID}} {{.Ports}}' | awk -v p=":$port->" 'index($0, p) {print $1}' | xargs -r docker rm -f
+          done
+          exit 0
