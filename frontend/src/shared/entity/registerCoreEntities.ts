@@ -39,6 +39,7 @@ import {
   containerExecutionApi,
   agentCardsApiService,
   memoryApiService,
+  communityAgentsApi,
 } from '@/shared/services/ai';
 import { mcpApi } from '@/shared/services/ai/McpApiService';
 import { skillsApi } from '@/features/ai/skills/services/skillsApi';
@@ -290,6 +291,21 @@ export function registerCoreEntities(): void {
       fetchById: (id: string) => agentCardsApiService.getAgentCard(id).then((r) => r.agent_card),
     },
     {
+      // getFederationPartner returns `{ partner: FederationPartner }` — unwrap to
+      // the partner row. FederationController#show is gated by `ai.federation.read`
+      // (FederationController#validate_permissions). The TS `FederationPartner`
+      // type declares `federation_key`/`mtls_certificate`, but the backend `show`
+      // serializer (`partner_details`) never emits `federation_key` and explicitly
+      // `.except`s `mtls_certificate`/`ca_cert`, so the generic modal renders no
+      // secret material. Backend `partner_summary` supplies `name` as the label.
+      type: 'federation_partner',
+      label: 'Federation Partner',
+      permission: 'ai.federation.read',
+      icon: 'Network',
+      labelField: 'name',
+      fetchById: (id: string) => communityAgentsApi.getFederationPartner(id).then((r) => r.partner),
+    },
+    {
       // getMissionTemplate resolves to ApiEnvelope<{ template }> — unwrap to the
       // template row. MissionTemplatesController gates index/show on `ai.missions.read`.
       type: 'mission_template',
@@ -402,6 +418,10 @@ export function resolveCoreEntityType(t: string): string | undefined {
     container_instance: 'docker_container',
     // A2A
     agent_card: 'agent_card',
+    // Federation — `FederationPartner` is a top-level model (no `Ai::` prefix),
+    // so it snakes straight to `federation_partner`. Alias the short `partner`.
+    federation_partner: 'federation_partner',
+    partner: 'federation_partner',
     // CMS
     page: 'page',
     // Memory
