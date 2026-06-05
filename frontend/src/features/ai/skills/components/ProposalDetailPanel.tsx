@@ -4,6 +4,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 import { skillLifecycleApi } from '../services/skillLifecycleApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { ResearchResultsPanel } from './ResearchResultsPanel';
@@ -130,7 +131,13 @@ export function ProposalDetailPanel({ proposalId, onClose, onUpdated }: Proposal
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center gap-1.5 text-theme-tertiary">
                   {proposal.proposed_by_agent ? <Bot className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
-                  <span>{proposal.proposed_by_agent?.name || proposal.proposed_by_user?.name || 'Unknown'}</span>
+                  {proposal.proposed_by_agent ? (
+                    <EntityLink type="agent" id={proposal.proposed_by_agent.id} label={proposal.proposed_by_agent.name} />
+                  ) : proposal.proposed_by_user ? (
+                    <EntityLink type="user" id={proposal.proposed_by_user.id} label={proposal.proposed_by_user.name} />
+                  ) : (
+                    <span>Unknown</span>
+                  )}
                 </div>
                 {proposal.category && (
                   <div className="flex items-center gap-1.5 text-theme-tertiary">
@@ -192,7 +199,12 @@ export function ProposalDetailPanel({ proposalId, onClose, onUpdated }: Proposal
                   {proposal.suggested_dependencies.map((dep, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm px-2 py-1 bg-theme-surface-secondary rounded">
                       <ArrowRight className="w-3 h-3 text-theme-tertiary" />
-                      <span className="text-theme-primary">{dep.name}</span>
+                      <EntityLink
+                        type="skill"
+                        id={dep.skill_id}
+                        label={dep.name}
+                        className="text-theme-primary"
+                      />
                       <span className="text-theme-tertiary">({dep.relation_type})</span>
                       <span className="text-theme-tertiary ml-auto">{Math.round(dep.confidence * 100)}%</span>
                     </div>

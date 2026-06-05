@@ -14,6 +14,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { webhooksApi, WebhookEndpoint } from '@/features/devops/webhooks/services/webhooksApi';
+import { EntityLink } from '@/shared/components/entity';
 import Pagination from '@/shared/components/ui/Pagination';
 
 interface WebhookListProps {
@@ -309,20 +310,32 @@ export const WebhookList: React.FC<WebhookListProps> = ({
                     {isExpanded && (
                       <tr>
                         <td colSpan={6} className="px-4 py-3 bg-theme-background border-b border-theme">
-                          <div>
-                            <h4 className="text-sm font-medium text-theme-primary mb-2">
-                              Subscribed Events:
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {webhook.event_types.map((eventType) => (
-                                <span
-                                  key={eventType}
-                                  className="px-2 py-1 bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary rounded text-xs"
-                                >
-                                  {webhooksApi.formatEventType(eventType)}
-                                </span>
-                              ))}
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="text-sm font-medium text-theme-primary mb-2">
+                                Subscribed Events:
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {webhook.event_types.map((eventType) => (
+                                  <span
+                                    key={eventType}
+                                    className="px-2 py-1 bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary rounded text-xs"
+                                  >
+                                    {webhooksApi.formatEventType(eventType)}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
+                            {webhook.created_by && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <span className="text-theme-secondary">Created by:</span>
+                                <EntityLink
+                                  type="user"
+                                  id={webhook.created_by.id}
+                                  label={webhook.created_by.email}
+                                />
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>

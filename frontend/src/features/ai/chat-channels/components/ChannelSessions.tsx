@@ -6,6 +6,8 @@ import {
   ArrowRight,
   RefreshCw,
   X,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Select } from '@/shared/components/ui/Select';
@@ -57,6 +59,19 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [totalCount, setTotalCount] = useState(0);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -163,6 +178,7 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
         <div className="space-y-2">
           {sessions.map((session) => {
             const status = statusConfig[session.status] || statusConfig.idle;
+            const isExpanded = expandedIds.has(session.id);
 
             return (
               <Card
@@ -173,6 +189,21 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleExpanded(session.id);
+                        }}
+                        className="p-1 text-theme-secondary hover:text-theme-primary"
+                        aria-label={isExpanded ? 'Collapse session detail' : 'Expand session detail'}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </button>
                       <div className="relative">
                         <div className="h-8 w-8 bg-theme-surface rounded-full flex items-center justify-center">
                           <User className="w-4 h-4 text-theme-secondary" />
@@ -231,6 +262,46 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
                       )}
                     </div>
                   </div>
+
+                  {isExpanded && (
+                    <div
+                      className="mt-3 pt-3 border-t border-theme grid grid-cols-2 md:grid-cols-3 gap-3 text-sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div>
+                        <span className="block text-xs text-theme-tertiary">Platform</span>
+                        <span className="text-theme-primary capitalize">{session.platform}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-theme-tertiary">Platform User</span>
+                        <span className="text-theme-primary break-all">{session.platform_user_id}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-theme-tertiary">Username</span>
+                        <span className="text-theme-primary break-all">{session.platform_username || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-theme-tertiary">Status</span>
+                        <span className="text-theme-primary">{status.label}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-theme-tertiary">Messages</span>
+                        <span className="text-theme-primary">{session.message_count}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-theme-tertiary">Last Activity</span>
+                        <span className="text-theme-primary">{formatTime(session.last_activity_at)}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-theme-tertiary">Channel ID</span>
+                        <span className="text-theme-primary font-mono text-xs break-all">{session.channel_id}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-theme-tertiary">Session ID</span>
+                        <span className="text-theme-primary font-mono text-xs break-all">{session.id}</span>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );

@@ -10,6 +10,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ViewToggle } from '@/shared/components/ui/ViewToggle';
+import { EntityLink } from '@/shared/components/entity';
 import type { AiAgent } from '@/shared/types/ai';
 
 interface AgentsListTabProps {
@@ -79,7 +80,11 @@ export const AgentsListTab: React.FC<AgentsListTabProps> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between text-sm">
           <span className="text-theme-tertiary">AI Provider</span>
-          <span className="text-theme-primary">{agent.provider?.name || 'N/A'}</span>
+          {agent.provider?.id ? (
+            <EntityLink type="ai_provider" id={agent.provider.id} label={agent.provider.name} className="text-sm" />
+          ) : (
+            <span className="text-theme-primary">{agent.provider?.name || 'N/A'}</span>
+          )}
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-theme-tertiary">Model</span>
@@ -225,7 +230,13 @@ export const AgentsListTab: React.FC<AgentsListTabProps> = ({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="text-sm text-theme-primary">{agent.provider?.name || 'N/A'}</div>
+                    <div className="text-sm text-theme-primary">
+                      {agent.provider?.id ? (
+                        <EntityLink type="ai_provider" id={agent.provider.id} label={agent.provider.name} className="text-sm" />
+                      ) : (
+                        agent.provider?.name || 'N/A'
+                      )}
+                    </div>
                     <div className="text-xs text-theme-secondary">{agent.model || 'N/A'}</div>
                   </td>
                   <td className="px-4 py-3 text-center">

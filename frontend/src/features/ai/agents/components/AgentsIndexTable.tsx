@@ -12,6 +12,7 @@ import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 import { agentsApi } from '@/shared/services/ai';
+import { EntityLink } from '@/shared/components/entity';
 import { AgentExpandedRow } from './AgentExpandedRow';
 import { EditAgentModal } from './EditAgentModal';
 import {
@@ -296,7 +297,12 @@ export const AgentsIndexTable: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm text-theme-secondary">
-                      {agent.provider?.name || '\u2014'}{agent.model ? ` \u00b7 ${agent.model}` : ''}
+                      {agent.provider?.id ? (
+                        <EntityLink type="ai_provider" id={agent.provider.id} label={agent.provider.name} className="text-sm" />
+                      ) : (
+                        agent.provider?.name || '\u2014'
+                      )}
+                      {agent.model ? ` \u00b7 ${agent.model}` : ''}
                     </span>
                   </td>
                   <td className="px-4 py-3">

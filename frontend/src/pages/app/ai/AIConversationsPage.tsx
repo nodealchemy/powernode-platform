@@ -25,6 +25,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { AiAgent } from '@/shared/types/ai';
+import { EntityLink } from '@/shared/components/entity';
 import { ConversationCreateModal } from '@/features/ai/conversations/components/ConversationCreateModal';
 import { ConversationDetailModal } from '@/features/ai/conversations/components/ConversationDetailModal';
 import { ConversationContinueModal } from '@/features/ai/conversations/components/ConversationContinueModal';
@@ -331,11 +332,19 @@ export const AIConversationsPage: React.FC = () => {
       render: (conversation: ConversationBase) => (
         <div className="min-w-0">
           <div className="font-medium text-theme-primary whitespace-normal">
-            {conversation.title}
+            <EntityLink
+              type="conversation"
+              id={conversation.id}
+              label={conversation.title || 'Untitled Conversation'}
+            />
           </div>
           <div className="text-sm text-theme-tertiary leading-relaxed whitespace-normal flex items-center gap-2">
             <Bot className="h-3 w-3 flex-shrink-0" />
-            {conversation.ai_agent?.name || 'Unknown Agent'}
+            <EntityLink
+              type="agent"
+              id={conversation.ai_agent?.id}
+              label={conversation.ai_agent?.name || 'Unknown Agent'}
+            />
           </div>
         </div>
       )

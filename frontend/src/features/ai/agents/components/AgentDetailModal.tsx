@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { DropdownMenu } from '@/shared/components/ui/DropdownMenu';
+import { EntityLink } from '@/shared/components/entity';
 import { AgentDetailStatsCards } from './AgentDetailStatsCards';
 import { AgentConfigTab } from './detail-tabs/AgentConfigTab';
 import { AgentHistoryTab } from './detail-tabs/AgentHistoryTab';
@@ -186,7 +187,12 @@ export const AgentDetailModal: React.FC = () => {
                 )}
                 {agent.provider?.name && (
                   <span className="text-xs text-theme-tertiary">
-                    {agent.provider.name}{agent.model ? ` · ${agent.model}` : ''}
+                    {agent.provider.id ? (
+                      <EntityLink type="ai_provider" id={agent.provider.id} label={agent.provider.name} className="text-xs" />
+                    ) : (
+                      agent.provider.name
+                    )}
+                    {agent.model ? ` · ${agent.model}` : ''}
                   </span>
                 )}
               </div>

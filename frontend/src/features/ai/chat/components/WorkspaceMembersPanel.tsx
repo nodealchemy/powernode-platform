@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Users, Plus, Trash2, X, Loader2, Search } from 'lucide-react';
 import { workspacesApi } from '@/shared/services/ai';
+import { EntityLink } from '@/shared/components/entity';
 import type { WorkspaceMember } from '@/shared/services/ai/WorkspacesApiService';
 import apiClient from '@/shared/services/apiClient';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -188,7 +189,12 @@ export const WorkspaceMembersPanel: React.FC<WorkspaceMembersPanelProps> = ({
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <div className="h-1.5 w-1.5 rounded-full bg-theme-success shrink-0" />
-                      <span className="text-xs text-theme-primary truncate">{member.name}</span>
+                      <EntityLink
+                        type="ai_agent"
+                        id={member.id}
+                        label={member.name}
+                        className="text-xs truncate"
+                      />
                     </div>
                     <div className="flex items-center gap-1 ml-3 mt-0.5">
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-theme-surface-secondary text-theme-secondary">

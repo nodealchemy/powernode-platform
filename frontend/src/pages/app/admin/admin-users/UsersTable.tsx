@@ -1,7 +1,8 @@
-import React from 'react';
-import { Users, UserCheck, Shield, MoreHorizontal, Unlock, Mail, Ban, CheckCircle, Key } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, UserCheck, Shield, MoreHorizontal, Unlock, Mail, Ban, CheckCircle, Key, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import { getUserInitials } from '@/shared/utils/userUtils';
 import { usersApi } from '@/features/account/users/services/usersApi';
 import { UsersTableProps } from './types';
@@ -20,7 +21,22 @@ export const UsersTable: React.FC<UsersTableProps> = ({
   onUserAction,
   onDeleteUser,
   onToggleDropdown
-}) => (
+}) => {
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+
+  const toggleRowExpansion = (userId: string) => {
+    setExpandedUsers((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
+  };
+
+  return (
   <div className="bg-theme-surface rounded-lg shadow-sm overflow-hidden">
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-theme">
@@ -55,8 +71,11 @@ export const UsersTable: React.FC<UsersTableProps> = ({
           </tr>
         </thead>
         <tbody className="divide-y divide-theme">
-          {users.map((user) => (
-            <tr key={user.id} className="hover:bg-theme-surface-hover">
+          {users.map((user) => {
+            const isExpanded = expandedUsers.has(user.id);
+            return (
+            <React.Fragment key={user.id}>
+            <tr className="hover:bg-theme-surface-hover">
               <td className="px-6 py-4 whitespace-nowrap">
                 <input
                   type="checkbox"
@@ -67,6 +86,19 @@ export const UsersTable: React.FC<UsersTableProps> = ({
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => toggleRowExpansion(user.id)}
+                    className="mr-3 text-theme-secondary hover:text-theme-primary transition-colors"
+                    title={isExpanded ? 'Collapse details' : 'Expand details'}
+                    aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
                   <div className="flex-shrink-0 h-10 w-10">
                     <div className="h-10 w-10 rounded-full bg-theme-interactive-primary flex items-center justify-center">
                       <span className="text-theme-on-primary text-sm font-medium">
@@ -76,7 +108,12 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                   </div>
                   <div className="ml-4">
                     <div className="text-sm font-medium text-theme-primary">
-                      {user.name}
+                      <EntityLink
+                        type="user"
+                        id={user.id}
+                        label={user.name}
+                        className="text-sm font-medium text-theme-primary"
+                      />
                     </div>
                     <div className="text-sm text-theme-secondary">{user.email}</div>
                     {!user.email_verified && (
@@ -195,7 +232,71 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                 </div>
               </td>
             </tr>
-          ))}
+            {isExpanded && (
+              <tr className="bg-theme-background">
+                <td colSpan={7} className="px-6 py-4">
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+                    <div>
+                      <dt className="text-theme-secondary">Status</dt>
+                      <dd className="text-theme-primary">{user.status}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-theme-secondary">Roles</dt>
+                      <dd className="text-theme-primary">
+                        {(user.roles || []).length > 0 ? user.roles.join(', ') : 'No roles'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-theme-secondary">Email Verified</dt>
+                      <dd className="text-theme-primary">{user.email_verified ? 'Yes' : 'No'}</dd>
+                    </div>
+                    {user.phone && (
+                      <div>
+                        <dt className="text-theme-secondary">Phone</dt>
+                        <dd className="text-theme-primary">{user.phone}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt className="text-theme-secondary">Account Locked</dt>
+                      <dd className="text-theme-primary">{user.locked ? 'Yes' : 'No'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-theme-secondary">Failed Login Attempts</dt>
+                      <dd className="text-theme-primary">{user.failed_login_attempts}</dd>
+                    </div>
+                    {user.account?.name && (
+                      <div>
+                        <dt className="text-theme-secondary">Account</dt>
+                        <dd className="text-theme-primary">{user.account.name}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt className="text-theme-secondary">Last Login</dt>
+                      <dd className="text-theme-primary">
+                        {user.last_login_at
+                          ? new Date(user.last_login_at).toLocaleString()
+                          : 'Never'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-theme-secondary">Created</dt>
+                      <dd className="text-theme-primary">
+                        {new Date(user.created_at).toLocaleString()}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-theme-secondary">Updated</dt>
+                      <dd className="text-theme-primary">
+                        {new Date(user.updated_at).toLocaleString()}
+                      </dd>
+                    </div>
+                  </dl>
+                </td>
+              </tr>
+            )}
+            </React.Fragment>
+            );
+          })}
         </tbody>
       </table>
 
@@ -206,7 +307,8 @@ export const UsersTable: React.FC<UsersTableProps> = ({
       )}
     </div>
   </div>
-);
+  );
+};
 
 // User Actions Dropdown Sub-component
 interface UserActionsDropdownProps {

@@ -19,6 +19,7 @@ import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { a2aTasksApiService } from '@/shared/services/ai';
+import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
 import type { A2aTask, A2aTaskFilters } from '@/shared/services/ai/types/a2a-types';
@@ -212,13 +213,19 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
 
                     {/* Agent flow */}
                     <div className="flex items-center gap-2 text-sm text-theme-secondary mb-2">
-                      <span className="font-medium font-mono text-xs">
-                        {task.from_agent_id?.substring(0, 8) || 'Unknown'}...
-                      </span>
+                      <EntityLink
+                        type="agent"
+                        id={task.from_agent_id}
+                        label={`${task.from_agent_id?.substring(0, 8) || 'Unknown'}...`}
+                        className="font-medium font-mono text-xs"
+                      />
                       <ArrowRight className="h-4 w-4 text-theme-tertiary" />
-                      <span className="font-medium font-mono text-xs">
-                        {task.to_agent_id?.substring(0, 8) || 'Unknown'}...
-                      </span>
+                      <EntityLink
+                        type="agent"
+                        id={task.to_agent_id}
+                        label={`${task.to_agent_id?.substring(0, 8) || 'Unknown'}...`}
+                        className="font-medium font-mono text-xs"
+                      />
                     </div>
 
                     {/* Error message */}

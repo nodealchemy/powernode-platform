@@ -11,6 +11,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Progress } from '@/shared/components/ui/Progress';
 import { Loading } from '@/shared/components/ui/Loading';
+import { EntityLink } from '@/shared/components/entity';
 import { ConversationMetrics } from '@/shared/types/monitoring';
 
 interface ConversationAnalyticsProps {
@@ -134,11 +135,21 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {conversations.map((conversation) => (
           <Card key={conversation.id}>
-            <CardHeader
-              title={conversation.title}
-              action={<Badge variant={getStatusBadge(conversation.status)}>{conversation.status}</Badge>}
-              className="pb-3"
-            />
+            <div className="flex items-start justify-between mb-4 pb-3">
+              <div className="flex items-start gap-3">
+                <div>
+                  <EntityLink
+                    type="conversation"
+                    id={conversation.id}
+                    label={conversation.title}
+                    className="text-lg font-semibold"
+                  />
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <Badge variant={getStatusBadge(conversation.status)}>{conversation.status}</Badge>
+              </div>
+            </div>
             <CardContent className="space-y-4">
               {/* Health Score */}
               <div className="space-y-2">
@@ -220,7 +231,12 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
                   <div className="space-y-1">
                     {conversation.agent_usage.slice(0, 2).map((agent, index) => (
                       <div key={index} className="flex items-center justify-between text-xs">
-                        <span className="text-theme-tertiary truncate">{agent.agent_name}</span>
+                        <EntityLink
+                          type="agent"
+                          id={agent.agent_id}
+                          label={agent.agent_name}
+                          className="text-theme-tertiary truncate"
+                        />
                         <span className="font-medium">{agent.message_count}</span>
                       </div>
                     ))}

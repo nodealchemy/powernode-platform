@@ -19,6 +19,7 @@ import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { Loading } from '@/shared/components/ui/Loading';
+import { EntityLink } from '@/shared/components/entity';
 import { agentCardsApiService } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { CapabilityList } from './CapabilityBadge';
@@ -409,7 +410,12 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                   <Bot className="h-4 w-4 text-theme-tertiary mt-0.5" />
                   <div>
                     <div className="text-theme-secondary">Linked Agent</div>
-                    <div className="text-theme-primary font-mono text-xs">{card.ai_agent_id}</div>
+                    <EntityLink
+                      type="agent"
+                      id={card.ai_agent_id}
+                      label={card.ai_agent_id}
+                      className="font-mono text-xs"
+                    />
                   </div>
                 </div>
               )}

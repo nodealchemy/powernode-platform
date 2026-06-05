@@ -9,6 +9,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { EntityLink } from '@/shared/components/entity';
 import { X, UserMinus, UserPlus, Users, Search, Mail, Shield, User } from 'lucide-react';
 
 interface RoleUsersModalProps {
@@ -216,7 +217,7 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
                           </div>
                           <div>
                             <div className="font-medium text-theme-primary">
-                              {user.name}
+                              <EntityLink type="user" id={user.id} label={user.name} />
                             </div>
                             <div className="text-xs text-theme-tertiary flex items-center space-x-1">
                               <Mail className="w-3 h-3" />
@@ -275,7 +276,7 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
                     <div>
                       <div className="flex items-center space-x-2">
                         <span className="font-medium text-theme-primary">
-                          {user.name}
+                          <EntityLink type="user" id={user.id} label={user.name} />
                         </span>
                         {user.id === currentUser?.id && (
                           <Badge variant="primary" size="xs">

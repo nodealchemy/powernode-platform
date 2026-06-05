@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Users, ExternalLink } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import { agentTeamsApi } from '@/features/ai/agent-teams/services/agentTeamsApi';
 
 interface AgentTeamsTabProps {
@@ -83,7 +84,12 @@ export const AgentTeamsTab: React.FC<AgentTeamsTabProps> = ({ agentId }) => {
           <div className="flex items-center gap-3 min-w-0">
             <Users className="w-4 h-4 text-theme-secondary flex-shrink-0" />
             <div className="min-w-0">
-              <span className="text-sm font-medium text-theme-primary truncate block">{team.name}</span>
+              <EntityLink
+                type="agent_team"
+                id={team.id}
+                label={team.name}
+                className="text-sm font-medium truncate block"
+              />
               {team.role && (
                 <span className="text-xs text-theme-tertiary">Role: {team.role}</span>
               )}

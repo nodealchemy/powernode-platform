@@ -5,6 +5,7 @@ import {
   ProviderRanking,
   OptimizationRecommendation
 } from '@/shared/services/ai/ModelRouterApiService';
+import { EntityLink } from '@/shared/components/entity';
 
 interface AnalyticsTabProps {
   costAnalysis: CostAnalysis | null;
@@ -43,7 +44,12 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ costAnalysis, rankin
               <div key={ranking.provider_id || idx} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
                 <div className="flex items-center gap-3">
                   <span className="text-lg font-bold text-theme-info">#{idx + 1}</span>
-                  <span className="text-sm font-medium text-theme-primary">{ranking.provider_name || ranking.provider_id}</span>
+                  <EntityLink
+                    type="ai_provider"
+                    id={ranking.provider_id}
+                    label={ranking.provider_name || ranking.provider_id}
+                    className="text-sm font-medium"
+                  />
                 </div>
                 <div className="flex gap-4 text-xs text-theme-secondary">
                   {ranking.latency_score > 0 && <span>Latency: {ranking.latency_score.toFixed(1)}</span>}

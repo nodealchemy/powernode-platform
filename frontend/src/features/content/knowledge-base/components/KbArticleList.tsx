@@ -1,5 +1,6 @@
 import { KbArticle } from '@/shared/services/content/knowledgeBaseApi';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import { 
   EyeIcon, 
   ClockIcon, 
@@ -66,16 +67,16 @@ export function KbArticleList({
 
 function ArticleCard({ article, showCategory }: { article: KbArticle; showCategory: boolean }) {
   return (
-    <Link
-      to={`/app/content/kb/articles/${article.id}`}
-      className="block bg-theme-surface rounded-lg border border-theme p-6 hover:border-theme-primary/20 hover:shadow-sm transition-all"
-    >
+    <div className="block bg-theme-surface rounded-lg border border-theme p-6 hover:border-theme-primary/20 hover:shadow-sm transition-all">
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
-          <h3 className="text-lg font-semibold text-theme-primary line-clamp-2 leading-tight">
+          <Link
+            to={`/app/content/kb/articles/${article.id}`}
+            className="text-lg font-semibold text-theme-primary line-clamp-2 leading-tight hover:text-theme-primary/80 transition-colors"
+          >
             {article.title}
-          </h3>
+          </Link>
           {article.is_featured && (
             <StarIconSolid className="h-5 w-5 text-theme-warning flex-shrink-0" />
           )}
@@ -86,13 +87,6 @@ function ArticleCard({ article, showCategory }: { article: KbArticle; showCatego
           <p className="text-theme-secondary line-clamp-3 leading-relaxed">
             {stripMarkdown(article.excerpt)}
           </p>
-        )}
-
-        {/* Category */}
-        {showCategory && (
-          <Badge variant="secondary" size="sm">
-            {article.category.name}
-          </Badge>
         )}
 
         {/* Tags */}
@@ -114,12 +108,12 @@ function ArticleCard({ article, showCategory }: { article: KbArticle; showCatego
         {/* Meta */}
         <div className="flex items-center gap-4 text-sm text-theme-secondary">
           <span>{article.author_name}</span>
-          
+
           <div className="flex items-center gap-1">
             <ClockIcon className="h-4 w-4" />
             <span>{article.reading_time} min</span>
           </div>
-          
+
           <div className="flex items-center gap-1">
             <EyeIcon className="h-4 w-4" />
             <span>{article.views_count}</span>
@@ -134,24 +128,36 @@ function ArticleCard({ article, showCategory }: { article: KbArticle; showCatego
             </div>
           )}
         </div>
+
+        {/* Category — sibling of the title Link so the EntityLink button is never nested in an anchor */}
+        {showCategory && (
+          <Badge variant="secondary" size="sm">
+            <EntityLink
+              type="kb_category"
+              id={article.category.id}
+              label={article.category.name}
+              className="text-inherit"
+            />
+          </Badge>
+        )}
       </div>
-    </Link>
+    </div>
   );
 }
 
 function ArticleListItem({ article, showCategory }: { article: KbArticle; showCategory: boolean }) {
   return (
-    <Link
-      to={`/app/content/kb/articles/${article.id}`}
-      className="block bg-theme-surface rounded-lg border border-theme p-6 hover:border-theme-primary/20 hover:shadow-sm transition-all"
-    >
+    <div className="block bg-theme-surface rounded-lg border border-theme p-6 hover:border-theme-primary/20 hover:shadow-sm transition-all">
       <div className="flex items-start gap-4">
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-4 mb-3">
-            <h3 className="text-lg font-semibold text-theme-primary line-clamp-1">
+            <Link
+              to={`/app/content/kb/articles/${article.id}`}
+              className="text-lg font-semibold text-theme-primary line-clamp-1 hover:text-theme-primary/80 transition-colors"
+            >
               {article.title}
-            </h3>
+            </Link>
             {article.is_featured && (
               <StarIconSolid className="h-5 w-5 text-theme-warning flex-shrink-0" />
             )}
@@ -167,7 +173,12 @@ function ArticleListItem({ article, showCategory }: { article: KbArticle; showCa
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {showCategory && (
               <Badge variant="secondary" size="sm">
-                {article.category.name}
+                <EntityLink
+                  type="kb_category"
+                  id={article.category.id}
+                  label={article.category.name}
+                  className="text-inherit"
+                />
               </Badge>
             )}
             {article.tags.slice(0, 2).map((tag, index) => (
@@ -207,6 +218,6 @@ function ArticleListItem({ article, showCategory }: { article: KbArticle; showCa
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

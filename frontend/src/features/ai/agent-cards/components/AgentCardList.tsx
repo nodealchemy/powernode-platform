@@ -11,6 +11,8 @@ import {
   CheckCircle,
   LayoutGrid,
   List,
+  ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -20,6 +22,7 @@ import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import { EntityLink } from '@/shared/components/entity';
 import { agentCardsApiService } from '@/shared/services/ai';
 import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import { CapabilityList } from './CapabilityBadge';
@@ -61,6 +64,19 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
   const [skillCategories, setSkillCategories] = useState<SkillCategory[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [listViewMode, setListViewMode] = useState<'grid' | 'list'>('grid');
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
 
   const loadCards = useCallback(async () => {
     try {
@@ -315,6 +331,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
           <table className="w-full">
             <thead>
               <tr className="border-b border-theme bg-theme-background">
+                <th className="w-10 px-3 py-3" />
                 <th className="text-left px-4 py-3 text-xs font-semibold text-theme-secondary uppercase tracking-wide">Name</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-theme-secondary uppercase tracking-wide">Visibility</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-theme-secondary uppercase tracking-wide">Status</th>
@@ -327,42 +344,130 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
               {cards.map((card) => {
                 const VisibilityIcon = visibilityIcons[card.visibility] || Lock;
                 const status = statusConfig[card.status] || statusConfig.draft;
+                const isExpanded = expandedRows.has(card.id);
 
                 return (
-                  <tr
-                    key={card.id}
-                    className="hover:bg-theme-background/50 transition-colors cursor-pointer"
-                    onClick={() => onSelectCard?.(card)}
-                  >
-                    <td className="px-4 py-3">
-                      <div>
-                        <span className="text-sm font-medium text-theme-primary">{card.name}</span>
-                        {card.description && (
-                          <p className="text-xs text-theme-secondary line-clamp-1 mt-0.5">{card.description}</p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 text-sm text-theme-primary">
-                        <VisibilityIcon className="h-3.5 w-3.5 text-theme-secondary" />
-                        <span className="capitalize">{card.visibility}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant={status.variant} size="sm">{status.label}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="text-sm text-theme-primary">{card.task_count || 0}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="text-sm text-theme-primary">
-                        {card.task_count > 0 ? `${Math.round((card.success_count / card.task_count) * 100)}%` : '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="text-xs text-theme-secondary">{formatDate(card.updated_at)}</span>
-                    </td>
-                  </tr>
+                  <React.Fragment key={card.id}>
+                    <tr
+                      className={cn(
+                        'hover:bg-theme-background/50 transition-colors cursor-pointer',
+                        isExpanded && 'bg-theme-background/50'
+                      )}
+                      onClick={() => onSelectCard?.(card)}
+                    >
+                      <td className="px-3 py-3">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); toggleExpand(card.id); }}
+                          className="p-1 text-theme-secondary hover:text-theme-primary transition-colors"
+                          title={isExpanded ? 'Collapse' : 'Expand'}
+                        >
+                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <span className="text-sm font-medium text-theme-primary">{card.name}</span>
+                          {card.description && (
+                            <p className="text-xs text-theme-secondary line-clamp-1 mt-0.5">{card.description}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5 text-sm text-theme-primary">
+                          <VisibilityIcon className="h-3.5 w-3.5 text-theme-secondary" />
+                          <span className="capitalize">{card.visibility}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-sm text-theme-primary">{card.task_count || 0}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-sm text-theme-primary">
+                          {card.task_count > 0 ? `${Math.round((card.success_count / card.task_count) * 100)}%` : '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-xs text-theme-secondary">{formatDate(card.updated_at)}</span>
+                      </td>
+                    </tr>
+
+                    {isExpanded && (
+                      <tr className="bg-theme-background border-b border-theme">
+                        <td />
+                        <td colSpan={6} className="px-4 py-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                            <DetailItem label="Protocol" value={card.protocol_version ? `v${card.protocol_version}` : '—'} />
+                            <DetailItem label="Card Version" value={card.card_version || '—'} />
+                            <DetailItem label="Visibility" value={<span className="capitalize">{card.visibility}</span>} />
+                            <DetailItem
+                              label="Linked Agent"
+                              value={
+                                card.ai_agent_id
+                                  ? <EntityLink type="agent" id={card.ai_agent_id} label={card.ai_agent_id} className="font-mono text-xs" />
+                                  : '—'
+                              }
+                            />
+                            <DetailItem
+                              label="Endpoint"
+                              value={
+                                card.endpoint_url
+                                  ? (
+                                    <a
+                                      href={card.endpoint_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-theme-info hover:underline break-all"
+                                    >
+                                      {card.endpoint_url}
+                                    </a>
+                                  )
+                                  : '—'
+                              }
+                            />
+                            <DetailItem label="Provider" value={card.provider_name || '—'} />
+                            <DetailItem label="Tasks" value={String(card.task_count ?? 0)} />
+                            <DetailItem label="Succeeded" value={String(card.success_count ?? 0)} />
+                            <DetailItem label="Failed" value={String(card.failure_count ?? 0)} />
+                            {card.avg_response_time_ms !== undefined && (
+                              <DetailItem
+                                label="Avg Response"
+                                value={
+                                  card.avg_response_time_ms < 1000
+                                    ? `${Math.round(card.avg_response_time_ms)}ms`
+                                    : `${(card.avg_response_time_ms / 1000).toFixed(1)}s`
+                                }
+                              />
+                            )}
+                            <DetailItem label="Created" value={formatDate(card.created_at)} />
+                            <DetailItem label="Updated" value={formatDate(card.updated_at)} />
+                            {card.capabilities?.skills && card.capabilities.skills.length > 0 && (
+                              <div className="col-span-2 md:col-span-3">
+                                <span className="text-xs text-theme-tertiary">Skills</span>
+                                <div className="mt-1">
+                                  <CapabilityList skills={card.capabilities.skills} showAll />
+                                </div>
+                              </div>
+                            )}
+                            {card.tags && card.tags.length > 0 && (
+                              <div className="col-span-2 md:col-span-3">
+                                <span className="text-xs text-theme-tertiary">Tags</span>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {card.tags.map((tag) => (
+                                    <Badge key={tag} variant="outline" size="sm">{tag}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -372,5 +477,15 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
     </div>
   );
 };
+
+// Inline own-detail field for the expandable list row.
+function DetailItem({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5 min-w-0">
+      <span className="text-xs text-theme-tertiary">{label}</span>
+      <span className="text-sm text-theme-primary truncate">{value}</span>
+    </div>
+  );
+}
 
 export default AgentCardList;

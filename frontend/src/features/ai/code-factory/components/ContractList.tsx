@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { EntityLink } from '@/shared/components/entity';
 import type { RiskContract, RiskRule } from '../types/codeFactory';
 
 interface Props {
@@ -185,7 +186,16 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                 <div className="flex items-center justify-between py-3">
                   <div className="text-xs text-theme-secondary">
                     Created {new Date(contract.created_at).toLocaleDateString()}
-                    {contract.created_by && <span> by {contract.created_by.name || contract.created_by.email}</span>}
+                    {contract.created_by && (
+                      <span>
+                        {' by '}
+                        <EntityLink
+                          type="user"
+                          id={contract.created_by.id}
+                          label={contract.created_by.name || contract.created_by.email}
+                        />
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {isEditing ? (

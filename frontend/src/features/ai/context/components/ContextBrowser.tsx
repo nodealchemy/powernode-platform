@@ -6,6 +6,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import { EntityLink } from '@/shared/components/entity';
 import type { AiPersistentContextSummary, ContextType, ContextScope } from '../types';
 
 interface ContextBrowserProps {
@@ -167,7 +168,13 @@ export function ContextBrowser({
             </div>
             {context.ai_agent && (
               <div className="mt-2 text-xs text-theme-secondary">
-                Agent: {context.ai_agent.name}
+                Agent:{' '}
+                <EntityLink
+                  type="agent"
+                  id={context.ai_agent.id}
+                  label={context.ai_agent.name}
+                  className="text-xs"
+                />
               </div>
             )}
             {/* Card Actions */}

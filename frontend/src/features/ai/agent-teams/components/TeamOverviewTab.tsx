@@ -1,5 +1,6 @@
 import React from 'react';
 import { Users, Trash2, UserCog, Settings, Clock, Wrench, Bot, Crown, Monitor, Zap, Cpu, Activity, History } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import { useSkillCoverage } from '@/features/ai/knowledge-graph/api/skillGraphApi';
 import type { Team, TeamRole, TeamActivationRules, TeamEventHistoryEntry } from '@/shared/services/ai/TeamsApiService';
 
@@ -244,9 +245,12 @@ export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, o
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-medium text-theme-primary truncate">
-                          {role.agent_name || role.role_name}
-                        </span>
+                        <EntityLink
+                          type="agent"
+                          id={role.agent_id}
+                          label={role.agent_name || role.role_name}
+                          className="text-sm font-medium truncate"
+                        />
                         {role.is_lead && <Crown size={12} className="text-theme-warning shrink-0" />}
                       </div>
                       <div className="flex items-center gap-1.5">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { AgentSkillsSection } from '../AgentSkillsSection';
+import { EntityLink } from '@/shared/components/entity';
 import { agentsApi } from '@/shared/services/ai';
 import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import { usePermissions } from '@/shared/hooks/usePermissions';
@@ -97,7 +98,7 @@ export const AgentSkillsTab: React.FC<AgentSkillsTabProps> = ({ agentId }) => {
               key={skill.id}
               className="flex items-center justify-between px-4 py-2 border border-theme rounded-lg bg-theme-surface"
             >
-              <span className="text-sm text-theme-primary">{skill.name}</span>
+              <EntityLink type="skill" id={skill.id} label={skill.name} className="text-sm" />
               <span className="text-xs text-theme-tertiary">{skill.category}</span>
             </div>
           ))

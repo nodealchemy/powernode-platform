@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, MoreVertical, Archive, Trash2, MessageSquare, Pin, PinOff, Tag, X, Users } from 'lucide-react';
 import { Avatar } from '@/shared/components/ui/Avatar';
+import { EntityLink } from '@/shared/components/entity';
 import type { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 
 interface ConversationListItemProps {
@@ -173,9 +174,25 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
           </div>
 
           <div className="flex items-center justify-between gap-1 mt-0.5">
-            <span className="text-xs text-theme-secondary truncate">
-              {agentName}
-            </span>
+            {isTeamConversation && conversation.agent_team?.id ? (
+              <EntityLink
+                type="agent_team"
+                id={conversation.agent_team.id}
+                label={agentName}
+                className="text-xs truncate"
+              />
+            ) : conversation.ai_agent?.id ? (
+              <EntityLink
+                type="ai_agent"
+                id={conversation.ai_agent.id}
+                label={agentName}
+                className="text-xs truncate"
+              />
+            ) : (
+              <span className="text-xs text-theme-secondary truncate">
+                {agentName}
+              </span>
+            )}
             {conversation.message_count > 0 && (
               <span className="flex items-center gap-0.5 text-[10px] text-theme-text-tertiary flex-shrink-0">
                 <MessageSquare className="h-3 w-3" />

@@ -6,6 +6,7 @@ import {
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { DropdownMenu } from '@/shared/components/ui/DropdownMenu';
+import { EntityLink } from '@/shared/components/entity';
 import { useMissionModal } from '@/shared/hooks/useMissionModal';
 import { useMissions } from '../hooks/useMissions';
 import { MissionExpandedRow } from './MissionExpandedRow';
@@ -247,9 +248,16 @@ export const MissionsIndexTable: React.FC<MissionsIndexTableProps> = ({
 
                   {/* Repository */}
                   <td className="px-4 py-3">
-                    <span className="text-sm text-theme-secondary">
-                      {mission.repository?.name || '\u2014'}
-                    </span>
+                    {mission.repository?.id ? (
+                      <EntityLink
+                        type="repository"
+                        id={mission.repository.id}
+                        label={mission.repository.name}
+                        className="text-sm"
+                      />
+                    ) : (
+                      <span className="text-sm text-theme-secondary">{'\u2014'}</span>
+                    )}
                   </td>
 
                   {/* Updated */}

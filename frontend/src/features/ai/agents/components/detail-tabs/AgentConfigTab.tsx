@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import type { AiAgent } from '@/shared/types/ai';
 
 interface AgentConfigTabProps {
@@ -54,7 +55,14 @@ export const AgentConfigTab: React.FC<AgentConfigTabProps> = ({ agent }) => {
           Model Settings
         </h4>
         <div className="bg-theme-surface border border-theme rounded-lg px-4">
-          <ConfigRow label="Provider" value={agent.provider?.name || '—'} />
+          <ConfigRow
+            label="Provider"
+            value={
+              agent.provider?.id
+                ? <EntityLink type="ai_provider" id={agent.provider.id} label={agent.provider.name} />
+                : (agent.provider?.name || '—')
+            }
+          />
           <ConfigRow label="Model" value={agent.model || '—'} />
           <ConfigRow label="Temperature" value={agent.temperature ?? '—'} />
           <ConfigRow label="Max Tokens" value={agent.max_tokens ?? '—'} />

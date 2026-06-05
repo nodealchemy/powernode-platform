@@ -1,5 +1,15 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { ReactElement } from 'react';
+import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
 import { SpendDashboard, SpendSummary } from './SpendDashboard';
+
+// SpendDashboard now links the top-mission rows via <EntityLink type="mission">,
+// which depends on Redux (usePermissions) and Router (useEntityModal). Render
+// through the shared provider wrapper so those hooks resolve; the mission type
+// is unregistered in the test registry, so EntityLink degrades to plain text
+// and the data-testid / text assertions below are unaffected.
+const render = (ui: ReactElement) =>
+  renderWithProviders(ui, { preloadedState: mockAuthenticatedState });
 
 // Mock the API client used by the component to fetch spend data.
 const mockGet = jest.fn();

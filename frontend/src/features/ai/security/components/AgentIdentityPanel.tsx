@@ -4,6 +4,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 import { useAgentIdentity } from '../api/securityExtApi';
 import type { IdentityStatus } from '../types/security';
 
@@ -77,7 +78,9 @@ export const AgentIdentityPanel: React.FC<AgentIdentityPanelProps> = ({ identity
           </div>
           <div>
             <h3 className="text-lg font-semibold text-theme-primary">Identity Details</h3>
-            <p className="text-sm text-theme-secondary">Agent: {identity.agent_id}</p>
+            <p className="text-sm text-theme-secondary">
+              Agent: <EntityLink type="agent" id={identity.agent_id} label={identity.agent_id} className="text-sm" />
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">

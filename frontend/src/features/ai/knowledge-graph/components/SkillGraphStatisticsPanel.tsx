@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Wrench, Link2, GitBranch, LayoutGrid } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import type { SkillGraphNode, SkillGraphEdge } from '../types/skillGraph';
 
 interface SkillGraphStatisticsPanelProps {
@@ -94,7 +95,9 @@ export const SkillGraphStatisticsPanel: React.FC<SkillGraphStatisticsPanelProps>
                 className="flex items-center justify-between p-2 rounded-lg border border-theme bg-theme-surface"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm font-medium text-theme-primary truncate">{node.name}</span>
+                  <span className="text-sm font-medium text-theme-primary truncate">
+                    <EntityLink type="skill" id={node.skill_id} label={node.name} />
+                  </span>
                   <Badge variant="info" size="xs">{node.category.replace(/_/g, ' ')}</Badge>
                 </div>
                 <span className="text-sm font-semibold text-theme-primary flex-shrink-0">

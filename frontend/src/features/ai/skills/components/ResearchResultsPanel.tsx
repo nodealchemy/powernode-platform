@@ -1,5 +1,6 @@
 import { AlertTriangle, Database, Globe, Link, Server } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
+import { EntityLink } from '@/shared/components/entity';
 import type { ResearchReport } from '../types/lifecycle';
 
 interface ResearchResultsPanelProps {
@@ -26,7 +27,7 @@ export function ResearchResultsPanel({ report }: ResearchResultsPanelProps) {
           <div className="space-y-1">
             {report.overlap_warnings?.map((s) => (
               <div key={s.id} className="flex justify-between items-center text-sm px-2 py-1 bg-theme-surface-secondary rounded">
-                <span className="text-theme-primary">{s.name}</span>
+                <EntityLink type="skill" id={s.id} label={s.name} className="text-theme-primary" />
                 <span className="text-theme-tertiary">{Math.round(s.similarity * 100)}% similar</span>
               </div>
             ))}

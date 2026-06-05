@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import {
   useInterventionPolicies,
@@ -239,7 +240,11 @@ const PolicyCard: React.FC<{
             <span className="text-xs text-theme-tertiary">P{policy.priority}</span>
           </div>
           <div className="flex items-center gap-3 text-xs text-theme-tertiary mt-0.5">
-            {policy.agent?.name && <span>Agent: {policy.agent.name}</span>}
+            {policy.agent?.name && (
+              <span className="flex items-center gap-1">
+                Agent: <EntityLink type="agent" id={policy.agent.id} label={policy.agent.name} className="text-xs" />
+              </span>
+            )}
           </div>
         </div>
         <button

@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { BookOpen, Tag, Globe, Lock, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { BookOpen, Tag, Globe, Lock, Sparkles, ChevronUp, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Select } from '@/shared/components/ui/Select';
@@ -38,6 +38,16 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
   const [contentTypeFilter, setContentTypeFilter] = useState<string>('');
   const [sortField, setSortField] = useState<SortField>('title');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -114,6 +124,7 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-theme">
+                <th className="w-8 py-2 px-2" aria-label="Expand" />
                 <th
                   className="text-left py-2 px-3 text-theme-secondary font-medium cursor-pointer select-none hover:text-theme-primary"
                   onClick={() => handleSort('title')}
@@ -142,11 +153,24 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
               </tr>
             </thead>
             <tbody>
-              {displayEntries.map((entry) => (
+              {displayEntries.map((entry) => {
+                const isExpanded = expandedIds.has(entry.id);
+                return (
+                <React.Fragment key={entry.id}>
                 <tr
-                  key={entry.id}
-                  className="border-b border-theme last:border-b-0 hover:bg-theme-surface transition-colors"
+                  className="border-b border-theme last:border-b-0 hover:bg-theme-surface transition-colors cursor-pointer"
+                  onClick={() => toggleExpanded(entry.id)}
                 >
+                  <td className="py-3 px-2 align-top">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); toggleExpanded(entry.id); }}
+                      className="p-1 text-theme-secondary hover:text-theme-primary"
+                      aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
+                    >
+                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                  </td>
                   <td className="py-3 px-3">
                     <div className="font-medium text-theme-primary">{entry.title}</div>
                     <p className="text-xs text-theme-tertiary mt-0.5 line-clamp-1">{entry.content}</p>
@@ -208,7 +232,76 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
                     )}
                   </td>
                 </tr>
-              ))}
+                {isExpanded && (
+                  <tr className="bg-theme-background border-b border-theme">
+                    <td />
+                    <td colSpan={7} className="py-3 px-3">
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs font-medium text-theme-tertiary mb-1">Full Content</p>
+                          <p className="text-sm text-theme-secondary whitespace-pre-wrap break-words">
+                            {entry.content}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs text-theme-tertiary">Content Type</p>
+                            <p className="text-theme-primary">{entry.content_type}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-theme-tertiary">Access Level</p>
+                            <p className="text-theme-primary">{entry.access_level}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-theme-tertiary">Source Type</p>
+                            <p className="text-theme-primary">{entry.source_type}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-theme-tertiary">Quality Score</p>
+                            <p className="text-theme-primary">
+                              {entry.quality_score !== undefined && entry.quality_score !== null
+                                ? `${Math.round(entry.quality_score * 100)}%`
+                                : '-'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-theme-tertiary">Usage Count</p>
+                            <p className="text-theme-primary">{entry.usage_count}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-theme-tertiary">Embedding</p>
+                            <p className="text-theme-primary">{entry.has_embedding ? 'Yes' : 'No'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-theme-tertiary">Created</p>
+                            <p className="text-theme-primary">
+                              {new Date(entry.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        {entry.tags.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-theme-tertiary mb-1">Tags</p>
+                            <div className="flex flex-wrap gap-1">
+                              {entry.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-tertiary"
+                                >
+                                  <Tag className="h-2.5 w-2.5" />
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

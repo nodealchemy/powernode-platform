@@ -2,6 +2,7 @@ import React from 'react';
 import { FileText, Play, TestTube, Eye, GitPullRequest, Rocket, Search, AlertCircle } from 'lucide-react';
 import type { Mission, MissionWebSocketEvent, FeatureSuggestion } from '../../types/mission';
 import { phaseLabel, isApprovalGate } from '../../types/mission';
+import { EntityLink } from '@/shared/components/entity';
 
 interface PhaseCardProps {
   mission: Mission;
@@ -91,7 +92,12 @@ const PlanContent: React.FC<{ mission: Mission }> = ({ mission }) => {
       {mission.ralph_loop_id && (
         <div className="flex items-center gap-2 text-sm">
           <span className="text-theme-secondary">Ralph Loop:</span>
-          <span className="text-theme-info text-xs">{mission.ralph_loop_id}</span>
+          <EntityLink
+            type="ralph_loop"
+            id={mission.ralph_loop_id}
+            label={mission.ralph_loop_id}
+            className="text-xs"
+          />
         </div>
       )}
       <div>

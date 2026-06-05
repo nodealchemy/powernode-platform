@@ -1,6 +1,6 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
 
 // Mock ESM packages before importing components
 jest.mock('remark-gfm', () => () => ({}));
@@ -67,8 +67,11 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
   })
 }));
 
-// Mock useBreadcrumb
+// Mock useBreadcrumb. Keep a passthrough BreadcrumbProvider — the shared
+// renderWithProviders wrapper imports it from this module, so the mock must
+// preserve that export or the wrapper resolves it to `undefined`.
 jest.mock('@/shared/hooks/BreadcrumbContext', () => ({
+  BreadcrumbProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useBreadcrumb: () => ({
     setBreadcrumbs: jest.fn(),
     getCurrentBreadcrumbs: () => [],
@@ -186,12 +189,15 @@ describe('AIConversationsPage', () => {
     mockDeleteConversation.mockResolvedValue(undefined);
   });
 
+  // The agent name now renders via <EntityLink type="agent">, which reads Redux
+  // (usePermissions) in addition to Router (useEntityModal). Render through the
+  // shared provider wrapper so both hooks resolve; the mock store user lacks
+  // `ai.agents.read`, so EntityLink degrades to plain text and the agent-name
+  // text assertions below are unaffected.
   const renderComponent = () => {
-    return render(
-      <BrowserRouter>
-        <AIConversationsPage />
-      </BrowserRouter>
-    );
+    return renderWithProviders(<AIConversationsPage />, {
+      preloadedState: mockAuthenticatedState,
+    });
   };
 
   describe('Rendering', () => {
@@ -561,11 +567,9 @@ describe('AIConversationsPage - API Integration', () => {
       }
     });
 
-    render(
-      <BrowserRouter>
-        <AIConversationsPage />
-      </BrowserRouter>
-    );
+    renderWithProviders(<AIConversationsPage />, {
+      preloadedState: mockAuthenticatedState,
+    });
 
     await waitFor(() => {
       expect(mockGetConversations).toHaveBeenCalled();
@@ -603,11 +607,9 @@ describe('AIConversationsPage - API Integration', () => {
     });
     mockArchiveConversation.mockResolvedValue({ id: 'conv-1', status: 'archived' });
 
-    render(
-      <BrowserRouter>
-        <AIConversationsPage />
-      </BrowserRouter>
-    );
+    renderWithProviders(<AIConversationsPage />, {
+      preloadedState: mockAuthenticatedState,
+    });
 
     await waitFor(() => {
       expect(screen.getByText('Test Conversation')).toBeInTheDocument();

@@ -3,6 +3,7 @@ import { BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { fetchAgentTrends } from '../api/evaluationApi';
 import type { AgentScoreTrend, ScoreDimension } from '../types/evaluation';
@@ -62,17 +63,26 @@ export const EvalComparison: React.FC = () => {
           ) : (
             <div className="flex flex-wrap gap-2">
               {trends.map((t) => (
-                <button
+                <div
                   key={t.agent_id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => toggleAgent(t.agent_id)}
-                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleAgent(t.agent_id);
+                    }
+                  }}
+                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors cursor-pointer ${
                     selectedAgents.includes(t.agent_id)
                       ? 'bg-theme-primary text-white border-theme-primary'
                       : 'bg-theme-surface text-theme-secondary border-theme hover:border-theme-primary'
                   }`}
                 >
-                  {t.agent_name} ({t.count})
-                </button>
+                  <EntityLink type="agent" id={t.agent_id} label={t.agent_name} className="text-inherit hover:underline" />
+                  {' '}({t.count})
+                </div>
               ))}
             </div>
           )}
@@ -90,7 +100,7 @@ export const EvalComparison: React.FC = () => {
                     <th className="text-left py-2 px-3 text-theme-tertiary font-medium">Dimension</th>
                     {compared.map((agent) => (
                       <th key={agent.agent_id} className="text-center py-2 px-3 text-theme-primary font-medium">
-                        {agent.agent_name}
+                        <EntityLink type="agent" id={agent.agent_id} label={agent.agent_name} />
                       </th>
                     ))}
                   </tr>

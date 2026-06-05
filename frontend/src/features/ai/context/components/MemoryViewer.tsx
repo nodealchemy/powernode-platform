@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bot, Brain } from 'lucide-react';
 import { contextApi } from '../services/contextApi';
+import { EntityLink } from '@/shared/components/entity';
 import type { AiContextEntrySummary, AiContextEntry, EntryType, AiAgentSummary } from '../types';
 
 interface MemoryViewerProps {
@@ -122,7 +123,9 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
                 <Bot className="h-5 w-5 text-theme-primary" />
               </div>
               <div>
-                <h3 className="font-medium text-theme-primary">{agent.name}</h3>
+                <h3 className="font-medium text-theme-primary">
+                  <EntityLink type="agent" id={agentId} label={agent.name} />
+                </h3>
                 <p className="text-sm text-theme-secondary">
                   {memories.length} memories stored
                 </p>

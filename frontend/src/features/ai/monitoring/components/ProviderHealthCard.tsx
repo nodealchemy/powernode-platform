@@ -7,10 +7,11 @@ import {
   TestTube,
   XCircle,
 } from 'lucide-react';
-import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
+import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { Progress } from '@/shared/components/ui/Progress';
+import { EntityLink } from '@/shared/components/entity';
 import type { ProviderMetrics } from '@/shared/types/monitoring';
 import { cn } from '@/shared/utils/cn';
 
@@ -68,12 +69,24 @@ export const ProviderHealthCard: React.FC<ProviderHealthCardProps> = ({
     )}
     onClick={() => onSelect(isSelected ? null : provider.id)}
   >
-    <CardHeader
-      title={provider.name}
-      icon={<Settings className="h-5 w-5" />}
-      action={<Badge variant={getStatusBadgeVariant(provider.status)}>{provider.status}</Badge>}
-      className="pb-3"
-    />
+    <div className="flex items-start justify-between mb-4 pb-3">
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0 w-10 h-10 bg-theme-interactive-primary/10 rounded-lg flex items-center justify-center text-theme-interactive-primary">
+          <Settings className="h-5 w-5" />
+        </div>
+        <div>
+          <EntityLink
+            type="ai_provider"
+            id={provider.id}
+            label={provider.name}
+            className="text-lg font-semibold"
+          />
+        </div>
+      </div>
+      <div className="flex-shrink-0">
+        <Badge variant={getStatusBadgeVariant(provider.status)}>{provider.status}</Badge>
+      </div>
+    </div>
     <CardContent className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-sm text-theme-tertiary">Health Score</span>

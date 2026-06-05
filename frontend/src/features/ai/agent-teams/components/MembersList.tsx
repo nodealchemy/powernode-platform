@@ -1,5 +1,6 @@
 import React from 'react';
 import { Bot, Crown, Loader2, X } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import { TeamMember } from '../services/agentTeamsApi';
 
 interface MembersListProps {
@@ -31,9 +32,12 @@ export const MembersList: React.FC<MembersListProps> = ({
               <Bot className="h-5 w-5 text-theme-info flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-theme-primary truncate">
-                    {member.agent_name}
-                  </span>
+                  <EntityLink
+                    type="agent"
+                    id={member.agent_id}
+                    label={member.agent_name}
+                    className="text-sm font-medium truncate"
+                  />
                   {member.is_lead && (
                     <Crown className="h-3.5 w-3.5 text-theme-warning flex-shrink-0" />
                   )}

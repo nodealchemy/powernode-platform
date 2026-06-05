@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
+import { EntityLink } from '@/shared/components/entity';
 
 interface LoopStatsCardsProps {
   currentIteration: number;
@@ -8,6 +9,7 @@ interface LoopStatsCardsProps {
   taskCount: number;
   progressPercentage: number;
   defaultAgentName: string | null | undefined;
+  defaultAgentId?: string | null;
 }
 
 export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
@@ -17,6 +19,7 @@ export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
   taskCount,
   progressPercentage,
   defaultAgentName,
+  defaultAgentId,
 }) => {
   return (
     <div className="grid grid-cols-4 gap-4">
@@ -47,7 +50,11 @@ export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
       <Card>
         <CardContent className="p-4">
           <div className="text-2xl font-bold text-theme-text-primary truncate">
-            {defaultAgentName || 'No Agent'}
+            {defaultAgentName ? (
+              <EntityLink type="agent" id={defaultAgentId} label={defaultAgentName} className="text-2xl font-bold" />
+            ) : (
+              'No Agent'
+            )}
           </div>
           <div className="text-sm text-theme-secondary">Default Agent</div>
         </CardContent>

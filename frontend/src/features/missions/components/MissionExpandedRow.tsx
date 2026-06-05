@@ -2,6 +2,7 @@ import React from 'react';
 import { GitBranch, Clock, ExternalLink, Shield, Target, AlertCircle } from 'lucide-react';
 import { timeAgo, formatDuration } from '../constants/missionConstants';
 import { cn } from '@/shared/utils/cn';
+import { EntityLink } from '@/shared/components/entity';
 import type { Mission } from '../types/mission';
 
 interface MissionExpandedRowProps {
@@ -63,10 +64,21 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
             <div className="space-y-3">
               <h4 className="text-xs font-semibold text-theme-secondary uppercase tracking-wide">Repository & Deployment</h4>
               <div className="space-y-2">
-                {mission.repository?.name ? (
-                  <DetailRow icon={GitBranch} label="Repository" value={mission.repository.name} />
+                {mission.repository?.id ? (
+                  <DetailRow
+                    icon={GitBranch}
+                    label="Repository"
+                    value={
+                      <EntityLink
+                        type="repository"
+                        id={mission.repository.id}
+                        label={mission.repository.name}
+                        className="font-medium"
+                      />
+                    }
+                  />
                 ) : (
-                  <DetailRow icon={GitBranch} label="Repository" value="—" />
+                  <DetailRow icon={GitBranch} label="Repository" value={mission.repository?.name ?? '—'} />
                 )}
                 {mission.branch_name && (
                   <DetailRow icon={GitBranch} label="Branch" value={mission.branch_name} />
@@ -135,7 +147,7 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
   );
 };
 
-function DetailRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function DetailRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 text-xs">
       <Icon className="h-3.5 w-3.5 text-theme-tertiary flex-shrink-0" />

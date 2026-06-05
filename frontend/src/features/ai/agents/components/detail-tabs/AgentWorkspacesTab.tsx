@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 import { workspacesApi } from '@/shared/services/ai';
 import type { WorkspaceInfo, WorkspaceMember } from '@/shared/services/ai/WorkspacesApiService';
@@ -107,9 +108,12 @@ export const AgentWorkspacesTab: React.FC<AgentWorkspacesTabProps> = ({ agentId 
           <div className="flex items-center gap-3 min-w-0">
             <MessageSquare className="w-4 h-4 text-theme-secondary flex-shrink-0" />
             <div className="min-w-0">
-              <span className="text-sm font-medium text-theme-primary truncate block">
-                {ws.title}
-              </span>
+              <EntityLink
+                type="workspace"
+                id={ws.id}
+                label={ws.title}
+                className="text-sm font-medium truncate block"
+              />
               <div className="flex items-center gap-2 mt-0.5">
                 {ws.role && (
                   <span className="text-[10px] text-theme-tertiary">Role: {ws.role}</span>

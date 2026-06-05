@@ -6,6 +6,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { EntityLink } from '@/shared/components/entity';
 import {
   useAgentIdentities,
   useRotateIdentity,
@@ -88,9 +89,12 @@ export const AgentIdentityList: React.FC<AgentIdentityListProps> = ({ onProvisio
       header: 'Agent',
       width: '160px',
       render: (item) => (
-        <span className="text-theme-secondary text-sm truncate max-w-[140px] block">
-          {item.agent_id}
-        </span>
+        <EntityLink
+          type="agent"
+          id={item.agent_id}
+          label={item.agent_id}
+          className="text-sm truncate max-w-[140px] block"
+        />
       ),
     },
     {

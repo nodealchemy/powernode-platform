@@ -5,6 +5,7 @@ import { useNotification } from '@/shared/hooks/useNotification';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
+import { EntityLink } from '@/shared/components/entity';
 import { PhaseTimeline } from './mission-detail/PhaseTimeline';
 import { PhaseCard } from './mission-detail/PhaseCard';
 import { MissionSidebar } from './mission-detail/MissionSidebar';
@@ -135,7 +136,12 @@ export const MissionDetailModal: React.FC = () => {
                 <Badge variant={statusConfig.variant} size="sm">{statusConfig.label}</Badge>
                 <Badge variant="outline" size="xs">{MISSION_TYPE_LABELS[mission.mission_type]}</Badge>
                 {mission.repository && (
-                  <span className="text-xs text-theme-tertiary">{mission.repository.name}</span>
+                  <EntityLink
+                    type="repository"
+                    id={mission.repository.id}
+                    label={mission.repository.name}
+                    className="text-xs"
+                  />
                 )}
               </div>
             </div>

@@ -1,6 +1,16 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
 import { ProviderHealthDashboard } from './ProviderHealthDashboard';
 import { ProviderMetrics } from '@/shared/types/monitoring';
+
+// Provider names now render via <EntityLink type="ai_provider">, which depends on
+// Redux (usePermissions) and Router (useEntityModal). Render through the shared
+// provider wrapper so those hooks resolve; ai_provider is unregistered in the
+// test registry, so EntityLink degrades to plain text and the text/testid
+// assertions below are unaffected.
+const render = (ui: ReactElement) =>
+  renderWithProviders(ui, { preloadedState: mockAuthenticatedState });
 
 // Mock provider data
 const mockProviders: ProviderMetrics[] = [
@@ -209,8 +219,10 @@ describe('ProviderHealthDashboard', () => {
     const openaiCard = screen.getByText('OpenAI').closest('[class*="cursor-pointer"]');
     fireEvent.click(openaiCard!);
 
-    // Details panel should appear
-    expect(screen.getByText('OpenAI - Detailed Metrics')).toBeInTheDocument();
+    // Details panel should appear. The provider name is now an <EntityLink>, so
+    // the header title is split into the linked name + a "- Detailed Metrics"
+    // sibling; assert on the static suffix as the panel-open marker.
+    expect(screen.getByText('- Detailed Metrics')).toBeInTheDocument();
   });
 
   it('shows performance tab by default in details', () => {
@@ -262,12 +274,12 @@ describe('ProviderHealthDashboard', () => {
     const card = screen.getByText('OpenAI').closest('[class*="cursor-pointer"]');
     fireEvent.click(card!);
 
-    expect(screen.getByText('OpenAI - Detailed Metrics')).toBeInTheDocument();
+    expect(screen.getByText('- Detailed Metrics')).toBeInTheDocument();
 
     // Close details
     fireEvent.click(screen.getByRole('button', { name: /Close/i }));
 
-    expect(screen.queryByText('OpenAI - Detailed Metrics')).not.toBeInTheDocument();
+    expect(screen.queryByText('- Detailed Metrics')).not.toBeInTheDocument();
   });
 
   describe('loading state', () => {

@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useFeedbackList, useSubmitFeedback, useTrustScores } from '../api/autonomyApi';
 import type { AgentFeedback } from '../types/autonomy';
@@ -112,7 +113,11 @@ const FeedbackCard: React.FC<{ feedback: AgentFeedback; isExpanded: boolean; onT
       <MessageSquare className="h-4 w-4 text-theme-info shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-theme-primary">{feedback.agent?.name || 'Unknown Agent'}</span>
+          {feedback.agent?.name ? (
+            <EntityLink type="agent" id={feedback.agent.id} label={feedback.agent.name} className="text-sm font-medium" />
+          ) : (
+            <span className="text-sm font-medium text-theme-primary">Unknown Agent</span>
+          )}
           <span className="px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-tertiary">
             {getFeedbackTypeLabel(feedback.feedback_type)}
           </span>
@@ -144,7 +149,11 @@ const FeedbackCard: React.FC<{ feedback: AgentFeedback; isExpanded: boolean; onT
         </div>
 
         <div className="flex flex-wrap gap-4 text-xs text-theme-tertiary">
-          {feedback.user?.email && <span>Submitted by: {feedback.user.email}</span>}
+          {feedback.user?.email && (
+            <span className="flex items-center gap-1">
+              Submitted by: <EntityLink type="user" id={feedback.user.id} label={feedback.user.email} className="text-xs" />
+            </span>
+          )}
           {feedback.context_type && <span>Context: {feedback.context_type.split('::').pop()}</span>}
           {feedback.context_id && <span>ID: {feedback.context_id.substring(0, 8)}...</span>}
           <span>Created {new Date(feedback.created_at).toLocaleString()}</span>

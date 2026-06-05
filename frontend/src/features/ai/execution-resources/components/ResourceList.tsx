@@ -3,6 +3,7 @@ import {
   FileText, GitBranch, GitMerge, Terminal,
   Database, Map, CheckSquare, Play, ExternalLink
 } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import type { ExecutionResource, ResourceType } from '../types';
 
 interface ResourceListProps {
@@ -38,6 +39,7 @@ export function ResourceList({ resources, onResourceClick }: ResourceListProps) 
             <th className="text-left py-3 px-4 text-theme-secondary font-medium">Type</th>
             <th className="text-left py-3 px-4 text-theme-secondary font-medium">Name</th>
             <th className="text-left py-3 px-4 text-theme-secondary font-medium">Source</th>
+            <th className="text-left py-3 px-4 text-theme-secondary font-medium">Team</th>
             <th className="text-left py-3 px-4 text-theme-secondary font-medium">Agent</th>
             <th className="text-left py-3 px-4 text-theme-secondary font-medium">Status</th>
             <th className="text-left py-3 px-4 text-theme-secondary font-medium">Created</th>
@@ -68,7 +70,26 @@ export function ResourceList({ resources, onResourceClick }: ResourceListProps) 
                   {resource.source_label}
                 </td>
                 <td className="py-3 px-4 text-theme-secondary text-xs">
-                  {resource.agent_name || '-'}
+                  {resource.team_id ? (
+                    <EntityLink
+                      type="team"
+                      id={resource.team_id}
+                      label={resource.team_id}
+                    />
+                  ) : (
+                    '-'
+                  )}
+                </td>
+                <td className="py-3 px-4 text-theme-secondary text-xs">
+                  {resource.agent_id ? (
+                    <EntityLink
+                      type="agent"
+                      id={resource.agent_id}
+                      label={resource.agent_name || resource.agent_id}
+                    />
+                  ) : (
+                    resource.agent_name || '-'
+                  )}
                 </td>
                 <td className="py-3 px-4">
                   <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-theme-surface text-theme-secondary">

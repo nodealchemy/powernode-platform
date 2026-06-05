@@ -2,6 +2,7 @@ import React from 'react';
 import { Eye, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import { useShadowExecutions } from '../api/autonomyApi';
 import type { ShadowExecution } from '../types/autonomy';
 
@@ -18,7 +19,7 @@ const ExecutionRow: React.FC<{ execution: ShadowExecution }> = ({ execution }) =
         ) : (
           <XCircle className="h-4 w-4 text-theme-error" />
         )}
-        <span className="text-sm font-medium text-theme-primary">{execution.agent_name}</span>
+        <EntityLink type="agent" id={execution.agent_id} label={execution.agent_name} className="text-sm font-medium" />
         <span className="text-xs text-theme-tertiary">({execution.action_type})</span>
       </div>
       <Badge

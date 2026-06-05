@@ -6,6 +6,7 @@ import {
   MessageSquare, ArrowRightLeft, ListTodo
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { EntityLink } from '@/shared/components/entity';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 import api from '@/shared/services/api';
 import type { Team, TeamExecution, TeamTask, TeamMessage } from '@/shared/services/ai/TeamsApiService';
@@ -265,7 +266,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                             <div key={member.agent_id || idx} className="flex items-center justify-between p-2.5 bg-theme-surface rounded-md border border-theme/50">
                               <div className="flex items-center gap-2 min-w-0">
                                 <StatusIcon status={member.status} />
-                                <span className="text-sm text-theme-primary truncate">{member.agent_name}</span>
+                                <EntityLink type="agent" id={member.agent_id} label={member.agent_name} className="text-sm truncate" />
                               </div>
                               <div className="flex items-center gap-3 text-xs text-theme-secondary shrink-0">
                                 <span>{(member.tokens_used || 0).toLocaleString()} tok</span>

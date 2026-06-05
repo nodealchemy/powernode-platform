@@ -11,6 +11,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { agentsApi } from '@/shared/services/ai';
 import { CreateAgentModal } from './CreateAgentModal';
 import { EditAgentModal } from './EditAgentModal';
+import { EntityLink } from '@/shared/components/entity';
 import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 
 import type { AiAgent } from '@/shared/types/ai';
@@ -297,7 +298,11 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">AI Provider</span>
-                    <span className="text-theme-primary">{agent.provider?.name || 'N/A'}</span>
+                    {agent.provider?.id ? (
+                      <EntityLink type="ai_provider" id={agent.provider.id} label={agent.provider.name} className="text-sm" />
+                    ) : (
+                      <span className="text-theme-primary">{agent.provider?.name || 'N/A'}</span>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between text-sm">

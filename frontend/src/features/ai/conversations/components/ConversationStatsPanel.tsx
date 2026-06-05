@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import type { AiConversation } from '@/shared/types/ai';
 
 interface ConversationStats {
@@ -123,7 +124,15 @@ export const ConversationStatsPanel: React.FC<ConversationStatsPanelProps> = ({
               <label className="text-sm font-medium text-theme-tertiary">AI Agent</label>
               <div className="mt-1 flex items-center gap-2">
                 <Bot className="h-4 w-4 text-theme-tertiary" />
-                <span className="text-theme-primary">{conversation.ai_agent?.name || 'Unknown Agent'}</span>
+                {conversation.ai_agent?.id ? (
+                  <EntityLink
+                    type="ai_agent"
+                    id={conversation.ai_agent.id}
+                    label={conversation.ai_agent.name || 'Unknown Agent'}
+                  />
+                ) : (
+                  <span className="text-theme-primary">{conversation.ai_agent?.name || 'Unknown Agent'}</span>
+                )}
                 {conversation.ai_agent?.agent_type && (
                   <Badge variant="outline" size="sm">
                     {conversation.ai_agent.agent_type.replace('_', ' ')}

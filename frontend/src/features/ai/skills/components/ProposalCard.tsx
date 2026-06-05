@@ -1,6 +1,7 @@
 import { FileText, Bot, User, Clock } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card } from '@/shared/components/ui/Card';
+import { EntityLink } from '@/shared/components/entity';
 import type { SkillProposal, ProposalStatus } from '../types/lifecycle';
 
 interface ProposalCardProps {
@@ -27,7 +28,7 @@ const STATUS_LABELS: Record<ProposalStatus, string> = {
 };
 
 export function ProposalCard({ proposal, selected, onSelect, onClick }: ProposalCardProps) {
-  const proposedBy = proposal.proposed_by_agent?.name || proposal.proposed_by_user?.name || 'Unknown';
+  const proposedByName = proposal.proposed_by_agent?.name || proposal.proposed_by_user?.name || 'Unknown';
   const isAgent = !!proposal.proposed_by_agent;
 
   return (
@@ -74,7 +75,13 @@ export function ProposalCard({ proposal, selected, onSelect, onClick }: Proposal
           <div className="flex items-center gap-4 text-xs text-theme-tertiary">
             <span className="flex items-center gap-1">
               {isAgent ? <Bot className="w-3 h-3" /> : <User className="w-3 h-3" />}
-              {proposedBy}
+              {proposal.proposed_by_agent ? (
+                <EntityLink type="agent" id={proposal.proposed_by_agent.id} label={proposedByName} />
+              ) : proposal.proposed_by_user ? (
+                <EntityLink type="user" id={proposal.proposed_by_user.id} label={proposedByName} />
+              ) : (
+                proposedByName
+              )}
             </span>
             {proposal.category && (
               <span className="capitalize">{proposal.category.replace(/_/g, ' ')}</span>

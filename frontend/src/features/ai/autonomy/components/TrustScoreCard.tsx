@@ -2,6 +2,7 @@ import React from 'react';
 import { Shield, TrendingUp, TrendingDown, RefreshCw, Edit2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useEvaluateTrustScore, useOverrideTrustScore, useEmergencyDemote } from '../api/autonomyApi';
 import type { TrustScore } from '../types/autonomy';
@@ -52,7 +53,7 @@ export const TrustScoreCard: React.FC<TrustScoreCardProps> = ({ score }) => {
               <Shield className="h-5 w-5 text-theme-info" />
             </div>
             <div>
-              <h3 className="font-semibold text-theme-primary">{score.agent_name}</h3>
+              <EntityLink type="agent" id={score.agent_id} label={score.agent_name} className="font-semibold" />
               <div className="flex items-center gap-2 mt-0.5">
                 <Badge variant={tierConfig.variant} size="sm">{tierConfig.label}</Badge>
                 {score.promotable && (

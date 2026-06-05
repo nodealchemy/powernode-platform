@@ -15,6 +15,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Select } from '@/shared/components/ui/Select';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { aiOpsApi, AiOpsDashboard as DashboardData, SystemHealth, RealTimeMetrics } from '@/shared/services/ai';
 
@@ -312,7 +313,12 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
                   provider.success_rate >= 95 ? 'bg-theme-warning' : 'bg-theme-error'
                 }`} />
                 <div>
-                  <p className="font-medium text-theme-primary">{provider.name}</p>
+                  <EntityLink
+                    type="ai_provider"
+                    id={provider.id}
+                    label={provider.name}
+                    className="font-medium text-theme-primary"
+                  />
                   <p className="text-xs text-theme-tertiary">{formatNumber(provider.requests)} requests</p>
                 </div>
               </div>

@@ -26,6 +26,8 @@ import { intelligenceApi } from '@/shared/services/ai/IntelligenceApiService';
 import type { StigmergicSignal, PressureField, TeamRestructureEvent, CoordinationSummary } from '@/shared/services/ai/IntelligenceApiService';
 import { SecurityContent } from '@/features/ai/security/pages/SecurityDashboardPage';
 import { AuditLogList } from '@/features/ai/audit/components/AuditLogList';
+import { EntityLink } from '@/shared/components/entity';
+import { resolveCoreEntityType } from '@/shared/entity/registerCoreEntities';
 
 function getSeverityColor(severity: string): string {
   switch (severity) {
@@ -132,6 +134,16 @@ const ApprovalsContent: React.FC<{
                   </div>
                 </div>
                 <p className="text-sm text-theme-secondary">{request.description}</p>
+                {request.source_type && request.source_id && resolveCoreEntityType(request.source_type) && (
+                  <p className="text-xs text-theme-secondary mt-1">
+                    Subject:{' '}
+                    <EntityLink
+                      type={resolveCoreEntityType(request.source_type) as string}
+                      id={request.source_id}
+                      label={`${request.source_type.split('::').pop()} ${request.source_id.slice(0, 8)}`}
+                    />
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -215,8 +227,8 @@ const ReportsContent: React.FC<{ reports: GovernanceReport[]; loading: boolean; 
             </div>
           </div>
           <div className="flex items-center gap-4 text-sm text-theme-secondary">
-            {report.subject_agent && <span>Agent: <span className="text-theme-primary">{report.subject_agent.name}</span></span>}
-            {report.monitor_agent && <span>Detected by: {report.monitor_agent.name}</span>}
+            {report.subject_agent && <span>Agent: <EntityLink type="agent" id={report.subject_agent.id} label={report.subject_agent.name} /></span>}
+            {report.monitor_agent && <span>Detected by: <EntityLink type="agent" id={report.monitor_agent.id} label={report.monitor_agent.name} /></span>}
             {report.auto_remediated && <span className="text-theme-success">Auto-remediated</span>}
             <span>{new Date(report.created_at).toLocaleDateString()}</span>
           </div>
@@ -256,7 +268,9 @@ const CollusionContent: React.FC<{ indicators: CollusionIndicator[]; loading: bo
               <div className="flex flex-wrap gap-1">
                 {indicator.agent_cluster.map((agentId, idx) => (
                   <span key={idx} className="px-2 py-0.5 text-xs bg-theme-interactive-primary/10 text-theme-interactive-primary rounded">
-                    {typeof agentId === 'string' ? agentId.slice(0, 8) : agentId}
+                    {typeof agentId === 'string'
+                      ? <EntityLink type="agent" id={agentId} label={agentId.slice(0, 8)} />
+                      : agentId}
                   </span>
                 ))}
               </div>
@@ -342,7 +356,7 @@ const CoordinationContent: React.FC<{
                     <span className="text-theme-tertiary">{s.perceive_count} perceived</span>
                   </div>
                 </div>
-                {s.emitter_agent && <span className="text-xs text-theme-info">Emitted by {s.emitter_agent.name}</span>}
+                {s.emitter_agent && <span className="text-xs text-theme-info">Emitted by <EntityLink type="agent" id={s.emitter_agent.id} label={s.emitter_agent.name} /></span>}
                 {/* Strength bar */}
                 <div className="mt-2 h-1.5 bg-theme-surface-secondary rounded-full overflow-hidden">
                   <div className="h-full bg-theme-success rounded-full transition-all" style={{ width: `${s.strength * 100}%` }} />
@@ -409,8 +423,8 @@ const CoordinationContent: React.FC<{
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="info" size="sm">{e.event_type.replace(/_/g, ' ')}</Badge>
-                    {e.team && <span className="text-sm text-theme-primary">{e.team.name}</span>}
-                    {e.agent && <span className="text-xs text-theme-secondary">({e.agent.name})</span>}
+                    {e.team && <span className="text-sm text-theme-primary"><EntityLink type="agent_team" id={e.team.id} label={e.team.name} /></span>}
+                    {e.agent && <span className="text-xs text-theme-secondary">(<EntityLink type="agent" id={e.agent.id} label={e.agent.name} />)</span>}
                   </div>
                   <span className="text-xs text-theme-tertiary">{new Date(e.created_at).toLocaleDateString()}</span>
                 </div>

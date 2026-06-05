@@ -3,6 +3,7 @@ import { AlertTriangle, Merge, Trash2, Eye, Check, X } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
+import { EntityLink } from '@/shared/components/entity';
 import { skillLifecycleApi } from '../services/skillLifecycleApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import type { SkillConflict, ConflictSeverity, ConflictType } from '../types/lifecycle';
@@ -85,11 +86,21 @@ export function ConsolidationSuggestionCard({ conflict, onResolved }: Consolidat
           </div>
 
           <div className="text-sm text-theme-primary mb-1">
-            <span className="font-medium">{conflict.skill_a.name}</span>
+            <EntityLink
+              type="skill"
+              id={conflict.skill_a.id}
+              label={conflict.skill_a.name}
+              className="font-medium"
+            />
             {conflict.skill_b && (
               <>
                 <span className="text-theme-tertiary mx-1">&harr;</span>
-                <span className="font-medium">{conflict.skill_b.name}</span>
+                <EntityLink
+                  type="skill"
+                  id={conflict.skill_b.id}
+                  label={conflict.skill_b.name}
+                  className="font-medium"
+                />
               </>
             )}
           </div>

@@ -180,6 +180,7 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
           taskCount={loop.task_count || 0}
           progressPercentage={progressPercentage}
           defaultAgentName={loop.default_agent_name}
+          defaultAgentId={loop.default_agent_id}
         />
 
         {/* Progress Bar */}

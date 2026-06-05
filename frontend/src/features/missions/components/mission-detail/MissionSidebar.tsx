@@ -4,6 +4,7 @@ import {
   GitBranch, Users, Clock, MessageSquare,
   ExternalLink, Calendar, Timer,
 } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import type { Mission } from '../../types/mission';
 import { phaseLabel } from '../../types/mission';
 
@@ -57,7 +58,13 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
           <h4 className="text-xs font-semibold text-theme-secondary uppercase tracking-wide flex items-center gap-1">
             <GitBranch className="w-3 h-3" /> Repository
           </h4>
-          <p className="text-sm text-theme-primary">{mission.repository.full_name || mission.repository.name}</p>
+          <p className="text-sm text-theme-primary">
+            <EntityLink
+              type="repository"
+              id={mission.repository.id}
+              label={mission.repository.full_name || mission.repository.name}
+            />
+          </p>
           {mission.branch_name && (
             <div className="flex items-center gap-1 text-xs text-theme-tertiary">
               <GitBranch className="w-3 h-3" />
@@ -85,7 +92,9 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
           <h4 className="text-xs font-semibold text-theme-secondary uppercase tracking-wide flex items-center gap-1">
             <Users className="w-3 h-3" /> Team
           </h4>
-          <p className="text-sm text-theme-primary">{mission.team.name}</p>
+          <p className="text-sm text-theme-primary">
+            <EntityLink type="agent_team" id={mission.team.id} label={mission.team.name} />
+          </p>
         </div>
       )}
 
@@ -166,7 +175,12 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
         <div className="card-theme p-4">
           <div className="flex items-center justify-between text-xs">
             <span className="text-theme-tertiary">Created by</span>
-            <span className="text-theme-primary">{mission.created_by.name}</span>
+            <EntityLink
+              type="user"
+              id={mission.created_by.id}
+              label={mission.created_by.name}
+              className="text-theme-primary"
+            />
           </div>
         </div>
       )}

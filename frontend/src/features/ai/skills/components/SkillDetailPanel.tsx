@@ -4,6 +4,7 @@ import { skillsApi } from '../services/skillsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import type { AiSkill, McpServerInfo } from '../types';
 
 interface AgentSummary {
@@ -40,7 +41,7 @@ function AgentsList({ skillId }: { skillId: string }) {
       <div className="flex flex-wrap gap-2">
         {agents.map((agent) => (
           <Badge key={agent.id} variant={agent.status === 'active' ? 'success' : 'secondary'} size="sm">
-            {agent.name}
+            <EntityLink type="agent" id={agent.id} label={agent.name} />
           </Badge>
         ))}
       </div>
@@ -332,7 +333,11 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
           <div>
             <h3 className="text-sm font-medium text-theme-primary mb-1">Knowledge Base</h3>
             <div className="bg-theme-surface-secondary rounded-lg p-3 text-sm text-theme-secondary">
-              {skill.knowledge_base.name}
+              <EntityLink
+                type="knowledge_base"
+                id={skill.knowledge_base.id}
+                label={skill.knowledge_base.name}
+              />
             </div>
           </div>
         )}

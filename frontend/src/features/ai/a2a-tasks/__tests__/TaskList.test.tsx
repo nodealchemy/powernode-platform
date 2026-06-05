@@ -1,6 +1,16 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
 import { TaskList } from '../components/TaskList';
 import { a2aTasksApiService } from '@/shared/services/ai';
+
+// TaskList now renders the from/to agent ids via <EntityLink type="agent">, which
+// depends on Redux (usePermissions) and Router (useEntityModal). Render through the
+// shared provider wrapper so those hooks resolve; the mock user lacks
+// `ai.agents.read`, so EntityLink degrades to plain text and the truncated agent-id
+// labels remain queryable as text.
+const render = (ui: ReactElement) =>
+  renderWithProviders(ui, { preloadedState: mockAuthenticatedState });
 
 // Mock the API service
 jest.mock('@/shared/services/ai', () => ({

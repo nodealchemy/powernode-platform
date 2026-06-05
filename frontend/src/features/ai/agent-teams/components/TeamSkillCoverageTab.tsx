@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Wrench, Users, AlertTriangle, CheckCircle, Lightbulb } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
@@ -123,17 +124,18 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
             {coverage.agent_skill_mapping.map(agent => (
               <div key={agent.agent_id} className="p-3 rounded-lg border border-theme bg-theme-surface">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-theme-primary">{agent.agent_name}</span>
+                  <EntityLink type="agent" id={agent.agent_id} label={agent.agent_name} className="text-sm font-medium" />
                   <Badge variant="default" size="xs">{agent.role}</Badge>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {agent.skills.map(skill => (
-                    <span
+                    <EntityLink
                       key={skill.id}
+                      type="skill"
+                      id={skill.id}
+                      label={skill.name}
                       className="px-2 py-0.5 text-xs rounded bg-theme-info bg-opacity-10 text-theme-info"
-                    >
-                      {skill.name}
-                    </span>
+                    />
                   ))}
                   {agent.skills.length === 0 && (
                     <span className="text-xs text-theme-tertiary">No skills assigned</span>
@@ -158,7 +160,7 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
                 key={skill.id || skill.name || idx}
                 className="flex items-center justify-between p-2 rounded-lg border border-theme bg-theme-surface"
               >
-                <span className="text-sm text-theme-primary">{skill.name}</span>
+                <EntityLink type="skill" id={skill.id} label={skill.name} className="text-sm" />
                 <Badge variant="default" size="xs">{skill.category.replace(/_/g, ' ')}</Badge>
               </div>
             ))}
@@ -190,17 +192,18 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
             {recommendations.map(rec => (
               <div key={rec.agent_id} className="p-3 rounded-lg border border-theme bg-theme-surface">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-theme-primary">{rec.agent_name}</span>
+                  <EntityLink type="agent" id={rec.agent_id} label={rec.agent_name} className="text-sm font-medium" />
                   <Badge variant="success" size="xs">Fills {rec.fills_count} skill{rec.fills_count !== 1 ? 's' : ''}</Badge>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {rec.fills_skills.map(skill => (
-                    <span
+                    <EntityLink
                       key={skill.id}
+                      type="skill"
+                      id={skill.id}
+                      label={skill.name}
                       className="px-2 py-0.5 text-xs rounded bg-theme-success bg-opacity-10 text-theme-success"
-                    >
-                      {skill.name}
-                    </span>
+                    />
                   ))}
                 </div>
               </div>

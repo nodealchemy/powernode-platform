@@ -5,6 +5,7 @@ import {
 import {
   AGENT_TYPE_LABELS, timeAgo, successRateColor, formatDuration,
 } from '../constants/agentConstants';
+import { EntityLink } from '@/shared/components/entity';
 import { cn } from '@/shared/utils/cn';
 import type { AiAgent } from '@/shared/types/ai';
 
@@ -35,7 +36,20 @@ export const AgentExpandedRow: React.FC<AgentExpandedRowProps> = ({ agent }) => 
             <div className="space-y-3">
               <h4 className="text-xs font-semibold text-theme-secondary uppercase tracking-wide">Configuration</h4>
               <div className="space-y-2">
-                <DetailRow icon={Cpu} label="Provider" value={`${agent.provider?.name || 'None'}${agent.model ? ` / ${agent.model}` : ''}`} />
+                <DetailRow
+                  icon={Cpu}
+                  label="Provider"
+                  value={
+                    agent.provider?.id ? (
+                      <span className="inline-flex items-center gap-1">
+                        <EntityLink type="ai_provider" id={agent.provider.id} label={agent.provider.name} className="font-medium truncate" />
+                        {agent.model ? <span className="text-theme-primary">/ {agent.model}</span> : null}
+                      </span>
+                    ) : (
+                      `${agent.provider?.name || 'None'}${agent.model ? ` / ${agent.model}` : ''}`
+                    )
+                  }
+                />
                 <DetailRow icon={Settings} label="Type" value={AGENT_TYPE_LABELS[agent.agent_type] || agent.agent_type} />
                 {agent.temperature != null && (
                   <DetailRow icon={Hash} label="Temperature" value={String(agent.temperature)} />
@@ -56,7 +70,7 @@ export const AgentExpandedRow: React.FC<AgentExpandedRowProps> = ({ agent }) => 
                     <div className="flex flex-wrap gap-1">
                       {agent.skills.slice(0, 5).map(s => (
                         <span key={s.id} className="px-1.5 py-0.5 rounded bg-theme-interactive-primary/10 text-theme-info text-[10px] font-medium">
-                          {s.name}
+                          <EntityLink type="skill" id={s.id} label={s.name} className="text-theme-info" />
                         </span>
                       ))}
                       {agent.skills.length > 5 && (
@@ -162,7 +176,7 @@ export const AgentExpandedRow: React.FC<AgentExpandedRowProps> = ({ agent }) => 
 };
 
 // Reusable detail row for icon + label + value
-function DetailRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function DetailRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 text-xs">
       <Icon className="h-3.5 w-3.5 text-theme-tertiary flex-shrink-0" />

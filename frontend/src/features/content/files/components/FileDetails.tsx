@@ -4,6 +4,7 @@ import Modal from '@/shared/components/ui/Modal';
 import { filesApi, FileObject } from '../services/filesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { formatDateTime } from '@/shared/utils/formatters';
+import { EntityLink } from '@/shared/components/entity';
 
 interface FileDetailsProps {
   file: FileObject;
@@ -156,7 +157,13 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
               {file.uploaded_by && (
                 <div>
                   <p className="text-theme-secondary">Uploaded By</p>
-                  <p className="text-theme-primary font-medium">{file.uploaded_by.name}</p>
+                  <p className="text-theme-primary font-medium">
+                    <EntityLink
+                      type="user"
+                      id={file.uploaded_by.id}
+                      label={file.uploaded_by.name}
+                    />
+                  </p>
                 </div>
               )}
 
@@ -257,7 +264,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
                       color: tag.color
                     }}
                   >
-                    {tag.name}
+                    <EntityLink type="file_tag" id={tag.id} label={tag.name} className="text-inherit" />
                   </span>
                 ))}
               </div>

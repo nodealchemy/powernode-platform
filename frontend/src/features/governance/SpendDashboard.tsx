@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, RefreshCw, TrendingUp } from 'lucide-react';
 import { logger } from '@/shared/utils/logger';
+import { EntityLink } from '@/shared/components/entity';
 import { governanceSpendApi } from './services/governanceSpendApi';
 
 /**
@@ -316,7 +317,7 @@ export const SpendDashboard: React.FC<SpendDashboardProps> = ({
                 data-testid={`spend-mission-${mission.id}`}
               >
                 <span className="text-sm text-theme-primary truncate pr-4">
-                  {mission.name}
+                  <EntityLink type="mission" id={mission.id} label={mission.name} />
                 </span>
                 <span className="text-sm font-medium text-theme-primary tabular-nums">
                   {formatUsd(mission.amount_usd)}

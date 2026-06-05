@@ -4,6 +4,7 @@ import {
   Download, Share2, Trash2, Eye
 } from 'lucide-react';
 import { FileObject } from '../services/filesApi';
+import { EntityLink } from '@/shared/components/entity';
 
 interface FileItemProps {
   file: FileObject;
@@ -112,7 +113,7 @@ export const FileItem: React.FC<FileItemProps> = ({
                     color: tag.color
                   }}
                 >
-                  {tag.name}
+                  <EntityLink type="file_tag" id={tag.id} label={tag.name} className="text-inherit" />
                 </span>
               ))}
               {file.tags.length > 2 && (
@@ -131,7 +132,14 @@ export const FileItem: React.FC<FileItemProps> = ({
           {file.uploaded_by && (
             <>
               <span>•</span>
-              <span>by {file.uploaded_by.name}</span>
+              <span className="flex items-center gap-1">
+                by
+                <EntityLink
+                  type="user"
+                  id={file.uploaded_by.id}
+                  label={file.uploaded_by.name}
+                />
+              </span>
             </>
           )}
         </div>

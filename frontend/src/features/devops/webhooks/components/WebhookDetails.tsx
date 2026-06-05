@@ -28,6 +28,7 @@ import {
   WebhookDelivery
 } from '@/features/devops/webhooks/services/webhooksApi';
 import { WebhookTest } from './WebhookTest';
+import { EntityLink } from '@/shared/components/entity';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import Pagination from '@/shared/components/ui/Pagination';
@@ -206,7 +207,12 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
 
               {webhook.created_by && (
                 <div className="text-sm text-theme-secondary">
-                  by {webhook.created_by.email}
+                  by{' '}
+                  <EntityLink
+                    type="user"
+                    id={webhook.created_by.id}
+                    label={webhook.created_by.email}
+                  />
                 </div>
               )}
             </div>

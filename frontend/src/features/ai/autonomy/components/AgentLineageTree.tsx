@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GitBranch, User, ChevronRight, ChevronDown } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import { cn } from '@/shared/utils/cn';
 import type { AgentLineageNode } from '../types/autonomy';
 
@@ -57,7 +58,7 @@ const LineageNode: React.FC<LineageNodeProps> = ({ node, depth = 0 }) => {
         </div>
 
         <div className="flex-1 min-w-0 flex items-center gap-2">
-          <span className="text-sm font-medium text-theme-primary truncate">{node.name}</span>
+          <EntityLink type="agent" id={node.id} label={node.name} className="text-sm font-medium truncate" />
           <span className="text-xs text-theme-secondary">({node.type})</span>
         </div>
 

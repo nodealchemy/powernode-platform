@@ -6,6 +6,8 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { apiClient } from '@/shared/services/apiClient';
+import { EntityLink } from '@/shared/components/entity';
+import { resolveCoreEntityType } from '@/shared/entity/registerCoreEntities';
 
 interface Recommendation {
   id: string;
@@ -134,6 +136,25 @@ export const RecommendationsDashboard: React.FC = () => {
                             (rec.evidence as Record<string, string>)?.improvement ||
                             'Review this recommendation'}
                         </p>
+                        {rec.target_type && rec.target_id && (() => {
+                          const targetEntityType = resolveCoreEntityType(rec.target_type);
+                          return (
+                            <div className="flex items-center gap-1.5 mt-1.5 text-xs text-theme-tertiary">
+                              <span>Target:</span>
+                              {targetEntityType ? (
+                                <EntityLink
+                                  type={targetEntityType}
+                                  id={rec.target_id}
+                                  label={`${rec.target_type.split('::').pop()} ${rec.target_id.slice(0, 8)}`}
+                                />
+                              ) : (
+                                <span className="text-theme-secondary">
+                                  {rec.target_type.split('::').pop()} {rec.target_id.slice(0, 8)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {(rec.evidence as Record<string, string>)?.current_provider && (
                           <div className="flex items-center gap-2 mt-2 text-xs text-theme-tertiary">
                             <span>{(rec.evidence as Record<string, string>).current_provider}</span>

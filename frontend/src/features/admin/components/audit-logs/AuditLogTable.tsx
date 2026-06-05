@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { AuditLog } from '@/features/admin/audit-logs/services/auditLogsApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
+import { resolveCoreEntityType } from '@/shared/entity/registerCoreEntities';
 
 interface AuditLogTableProps {
   logs: AuditLog[];
@@ -188,7 +190,12 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                               {formatAction(log.action)}
                             </div>
                             <div className="text-xs text-theme-secondary">
-                              {log.resource_type}#{log.resource_id}
+                              <EntityLink
+                                type={resolveCoreEntityType(log.resource_type) ?? ''}
+                                id={log.resource_id}
+                                label={`${log.resource_type}#${log.resource_id}`}
+                                className="text-xs"
+                              />
                             </div>
                           </div>
                         </div>
@@ -200,7 +207,16 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                         {getDeviceIcon(log.user_agent)}
                         <div>
                           <div className="text-sm font-medium text-theme-primary">
-                            {log.user?.email || 'System'}
+                            {log.user ? (
+                              <EntityLink
+                                type="user"
+                                id={log.user.id}
+                                label={log.user.email || 'System'}
+                                className="text-sm font-medium"
+                              />
+                            ) : (
+                              'System'
+                            )}
                           </div>
                           {log.user?.full_name && (
                             <div className="text-xs text-theme-secondary">
@@ -271,7 +287,12 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                               {log.account && (
                                 <div>
                                   <span className="text-theme-secondary">Account:</span>
-                                  <span className="text-theme-primary ml-1">{log.account.name}</span>
+                                  <EntityLink
+                                    type="account"
+                                    id={log.account.id}
+                                    label={log.account.name}
+                                    className="ml-1"
+                                  />
                                 </div>
                               )}
                               

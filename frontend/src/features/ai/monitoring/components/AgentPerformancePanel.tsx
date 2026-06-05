@@ -10,6 +10,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Progress } from '@/shared/components/ui/Progress';
 import { Loading } from '@/shared/components/ui/Loading';
+import { EntityLink } from '@/shared/components/entity';
 import { AgentMetrics } from '@/shared/types/monitoring';
 
 interface AgentPerformancePanelProps {
@@ -65,12 +66,24 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {agents.map((agent) => (
           <Card key={agent.id} className="relative">
-            <CardHeader
-              title={agent.name}
-              icon={<Bot className="h-5 w-5" />}
-              action={<Badge variant={getStatusBadge(agent.status)}>{agent.status}</Badge>}
-              className="pb-3"
-            />
+            <div className="flex items-start justify-between mb-4 pb-3">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-10 h-10 bg-theme-interactive-primary/10 rounded-lg flex items-center justify-center text-theme-interactive-primary">
+                  <Bot className="h-5 w-5" />
+                </div>
+                <div>
+                  <EntityLink
+                    type="agent"
+                    id={agent.id}
+                    label={agent.name}
+                    className="text-lg font-semibold"
+                  />
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <Badge variant={getStatusBadge(agent.status)}>{agent.status}</Badge>
+              </div>
+            </div>
             <CardContent className="space-y-4">
               {/* Health Score */}
               <div className="flex items-center justify-between">
@@ -154,7 +167,12 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
                   <div className="space-y-1">
                     {agent.provider_distribution.slice(0, 2).map((provider, index) => (
                       <div key={index} className="flex items-center justify-between text-xs">
-                        <span className="text-theme-tertiary">{provider.provider_name}</span>
+                        <EntityLink
+                          type="ai_provider"
+                          id={provider.provider_id}
+                          label={provider.provider_name}
+                          className="text-theme-tertiary"
+                        />
                         <span className="font-medium">{provider.execution_count}</span>
                       </div>
                     ))}

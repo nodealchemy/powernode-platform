@@ -5,6 +5,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { apiClient } from '@/shared/services/apiClient';
+import { EntityLink } from '@/shared/components/entity';
 
 interface AgentScoreTrend {
   agent_id: string;
@@ -109,7 +110,9 @@ export const TrajectoryInsights: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <TrendIcon trend={agent.trend} />
                     <div>
-                      <p className="text-sm font-medium text-theme-primary">{agent.agent_name}</p>
+                      <p className="text-sm font-medium text-theme-primary">
+                        <EntityLink type="agent" id={agent.agent_id} label={agent.agent_name} />
+                      </p>
                       <p className="text-xs text-theme-tertiary">{agent.count} evaluations</p>
                     </div>
                   </div>

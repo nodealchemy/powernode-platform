@@ -4,6 +4,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 
 export const ImpersonationHistory: React.FC = () => {
   const [sessions, setSessions] = useState<ImpersonationSession[]>([]);
@@ -190,7 +191,12 @@ export const ImpersonationHistory: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-theme-primary">
-                            {session.impersonator.full_name}
+                            <EntityLink
+                              type="user"
+                              id={session.impersonator.id}
+                              label={session.impersonator.full_name}
+                              className="text-sm font-medium"
+                            />
                           </div>
                           <div className="text-sm text-theme-secondary">
                             {session.impersonator.email}
@@ -200,7 +206,12 @@ export const ImpersonationHistory: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-theme-primary">
-                            {session.impersonated_user.full_name}
+                            <EntityLink
+                              type="user"
+                              id={session.impersonated_user.id}
+                              label={session.impersonated_user.full_name}
+                              className="text-sm font-medium"
+                            />
                           </div>
                           <div className="text-sm text-theme-secondary">
                             {session.impersonated_user.email}

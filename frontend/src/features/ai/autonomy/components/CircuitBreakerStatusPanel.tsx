@@ -2,6 +2,7 @@ import React from 'react';
 import { Zap, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import { useCircuitBreakers, useResetCircuitBreaker } from '../api/autonomyApi';
 import type { CircuitBreaker } from '../types/autonomy';
 
@@ -20,7 +21,7 @@ const BreakerRow: React.FC<{ breaker: CircuitBreaker }> = ({ breaker }) => {
       <div className="flex items-center gap-3">
         <Zap className={`h-4 w-4 ${breaker.state === 'open' ? 'text-theme-error' : 'text-theme-success'}`} />
         <div>
-          <span className="text-sm font-medium text-theme-primary">{breaker.agent_name}</span>
+          <EntityLink type="agent" id={breaker.agent_id} label={breaker.agent_name} className="text-sm font-medium" />
           <span className="text-xs text-theme-tertiary ml-2">({breaker.action_type})</span>
           <div className="text-xs text-theme-tertiary mt-0.5">
             Failures: {breaker.failure_count}/{breaker.failure_threshold}

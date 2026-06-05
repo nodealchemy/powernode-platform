@@ -8,6 +8,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
+import { EntityLink } from '@/shared/components/entity';
 import type { A2aTask } from '@/shared/services/ai/types/a2a-types';
 
 interface A2aTaskListItemProps {
@@ -47,10 +48,18 @@ export const A2aTaskListItem: React.FC<A2aTaskListItemProps> = ({ task, isSelect
   const statusColor = statusColorMap[task.status] || 'text-theme-tertiary';
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
       className={cn(
-        'w-full text-left px-3 py-2.5 border-l-2 transition-colors',
+        'w-full text-left px-3 py-2.5 border-l-2 transition-colors cursor-pointer',
         isSelected
           ? 'border-l-theme-accent bg-theme-surface-hover'
           : 'border-l-transparent hover:bg-theme-surface-hover'
@@ -72,15 +81,21 @@ export const A2aTaskListItem: React.FC<A2aTaskListItemProps> = ({ task, isSelect
         </span>
       </div>
       <div className="flex items-center gap-1 mt-1 ml-6 text-xs text-theme-secondary">
-        <span className="font-mono truncate max-w-[80px]">
-          {task.from_agent_id?.substring(0, 8) || 'Unknown'}
-        </span>
+        <EntityLink
+          type="agent"
+          id={task.from_agent_id}
+          label={task.from_agent_id?.substring(0, 8) || 'Unknown'}
+          className="font-mono truncate max-w-[80px]"
+        />
         <ArrowRight className="h-3 w-3 shrink-0 text-theme-tertiary" />
-        <span className="font-mono truncate max-w-[80px]">
-          {task.to_agent_id?.substring(0, 8) || 'Unknown'}
-        </span>
+        <EntityLink
+          type="agent"
+          id={task.to_agent_id}
+          label={task.to_agent_id?.substring(0, 8) || 'Unknown'}
+          className="font-mono truncate max-w-[80px]"
+        />
       </div>
-    </button>
+    </div>
   );
 };
 

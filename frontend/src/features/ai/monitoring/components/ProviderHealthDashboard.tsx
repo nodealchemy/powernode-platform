@@ -6,6 +6,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
+import { EntityLink } from '@/shared/components/entity';
 import type { ProviderMetrics } from '@/shared/types/monitoring';
 import { cn } from '@/shared/utils/cn';
 import { ProviderHealthCard } from './ProviderHealthCard';
@@ -116,11 +117,25 @@ export const ProviderHealthDashboard: React.FC<ProviderHealthDashboardProps> = (
 
       {selectedProviderData && (
         <Card className="mt-6">
-          <CardHeader
-            title={`${selectedProviderData.name} - Detailed Metrics`}
-            icon={<Settings className="h-5 w-5" />}
-            action={<Button variant="outline" size="sm" onClick={() => setSelectedProvider(null)}>Close</Button>}
-          />
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 bg-theme-interactive-primary/10 rounded-lg flex items-center justify-center text-theme-interactive-primary">
+                <Settings className="h-5 w-5" />
+              </div>
+              <div className="flex items-center gap-1 text-lg font-semibold text-theme-primary">
+                <EntityLink
+                  type="ai_provider"
+                  id={selectedProviderData.id}
+                  label={selectedProviderData.name}
+                  className="text-lg font-semibold"
+                />
+                <span>- Detailed Metrics</span>
+              </div>
+            </div>
+            <div className="flex-shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setSelectedProvider(null)}>Close</Button>
+            </div>
+          </div>
           <CardContent>
             <Tabs defaultValue="performance">
               <TabsList>

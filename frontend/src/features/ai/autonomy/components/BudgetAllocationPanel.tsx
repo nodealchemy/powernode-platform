@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { DollarSign, Plus, Edit2, Trash2, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import { cn } from '@/shared/utils/cn';
 import { useDeleteBudget } from '../api/autonomyApi';
 import { BudgetTransactionHistory } from './BudgetTransactionHistory';
@@ -86,7 +87,7 @@ export const BudgetAllocationPanel: React.FC<BudgetAllocationPanelProps> = ({ bu
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-4 w-4 text-theme-tertiary" />
-                          <span className="text-sm font-medium text-theme-primary">{budget.agent_name}</span>
+                          <EntityLink type="agent" id={budget.agent_id} label={budget.agent_name} className="text-sm font-medium" />
                           <span className="text-xs text-theme-tertiary capitalize">({budget.period_type})</span>
                           {getAlertBadge(budget.utilization_percentage)}
                         </div>

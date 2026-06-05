@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import {
   useProposals, useApproveProposal, useRejectProposal,
@@ -77,7 +78,11 @@ const ProposalCard: React.FC<{
             </div>
             <div className="flex items-center gap-3 text-xs text-theme-tertiary mt-0.5">
               <span>{proposal.proposal_type}</span>
-              {proposal.agent?.name && <span>by {proposal.agent.name}</span>}
+              {proposal.agent?.name && (
+                <span className="flex items-center gap-1">
+                  by <EntityLink type="agent" id={proposal.agent.id} label={proposal.agent.name} className="text-xs" />
+                </span>
+              )}
               <span>{new Date(proposal.created_at).toLocaleDateString()}</span>
               {isOverdue && isPending && (
                 <span className="flex items-center gap-1 text-theme-error">
@@ -129,7 +134,11 @@ const ProposalCard: React.FC<{
           {/* Metadata */}
           <div className="flex flex-wrap gap-4 text-xs text-theme-tertiary">
             {proposal.review_deadline && <span>Review deadline: {new Date(proposal.review_deadline).toLocaleString()}</span>}
-            {proposal.reviewed_by?.email && <span>Reviewed by: {proposal.reviewed_by.email}</span>}
+            {proposal.reviewed_by?.email && (
+              <span className="flex items-center gap-1">
+                Reviewed by: <EntityLink type="user" id={proposal.reviewed_by.id} label={proposal.reviewed_by.email} className="text-xs" />
+              </span>
+            )}
             {proposal.reviewed_at && <span>Reviewed: {new Date(proposal.reviewed_at).toLocaleString()}</span>}
             <span>Created {new Date(proposal.created_at).toLocaleString()}</span>
           </div>

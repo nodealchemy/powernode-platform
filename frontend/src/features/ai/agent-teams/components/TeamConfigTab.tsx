@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, UserCog, Hash, Copy } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import type { TeamRole, TeamChannel, TeamTemplate } from '@/shared/services/ai/TeamsApiService';
 
 interface TeamConfigTabProps {
@@ -76,7 +77,14 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
                 </div>
                 {role.role_description && <p className="text-xs text-theme-secondary mb-1">{role.role_description}</p>}
                 <div className="flex gap-3 text-[11px] text-theme-secondary">
-                  <span>Agent: {role.agent_name || 'Unassigned'}</span>
+                  <span className="inline-flex items-center gap-1">
+                    Agent:{' '}
+                    {role.agent_name ? (
+                      <EntityLink type="agent" id={role.agent_id} label={role.agent_name} className="text-[11px]" />
+                    ) : (
+                      'Unassigned'
+                    )}
+                  </span>
                   <span>Max tasks: {role.max_concurrent_tasks}</span>
                   {role.capabilities.length > 0 && <span>{role.capabilities.length} capabilities</span>}
                   {role.tools_allowed.length > 0 && <span>{role.tools_allowed.length} tools</span>}

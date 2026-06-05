@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Hash, Radio, Zap, MessageSquare } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import type { TeamChannelSidebarItem } from '@/shared/services/ai/TeamsApiService';
 
 interface ChannelListItemProps {
@@ -86,9 +87,18 @@ export const ChannelListItem: React.FC<ChannelListItemProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 mt-0.5">
-          <span className="text-xs text-theme-secondary truncate">
-            {channel.team.name}
-          </span>
+          {channel.team.id ? (
+            <EntityLink
+              type="agent_team"
+              id={channel.team.id}
+              label={channel.team.name}
+              className="text-xs truncate"
+            />
+          ) : (
+            <span className="text-xs text-theme-secondary truncate">
+              {channel.team.name}
+            </span>
+          )}
 
           <span className={`text-[9px] font-semibold uppercase px-1 py-0.5 rounded flex-shrink-0 ${typeColor}`}>
             {channel.channel_type}

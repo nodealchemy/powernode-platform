@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useEscalations, useAcknowledgeEscalation, useResolveEscalation } from '../api/autonomyApi';
 import type { AgentEscalation, EscalationStatus } from '../types/autonomy';
@@ -74,7 +75,11 @@ const EscalationCard: React.FC<{
             <span className="px-1.5 py-0.5 text-xs rounded bg-theme-surface text-theme-tertiary">{escalation.escalation_type.replace('_', ' ')}</span>
           </div>
           <div className="flex items-center gap-3 text-xs text-theme-tertiary mt-0.5">
-            {escalation.agent?.name && <span>from {escalation.agent.name}</span>}
+            {escalation.agent?.name && (
+              <span className="flex items-center gap-1">
+                from <EntityLink type="agent" id={escalation.agent.id} label={escalation.agent.name} className="text-xs" />
+              </span>
+            )}
             <span>Level {escalation.current_level}</span>
             {escalation.next_escalation_at && isActive && (
               <span className="flex items-center gap-1 text-theme-warning">
@@ -121,7 +126,11 @@ const EscalationCard: React.FC<{
 
           {/* Metadata */}
           <div className="flex flex-wrap gap-4 text-xs text-theme-tertiary">
-            {escalation.escalated_to?.email && <span>Escalated to: {escalation.escalated_to.email}</span>}
+            {escalation.escalated_to?.email && (
+              <span className="flex items-center gap-1">
+                Escalated to: <EntityLink type="user" id={escalation.escalated_to.id} label={escalation.escalated_to.email} className="text-xs" />
+              </span>
+            )}
             {escalation.timeout_hours && <span>Timeout: {escalation.timeout_hours}h</span>}
             {escalation.next_escalation_at && isActive && (
               <span>Next escalation: {new Date(escalation.next_escalation_at).toLocaleString()}</span>

@@ -4,6 +4,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 import { useQuarantineRecord } from '../api/securityExtApi';
 import type { QuarantineSeverity, QuarantineStatus } from '../types/security';
 
@@ -50,7 +51,9 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
           </div>
           <div>
             <h3 className="text-lg font-semibold text-theme-primary">Quarantine Details</h3>
-            <p className="text-sm text-theme-secondary">Agent: {record.agent_id}</p>
+            <p className="text-sm text-theme-secondary">
+              Agent: <EntityLink type="agent" id={record.agent_id} label={record.agent_id} className="text-sm" />
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -105,7 +108,9 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
             <User className="h-4 w-4 text-theme-tertiary mt-0.5" />
             <div>
               <p className="text-xs text-theme-tertiary">Approved By</p>
-              <p className="text-sm text-theme-primary">{record.approved_by_id}</p>
+              <p className="text-sm text-theme-primary">
+                <EntityLink type="user" id={record.approved_by_id} label={record.approved_by_id} className="text-sm" />
+              </p>
             </div>
           </div>
         )}

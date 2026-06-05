@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
+import { EntityLink } from '@/shared/components/entity';
 import type { RoiDashboard as DashboardData } from '@/shared/services/ai';
 
 interface RoiComparisonTableProps {
@@ -31,7 +32,12 @@ export const RoiComparisonTable: React.FC<RoiComparisonTableProps> = ({
                   {index + 1}
                 </div>
                 <div>
-                  <p className="font-medium text-theme-primary">{agent.name}</p>
+                  <EntityLink
+                    type="agent"
+                    id={agent.id}
+                    label={agent.name}
+                    className="font-medium text-theme-primary"
+                  />
                   <p className="text-xs text-theme-tertiary">
                     {agent.tasks_completed} tasks completed
                   </p>

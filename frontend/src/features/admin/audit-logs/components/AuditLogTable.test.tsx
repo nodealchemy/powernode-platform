@@ -1,5 +1,15 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
+import { ReactElement } from 'react';
+import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
 import { AuditLogTable } from './AuditLogTable';
+
+// AuditLogTable now renders <EntityLink> cells (user / account / resource refs),
+// which depend on Redux (usePermissions) and Router (useEntityModal). Render
+// through the shared provider wrapper with an authenticated state so those
+// hooks resolve; EntityLink still degrades to plain text for unregistered
+// types, so the displayed label assertions below are unaffected.
+const render = (ui: ReactElement) =>
+  renderWithProviders(ui, { preloadedState: mockAuthenticatedState });
 
 // Mock LoadingSpinner
 jest.mock('@/shared/components/ui/LoadingSpinner', () => ({

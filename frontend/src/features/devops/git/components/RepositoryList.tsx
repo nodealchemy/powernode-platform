@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   GitBranch,
   Star,
@@ -11,6 +11,8 @@ import {
   ExternalLink,
   Trash2,
   RefreshCw,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { GitRepository } from '../types';
@@ -38,6 +40,19 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
   const { showNotification } = useNotification();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const toggleRow = useCallback((id: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
 
   const handleAction = async (
     id: string,
@@ -85,6 +100,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
         <table className="w-full">
           <thead>
             <tr className="border-b border-theme bg-theme-surface-hover/50">
+              <th className="w-8 px-2 py-3" />
               <th className="text-left px-4 py-3 text-sm font-medium text-theme-secondary">
                 Repository
               </th>
@@ -103,12 +119,31 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
             </tr>
           </thead>
           <tbody>
-            {repositories.map((repo) => (
+            {repositories.map((repo) => {
+              const isExpanded = expandedRows.has(repo.id);
+              return (
+              <React.Fragment key={repo.id}>
               <tr
-                key={repo.id}
                 className="border-b border-theme last:border-0 hover:bg-theme-surface-hover/50 cursor-pointer"
                 onClick={() => onSelectRepository?.(repo)}
               >
+                <td className="w-8 px-2 py-3">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleRow(repo.id);
+                    }}
+                    className="p-1 text-theme-secondary hover:text-theme-primary"
+                    aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                  </button>
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     {repo.is_private ? (
@@ -258,7 +293,83 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                   </div>
                 </td>
               </tr>
-            ))}
+              {isExpanded && (
+                <tr className="bg-theme-background border-b border-theme">
+                  <td className="w-8 px-2 py-3" />
+                  <td colSpan={5} className="px-4 py-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                      <div>
+                        <span className="text-theme-secondary block text-xs">Full Name</span>
+                        <span className="text-theme-primary">{repo.full_name}</span>
+                      </div>
+                      <div>
+                        <span className="text-theme-secondary block text-xs">Owner</span>
+                        <span className="text-theme-primary">{repo.owner}</span>
+                      </div>
+                      <div>
+                        <span className="text-theme-secondary block text-xs">Default Branch</span>
+                        <span className="text-theme-primary">{repo.default_branch}</span>
+                      </div>
+                      {repo.primary_language && (
+                        <div>
+                          <span className="text-theme-secondary block text-xs">Language</span>
+                          <span className="text-theme-primary">{repo.primary_language}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-theme-secondary block text-xs">Visibility</span>
+                        <span className="text-theme-primary">
+                          {repo.is_private ? 'Private' : 'Public'}
+                          {repo.is_fork ? ' · Fork' : ''}
+                          {repo.is_archived ? ' · Archived' : ''}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-theme-secondary block text-xs">Open Issues</span>
+                        <span className="text-theme-primary">{repo.open_issues_count}</span>
+                      </div>
+                      <div>
+                        <span className="text-theme-secondary block text-xs">Open PRs</span>
+                        <span className="text-theme-primary">{repo.open_prs_count}</span>
+                      </div>
+                      {repo.last_synced_at && (
+                        <div>
+                          <span className="text-theme-secondary block text-xs">Last Synced</span>
+                          <span className="text-theme-primary">
+                            {new Date(repo.last_synced_at).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {repo.last_commit_at && (
+                        <div>
+                          <span className="text-theme-secondary block text-xs">Last Commit</span>
+                          <span className="text-theme-primary">
+                            {new Date(repo.last_commit_at).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {repo.topics && repo.topics.length > 0 && (
+                        <div className="col-span-2 md:col-span-3">
+                          <span className="text-theme-secondary block text-xs mb-1">Topics</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {repo.topics.map((topic) => (
+                              <span
+                                key={topic}
+                                className="px-2 py-0.5 text-xs rounded-full bg-theme-surface-hover text-theme-secondary"
+                              >
+                                {topic}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -12,6 +12,7 @@ import {
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
+import { EntityLink } from '@/shared/components/entity';
 import { cn } from '@/shared/utils/cn';
 import type { RalphLoopSummary, RalphLoopStatus } from '@/shared/services/ai/types/ralph-types';
 
@@ -80,7 +81,11 @@ export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
               </h3>
               <div className="flex items-center gap-2 text-xs text-theme-secondary">
                 <Bot className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{loop.default_agent_name || 'No Agent'}</span>
+                {loop.default_agent_name ? (
+                  <EntityLink type="agent" id={loop.default_agent_id} label={loop.default_agent_name} className="text-xs truncate" />
+                ) : (
+                  <span className="truncate">No Agent</span>
+                )}
               </div>
             </div>
           </div>

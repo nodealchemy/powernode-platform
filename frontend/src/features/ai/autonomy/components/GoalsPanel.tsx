@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from '../api/autonomyApi';
 import type { AgentGoal, GoalStatus, GoalType } from '../types/autonomy';
@@ -200,7 +201,9 @@ const GoalCard: React.FC<{
             <span className="text-xs text-theme-tertiary">{getPriorityLabel(goal.priority)}</span>
           </div>
           <div className="flex items-center gap-3 text-xs text-theme-tertiary mt-0.5">
-            {goal.agent?.name && <span>{goal.agent.name}</span>}
+            {goal.agent?.name && (
+              <EntityLink type="agent" id={goal.agent.id} label={goal.agent.name} className="text-xs" />
+            )}
             {goal.deadline && <span>Due {new Date(goal.deadline).toLocaleDateString()}</span>}
           </div>
         </div>

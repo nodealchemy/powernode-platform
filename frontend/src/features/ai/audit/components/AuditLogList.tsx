@@ -3,6 +3,8 @@ import { Activity } from 'lucide-react';
 import { DataTable } from '@/shared/components/ui/DataTable';
 import type { DataTableColumn } from '@/shared/components/ui/DataTable';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
+import { resolveCoreEntityType } from '@/shared/entity/registerCoreEntities';
 import { useAuditEntries } from '../api/auditApi';
 import type { AuditEntry, AuditOutcome, AuditEntryFilterParams } from '../types/audit';
 
@@ -56,9 +58,22 @@ export const AuditLogList: React.FC = () => {
       key: 'resource_type',
       header: 'Resource',
       width: '130px',
-      render: (item) => (
-        <span className="text-theme-secondary text-sm">{item.resource_type}</span>
-      ),
+      render: (item) => {
+        const resourceType = resolveCoreEntityType(item.resource_type);
+        const resourceLabel = item.resource_id
+          ? `${item.resource_type}#${item.resource_id}`
+          : item.resource_type;
+        // EntityLink degrades to plain text when the type is unregistered or the
+        // id is missing, so this is safe for non-linkable resource references.
+        return (
+          <EntityLink
+            type={resourceType ?? ''}
+            id={item.resource_id}
+            label={resourceLabel}
+            className="text-sm"
+          />
+        );
+      },
     },
     {
       key: 'outcome',
