@@ -15,6 +15,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { DropdownMenu } from '@/shared/components/ui/DropdownMenu';
+import { EntityLink } from '@/shared/components/entity';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { dataSourcesApi } from '@/shared/services/ai/DataSourcesApiService';
@@ -192,7 +193,9 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
 
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-theme-text-primary">{dataSource.name}</h3>
+              <h3 className="font-semibold text-theme-text-primary">
+                <EntityLink type="data_source" id={dataSource.id} label={dataSource.name} />
+              </h3>
               {!dataSource.is_active && (
                 <Badge variant="secondary" size="sm">Inactive</Badge>
               )}

@@ -12,6 +12,7 @@ import {
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
+import { EntityLink } from '@/shared/components/entity';
 import { cn } from '@/shared/utils/cn';
 import { formatDate } from '@/shared/utils/formatters';
 import type { FederationPartnerSummary, FederationStatus, TrustLevel } from '@/shared/services/ai';
@@ -77,7 +78,12 @@ export const FederationPartnerCard: React.FC<FederationPartnerCardProps> = ({
             </div>
             <div className="min-w-0">
               <h3 className="font-medium text-theme-text-primary truncate">
-                {partner.name || partner.organization_name}
+                <EntityLink
+                  type="federation_partner"
+                  id={partner.id}
+                  label={partner.name || partner.organization_name}
+                  className="font-medium text-theme-text-primary"
+                />
               </h3>
               <div className="flex items-center gap-2 text-xs text-theme-secondary">
                 <LinkIcon className="w-3 h-3" />

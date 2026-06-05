@@ -4,6 +4,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { Progress } from '@/shared/components/ui/Progress';
+import { EntityLink } from '@/shared/components/entity';
 import type { SandboxInstance, SandboxStatus, TrustLevel } from '../types/sandbox';
 
 interface SandboxCardProps {
@@ -57,7 +58,9 @@ export const SandboxCard: React.FC<SandboxCardProps> = ({
             <Box className="h-5 w-5 text-theme-info" />
           </div>
           <div>
-            <h3 className="font-semibold text-theme-primary">{sandbox.agent_name}</h3>
+            <h3 className="font-semibold text-theme-primary">
+              <EntityLink type="agent" id={sandbox.agent_id} label={sandbox.agent_name} />
+            </h3>
             <p className="text-xs text-theme-tertiary mt-0.5">{sandbox.template_name}</p>
           </div>
         </div>

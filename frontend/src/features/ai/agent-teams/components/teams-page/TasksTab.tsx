@@ -1,5 +1,6 @@
 import React from 'react';
 import { ListTodo } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import { TeamExecution, TeamTask } from '@/shared/services/ai/TeamsApiService';
 
 interface TasksTabProps {
@@ -41,7 +42,17 @@ export const TasksTab: React.FC<TasksTabProps> = ({ selectedExecution, tasks, ge
           </div>
           <div className="flex gap-4 text-xs text-theme-secondary">
             {task.assigned_role_name && <span>Role: {task.assigned_role_name}</span>}
-            {task.assigned_agent_id && <span>Agent: {task.assigned_agent_id.slice(0, 8)}</span>}
+            {task.assigned_agent_id && (
+              <span>
+                Agent:{' '}
+                <EntityLink
+                  type="agent"
+                  id={task.assigned_agent_id}
+                  label={task.assigned_agent_id.slice(0, 8)}
+                  className="text-xs"
+                />
+              </span>
+            )}
             {task.priority && <span>Priority: {task.priority}</span>}
             {task.tokens_used > 0 && <span>{task.tokens_used.toLocaleString()} tokens</span>}
             {task.duration_ms && <span>{(task.duration_ms / 1000).toFixed(1)}s</span>}

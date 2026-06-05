@@ -1,5 +1,6 @@
 import React from 'react';
 import { DollarSign, Zap, Clock } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import type { MemberCost } from '../services/agentTeamsApi';
 
 interface CostProfilerProps {
@@ -95,7 +96,12 @@ export const CostProfiler: React.FC<CostProfilerProps> = ({
                       member.status === 'failed' ? 'bg-theme-danger' :
                       'bg-theme-background-secondary'
                     }`} />
-                    <span className="text-sm text-theme-primary truncate">{member.agent_name}</span>
+                    <EntityLink
+                      type="agent"
+                      id={member.agent_id}
+                      label={member.agent_name}
+                      className="text-sm text-theme-primary truncate"
+                    />
                   </div>
                   <div className="flex items-center gap-4 flex-shrink-0">
                     <span className="text-xs text-theme-secondary flex items-center gap-1">

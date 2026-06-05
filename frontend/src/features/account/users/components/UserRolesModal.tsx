@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { usersApi, User } from '../services/usersApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { EntityLink } from '@/shared/components/entity';
 import { Shield, Users, UserCheck, UserX, Plus, Minus, Lock } from 'lucide-react';
 
 interface UserRolesModalProps {
@@ -252,7 +253,9 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
               <Users className="w-6 h-6 text-theme-interactive-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-theme-primary">{user.name}</h3>
+              <h3 className="font-semibold text-theme-primary">
+                <EntityLink type="user" id={user.id} label={user.name} />
+              </h3>
               <p className="text-sm text-theme-secondary">{user.email}</p>
             </div>
             <div className="text-right">

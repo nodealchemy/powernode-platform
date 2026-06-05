@@ -12,6 +12,7 @@ import {
   Code,
 } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
+import { EntityLink } from '@/shared/components/entity';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -459,9 +460,12 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               {Boolean(task.metadata?.team_id) && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Team</span>
-                  <span className="text-theme-primary font-mono text-xs">
-                    {String(task.metadata?.team_id).substring(0, 8)}...
-                  </span>
+                  <EntityLink
+                    type="agent_team"
+                    id={String(task.metadata?.team_id)}
+                    label={`${String(task.metadata?.team_id).substring(0, 8)}...`}
+                    className="text-theme-primary font-mono text-xs"
+                  />
                 </div>
               )}
             </CardContent>

@@ -2,6 +2,7 @@ import { Clock, DollarSign, Zap, MessageSquare, CheckSquare, User, Users, Target
 import type { ResourceDetailProps } from '../types';
 import { DetailSection, StatCard, StatusBadge, formatDuration, formatTimestamp } from './DetailSection';
 import { OutputViewer } from './OutputViewer';
+import { EntityLink } from '@/shared/components/entity';
 
 export function ExecutionOutputDetail({ resource }: ResourceDetailProps) {
   const tasksFailed = resource.tasks_failed || 0;
@@ -25,7 +26,7 @@ export function ExecutionOutputDetail({ resource }: ResourceDetailProps) {
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-theme-tertiary" />
             <span className="text-theme-secondary">Team:</span>
-            <span className="text-theme-primary font-medium">{resource.team_name}</span>
+            <EntityLink type="agent_team" id={resource.team_id} label={resource.team_name} className="font-medium" />
           </div>
         )}
         {resource.triggered_by_name && (

@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import type { ResourceDetailProps } from '../types';
 import { DetailSection, StatCard, StatusBadge, formatDuration, formatBytes, formatTimestamp } from './DetailSection';
+import { EntityLink } from '@/shared/components/entity';
 
 export function GitResourceDetail({ resource }: ResourceDetailProps) {
   const isMerge = resource.resource_type === 'git_merge';
@@ -154,7 +155,8 @@ function BranchDetail({ resource }: ResourceDetailProps) {
 
       {resource.agent_name && (
         <div className="text-sm text-theme-secondary">
-          Agent: <span className="font-medium text-theme-primary">{resource.agent_name}</span>
+          Agent:{' '}
+          <EntityLink type="agent" id={resource.agent_id} label={resource.agent_name} className="font-medium" />
         </div>
       )}
 

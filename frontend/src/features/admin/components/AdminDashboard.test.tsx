@@ -1,5 +1,15 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { ReactElement } from 'react';
+import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
 import { AdminDashboard } from './AdminDashboard';
+
+// AdminDashboard now links each recent-user row via <EntityLink type="user">,
+// which depends on Redux (usePermissions) and Router (useEntityModal). Render
+// through the shared provider wrapper so those hooks resolve; the user type is
+// unregistered in the test registry, so EntityLink degrades to plain text and
+// the existing text/testid assertions below are unaffected.
+const render = (ui: ReactElement) =>
+  renderWithProviders(ui, { preloadedState: mockAuthenticatedState });
 
 // Mock notifications hook
 const mockShowNotification = jest.fn();

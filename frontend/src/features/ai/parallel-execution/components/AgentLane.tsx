@@ -1,5 +1,6 @@
 import React from 'react';
 import { GitBranch, GitCommit, Clock, AlertCircle, Container, Timer, DollarSign, TestTube } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import { WorktreeStatusBadge } from './WorktreeStatusBadge';
 import type { ParallelWorktree } from '../types';
 
@@ -21,9 +22,12 @@ export const AgentLane: React.FC<AgentLaneProps> = ({ worktree }) => {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
           <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-theme-status-info animate-pulse' : worktree.status === 'failed' ? 'bg-theme-status-error' : 'bg-theme-status-success'}`} />
-          <span className="text-sm font-medium text-theme-text-primary truncate">
-            {worktree.agent_name || worktree.branch_name.split('/').pop()}
-          </span>
+          <EntityLink
+            type="agent"
+            id={worktree.ai_agent_id}
+            label={worktree.agent_name || worktree.branch_name.split('/').pop()}
+            className="text-sm font-medium text-theme-text-primary truncate"
+          />
         </div>
         <WorktreeStatusBadge status={worktree.status} type="worktree" size="sm" />
       </div>

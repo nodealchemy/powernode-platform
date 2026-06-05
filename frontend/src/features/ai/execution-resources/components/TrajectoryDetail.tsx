@@ -2,6 +2,7 @@ import { BookOpen, Star, Eye, Clock, Tag } from 'lucide-react';
 import type { ResourceDetailProps } from '../types';
 import { DetailSection, StatCard, StatusBadge, formatDuration } from './DetailSection';
 import { OutputViewer } from './OutputViewer';
+import { EntityLink } from '@/shared/components/entity';
 
 export function TrajectoryDetail({ resource }: ResourceDetailProps) {
   const chapters = resource.chapters || [];
@@ -32,7 +33,8 @@ export function TrajectoryDetail({ resource }: ResourceDetailProps) {
       {/* Agent */}
       {resource.agent_name && (
         <div className="text-sm text-theme-secondary">
-          Agent: <span className="font-medium text-theme-primary">{resource.agent_name}</span>
+          Agent:{' '}
+          <EntityLink type="agent" id={resource.agent_id} label={resource.agent_name} className="font-medium" />
         </div>
       )}
 

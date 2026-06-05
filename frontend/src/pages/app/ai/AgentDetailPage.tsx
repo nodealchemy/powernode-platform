@@ -6,6 +6,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
+import { EntityLink } from '@/shared/components/entity';
 import { agentsApi, intelligenceApi } from '@/shared/services/ai';
 import type { ExperienceReplay, SelfChallenge, IntelligenceSummary } from '@/shared/services/ai/IntelligenceApiService';
 import { AgentConnectionsGraph } from '@/features/ai/agents/components/AgentConnectionsGraph';
@@ -279,7 +280,16 @@ export const AgentDetailPage: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-theme-tertiary">Provider</span>
-                  <span className="text-theme-primary">{agent.provider?.name || 'N/A'}</span>
+                  {agent.provider?.id ? (
+                    <EntityLink
+                      type="ai_provider"
+                      id={agent.provider.id}
+                      label={agent.provider.name}
+                      className="text-theme-primary"
+                    />
+                  ) : (
+                    <span className="text-theme-primary">{agent.provider?.name || 'N/A'}</span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-theme-tertiary">Model</span>
@@ -296,7 +306,18 @@ export const AgentDetailPage: React.FC = () => {
                   <span className="text-theme-tertiary">Success Rate</span>
                   <span className="text-theme-primary">{agent.execution_stats?.success_rate || 0}%</span>
                 </div>
-                {agent.skill_slugs && agent.skill_slugs.length > 0 && (
+                {agent.skills && agent.skills.length > 0 ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-theme-tertiary">Skills</span>
+                    <div className="flex flex-wrap gap-1 justify-end">
+                      {agent.skills.map((skill) => (
+                        <Badge key={skill.id} variant="info" size="sm">
+                          <EntityLink type="skill" id={skill.id} label={skill.name} />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : agent.skill_slugs && agent.skill_slugs.length > 0 && (
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">Skills</span>
                     <div className="flex flex-wrap gap-1 justify-end">

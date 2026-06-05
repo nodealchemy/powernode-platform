@@ -14,6 +14,7 @@ import { SystemAlertsPanel } from './SystemAlertsPanel';
 import { adminSettingsApi, AdminOverviewData } from '../services/adminSettingsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { formatDateTime } from '@/shared/utils/formatters';
+import { EntityLink } from '@/shared/components/entity';
 
 interface AdminDashboardProps {
   onNavigateToAlerts?: () => void;
@@ -177,7 +178,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                   <div>
                     <p className="font-medium text-theme-primary">
-                      {user.full_name || user.email}
+                      <EntityLink type="user" id={user.id} label={user.full_name || user.email} />
                     </p>
                     <p className="text-sm text-theme-secondary">{user.email}</p>
                   </div>

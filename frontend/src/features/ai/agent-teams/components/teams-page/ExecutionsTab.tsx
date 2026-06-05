@@ -8,6 +8,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Team, TeamExecution } from '@/shared/services/ai/TeamsApiService';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
+import { EntityLink } from '@/shared/components/entity';
 import api from '@/shared/services/api';
 
 interface MemberCost {
@@ -310,9 +311,12 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <StatusIcon status={member.status} />
-                                <span className="text-sm text-theme-primary truncate">
-                                  {member.agent_name}
-                                </span>
+                                <EntityLink
+                                  type="agent"
+                                  id={member.agent_id}
+                                  label={member.agent_name}
+                                  className="text-sm text-theme-primary truncate"
+                                />
                               </div>
                               <div className="flex items-center gap-3 text-xs text-theme-secondary shrink-0">
                                 <span>{(member.tokens_used || 0).toLocaleString()} tok</span>

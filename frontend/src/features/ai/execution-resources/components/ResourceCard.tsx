@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import type { ExecutionResource, ResourceType } from '../types';
 import { ResourceSourceLink } from './ResourceSourceLink';
+import { EntityLink } from '@/shared/components/entity';
 
 interface ResourceCardProps {
   resource: ExecutionResource;
@@ -73,7 +74,8 @@ export function ResourceCard({ resource, onClick }: ResourceCardProps) {
           <ResourceSourceLink sourceType={resource.source_type} sourceId={resource.source_id} />
           {resource.agent_name && (
             <span className="text-xs text-theme-tertiary">
-              by {resource.agent_name}
+              by{' '}
+              <EntityLink type="agent" id={resource.agent_id} label={resource.agent_name} className="text-xs" />
             </span>
           )}
         </div>

@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { McpNodeCard } from './McpNodeCard';
+import { EntityLink } from '@/shared/components/entity';
 import { cn } from '@/shared/utils/cn';
 import type { TopologyAgent, TopologyServer, TopologyTool, TopologyConnection } from '../hooks/useMcpTopology';
 
@@ -163,7 +164,7 @@ export const McpFlowCanvas: React.FC<McpFlowCanvasProps> = ({
           return (
             <div
               key={agent.id}
-              className="absolute"
+              className="group absolute"
               style={{ left: pos.x, top: pos.y, width: COLUMN_WIDTH }}
             >
               <McpNodeCard
@@ -176,6 +177,12 @@ export const McpFlowCanvas: React.FC<McpFlowCanvasProps> = ({
                 isSelected={selectedNodeId === agent.id}
                 onClick={onSelectNode}
               />
+              <EntityLink
+                type="agent"
+                id={agent.id}
+                label="Open"
+                className="absolute top-1.5 right-2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+              />
             </div>
           );
         })}
@@ -187,7 +194,7 @@ export const McpFlowCanvas: React.FC<McpFlowCanvasProps> = ({
           return (
             <div
               key={server.id}
-              className="absolute"
+              className="group absolute"
               style={{ left: pos.x, top: pos.y, width: COLUMN_WIDTH }}
             >
               <McpNodeCard
@@ -200,6 +207,12 @@ export const McpFlowCanvas: React.FC<McpFlowCanvasProps> = ({
                 isSelected={selectedNodeId === server.id}
                 onClick={onSelectNode}
               />
+              <EntityLink
+                type="mcp_server"
+                id={server.id}
+                label="Open"
+                className="absolute top-1.5 right-2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+              />
             </div>
           );
         })}
@@ -211,7 +224,7 @@ export const McpFlowCanvas: React.FC<McpFlowCanvasProps> = ({
           return (
             <div
               key={tool.id}
-              className="absolute"
+              className="group absolute"
               style={{ left: pos.x, top: pos.y, width: COLUMN_WIDTH }}
             >
               <McpNodeCard
@@ -222,6 +235,12 @@ export const McpFlowCanvas: React.FC<McpFlowCanvasProps> = ({
                 metric={tool.category || undefined}
                 isSelected={selectedNodeId === tool.id}
                 onClick={onSelectNode}
+              />
+              <EntityLink
+                type="mcp_tool"
+                id={`${tool.serverId}:${tool.id}`}
+                label="Open"
+                className="absolute top-1.5 right-2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
               />
             </div>
           );

@@ -11,6 +11,7 @@ import {
   Filter
 } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityLink } from '@/shared/components/entity';
 import { useAIOrchestrationMonitor, AISystemEvent } from '../services/aiOrchestrationMonitor';
 
 interface ActivityItem {
@@ -22,6 +23,8 @@ interface ActivityItem {
   status: 'success' | 'error' | 'warning' | 'info';
   metadata?: Record<string, unknown>;
   isNew?: boolean;
+  /** Id of the subject entity (e.g. the executed agent), for deep-linking. */
+  entityId?: string;
 }
 
 interface RealTimeActivityFeedProps {
@@ -58,7 +61,8 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
       timestamp: event.timestamp,
       status: getEventStatus(event),
       metadata: event.data.metadata,
-      isNew: true
+      isNew: true,
+      entityId: event.data.id
     };
 
     setActivities(prev => {
@@ -291,9 +295,18 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   {getTypeIcon(activity.type)}
-                  <div className="text-sm font-medium text-theme-primary truncate">
-                    {activity.title}
-                  </div>
+                  {activity.type === 'agent_executed' && activity.entityId ? (
+                    <EntityLink
+                      type="agent"
+                      id={activity.entityId}
+                      label={activity.title}
+                      className="text-sm font-medium truncate"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-theme-primary truncate">
+                      {activity.title}
+                    </div>
+                  )}
                   {activity.isNew && (
                     <Badge variant="info" size="sm">New</Badge>
                   )}

@@ -1,7 +1,13 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
 import { RealTimeActivityFeed } from './RealTimeActivityFeed';
 import * as aiOrchestrationMonitor from '../services/aiOrchestrationMonitor';
+
+// RealTimeActivityFeed now links executed-agent rows via <EntityLink type="agent">,
+// which depends on Redux (usePermissions) and Router (useEntityModal). Render
+// through the shared provider wrapper so those hooks resolve. mockAuthenticatedState
+// grants no ai.agents.read permission, so EntityLink degrades to a plain-text span —
+// the text/role assertions below are unaffected.
 
 // Mock the AI orchestration monitor
 jest.mock('../services/aiOrchestrationMonitor', () => ({
@@ -105,11 +111,9 @@ describe('RealTimeActivityFeed', () => {
   });
 
   const renderComponent = (props = {}) => {
-    return render(
-      <BrowserRouter>
-        <RealTimeActivityFeed {...props} />
-      </BrowserRouter>
-    );
+    return renderWithProviders(<RealTimeActivityFeed {...props} />, {
+      preloadedState: mockAuthenticatedState,
+    });
   };
 
   describe('Component Rendering', () => {

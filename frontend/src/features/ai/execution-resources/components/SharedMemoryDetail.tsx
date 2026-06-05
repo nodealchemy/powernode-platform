@@ -3,6 +3,7 @@ import { ExternalLink, Database, Clock, Shield, User } from 'lucide-react';
 import type { ResourceDetailProps } from '../types';
 import { DetailSection, StatCard, formatBytes, formatTimestamp } from './DetailSection';
 import { OutputViewer } from './OutputViewer';
+import { EntityLink } from '@/shared/components/entity';
 
 const URL_REGEX = /https?:\/\/[^\s"'<>]+/g;
 
@@ -59,7 +60,7 @@ export function SharedMemoryDetail({ resource }: ResourceDetailProps) {
           </div>
         )}
         {resource.team_name && (
-          <span className="text-theme-secondary">Team: <span className="text-theme-primary">{resource.team_name}</span></span>
+          <span className="text-theme-secondary">Team: <EntityLink type="agent_team" id={resource.team_id} label={resource.team_name} /></span>
         )}
       </div>
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { UserCog } from 'lucide-react';
+import { EntityLink } from '@/shared/components/entity';
 import { Team, TeamRole } from '@/shared/services/ai/TeamsApiService';
 
 interface RolesTabProps {
@@ -43,7 +44,15 @@ export const RolesTab: React.FC<RolesTabProps> = ({ selectedTeam, roles }) => {
           </div>
           {role.role_description && <p className="text-sm text-theme-secondary mb-2">{role.role_description}</p>}
           <div className="flex gap-4 text-xs text-theme-secondary">
-            <span>Agent: {role.agent_name || 'Unassigned'}</span>
+            <span>
+              Agent:{' '}
+              <EntityLink
+                type="agent"
+                id={role.agent_id}
+                label={role.agent_name || 'Unassigned'}
+                className="text-xs"
+              />
+            </span>
             <span>Max tasks: {role.max_concurrent_tasks}</span>
             {role.capabilities.length > 0 && <span>{role.capabilities.length} capabilities</span>}
             {role.tools_allowed.length > 0 && <span>{role.tools_allowed.length} tools</span>}
