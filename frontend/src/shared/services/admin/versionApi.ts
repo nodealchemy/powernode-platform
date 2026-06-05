@@ -1,5 +1,6 @@
 import { api } from '@/shared/services/api';
 import { isErrorWithResponse, getErrorMessage } from '@/shared/utils/errorHandling';
+import { getAppVersion } from '@/shared/utils/env';
 
 export interface VersionInfo {
   version: string;
@@ -92,10 +93,9 @@ export const versionApi = {
     }
   },
 
-  // Get frontend version from VERSION file (via environment variable)
+  // Get frontend version from the VERSION file (injected at build time).
   getFrontendVersion(): string {
-    // Try Vite environment variable first (set from VERSION file), then fall back
-    return import.meta.env.VITE_APP_VERSION || import.meta.env.npm_package_version || '0.0.1-dev';
+    return getAppVersion();
   },
 
   // Format version for display

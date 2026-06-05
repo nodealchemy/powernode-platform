@@ -1,23 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { store } from '@/shared/services/index';
 import { refreshAccessToken, clearAuth, stopImpersonation } from '@/shared/services/slices/authSlice';
-
-// Get environment variable with Vite/CRA/Jest compatibility
-const getEnvVar = (viteKey: string, craKey: string, defaultValue: string = ''): string => {
-  // Check if we're in Jest testing environment first
-  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
-    return (process.env as any)[craKey] || defaultValue;
-  }
-  
-  // Check if we're in Vite environment (using dynamic access to avoid Jest parsing errors)
-  const importMeta = (globalThis as any).import?.meta || (typeof window !== 'undefined' && (window as any).import?.meta);
-  if (importMeta && importMeta.env) {
-    return importMeta.env[viteKey] || importMeta.env[craKey] || defaultValue;
-  }
-  
-  // Fallback to process.env for CRA and other environments
-  return (process.env as any)[craKey] || defaultValue;
-};
+import { getEnvVar } from '@/shared/utils/env';
 
 // Dynamic API base URL detection for remote access
 const getAPIBaseURL = (): string => {
