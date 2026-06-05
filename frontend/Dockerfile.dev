@@ -1,5 +1,6 @@
 # Development Dockerfile for React frontend
-FROM node:20-alpine
+# Node 24 to satisfy package.json engines (>=24.9.0).
+FROM node:24-alpine
 
 # tini is included in node:alpine images as /sbin/tini
 WORKDIR /app

@@ -1,5 +1,7 @@
 # Multi-stage production Dockerfile for React frontend
-FROM node:20-alpine AS build
+# Node 24 to satisfy package.json engines (>=24.9.0) — jest 30 + ESM deps
+# (e.g. @a2ui-sdk) require the Node 24.9+ synchronous ESM module APIs.
+FROM node:24-alpine AS build
 
 # Set working directory
 WORKDIR /app
