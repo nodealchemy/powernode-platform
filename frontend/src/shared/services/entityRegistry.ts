@@ -32,6 +32,14 @@ export interface EntityDefinition {
   permission?: string;
   /** lucide-react icon name (optional, used by the generic modal header). */
   icon?: string;
+  /**
+   * For types backed by a pre-existing global modal driven by its OWN url search
+   * param (e.g. core's agent/team/mission modals read `?agent=`/`?team=`/`?mission=`
+   * and are mounted separately from EntityReferenceHost). Set the param name and
+   * EntityLink opens that legacy modal directly — reusing the rich existing modal
+   * instead of the generic field view. Takes precedence over component/fetchById.
+   */
+  legacyParam?: string;
   /** A detail modal component (bespoke or wrapper). */
   component?: ComponentType<Record<string, unknown>>;
   /** If set, the id is passed to `component` under this prop (modal self-fetches by id). */

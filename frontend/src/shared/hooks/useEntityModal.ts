@@ -41,5 +41,18 @@ export function useEntityModal() {
     });
   }, [setSearchParams]);
 
-  return { entityType, entityId, isOpen, openEntity, closeEntity } as const;
+  // Open a legacy per-type modal that reads its own search param (e.g. `?agent=<id>`).
+  // Used by EntityLink for types registered with a `legacyParam`.
+  const openByParam = useCallback(
+    (param: string, id: string) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set(param, id);
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
+
+  return { entityType, entityId, isOpen, openEntity, closeEntity, openByParam } as const;
 }

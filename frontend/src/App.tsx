@@ -8,6 +8,7 @@ import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkIm
 import { isTokenInvalidError, isValidTokenFormat } from '@/shared/utils/tokenUtils';
 import { loadAllExtensions } from '@/shared/services/extensionLoader';
 import { featureRegistry } from '@/shared/services/featureRegistry';
+import { registerCoreEntities } from '@/shared/entity/registerCoreEntities';
 
 // Theme Provider
 import { ThemeProvider } from '@/shared/hooks/ThemeContext';
@@ -112,6 +113,13 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Register core object types with the entity-reference registry once, at module
+// import time — before <Router> renders — so <EntityLink>/<EntityReferenceHost>
+// can resolve them. Mirrors how extensions register from their register() at
+// import time (extensionLoader.ts). Idempotent: re-registration overwrites by
+// type. Explicit call (not a side-effect import) keeps the wiring discoverable.
+registerCoreEntities();
 
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
