@@ -117,22 +117,13 @@ ActiveRecord::Base.transaction do
     }
   end
 
-  strategic_planner_skills = %w[
-    system-capacity-recommend
-    system-platform-deploy
-    system-platform-resilience
-    system-runbook-generate
-  ]
-  strategic_planner_skills.each_with_index do |slug, i|
-    skill = Ai::Skill.find_by(slug: slug)
-    raise "claude_agents_seed: skill #{slug} not found — run system_skills_seed first" unless skill
-    binding = Ai::AgentSkill.find_or_initialize_by(
-      ai_agent_id: strategic_planner.id, ai_skill_id: skill.id
-    )
-    binding.assign_attributes(priority: 200 + i, is_active: true)
-    binding.save!
-  end
-  puts "  ✅ Bound #{strategic_planner_skills.size} skills to Claude Strategic Planner"
+  # System-extension skills (system-capacity-recommend / -platform-deploy /
+  # -platform-resilience / -runbook-generate) are bound to this agent by the
+  # SYSTEM extension itself — each executor declares `binds_to "Claude Strategic
+  # Planner"`, materialized by system_skill_bindings_seed.rb (the single source
+  # of truth for agent↔skill bindings). A core seed must not bind or hard-require
+  # extension skills: doing so crashed a fresh db:seed, which runs core seeds
+  # before extension seeds, so the skills did not exist yet.
 
   # Research Analyst — now on Ollama for cost optimization
   ollama_provider = Ai::Provider.find_by(provider_type: 'ollama')
@@ -225,22 +216,11 @@ ActiveRecord::Base.transaction do
     }
   end
 
-  research_analyst_skills = %w[
-    system-attribute-failure
-    system-cve-runbook-generate
-    system-suggest-architectures-for-fleet
-    system-discover-packages-by-intent
-  ]
-  research_analyst_skills.each_with_index do |slug, i|
-    skill = Ai::Skill.find_by(slug: slug)
-    raise "claude_agents_seed: skill #{slug} not found — run system_skills_seed first" unless skill
-    binding = Ai::AgentSkill.find_or_initialize_by(
-      ai_agent_id: research_analyst.id, ai_skill_id: skill.id
-    )
-    binding.assign_attributes(priority: 200 + i, is_active: true)
-    binding.save!
-  end
-  puts "  ✅ Bound #{research_analyst_skills.size} skills to Claude Research Analyst"
+  # System-extension skills (system-attribute-failure / -cve-runbook-generate /
+  # -suggest-architectures-for-fleet / -discover-packages-by-intent) are bound to
+  # this agent by the SYSTEM extension itself — each executor declares
+  # `binds_to "Claude Research Analyst"`, materialized by
+  # system_skill_bindings_seed.rb. See the note on Strategic Planner above.
 
   # Claude-Powered Creative Content Generator
   content_creator = Ai::Agent.find_or_create_by(

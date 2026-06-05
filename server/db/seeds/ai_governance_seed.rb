@@ -196,20 +196,14 @@ chains_data = [
     timeout_action: 'reject',
     steps: [
       {
-        'step' => 1,
         'name' => 'Team Lead Review',
-        'approver_type' => 'role',
-        'approver_value' => 'team_lead',
-        'required' => true,
-        'timeout_hours' => 12
+        'approvers' => [{ 'type' => 'role', 'value' => 'team_lead' }],
+        'required_approvals' => 1
       },
       {
-        'step' => 2,
         'name' => 'Security Sign-off',
-        'approver_type' => 'role',
-        'approver_value' => 'security_reviewer',
-        'required' => true,
-        'timeout_hours' => 12
+        'approvers' => [{ 'type' => 'role', 'value' => 'security_reviewer' }],
+        'required_approvals' => 1
       }
     ]
   },
@@ -223,12 +217,9 @@ chains_data = [
     timeout_action: 'reject',
     steps: [
       {
-        'step' => 1,
         'name' => 'Manager Approval',
-        'approver_type' => 'role',
-        'approver_value' => 'manager',
-        'required' => true,
-        'timeout_hours' => 4
+        'approvers' => [{ 'type' => 'role', 'value' => 'manager' }],
+        'required_approvals' => 1
       }
     ]
   },
@@ -242,20 +233,14 @@ chains_data = [
     timeout_action: 'escalate',
     steps: [
       {
-        'step' => 1,
         'name' => 'Data Owner Review',
-        'approver_type' => 'role',
-        'approver_value' => 'data_owner',
-        'required' => true,
-        'timeout_hours' => 24
+        'approvers' => [{ 'type' => 'role', 'value' => 'data_owner' }],
+        'required_approvals' => 1
       },
       {
-        'step' => 2,
         'name' => 'Compliance Review',
-        'approver_type' => 'role',
-        'approver_value' => 'compliance_officer',
-        'required' => true,
-        'timeout_hours' => 24
+        'approvers' => [{ 'type' => 'role', 'value' => 'compliance_officer' }],
+        'required_approvals' => 1
       }
     ]
   }

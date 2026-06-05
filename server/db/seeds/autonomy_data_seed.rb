@@ -65,7 +65,9 @@ KEEP_AGENT_NAMES = [
   "Powernode DevOps Engineer",
   "Powernode Documentation Specialist",
   # Business agents (claude_agents_seed.rb + monitoring_analytics_agents_seed.rb)
+  "Claude Strategic Planner",
   "Claude Research Analyst",
+  "Claude Content Creator",
   "Visual Design Assistant",
   "Infrastructure Health Monitor",
   "Process Automation Optimizer",

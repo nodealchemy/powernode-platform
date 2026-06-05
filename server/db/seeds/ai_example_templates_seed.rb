@@ -1218,7 +1218,12 @@ templates_data = [
 
 templates_created = 0
 
-templates_data.each do |td|
+# Marketplace templates require a publisher: ai_agent_templates.publisher_id is
+# NOT NULL, and Ai::PublisherAccount is a business-extension model. In core mode
+# system_publisher is nil, so skip this section — the agents/teams/skills above
+# are core and seed regardless.
+puts "  ⏭️  Marketplace templates skipped (publisher is business-only — core mode)" unless system_publisher
+(system_publisher ? templates_data : []).each do |td|
   template = Ai::AgentTemplate.find_or_initialize_by(slug: td[:slug])
   template.assign_attributes(
     name: td[:name],
