@@ -1459,6 +1459,7 @@ Rails.application.routes.draw do
           # Approval requests
           get "approval_requests", action: :approval_requests
           get "approval_requests/pending", action: :pending_approvals
+          get "approval_requests/:id", action: :show_approval_request
           post "approval_requests/:id/decide", action: :decide_approval
 
           # Data classifications
@@ -2179,6 +2180,7 @@ Rails.application.routes.draw do
           post "evidence", action: :submit_evidence
           get "evidence/:id", action: :show_evidence
           get "harness_gaps", action: :harness_gaps
+          get "harness_gaps/:id", action: :show_harness_gap
           post "harness_gaps", action: :create_harness_gap
           put "harness_gaps/:id/add_case", action: :add_test_case
           put "harness_gaps/:id/close", action: :close_harness_gap

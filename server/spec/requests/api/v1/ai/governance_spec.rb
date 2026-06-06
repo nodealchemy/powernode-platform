@@ -203,6 +203,56 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
     end
   end
 
+  describe 'GET /api/v1/ai/governance/approval_requests/:id' do
+    let!(:approval_req) { create(:ai_approval_request, account: account) }
+
+    it 'returns the approval request with chain and decisions' do
+      get "/api/v1/ai/governance/approval_requests/#{approval_req.id}", headers: headers, as: :json
+
+      expect_success_response
+      data = json_response_data
+      expect(data['approval_request']).to be_present
+      expect(data['approval_request']['id']).to eq(approval_req.id)
+      expect(data['approval_request']).to have_key('decisions')
+      expect(data['approval_request']['decisions']).to be_an(Array)
+      expect(data['approval_request']['approval_chain']['id']).to eq(approval_req.approval_chain_id)
+    end
+
+    it 'includes recorded decisions with approver info' do
+      approver = create(:user, account: account)
+      create(:ai_approval_decision, approval_request: approval_req, approver: approver,
+                                    step_number: 0, decision: 'approved', comments: 'LGTM')
+
+      get "/api/v1/ai/governance/approval_requests/#{approval_req.id}", headers: headers, as: :json
+
+      expect_success_response
+      decisions = json_response_data['approval_request']['decisions']
+      expect(decisions.size).to eq(1)
+      expect(decisions.first['decision']).to eq('approved')
+      expect(decisions.first['approver']['id']).to eq(approver.id)
+    end
+
+    it 'returns 404 for an unknown id' do
+      get "/api/v1/ai/governance/approval_requests/#{SecureRandom.uuid}", headers: headers, as: :json
+
+      expect_error_response('Approval request not found', 404)
+    end
+
+    it 'does not expose approval requests from another account' do
+      other = create(:ai_approval_request, account: create(:account))
+
+      get "/api/v1/ai/governance/approval_requests/#{other.id}", headers: headers, as: :json
+
+      expect_error_response('Approval request not found', 404)
+    end
+
+    it 'requires authentication' do
+      get "/api/v1/ai/governance/approval_requests/#{approval_req.id}", as: :json
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
+
   describe 'POST /api/v1/ai/governance/approval_requests/:id/decide' do
     let(:approval_request) { create(:ai_approval_request, account: account, status: 'pending') }
 

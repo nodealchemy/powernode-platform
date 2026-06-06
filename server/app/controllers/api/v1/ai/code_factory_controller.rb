@@ -5,7 +5,7 @@ module Api
     module Ai
       class CodeFactoryController < ApplicationController
         before_action :authorize_read!, only: [:index, :show, :review_states, :review_state_show,
-                                               :show_evidence, :harness_gaps]
+                                               :show_evidence, :harness_gaps, :show_harness_gap]
         before_action :authorize_manage!, only: [:create, :update, :activate, :preflight,
                                                   :remediate, :resolve_threads, :submit_evidence,
                                                   :create_harness_gap, :add_test_case, :close_harness_gap]
@@ -164,6 +164,14 @@ module Api
           service = ::Ai::CodeFactory::HarnessGapService.new(account: current_account)
 
           render_success(harness_gaps: gaps, metrics: service.metrics, sla: service.check_sla_compliance)
+        end
+
+        # GET /api/v1/ai/code_factory/harness_gaps/:id
+        def show_harness_gap
+          gap = find_harness_gap!
+          return if performed?
+
+          render_success(harness_gap: gap.as_json(include: { risk_contract: { only: [:id, :name] } }))
         end
 
         # POST /api/v1/ai/code_factory/harness_gaps

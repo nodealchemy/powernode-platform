@@ -149,6 +149,17 @@ module Api
           render_success(approval_requests: requests.map { |r| approval_request_json(r) })
         end
 
+        # GET /api/v1/ai/governance/approval_requests/:id
+        def show_approval_request
+          request = current_account.ai_approval_requests
+                                   .includes(:approval_chain, decisions: :approver)
+                                   .find(params[:id])
+
+          render_success(approval_request: approval_request_json(request, detailed: true))
+        rescue ActiveRecord::RecordNotFound
+          render_error("Approval request not found", :not_found)
+        end
+
         # POST /api/v1/ai/governance/approval_requests/:id/decide
         def decide_approval
           request = current_account.ai_approval_requests.find(params[:id])
@@ -341,8 +352,8 @@ module Api
           }
         end
 
-        def approval_request_json(request)
-          {
+        def approval_request_json(request, detailed: false)
+          base = {
             id: request.id,
             request_id: request.request_id,
             status: request.status,
@@ -358,6 +369,29 @@ module Api
             approval_chain: {
               id: request.approval_chain.id,
               name: request.approval_chain.name
+            }
+          }
+          return base unless detailed
+
+          base.merge(
+            updated_at: request.updated_at,
+            approval_chain: approval_chain_json(request.approval_chain),
+            decisions: request.decisions.map { |d| approval_decision_json(d) }
+          )
+        end
+
+        def approval_decision_json(decision)
+          {
+            id: decision.id,
+            step_number: decision.step_number,
+            decision: decision.decision,
+            comments: decision.comments,
+            conditions: decision.conditions,
+            created_at: decision.created_at,
+            approver: {
+              id: decision.approver_id,
+              name: decision.approver&.name,
+              email: decision.approver&.email
             }
           }
         end
