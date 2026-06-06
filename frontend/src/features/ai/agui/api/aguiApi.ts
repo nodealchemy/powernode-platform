@@ -17,6 +17,17 @@ const AGUI_KEYS = {
   events: (sessionId: string, params?: AguiEventsParams) => [...AGUI_KEYS.all, 'events', sessionId, params] as const,
 };
 
+/**
+ * Plain (non-hook) fetcher for a single AG-UI session, used by the core
+ * entity registry's generic detail modal. Mirrors `useGetAguiSession`'s
+ * endpoint and `{ data: { session } }` envelope unwrap, but as a callable
+ * outside React's render cycle.
+ */
+export async function getAguiSession(id: string): Promise<AguiSession> {
+  const response = await apiClient.get(`/ai/agui/sessions/${id}`);
+  return response.data?.data?.session as AguiSession;
+}
+
 export function useListAguiSessions(params?: AguiSessionFilterParams) {
   return useQuery({
     queryKey: AGUI_KEYS.sessions(params),

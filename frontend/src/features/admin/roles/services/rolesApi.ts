@@ -64,6 +64,11 @@ export const rolesApi = {
     return response.data;
   },
 
+  async getPermission(id: string): Promise<{ success: boolean; data: Permission }> {
+    const response = await api.get(`/permissions/${id}`);
+    return response.data;
+  },
+
   async assignRoleToUser(role_id: string, user_id: string): Promise<{ success: boolean; data: UserWithRoles; message: string }> {
     const response = await api.post(`/roles/${role_id}/assign_to_user/${user_id}`);
     return response.data;

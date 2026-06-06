@@ -294,6 +294,15 @@ class GovernanceApiService extends BaseApiService {
     return this.post(`${this.basePath}/approval_chains`, data);
   }
 
+  // Single-chain show lives on the standalone Ai::ApprovalChainsController
+  // (GET /ai/approval_chains/:id), NOT under /ai/governance — the governance
+  // approval_chains route is index/create only. The show action renders
+  // `data: serialize(chain)`, which BaseApiService#extractData unwraps to the
+  // chain itself.
+  async getApprovalChain(id: string): Promise<ApprovalChain> {
+    return this.get<ApprovalChain>(`/ai/approval_chains/${id}`);
+  }
+
   // Approval Requests
   async getApprovalRequests(filters: ApprovalRequestFilters = {}): Promise<PaginatedResponse<ApprovalRequest>> {
     const queryString = this.buildQueryString(filters);
@@ -302,6 +311,10 @@ class GovernanceApiService extends BaseApiService {
 
   async getPendingApprovals(): Promise<{ approval_requests: ApprovalRequest[] }> {
     return this.get(`${this.basePath}/approval_requests/pending`);
+  }
+
+  async getApprovalRequest(id: string): Promise<{ approval_request: ApprovalRequest }> {
+    return this.get(`${this.basePath}/approval_requests/${id}`);
   }
 
   async decideApproval(

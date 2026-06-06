@@ -89,6 +89,9 @@ export const codeFactoryApi = {
       sla: SlaCompliance;
     }>(apiClient.get(`${BASE_PATH}/harness_gaps`, { params })),
 
+  getHarnessGap: (id: string) =>
+    unwrap<{ harness_gap: HarnessGap }>(apiClient.get(`${BASE_PATH}/harness_gaps/${id}`)),
+
   createHarnessGap: (data: {
     incident_id: string;
     description: string;

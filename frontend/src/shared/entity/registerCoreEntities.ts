@@ -40,12 +40,20 @@ import {
   agentCardsApiService,
   memoryApiService,
   communityAgentsApi,
+  governanceApi,
 } from '@/shared/services/ai';
 import { mcpApi } from '@/shared/services/ai/McpApiService';
 import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import { usersApi } from '@/features/account/users/services/usersApi';
 import { missionsApi } from '@/features/missions/api/missionsApi';
 import { pagesApi } from '@/features/content/pages/services/pagesApi';
+import { accountsApi } from '@/features/account/services/accountsApi';
+import { rolesApi } from '@/features/admin/roles/services/rolesApi';
+import { knowledgeBaseApi } from '@/shared/services/content/knowledgeBaseApi';
+import { executionTracesApi } from '@/features/ai/debugging/services/executionTracesApi';
+import { getAguiSession } from '@/features/ai/agui/api/aguiApi';
+import { swarmApi } from '@/features/devops/swarm/services/swarmApi';
+import { codeFactoryApi } from '@/features/ai/code-factory/api/codeFactoryApi';
 
 /**
  * Split a composite EntityLink id (e.g. "knowledgeBaseId:documentId") into its
@@ -339,6 +347,142 @@ export function registerCoreEntities(): void {
         return memoryApiService.getMemory(agentId, key).then((r) => r.memory);
       },
     },
+    {
+      // getAccount returns AccountResponse `{ success, data: Account }` — unwrap
+      // to the account. AccountsController#show lets a user read their own
+      // account; reading an arbitrary referenced account requires `accounts.read`
+      // (enforced in `set_account`), so gate on that. The `show` serializer
+      // emits `name`/`status`/`billing_email` — no secret material.
+      type: 'account',
+      label: 'Account',
+      permission: 'accounts.read',
+      icon: 'Building2',
+      labelField: 'name',
+      fetchById: (id: string) => accountsApi.getAccount(id).then((r) => r.data),
+    },
+    {
+      // getRole returns `{ success, data: Role }` — unwrap to the role.
+      // RolesController gates show on `admin.role.read`.
+      type: 'role',
+      label: 'Role',
+      permission: 'admin.role.read',
+      icon: 'Shield',
+      labelField: 'name',
+      fetchById: (id: string) => rolesApi.getRole(id).then((r) => r.data),
+    },
+    {
+      // getPermission returns `{ success, data: Permission }` — unwrap to the
+      // permission. PermissionsController#show requires an admin permission;
+      // `admin.role.view` is the narrowest of the accepted set.
+      type: 'permission',
+      label: 'Permission',
+      permission: 'admin.role.view',
+      icon: 'Key',
+      labelField: 'name',
+      fetchById: (id: string) => rolesApi.getPermission(id).then((r) => r.data),
+    },
+    {
+      // getCategory returns the raw axios response whose body is
+      // `{ data: { category, articles } }` — unwrap to the category.
+      // Kb::CategoriesController#show is public (auth optional), no permission.
+      type: 'kb_category',
+      label: 'KB Category',
+      icon: 'FolderTree',
+      labelField: 'name',
+      fetchById: (id: string) => knowledgeBaseApi.getCategory(id).then((r) => r.data.data.category),
+    },
+    {
+      // getTrace returns TraceData (already unwrapped from `{ success, data }`
+      // by BaseApiService). ExecutionTracesController#show gates on
+      // `ai_monitoring.read`. `name` is the trace's friendly label.
+      type: 'execution_trace',
+      label: 'Execution Trace',
+      permission: 'ai_monitoring.read',
+      icon: 'Activity',
+      labelField: 'name',
+      fetchById: (id: string) => executionTracesApi.getTrace(id),
+    },
+    {
+      // getSession returns `{ session: ChatSession }` (already unwrapped) —
+      // unwrap to the session. Chat::SessionsController#show is authenticated
+      // and account-scoped (no resource permission). No `name` field; the
+      // platform username is the friendliest label.
+      type: 'chat_session',
+      label: 'Chat Session',
+      icon: 'MessagesSquare',
+      labelField: 'platform_username',
+      fetchById: (id: string) => chatChannelsApi.getSession(id).then((r) => r.session),
+    },
+    {
+      // getAguiSession resolves to AguiSession (unwrapped from
+      // `{ data: { session } }`). AguiController#show_session gates on
+      // `ai.agents.read` (validate_permissions). No `name`; `thread_id` labels.
+      type: 'agui_session',
+      label: 'AG-UI Session',
+      permission: 'ai.agents.read',
+      icon: 'Workflow',
+      labelField: 'thread_id',
+      fetchById: (id: string) => getAguiSession(id),
+    },
+    {
+      // getApprovalChain resolves to ApprovalChain (unwrapped from
+      // `{ success, data }`). The single-chain show is the standalone
+      // Ai::ApprovalChainsController (GET /ai/approval_chains/:id), gated on
+      // `ai.approval_chains.manage` — the governance scope's approval_chains
+      // route is index/create only.
+      type: 'approval_chain',
+      label: 'Approval Chain',
+      permission: 'ai.approval_chains.manage',
+      icon: 'GitMerge',
+      labelField: 'name',
+      fetchById: (id: string) => governanceApi.getApprovalChain(id),
+    },
+    {
+      // getApprovalRequest returns `{ approval_request }` (unwrapped from the
+      // outer `data`). GovernanceController#show_approval_request is
+      // authenticated and account-scoped (`current_account.ai_approval_requests`),
+      // with no resource permission. No `name`; `description` labels (falls back
+      // to the type label when null).
+      type: 'approval_request',
+      label: 'Approval Request',
+      icon: 'CheckSquare',
+      labelField: 'description',
+      fetchById: (id: string) => governanceApi.getApprovalRequest(id).then((r) => r.approval_request),
+    },
+    {
+      // getCluster returns `ApiResponse<{ cluster }>` — unwrap to the cluster.
+      // Devops::Swarm::ClustersController#show is authenticated and
+      // account-scoped (no resource permission). The `show` serializer
+      // (`cluster_details`) reports `has_tls_credentials` but never emits the
+      // encrypted TLS material itself.
+      type: 'swarm_cluster',
+      label: 'Swarm Cluster',
+      icon: 'Boxes',
+      labelField: 'name',
+      fetchById: (id: string) => swarmApi.getCluster(id).then((r) => r.data?.cluster),
+    },
+    {
+      // getHarnessGap returns `ApiEnvelope<{ harness_gap }>` — unwrap to the gap.
+      // CodeFactoryController gates show_harness_gap on `ai.code_factory.read`.
+      // No `name`; `description` (NOT NULL) labels.
+      type: 'harness_gap',
+      label: 'Harness Gap',
+      permission: 'ai.code_factory.read',
+      icon: 'ShieldAlert',
+      labelField: 'description',
+      fetchById: (id: string) => codeFactoryApi.getHarnessGap(id).then((r) => r.data.harness_gap),
+    },
+    {
+      // getEvidence returns `ApiEnvelope<{ evidence }>` — unwrap to the manifest.
+      // CodeFactoryController gates show_evidence on `ai.code_factory.read`.
+      // No `name`; `manifest_type` (NOT NULL) labels.
+      type: 'evidence_manifest',
+      label: 'Evidence Manifest',
+      permission: 'ai.code_factory.read',
+      icon: 'FileCheck',
+      labelField: 'manifest_type',
+      fetchById: (id: string) => codeFactoryApi.getEvidence(id).then((r) => r.data.evidence),
+    },
   ]);
 }
 
@@ -385,12 +529,27 @@ export function resolveCoreEntityType(t: string): string | undefined {
     skill: 'skill',
     // Users / accounts
     user: 'user',
+    // `Account` snakes straight to `account`.
+    account: 'account',
+    // Roles & permissions (top-level models → snake straight through).
+    role: 'role',
+    permission: 'permission',
     // Conversations / chat
     conversation: 'conversation',
     chat_channel: 'chat_channel',
     channel: 'chat_channel',
+    // `Chat::Session` → last segment `Session` → `session`. AG-UI sessions are
+    // `Ai::AguiSession` (→ `agui_session`), so `session` is unambiguously chat.
+    session: 'chat_session',
+    chat_session: 'chat_session',
+    // `Ai::AguiSession` → `agui_session` (no `ai_` prefix to strip).
+    agui_session: 'agui_session',
     // Knowledge / RAG
     knowledge_base: 'knowledge_base',
+    // `KnowledgeBase::Category` → last segment `Category` → `category`.
+    category: 'kb_category',
+    kb_category: 'kb_category',
+    knowledge_base_category: 'kb_category',
     // A document/node maps to the generic document modal. Composite-id fetchers
     // still require a "knowledgeBaseId:documentId" id at the call site.
     knowledge_node: 'knowledge_node',
@@ -427,6 +586,18 @@ export function resolveCoreEntityType(t: string): string | undefined {
     // Memory
     persistent_context: 'ai_persistent_context',
     memory_entry: 'ai_persistent_context',
+    // Monitoring — `Ai::ExecutionTrace` → `execution_trace` (no `ai_` strip).
+    execution_trace: 'execution_trace',
+    trace: 'execution_trace',
+    // Governance — `Ai::ApprovalChain`/`Ai::ApprovalRequest` snake straight.
+    approval_chain: 'approval_chain',
+    approval_request: 'approval_request',
+    // Swarm — `Devops::SwarmCluster` → `swarm_cluster`.
+    swarm_cluster: 'swarm_cluster',
+    // Code factory — `Ai::CodeFactory::HarnessGap`/`EvidenceManifest` →
+    // `harness_gap`/`evidence_manifest` (last namespace segment only).
+    harness_gap: 'harness_gap',
+    evidence_manifest: 'evidence_manifest',
   };
 
   return MAP[stripped] ?? MAP[snake];
