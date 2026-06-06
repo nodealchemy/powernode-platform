@@ -11,6 +11,7 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { Save, RefreshCw } from 'lucide-react';
 import { UsersContent } from '@/pages/app/account/UsersPage';
+import { EntityLink } from '@/shared/components/entity';
 
 // Type guard for settings update data
 const isSettingsUpdateData = (data: unknown): data is Partial<UserSettings> => {
@@ -600,7 +601,11 @@ export const ProfilePage: React.FC = () => {
                       <div>
                         <h4 className="text-sm font-medium text-theme-primary">Account Name</h4>
                         <p className="text-sm text-theme-secondary mt-1">
-                          {user?.account?.name || 'No account name'}
+                          <EntityLink
+                            type="account"
+                            id={user?.account?.id}
+                            label={user?.account?.name || 'No account name'}
+                          />
                         </p>
                       </div>
                     </div>

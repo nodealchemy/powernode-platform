@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { EntityLink } from '@/shared/components/entity';
 import type { RiskContract, ReviewState, HarnessGap, HarnessGapMetrics, SlaCompliance } from '../types/codeFactory';
 
 interface Props {
@@ -334,7 +335,8 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${severityColors[gap.severity] || ''}`}>
                         {gap.severity}
                       </span>
-                      <span className="text-xs font-mono text-theme-primary">{gap.incident_id}</span>
+                      <EntityLink type="harness_gap" id={gap.id} label={gap.incident_id} className="text-xs font-mono" />
+
                       <span className="text-xs text-theme-secondary truncate flex-1">{gap.description}</span>
                       {gap.test_case_added && (
                         <span className="text-[10px] text-theme-success">{'\u2713'} Test</span>

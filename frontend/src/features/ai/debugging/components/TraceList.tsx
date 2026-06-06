@@ -19,6 +19,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { cn } from '@/shared/utils/cn';
+import { EntityLink } from '@/shared/components/entity';
 import { executionTracesApi, type ExecutionTraceSummary as TraceSummary } from '../services/executionTracesApi';
 
 interface TraceListProps {
@@ -199,7 +200,12 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
                         trace.status === 'cancelled' && 'text-theme-warning'
                       )}
                     />
-                    <span className="font-medium text-theme-primary">{trace.name}</span>
+                    <EntityLink
+                      type="execution_trace"
+                      id={trace.trace_id}
+                      label={trace.name}
+                      className="font-medium text-theme-primary"
+                    />
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" size="sm">{trace.type}</Badge>

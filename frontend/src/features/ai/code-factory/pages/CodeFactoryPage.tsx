@@ -10,6 +10,7 @@ import { RunList } from '../components/RunList';
 import { HarnessGapTracker } from '../components/HarnessGapTracker';
 import { EvidenceViewer } from '../components/EvidenceViewer';
 import { CodeFactoryStatsCards } from '../components/CodeFactoryStatsCards';
+import { EntityLink } from '@/shared/components/entity';
 import type { RiskContract } from '../types/codeFactory';
 
 const TABS = [
@@ -250,7 +251,7 @@ export const CodeFactoryContent: React.FC<{
                           }`}>
                             {gap.severity}
                           </span>
-                          <span className="text-xs font-mono text-theme-primary">{gap.incident_id}</span>
+                          <EntityLink type="harness_gap" id={gap.id} label={gap.incident_id} className="text-xs font-mono" />
                           <span className="text-xs text-theme-secondary truncate flex-1">{gap.description}</span>
                           {gap.test_case_added && (
                             <span className="text-[10px] text-theme-success flex-shrink-0">{'\u2713'} Test</span>
@@ -307,7 +308,12 @@ export const CodeFactoryContent: React.FC<{
                         {manifests.slice(0, 4).map((m) => (
                           <div key={m.id} className="flex items-center justify-between bg-theme-surface-bg rounded-lg px-3 py-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-xs text-theme-primary capitalize">{m.manifest_type.replace(/_/g, ' ')}</span>
+                              <EntityLink
+                                type="evidence_manifest"
+                                id={m.id}
+                                label={m.manifest_type.replace(/_/g, ' ')}
+                                className="text-xs capitalize"
+                              />
                               <span className="text-xs text-theme-secondary">PR #{m.pr_number}</span>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">

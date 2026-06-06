@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { PencilIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { EntityLink } from '@/shared/components/entity';
 import { ApprovalChainEditor } from './ApprovalChainEditor';
 import { useApprovalChains } from '@/shared/hooks/useApprovalChains';
 import type { ApprovalChain } from '@/shared/types/approval';
@@ -72,7 +73,12 @@ export function ApprovalChainList() {
               {chains.map((chain) => (
                 <tr key={chain.id} className="border-t border-theme">
                   <td className="px-3 py-2">
-                    <div className="font-medium text-theme-primary">{chain.name}</div>
+                    <EntityLink
+                      type="approval_chain"
+                      id={chain.id}
+                      label={chain.name}
+                      className="font-medium text-theme-primary"
+                    />
                     {chain.description && (
                       <div className="text-xs text-theme-tertiary">{chain.description}</div>
                     )}

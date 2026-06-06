@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { EntityLink } from '@/shared/components/entity';
 import type { HarnessGap, HarnessGapMetrics, SlaCompliance } from '../types/codeFactory';
 
 interface Props {
@@ -308,7 +309,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
 
                     {/* Footer */}
                     <div className="text-[10px] text-theme-secondary font-mono pt-1">
-                      ID: {gap.id}
+                      ID: <EntityLink type="harness_gap" id={gap.id} label={gap.id} className="text-[10px] font-mono" />
                     </div>
                   </div>
                 )}

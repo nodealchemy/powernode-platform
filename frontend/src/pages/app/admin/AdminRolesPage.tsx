@@ -14,6 +14,7 @@ import { Plus, RefreshCw, Edit2, Trash2, Users, Shield } from 'lucide-react';
 import { rolesApi, Role, Permission } from '@/features/admin/roles/services/rolesApi';
 import { RoleFormModal } from '@/features/admin/roles/components/RoleFormModal';
 import { RoleUsersModal } from '@/features/admin/roles/components/RoleUsersModal';
+import { EntityLink } from '@/shared/components/entity';
 
 export const AdminRolesPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -380,7 +381,7 @@ export const AdminRolesPage: React.FC = () => {
                     {perms.map(permission => (
                       <div key={permission.id} className="group hover:bg-theme-surface-hover p-2 rounded-md transition-colors">
                         <code className="text-xs font-medium text-theme-interactive-primary">
-                          {permission.action}
+                          <EntityLink type="permission" id={permission.id} label={permission.action} />
                         </code>
                         <p className="text-xs text-theme-secondary mt-0.5 leading-relaxed">
                           {permission.description}
