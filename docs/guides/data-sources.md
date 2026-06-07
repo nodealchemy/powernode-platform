@@ -17,6 +17,7 @@
 - [Writing a custom adapter, decoder, or signer](#writing-a-custom-adapter-decoder-or-signer)
 - [Security](#security)
 - [Govern a data source (access, masking, residency, mTLS) (Phase 4b-2b)](#govern-a-data-source-access-masking-residency-mtls-phase-4b-2b)
+- [Shape & preview data (transforms, dry-run, cache tags) (Phase 4b-3a)](#shape--preview-data-transforms-dry-run-cache-tags-phase-4b-3a)
 - [Agent usage via MCP](#agent-usage-via-mcp)
 - [How agents discover and evaluate sources over time (Phase 2a)](#how-agents-discover-and-evaluate-sources-over-time-phase-2a)
 - [Enabling quality & drift per endpoint (Phase 2b)](#enabling-quality--drift-per-endpoint-phase-2b)
@@ -974,6 +975,225 @@ So the Vault secret at `vault_path` is a map whose keys are the `*_key` field na
 Behavior summary: a missing/blank cert or key in the Vault secret returns no material — which, when `required: true`, raises `MtlsConfigError` (the source's fetch returns an error envelope), and when `required: false`, silently falls back to a non-mTLS connection. Malformed PEM is handled identically (fail-closed when required, degrade otherwise). The `mtls` block's mere presence is also surfaced (as a boolean) into the compliance context's `mtls` key, so a `data_access` policy can *require* a source to use mTLS (recipe (b)).
 
 > **Store the cert/key in Vault first.** Do not generate or paste key material into config, seeds, or shell history — guide the operation through `Security::VaultCredentialProvider#store_credential` (see [Moving credentials to Vault](#moving-credentials-to-vault)) or write the KV path directly in Vault, then reference it here by `vault_path`.
+
+## Shape & preview data (transforms, dry-run, cache tags) (Phase 4b-3a)
+
+The fetch pipeline returns **canonical** records — the source's own shape, normalized. Phase 4b-3a adds three retrieval-ergonomics tools that sit *around* that result without changing the governed fetch itself: a per-endpoint **transform pipeline** that reshapes the records in-pipeline (so the cached/persisted/masked payload is already the shape callers want), a **dry-run** mode that returns a pre-execution cost/row estimate instead of fetching, and **surrogate-key (tag) cache invalidation** so you can flush exactly the entries you mean to.
+
+All three are **off / additive by default**: an endpoint with a blank `transforms` ({}) runs byte-for-byte the pre-4b-3a fetch; `dry_run` defaults to `false`; and tag invalidation is an explicit operator call.
+
+### (a) Reshape records with `endpoint.transforms`
+
+`Ai::DataSources::TransformService` runs an **ordered pipeline** over the canonical `Array<Hash>` records (the output of `NormalizationService`). Each step is a Hash declaring an `op` plus op-specific keys; steps apply **in order**, the output of one feeding the next. The config lives in the endpoint's **`transforms`** jsonb column with exactly this shape:
+
+```jsonc
+{
+  "pipeline": [
+    { "op": "flatten",  "separator": "." },
+    { "op": "select",   "drop": ["raw"] }
+    // ...more steps, applied top-to-bottom
+  ]
+}
+```
+
+`endpoint.transforms?` is the on-switch and mirrors the **blank == OFF** semantics: a bare `{}`, a non-Hash, or a config whose `pipeline` is missing/empty is a **passthrough** — the records are returned unchanged. `QueryService` runs the pipeline at stage 7a — **after** normalization and **before** the cache write / persistence / masking — so the cached, persisted, and masked payload *is* the transformed shape (no per-read transform cost). It is fully rescued: a malformed step is logged and **skipped** (records flow through unchanged), and a pipeline-level fault returns the untransformed records — a bad config never breaks the fetch.
+
+#### The five pipeline ops (verified against `TransformService`)
+
+| `op` | Keys | Effect |
+|---|---|---|
+| `flatten` | `separator` (default `"."`), `only` (Array), `except` (Array) | Flatten nested hashes to dotted keys: `{"a"=>{"b"=>1}}` → `{"a.b"=>1}`. `only`/`except` scope which **top-level** keys are descended into (non-hash values pass through). Bounded at `MAX_FLATTEN_DEPTH` (32). |
+| `unnest` (alias `explode`) | `field` (required), `value_key` (default `"value"`) | Emit **one record per element** of the Array at `field`. A Hash element merges over the parent's other fields; a scalar element lands under `value_key`. A record without an Array at `field` passes through unchanged. Bounded at `MAX_RECORDS` (50,000) — overflow dropped + logged. |
+| `select` (alias `project`) | `fields` (keep ONLY these) **or** `drop` (remove these) | Project columns. `fields` wins if both are given; neither given → passthrough. |
+| `rename` | `map` ({from => to}) | Rename matching keys; keys not in the map are untouched. |
+| `computed` | `as` (required, new field name) + an inner op (see below) | Write a derived value to the `as` field using a whitelisted op over **existing** fields. A nil result (unknown/uncomputable) is still written, so the field's presence is deterministic — `select`/`drop` it afterward if you don't want it. |
+
+> **Unknown ops are never executed.** Any other `op` token is a no-op: the step is skipped and a debug line logged. `MAX_PIPELINE_STEPS` (100) caps pipeline length; excess steps are dropped.
+
+#### The computed inner ops
+
+A `computed` step needs **two** things: the step **kind** (`op: "computed"`, so the pipeline dispatcher routes it to the computed handler) and the **inner operation**. `computed_op_for` reads the inner op from the step's `op` key, but when `op` is the literal `"computed"` it falls back to **`fn` / `operation` / `compute`** — so a `computed` step carries its inner op in `fn` (e.g. `{ "op": "computed", "fn": "concat", … }`). The whitelisted inner ops (an **explicit case statement — no eval/send/metaprogramming, reading only existing record fields**):
+
+| Inner op | Keys | Result |
+|---|---|---|
+| `concat` | `fields`, `separator` (default `""`) | Join the named existing fields with the separator. |
+| `coalesce` | `fields` | First non-nil / non-blank of the named fields. |
+| `+` `-` `*` `/` | `a` + `b` (field names) **or** the first two of `fields` | Arithmetic over two numeric operands; non-numeric → nil; divide-by-zero → nil; non-finite (Infinity/NaN) → nil. |
+| `upcase` / `downcase` / `strip` | `field` | String op on a single field (non-String → nil). |
+| `substring` (alias `slice`) | `field`, `start`, `length` | Substring of a String field. |
+| `template` (alias `format`) | `template` like `"{a}-{b}"` | Interpolate `{field}` tokens with existing field values (`{missing}` → `""`). |
+
+> **Don't put `concat` (etc.) in a second `op` key.** A step is a JSON/Ruby Hash, so a duplicate `op` key collapses to the last value — `{ "op": "computed", …, "op": "concat" }` becomes a step whose `op` is `"concat"`, which the dispatcher does **not** recognize as a step kind, so the step is **silently skipped**. Always use `op: "computed"` for the kind and carry the inner op in **`fn`**.
+
+#### Worked example — flatten + select + a computed concat + unnest
+
+Suppose the canonical records for a "city report" endpoint come back nested, with a `raw` blob and a list of `readings`:
+
+```jsonc
+[
+  { "city": { "name": "NYC" }, "raw": { "_huge": "…" },
+    "first": "Ada", "last": "Lovelace",
+    "readings": [ { "hour": 0, "temp_c": 7 }, { "hour": 1, "temp_c": 6 } ] }
+]
+```
+
+This `transforms` config flattens the nested city hash, drops the bulky `raw`, computes a `reporter` full-name, then explodes one record per reading:
+
+```jsonc
+{
+  "pipeline": [
+    { "op": "flatten", "separator": ".", "except": ["raw"] },
+    { "op": "select",  "drop": ["raw"] },
+    { "op": "computed", "as": "reporter", "fn": "concat",
+      "fields": ["first", "last"], "separator": " " },
+    { "op": "unnest", "field": "readings" }
+  ]
+}
+```
+
+Step by step:
+
+1. **`flatten`** descends `city` (but `except: ["raw"]` leaves `raw` un-descended) → `{"city.name"=>"NYC", "raw"=>{…}, "first"=>"Ada", "last"=>"Lovelace", "readings"=>[…]}`.
+2. **`select`** with `drop: ["raw"]` removes the blob.
+3. **`computed`** (kind `computed`, inner `fn: "concat"` of `first`+`last`, space-separated) writes `"reporter" => "Ada Lovelace"`.
+4. **`unnest`** on `readings` emits one record per element, each merged with the parent's other fields:
+
+```jsonc
+[
+  { "city.name": "NYC", "first": "Ada", "last": "Lovelace", "reporter": "Ada Lovelace", "hour": 0, "temp_c": 7 },
+  { "city.name": "NYC", "first": "Ada", "last": "Lovelace", "reporter": "Ada Lovelace", "hour": 1, "temp_c": 6 }
+]
+```
+
+The `FetchEnvelope` provenance gains a single boolean — `transforms_applied: true` — and `record_count` reflects the **post-transform** set (here 2, not 1); no anomaly is added for a clean run.
+
+#### Where to set `transforms`
+
+Like the Phase-2b expectations, `transforms` has **no dedicated REST/MCP write surface** — the endpoint create/update params permit `pagination` and `incremental` but **not** `transforms`, and `DataSourceTool` exposes no endpoint-mutation action. Set it at the **model layer** (a `rails runner` or a seed), keyed by the endpoint:
+
+```ruby
+# rails runner — attach a transform pipeline to an endpoint
+ep = Ai::DataSource.for_account(account).find_by!(slug: "open-meteo")
+       .endpoints.find_by!(slug: "hourly-forecast")
+
+ep.update!(
+  transforms: {
+    "pipeline" => [
+      { "op" => "flatten", "separator" => ".", "except" => ["raw"] },
+      { "op" => "select",  "drop" => ["raw"] },
+      { "op" => "computed", "as" => "reporter", "fn" => "concat",
+        "fields" => ["first", "last"], "separator" => " " },
+      { "op" => "unnest", "field" => "readings" }
+    ]
+  }
+)
+```
+
+### (b) Preview a fetch with `dry_run` (cost/row estimate)
+
+`Ai::DataSources::QueryService.new(..., dry_run: true)` returns a **no-side-effect preview** instead of fetching: it runs the kill-flag, quota, and governance gates, then short-circuits with a `dry_run`-status `FetchEnvelope` — **no credential resolution, no signing, no upstream dispatch, no cache write, no persistence**. The would-be request URL is assembled through the same pure `build_request` → absolute-URL path the live fetch uses and then **redacted** (no creds are resolved). `data` is empty; `provenance.estimate` carries the pre-execution numbers:
+
+```jsonc
+{
+  "success": true,
+  "data": [],
+  "status": "dry_run",                 // NOT a DataSourceQuery status — nothing is persisted
+  "duration_ms": 3,
+  "bytes": 0,
+  "error": null,
+  "provenance": {
+    // ...base provenance fields...
+    "source_url": "https://api.open-meteo.com/v1/forecast?…[REDACTED]…",  // always redacted
+    "anomalies": ["dry_run"],
+    "estimate": {
+      "would_fetch": true,             // FALSE when a fresh cache hit exists (a live call would be served from cache)
+      "from_cache": false,             // true == a fresh cache entry exists right now
+      "source_url": "https://api.open-meteo.com/v1/forecast?…[REDACTED]…",
+      "http_method": "GET",
+      "estimated_cost_usd": 0.0,       // declared cost config, else avg historical cost, else 0.0
+      "estimated_rows": 24,            // avg rows over recent successful non-cached queries (nil on a cold source)
+      "cache_hit_available": false     // whether a NOT-hard-expired entry exists for these params
+    }
+  }
+}
+```
+
+How the estimate is built (`build_cost_estimate`):
+
+- **`cache_hit_available`** probes for a *not-hard-expired* entry via `ResponseCacheService.read_stale` (a side-channel read that does **not** count toward hit/miss metrics or serve a grace-window stale entry). `would_fetch` is its inverse — `false` when a fresh entry exists (the live call would be cache-served), `true` otherwise.
+- **`estimated_rows`** = the rounded average `rows_returned` over the most recent `DRY_RUN_HISTORY_SAMPLE` (20) **successful, non-cached** queries for this endpoint; `nil` when there's no history (a cold source degrades gracefully).
+- **`estimated_cost_usd`** prefers the source's declared `configuration` cost (`cost_per_request_usd + cost_per_gb_usd × avg_gb`, mirroring how a real fetch is priced), else the average historical `actual_cost_usd`, else `0.0`.
+
+> **Scope of the `dry_run` flag.** `dry_run` is a **constructor argument on `QueryService`** and is *not* currently exposed through the `data_source_query` MCP action, the REST `POST …/endpoints/:endpoint_id/query` endpoint, or `EndpointQueryRunner` — those all call `QueryService` without it. To get an estimate today, construct the service directly (e.g. a `rails runner` or a service-layer caller); guide the operation through that path rather than expecting a `dry_run` request parameter on the public fetch surfaces.
+
+```ruby
+# rails runner — preview a fetch (no upstream call, nothing persisted)
+ds = Ai::DataSource.for_account(account).find_by!(slug: "open-meteo")
+ep = ds.endpoints.find_by!(slug: "hourly-forecast")
+
+envelope = Ai::DataSources::QueryService.new(
+  data_source: ds, endpoint: ep,
+  params: { "lat" => 40.71, "lon" => -74.01 },
+  dry_run: true
+).call
+
+envelope[:status]                          # => "dry_run"
+envelope[:provenance][:estimate]           # => the estimate Hash above
+```
+
+### (c) Invalidate cached responses by tag
+
+Every cached response is written into a Redis surrogate-key (tag) index, so a single tag can flush every entry recorded under it without a keyspace SCAN. When a `write` supplies no explicit `tags`, `ResponseCacheService` applies its **default tags** so every entry is tag-addressable (`default_tags(data_source, endpoint)`):
+
+| Default tag | Form | Addresses |
+|---|---|---|
+| `ds:<id>` | `ds:<data_source_id>` | every cached entry for the source |
+| `endpoint:<id>` | `endpoint:<endpoint_id>` | every variant for the endpoint (omitted when caching at source granularity) |
+| `slug:<slug>` | `slug:<endpoint_slug>` | the endpoint by slug (omitted at source granularity) |
+
+Flush a tag with the **`data_source_invalidate_cache`** MCP action (an operational write — requires `ai.data_sources.update` or `.manage`; it hard-denies when unauthorized rather than filing a proposal, since invalidation is idempotent and recoverable):
+
+```text
+platform.data_source_invalidate_cache
+  tag: "endpoint:<endpoint_id>"     # surrogate key — takes precedence over scope
+```
+
+`invalidate_by_tag` deletes every cache key in the tag's Redis SET, then the (now-stale) index set itself, and returns the count of entries invalidated. It is fail-open: a blank/unknown tag invalidates nothing and returns `0`, and a Redis error logs and returns `0` rather than raising. The result names the action, the permission used, and the count:
+
+```jsonc
+{
+  "success": true,
+  "action": "data_source_invalidate_cache",
+  "permission_used": "ai.data_sources.update",
+  "scope": "tag",
+  "tag": "endpoint:<endpoint_id>",
+  "invalidated": 7,
+  "message": "Invalidated 7 cached entries for tag 'endpoint:<endpoint_id>'"
+}
+```
+
+Without a `tag`, the same action invalidates **by scope** instead: `data_source_id` + `endpoint_id` clears that endpoint's param-variants; `data_source_id` alone clears every entry for the source (prefix deletes — `ResponseCacheService.invalidate`):
+
+```text
+platform.data_source_invalidate_cache
+  data_source_id: "open-meteo"          # UUID or slug — required unless `tag` is given
+  endpoint_id:    "hourly-forecast"     # optional; narrows the flush to one endpoint
+```
+
+```jsonc
+{
+  "success": true,
+  "action": "data_source_invalidate_cache",
+  "permission_used": "ai.data_sources.update",
+  "scope": "endpoint",                   // "data_source" when endpoint_id is omitted
+  "data_source": { "id": "…", "slug": "open-meteo", "name": "Open-Meteo Forecast" },
+  "endpoint":    { "id": "…", "slug": "hourly-forecast", "name": "Hourly Forecast" },
+  "invalidated": 3,
+  "message": "Invalidated 3 cached entries"
+}
+```
+
+> **When to invalidate.** After changing an endpoint's `transforms` (or `response_mapping`/schema), flush its cache so the next fetch re-runs the pipeline and re-caches the new shape — the cache holds the *transformed* payload, so a stale entry would keep serving the old shape until its TTL lapses. Tag form (`endpoint:<id>`) is the precise tool; scope form is the broader hammer.
 
 ## Agent usage via MCP
 

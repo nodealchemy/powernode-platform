@@ -17,6 +17,7 @@
 - [Security model](#security-model)
 - [Credential brokering (Phase 4b-2a)](#credential-brokering-phase-4b-2a)
 - [Query-time governance (Phase 4b-2b)](#query-time-governance-phase-4b-2b)
+- [Transform & retrieval shaping (Phase 4b-3a)](#transform--retrieval-shaping-phase-4b-3a)
 - [Provenance and the FetchEnvelope](#provenance-and-the-fetchenvelope)
 - [Surfaces: REST + MCP](#surfaces-rest--mcp)
 - [Frontend](#frontend)
@@ -505,6 +506,84 @@ A data source can require the platform to present a **client certificate** on th
 ### Off by default
 
 The whole Phase-4b-2b layer is dormant until a source opts in. With **no agent** (user/system context) **and no** `metadata.governance` block, `authorize` short-circuits to allow before any policy resolution; with no `metadata.governance.mask` marker, `mask_records` is a passthrough; with no `configuration["mtls"]` block, `client_ssl_options` returns `{}`. So a default source runs the **byte-for-byte** Phase-1/4b-2a fetch path — no policy queries, no per-value redaction walk, no Vault read, no `ssl:` key on the connection. You pay only for what you turn on, per source.
+
+## Transform & retrieval shaping (Phase 4b-3a)
+
+The layers above decide *whether* a fetch happens (governance), *what secret* it signs with (brokering), and *which bytes the caller may see* (masking). **Retrieval shaping** is the orthogonal concern of controlling *the shape and the cost* of what comes back: reshape the canonical records into the projection an agent actually wants, preview a fetch's price before paying it, and surgically evict cache entries by what they describe rather than by key. Three independent capabilities — a config-driven **transform pipeline**, a **dry-run + cost estimate**, and **tag/surrogate-key cache invalidation** — and, like every layer before them, all three are **OFF / zero-overhead by default**: a source with no `endpoint.transforms`, a caller who doesn't pass `dry_run`, and a cache user who never calls `invalidate_by_tag` all run the byte-for-byte pre-4b-3a path.
+
+### The transform pipeline — config-driven, pre-cache shaping
+
+`Ai::DataSources::TransformService` (`transform_service.rb`) reshapes the canonical `Array<Hash>` records into the projection a caller wants — **without code**. It is the *shaping* arc of the *new-source-is-config* principle: a source declares an **ordered pipeline** of operations on the endpoint, and the service applies them in sequence, the output of each step feeding the next. Its surface mirrors `NormalizationService` exactly — `TransformService.new(transforms_config).apply(records)` — and a blank / non-Hash / pipelineless config is a **passthrough** (the records are returned unchanged).
+
+The pipeline is a list under `"pipeline"`, each step a Hash declaring an `"op"` plus op-specific keys:
+
+```ruby
+endpoint.transforms = {
+  "pipeline" => [
+    { "op" => "flatten", "separator" => "." },                  # {"a"=>{"b"=>1}} -> {"a.b"=>1}
+    { "op" => "unnest",  "field" => "items" },                   # one record per array element
+    { "op" => "rename",  "map" => { "temp_c" => "temperature" } },
+    { "op" => "computed", "as" => "label",                       # whitelisted derivation
+      "fn" => "template", "template" => "{city}: {temperature}" },
+    { "op" => "select",  "fields" => ["city", "temperature", "label"] }
+  ]
+}
+```
+
+The five structural ops:
+
+| Op (aliases) | Effect |
+|--------------|--------|
+| `flatten` | Flatten nested hashes to dotted keys (`{"a"=>{"b"=>1}}` → `{"a.b"=>1}`). `separator` (default `.`); optional `only`/`except` **top-level** field lists scope which keys are descended into. Descent is depth-bounded (`MAX_FLATTEN_DEPTH = 32`) so a pathologically deep hash can't exhaust the stack. |
+| `unnest` (`explode`) | Emit **one record per element** of the Array at `field`. A Hash element merges over the parent's other fields; a scalar lands under a `value` key. Records without an Array at `field` pass through. **Bounded** at `MAX_RECORDS = 50_000` — fan-out overflow is dropped and logged, never an OOM. |
+| `select` (`project`) | Keep only `fields`, **or** remove `drop`. `fields` wins if both are given. |
+| `rename` | Rename keys per the `map` `{from => to}`; unmatched keys are untouched. |
+| `computed` | Write a derived value to the `as` field using a **whitelisted** computed op over existing fields (below). |
+
+**The `computed` op is a whitelisted mini-interpreter, not code execution.** This is the load-bearing security property. Every computed operation dispatches through an **explicit `case` statement** — `concat`, `coalesce`, the arithmetic ops `+`/`-`/`*`/`/`, `upcase`/`downcase`/`strip`, `substring` (`slice`), and `template` (`format`) — each reading **only existing record fields by name**. There is **no** `eval` / `instance_eval` / `class_eval` / `send` / `public_send` to arbitrary methods or `Kernel`; an unrecognized computed op is skipped (returns nil), never executed. So a source can declare `{city}-{country}` string interpolation or a `price * quantity` total from config, but cannot smuggle arbitrary Ruby through a transform. (Numeric guards round out the safety: division by zero → nil; a non-finite Float result from huge operands → nil.)
+
+The pipeline runs **PRE-CACHE**. `QueryService#decode_and_normalize` calls `apply_transforms` at **stage 7a** — *after* `NormalizationService` and *before* the cache write / persist / mask (see [The QueryService pipeline](#the-queryservice-pipeline)). Because the transform is deterministic given `(config, records)`, the **cached payload is already the transformed shape** — the reshape is computed once per fetch, never per read. This is the deliberate contrast with [masking](#masking-piisecret-redaction-on-fetch): masking runs **post-cache, per-request** (so the same cached bytes can be redacted differently per caller and the cache stays classification-agnostic), whereas transforms run **pre-cache, once** (the shape is a property of the source's contract, identical for every reader, so baking it into the cache is correct and cheaper). Provenance surfaces `transforms_applied` (true/false) and the post-transform `record_count` is honest because the count is read after the reshape.
+
+**Resilience.** The service is pure / stateless — no DB, Redis, or network. A malformed step is logged and **skipped** (the records flow through unchanged), `apply` is fully rescued and returns best-effort records on any fault, and `QueryService#apply_transforms` adds a second defense-in-depth rescue that falls back to the **untransformed** records with `transforms_applied: false` and a `transform_error` anomaly — so a bad transform config can never break a fetch. Pipeline length is capped (`MAX_PIPELINE_STEPS = 100`; excess dropped) so an oversized config can't blow up per-request cost. **OFF by default:** gated on `endpoint.transforms?` — a blank pipeline means the records pass through byte-for-byte with zero transform code run.
+
+### Dry-run + cost estimation — preview without an upstream call
+
+A caller can ask "**what would this fetch cost, and would it even hit the upstream?**" without actually fetching. `QueryService.new(..., dry_run: true).call` short-circuits at **stage 2.6** — *after* the kill-flag, quota, and governance gates (so a dry-run respects the **same** permissions a live read would; a denied read never gets an estimate) but *before* any cache lookup, credential resolution, signing, upstream dispatch, or cache write. It returns a normal-shaped `FetchEnvelope` with `status: "dry_run"`, empty `data`, and a pre-execution **estimate** block on provenance.
+
+The estimate (`build_cost_estimate`):
+
+```ruby
+provenance[:estimate] = {
+  would_fetch:,          # FALSE when a fresh cache hit exists (the live call is served from cache)
+  from_cache:,           # the inverse — a live call would be a cache hit
+  source_url:,           # REDACTED — built via the SAME pure build_request path, never signed
+  http_method:,
+  estimated_cost_usd:,   # from source cost config, else historical avg, else 0.0
+  estimated_rows:,       # avg rows over recent successful non-cached queries (nil when cold)
+  cache_hit_available:
+}
+```
+
+Three properties make it honest and side-effect-free:
+
+- **No upstream call, no credentials.** The would-be `source_url` is resolved via the **same pure `adapter.build_request` → absolute-URL path** the live fetch uses, then **redacted** — but no credential is resolved or signed and nothing is dispatched. The cache is *probed* with `read_stale` (not `read`) deliberately: `read_stale` exposes the `hard_expired` flag needed to report `would_fetch` correctly **and** does not count a hit/miss, so a dry-run probe never pollutes cache metrics or mis-reports freshness. A grace-window (stale) entry is correctly reported as "a live call **would** still fetch".
+- **`would_fetch` reflects the real decision.** It is **false** when a fresh (not-hard-expired) cache entry exists — the live call would be served from cache and skip the upstream — and **true** otherwise. So a caller can see, before committing, whether the fetch is free (cached) or will spend a request against the source's budget.
+- **Cost from the same pricing path as a real fetch.** `estimated_cost_usd` prefers the source's declared `configuration["cost_per_request_usd"]` + `cost_per_gb_usd × avg_gb` — mirroring exactly how `Ai::CostAttribution.from_data_source_query` prices a *real* fetch — using the average historical transfer size (over the last `DRY_RUN_HISTORY_SAMPLE = 20` successful **non-cached** queries for this endpoint) for the GB term. With no cost config it falls back to the average historical `actual_cost_usd`, and finally to `0.0` on a cold source. Every history/cost helper is individually rescued and degrades to nil/0 rather than failing the preview.
+
+Critically, the dry-run still **enforces the kill-flag and full governance gates** before producing an estimate — the gates run in `call` ahead of the stage-2.6 short-circuit — so a dry-run can never be used to probe a source the caller is forbidden to read. The `"dry_run"` status is deliberately **not** a `DataSourceQuery::STATUSES` member: the dry-run path **persists nothing** (no query row, no audit chain entry, no cost row, no cache write) — it is a pure no-side-effect preview. **OFF by default:** `dry_run` defaults to `false`, so the live path is byte-for-byte unchanged.
+
+### Tag / surrogate-key cache invalidation
+
+Beyond the prefix-based `invalidate(data_source:, endpoint:)` ([Response cache](#response-cache)), `ResponseCacheService` carries a **surrogate-key (tag)** index so entries can be evicted by *what they describe* rather than by key. Each cached entry's key is added to a Redis SET per tag (`data_source_cache:tag:<tag>`), and `invalidate_by_tag(tag)` deletes every cache key recorded in that tag's set in one shot — no keyspace `SCAN`.
+
+- **Default tags on every write.** Unless a caller supplies explicit `tags:`, every entry is tagged with `default_tags`: `ds:<data_source_id>`, and (when an endpoint is present) `endpoint:<endpoint_id>` and `slug:<endpoint_slug>`. So **every** cached entry is already tag-addressable by source, endpoint, or slug without the writer doing anything — `invalidate_by_tag("slug:current_weather")` clears every param-variant cached under that endpoint slug across the source.
+- **Best-effort, isolated, fail-open.** Tag indexing is decoupled from the payload write: a tag-index failure (e.g. Redis `SADD` unavailable) is swallowed and **never** fails the cache write it follows. Each tag set's TTL is (re)armed to outlive the longest entry it points at (EXPIRE only extends, never shortens). A blank/unknown tag invalidates nothing and returns 0, and any Redis error logs and returns 0 rather than raising — the same fail-open posture as the rest of the cache.
+
+This is the surgical complement to prefix invalidation: prefix-delete evicts *a source or an endpoint's* variants by key structure; tag-delete evicts *everything sharing a surrogate key* (and a caller can mint cross-cutting custom tags at write time for finer-grained groupings). **OFF / zero-overhead by default** in the sense that nothing changes behavior until you *call* `invalidate_by_tag` — default tagging is a cheap `SADD` on writes that already happen, and the index self-expires.
+
+### Off by default
+
+All three retrieval-shaping capabilities are dormant until used. With **no** `endpoint.transforms` pipeline, `apply_transforms` returns the records with `transforms_applied: false` and runs zero transform code; with `dry_run` unset (`false`), the live fetch path is untouched; and `invalidate_by_tag` only does work when a caller invokes it. So a default source runs the **byte-for-byte** pre-4b-3a path — no reshape pass, no estimate computation, no extra Redis round-trips beyond the cheap default-tag `SADD` on a write that already occurs. You pay only for what you turn on.
 
 ## Provenance and the FetchEnvelope
 

@@ -17,6 +17,10 @@
 - [Quota Enforcement Pattern](#quota-enforcement-pattern)
 - [Credential brokering (Phase 4b-2a)](#credential-brokering-phase-4b-2a)
 - [Query-time governance (Phase 4b-2b)](#query-time-governance-phase-4b-2b)
+- [Retrieval transforms, dry-run estimates & cache-tag invalidation (Phase 4b-3a)](#retrieval-transforms-dry-run-estimates--cache-tag-invalidation-phase-4b-3a)
+  - [A response changed shape — the config-driven transform pipeline](#a-response-changed-shape--the-config-driven-transform-pipeline)
+  - [Estimating cost before enabling a costly source (dry-run)](#estimating-cost-before-enabling-a-costly-source-dry-run)
+  - [Cache-tag invalidation operations](#cache-tag-invalidation-operations)
 - [Discovery & effectiveness (Phase 2a)](#discovery--effectiveness-phase-2a)
 - [Quality, drift & contracts (Phase 2b)](#quality-drift--contracts-phase-2b)
 - [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3)
@@ -550,6 +554,139 @@ vault kv get -format=json <vault_path> | jq '.data.data | keys'
 | Upstream rejects the request but **no** mTLS error appears | `required: false` (or unset) and the material is broken ⇒ **optional-degrade** to plain TLS (silent) | Look for `mTLS setup failed: <class>` in the backend log; set `required: true` so the fault fails loud, then fix the Vault material |
 | Suspect the private key is cached somewhere | It is not — `read_vault_secret` uses `cache: false`; the key is read fresh per build and only held in-memory | Nothing to flush; if you need a fresh read, the next fetch already re-reads Vault (no warm cache exists) |
 | mTLS "stopped working" after a cert rotation | The new PEM is in Vault but the source still references the old `vault_path`/secret, or the rotated secret renamed the fields | Point `vault_path`/`credential_id` at the rotated secret; confirm the field names match `cert_key`/`key_key`/`ca_key` (no cache to bust — reads are live) |
+
+## Retrieval transforms, dry-run estimates & cache-tag invalidation (Phase 4b-3a)
+
+Phase 4b-3a adds three operator-facing capabilities to the governed fetch, all **OFF / no-op by default** so the live path is byte-for-byte unchanged until used:
+
+1. A per-endpoint **config-driven transform pipeline** (`Ai::DataSources::TransformService`) that reshapes the canonical records *between* normalization and the cache write — so the cached, persisted, and masked payload **IS** the transformed shape.
+2. A **dry-run** mode on `Ai::DataSources::QueryService` that short-circuits before any upstream call and returns a pre-execution **cost / row estimate** instead of data.
+3. **Surrogate-key (tag) cache invalidation** in `Ai::DataSources::ResponseCacheService`, plus an MCP action (`data_source_invalidate_cache`) to drive it.
+
+### A response changed shape — the config-driven transform pipeline
+
+When an endpoint's returned/cached records look different from the raw upstream payload — flattened dotted keys, fewer/renamed fields, one row per array element, an extra computed field — a **transform pipeline** is configured on that endpoint. The pipeline is an ordered list of steps (`flatten` / `unnest` / `select` / `rename` / `computed`) stored in `ai_data_source_endpoints.transforms` (jsonb, default `{}`), shape `{ "pipeline" => [ {op, ...}, ... ] }`, applied **in order** by `TransformService` after `NormalizationService` and **before** the response-cache write.
+
+**How to tell whether (and how) transforms ran** — two signals ride on the FetchEnvelope's `provenance`, mirrored onto the persisted `ai_data_source_queries` row:
+
+- **`provenance[:transforms_applied]`** (bool) — `true` when the endpoint declared a non-empty pipeline and it executed; `false` when the endpoint has no pipeline (`transforms?` false ⇒ records passed through byte-for-byte) **or** the pipeline aborted and degraded to the untransformed records.
+- **`provenance[:record_count]`** — the **post-transform** row count. `record_count` is computed *after* `apply_transforms` reassigns the working set, so it is honest: an `unnest`/`explode` step inflates it, a filtering pipeline shrinks it. A `record_count` that does not match the raw upstream element count is the first clue a pipeline is reshaping the payload.
+
+```bash
+# Read both signals off the most recent governed fetch. (data_source_query returns
+# the envelope verbatim; data_source_provenance reads the persisted row.)
+#   platform.data_source_query  data_source_id: ":id"  endpoint_id: ":ep"
+#   → .provenance.transforms_applied   (true ⇒ the pipeline ran)
+#     .provenance.record_count         (POST-transform row count)
+```
+
+```ruby
+# rails runner — read the endpoint's configured pipeline directly.
+ep = Ai::DataSourceEndpoint.find("<endpoint_id>")
+ep.transforms?            # => true when a non-empty "pipeline" is configured
+ep.transforms["pipeline"] # => the ordered [ {op, ...}, ... ] steps
+```
+
+**Transforms run PRE-CACHE — a config change needs a cache invalidation to take effect.** This is the operationally critical consequence: because `TransformService` runs before the cache write, the cache holds the **already-transformed** shape. So editing an endpoint's `transforms` config does **NOT** retroactively reshape what is already cached — every cache **hit** keeps serving the OLD shape until the entry expires (or is regenerated). After changing `transforms`, **invalidate the endpoint's cache** (see [Cache-tag invalidation operations](#cache-tag-invalidation-operations)) so the next fetch is a miss, re-runs the new pipeline, and re-caches the new shape.
+
+> **Contrast with masking (Phase 4b-2b), which is per-request and needs NO flush.** Governance masking is computed *after* the cache (the cache holds RAW, the masked copy is derived per request), so toggling `metadata.governance.mask` takes effect on the very next request — even a cache hit. Transforms are the opposite: they are baked **into** the cached payload, so a `transforms` change is invisible until the cached shape is invalidated and regenerated. When a config edit "didn't take," check which one you changed.
+
+**Resilience (why a fetch never breaks on a bad pipeline).** `TransformService` is pure/stateless (no DB/Redis/network) and fully rescued: a malformed *step* is skipped (logged at warn) and the records flow through unchanged; a pipeline-level fault returns the best-effort records. `QueryService#apply_transforms` wraps that in a second rescue (defense in depth) that, on any fault, returns the **untransformed** records with `transforms_applied:false` and appends a **`transform_error`** anomaly. So a broken config degrades to "serve untransformed + flag," never a hard failure.
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| Cached/returned records have an unexpected shape (dotted keys, dropped/renamed fields, exploded rows) | The endpoint declares a `transforms` pipeline | Read `ep.transforms["pipeline"]`; `provenance.transforms_applied:true` confirms it ran |
+| Edited `transforms` but the shape didn't change | The OLD shape is still cached (transforms run pre-cache) | **Invalidate the endpoint's cache** (tag `endpoint:<id>` or scope by endpoint) so the next fetch re-runs the pipeline and re-caches |
+| `record_count` far larger than the raw payload | An `unnest`/`explode` step is fanning out array elements (capped at `MAX_RECORDS = 50_000`; overflow dropped + logged) | Expected for explode; if it hit the cap, look for `unnest capped output at 50000 records` in the backend log |
+| `provenance.transforms_applied:false` but a pipeline IS configured + `transform_error` anomaly present | A transform fault degraded to untransformed records | Check the backend log for `[DataSources::TransformService]` (step/pipeline) or `[DataSources::QueryService] transform pipeline failed` (class + message); fix the offending step |
+| A step in the pipeline appears to do nothing | An **unknown `op`** (or unknown `computed` inner op) is a no-op — it is skipped and a debug line is logged, never executed | Verify the op token against the supported set (`flatten`/`unnest`/`select`/`rename`/`computed`); the `computed` interpreter is whitelisted — no arbitrary code runs from config |
+
+### Estimating cost before enabling a costly source (dry-run)
+
+Before flipping on a metered/expensive source (or before letting agents loose on it), use **dry-run** to get a pre-execution **cost and row estimate** without making the upstream call. Dry-run is a constructor flag on `QueryService` (`dry_run: true`) that **short-circuits the pipeline AFTER the kill-flag, quota, and governance gates** (so a dry-run respects exactly the same permissions a live read would — a denied read never gets an estimate) but **BEFORE** any cache lookup, credential resolution, signing, upstream dispatch, or cache write. It performs **no side effects**: it persists nothing (the `"dry_run"` status is deliberately *not* a `DataSourceQuery::STATUSES` member, so it never reaches a query-log row) and writes nothing to the cache.
+
+> **Scope:** dry-run is currently a **service-level** flag, invoked from Ruby (e.g. `rails runner`), not yet a parameter on the MCP `data_source_query` action (that action constructs `QueryService` without `dry_run:`). Drive it from the service directly:
+
+```ruby
+# rails runner — estimate a fetch's cost/rows WITHOUT calling upstream.
+ds    = Ai::DataSource.for_account(account).find_by!(slug: "metered-api")
+ep    = ds.endpoints.find_by!(slug: "expensive-endpoint")
+env   = Ai::DataSources::QueryService.new(
+          data_source: ds, endpoint: ep, params: { ... },
+          agent: nil, user: nil, dry_run: true
+        ).call
+
+env[:status]                       # => "dry_run"
+env[:data]                         # => []  (no data fetched)
+env[:provenance][:anomalies]       # => ["dry_run"]
+est = env[:provenance][:estimate]
+#   {
+#     would_fetch:         true|false,   # false when a FRESH cache hit exists
+#     from_cache:          true|false,   # mirror of a fresh cache hit being available
+#     source_url:          "<REDACTED>", # would-be URL, built pure then redacted
+#     http_method:         "GET",
+#     estimated_cost_usd:  0.0012,       # see pricing below
+#     estimated_rows:      <int|nil>,    # avg rows over recent NON-cached successes
+#     cache_hit_available: true|false
+#   }
+```
+
+**Reading the estimate:**
+
+- **`estimated_cost_usd`** prices the would-be fetch the same way `Ai::CostAttribution` prices a real one: when the source declares `configuration["cost_per_request_usd"]` / `cost_per_gb_usd`, it uses `per_request + per_gb * avg_GB` (the GB term from the **average historical transfer size** over the last `DRY_RUN_HISTORY_SAMPLE = 20` successful, **non-cached** queries for that endpoint). With no cost config it falls back to the average historical `actual_cost_usd`, and finally to `0.0` on a cold source with neither config nor history.
+- **`estimated_rows`** is the average `rows_returned` over those same recent non-cached successes; `nil` on a cold endpoint. (Note: a transform pipeline that explodes/filters means the *live* row count may differ — the estimate reflects historical post-transform counts.)
+- **`would_fetch` / `cache_hit_available`** — `cache_hit_available:true` (so `would_fetch:false`) means a **fresh** (not-hard-expired) cache entry exists right now, so a live call would be served from cache and incur **no** upstream cost. The probe uses `ResponseCacheService.read_stale` (not `read`) specifically so it reads the `hard_expired` flag **without** counting a hit/miss in the cache metrics — a dry-run never pollutes the hit-rate.
+- A cold source (no history) still returns a well-formed estimate with `estimated_cost_usd: 0.0` / `estimated_rows: nil` — absence of history degrades gracefully, it does not error.
+
+Use it as a gate: dry-run an endpoint, read `estimated_cost_usd` × your expected call volume, and decide whether to set `is_active: true` / grant agents access. Because dry-run runs the **governance gate**, it also doubles as a cheap "would this principal even be allowed?" probe — a `blocked` envelope (not a `dry_run` one) means the read is denied before cost is ever a question.
+
+### Cache-tag invalidation operations
+
+Every cached response is **tag-addressable**. On write, `ResponseCacheService` indexes each entry's cache key into one or more **surrogate-key** Redis SETs (`data_source_cache:tag:<tag>`), so a whole tag can be invalidated in one shot without a keyspace SCAN. When the writer supplies no explicit tags, the entry is auto-tagged with `default_tags` so **every** entry is reachable by:
+
+- **`ds:<data_source_id>`** — every cached entry for the source,
+- **`endpoint:<endpoint_id>`** — every entry for one endpoint (across param variants),
+- **`slug:<endpoint_slug>`** — same endpoint, addressed by slug.
+
+**Two invalidation surfaces:**
+
+- **By tag** — `ResponseCacheService.invalidate_by_tag(tag)` deletes every cache key recorded in that tag's SET, then drops the (now-stale) index SET. Returns the count invalidated (the index SET's own deletion is not counted). A blank/unknown tag invalidates nothing and returns `0`.
+- **By scope** (prefix delete, SCAN-based) — `ResponseCacheService.invalidate(data_source:, endpoint:)`: with an endpoint it clears that endpoint's variants (`data_source_cache:<ds_id>:<slug>:*`); with the source alone it clears **all** of the source's entries (`data_source_cache:<ds_id>:*`).
+
+**The `data_source_invalidate_cache` MCP action** drives both. It is an **operational write** gated by **`ai.data_sources.update`** (`ai.data_sources.manage` also satisfies it). Unlike the model-mutation actions (create/update/delete), it does **not** file a proposal when unauthorized — it **hard-denies**, because invalidation is idempotent and fully recoverable (the next fetch just re-populates). Precedence: **a `tag` takes priority over scope**; otherwise `data_source_id` (+ optional `endpoint_id`) selects the scope.
+
+```bash
+#   platform.data_source_invalidate_cache  tag: "endpoint:<endpoint_id>"
+#     → { scope: "tag", tag: ..., invalidated: <n> }     # one endpoint, all variants
+#
+#   platform.data_source_invalidate_cache  data_source_id: ":id"  endpoint_id: ":ep"
+#     → { scope: "endpoint", invalidated: <n> }           # scope (prefix) delete
+#
+#   platform.data_source_invalidate_cache  data_source_id: ":id"
+#     → { scope: "data_source", invalidated: <n> }        # whole source
+```
+
+The most common trigger is the transform-config change above: after editing an endpoint's `transforms`, invalidate `endpoint:<endpoint_id>` (or scope by that endpoint) so the stale-shaped entries are dropped and the next fetch re-runs the pipeline and re-caches the new shape.
+
+**Tags self-expire — invalidation is a fast-path, not the only cleanup.** A tag index SET is **not** permanent: `index_tags` arms each SET's TTL to at least as long as the longest-lived entry it points at (`ttl_seconds + grace`, the SWR/SIE grace window included), and only ever *extends* that TTL on later writes (never shortens an existing longer one). So even with **no** explicit invalidation, every cached entry — and its tag membership — lapses on its own once the TTL (and any grace window) elapses. `invalidate_by_tag` simply drops them **immediately** rather than waiting. (Stale set members that point at already-expired cache keys are harmless: deleting an absent key is a no-op, and the SET itself expires.)
+
+**Fail-open, like the rest of the cache.** Tag *indexing* is best-effort and isolated from the payload write — a SADD/EXPIRE failure logs `[ResponseCache] tag indexing skipped` and never fails the cache write. `invalidate_by_tag` is likewise fail-open: a Redis error logs `[ResponseCache] invalidate_by_tag failed` and returns `0` rather than raising.
+
+```bash
+# Inspect the tag index (key names are non-secret; values are cache keys, also non-secret).
+redis-cli --scan --pattern 'data_source_cache:tag:*'
+
+# Which cache keys does a tag currently point at, and when does the index SET lapse?
+redis-cli SMEMBERS 'data_source_cache:tag:endpoint:<endpoint_id>'
+redis-cli TTL     'data_source_cache:tag:endpoint:<endpoint_id>'
+```
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| `data_source_invalidate_cache` returns `permission_denied` | Caller lacks `ai.data_sources.update` (and `.manage`) | Grant `ai.data_sources.update`; this action hard-denies (no proposal fallback) by design |
+| `invalidated: 0` for a tag you expected to hit | Blank/unknown tag, the tag already self-expired, or the entries were never written under it | Confirm the tag name (`ds:<id>` / `endpoint:<id>` / `slug:<slug>`); `SMEMBERS` the tag SET; remember every entry is auto-tagged with the defaults |
+| Old shape still served right after editing `transforms` | The transformed payload is cached pre-transform-change | Invalidate `endpoint:<endpoint_id>` (or scope by endpoint); next fetch re-runs the pipeline |
+| Tag SETs accumulating in Redis | Normal — they self-expire with their entries (`ttl + grace`) | No action; `invalidate_by_tag` is only needed for *immediate* eviction, not cleanup |
 
 ## Discovery & effectiveness (Phase 2a)
 
@@ -1185,6 +1322,12 @@ curl -X PATCH \
 | Service — Governance (Phase 4b-2b) | `server/app/services/ai/data_sources/governance_service.rb` (`#authorize` — ABAC `Ai::AgentPrivilegePolicy` + compliance `Ai::CompliancePolicy` `data_access`; `#mask_records` via `Ai::Security::PiiRedactionService`; fail-open on infra / deny on explicit; `RESOURCE_PREFIX`, `MAX_MASKED_VALUES = 50_000`) |
 | Model — Policy violation | `server/app/models/ai/policy_violation.rb` (`.for_source(type, id)`, `.open`/`.recent`; `resolve!`/`dismiss!`) recorded by `Ai::CompliancePolicy#record_violation!` on a blocking compliance deny |
 | QueryService governance wiring (Phase 4b-2b) | `server/app/services/ai/data_sources/query_service.rb` (`#governance_authorize`, `#blocked_by_governance_envelope` — `provenance.policy_decision` + `governance_blocked` anomaly; `#mask_response_records` — `provenance.masking_applied`/`masked_field_count`; cache holds RAW, masking per-request) |
+| Service — Transform pipeline (Phase 4b-3a) | `server/app/services/ai/data_sources/transform_service.rb` (`.new(config).apply(records)`; ordered `flatten`/`unnest`(alias `explode`)/`select`(alias `project`)/`rename`/`computed` pipeline; whitelisted `computed` interpreter — NO eval/send; `MAX_RECORDS = 50_000`, `MAX_FLATTEN_DEPTH = 32`, `MAX_PIPELINE_STEPS = 100`; pure/stateless, fully rescued — blank `{}` == passthrough) |
+| Model — Endpoint transforms (Phase 4b-3a) | `server/app/models/ai/data_source_endpoint.rb` (`transforms` jsonb default `{}`; `transforms?` predicate — non-empty `"pipeline"` == ON, blank == OFF) |
+| QueryService transform + dry-run wiring (Phase 4b-3a) | `server/app/services/ai/data_sources/query_service.rb` (transform: `#apply_transforms`/`#transforms_enabled?` run post-normalize/pre-cache, set `provenance[:transforms_applied]` + `transform_error` anomaly; dry-run: `dry_run:` ctor flag, `STATUS_DRY_RUN`, `#dry_run_envelope`/`#build_cost_estimate`/`#cache_hit_available?` via `read_stale`/`#recent_query_stats` (`DRY_RUN_HISTORY_SAMPLE = 20`)/`#estimated_cost_usd` — short-circuits after kill/quota/governance, no side effects) |
+| Cache tag invalidation (Phase 4b-3a) | `server/app/services/ai/data_sources/response_cache_service.rb` (`TAG_NAMESPACE = "data_source_cache:tag"`, `.invalidate_by_tag`, `.default_tags` — `ds:`/`endpoint:`/`slug:`; `#index_tags` on write — TTL `ttl+grace`, extend-only, self-expiring; fail-open) |
+| MCP cache-invalidation action (Phase 4b-3a) | `server/app/services/ai/tools/data_source_tool.rb` (`data_source_invalidate_cache` — `INVALIDATE_CACHE_PERMISSION = "ai.data_sources.update"` or `.manage`; hard-deny (no proposal); `tag` > scope precedence; `#invalidate_cache`) registered in `platform_api_tool_registry.rb` |
+| Migration (Phase 4b-3a) | `server/db/migrate/20260607000000_add_transforms_to_ai_data_source_endpoints.rb` (adds `ai_data_source_endpoints.transforms` jsonb default `{}`; no index — config blob read with its endpoint row) |
 | Model — Schema version (Phase 2b) | `server/app/models/ai/data_source_schema_version.rb` (`CLASSIFICATIONS`; `for_endpoint`/`ordered`/`latest_first`/`breaking`) |
 | Model — Quality expectation (Phase 2b) | `server/app/models/ai/data_source_expectation.rb` (`RULE_TYPES`, `SEVERITIES`; `active`/`errors`) |
 | Model — KG node | `server/app/models/ai/knowledge_graph_node.rb` (`data_source` entity type, `.data_source_nodes`, `.for_data_source`) |
@@ -1229,4 +1372,4 @@ curl -X PATCH \
 
 - `docs/platform/DATA_SOURCES.md`
 
-_Last verified: 2026-06-06 (Phase 4b-2b query-time governance + outbound mTLS added)_
+_Last verified: 2026-06-06 (Phase 4b-3a retrieval transforms + dry-run cost estimates + cache-tag invalidation added)_
