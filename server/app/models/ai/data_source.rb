@@ -21,7 +21,12 @@ module Ai
             foreign_key: "ai_data_source_id", dependent: :nullify
 
     # Constants
-    SOURCE_TYPES = %w[noaa_ncei noaa_gfs noaa_observations open_meteo fred yahoo_finance espn newsapi custom].freeze
+    # source_type is now a free-form, generic label — NOT an enforced enum. This
+    # list is UI guidance only (preset/autocomplete hints), so a brand-new source
+    # type can be created without a code change. Keep SOURCE_TYPES as a backward-
+    # compatible alias so existing references (presets, tests, callers) keep working.
+    SUGGESTED_SOURCE_TYPES = %w[noaa_ncei noaa_gfs noaa_observations open_meteo fred yahoo_finance espn newsapi custom].freeze
+    SOURCE_TYPES = SUGGESTED_SOURCE_TYPES
     HEALTH_STATUSES = %w[healthy degraded critical unknown].freeze
 
     # Validations
@@ -30,9 +35,19 @@ module Ai
     validates :slug, presence: true, length: { maximum: 100 },
               uniqueness: { scope: :account_id },
               format: { with: /\A[a-z0-9_-]+\z/, message: "must be lowercase alphanumeric with hyphens/underscores" }
-    validates :source_type, presence: true, inclusion: { in: SOURCE_TYPES }
+    # source_type is generic: any lowercase token is accepted (no inclusion in
+    # SUGGESTED_SOURCE_TYPES). Presence + a lowercase format check keep tokens
+    # normalized for the by_type scope / KG sync without constraining the set.
+    validates :source_type, presence: true, length: { maximum: 50 },
+              format: { with: /\A[a-z0-9_-]+\z/, message: "must be lowercase alphanumeric with hyphens/underscores" }
+    validates :category, length: { maximum: 100 }, allow_nil: true
     validates :priority_order, numericality: { greater_than: 0 }
     validates :health_status, inclusion: { in: HEALTH_STATUSES }, allow_nil: true
+
+    # Free-form grouping for the generic source model (e.g. "weather",
+    # "finance"). Nullable — declared explicitly so the by_category scope and
+    # form binding see a typed attribute.
+    attribute :category, :string
 
     # JSON column defaults (lambda required for mutable defaults)
     attribute :capabilities, :json, default: -> { [] }
@@ -49,6 +64,7 @@ module Ai
     # Scopes
     scope :active, -> { where(is_active: true) }
     scope :by_type, ->(type) { where(source_type: type) }
+    scope :by_category, ->(category) { where(category: category) }
     scope :for_account, ->(account) { where(account: account) }
     scope :ordered_by_priority, -> { order(:priority_order, :name) }
     scope :requiring_auth, -> { where(requires_auth: true) }

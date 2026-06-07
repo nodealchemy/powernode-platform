@@ -46,6 +46,9 @@ module Ai
     attribute :response_schema, :json, default: -> { {} }
     attribute :metadata, :json, default: -> { {} }
     attribute :contract, :json, default: -> { {} }
+    # Outbound pagination config consumed by the REST adapter / QueryService.
+    # Blank ({}) == OFF (single request, unchanged behavior).
+    attribute :pagination, :json, default: -> { {} }
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }
