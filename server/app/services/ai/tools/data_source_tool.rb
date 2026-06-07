@@ -637,6 +637,7 @@ module Ai
           next_poll_at: subscription.next_poll_at&.iso8601,
           last_polled_at: subscription.last_polled_at&.iso8601,
           last_checksum: subscription.last_checksum,
+          sync_cursor: subscription.sync_cursor,
           consecutive_failures: subscription.consecutive_failures,
           agent_id: subscription.ai_agent_id
         }

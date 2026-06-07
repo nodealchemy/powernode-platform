@@ -244,6 +244,7 @@ module Api
           params.require(:data_source).permit(
             :name, :slug, :source_type, :category, :protocol, :description, :api_base_url,
             :is_active, :requires_auth, :priority_order, :documentation_url,
+            :respect_robots, :crawl_delay_seconds,
             capabilities: [],
             configuration: {},
             rate_limits: {},

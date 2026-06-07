@@ -17,6 +17,8 @@ module Ai
         protocol: ds.protocol,
         is_active: ds.is_active,
         requires_auth: ds.requires_auth,
+        respect_robots: ds.respect_robots,
+        crawl_delay_seconds: ds.crawl_delay_seconds,
         api_base_url: ds.api_base_url,
         priority_order: ds.priority_order,
         capabilities: ds.capabilities,
@@ -103,6 +105,7 @@ module Ai
         response_schema: ep.response_schema,
         metadata: ep.metadata,
         pagination: ep.pagination,
+        incremental: ep.incremental,
         created_at: ep.created_at&.iso8601,
         updated_at: ep.updated_at&.iso8601
       }

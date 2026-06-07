@@ -225,6 +225,7 @@ module Ai
         last_polled_at: subscription.last_polled_at&.iso8601,
         last_checksum: subscription.last_checksum,
         last_etag: subscription.last_etag,
+        sync_cursor: subscription.sync_cursor,
         consecutive_failures: subscription.consecutive_failures,
         agent_id: subscription.ai_agent_id
       }
@@ -383,7 +384,8 @@ module Ai
         response_mapping: {},
         response_schema: {},
         metadata: {},
-        pagination: {}
+        pagination: {},
+        incremental: {}
       )
     end
 
