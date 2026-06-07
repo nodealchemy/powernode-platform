@@ -630,6 +630,152 @@ RSpec.describe Ai::DataSources::QueryService, type: :service do
   end
 
   # ==========================================================================
+  # Phase 3 — stale-if-error: on a transient upstream fault, serve the
+  # last-known-good cached payload (flagged) within endpoint.stale_if_error_seconds.
+  #
+  # The live fetch is forced to fail (timeout / 5xx) at the stubbed HTTP boundary;
+  # ResponseCacheService.read_stale is stubbed to hand back a hard-expired
+  # last-known-good descriptor so the substitution is deterministic and hermetic.
+  # ==========================================================================
+  describe "stale-if-error" do
+    # A hard-expired last-known-good descriptor, as read_stale would return for an
+    # entry that has passed its hard TTL but is still inside the grace window.
+    let(:stale_descriptor) do
+      {
+        payload: {
+          "data" => [{ "city" => "NYC", "temp" => 70 }],
+          "provenance" => { "fetched_at" => 10.minutes.ago.utc.iso8601, "anomalies" => [] }
+        },
+        stale: true,
+        hard_expired: true,
+        age_seconds: 600,
+        stale_age_seconds: 120
+      }
+    end
+
+    describe "with endpoint.stale_if_error_seconds set and a prior cached value" do
+      before { endpoint.update!(stale_if_error_seconds: 3600) }
+
+      it "serves the last-known-good payload (flagged) on an upstream timeout" do
+        stub_http(error: Faraday::TimeoutError.new("execution expired"))
+        allow(Ai::DataSources::ResponseCacheService).to receive(:read_stale)
+          .with(hash_including(data_source: data_source, endpoint: endpoint))
+          .and_return(stale_descriptor)
+
+        envelope = service.call
+
+        # The transient failure is swapped for the cached good batch.
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:status]).to eq("cached")
+        expect(envelope[:data]).to eq([{ "city" => "NYC", "temp" => 70 }])
+        expect(envelope[:provenance][:from_cache]).to be(true)
+        expect(envelope[:provenance][:stale_if_error]).to be(true)
+        expect(envelope[:provenance][:served_on_error]).to eq("timeout")
+        expect(envelope[:provenance][:anomalies]).to include("stale_if_error")
+      end
+
+      it "serves the last-known-good payload on a 5xx upstream error" do
+        stub_http(response: FakeResponse.new(status: 503, body: "down",
+                                             headers: { "content-type" => "text/plain" }))
+        allow(Ai::DataSources::ResponseCacheService).to receive(:read_stale)
+          .and_return(stale_descriptor)
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:status]).to eq("cached")
+        expect(envelope[:provenance][:served_on_error]).to eq("error")
+      end
+
+      it "persists the degraded serve with served_stage 'stale_if_error' (cached:true)" do
+        stub_http(error: Faraday::TimeoutError.new("execution expired"))
+        allow(Ai::DataSources::ResponseCacheService).to receive(:read_stale)
+          .and_return(stale_descriptor)
+
+        service.call
+        row = Ai::DataSourceQuery.order(created_at: :desc).first
+
+        expect(row.status).to eq("cached")
+        expect(row.served_stage).to eq("stale_if_error")
+        expect(row.cached).to be(true)
+      end
+
+      it "does NOT re-write the cache on a stale-if-error serve" do
+        stub_http(error: Faraday::TimeoutError.new("execution expired"))
+        allow(Ai::DataSources::ResponseCacheService).to receive(:read_stale)
+          .and_return(stale_descriptor)
+        expect(Ai::DataSources::ResponseCacheService).not_to receive(:write)
+
+        service.call
+      end
+
+      it "passes the error through unchanged when the stale entry is still FRESH (not hard-expired)" do
+        stub_http(error: Faraday::TimeoutError.new("execution expired"))
+        # A non-expired entry would have satisfied the cache layer; if we are here
+        # with a fresh entry the failure is unrelated to staleness — surface it.
+        allow(Ai::DataSources::ResponseCacheService).to receive(:read_stale)
+          .and_return(stale_descriptor.merge(hard_expired: false, stale: false, stale_age_seconds: 0))
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(false)
+        expect(envelope[:status]).to eq("timeout")
+      end
+
+      it "passes the error through when the stale entry is older than the window" do
+        endpoint.update!(stale_if_error_seconds: 60) # window shorter than the entry's stale age (120s)
+        stub_http(error: Faraday::TimeoutError.new("execution expired"))
+        allow(Ai::DataSources::ResponseCacheService).to receive(:read_stale)
+          .and_return(stale_descriptor) # stale_age_seconds: 120 > 60
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(false)
+        expect(envelope[:status]).to eq("timeout")
+      end
+
+      it "does NOT serve stale on a policy rejection (blocked) — only transient faults qualify" do
+        # SSRF/egress rejection maps to STATUS_BLOCKED, which is excluded from the
+        # stale-if-error statuses; the block must surface, not be masked by stale data.
+        stub_http(error: Ai::DataSources::HttpConnectionFactory::SsrfError.new("blocked host"))
+        allow(Ai::DataSources::ResponseCacheService).to receive(:read_stale)
+          .and_return(stale_descriptor)
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(false)
+        expect(envelope[:status]).to eq("blocked")
+      end
+    end
+
+    describe "with stale_if_error_seconds nil (OFF)" do
+      it "returns the error envelope unchanged and never consults read_stale" do
+        # Default endpoint has stale_if_error_seconds nil.
+        stub_http(error: Faraday::TimeoutError.new("execution expired"))
+        expect(Ai::DataSources::ResponseCacheService).not_to receive(:read_stale)
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(false)
+        expect(envelope[:status]).to eq("timeout")
+        expect(envelope[:error]).to be_present
+        expect(envelope[:provenance]).not_to have_key(:stale_if_error)
+      end
+
+      it "returns a 5xx error envelope unchanged" do
+        stub_http(response: FakeResponse.new(status: 503, body: "down",
+                                             headers: { "content-type" => "text/plain" }))
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(false)
+        expect(envelope[:status]).to eq("error")
+        expect(envelope[:provenance][:anomalies]).to include("http_503")
+      end
+    end
+  end
+
+  # ==========================================================================
   # Phase 2b — OPT-IN observability stages (schema drift, quality, quarantine)
   #
   # apply_observability_stages runs AFTER normalization, behind three endpoint

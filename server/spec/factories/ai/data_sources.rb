@@ -132,6 +132,56 @@ FactoryBot.define do
     end
   end
 
+  # Ai::DataSourceSubscription — a pull-based subscription to an endpoint with a
+  # poll cadence. The Phase 3 MonitorService walks #due_for_poll subscriptions,
+  # runs the governed QueryService fetch, change-detects against last_checksum /
+  # last_etag, and records the outcome. before_create seeds next_poll_at for any
+  # non-manual cadence so a freshly built subscription is immediately due.
+  factory :ai_data_source_subscription, class: "Ai::DataSourceSubscription" do
+    association :data_source, factory: :ai_data_source
+    endpoint do
+      association(:ai_data_source_endpoint, data_source: data_source)
+    end
+    poll_frequency { "hourly" }
+    status { "active" }
+    consecutive_failures { 0 }
+    params { {} }
+    metadata { {} }
+
+    trait :paused do
+      status { "paused" }
+      next_poll_at { nil }
+    end
+
+    trait :error do
+      status { "error" }
+    end
+
+    trait :realtime do
+      poll_frequency { "realtime" }
+    end
+
+    trait :manual do
+      poll_frequency { "manual" }
+    end
+
+    # Already due: next_poll_at in the past so #due_for_poll picks it up even if a
+    # spec leans on explicit scheduling rather than the before_create seed.
+    trait :due do
+      next_poll_at { 1.minute.ago }
+    end
+
+    trait :not_due do
+      next_poll_at { 1.hour.from_now }
+    end
+
+    # A prior successful poll fingerprint so change-detection has a baseline to
+    # compare the next fetch against.
+    trait :with_checksum do
+      last_checksum { "a" * 64 }
+    end
+  end
+
   # Ai::DataSourceExpectation — a data-quality rule evaluated by QualityService
   # over an endpoint's canonical records. rule_type must be one of RULE_TYPES and
   # severity one of SEVERITIES; only ERROR-severity failures fail the batch.

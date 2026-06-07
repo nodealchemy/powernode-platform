@@ -337,4 +337,239 @@ RSpec.describe Ai::DataSources::ResponseCacheService, type: :service do
       expect(described_class::REDIS_NAMESPACE).to eq("data_source_cache")
     end
   end
+
+  # ==========================================================================
+  # Phase 3 — stale-while-revalidate (SWR) / stale-if-error grace window
+  #
+  # write/fetch keep the Redis key alive past its HARD expiry by
+  # grace_window = max(stale_while_revalidate_seconds, stale_if_error_seconds)
+  # while preserving the hard-expiry epoch ("e"). read_stale exposes that as a
+  # flagged descriptor; fetch serves a hard-expired-but-in-grace entry (flagged)
+  # and kicks off a single background refresh. With BOTH stale_* columns nil the
+  # grace window is 0 and the legacy behaviour is byte-for-byte preserved.
+  # ==========================================================================
+  describe "stale-while-revalidate" do
+    # The single cached key currently live in the fake (there is exactly one
+    # data_source_cache entry per param-variant). Returns [key, parsed_envelope].
+    def stored_cache_entry
+      # Match a payload entry, NOT the metrics/lock keys that share the namespace
+      # prefix (data_source_cache:metrics / :lock) — those hold integers, not JSON.
+      key = fake_redis.instance_variable_get(:@data).keys
+                      .find { |k| k.start_with?("#{described_class::REDIS_NAMESPACE}:") &&
+                                  !k.start_with?("#{described_class::METRICS_NAMESPACE}:") &&
+                                  !k.start_with?("#{described_class::LOCK_NAMESPACE}:") }
+      return [nil, nil] unless key
+
+      [key, JSON.parse(fake_redis.get(key))]
+    end
+
+    # Rewrite the stored entry's HARD-expiry epoch ("e") to `seconds_ago` in the
+    # past (delta forced to 0 so the XFetch early-refresh roll never fires),
+    # leaving the Redis key itself live — i.e. exactly the state of an entry that
+    # has passed its hard TTL but is still inside the grace window.
+    def expire_hard!(seconds_ago:)
+      key, env = stored_cache_entry
+      raise "no cached entry to expire" unless key
+
+      env["e"] = ((Time.now.to_f - seconds_ago) * 1000).to_i
+      env["d"] = 0.0
+      fake_redis.set(key, env.to_json)
+    end
+
+    describe ".read_stale" do
+      it "returns nil on a miss" do
+        expect(
+          described_class.read_stale(data_source: data_source, endpoint: endpoint)
+        ).to be_nil
+      end
+
+      it "returns a fresh (not stale) descriptor while within the hard TTL" do
+        described_class.write(
+          data_source: data_source, endpoint: endpoint, payload: { "v" => 1 }, ttl: 120
+        )
+
+        desc = described_class.read_stale(data_source: data_source, endpoint: endpoint)
+
+        expect(desc[:payload]).to eq({ "v" => 1 })
+        expect(desc[:stale]).to be(false)
+        expect(desc[:hard_expired]).to be(false)
+        expect(desc[:age_seconds]).to be >= 0
+        expect(desc[:stale_age_seconds]).to eq(0)
+      end
+
+      it "returns a stale/hard_expired descriptor with the elapsed-past-expiry age once past the hard TTL" do
+        endpoint.update!(stale_if_error_seconds: 600) # keep the key alive past hard expiry
+        described_class.write(
+          data_source: data_source, endpoint: endpoint, payload: { "v" => "lkg" }, ttl: 120
+        )
+        expire_hard!(seconds_ago: 90) # 90s past the hard expiry, still in the 600s grace window
+
+        desc = described_class.read_stale(data_source: data_source, endpoint: endpoint)
+
+        expect(desc[:payload]).to eq({ "v" => "lkg" })
+        expect(desc[:stale]).to be(true)
+        expect(desc[:hard_expired]).to be(true)
+        # stale_age is measured from the moment the entry went stale (past hard expiry).
+        expect(desc[:stale_age_seconds]).to be_within(2).of(90)
+        expect(desc[:age_seconds]).to be >= desc[:stale_age_seconds]
+      end
+
+      it "does NOT move the hit/miss metrics (side-channel read)" do
+        described_class.write(
+          data_source: data_source, endpoint: endpoint, payload: { "v" => 1 }, ttl: 120
+        )
+
+        described_class.read_stale(data_source: data_source, endpoint: endpoint)
+
+        expect(described_class.metrics).to include(hits: 0, misses: 0)
+      end
+    end
+
+    describe ".fetch with stale_while_revalidate_seconds set" do
+      before { endpoint.update!(stale_while_revalidate_seconds: 600) }
+
+      it "extends the Redis TTL by the grace window while keeping the hard-expiry epoch" do
+        captured_ttl = nil
+        allow(fake_redis).to receive(:setex).and_wrap_original do |orig, key, ttl, value|
+          captured_ttl = ttl
+          orig.call(key, ttl, value)
+        end
+
+        described_class.fetch(data_source: data_source, endpoint: endpoint) { { "v" => 1 } }
+
+        # Redis key lives for hard TTL (120) + grace window (600).
+        expect(captured_ttl).to eq(120 + 600)
+
+        # ...but the stored HARD-expiry epoch is only ~hard-TTL out, so read_stale
+        # still flips to stale at the hard boundary, not the extended one.
+        _key, env = stored_cache_entry
+        hard_ttl_remaining_ms = env["e"] - (Time.now.to_f * 1000).to_i
+        expect(hard_ttl_remaining_ms).to be <= 120_000
+        expect(hard_ttl_remaining_ms).to be > 0
+      end
+
+      it "serves a hard-expired-but-in-grace entry (flagged) and schedules ONE background refresh" do
+        # Stub the detached refresh so the spec stays hermetic (no Thread/DB work).
+        allow(described_class).to receive(:schedule_background_refresh)
+
+        # Seed an entry, then push it past its hard expiry (still inside grace).
+        described_class.write(
+          data_source: data_source, endpoint: endpoint, payload: { "stale" => "value" }, ttl: 120
+        )
+        expire_hard!(seconds_ago: 30)
+
+        recompute_calls = 0
+        served = described_class.fetch(data_source: data_source, endpoint: endpoint) do
+          recompute_calls += 1
+          { "fresh" => "value" }
+        end
+
+        # The stale value is served WITHOUT recomputing in the caller's path...
+        expect(served).to eq({ "stale" => "value" })
+        expect(recompute_calls).to eq(0)
+        # ...and exactly one background refresh is kicked off to repopulate it.
+        expect(described_class).to have_received(:schedule_background_refresh)
+          .with(data_source, endpoint, {}).once
+      end
+
+      it "counts the stale serve as a hit (not a miss)" do
+        allow(described_class).to receive(:schedule_background_refresh)
+        described_class.write(
+          data_source: data_source, endpoint: endpoint, payload: { "stale" => "value" }, ttl: 120
+        )
+        expire_hard!(seconds_ago: 30)
+        described_class.reset_metrics!
+
+        described_class.fetch(data_source: data_source, endpoint: endpoint) { { "fresh" => 1 } }
+
+        expect(described_class.metrics).to include(hits: 1, misses: 0)
+      end
+    end
+
+    describe "schedule_background_refresh" do
+      before { endpoint.update!(stale_while_revalidate_seconds: 600) }
+
+      it "invokes MonitorService#refresh! for the served param-variant under an NX lock" do
+        monitor = instance_double(Ai::DataSources::MonitorService)
+        allow(Ai::DataSources::MonitorService).to receive(:new).and_return(monitor)
+        # The detached refresh runs on a Thread; capture it so the spec can join.
+        allow(monitor).to receive(:refresh!).and_return(true)
+        captured_thread = nil
+        allow(Thread).to receive(:new) do |&blk|
+          captured_thread = Thread.start(&blk)
+          captured_thread
+        end
+
+        described_class.write(
+          data_source: data_source, endpoint: endpoint, payload: { "stale" => "v" }, ttl: 120
+        )
+        expire_hard!(seconds_ago: 30)
+
+        described_class.fetch(data_source: data_source, endpoint: endpoint) { { "fresh" => 1 } }
+        captured_thread&.join(2)
+
+        expect(monitor).to have_received(:refresh!)
+          .with(data_source: data_source, endpoint: endpoint, params: {})
+      end
+
+      it "schedules only ONE background refresh per key while the NX lock is held" do
+        monitor = instance_double(Ai::DataSources::MonitorService)
+        allow(Ai::DataSources::MonitorService).to receive(:new).and_return(monitor)
+        # Hold the refresh open so the NX refresh-lock stays taken across both serves.
+        gate = Queue.new
+        allow(monitor).to receive(:refresh!) { gate.pop; true }
+        threads = []
+        allow(Thread).to receive(:new) { |&blk| t = Thread.start(&blk); threads << t; t }
+
+        described_class.write(
+          data_source: data_source, endpoint: endpoint, payload: { "stale" => "v" }, ttl: 120
+        )
+        expire_hard!(seconds_ago: 30)
+
+        2.times do
+          described_class.fetch(data_source: data_source, endpoint: endpoint) { { "fresh" => 1 } }
+        end
+
+        gate << :go # release the (single) refresher
+        threads.each { |t| t.join(2) }
+
+        # Two stale serves, but the NX refresh-lock collapses them to one refresh.
+        expect(monitor).to have_received(:refresh!).once
+      end
+    end
+
+    describe ".fetch with BOTH stale_* nil (legacy / OFF)" do
+      # endpoint has cache_ttl_seconds 120 and neither stale_* column set.
+      it "writes with a Redis TTL equal to the hard TTL (no grace window)" do
+        captured_ttl = nil
+        allow(fake_redis).to receive(:setex).and_wrap_original do |orig, key, ttl, value|
+          captured_ttl = ttl
+          orig.call(key, ttl, value)
+        end
+
+        described_class.fetch(data_source: data_source, endpoint: endpoint) { { "v" => 1 } }
+
+        expect(captured_ttl).to eq(120) # hard TTL only — grace window is 0
+      end
+
+      it "treats a hard-expired entry as a miss and recomputes (never serves stale)" do
+        expect(described_class).not_to receive(:schedule_background_refresh)
+
+        described_class.write(
+          data_source: data_source, endpoint: endpoint, payload: { "stale" => "value" }, ttl: 120
+        )
+        expire_hard!(seconds_ago: 30)
+
+        recompute_calls = 0
+        served = described_class.fetch(data_source: data_source, endpoint: endpoint) do
+          recompute_calls += 1
+          { "fresh" => "value" }
+        end
+
+        # SWR off -> the hard-expired entry is NOT served; the block recomputes.
+        expect(served).to eq({ "fresh" => "value" })
+        expect(recompute_calls).to eq(1)
+      end
+    end
+  end
 end

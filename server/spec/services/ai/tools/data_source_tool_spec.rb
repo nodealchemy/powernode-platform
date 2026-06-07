@@ -43,7 +43,7 @@ RSpec.describe Ai::Tools::DataSourceTool do
   end
 
   describe ".action_definitions" do
-    it "exposes all sixteen data-source actions" do
+    it "exposes all eighteen data-source actions" do
       keys = described_class.action_definitions.keys
       expect(keys).to contain_exactly(
         "data_source_list", "data_source_get", "data_source_describe",
@@ -51,7 +51,8 @@ RSpec.describe Ai::Tools::DataSourceTool do
         "data_source_create", "data_source_update", "data_source_delete",
         "data_source_discover", "data_source_provenance", "data_source_impact",
         "data_source_schema_history", "data_source_quality",
-        "data_source_contract", "data_source_introspect"
+        "data_source_contract", "data_source_introspect",
+        "data_source_subscribe", "data_source_unsubscribe"
       )
     end
   end
@@ -958,6 +959,231 @@ RSpec.describe Ai::Tools::DataSourceTool do
 
       expect(result[:success]).to be true
       expect(result[:data][:dry_run]).to be true
+    end
+  end
+
+  # ------------------------------------------------------------------------
+  # data_source_subscribe — create/update a pull-based subscription (Phase 3).
+  # Stream-gated (ai.data_sources.stream); idempotent on the (source, endpoint)
+  # pair via find_or_initialize. No outbound fetch — the monitor loop is server-
+  # side and out of scope here.
+  # ------------------------------------------------------------------------
+
+  describe "#execute data_source_subscribe" do
+    it "creates a subscription and returns the summary (no-agent => fail-open)" do
+      result = nil
+      expect do
+        result = tool.execute(params: {
+          action: "data_source_subscribe", data_source_id: "open-meteo",
+          endpoint_id: "forecast", poll_frequency: "5min"
+        })
+      end.to change { data_source.subscriptions.count }.by(1)
+
+      expect(result[:success]).to be true
+      expect(result[:data][:message]).to eq("Subscription created")
+      sub = result[:data][:subscription]
+      expect(sub).to include(
+        :id, :data_source_id, :endpoint_id, :poll_frequency, :status,
+        :params, :next_poll_at, :last_polled_at, :last_checksum,
+        :consecutive_failures, :agent_id
+      )
+      expect(sub[:data_source_id]).to eq(data_source.id)
+      expect(sub[:endpoint_id]).to eq(endpoint.id)
+      expect(sub[:poll_frequency]).to eq("5min")
+      expect(sub[:status]).to eq("active")
+      expect(sub[:next_poll_at]).to be_present
+    end
+
+    it "defaults the cadence to hourly when poll_frequency is omitted" do
+      result = tool.execute(params: {
+        action: "data_source_subscribe", data_source_id: "open-meteo", endpoint_id: "forecast"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:subscription][:poll_frequency]).to eq("hourly")
+    end
+
+    it "persists per-poll params" do
+      result = tool.execute(params: {
+        action: "data_source_subscribe", data_source_id: "open-meteo", endpoint_id: "forecast",
+        poll_frequency: "hourly", params: { "latitude" => 40.7 }
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:subscription][:params]).to eq("latitude" => 40.7)
+    end
+
+    it "is idempotent on the (source, endpoint) pair — a second subscribe updates, not duplicates" do
+      first = tool.execute(params: {
+        action: "data_source_subscribe", data_source_id: "open-meteo",
+        endpoint_id: "forecast", poll_frequency: "hourly"
+      })
+      created_id = first[:data][:subscription][:id]
+
+      result = nil
+      expect do
+        result = tool.execute(params: {
+          action: "data_source_subscribe", data_source_id: "open-meteo",
+          endpoint_id: "forecast", poll_frequency: "daily"
+        })
+      end.not_to change { data_source.subscriptions.count }
+
+      expect(result[:success]).to be true
+      expect(result[:data][:message]).to eq("Subscription updated")
+      expect(result[:data][:subscription][:id]).to eq(created_id)
+      expect(result[:data][:subscription][:poll_frequency]).to eq("daily")
+    end
+
+    it "errors on an invalid poll_frequency without creating a subscription" do
+      result = nil
+      expect do
+        result = tool.execute(params: {
+          action: "data_source_subscribe", data_source_id: "open-meteo",
+          endpoint_id: "forecast", poll_frequency: "every_blue_moon"
+        })
+      end.not_to change { data_source.subscriptions.count }
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/poll_frequency/i)
+    end
+
+    it "surfaces a not-found error for an unknown endpoint" do
+      result = tool.execute(params: {
+        action: "data_source_subscribe", data_source_id: "open-meteo", endpoint_id: "ghost"
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/not found/i)
+    end
+  end
+
+  # ------------------------------------------------------------------------
+  # data_source_unsubscribe — remove a subscription (Phase 3, stream-gated)
+  # ------------------------------------------------------------------------
+
+  describe "#execute data_source_unsubscribe" do
+    let!(:subscription) do
+      data_source.subscriptions.create!(endpoint: endpoint, poll_frequency: "hourly", status: "active")
+    end
+
+    it "removes a subscription by subscription_id (account-scoped)" do
+      result = nil
+      expect do
+        result = tool.execute(params: {
+          action: "data_source_unsubscribe", subscription_id: subscription.id
+        })
+      end.to change { Ai::DataSourceSubscription.count }.by(-1)
+
+      expect(result[:success]).to be true
+      expect(result[:data][:message]).to match(/deleted/i)
+      expect(result[:data][:subscription_id]).to eq(subscription.id)
+    end
+
+    it "removes every subscription matching a (data_source, endpoint) pair" do
+      result = nil
+      expect do
+        result = tool.execute(params: {
+          action: "data_source_unsubscribe", data_source_id: "open-meteo", endpoint_id: "forecast"
+        })
+      end.to change { Ai::DataSourceSubscription.count }.by(-1)
+
+      expect(result[:success]).to be true
+      expect(result[:data][:removed_count]).to eq(1)
+      expect(result[:data][:data_source_id]).to eq(data_source.id)
+      expect(result[:data][:endpoint_id]).to eq(endpoint.id)
+    end
+
+    it "errors when neither subscription_id nor a (source, endpoint) pair is given" do
+      result = tool.execute(params: { action: "data_source_unsubscribe" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/subscription_id.*data_source_id.*endpoint_id/i)
+    end
+
+    it "surfaces a not-found error for an unknown subscription_id" do
+      result = tool.execute(params: {
+        action: "data_source_unsubscribe", subscription_id: SecureRandom.uuid
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/not found/i)
+    end
+
+    it "does not remove a subscription from another account by id" do
+      other_account = create(:account)
+      other_source = create(:ai_data_source, account: other_account, slug: "other-src")
+      other_ep = create(:ai_data_source_endpoint, data_source: other_source, slug: "ep")
+      foreign = other_source.subscriptions.create!(endpoint: other_ep, poll_frequency: "hourly", status: "active")
+
+      result = tool.execute(params: {
+        action: "data_source_unsubscribe", subscription_id: foreign.id
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/not found/i)
+      expect(Ai::DataSourceSubscription.exists?(foreign.id)).to be true
+    end
+  end
+
+  # ------------------------------------------------------------------------
+  # stream permission gate (agent context => permission? is consulted). The
+  # subscribe/unsubscribe actions are gated by ai.data_sources.stream — distinct
+  # from the read grant that gates tool visibility.
+  # ------------------------------------------------------------------------
+
+  describe "stream permission gate" do
+    # Isolated account whose only user holds NO permissions, so permission?
+    # genuinely reflects the absence of ai.data_sources.stream.
+    let(:locked_account) { create(:account) }
+    let(:no_perm_user) { create(:user, account: locked_account, permissions: []) }
+    let(:locked_agent) { create(:ai_agent, account: locked_account, creator: no_perm_user) }
+    let!(:locked_source) { create(:ai_data_source, account: locked_account, slug: "locked-src") }
+    let!(:locked_endpoint) { create(:ai_data_source_endpoint, data_source: locked_source, slug: "ep") }
+
+    it "denies data_source_subscribe when no user in the account holds ai.data_sources.stream" do
+      agent_tool = described_class.new(account: locked_account, agent: locked_agent, user: no_perm_user)
+
+      result = nil
+      expect do
+        result = agent_tool.execute(params: {
+          action: "data_source_subscribe", data_source_id: "locked-src",
+          endpoint_id: "ep", poll_frequency: "hourly"
+        })
+      end.not_to change { Ai::DataSourceSubscription.count }
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Permission denied: ai\.data_sources\.stream/)
+    end
+
+    it "denies data_source_unsubscribe when the account lacks ai.data_sources.stream" do
+      existing = locked_source.subscriptions.create!(
+        endpoint: locked_endpoint, poll_frequency: "hourly", status: "active"
+      )
+      agent_tool = described_class.new(account: locked_account, agent: locked_agent, user: no_perm_user)
+
+      result = nil
+      expect do
+        result = agent_tool.execute(params: {
+          action: "data_source_unsubscribe", subscription_id: existing.id
+        })
+      end.not_to change { Ai::DataSourceSubscription.count }
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Permission denied: ai\.data_sources\.stream/)
+      expect(Ai::DataSourceSubscription.exists?(existing.id)).to be true
+    end
+
+    it "allows data_source_subscribe when a user in the account holds the stream grant" do
+      create(:user, account: locked_account, permissions: ["ai.data_sources.stream"])
+      agent_tool = described_class.new(account: locked_account, agent: locked_agent, user: no_perm_user)
+
+      result = agent_tool.execute(params: {
+        action: "data_source_subscribe", data_source_id: "locked-src",
+        endpoint_id: "ep", poll_frequency: "hourly"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:subscription][:endpoint_id]).to eq(locked_endpoint.id)
     end
   end
 
