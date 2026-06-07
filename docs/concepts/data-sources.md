@@ -2,7 +2,7 @@
 
 > Status: active
 
-> How a declarative catalog, a template-driven endpoint layer, and a governed fetch pipeline let agents pull from any external API — where adding a new source is configuration, not code — plus the Phase-2a layer that lets agents *discover* the right source by intent and *evaluate* how much to trust it, and the Phase-2b layer that adds per-endpoint **data quality, schema-drift detection, and contracts** with zero overhead until you opt in.
+> How a declarative catalog, a template-driven endpoint layer, and a governed fetch pipeline let agents pull from any external API — where adding a new source is configuration, not code — plus the Phase-2a layer that lets agents *discover* the right source by intent and *evaluate* how much to trust it, the Phase-2b layer that adds per-endpoint **data quality, schema-drift detection, and contracts** with zero overhead until you opt in, and the Phase-3 layer that turns one-shot fetches into **pull-based streaming & monitoring** — a server-side poll loop that change-detects, warms the cache, and signals agents on change, plus opt-in **stale-while-revalidate / stale-if-error** serving.
 
 ## Table of Contents
 
@@ -20,6 +20,7 @@
 - [Frontend](#frontend)
 - [Discovery & Evaluation (Phase 2)](#discovery--evaluation-phase-2)
 - [Data quality, schema-drift & contracts (Phase 2b)](#data-quality-schema-drift--contracts-phase-2b)
+- [Streaming & Monitoring (Phase 3)](#streaming--monitoring-phase-3)
 - [Phase boundaries](#phase-boundaries)
 - [Related concepts](#related-concepts)
 - [Materials previously at](#materials-previously-at)
@@ -125,8 +126,9 @@ erDiagram
 
 | Model | Table | Role |
 |-------|-------|------|
-| `Ai::DataSource` | `ai_data_sources` | The catalog entry. Carries `protocol`, `auth_scheme`, `auth_config`, the base URL, `rate_limits`, and `configuration`. `has_many :endpoints`, `:credentials`, `:queries`. Owns quota counting via `Powernode::Redis.client`. |
-| `Ai::DataSourceEndpoint` | `ai_data_source_endpoints` | A declarative request template + response contract. Holds `path_template`/`query_template`/`body_template`, `response_format`, `response_mapping`, `response_schema`, `cache_ttl_seconds`, and the `monitorable` + change-detection columns. |
+| `Ai::DataSource` | `ai_data_sources` | The catalog entry. Carries `protocol`, `auth_scheme`, `auth_config`, the base URL, `rate_limits`, and `configuration`. `has_many :endpoints`, `:credentials`, `:queries`, `:subscriptions` (Phase 3, `dependent: :destroy`). Owns quota counting via `Powernode::Redis.client`. |
+| `Ai::DataSourceEndpoint` | `ai_data_source_endpoints` | A declarative request template + response contract. Holds `path_template`/`query_template`/`body_template`, `response_format`, `response_mapping`, `response_schema`, `cache_ttl_seconds`, the `monitorable` + change-detection columns, the Phase-2b observability flags, and the Phase-3 `stale_while_revalidate_seconds` / `stale_if_error_seconds` columns (both nil = OFF). `has_many :subscriptions`. |
+| `Ai::DataSourceSubscription` | `ai_data_source_subscriptions` | **(Phase 3)** A pull-based monitoring subscription binding a source + endpoint to a poll cadence. Carries `poll_frequency`, `status`, `next_poll_at`, `last_polled_at`, the change fingerprint (`last_checksum`/`last_etag`), and `consecutive_failures`. Polled by `MonitorService`. |
 | `Ai::DataSourceCredential` | `ai_data_source_credentials` | Auth material. Rails-8 `encrypts` on `encrypted_api_key`/`encrypted_api_secret`, plus `vault_path` + `migrated_to_vault_at` for Vault-backed secrets. Tracks `consecutive_failures` for health. |
 | `Ai::DataSourceQuery` | `ai_data_source_queries` | The **query/audit log**: one row per governed fetch (including cache hits and blocked/rate-limited attempts). Every operator-visible field is redacted before write; the row is hash-chained into the audit log. |
 
@@ -648,6 +650,154 @@ The Phase-2b capability is exposed on both surfaces. The three read endpoints re
 
 The REST response shapes mirror the frontend TypeScript contracts in `frontend/src/shared/types/ai.ts`: `DataSourceSchemaHistoryResponse` (+ `AiDataSourceSchemaVersion`), `DataSourceQualityResponse` (+ `AiDataSourceExpectation`), `DataSourceContractVerdict`, and `DataSourceOpenApiImportResult`. The UI surfaces them through `DataSourceSchemaHistoryTab.tsx`, `DataSourceQualityTab.tsx`, and `DataSourceImportOpenApiModal.tsx`, with matching `DataSourcesApiService` methods.
 
+## Streaming & Monitoring (Phase 3)
+
+Phase 1 fetches a source you name; Phase 2a finds it by intent; Phase 2b verifies one fetch's shape/quality. **Phase 3** answers the time dimension — *"keep watching this endpoint and tell me when its data changes"* — by adding a **pull-based subscription** with a poll cadence, a **server-side monitor loop** that walks due subscriptions and change-detects each one, and two opt-in **stale-serving** policies (stale-while-revalidate / stale-if-error) so a downstream agent keeps getting an answer while the upstream is slow or down. It is **merged and verified**: the migration is applied, the load is zeitwerk-clean, the regression suite is green, and the monitor loop was smoke-confirmed end to end.
+
+The defining design principle is **pull, never push** (per the platform architecture rule): the worker only fires a thin cron tick, and the server-side `MonitorService` *pulls* due subscriptions and runs the **same** governed `QueryService` pipeline as an interactive query — no second fetch path, no upstream service pushing into the platform.
+
+```mermaid
+flowchart TB
+    subgraph Worker["worker/ (Sidekiq cron — THIN triggers only)"]
+        MJ[AiDataSourceMonitorJob<br/>cron */5]
+        HJ[AiDataSourceHealthJob<br/>cron */10]
+    end
+
+    subgraph Internal["server internal REST (worker-only, mTLS)"]
+        MT["POST /api/v1/internal/ai/data_sources/monitor_tick"]
+        HT["POST /api/v1/internal/ai/data_sources/health_tick"]
+    end
+
+    MS["Ai::DataSources::MonitorService<br/>#tick / #health_tick / #refresh!"]
+    SUB[(Ai::DataSourceSubscription<br/>due_for_poll)]
+    QS["QueryService (governed fetch,<br/>conditional via last_etag)"]
+    CACHE["ResponseCacheService<br/>warm this param-variant only"]
+    SIG["StigmergicSignalService.emit!<br/>discovery / data_source_changed"]
+
+    MJ --> MT --> MS
+    HJ --> HT --> MS
+    MS -->|due_for_poll| SUB
+    SUB --> QS
+    QS -->|SHA256 / etag change-detect| MS
+    MS -->|on change| CACHE
+    MS -->|on change| SIG
+    MS -->|record_poll! / record_failure!| SUB
+```
+
+All Phase-3 backend code lives under `server/app/services/ai/data_sources/` (the monitor) and `server/app/models/ai/` (the subscription); the worker triggers are in `worker/app/jobs/`.
+
+### The subscription model
+
+`Ai::DataSourceSubscription` (table `ai_data_source_subscriptions`) is a pull-based subscription that binds a **data source + endpoint** to a poll cadence. It deliberately **mirrors `Ai::DataConnector`'s sync cadence** (the same `POLL_FREQUENCIES` shape, a `due_for_poll` scope, `schedule_next_poll!`, `needs_poll?`) so the monitor loop reuses an established pattern rather than inventing a new one.
+
+```mermaid
+erDiagram
+    ai_data_sources ||--o{ ai_data_source_subscriptions : monitors
+    ai_data_source_endpoints ||--o{ ai_data_source_subscriptions : "polls"
+    ai_agents ||--o{ ai_data_source_subscriptions : "optional owner"
+    ai_data_source_subscriptions {
+        uuid id PK
+        uuid ai_data_source_id FK
+        uuid ai_data_source_endpoint_id FK
+        uuid ai_agent_id FK "optional"
+        string poll_frequency
+        string status
+        datetime next_poll_at
+        datetime last_polled_at
+        string last_checksum
+        string last_etag
+        integer consecutive_failures
+        jsonb params
+        jsonb metadata
+    }
+```
+
+- **`belongs_to :data_source` / `:endpoint`** (required), **`belongs_to :agent`** (`ai_agent_id`, **optional** — a subscription can be system-owned or attributed to an agent). `Ai::DataSource has_many :subscriptions` (`dependent: :destroy`); `Ai::DataSourceEndpoint has_many :subscriptions` too.
+- **`POLL_FREQUENCIES = %w[manual 5min hourly daily weekly monthly realtime]`** — DataConnector's set plus two monitor-grade fine tiers: `5min` and `realtime` (the latter polled on every tick, i.e. interval `0`). **`STATUSES = %w[active paused error]`**.
+- `params` / `metadata` are jsonb with lambda defaults; `before_create` seeds `next_poll_at` for any non-`manual` cadence so the monitor picks it up without an explicit `activate!`.
+
+**Scopes:**
+
+| Scope | Definition |
+|-------|-----------|
+| `.active` | `status = "active"` |
+| `.due_for_poll` | `status IN ("active", "error") AND next_poll_at IS NOT NULL AND next_poll_at <= now` |
+| `.for_data_source(ds)` / `.for_endpoint(ep)` | by FK (accept a record or an id) |
+
+The load-bearing detail is that **`due_for_poll` deliberately includes `"error"`, not just `"active"`**. A subscription that tripped the failure threshold keeps being polled — and `record_poll!` (a successful poll) is the *only* path that can clear `error → active`, so excluding error rows would make the documented auto-recovery unreachable and silently stop monitoring forever. Operator-set **`"paused"` stays excluded** (a human turned it off; the loop respects that).
+
+**Lifecycle methods:**
+
+- **`activate!`** — sets `active` and re-arms the cadence; **`pause!`** — sets `paused` and clears `next_poll_at`; **`active?`**.
+- **`record_poll!(changed:, checksum: nil, etag: nil)`** — the success path: stamps `last_polled_at`, **resets `consecutive_failures` to 0**, clears a prior `error → active`, updates `last_checksum`/`last_etag` *only when supplied*, and schedules the next poll. Returns `changed`.
+- **`record_failure!(error_message = nil)`** — the failure path: increments `consecutive_failures`, records the error in `metadata`, **flips `status` to `"error"` once failures `>= 5`**, and **still schedules the next attempt** (unless paused) so a transient upstream fault self-heals.
+- **`schedule_next_poll!`** — `next_poll_at = now + poll_interval`; `manual` never schedules, `realtime` schedules immediately (interval 0). **`needs_poll?`** — active + due. **`poll_interval`** — an `ActiveSupport::Duration` (`0.seconds` for realtime, `5.minutes` / `1.hour` / `1.day` / `1.week` / `1.month`, defaulting to 1 hour).
+
+### MonitorService — the server-side poll loop
+
+`Ai::DataSources::MonitorService.new(account = nil)` is the engine. The worker contributes nothing but the cron tick — **every** poll/fetch/change-detect/cache/signal decision is server-side. Three entry points:
+
+| Method | Returns | Role |
+|--------|---------|------|
+| `#tick(limit: 100)` | `{ polled:, changed:, errors: [{ subscription_id:, error: }] }` | Walk `due_for_poll` and poll each |
+| `#health_tick` | `{ refreshed:, errors: [] }` | Refresh `health_status` for every active source (`update_health_status!`) |
+| `#refresh!(data_source:, endpoint:, params: {})` | `Boolean` | Background SWR refresh hook (re-warms the cache on success) — called by `ResponseCacheService` |
+
+**`#tick` per subscription**, in order:
+
+1. **Quota gate.** Respect the parent source's `check_quota!` — a throttled source **defers** the poll to the next tick (re-schedules without counting a failure) rather than burning its budget on background monitoring.
+2. **Governed fetch.** Run `Ai::DataSources::QueryService` (the identical kill-flag / quota / cache / circuit-breaker / SSRF / decode / normalize / redact / audit pipeline), passing the stored `last_etag` as a conditional hint via the reserved `__conditional_etag` param. Adapters that support conditional requests can translate it into `If-None-Match`; others ignore it (checksum detection still works).
+3. **Change-detect.** Compute a canonical `Digest::SHA256` of the normalized payload (stable across hash-key ordering via deep-sort), **preferring** the provenance `response_sha256` (raw-body hash) when present, then compare against the subscription's `last_checksum`. When **both** sides expose an `etag` and they match, treat as unchanged regardless of checksum (handles 304-style revalidation). The **first** successful poll always registers as changed (no stored checksum yet), so the initial payload is cached + signalled.
+4. **On change** (and only on change): **warm ONLY that param-variant's cache entry** via `ResponseCacheService.write` (an idempotent `setex`) — it deliberately does **not** blanket-invalidate the endpoint, which would cold-miss sibling subscriptions and interactive reads cached under different params — **and** emit a stigmergic signal: `Ai::Coordination::StigmergicSignalService.emit!(signal_type: "discovery", signal_key: "data_source_changed", agent: nil, …)` with payload `{ slug, data_source_id, endpoint, endpoint_id, subscription_id, checksum }`. The signal is **system-emitted (`agent: nil`)** — consistent with the QueryService schema-drift signal — so autonomous agents *perceive* the fresh upstream data without cross-account agent/signal mismatch.
+5. **Record.** A successful poll → `record_poll!(changed:, checksum:, etag:)`; a failed/erroring fetch → `record_failure!`.
+
+**Per-subscription failures never abort the batch** — each is rescued, logged, recorded via `record_failure!`, and collected into the `errors` array so the internal controller can surface partial failures while the tick still succeeds. The due scope eager-loads `:data_source`, `:endpoint`, `:agent` so the loop never N+1s, and is account-scoped when an account is supplied.
+
+### Stale-while-revalidate / stale-if-error
+
+Phase 3 adds two **per-endpoint, opt-in** stale-serving policies to the response cache, gated by two nullable integer columns on `Ai::DataSourceEndpoint` — `stale_while_revalidate_seconds` and `stale_if_error_seconds`. **Both default `nil` (OFF)**, and when both are nil the cache is **byte-for-byte the legacy behaviour**: the Redis TTL equals the hard TTL and the `FetchEnvelope` is unchanged. You pay only for what you turn on, per endpoint.
+
+The mechanism is a split between a **hard-expiry epoch** (the freshness boundary) and the **Redis key lifetime**. `write_entry` stores a hard-expiry `now + ttl` but keeps the Redis key alive for `ttl + grace_window`, where `grace_window = max(stale_while_revalidate_seconds, stale_if_error_seconds)`. A new side-channel read, `ResponseCacheService.read_stale(data_source:, endpoint:, params:)`, returns a flagged descriptor (it does **not** touch hit/miss metrics):
+
+```ruby
+{ payload:, stale:, hard_expired:, age_seconds:, stale_age_seconds: } # or nil on miss
+# hard_expired:false -> fresh (within hard TTL)
+# hard_expired:true  -> stale (in the grace window); caller decides whether to serve
+# stale_age_seconds  -> seconds elapsed PAST the hard expiry (the stale-* windows
+#                       are measured from this, per HTTP Cache-Control stale-* semantics)
+```
+
+**Stale-while-revalidate** (read path). When `ResponseCacheService.fetch` finds a **hard-expired** entry still inside the SWR window, it serves the stale payload immediately (a recorded hit) and fires `schedule_background_refresh`: an **NX-locked** (one refresher per key per grace window) **detached `Thread`**, wrapped in `ActiveRecord::Base.connection_pool.with_connection` (so the refetch's DB work doesn't leak/exhaust the pool), that delegates to `MonitorService#refresh!` to repopulate the cache for the next caller. With SWR off, a hard-expired entry is treated as a miss and recomputed inline as before.
+
+**Stale-if-error** (failure path, in `QueryService`). When a **live** fetch fails with `STATUS_ERROR` or `STATUS_TIMEOUT` — **not** `blocked` / `rate_limited`, which are governance outcomes, not staleness — and the endpoint opts into `stale_if_error_seconds`, `QueryService#maybe_serve_stale_if_error` swaps the failure for the last-known-good cached payload via `read_stale`, but **only** when the entry is hard-expired and within the configured window (measured from `stale_age_seconds`). The substituted result is flagged honestly — `success: true`, `status: cached`, `served_stage: "stale_if_error"`, `provenance.stale_if_error: true`, plus a `stale_if_error` anomaly — so persistence/provenance record a *degraded serve*, not a fresh success, and `finalize` (which gates cache writes on a **fresh** success) never re-writes the stale payload back.
+
+### Surfaces (REST + MCP + internal)
+
+The Phase-3 capability spans three surfaces.
+
+**Internal REST (worker-only, mTLS)** — the cron triggers. `POST /api/v1/internal/ai/data_sources/monitor_tick` and `POST /api/v1/internal/ai/data_sources/health_tick` both dispatch into `MonitorService` (`#tick` / `#health_tick`). The worker jobs are deliberately **thin**: `worker/app/jobs/ai_data_source_monitor_job.rb` (cron `*/5 * * * *`) and `ai_data_source_health_job.rb` (cron `*/10 * * * *`) do nothing but POST those internal paths and log the batch summary.
+
+**Public REST** (nested under a source, in the `Ai::DataSourceEndpoints` controller concern):
+
+| Route | Action | Permission | Renders |
+|-------|--------|-----------|---------|
+| `GET /api/v1/ai/data_sources/:data_source_id/subscriptions` | `subscriptions_index` | `ai.data_sources.read` | `{ items: [summary], count }` |
+| `POST .../subscriptions` | `subscriptions_create` | `ai.data_sources.stream` | `{ subscription: summary }` |
+| `DELETE .../subscriptions/:subscription_id` | `subscriptions_destroy` | `ai.data_sources.stream` | confirmation message |
+
+`subscriptions_create` takes a body of `endpoint_id` + `poll_frequency` + `params` and is **idempotent on the source+endpoint pair** (`find_or_initialize_by(ai_data_source_endpoint_id:)`, re-arming the cadence when the frequency changes). The `serialize_subscription` summary — kept in lockstep across REST, MCP, and the frontend type — is: `id`, `data_source_id`, `endpoint_id`, `poll_frequency`, `status`, `params`, `next_poll_at`, `last_polled_at`, `last_checksum`, `last_etag`, `consecutive_failures`, `agent_id`.
+
+**MCP.** `Ai::Tools::DataSourceTool` grows to **18 actions**, adding the two streaming actions (both registered per-action in `PlatformApiToolRegistry`, both requiring **`ai.data_sources.stream`**):
+
+| Action | Purpose |
+|--------|---------|
+| `data_source_subscribe` | Create/update a pull-based subscription — `endpoint_id` + `poll_frequency` + `params`; idempotent `find_or_initialize` on the endpoint (attributes the acting agent when present) |
+| `data_source_unsubscribe` | Cancel a subscription by `subscription_id`, **or** every subscription matching a `data_source_id` + `endpoint_id` pair |
+
+The new permission **`ai.data_sources.stream`** ("Subscribe to AI data source endpoints (pull-based monitoring)") is registered in `config/permissions.rb` and granted to the **member**, **manager**, and **ai_specialist** roles.
+
+**Frontend.** `DataSourceMonitoringTab.tsx` surfaces a source's subscriptions (cadence, status, last poll, checksum/etag, failure count), backed by `DataSourcesApiService.getSubscriptions` / `createSubscription` / `deleteSubscription` and the `AiDataSourceSubscription` TypeScript type in `frontend/src/shared/types/ai.ts` (which mirrors the `serialize_subscription` summary).
+
 ## Phase boundaries
 
 **Phase 1** is the governed-fetch foundation: catalog + endpoint templates, the three generic registries, decode/normalize, the full `QueryService` pipeline, the response cache, the security model, and the REST + MCP surfaces — all merged, migrated, and smoke-tested.
@@ -656,10 +806,12 @@ The REST response shapes mirror the frontend TypeScript contracts in `frontend/s
 
 **Phase 2b** (the [Data quality, schema-drift & contracts](#data-quality-schema-drift--contracts-phase-2b) section above) adds the per-endpoint observability layer: opt-in `SchemaDriftService` versioned history + breaking-drift signal, `QualityService` expectations/scoring/quarantine, the aggregate `ContractService` verdict, and `OpenApiImportService` introspection — with all three endpoint flags defaulting off (zero overhead until opted in). Merged, migrated (zeitwerk-clean), full suite green, drift smoke-confirmed.
 
+**Phase 3** (the [Streaming & Monitoring](#streaming--monitoring-phase-3) section above) adds the pull-based monitoring layer: the `Ai::DataSourceSubscription` cadence model (mirroring `DataConnector`, with `due_for_poll` including `"error"` for auto-recovery), the server-side `MonitorService` poll loop (worker `*/5` + `*/10` cron firing thin internal-tick triggers → governed `QueryService` fetch → checksum/etag change-detect → cache warm + `data_source_changed` stigmergic signal), and the opt-in per-endpoint stale-while-revalidate / stale-if-error serving (off by default). Merged and verified: migration applied, zeitwerk-clean, regression green, monitor loop smoke-confirmed.
+
 Remaining out of scope:
 
 - **Endpoint-level discovery (later Phase 2)** — Phase 2a discovers *sources* by intent; automatic discovery/suggestion of individual endpoints (and per-endpoint effectiveness) is not yet built.
-- **Monitoring (Phase 3)** — the `monitorable` flag and the change-detection columns (`etag`, `last_modified`, `change_detection` strategies: `etag`/`last_modified`/`content_hash`/`polling`/`none`) are persisted on endpoints but the active monitoring pipeline that consumes them is a later phase. (Phase 2b's schema-drift tracking is a per-fetch, opt-in observability stage, not the standalone change-detection poller.)
+- **True push / webhook ingestion** — Phase 3 is strictly **pull-based** (the platform polls on a cadence, per the pull-never-push rule). The standalone `change_detection` strategy enum on endpoints (`etag`/`last_modified`/`content_hash`/`polling`/`none`) and the `monitorable` flag remain persisted hints; the monitor loop today change-detects via checksum + etag against the subscription, not via a per-endpoint `change_detection` strategy dispatcher.
 
 ## Related concepts
 
@@ -673,6 +825,6 @@ Remaining out of scope:
 
 ## Materials previously at
 
-This is a new concept document for the Phase 1 Data Source feature, extended in place for Phase 2a (discovery + evaluation) and Phase 2b (data quality, schema-drift & contracts). It complements the pre-existing operational runbook at `docs/operations/data-sources.md` (which retains the register/rotate/troubleshoot procedures).
+This is a new concept document for the Phase 1 Data Source feature, extended in place for Phase 2a (discovery + evaluation), Phase 2b (data quality, schema-drift & contracts), and Phase 3 (streaming & monitoring). It complements the pre-existing operational runbook at `docs/operations/data-sources.md` (which retains the register/rotate/troubleshoot procedures).
 
 _Last verified: 2026-06-06_

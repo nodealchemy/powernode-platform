@@ -1,6 +1,6 @@
 # Data Sources Guide
 
-> How to onboard, extend, secure, query, and discover external data sources — the governed external-fetch pipeline (Phase 1), semantic discovery and effectiveness scoring (Phase 2a), plus per-endpoint quality, schema-drift, and contract observability (Phase 2b) for the Powernode AI fleet.
+> How to onboard, extend, secure, query, and discover external data sources — the governed external-fetch pipeline (Phase 1), semantic discovery and effectiveness scoring (Phase 2a), per-endpoint quality, schema-drift, and contract observability (Phase 2b), plus pull-based change monitoring and stale-serving cache policies (Phase 3) for the Powernode AI fleet.
 
 > Status: active
 
@@ -16,6 +16,8 @@
 - [Agent usage via MCP](#agent-usage-via-mcp)
 - [How agents discover and evaluate sources over time (Phase 2a)](#how-agents-discover-and-evaluate-sources-over-time-phase-2a)
 - [Enabling quality & drift per endpoint (Phase 2b)](#enabling-quality--drift-per-endpoint-phase-2b)
+- [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3)
+- [Enabling stale-serving cache policies per endpoint (Phase 3)](#enabling-stale-serving-cache-policies-per-endpoint-phase-3)
 - [The fetch pipeline in detail](#the-fetch-pipeline-in-detail)
 - [Related guides](#related-guides)
 
@@ -429,6 +431,8 @@ Agents discover and use data sources through the `data_source_*` MCP actions, ex
 | `data_source_discover` | `ai.data_sources.read` | **Semantic discovery (Phase 2a)** — rank sources for a natural-language need via `SemanticDiscoveryService` |
 | `data_source_provenance` | `ai.data_sources.read` | **Phase 2a** — read one `ai_data_source_queries` row's already-redacted provenance (by `query_id`/`correlation_id`/latest) |
 | `data_source_impact` | `ai.data_sources.read` | **Phase 2a** — usage summary for a source (distinct agents, query counts, `last_used_at`, `effectiveness_score`, health) |
+| `data_source_subscribe` | `ai.data_sources.stream` | **Phase 3** — create/update a pull-based monitoring subscription on an endpoint (idempotent on the source+endpoint pair) |
+| `data_source_unsubscribe` | `ai.data_sources.stream` | **Phase 3** — remove a subscription by `subscription_id`, or every subscription for a `data_source_id`+`endpoint_id` pair |
 | `data_source_create` | `ai.data_sources.create` (or `.manage`) | Create a source — **proposal fallback** when unprivileged |
 | `data_source_update` | `ai.data_sources.update` (or `.manage`) | Update a source — **proposal fallback** when unprivileged |
 | `data_source_delete` | `ai.data_sources.delete` (or `.manage`) | Delete a source — **proposal fallback** when unprivileged |
@@ -515,6 +519,8 @@ For UI and service integration, the same operations live under `Api::V1::Ai::Dat
 | `PATCH/PUT/DELETE /api/v1/ai/data_sources/:id/endpoints/:endpoint_id` | endpoint update / destroy |
 | `POST /api/v1/ai/data_sources/:id/endpoints/:endpoint_id/query` | governed fetch (calls `QueryService`) |
 | `POST /api/v1/ai/data_sources/discover` | **Phase 2a** — semantic discovery (collection route; calls `SemanticDiscoveryService`) |
+| `GET/POST /api/v1/ai/data_sources/:id/subscriptions` | **Phase 3** — monitoring subscription list / create (`subscriptions_index` `read` / `subscriptions_create` `stream`) |
+| `DELETE /api/v1/ai/data_sources/:id/subscriptions/:subscription_id` | **Phase 3** — cancel a subscription (`subscriptions_destroy`; `stream`) |
 
 The query action maps the envelope status to an HTTP status on failure (`rate_limited`→429, `blocked`→403, `timeout`→504, else 502) and returns `provenance` in the error `details`.
 
@@ -796,6 +802,129 @@ The related read-only surfaces complete the picture:
 
 All three reads are gated by `ai.data_sources.read` and never make an outbound call — they surface what tracked fetches already persisted.
 
+## Monitoring a source for changes (Phase 3)
+
+Phases 1/2 are **pull-on-demand** — a fetch happens because an agent or user asked for one. **Phase 3** adds the inverse: a **pull-based monitor** that polls a chosen endpoint on a cadence, change-detects the result, and emits a `data_source_changed` stigmergic signal so autonomous agents react to fresh upstream data without re-fetching it themselves. Nothing here is new fetch code — the monitor runs the *same* governed `QueryService` pipeline (kill flag, quota, cache, breaker, SSRF guard, decode/normalize/redact/audit); it just drives it on a schedule and records the outcome on a **subscription** row.
+
+The operational side (the worker cron, `due_for_poll` auto-recovery, quota-aware polling, the change signal) is in the [operations runbook](../operations/data-sources.md#monitoring-a-source-for-changes-phase-3). This section is the author/operator side: how to create a subscription and what its cadence + status mean.
+
+### The subscription model
+
+A subscription is one `Ai::DataSourceSubscription` row (table `ai_data_source_subscriptions`) binding a `data_source` + `endpoint` (and optionally an `agent`) to a poll cadence:
+
+| Field | Role |
+|---|---|
+| `poll_frequency` | Cadence — one of `Ai::DataSourceSubscription::POLL_FREQUENCIES`: `manual 5min hourly daily weekly monthly realtime`. `manual` never auto-polls; `realtime` polls on every monitor tick (interval 0). |
+| `status` | One of `STATUSES`: `active paused error`. `active` polls on cadence; `paused` is operator-set and **never** polls; `error` is set automatically after repeated failures but **keeps** polling so it can self-heal. |
+| `params` | The per-poll variables (jsonb) passed straight into the governed fetch — same `{name}` template params an interactive query takes. |
+| `next_poll_at` | When the next poll is due. Seeded on create for any non-manual cadence (`before_create`), advanced by `schedule_next_poll!` after each poll. |
+| `last_polled_at` / `last_checksum` / `last_etag` | The last poll time and change fingerprint (a canonical SHA-256 of the payload, plus the upstream ETag when present). |
+| `consecutive_failures` | Failure counter; the subscription flips to `error` at `>= 5`. Reset to 0 by any successful poll. |
+
+The cadence values reuse `Ai::DataConnector`'s sync-frequency set plus two finer monitor-grade tiers (`5min`, `realtime`).
+
+### Create a subscription (MCP)
+
+Subscriptions are created over MCP via `data_source_subscribe` (and removed via `data_source_unsubscribe`). **Both require the `ai.data_sources.stream` permission** — a new grant added for Phase 3 (registered in `permissions.rb` and granted to the `member`, `manager`, and `ai_specialist` roles). They are **idempotent on the (source, endpoint) pair**: a second subscribe to the same endpoint updates the existing subscription's cadence/params rather than creating a duplicate (`find_or_initialize_by` on the endpoint).
+
+```text
+platform.data_source_subscribe
+  data_source_id: "open-meteo"          # UUID or slug
+  endpoint_id:    "hourly-forecast"     # UUID or slug
+  poll_frequency: "5min"                # default "hourly" when omitted
+  params: { lat: 40.71, lon: -74.01 }   # per-poll fetch variables
+
+platform.data_source_unsubscribe
+  subscription_id: "…"                   # delete one specific subscription
+  # — OR — delete every subscription for a (source, endpoint) pair:
+  # data_source_id: "open-meteo"  endpoint_id: "hourly-forecast"
+```
+
+`data_source_subscribe` returns the subscription summary; `data_source_unsubscribe` returns a delete confirmation (a `subscription_id`, or a `removed_count` for the pair form). When called with an `agent` context, the subscription is attributed to that agent (`agent_id`).
+
+### Create a subscription (REST)
+
+The same operations live as nested routes under a source (consumed by the frontend `DataSourceMonitoringTab.tsx` via `DataSourcesApiService.getSubscriptions/createSubscription/deleteSubscription`):
+
+| REST | Action | Permission |
+|---|---|---|
+| `GET /api/v1/ai/data_sources/:data_source_id/subscriptions` | `subscriptions_index` — `{ items: [summary], count }` | `ai.data_sources.read` |
+| `POST /api/v1/ai/data_sources/:data_source_id/subscriptions` | `subscriptions_create` — body `endpoint_id` + `poll_frequency` + `params`; returns `{ subscription: summary }` | `ai.data_sources.stream` |
+| `DELETE /api/v1/ai/data_sources/:data_source_id/subscriptions/:subscription_id` | `subscriptions_destroy` | `ai.data_sources.stream` |
+
+```bash
+# Create / update a subscription (idempotent on the endpoint).
+curl -s -X POST \
+  http://localhost:3000/api/v1/ai/data_sources/open-meteo/subscriptions \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "subscription": {
+      "endpoint_id": "hourly-forecast",
+      "poll_frequency": "5min",
+      "params": { "lat": 40.71, "lon": -74.01 }
+    }
+  }'
+```
+
+The subscription summary (identical across the REST and MCP surfaces, and the `AiDataSourceSubscription` frontend type) is:
+
+```jsonc
+{
+  "id": "…",
+  "data_source_id": "…",
+  "endpoint_id": "…",
+  "poll_frequency": "5min",
+  "status": "active",                 // active | paused | error
+  "params": { "lat": 40.71, "lon": -74.01 },
+  "next_poll_at": "2026-06-06T12:05:00Z",
+  "last_polled_at": "2026-06-06T12:00:00Z",
+  "last_checksum": "…",               // canonical SHA-256 of the last payload
+  "last_etag": "…",                   // upstream ETag, when the source returns one
+  "consecutive_failures": 0,
+  "agent_id": null                    // owning agent when subscribed in an agent context
+}
+```
+
+### What the monitor does on each poll
+
+On every tick `Ai::DataSources::MonitorService` walks the **due** subscriptions (`due_for_poll`) and, for each, runs the governed fetch and compares the result against the stored `last_checksum`/`last_etag`:
+
+- **Changed** → it warms *only that param-variant's* cache entry with the fresh payload (no blanket endpoint invalidate, so sibling subscriptions and interactive reads keep their cache), emits the `data_source_changed` signal, and records the poll (`record_poll!(changed: true)`, updating the checksum/etag and scheduling the next poll).
+- **Unchanged** → records the poll (`record_poll!(changed: false)`) and schedules the next.
+- **Failed fetch** → `record_failure!`, which bumps `consecutive_failures`, flips the status to `error` at `>= 5`, and **still** schedules the next poll so a transient upstream fault self-heals.
+
+The first successful poll always registers as "changed" (no prior checksum), so the initial payload is cached and signalled. A matching ETag on both sides short-circuits to "unchanged" regardless of checksum (304-style revalidation). See the [operations runbook](../operations/data-sources.md#monitoring-a-source-for-changes-phase-3) for the cron cadence, the `due_for_poll` semantics, quota-aware deferral, and how to perceive the signal.
+
+## Enabling stale-serving cache policies per endpoint (Phase 3)
+
+Alongside monitoring, Phase 3 adds two **opt-in, per-endpoint** cache policies that let a fetch serve *slightly stale* data instead of paying full latency (SWR) or hard-failing on a transient upstream fault (stale-if-error). Two nullable columns on `Ai::DataSourceEndpoint` gate them; **both default `nil` (OFF)**, and when both are nil the cache is byte-for-byte the legacy Phase-1 behavior (the `FetchEnvelope` is unchanged) — you turn them on deliberately, one endpoint at a time.
+
+| Column | Type | Policy when set (> 0) |
+|---|---|---|
+| `stale_while_revalidate_seconds` | int | **SWR.** After the hard TTL expires, `fetch` may serve the now-stale cached entry (flagged) for up to this many seconds while a **background refresh** repopulates it, so the *next* caller gets a fresh value. The stale serve is non-blocking. |
+| `stale_if_error_seconds` | int | **Stale-if-error.** When a *live* fetch fails with a **transient** fault (`error`/`timeout` — never `blocked`/`rate_limited`), serve the last-known-good cached entry (flagged) instead of failing, within this window. |
+
+Set them through the normal endpoint update surface (`PATCH /api/v1/ai/data_sources/:data_source_id/endpoints/:endpoint_id`, requires `ai.data_sources.update`):
+
+```bash
+curl -s -X PATCH \
+  http://localhost:3000/api/v1/ai/data_sources/open-meteo/endpoints/hourly-forecast \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "endpoint": {
+      "stale_while_revalidate_seconds": 60,
+      "stale_if_error_seconds": 600
+    }
+  }'
+```
+
+How they behave (full mechanics in the [operations runbook](../operations/data-sources.md#stale-while-revalidate--stale-if-error)):
+
+- **The Redis key is kept alive past the hard expiry** by `max(swr, sie)` seconds (the "grace window") while the **hard-expiry epoch** stays fixed. So an entry can be *physically present but logically stale* — the policies decide whether to serve it. Both nil ⇒ grace 0 ⇒ Redis TTL equals the hard TTL (legacy).
+- **SWR** (`ResponseCacheService.fetch`): a hard-expired entry inside the SWR window is returned immediately and a single NX-locked detached background thread runs `MonitorService#refresh!` to re-warm it (the thread checks out its own AR connection). Outside the window Redis has already evicted the key, so you never serve beyond the grace.
+- **Stale-if-error** (`QueryService`): only kicks in *after* a live fetch returns `error`/`timeout` (not a policy rejection like `blocked`/`rate_limited`), via `ResponseCacheService.read_stale`, and only within `stale_if_error_seconds` measured from when the entry went stale. The served result is flagged `success: true`, `status: "cached"`, `served_stage: "stale_if_error"`, with `provenance.stale_if_error: true` — an honest "served stale on error", and it never re-writes the cache.
+- `ResponseCacheService.read_stale` is the shared primitive both policies use. It returns `{ payload:, stale:, hard_expired:, age_seconds:, stale_age_seconds: }` (or nil) and, unlike `fetch`/`read`, does **not** count toward hit/miss metrics — it is a side-channel read for the stale policies only.
+
 ## The fetch pipeline in detail
 
 `Ai::DataSources::QueryService.new(data_source:, endpoint:, params:, agent:, user:).call` composes every stage. The order is load-bearing — each stage short-circuits to a `FetchEnvelope` rather than raising:
@@ -823,6 +952,6 @@ Circuit-breaker state, response-cache metrics, and quota are all surfaced throug
 - [`docs/concepts/permissions.md`](../concepts/permissions.md) — the `ai.data_sources.*` permission registry
 - [`docs/guides/mcp-tool-development.md`](mcp-tool-development.md) — adding/modifying MCP tool actions
 - [`docs/reference/database-schema.md`](../reference/database-schema.md) — full column inventory
-- [`docs/operations/data-sources.md`](../operations/data-sources.md) — operating discovery + effectiveness (2a) and quality/drift/quarantine/contracts (2b): monitoring scores and drift signals, backfilling KG nodes, ranking-weight operations, tuning expectations, SLA/contract ownership
+- [`docs/operations/data-sources.md`](../operations/data-sources.md) — operating discovery + effectiveness (2a), quality/drift/quarantine/contracts (2b), and monitoring + stale-cache policies (3): monitoring scores and drift signals, backfilling KG nodes, ranking-weight operations, tuning expectations, SLA/contract ownership, the monitor/health cron, `due_for_poll` auto-recovery, and SWR/stale-if-error behavior
 
 _Last verified: 2026-06-06_

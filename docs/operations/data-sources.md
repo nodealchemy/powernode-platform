@@ -17,6 +17,8 @@
 - [Quota Enforcement Pattern](#quota-enforcement-pattern)
 - [Discovery & effectiveness (Phase 2a)](#discovery--effectiveness-phase-2a)
 - [Quality, drift & contracts (Phase 2b)](#quality-drift--contracts-phase-2b)
+- [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3)
+- [Stale-while-revalidate & stale-if-error](#stale-while-revalidate--stale-if-error)
 - [Sync & Health Jobs](#sync--health-jobs)
 - [Verification](#verification)
 - [Rollback](#rollback)
@@ -46,6 +48,8 @@ Data Sources is the unified registry for external data providers that the platfo
 > **Discovery & effectiveness (Phase 2a).** On top of the registry, each source now carries a learned `effectiveness_score` (accrued from real fetches) and is semantically discoverable. The operational side — monitoring scores/usage, backfilling knowledge-graph nodes, and what the ranking weights mean — is in [Discovery & effectiveness (Phase 2a)](#discovery--effectiveness-phase-2a) below.
 >
 > **Quality, drift & contracts (Phase 2b).** Each *endpoint* can opt into response schema-drift tracking, data-quality expectations, and quarantine-on-failure, with an aggregate contract verdict and an OpenAPI importer. **All three stages are OFF by default** — zero overhead until enabled. Operating them — monitoring the `data_source_schema_drift` signal, quarantine + last-known-good behavior, tuning expectations, and SLA/contract ownership — is in [Quality, drift & contracts (Phase 2b)](#quality-drift--contracts-phase-2b). The enable-and-configure walkthrough is in [../guides/data-sources.md](../guides/data-sources.md#enabling-quality--drift-per-endpoint-phase-2b).
+>
+> **Monitoring & stale-serving (Phase 3).** A pull-based **monitor** can poll a chosen endpoint on a cadence (a `subscription`), change-detect the result, and emit a `data_source_changed` signal — driven by two thin worker crons (monitor `*/5`, health `*/10`) over server-side `Ai::DataSources::MonitorService`. Separately, endpoints can opt into **stale-while-revalidate** and **stale-if-error** cache policies (both nullable columns, **OFF by default**). The operating side — the cron, `due_for_poll` auto-recovery, quota-aware polling, the change signal, and SWR/SIE behavior — is in [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3) and [Stale-while-revalidate & stale-if-error](#stale-while-revalidate--stale-if-error). The create-a-subscription / enable-the-policy walkthrough is in [../guides/data-sources.md](../guides/data-sources.md#monitoring-a-source-for-changes-phase-3).
 
 ## Supported Source Types
 
@@ -456,9 +460,138 @@ curl -s -H "Authorization: Bearer $JWT" \
 | `within_sla: null` | An SLA is set but the row carries no cache age | Expected for some rows; the next fetch with a known cache age resolves it |
 | Verdict always `met: true` on a watched endpoint | No assertions configured (no schema, no quality, no SLA) | Add a `response_schema`, enable `quality_checks_enabled` with error rules, and/or set `sla_max_age_seconds` |
 
+## Monitoring a source for changes (Phase 3)
+
+Phase 3 adds a **pull-based monitor**: a subscription (`Ai::DataSourceSubscription`, table `ai_data_source_subscriptions`) binds a source + endpoint to a poll cadence, and a worker cron drives `Ai::DataSources::MonitorService` to poll due subscriptions, change-detect, and emit a `data_source_changed` signal on change. **All poll/fetch/change-detect/signal logic runs server-side** — the worker fires only thin cron triggers. The create-a-subscription walkthrough (MCP `data_source_subscribe` / REST `subscriptions_create`, the `ai.data_sources.stream` permission, cadence values) is in the [guide](../guides/data-sources.md#monitoring-a-source-for-changes-phase-3); this section is the *operating* side.
+
+### The monitor & health crons
+
+Two thin Sidekiq cron jobs (in `worker/config/sidekiq.yml`) are the only worker-side moving parts. Each POSTs an **mTLS, worker-only internal** endpoint and logs the batch summary — they hold no business logic:
+
+| Job class | Cron | Internal endpoint (POST) | Server entry point | Returns |
+|-----------|------|--------------------------|--------------------|---------|
+| `AiDataSourceMonitorJob` | `*/5 * * * *` | `/api/v1/internal/ai/data_sources/monitor_tick` | `MonitorService#tick(limit: 100)` | `{ polled:, changed:, errors: [{subscription_id:, error:}] }` |
+| `AiDataSourceHealthJob` | `*/10 * * * *` | `/api/v1/internal/ai/data_sources/health_tick` | `MonitorService#health_tick` | `{ refreshed:, errors: [] }` |
+
+Both internal routes live under the `Api::V1::Internal::Ai` namespace and inherit the `InternalBaseController` mTLS auth (`authenticate_worker_via_mtls!`, JWT skipped) like every other `/api/v1/internal/*` path. `monitor_tick` accepts an optional `limit` (clamped 1..1000, default 100); `health_tick` takes no params and calls `source.update_health_status!` on every **active** source.
+
+```bash
+# Tail the monitor cron summary (polled / changed / errors per tick)
+journalctl -u powernode-worker@default -f | grep AiDataSourceMonitorJob
+# Tail the health sweep summary (refreshed / errors)
+journalctl -u powernode-worker@default -f | grep AiDataSourceHealthJob
+```
+
+> **Why thin?** Per the worker architecture the standalone Sidekiq worker never touches the DB or the fetch pipeline directly — it triggers, the server does the work. A `monitor_tick` failure retries once (`retry: 1`); a single bad subscription never fails the tick (see below).
+
+### `due_for_poll` & auto-recovery semantics
+
+`MonitorService#tick` polls `Ai::DataSourceSubscription.due_for_poll` — **the single most important behavior to understand operationally**:
+
+```ruby
+scope :due_for_poll, -> {
+  where(status: %w[active error])
+    .where("next_poll_at IS NOT NULL AND next_poll_at <= ?", Time.current)
+}
+```
+
+- **It INCLUDES `error`-status subscriptions.** A subscription that tripped the failure threshold (`consecutive_failures >= 5` → `status: "error"`) keeps being polled. That is the **only** path that can clear `error` back to `active` (a successful `record_poll!` resets the counter and flips the status), so a failing subscription **self-heals** once the upstream recovers. Excluding `error` would silently stop monitoring forever.
+- **It EXCLUDES operator-set `paused`.** `paused` is the intentional off switch — `pause!` sets `status: "paused"` and `next_poll_at: nil`, and a paused subscription is never picked up. Use it to stop a subscription without deleting it.
+- Per poll, the monitor still respects the parent source's `check_quota!`: a throttled source **defers** the poll to the next tick (re-schedules without counting a failure) rather than burning its budget on background monitoring.
+- **Per-subscription failures never abort the batch** — each is caught, `record_failure!`'d, and collected into the tick's `errors` array, so one broken subscription cannot stall the others.
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| Subscription `status: "error"`, `consecutive_failures` climbing | Upstream returning errors on the polled endpoint | It is *still polling* (auto-recovery) — inspect the upstream; check `last_polled_at` is advancing and `metadata.last_error` |
+| Subscription stuck — never polls | `status: "paused"` (operator off switch) or `poll_frequency: "manual"` (never auto-polls) | `activate!` to resume, or set a non-manual cadence; confirm `next_poll_at` is non-nil |
+| `next_poll_at` in the past but not polled | Monitor cron not running, or `tick` `limit` saturated by a backlog | Confirm `AiDataSourceMonitorJob` is scheduled; raise `limit` for a one-off catch-up POST to `monitor_tick` |
+| Subscription deferred every tick | Parent source quota exhausted | Check `quota_status`; the poll re-schedules without a failure until the source has budget |
+
+### Change-signal monitoring
+
+When a poll detects a change (new canonical SHA-256 checksum vs the stored `last_checksum`, or no prior checksum on the first poll), the monitor:
+
+1. Warms **only that param-variant's** `ResponseCacheService` entry with the fresh payload — it does **not** blanket-invalidate the endpoint, so sibling subscriptions and interactive reads keep their own cached variants.
+2. Emits a **stigmergic signal** so autonomous agents perceive the update without polling:
+
+```
+Ai::Coordination::StigmergicSignalService#emit!
+  signal_type: "discovery"
+  signal_key:  "data_source_changed"          # ← the key to watch
+  agent:       nil                              # system-emitted (no agent attribution)
+  strength:    1.0
+  payload:     { slug, data_source_id, endpoint, endpoint_id, subscription_id, checksum }
+```
+
+A matching ETag on both the response and the subscription short-circuits to "unchanged" (304-style revalidation) regardless of checksum. An unchanged poll emits no signal and warms no cache.
+
+```bash
+# MCP — perceive the discovery signal stream (filter on the change key)
+#   platform.perceive_signals  signal_type: "discovery"
+#   → look for signal_key "data_source_changed" entries (payload carries the checksum + ids)
+```
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| No `data_source_changed` signals despite a live source | Upstream payload is byte-stable (checksum unchanged) or every poll is deferred/failing | Confirm `changed` > 0 in the monitor-tick log; check the upstream actually changes between polls |
+| Signal fires on every poll | Upstream returns a non-deterministic field (timestamp, request id) so the checksum never repeats | Narrow the endpoint `response_mapping`/`query_template` so volatile fields aren't in the canonical payload |
+| Change detected but cache not warm for interactive reads | The interactive read used different `params` (a different cache variant) | Expected — the monitor warms only the subscription's param-variant; align params or add a subscription per variant |
+
+## Stale-while-revalidate & stale-if-error
+
+Phase 3 adds two **opt-in, per-endpoint** stale-serving cache policies on `Ai::DataSourceEndpoint`, both nullable and **OFF by default**. When **both** `stale_while_revalidate_seconds` and `stale_if_error_seconds` are nil, the cache is **byte-for-byte the legacy behavior** — the Redis key's TTL equals the hard TTL and the `FetchEnvelope` is unchanged. The enable-the-policy walkthrough is in the [guide](../guides/data-sources.md#enabling-stale-serving-cache-policies-per-endpoint-phase-3); this is the operating mechanics.
+
+| Column | Policy | Served when |
+|--------|--------|-------------|
+| `stale_while_revalidate_seconds` | **SWR** | The hard TTL has passed but the entry is within the SWR grace window — served immediately (flagged) while a background refresh repopulates it. |
+| `stale_if_error_seconds` | **stale-if-error** | A *live* fetch failed with a transient fault (`error`/`timeout`) and a hard-expired entry is within the SIE window — served instead of failing. |
+
+### The grace window (how the entry survives past expiry)
+
+The key mechanic both policies share: `ResponseCacheService` stores a fixed **hard-expiry epoch** in the entry but keeps the Redis key alive for `hard_ttl + grace_window` seconds, where `grace_window = max(stale_while_revalidate_seconds, stale_if_error_seconds)`. So between the hard expiry and the end of the grace window the entry is **physically present but logically stale** — and the policies decide whether to serve it. Outside the grace window Redis has already evicted the key, so neither policy can ever serve beyond `max(swr, sie)` past expiry.
+
+The shared read primitive is `ResponseCacheService.read_stale`, returning `{ payload:, stale:, hard_expired:, age_seconds:, stale_age_seconds: }` (or nil on miss). `stale_age_seconds` counts seconds **past the hard expiry** (0 while fresh) — the SWR/SIE windows are measured against *that*, per HTTP `Cache-Control` `stale-*` semantics (the window starts when the entry goes stale, not when it was written). `read_stale` is a side-channel read and **does not** count toward the cache hit/miss metrics.
+
+### SWR operational behavior
+
+On `ResponseCacheService.fetch`, when the entry is hard-expired but within the SWR window, the service:
+
+1. Records a **hit** and returns the stale payload immediately (non-blocking serve).
+2. Schedules a **single** background refresh — an NX-locked (one refresher per key per window) detached `Thread` wrapped in `ActiveRecord::Base.connection_pool.with_connection` (so the refetch's DB work checks out and releases its own connection rather than leaking the pool under load), which calls `MonitorService#refresh!` to re-warm the entry. A failure there is swallowed — the stale value was already served.
+
+So under SWR, *one* reader after expiry eats a stale serve + triggers the refresh; the *next* reader gets the fresh value. This trades a brief window of slightly-stale data for removing the latency spike of a synchronous refetch.
+
+### Stale-if-error operational behavior
+
+Stale-if-error lives in `QueryService` (not the cache layer) because it reacts to a fetch *outcome*. After a live fetch returns `error` or `timeout` (and **only** those — `blocked` and `rate_limited` are deliberate policy rejections, not upstream outages, and are passed through untouched), if the endpoint sets `stale_if_error_seconds` and a hard-expired entry exists within that window, the failure is swapped for the last-known-good payload via `read_stale`. The substituted result is flagged so it reads as an honest degraded serve, not a fresh success:
+
+```jsonc
+{
+  "success": true,
+  "status": "cached",
+  "provenance": {
+    "stale_if_error": true,
+    "served_on_error": "timeout",        // the failure status that triggered the serve
+    "from_cache": true,
+    "cache_age_seconds": 920,
+    "stale_age_seconds": 320,
+    "anomalies": ["stale_if_error", "…"]
+  }
+}
+```
+
+It is recorded with `served_stage: "stale_if_error"` and **never re-writes the cache** (finalize only writes on a *fresh* success), so the genuine last-known-good is preserved for the next caller. A still-*fresh* entry would have satisfied the cache layer before the fetch ever ran, so if the failure path is reached with a non-expired entry the failure is unrelated to staleness and is passed through rather than masked.
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| Endpoint still hard-fails on a transient upstream error | `stale_if_error_seconds` is nil/0, or no last-known-good in the grace window | Set `stale_if_error_seconds`; confirm a prior successful fetch seeded the cache and the entry is within `max(swr, sie)` of expiry |
+| Stale-if-error not serving for a `blocked`/`rate_limited` result | By design — those are policy rejections, not upstream faults | Expected; only `error`/`timeout` qualify. Address the quota/kill-flag instead |
+| SWR never refreshes in the background | `MonitorService` undefined in the process, or the NX refresh lock is held | Confirm the server (not worker) serves the cache; the lock auto-expires — a stuck lock self-clears within the lock TTL |
+| Cache "grew" a longer TTL after enabling | Expected — the Redis key now lives `hard_ttl + max(swr, sie)` so stale reads can find it; the hard-expiry epoch is unchanged | None; disable both columns to restore the legacy `TTL == hard_ttl` |
+
 ## Sync & Health Jobs
 
-Provider model sync and health monitoring for data sources run in the worker. Jobs tag logs with `data_source_id` and post health transitions via the audit log, so operators see state flips in both `Monitoring` dashboards and `Trading::AuditLog` (where applicable).
+Provider model sync and health monitoring for data sources run in the worker. Jobs tag logs with `data_source_id` and post health transitions via the audit log, so operators see state flips in both `Monitoring` dashboards and `Trading::AuditLog` (where applicable). The Phase-3 monitor + health crons are documented above in [Monitoring a source for changes](#monitoring-a-source-for-changes-phase-3).
 
 ## Verification
 
@@ -509,7 +642,8 @@ curl -X PATCH \
 | Role | Path |
 |------|------|
 | Model — Data Source | `server/app/models/ai/data_source.rb` (`record_query!`, `recalculate_effectiveness!`, `usage_success_rate`) |
-| Model — Endpoint (Phase 2b) | `server/app/models/ai/data_source_endpoint.rb` (`track_schema`/`quality_checks_enabled`/`quarantine_on_failure`/`sla_max_age_seconds`/`owner`/`contract`; `has_many :schema_versions`/`:expectations`) |
+| Model — Endpoint (Phase 2b/3) | `server/app/models/ai/data_source_endpoint.rb` (2b: `track_schema`/`quality_checks_enabled`/`quarantine_on_failure`/`sla_max_age_seconds`/`owner`/`contract`; 3: `stale_while_revalidate_seconds`/`stale_if_error_seconds`; `has_many :schema_versions`/`:expectations`/`:subscriptions`) |
+| Model — Subscription (Phase 3) | `server/app/models/ai/data_source_subscription.rb` (`POLL_FREQUENCIES`, `STATUSES`; `.active`/`.due_for_poll`/`.for_data_source`/`.for_endpoint`; `record_poll!`/`record_failure!`/`schedule_next_poll!`/`activate!`/`pause!`) |
 | Model — Credential | `server/app/models/ai/data_source_credential.rb` |
 | Model — Schema version (Phase 2b) | `server/app/models/ai/data_source_schema_version.rb` (`CLASSIFICATIONS`; `for_endpoint`/`ordered`/`latest_first`/`breaking`) |
 | Model — Quality expectation (Phase 2b) | `server/app/models/ai/data_source_expectation.rb` (`RULE_TYPES`, `SEVERITIES`; `active`/`errors`) |
@@ -520,20 +654,25 @@ curl -X PATCH \
 | Service — Quality (Phase 2b) | `server/app/services/ai/data_sources/quality_service.rb` (`#evaluate`) |
 | Service — OpenAPI import (Phase 2b) | `server/app/services/ai/data_sources/open_api_import_service.rb` (`#import`) |
 | Service — Contract (Phase 2b) | `server/app/services/ai/data_sources/contract_service.rb` (`#validate`) |
-| QueryService wiring (Phase 2b) | `server/app/services/ai/data_sources/query_service.rb` (`#apply_observability_stages`, `#track_schema_drift`, `#evaluate_quality`, `#quarantine_records`) |
-| Controller — Sources | `server/app/controllers/api/v1/ai/data_sources_controller.rb` (`#discover`) |
-| Controller concern — Endpoints (Phase 2b) | `server/app/controllers/concerns/ai/data_source_endpoints.rb` (`#schema_history`, `#quality`, `#contract`, `#introspect`) |
+| QueryService wiring (Phase 2b/3) | `server/app/services/ai/data_sources/query_service.rb` (2b: `#apply_observability_stages`, `#track_schema_drift`, `#evaluate_quality`, `#quarantine_records`; 3: `#maybe_serve_stale_if_error`, `#build_stale_if_error_result`) |
+| Service — Monitor (Phase 3) | `server/app/services/ai/data_sources/monitor_service.rb` (`#tick`, `#health_tick`, `#refresh!`; `CHANGE_SIGNAL_KEY = "data_source_changed"`) |
+| Cache SWR/SIE (Phase 3) | `server/app/services/ai/data_sources/response_cache_service.rb` (`.read_stale`, `#grace_window`, `#schedule_background_refresh`) |
+| Controller — Sources | `server/app/controllers/api/v1/ai/data_sources_controller.rb` (`#discover`; subscription permission gating) |
+| Controller concern — Endpoints (Phase 2b/3) | `server/app/controllers/concerns/ai/data_source_endpoints.rb` (2b: `#schema_history`, `#quality`, `#contract`, `#introspect`; 3: `#subscriptions_index`, `#subscriptions_create`, `#subscriptions_destroy`) |
+| Internal controller (Phase 3) | `server/app/controllers/api/v1/internal/data_sources_controller.rb` (`#monitor_tick`, `#health_tick`; mTLS worker-only) |
+| Worker crons (Phase 3) | `worker/app/jobs/ai_data_source_monitor_job.rb` (`*/5`), `worker/app/jobs/ai_data_source_health_job.rb` (`*/10`) — thin triggers to the internal ticks |
 | Controller — Credentials | `server/app/controllers/api/v1/ai/data_source_credentials_controller.rb` |
 | Serialisation concern | `server/app/controllers/concerns/ai/data_source_serialization.rb` (effectiveness/usage fields) |
-| MCP tool | `server/app/services/ai/tools/data_source_tool.rb` (`data_source_discover` / `_provenance` / `_impact`; 2b: `_schema_history` / `_quality` / `_contract` / `_introspect`) |
-| Routes | `server/config/routes.rb` (`resources :data_sources`; collection `post :discover`; 2b: `endpoints/:endpoint_id/{schema_history,quality,contract}`, `post :introspect`) |
+| MCP tool | `server/app/services/ai/tools/data_source_tool.rb` (`data_source_discover` / `_provenance` / `_impact`; 2b: `_schema_history` / `_quality` / `_contract` / `_introspect`; 3: `_subscribe` / `_unsubscribe`, `STREAM_ACTIONS` gated by `ai.data_sources.stream`) |
+| Routes | `server/config/routes.rb` (`resources :data_sources`; collection `post :discover`; 2b: `endpoints/:endpoint_id/{schema_history,quality,contract}`, `post :introspect`; 3: `{get,post} :subscriptions` + `delete subscriptions/:subscription_id`; internal `ai/data_sources/{monitor_tick,health_tick}`) |
+| Permissions (Phase 3) | `server/config/permissions.rb` (`ai.data_sources.stream` — granted to `member`/`manager`/`ai_specialist`) |
 
 ---
 
 ## Related runbooks
 
 - [data-source-fetch-pipeline.md](data-source-fetch-pipeline.md) — Phase 1: the governed fetch pipeline (kill flag, per-agent fairness, response cache, circuit breaker, SSRF guard, decode/normalize, cost, hash-chained query log) and its troubleshooting
-- [../guides/data-sources.md](../guides/data-sources.md) — Phase 2a/2b from the agent/author angle: discover → describe → query, how effectiveness accrues, reading trust signals, enabling per-endpoint quality/drift/contracts
+- [../guides/data-sources.md](../guides/data-sources.md) — Phase 2a/2b/3 from the agent/author angle: discover → describe → query, how effectiveness accrues, reading trust signals, enabling per-endpoint quality/drift/contracts, creating monitoring subscriptions, and enabling SWR/stale-if-error
 - [ai-operations.md](ai-operations.md) — AI provider sister system; same encryption / credential patterns
 - [worker-operations.md](worker-operations.md) — Sync / health jobs schedule
 

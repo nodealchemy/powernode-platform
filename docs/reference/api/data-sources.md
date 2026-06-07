@@ -7,6 +7,8 @@
 > **Phase 2a (discovery + evaluation)** adds semantic discovery (`POST /discover`, the `data_source_discover` MCP action), per-fetch effectiveness/trust scoring (the `effectiveness_score` / `usage_*` serializer fields), and two new audit/usage MCP actions (`data_source_provenance`, `data_source_impact`). These build on the Phase-1 surface below — they are flagged inline and grouped in [Phase 2a additions](#phase-2a-additions).
 >
 > **Phase 2b (quality / drift / contracts / introspection)** adds opt-in response-schema drift tracking, data-quality expectations with quarantine, an aggregate data-contract verdict, and OpenAPI 3 introspection. Surfaced as four REST routes (`GET endpoints/:id/{schema_history,quality,contract}`, `POST :id/introspect`) and four MCP actions (`data_source_schema_history` / `data_source_quality` / `data_source_contract` = read, `data_source_introspect` = manage, `dry_run`). Two new tables (`ai_data_source_schema_versions`, `ai_data_source_expectations`), quality columns on `ai_data_source_queries`, and opt-in/SLA/contract columns on `ai_data_source_endpoints` back it. **All three endpoint observability flags default `false`** — a pre-2b endpoint runs the exact same fetch with zero added overhead. Grouped in [Phase 2b additions](#phase-2b-additions).
+>
+> **Phase 3 (streaming / monitoring)** adds pull-based **subscriptions**: a `(data_source, endpoint)` pairing with a poll cadence that the server-side `Ai::DataSources::MonitorService` walks, change-detects (etag / SHA256 checksum), and on change warms the cache + emits a `data_source_changed` stigmergic signal. Subscriptions are managed over REST (`GET/POST/DELETE /data_sources/:id/subscriptions`) and MCP (`data_source_subscribe` / `data_source_unsubscribe`, gated by the new `ai.data_sources.stream` grant). The standalone worker only fires two thin mTLS cron ticks (`POST /api/v1/internal/ai/data_sources/{monitor,health}_tick`) — all poll/fetch/signal logic is server-side. Phase 3 also wires the **stale-while-revalidate / stale-if-error** cache policies via two opt-in endpoint columns (`stale_while_revalidate_seconds` / `stale_if_error_seconds`, nil = OFF) and adds the `ai_data_source_subscriptions` table. Grouped in [Phase 3 additions](#phase-3-additions).
 
 ## Table of Contents
 
@@ -31,6 +33,12 @@
   - [REST: Contract verdict](#rest-contract-verdict)
   - [REST: Introspect (OpenAPI import)](#rest-introspect-openapi-import)
   - [MCP: quality + drift + contract + introspection actions](#mcp-quality--drift--contract--introspection-actions)
+- [Phase 3 additions](#phase-3-additions)
+  - [Subscriptions + the monitor loop](#subscriptions--the-monitor-loop)
+  - [Stale-while-revalidate / stale-if-error](#stale-while-revalidate--stale-if-error)
+  - [REST: Subscriptions](#rest-subscriptions)
+  - [Internal: worker monitor / health ticks](#internal-worker-monitor--health-ticks)
+  - [MCP: subscription actions](#mcp-subscription-actions)
 - [REST: Endpoints (nested)](#rest-endpoints-nested)
   - [List endpoints](#list-endpoints)
   - [Create an endpoint](#create-an-endpoint)
@@ -43,6 +51,7 @@
   - [`ai_data_source_queries`](#ai_data_source_queries)
   - [`ai_data_source_schema_versions` (2b)](#ai_data_source_schema_versions)
   - [`ai_data_source_expectations` (2b)](#ai_data_source_expectations)
+  - [`ai_data_source_subscriptions` (3)](#ai_data_source_subscriptions)
 - [Related docs](#related-docs)
 
 ## Overview
@@ -64,18 +73,21 @@ Defined in `server/config/permissions.rb`. Checked in `validate_permissions` for
 
 | Permission | Grants |
 |------------|--------|
-| `ai.data_sources.read` | View sources, endpoints, quota, health, validate config; run `test_connection` |
+| `ai.data_sources.read` | View sources, endpoints, quota, health, validate config; run `test_connection`; list subscriptions |
 | `ai.data_sources.query` | Run the governed fetch (the `query` action) |
 | `ai.data_sources.create` | Create a source |
 | `ai.data_sources.update` | Update a source; create/update/delete its endpoints |
 | `ai.data_sources.delete` | Delete a source |
-| `ai.data_sources.manage` | Super-grant — satisfies any create/update/delete |
+| `ai.data_sources.manage` | Super-grant — satisfies any create/update/delete; gates `introspect` |
+| `ai.data_sources.stream` *(3)* | Create/cancel pull-based subscriptions (`subscriptions_create` / `subscriptions_destroy`; MCP `data_source_subscribe` / `data_source_unsubscribe`) |
+
+The `ai.data_sources.stream` grant (added in `permissions.rb`) is seeded onto the `member`, `manager`, and `ai_specialist` roles.
 
 REST per-action mapping (`DataSourcesController#validate_permissions`):
 
 | Action(s) | Permission |
 |-----------|-----------|
-| `index`, `show`, `quota_status`, `test_connection`, `endpoints_index`, `discover` | `ai.data_sources.read` |
+| `index`, `show`, `quota_status`, `test_connection`, `endpoints_index`, `discover`, `subscriptions_index` | `ai.data_sources.read` |
 | `create` | `ai.data_sources.create` |
 | `update` | `ai.data_sources.update` |
 | `destroy` | `ai.data_sources.delete` |
@@ -83,6 +95,7 @@ REST per-action mapping (`DataSourcesController#validate_permissions`):
 | `endpoints_query` | `ai.data_sources.query` |
 | `schema_history`, `quality`, `contract` *(2b)* | `ai.data_sources.read` |
 | `introspect` *(2b)* | `ai.data_sources.manage` (even `dry_run` — it is a write surface) |
+| `subscriptions_create`, `subscriptions_destroy` *(3)* | `ai.data_sources.stream` |
 
 ## REST: Data Sources
 
@@ -587,6 +600,138 @@ On `dry_run: true`, `created` is `[]` and `preview` holds the would-be endpoints
 - **`data_source_introspect`** → `{ data_source, dry_run, created, created_count, preview, preview_count, errors }`. Accepts only an inline `spec` Hash (no `spec_url` — that is REST-only); raises `ArgumentError "spec is required"` when blank.
 - **`data_source_contract`** → `{ data_source, endpoint:{id,slug,name,sla_max_age_seconds,owner}, contract:{met,schema_valid,quality_passed,within_sla,violations}, fetch_status, fetch_success }`. **Unlike the REST `contract` GET**, this runs a real `QueryService` fetch first (consuming quota/egress) and validates the contract against the **live** envelope.
 
+## Phase 3 additions
+
+Phase 3 layers **streaming / monitoring** onto the governed fetch. A **subscription** (`Ai::DataSourceSubscription`, table `ai_data_source_subscriptions`) pairs a `(data_source, endpoint)` with a poll cadence and the last observed change fingerprint (`last_checksum` / `last_etag`). The server-side `Ai::DataSources::MonitorService` walks due subscriptions, runs the **same governed `QueryService` pipeline** as an interactive query, change-detects against the stored fingerprint, and **on change** warms only that param-variant's cache entry + emits a `data_source_changed` stigmergic signal so autonomous agents perceive the update. The standalone worker fires only two thin mTLS cron ticks; it never polls or fetches itself. Phase 3 also activates the **stale-while-revalidate / stale-if-error** cache policies behind two opt-in endpoint columns. **Nothing in the Phase-1/2a/2b contract changed** — the `FetchEnvelope` is byte-for-byte identical until an endpoint opts into a stale window, and the existing `served_stage` enum already carried the `stale_if_error` value.
+
+### Subscriptions + the monitor loop
+
+`Ai::DataSourceSubscription` (`server/app/models/ai/data_source_subscription.rb`):
+
+- `belongs_to :data_source` (`ai_data_source_id`) / `:endpoint` (`ai_data_source_endpoint_id`); `belongs_to :agent` (`ai_agent_id`, **optional** — cadence ownership without coupling to agent lifecycle). `Ai::DataSource has_many :subscriptions` and `Ai::DataSourceEndpoint has_many :subscriptions`, both `dependent: :destroy`.
+- `POLL_FREQUENCIES = %w[manual 5min hourly daily weekly monthly realtime]` — reuses `Ai::DataConnector`'s cadence set plus two monitor-grade fine tiers (`5min`, `realtime`). `poll_interval` returns an `ActiveSupport::Duration` (`realtime` → `0.seconds`, polled on **every** tick; unknown/blank → `1.hour`).
+- `STATUSES = %w[active paused error]`.
+- `params` / `metadata` are jsonb with lambda defaults. A `before_create` seeds `next_poll_at = Time.current` for any non-`manual` cadence so the monitor picks the subscription up without an explicit `activate!`.
+
+**Scopes** (drive the monitor):
+
+| Scope | Definition | Notes |
+|-------|------------|-------|
+| `active` | `status: "active"` | |
+| `due_for_poll` | `status IN (active, error) AND next_poll_at IS NOT NULL AND next_poll_at <= now` | **Includes `error`** so a failing subscription keeps retrying and can self-heal (the only path that clears `error → active` is a successful `record_poll!`). **Excludes operator-set `paused`.** |
+| `for_data_source(ds)` / `for_endpoint(ep)` | scope by source / endpoint | accepts a record or an id |
+
+**Lifecycle methods**:
+
+- `activate!` → sets `status: "active"` and schedules the next poll. `pause!` → `status: "paused"`, `next_poll_at: nil` (drops out of `due_for_poll`). `active?`.
+- `record_poll!(changed:, checksum: nil, etag: nil)` — sets `last_polled_at`, **resets `consecutive_failures` to 0**, clears a prior `error` status back to `active`, updates `last_checksum` / `last_etag` only when supplied, then schedules the next poll. Returns the `changed` flag.
+- `record_failure!(error_message = nil)` — increments `consecutive_failures`, flips `status` to `"error"` once failures **`>= 5`** (only from `active`), records `last_error` / `last_error_at` in `metadata`, and still schedules the next attempt (unless `paused`) so a transient fault self-heals.
+- `schedule_next_poll!` — `next_poll_at = now + poll_interval`; a no-op for `manual` (and immediate for `realtime`, interval 0). `needs_poll?` → `active? && next_poll_at present && <= now`.
+
+`Ai::DataSources::MonitorService.new(account = nil)` (`server/app/services/ai/data_sources/monitor_service.rb`):
+
+- **`#tick(limit: 100)` → `{ polled:, changed:, errors: [{ subscription_id:, error: }] }`.** Walks `DataSourceSubscription.due_for_poll` (eager-loading source/endpoint/agent, account-scoped when an account was supplied). For each subscription it first respects the parent source's `check_quota!` — a throttled source **reschedules without counting a failure** rather than burning budget on background monitoring. It then runs the governed `QueryService` fetch, passing the stored `last_etag` as a conditional hint via the reserved `__conditional_etag` param (adapters that support it translate to `If-None-Match`; others ignore it).
+- **Change detection** compares a canonical `Digest::SHA256` of the deep-sorted payload (preferring the provenance `response_sha256` when present) against `last_checksum`; when both sides expose an etag and they match, the result is unchanged regardless of checksum (handles 304-style revalidation). The first successful poll (blank `last_checksum`) always registers as changed.
+- **On change**: warms **only that param-variant's** `ResponseCacheService.write` entry (an idempotent `setex` — it does **not** blanket-invalidate the endpoint, which would cold-miss sibling subscriptions / interactive reads cached under different params; the `__conditional_etag` hint is stripped from the cache-key params), then emits `Ai::Coordination::StigmergicSignalService.new(account: source.account || account).emit!(signal_type: "discovery", signal_key: "data_source_changed", agent: nil, strength: 1.0, payload: { slug, data_source_id, endpoint, endpoint_id, subscription_id, checksum })`. The signal is **system-emitted** (no agent attribution, consistent with the QueryService schema-drift signal) and skipped when the source has no resolvable account.
+- Outcomes are recorded via `record_poll!` (changed true/false) or `record_failure!` on a failed/erroring envelope. **Per-subscription failures are collected and never abort the batch.**
+- **`#health_tick` → `{ refreshed:, errors: [] }`** — calls `update_health_status!` on every active source in scope (used by the health cron tick).
+- **`#refresh!(data_source:, endpoint:, params: {})` → Boolean** — the background SWR refresh entry point (see below): runs the governed fetch and re-warms the cache on success; best-effort (any failure is logged, never raised).
+
+### Stale-while-revalidate / stale-if-error
+
+Two nullable integer columns added to `ai_data_source_endpoints` (migration `20260606121000`) gate the stale-serving policies. **Both default `nil` = OFF** — when both are nil the cache behaves byte-for-byte as before and the `FetchEnvelope` is unchanged.
+
+| Column | Policy |
+|--------|--------|
+| `stale_while_revalidate_seconds` | After the hard TTL, `ResponseCacheService.fetch` may serve a hard-expired entry **within this window** (flagged) and kick off a background refresh. |
+| `stale_if_error_seconds` | On a transient upstream failure, `QueryService` may serve the last-known-good cached payload **within this window** instead of failing. |
+
+`ResponseCacheService` (`server/app/services/ai/data_sources/response_cache_service.rb`):
+
+- **`write` / `fetch` extend the Redis key TTL** by `grace_window = max(stale_while_revalidate_seconds, stale_if_error_seconds)` while keeping the **hard-expiry epoch** unchanged — so either policy can still find the entry past its freshness boundary. With both windows nil the grace is 0 and the Redis TTL equals the hard TTL (legacy behaviour).
+- **`fetch`** serves a **hard-expired** entry within the SWR window (`hard_expired: true` but still inside grace), counts it as a hit, and calls `schedule_background_refresh` — an **NX-locked, detached `Thread`** (one refresher per key per grace window) wrapped in `ActiveRecord::Base.connection_pool.with_connection` so the refetch's DB work doesn't leak the pool, delegating the real refresh to `MonitorService#refresh!`.
+- **`read_stale(data_source:, endpoint:, params:)` → `{ payload:, stale:, hard_expired:, age_seconds:, stale_age_seconds: }` | nil** — a side-channel read used only by the stale policies; it does **not** count toward hit/miss metrics. `stale_age_seconds` is seconds elapsed **past** the hard expiry (0 while fresh), per HTTP `Cache-Control` `stale-*` semantics (the window is measured from when the entry went stale, not when it was written).
+
+`QueryService` stale-if-error (`maybe_serve_stale_if_error`): on a `STATUS_ERROR` / `STATUS_TIMEOUT` failure (policy rejections `blocked` / `rate_limited` are **deliberately excluded** — those are decisions, not upstream outages), and only when `stale_if_error_seconds` is set and a hard-expired entry exists within the window, it swaps the failure for the cached payload via `read_stale`. The substituted result is flagged `success: true`, `status: cached`, `served_stage: "stale_if_error"`, with `provenance.stale_if_error: true` (and `served_on_error` recording the original failure status) so persistence/provenance record an honest degraded serve. It never re-writes the cache (`finalize` gates `write_cache` on a fresh success). The `served_stage` enum on `ai_data_source_queries` therefore takes one of `fresh / cache / stale_while_revalidate / stale_if_error`.
+
+### REST: Subscriptions
+
+Subscriptions nest under a source (mixed in via the `Ai::DataSourceEndpoints` concern). Routes (`config/routes.rb`):
+
+```
+GET    /api/v1/ai/data_sources/:data_source_id/subscriptions
+POST   /api/v1/ai/data_sources/:data_source_id/subscriptions
+DELETE /api/v1/ai/data_sources/:data_source_id/subscriptions/:subscription_id
+```
+
+The shared subscription summary (`serialize_subscription`, kept in lockstep with the MCP `subscription_summary` and the frontend `AiDataSourceSubscription` type):
+
+```json
+{
+  "id": "uuid",
+  "data_source_id": "uuid",
+  "endpoint_id": "uuid",
+  "poll_frequency": "hourly",
+  "status": "active",
+  "params": {},
+  "next_poll_at": "2026-06-06T01:00:00Z",
+  "last_polled_at": "2026-06-06T00:00:00Z",
+  "last_checksum": "…",
+  "last_etag": "\"abc123\"",
+  "consecutive_failures": 0,
+  "agent_id": null
+}
+```
+
+**List** — `GET .../subscriptions` (`subscriptions_index`, `ai.data_sources.read`): returns `{ "items": [<summary>, …], "count": N }` (newest-first; eager-loads `:endpoint`).
+
+**Create / update** — `POST .../subscriptions` (`subscriptions_create`, `ai.data_sources.stream`). **Idempotent** on the source+endpoint pair via `find_or_initialize_by(ai_data_source_endpoint_id:)` — a second POST for the same endpoint updates the existing cadence/params instead of duplicating. Body is keyed under `subscription`:
+
+```json
+{ "subscription": { "endpoint_id": "uuid-or-slug", "poll_frequency": "hourly", "params": { "lat": 40.71 } } }
+```
+
+| Field | Required | Default | Notes |
+|-------|----------|---------|-------|
+| `endpoint_id` | yes | — | Resolved within the source's `endpoints`; `404 "Endpoint not found"` otherwise |
+| `poll_frequency` | no | `hourly` | Must be in `POLL_FREQUENCIES`; `422` with the allowed list otherwise |
+| `params` | no | `{}` | Free-form per-poll variables (permit-all; redacted by `QueryService` on each poll) |
+
+A new record (or a changed `poll_frequency`) re-arms the cadence (`next_poll_at = nil`, then `schedule_next_poll!`). Response: `201` (new) / `200` (updated) with `{ "subscription": <summary> }`, or `422` `render_validation_error`. Emits `ai.data_sources.subscription.create`.
+
+**Cancel** — `DELETE .../subscriptions/:subscription_id` (`subscriptions_destroy`, `ai.data_sources.stream`): `{ "message": "Subscription cancelled successfully" }`, or `404` when the subscription is not under this source. Emits `ai.data_sources.subscription.delete`.
+
+### Internal: worker monitor / health ticks
+
+Worker-only, mTLS (no JWT). `Api::V1::Internal::DataSourcesController` inherits `InternalBaseController` (skip JWT, `authenticate_worker_via_mtls!`). Both delegate straight to `MonitorService` and return its summary in the standard envelope.
+
+```
+POST /api/v1/internal/ai/data_sources/monitor_tick
+POST /api/v1/internal/ai/data_sources/health_tick
+```
+
+- **`monitor_tick`** — optional `limit` body param (clamped `1..1000`, default `100`); calls `MonitorService.new.tick(limit:)` across all accounts → `{ polled, changed, errors }`.
+- **`health_tick`** — calls `MonitorService.new.health_tick` → `{ refreshed, errors }`.
+
+On any raised error both return a `render_error` (not a 500). The worker side is two **thin** cron triggers that only POST these paths and log the batch summary:
+
+| Worker job | Cron (`worker/config/sidekiq.yml`) | Posts |
+|-----------|-------------------------------------|-------|
+| `worker/app/jobs/ai_data_source_monitor_job.rb` | `*/5 * * * *` | `POST /api/v1/internal/ai/data_sources/monitor_tick` |
+| `worker/app/jobs/ai_data_source_health_job.rb` | `*/10 * * * *` | `POST /api/v1/internal/ai/data_sources/health_tick` |
+
+### MCP: subscription actions
+
+`Ai::Tools::DataSourceTool` now carries **18 actions** — the Phase-1/2a/2b sixteen plus the two below. Both are in `STREAM_ACTIONS`, gated by `ai.data_sources.stream` (`STREAM_PERMISSION`); like the read/query actions they have **no** proposal fallback (an unauthorized call returns a permission-denied result). `data_source_id` / `endpoint_id` accept a UUID **or** a slug, resolved within the acting account.
+
+| Action | Purpose | Params | Required permission |
+|--------|---------|--------|---------------------|
+| `data_source_subscribe` | Create/update a pull-based subscription (idempotent `find_or_initialize` on the endpoint) | `data_source_id`, `endpoint_id`, `params?`, `poll_frequency?` (default `hourly`) | `ai.data_sources.stream` |
+| `data_source_unsubscribe` | Remove a subscription | `subscription_id` **OR** `data_source_id` + `endpoint_id` | `ai.data_sources.stream` |
+
+- **`data_source_subscribe`** validates `poll_frequency` against `POLL_FREQUENCIES`, sets the acting `agent` when present, re-arms the cadence on a new/changed-frequency record, and returns `{ subscription: <summary>, message: "Subscription created"|"Subscription updated" }`. (The MCP `subscription_summary` omits `last_etag`; the REST `serialize_subscription` includes it.)
+- **`data_source_unsubscribe`** deletes by `subscription_id` (account-scoped via a join through the parent source) → `{ message, subscription_id }`; or, given `data_source_id + endpoint_id`, `destroy_all` matching subscriptions → `{ message, removed_count, data_source_id, endpoint_id }`. Raises `ArgumentError` when neither selector is supplied.
+
 ## REST: Endpoints (nested)
 
 Endpoints nest under a source. They are declarative request templates + response contracts (see [`../../concepts/data-sources.md`](../../concepts/data-sources.md#catalog--endpoints)). Routes (`config/routes.rb`):
@@ -756,7 +901,7 @@ On a failed envelope (`success: false`), the controller renders `render_error` w
 
 ## MCP: `data_source_*` actions
 
-`Ai::Tools::DataSourceTool` exposes the surface to agents as the `data_source_management` tool, now with **16 actions** (Phase-1 nine + Phase 2a three + Phase 2b four). The class-level `REQUIRED_PERMISSION` (`ai.data_sources.read`) gates visibility; finer per-action authorization happens inside `#call`. `data_source_id` / `endpoint_id` accept **either a UUID or a slug** (resolved within the acting account).
+`Ai::Tools::DataSourceTool` exposes the surface to agents as the `data_source_management` tool, now with **18 actions** (Phase-1 nine + Phase 2a three + Phase 2b four + Phase 3 two). The class-level `REQUIRED_PERMISSION` (`ai.data_sources.read`) gates visibility; finer per-action authorization happens inside `#call`. `data_source_id` / `endpoint_id` accept **either a UUID or a slug** (resolved within the acting account).
 
 **Proposal fallback:** when the acting agent's account lacks the required mutation grant, the `create`/`update`/`delete` actions do **not** mutate. They file an `Ai::AgentProposal` (via `Ai::ProposalService`, `proposal_type: "configuration"`) describing the intended change and return `{ success: true, requires_approval: true, proposal_id, status, proposed_changes, message }` for a human to review. (If there is no agent/account context, or the proposal can't be filed, the action returns a permission-denied / error result instead.) Read and `query` actions have **no** fallback — they return a permission-denied result when unauthorized. `ai.data_sources.manage` satisfies any mutation.
 
@@ -775,19 +920,23 @@ On a failed envelope (`success: false`), the controller renders `render_error` w
 | `data_source_quality` *(2b)* | Endpoint's latest quality outcome + configured expectations | `data_source_id`, `endpoint_id` | `ai.data_sources.read` | n/a (denied) |
 | `data_source_contract` *(2b)* | **Live** fetch + aggregate contract verdict | `data_source_id`, `endpoint_id`, `params?` | `ai.data_sources.read` | n/a (denied) |
 | `data_source_introspect` *(2b)* | OpenAPI 3 import → endpoints (`dry_run?`) | `data_source_id`, `spec`, `dry_run?` | `ai.data_sources.manage` | n/a (denied) |
+| `data_source_subscribe` *(3)* | Create/update a pull-based subscription (idempotent on the endpoint) | `data_source_id`, `endpoint_id`, `params?`, `poll_frequency?` | `ai.data_sources.stream` | n/a (denied) |
+| `data_source_unsubscribe` *(3)* | Remove a subscription | `subscription_id` **OR** `data_source_id` + `endpoint_id` | `ai.data_sources.stream` | n/a (denied) |
 | `data_source_create` | Create a source | `name`, `source_type`, `api_base_url?`, `slug?`, `description?`, `is_active?`, `requires_auth?`, `priority_order?`, `configuration?`, `rate_limits?` | `ai.data_sources.create` (or `.manage`) | **Yes** — files a proposal |
 | `data_source_update` | Update a source | `data_source_id`, `name?`, `source_type?`, `api_base_url?`, `description?`, `is_active?`, `requires_auth?`, `priority_order?`, `configuration?`, `rate_limits?` | `ai.data_sources.update` (or `.manage`) | **Yes** — files a proposal |
 | `data_source_delete` | Delete a source | `data_source_id` | `ai.data_sources.delete` (or `.manage`) | **Yes** — files a proposal |
 
-`data_source_query` returns the `FetchEnvelope` verbatim (same shape as the REST query response `data`). `data_source_health` returns `{ data_source, effectiveness_score, trust_signals, quota_summary, cache_metrics, circuit_breaker }` where `cache_metrics` is `ResponseCacheService.metrics` (`{ hits, misses, total, hit_rate }`) and `circuit_breaker` is the per-source breaker state (`service_name: "data_source:<id>"`). `data_source_validate_config` returns `{ data_source, valid, errors, warnings }`. `data_source_describe` now also includes `effectiveness_score` + a `trust_signals` block per source. The three Phase 2a actions (`data_source_discover`, `data_source_provenance`, `data_source_impact`) are detailed in [MCP: discovery + evaluation actions](#mcp-discovery--evaluation-actions); the four Phase 2b actions (`data_source_schema_history`, `data_source_quality`, `data_source_contract`, `data_source_introspect`) in [MCP: quality + drift + contract + introspection actions](#mcp-quality--drift--contract--introspection-actions). The MCP tool does **not** expose endpoint CRUD or expectation CRUD — endpoints are managed over REST (or minted via `data_source_introspect`), and expectations at the model layer.
+`data_source_query` returns the `FetchEnvelope` verbatim (same shape as the REST query response `data`). `data_source_health` returns `{ data_source, effectiveness_score, trust_signals, quota_summary, cache_metrics, circuit_breaker }` where `cache_metrics` is `ResponseCacheService.metrics` (`{ hits, misses, total, hit_rate }`) and `circuit_breaker` is the per-source breaker state (`service_name: "data_source:<id>"`). `data_source_validate_config` returns `{ data_source, valid, errors, warnings }`. `data_source_describe` now also includes `effectiveness_score` + a `trust_signals` block per source. The three Phase 2a actions (`data_source_discover`, `data_source_provenance`, `data_source_impact`) are detailed in [MCP: discovery + evaluation actions](#mcp-discovery--evaluation-actions); the four Phase 2b actions (`data_source_schema_history`, `data_source_quality`, `data_source_contract`, `data_source_introspect`) in [MCP: quality + drift + contract + introspection actions](#mcp-quality--drift--contract--introspection-actions); the two Phase 3 actions (`data_source_subscribe`, `data_source_unsubscribe`) in [MCP: subscription actions](#mcp-subscription-actions). The MCP tool does **not** expose endpoint CRUD or expectation CRUD — endpoints are managed over REST (or minted via `data_source_introspect`), and expectations at the model layer.
 
 ## Schema reference
 
-UUIDv7 primary keys; `t.references` semantics per the platform's [data-model](../../concepts/data-model.md) conventions. The parent catalog table `ai_data_sources` and the credential table `ai_data_source_credentials` are documented in [`reference/database-schema.md`](../database-schema.md); the four tables introduced/extended for the endpoint + audit + observability layers are detailed below.
+UUIDv7 primary keys; `t.references` semantics per the platform's [data-model](../../concepts/data-model.md) conventions. The parent catalog table `ai_data_sources` and the credential table `ai_data_source_credentials` are documented in [`reference/database-schema.md`](../database-schema.md); the five tables introduced/extended for the endpoint + audit + observability + streaming layers are detailed below.
 
 > **Phase 2a** added scoring columns to `ai_data_sources`: `effectiveness_score` (default `0.5`), `usage_count` / `positive_usage_count` / `negative_usage_count` (default `0`), and `last_used_at`. It also added the nullable `ai_data_source_id` (uuid, partial index) FK column to `ai_knowledge_graph_nodes` so a `data_source`-typed node links back to its source. Full column reference: [`reference/database-schema.md`](../database-schema.md).
 
 > **Phase 2b** added two tables — `ai_data_source_schema_versions` and `ai_data_source_expectations` (migration `20260606120500`) — plus quality columns on `ai_data_source_queries` (`20260606120600`) and opt-in/SLA/contract columns on `ai_data_source_endpoints` (`20260606120700`). All detailed below.
+
+> **Phase 3** added the `ai_data_source_subscriptions` table plus the two stale-window columns (`stale_while_revalidate_seconds`, `stale_if_error_seconds`) on `ai_data_source_endpoints` — both in migration `20260606121000`. Detailed below.
 
 ### `ai_data_source_endpoints`
 
@@ -808,20 +957,22 @@ Declarative request template + response contract for one operation against a sou
 | `response_mapping` | jsonb | no | `{}` | Where records live + normalization rules (`records_path`, etc.) |
 | `response_schema` | jsonb | no | `{}` | Optional JSON Schema for validation |
 | `cache_ttl_seconds` | integer | yes | — | Per-endpoint cache TTL (>= 0); fallback 5 min |
-| `monitorable` | boolean | no | `false` | Phase-3 monitoring flag (persisted, not yet consumed) |
-| `change_detection` | string(50) | yes | — | Phase-3 strategy: `etag/last_modified/content_hash/polling/none` |
-| `etag` | string(500) | yes | — | Phase-3 change-detection state |
-| `last_modified` | string(255) | yes | — | Phase-3 change-detection state |
+| `monitorable` | boolean | no | `false` | Monitoring hint flag (subscriptions drive the actual Phase-3 monitor loop) |
+| `change_detection` | string(50) | yes | — | Change-detection strategy hint: `etag/last_modified/content_hash/polling/none` |
+| `etag` | string(500) | yes | — | Change-detection state |
+| `last_modified` | string(255) | yes | — | Change-detection state |
 | `track_schema` | boolean | no | `false` | **(2b)** Opt in to schema-drift version tracking on each fetch |
 | `quality_checks_enabled` | boolean | no | `false` | **(2b)** Opt in to running active expectations over each fetch |
 | `quarantine_on_failure` | boolean | no | `false` | **(2b)** Serve last-known-good instead of a batch that fails an error-severity rule |
 | `sla_max_age_seconds` | integer | yes | — | **(2b)** Freshness budget for the contract `within_sla` signal (nil = no SLA) |
 | `owner` | string(255) | yes | — | **(2b)** Free-form endpoint owner label (surfaced in the contract MCP action) |
 | `contract` | jsonb | yes | `{}` | **(2b)** Free-form contract metadata |
+| `stale_while_revalidate_seconds` | integer | yes | — | **(3)** SWR grace window; serve a hard-expired entry while refreshing in the background (nil = OFF) |
+| `stale_if_error_seconds` | integer | yes | — | **(3)** Stale-if-error window; serve last-known-good on a transient upstream failure (nil = OFF) |
 | `metadata` | jsonb | no | `{}` | Free-form |
 | `created_at` / `updated_at` | datetime | no | — | Timestamps |
 
-The six Phase 2b columns are added by `20260606120700_add_quality_opt_in_to_ai_data_source_endpoints`. The endpoint serializer (`serialize_data_source_endpoint`) does **not** echo them — they are read through the dedicated `schema_history` / `quality` / `contract` routes and the matching MCP actions. `has_many :schema_versions` / `has_many :expectations` (both `dependent: :destroy`) link the two new tables below.
+The six Phase 2b columns are added by `20260606120700_add_quality_opt_in_to_ai_data_source_endpoints`. The two Phase 3 stale-window columns are added by `20260606121000_create_ai_data_source_subscriptions` (alongside the subscriptions table). The endpoint serializer (`serialize_data_source_endpoint`) does **not** echo any of them — the 2b columns are read through the dedicated `schema_history` / `quality` / `contract` routes and the stale-window columns are consumed internally by `ResponseCacheService` / `QueryService`. `has_many :schema_versions` / `has_many :expectations` / `has_many :subscriptions` (all `dependent: :destroy`) link the three new tables.
 
 ### `ai_data_source_queries`
 
@@ -894,6 +1045,27 @@ The four Phase 2b columns are added by `20260606120600_add_quality_to_ai_data_so
 | `is_active` | boolean | no | `true` | Only active rows are evaluated |
 | `created_at` / `updated_at` | datetime | no | — | Timestamps |
 
+### `ai_data_source_subscriptions`
+
+**(Phase 3)** Pull-based subscription pairing a `(data_source, endpoint)` with a poll cadence + the last observed change fingerprint. Walked by `Ai::DataSources::MonitorService`. Model: `Ai::DataSourceSubscription`. Migration: `20260606121000_create_ai_data_source_subscriptions`. Composite scan index on `(status, next_poll_at)` (`index_ai_data_source_subscriptions_on_status_and_next_poll`) — backs the `due_for_poll` filter; `t.references` adds FK indexes on `ai_data_source_id`, `ai_data_source_endpoint_id`, and a bare index on `ai_agent_id`. Scopes: `active`, `due_for_poll` (includes `error`, excludes `paused`), `for_data_source`, `for_endpoint`.
+
+| Column | Type | Null | Default | Notes |
+|--------|------|------|---------|-------|
+| `id` | uuid | no | `gen_random_uuid()` | PK |
+| `ai_data_source_id` | uuid | no | — | FK → `ai_data_sources` |
+| `ai_data_source_endpoint_id` | uuid | no | — | FK → `ai_data_source_endpoints` |
+| `ai_agent_id` | uuid | yes | — | Optional owning agent (cadence ownership; not FK-constrained to agent lifecycle) |
+| `params` | jsonb | no | `{}` | Per-poll variables passed to each governed fetch |
+| `poll_frequency` | string(50) | yes | — | One of `POLL_FREQUENCIES` (`manual/5min/hourly/daily/weekly/monthly/realtime`) |
+| `status` | string(50) | no | `active` | `active/paused/error` (`STATUSES`) |
+| `last_polled_at` | datetime | yes | — | Timestamp of the last poll attempt |
+| `next_poll_at` | datetime | yes | — | When the monitor next picks this up (seeded on create for non-`manual` cadence; nil when `paused`/`manual`) |
+| `last_checksum` | string(128) | yes | — | Canonical SHA256 of the last observed payload (change fingerprint) |
+| `last_etag` | string(500) | yes | — | Last observed ETag (conditional-request hint) |
+| `consecutive_failures` | integer | no | `0` | Failure counter; flips `status` to `error` at `>= 5`, reset to 0 on a successful poll |
+| `metadata` | jsonb | no | `{}` | Free-form; holds `last_error` / `last_error_at` after a failure |
+| `created_at` / `updated_at` | datetime | no | — | Timestamps |
+
 ## Related docs
 
 - [`api/overview.md`](overview.md) — response envelope, auth, ApiResponse method reference
@@ -904,4 +1076,4 @@ The four Phase 2b columns are added by `20260606120600_add_quality_to_ai_data_so
 - [`../../concepts/mcp-and-tools.md`](../../concepts/mcp-and-tools.md) — how the `data_source_management` MCP tool dispatches
 - [`reference/database-schema.md`](../database-schema.md) — full `ai_data_source*` table reference
 
-_Last verified: 2026-06-06_
+_Last verified: 2026-06-06 (Phase 3: streaming / monitoring)_
