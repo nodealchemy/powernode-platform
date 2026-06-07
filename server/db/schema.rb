@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_06_121000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_06_122000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1848,6 +1848,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_121000) do
     t.boolean "monitorable", default: false, null: false
     t.string "name", limit: 255, null: false
     t.string "owner", limit: 255
+    t.jsonb "pagination", default: {}
     t.string "path_template", limit: 1000
     t.boolean "quality_checks_enabled", default: false, null: false
     t.boolean "quarantine_on_failure", default: false, null: false
@@ -1954,6 +1955,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_121000) do
     t.jsonb "auth_config", default: {}
     t.string "auth_scheme", default: "none", null: false
     t.jsonb "capabilities", default: [], null: false
+    t.string "category", limit: 100
     t.jsonb "configuration", default: {}, null: false
     t.datetime "created_at", null: false
     t.jsonb "default_parameters", default: {}, null: false
@@ -1979,6 +1981,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_121000) do
     t.index ["account_id", "slug"], name: "index_ai_data_sources_unique_slug_per_account", unique: true
     t.index ["account_id"], name: "index_ai_data_sources_on_account_id"
     t.index ["capabilities"], name: "index_ai_data_sources_on_capabilities", using: :gin
+    t.index ["category"], name: "index_ai_data_sources_on_category", where: "(category IS NOT NULL)"
     t.index ["is_active"], name: "index_ai_data_sources_on_is_active"
     t.index ["priority_order"], name: "index_ai_data_sources_on_priority_order"
     t.index ["source_type", "is_active"], name: "index_ai_data_sources_on_source_type_and_is_active"
