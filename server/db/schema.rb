@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_06_120700) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_06_121000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1857,6 +1857,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_120700) do
     t.jsonb "response_schema", default: {}, null: false
     t.integer "sla_max_age_seconds"
     t.string "slug", limit: 100, null: false
+    t.integer "stale_if_error_seconds"
+    t.integer "stale_while_revalidate_seconds"
     t.boolean "track_schema", default: false, null: false
     t.datetime "updated_at", null: false
     t.index ["ai_data_source_id", "slug"], name: "index_ai_data_source_endpoints_unique_slug", unique: true
@@ -1923,6 +1925,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_120700) do
     t.datetime "updated_at", null: false
     t.integer "version", default: 1, null: false
     t.index ["ai_data_source_endpoint_id", "version"], name: "index_ai_ds_schema_versions_unique_version", unique: true
+  end
+
+  create_table "ai_data_source_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_agent_id"
+    t.uuid "ai_data_source_endpoint_id", null: false
+    t.uuid "ai_data_source_id", null: false
+    t.integer "consecutive_failures", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.string "last_checksum", limit: 128
+    t.string "last_etag", limit: 500
+    t.datetime "last_polled_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "next_poll_at"
+    t.jsonb "params", default: {}, null: false
+    t.string "poll_frequency", limit: 50
+    t.string "status", limit: 50, default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ai_agent_id"], name: "index_ai_data_source_subscriptions_on_ai_agent_id"
+    t.index ["ai_data_source_endpoint_id"], name: "idx_on_ai_data_source_endpoint_id_e7e881bfa8"
+    t.index ["ai_data_source_id"], name: "index_ai_data_source_subscriptions_on_ai_data_source_id"
+    t.index ["status", "next_poll_at"], name: "index_ai_data_source_subscriptions_on_status_and_next_poll"
   end
 
   create_table "ai_data_sources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -13564,6 +13587,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_120700) do
   add_foreign_key "ai_data_source_queries", "ai_data_source_endpoints"
   add_foreign_key "ai_data_source_queries", "ai_data_sources"
   add_foreign_key "ai_data_source_schema_versions", "ai_data_source_endpoints"
+  add_foreign_key "ai_data_source_subscriptions", "ai_data_source_endpoints"
+  add_foreign_key "ai_data_source_subscriptions", "ai_data_sources"
   add_foreign_key "ai_data_sources", "accounts", on_delete: :cascade
   add_foreign_key "ai_deferred_operations", "accounts"
   add_foreign_key "ai_deferred_operations", "ai_agents"
