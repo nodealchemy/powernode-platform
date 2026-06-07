@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_07_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_07_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1801,6 +1801,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_000000) do
     t.index ["detection_id"], name: "index_ai_data_detections_on_detection_id", unique: true
     t.index ["source_type"], name: "index_ai_data_detections_on_source_type"
     t.check_constraint "action_taken::text = ANY (ARRAY['logged'::character varying::text, 'masked'::character varying::text, 'blocked'::character varying::text, 'encrypted'::character varying::text, 'flagged'::character varying::text])", name: "check_detection_action"
+  end
+
+  create_table "ai_data_source_config_versions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_data_source_id", null: false
+    t.datetime "created_at", null: false
+    t.string "created_by_type", limit: 20, default: "manual", null: false
+    t.jsonb "manifest", default: {}, null: false
+    t.string "note", limit: 500
+    t.datetime "updated_at", null: false
+    t.integer "version", default: 1, null: false
+    t.index ["account_id"], name: "index_ai_data_source_config_versions_on_account_id"
+    t.index ["ai_data_source_id", "version"], name: "index_ai_ds_config_versions_unique_version", unique: true
   end
 
   create_table "ai_data_source_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -13588,6 +13601,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_000000) do
   add_foreign_key "ai_data_connectors", "users", column: "created_by_id"
   add_foreign_key "ai_data_detections", "accounts"
   add_foreign_key "ai_data_detections", "ai_data_classifications", column: "classification_id"
+  add_foreign_key "ai_data_source_config_versions", "accounts"
+  add_foreign_key "ai_data_source_config_versions", "ai_data_sources"
   add_foreign_key "ai_data_source_credentials", "accounts", on_delete: :cascade
   add_foreign_key "ai_data_source_credentials", "ai_data_sources", on_delete: :cascade
   add_foreign_key "ai_data_source_endpoints", "ai_data_sources"
