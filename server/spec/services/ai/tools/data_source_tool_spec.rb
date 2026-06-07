@@ -43,7 +43,7 @@ RSpec.describe Ai::Tools::DataSourceTool do
   end
 
   describe ".action_definitions" do
-    it "exposes all nineteen data-source actions" do
+    it "exposes all twenty-five data-source actions" do
       keys = described_class.action_definitions.keys
       expect(keys).to contain_exactly(
         "data_source_list", "data_source_get", "data_source_describe",
@@ -53,7 +53,11 @@ RSpec.describe Ai::Tools::DataSourceTool do
         "data_source_schema_history", "data_source_quality",
         "data_source_contract", "data_source_introspect",
         "data_source_subscribe", "data_source_unsubscribe",
-        "data_source_invalidate_cache"
+        "data_source_invalidate_cache",
+        # Phase 4b-3b onboarding portability
+        "data_source_export", "data_source_import", "data_source_list_templates",
+        "data_source_install_template", "data_source_config_versions",
+        "data_source_rollback_config"
       )
     end
   end
