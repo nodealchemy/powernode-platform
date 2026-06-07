@@ -136,6 +136,115 @@ RSpec.describe Ai::DataSources::HttpConnectionFactory, type: :service do
     end
   end
 
+  # ==========================================================================
+  # Phase 4b-2a — max_redirects: override on .build
+  #
+  # A credential broker that POSTs a body-mode client_secret to a token endpoint
+  # passes max_redirects: 0 so a 307/308 cannot replay the secret cross-host. When
+  # the kwarg is OMITTED (nil), the follow_redirects limit falls back to the
+  # per-source config["max_redirects"] (or DEFAULT_MAX_REDIRECTS), so the default
+  # build path is byte-for-byte unchanged. A passed value OVERRIDES the config and
+  # is clamped to >= 0.
+  #
+  # Hermetic: we inspect the configured limit off the constructed connection's
+  # follow_redirects middleware (the gem stores it in the handler's @kwargs[:limit]),
+  # consistent with the existing `conn.builder.handlers` inspection in `.build`.
+  # ==========================================================================
+  describe ".build max_redirects: override" do
+    # Pull the configured redirect limit out of the constructed connection's
+    # follow_redirects handler. The gem records the `limit:` option in the handler's
+    # @kwargs (Faraday::FollowRedirects::Middleware), so this reads exactly what the
+    # factory wired in — without opening a socket.
+    def configured_redirect_limit(conn)
+      handler = conn.builder.handlers.find { |h| h.name.to_s.include?("FollowRedirects") }
+      raise "follow_redirects middleware not installed" unless handler
+
+      handler.instance_variable_get(:@kwargs)[:limit]
+    end
+
+    context "when max_redirects: is omitted (nil)" do
+      it "falls back to DEFAULT_MAX_REDIRECTS when the source config sets none" do
+        # Default factory configuration is {} — no max_redirects key.
+        conn = described_class.build(data_source: data_source)
+
+        expect(configured_redirect_limit(conn)).to eq(described_class::DEFAULT_MAX_REDIRECTS)
+      end
+
+      it "falls back to the per-source config['max_redirects'] when present" do
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: { "max_redirects" => 7 })
+        conn = described_class.build(data_source: source)
+
+        expect(configured_redirect_limit(conn)).to eq(7)
+      end
+
+      it "ignores a non-positive config value and uses DEFAULT_MAX_REDIRECTS" do
+        # positive_int rejects 0 / negatives, so the per-source config cannot lower
+        # the limit to 0 — only an explicit max_redirects: kwarg can.
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: { "max_redirects" => 0 })
+        conn = described_class.build(data_source: source)
+
+        expect(configured_redirect_limit(conn)).to eq(described_class::DEFAULT_MAX_REDIRECTS)
+      end
+    end
+
+    context "when max_redirects: is passed" do
+      it "overrides the config value (a broker passes 0 to forbid redirect-following)" do
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: { "max_redirects" => 7 })
+        conn = described_class.build(data_source: source, max_redirects: 0)
+
+        # The explicit kwarg wins over the per-source config: 0 means "never follow".
+        expect(configured_redirect_limit(conn)).to eq(0)
+      end
+
+      it "clamps a negative override up to 0" do
+        conn = described_class.build(data_source: data_source, max_redirects: -3)
+
+        expect(configured_redirect_limit(conn)).to eq(0)
+      end
+
+      it "honors a positive override over the config value" do
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: { "max_redirects" => 7 })
+        conn = described_class.build(data_source: source, max_redirects: 2)
+
+        expect(configured_redirect_limit(conn)).to eq(2)
+      end
+    end
+
+    it "wires the follow_redirects middleware so a 0 limit does not chase a 3xx" do
+      # Behavioral confirmation of what the 0 limit MEANS: the factory installs the
+      # real Faraday::FollowRedirects::Middleware, and with limit 0 that middleware
+      # refuses to follow a Location (it raises RedirectLimitReached rather than
+      # dispatching a second request). The factory's terminal net_http adapter is not
+      # stubbable in isolation, so we exercise the SAME middleware the factory wired
+      # in over a Faraday :test adapter that mirrors the factory's redirect stack —
+      # asserting the limit the factory configures (0) yields no-follow semantics.
+      dispatched = 0
+      conn = Faraday.new(url: "https://api.example.com") do |c|
+        c.response :follow_redirects, limit: 0 # what build(..., max_redirects: 0) configures
+        c.adapter :test do |stub|
+          stub.get("/start") do
+            dispatched += 1
+            [301, { "Location" => "https://api.example.com/elsewhere" }, ""]
+          end
+          stub.get("/elsewhere") do
+            dispatched += 1
+            [200, {}, "FOLLOWED"]
+          end
+        end
+      end
+
+      # limit 0 => the redirect is NOT followed (raises rather than chasing Location),
+      # so the second "/elsewhere" stub is never dispatched.
+      expect { conn.get("/start") }
+        .to raise_error(Faraday::FollowRedirects::RedirectLimitReached)
+      expect(dispatched).to eq(1)
+    end
+  end
+
   describe "error classes" do
     it "defines SsrfError and ResponseTooLargeError" do
       expect(described_class::SsrfError.ancestors).to include(StandardError)

@@ -1482,4 +1482,217 @@ RSpec.describe Ai::DataSources::QueryService, type: :service do
       end
     end
   end
+
+  # ==========================================================================
+  # Phase 4b-2a — DYNAMIC CREDENTIAL BROKERING
+  #
+  # When data_source.auth_config["broker"]["type"] is configured, resolve_credential
+  # EXCHANGES the resolved BASE credential (static / Vault) with an external
+  # authority via Ai::DataSources::Credentials::Registry.for(type).acquire(...) for a
+  # SHORT-LIVED credential, just before the signed fetch. The broker returns an
+  # object satisfying the SAME signer contract (#decrypted_api_key /
+  # #decrypted_api_secret / #[](name)), so the signer layer is unchanged and signs
+  # with the BROKERED credential. @last_credential deliberately stays pinned to the
+  # BASE credential so failure/success counters track the STORED credential, not the
+  # ephemeral brokered one. With NO broker configured the base credential is used
+  # byte-for-byte.
+  #
+  # The Registry is stubbed at the class level (.for(type) -> a broker double whose
+  # #acquire returns a known BrokeredCredential) so no AWS STS / OAuth / Vault call
+  # is ever made; the SignerRegistry is replaced with a signer SPY so we can assert
+  # exactly which credential reaches the signer. All HTTP stays stubbed at the
+  # HttpConnectionFactory boundary (stub_http).
+  # ==========================================================================
+  describe "credential brokering" do
+    # A stored BASE credential the source resolves to BEFORE brokering. A real
+    # :ai_data_source_credential (Rails-encrypted) so resolve_credential's
+    # active_credential lookup returns a genuine record whose #vault_path is blank
+    # (so the Vault branch is skipped and we go straight to maybe_broker_credential).
+    let!(:base_credential) do
+      create(:ai_data_source_credential, :with_secret, account: account, data_source: data_source,
+                                                       name: "base", encrypted_api_key: "BASE-KEY",
+                                                       encrypted_api_secret: "BASE-SECRET")
+    end
+
+    # The SHORT-LIVED credential a broker hands back. A genuine BrokeredCredential so
+    # the signer contract (#decrypted_api_key / #decrypted_api_secret / #[]) is real.
+    let(:brokered_credential) do
+      Ai::DataSources::Credentials::BrokeredCredential.new(
+        { "api_key" => "BROKERED-TOKEN", "api_secret" => "BROKERED-SECRET" },
+        expires_at: 15.minutes.from_now
+      )
+    end
+
+    # A broker double conforming to the Registry CONTRACT (#acquire). Registry.for is
+    # stubbed to return THIS, so no concrete broker (AWS STS / OAuth / Vault) runs.
+    let(:broker) { instance_double(Ai::DataSources::Credentials::StaticBroker) }
+
+    # A signer SPY substituted for whatever SignerRegistry.for resolves, so we can
+    # assert the EXACT credential object handed to #sign! (no real signing happens).
+    let(:signer_spy) { instance_double(Ai::DataSources::Auth::BearerSigner) }
+
+    describe "with a broker configured (auth_config['broker']['type'] set)" do
+      # Bearer scheme so the resolved signer is a real class we spy on; the broker
+      # config lives under auth_config["broker"] exactly as broker_config reads it.
+      let(:data_source) do
+        create(:ai_data_source, :bearer, account: account, slug: "weather_src",
+                                         api_base_url: "https://api.example.com",
+                                         auth_config: { "broker" => { "type" => "oauth2_client_credentials",
+                                                                      "token_url" => "https://idp.example.com/token" } })
+      end
+
+      before do
+        # The configured broker type resolves to OUR double; assert it is asked to
+        # exchange the BASE credential for the short-lived brokered one.
+        allow(Ai::DataSources::Credentials::Registry).to receive(:for)
+          .with("oauth2_client_credentials").and_return(broker)
+        allow(broker).to receive(:acquire).and_return(brokered_credential)
+        # Replace the resolved signer with a spy so we observe the exact credential.
+        allow(Ai::DataSources::Auth::SignerRegistry).to receive(:for).and_return(signer_spy)
+        allow(signer_spy).to receive(:sign!)
+      end
+
+      it "resolves the configured broker by type and exchanges the base credential" do
+        stub_http
+
+        service.call
+
+        expect(Ai::DataSources::Credentials::Registry).to have_received(:for)
+          .with("oauth2_client_credentials")
+        expect(broker).to have_received(:acquire).with(
+          hash_including(
+            data_source: data_source,
+            base_credential: base_credential,
+            config: hash_including("type" => "oauth2_client_credentials")
+          )
+        )
+      end
+
+      it "signs the outbound request with the BROKERED credential (not the base)" do
+        stub_http
+
+        service.call
+
+        # The signer receives the short-lived brokered credential, never the stored
+        # base credential — the whole point of dynamic brokering.
+        expect(signer_spy).to have_received(:sign!).with(
+          anything, hash_including(credential: brokered_credential)
+        )
+        expect(signer_spy).not_to have_received(:sign!).with(
+          anything, hash_including(credential: base_credential)
+        )
+      end
+
+      it "keeps @last_credential pinned to the BASE credential so failure counters track the stored cred" do
+        # Force the live fetch to fail so the perform_fetch rescue calls
+        # record_failure(@last_credential, ...). @last_credential is pinned to the
+        # STORED base credential in resolve_credential (NOT the brokered one), so the
+        # source's failure accounting tracks the durable credential, not the ephemeral
+        # token. Spy on record_failure to capture the exact credential it receives.
+        stub_http(error: Faraday::TimeoutError.new("execution expired"))
+        expect_any_instance_of(described_class).to receive(:record_failure)
+          .with(base_credential, anything)
+
+        envelope = service.call
+
+        # The fetch still surfaces the transient failure (no stale config here).
+        expect(envelope[:status]).to eq("timeout")
+      end
+    end
+
+    describe "with NO broker configured (base credential used unchanged)" do
+      # Bearer scheme, default auth_config ({} — no "broker" key), so broker_config
+      # is nil and maybe_broker_credential returns the base credential untouched.
+      let(:data_source) do
+        create(:ai_data_source, :bearer, account: account, slug: "weather_src",
+                                         api_base_url: "https://api.example.com")
+      end
+
+      before do
+        allow(Ai::DataSources::Auth::SignerRegistry).to receive(:for).and_return(signer_spy)
+        allow(signer_spy).to receive(:sign!)
+      end
+
+      it "never consults the broker Registry" do
+        stub_http
+        expect(Ai::DataSources::Credentials::Registry).not_to receive(:for)
+
+        service.call
+      end
+
+      it "signs with the BASE credential byte-for-byte (no brokering)" do
+        stub_http
+
+        service.call
+
+        expect(signer_spy).to have_received(:sign!).with(
+          anything, hash_including(credential: base_credential)
+        )
+      end
+    end
+
+    describe "presigned-URL honor hook (signing SKIPPED)" do
+      # A PresignedUrlBroker hands back a credential carrying a fully self-
+      # authenticating URL via #presigned_url. When present, that URL IS the fetch
+      # target and signing is SKIPPED entirely (the signature lives in the URL query
+      # string). The override still flows through the SSRF-guarded connection.
+      let(:presigned_url) do
+        "https://bucket.s3.amazonaws.com/key?X-Amz-Signature=DEADBEEF&X-Amz-Expires=900"
+      end
+
+      # A BrokeredCredential whose presigned_url is present (only a PresignedUrlBroker
+      # sets this field). presigned_url_for digs it out of the resolved credential.
+      let(:presigned_credential) do
+        Ai::DataSources::Credentials::BrokeredCredential.new(
+          { "presigned_url" => presigned_url },
+          expires_at: 15.minutes.from_now
+        )
+      end
+
+      let(:data_source) do
+        create(:ai_data_source, :bearer, account: account, slug: "weather_src",
+                                         api_base_url: "https://api.example.com",
+                                         auth_config: { "broker" => { "type" => "presigned_url",
+                                                                      "bucket" => "bucket", "object_key" => "key" } })
+      end
+
+      before do
+        allow(Ai::DataSources::Credentials::Registry).to receive(:for)
+          .with("presigned_url").and_return(broker)
+        allow(broker).to receive(:acquire).and_return(presigned_credential)
+        # Spy on the signer so we can assert it is NEVER invoked for a presigned fetch.
+        allow(Ai::DataSources::Auth::SignerRegistry).to receive(:for).and_return(signer_spy)
+        allow(signer_spy).to receive(:sign!)
+      end
+
+      it "fetches the presigned URL and SKIPS signing" do
+        conn = stub_http
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(true)
+        # The connection is asked for the presigned URL, NOT the templated endpoint URL.
+        expect(conn).to have_received(:run_request)
+          .with(anything, presigned_url, anything, anything)
+        # Signing is skipped: the auth lives in the URL's query string, so calling the
+        # signer would append a redundant/conflicting Authorization header.
+        expect(signer_spy).not_to have_received(:sign!)
+      end
+
+      it "runs the normal sign-then-dispatch path when the credential has no presigned URL" do
+        # A brokered credential WITHOUT a presigned_url leaves the normal path intact:
+        # the signer IS invoked and the fetch targets the resolved endpoint URL.
+        allow(broker).to receive(:acquire).and_return(
+          Ai::DataSources::Credentials::BrokeredCredential.new({ "api_key" => "T" })
+        )
+        conn = stub_http
+
+        service.call
+
+        expect(signer_spy).to have_received(:sign!).once
+        expect(conn).to have_received(:run_request)
+          .with(anything, fetched_url, anything, anything)
+      end
+    end
+  end
 end
