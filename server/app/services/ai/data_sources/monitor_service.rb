@@ -134,13 +134,29 @@ module Ai
           return false
         end
 
-        params = poll_params(subscription)
+        # CRAWL POLITENESS (per-host pacing): when the source opts into robots /
+        # crawl-delay and the host was hit within its min-interval, DEFER this poll
+        # to a later tick (reschedule, no failure). This is where pacing lives —
+        # the background loop spaces requests across ticks; the interactive
+        # QueryService path NEVER sleeps for pacing.
+        if pacing_defer?(source)
+          host = source_host(source)
+          Rails.logger.info("[DataSources::MonitorService] subscription #{subscription.id} deferred: host pacing (#{host})")
+          subscription.schedule_next_poll!
+          return false
+        end
+
+        params = poll_params(subscription, endpoint)
         envelope = run_query(source, endpoint, params)
 
         unless envelope[:success]
           subscription.record_failure!(envelope[:error])
           return false
         end
+
+        # Stamp the host's last-request time AFTER a successful fetch so the next
+        # tick paces against it (best-effort; never raises).
+        touch_host_pacer(source)
 
         checksum = canonical_checksum(envelope)
         etag = response_etag(envelope)
@@ -151,16 +167,55 @@ module Ai
           emit_change_signal(subscription, source, endpoint, checksum)
         end
 
-        subscription.record_poll!(changed: changed, checksum: checksum, etag: etag)
+        # INCREMENTAL SYNC: after a successful fetch, advance the high-watermark
+        # from the response (blank/no-config => nil => record_poll! leaves the
+        # existing sync_cursor untouched, i.e. OFF).
+        next_cursor = extract_sync_cursor(subscription, endpoint, envelope)
+
+        subscription.record_poll!(changed: changed, checksum: checksum, etag: etag, cursor: next_cursor)
         changed
       end
 
       # Build the fetch params for a subscription: its stored params plus a
-      # conditional ETag hint when we have a prior etag to revalidate against.
-      def poll_params(subscription)
+      # conditional ETag hint when we have a prior etag to revalidate against, and
+      # the incremental high-watermark cursor when the endpoint opts into
+      # incremental sync AND the subscription already holds a cursor. Both
+      # injections are additive and OFF by default (blank etag / blank incremental
+      # config or blank cursor leave the params unchanged).
+      def poll_params(subscription, endpoint)
         params = (subscription.params || {}).to_h
         params = params.merge(CONDITIONAL_ETAG_PARAM => subscription.last_etag) if subscription.last_etag.present?
+        params = apply_sync_cursor(params, subscription, endpoint)
         params
+      end
+
+      # Stamp the subscription's stored sync_cursor onto the outbound params when
+      # the endpoint declares incremental config and a cursor exists. OFF (params
+      # unchanged) when incremental is blank or there is no cursor yet — the first
+      # incremental poll therefore runs a full fetch and seeds the watermark.
+      def apply_sync_cursor(params, subscription, endpoint)
+        return params unless endpoint.respond_to?(:incremental?) && endpoint.incremental?
+        return params if subscription.sync_cursor.blank?
+
+        Ai::DataSources::IncrementalSync.apply_cursor(
+          params, endpoint.incremental, subscription.sync_cursor
+        )
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::MonitorService] cursor inject failed for subscription #{subscription.id}: #{e.message}")
+        params
+      end
+
+      # Extract the NEXT high-watermark cursor from a successful fetch envelope when
+      # the endpoint opts into incremental sync. Returns nil when incremental is
+      # blank or the response carried no cursor (record_poll! then leaves
+      # sync_cursor untouched), so non-incremental polls are unaffected.
+      def extract_sync_cursor(subscription, endpoint, envelope)
+        return nil unless endpoint.respond_to?(:incremental?) && endpoint.incremental?
+
+        Ai::DataSources::IncrementalSync.extract_cursor(envelope, endpoint.incremental)
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::MonitorService] cursor extract failed for subscription #{subscription.id}: #{e.message}")
+        nil
       end
 
       def run_query(source, endpoint, params)
@@ -171,6 +226,88 @@ module Ai
           agent: nil,
           user: nil
         ).call
+      end
+
+      # ----------------------------------------------------------------------
+      # CRAWL POLITENESS — per-host pacing (DEFER across ticks, never sleep).
+      # ----------------------------------------------------------------------
+
+      # True when this source opts into politeness (respect_robots OR a configured
+      # crawl_delay_seconds) AND its host was hit within the effective min-interval.
+      # When true the caller reschedules the poll for a later tick (deferred, NOT
+      # an error). Fail-open: any error here returns false (do not defer) so pacing
+      # never wedges the monitor.
+      def pacing_defer?(source)
+        return false unless pacing_enabled?(source)
+
+        host = source_host(source)
+        return false if host.blank?
+
+        !Ai::DataSources::HostPacer.ready?(host, min_interval: pacing_min_interval(source))
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::MonitorService] pacing check failed (no defer) for source #{source&.id}: #{e.message}")
+        false
+      end
+
+      # Politeness applies when the source asks to respect robots OR sets an
+      # explicit crawl_delay_seconds. Off otherwise => zero pacing overhead.
+      def pacing_enabled?(source)
+        respect = source.respond_to?(:respect_robots) && source.respect_robots == true
+        configured = source.respond_to?(:crawl_delay_seconds) && source.crawl_delay_seconds.to_i.positive?
+        respect || configured
+      rescue StandardError
+        false
+      end
+
+      # Minimum seconds between requests to the host: the max of the effective
+      # crawl-delay and the HostPacer default floor. The effective crawl-delay is
+      # the robots.txt Crawl-delay (when respect_robots) or the configured
+      # crawl_delay_seconds — resolved by RobotsService#crawl_delay.
+      def pacing_min_interval(source)
+        delay = effective_crawl_delay(source).to_i
+        [delay, Ai::DataSources::HostPacer::DEFAULT_MIN_INTERVAL_SECONDS].max
+      rescue StandardError
+        Ai::DataSources::HostPacer::DEFAULT_MIN_INTERVAL_SECONDS
+      end
+
+      # Resolve the effective crawl-delay. When respect_robots is on, prefer the
+      # robots.txt Crawl-delay (RobotsService, which falls back to the configured
+      # value); otherwise use the configured crawl_delay_seconds directly (no
+      # robots fetch).
+      def effective_crawl_delay(source)
+        if source.respond_to?(:respect_robots) && source.respect_robots == true
+          Ai::DataSources::RobotsService.new(source).crawl_delay ||
+            (source.respond_to?(:crawl_delay_seconds) ? source.crawl_delay_seconds : nil)
+        elsif source.respond_to?(:crawl_delay_seconds)
+          source.crawl_delay_seconds
+        end
+      rescue StandardError
+        source.respond_to?(:crawl_delay_seconds) ? source.crawl_delay_seconds : nil
+      end
+
+      # Stamp the source host's last-request time after a successful poll so the
+      # next tick paces against it. No-op when pacing is off or the host is blank;
+      # best-effort (HostPacer.touch never raises).
+      def touch_host_pacer(source)
+        return unless pacing_enabled?(source)
+
+        host = source_host(source)
+        return if host.blank?
+
+        Ai::DataSources::HostPacer.touch(host)
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::MonitorService] host pacer touch failed for source #{source&.id}: #{e.message}")
+      end
+
+      # The host the source's requests go to (from api_base_url). nil when the base
+      # URL is missing/unparseable, in which case pacing is skipped for this source.
+      def source_host(source)
+        base = source.respond_to?(:api_base_url) ? source.api_base_url : nil
+        return nil if base.blank?
+
+        URI.parse(base.to_s).host
+      rescue URI::InvalidURIError
+        nil
       end
 
       # Canonical SHA256 of the normalized payload data. Stable across hash key

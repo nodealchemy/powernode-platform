@@ -441,10 +441,23 @@ module Ai
       def perform_fetch
         credential = resolve_credential
 
-        return perform_paginated_fetch(credential) if pagination_enabled?
-
+        # Build the request up front so we can resolve the absolute URL and gate it
+        # against robots.txt BEFORE any dispatch (single OR paginated). The single-
+        # request path below reuses this exact request; the paginated path rebuilds
+        # per page but starts from the same first-page URL we gated here.
         request = adapter.build_request(endpoint: endpoint, params: params)
         absolute_url = resolved_request_url(request)
+
+        # CRAWL POLITENESS (robots.txt): when the source opts in and robots.txt
+        # disallows this path for our User-Agent, short-circuit with a blocked
+        # envelope BEFORE dispatch — mirroring the kill-flag / SSRF blocked path.
+        # Cheap allow/disallow decision (no sleeping); default-allow on any robots
+        # fetch failure lives inside RobotsService.
+        if robots_disallowed?(absolute_url)
+          return robots_blocked_result(absolute_url)
+        end
+
+        return perform_paginated_fetch(credential) if pagination_enabled?
 
         # (5) sign the outbound request env in place.
         sign_request!(request, credential)
@@ -782,6 +795,13 @@ module Ai
         provenance[:schema_drift] = @schema_drift if @schema_drift.present?
         provenance[:quarantined] = true if @quarantined
         provenance[:pagination] = pagination_provenance if pagination_provenance.present?
+        # Surface the incremental high-watermark cursor dug from the RAW body — the
+        # records_path unwrap discards top-level paging tokens (meta.next_cursor),
+        # so it must be extracted here at fetch time. nil when unconfigured/missing.
+        if endpoint.respond_to?(:incremental?) && endpoint.incremental?
+          cur = Ai::DataSources::IncrementalSync.cursor_from_body(raw_body, endpoint.incremental)
+          provenance[:incremental_cursor] = cur if cur.present?
+        end
 
         # (8) credential health accounting.
         if success
@@ -1302,6 +1322,64 @@ module Ai
           raw_body: nil,
           bytes_in: 0,
           error: redact_message(message),
+          redacted_snippet: nil
+        }
+      end
+
+      # ----------------------------------------------------------------------
+      # CRAWL POLITENESS — robots.txt gate (allow/disallow is cheap; gating the
+      # interactive path is allowed. NO sleeping — per-host PACING lives in the
+      # background MonitorService, never here.)
+      # ----------------------------------------------------------------------
+
+      # True only when the source opts into robots and a successfully fetched
+      # robots.txt explicitly disallows this URL. Default-allow (fetch failure /
+      # missing robots / robots off) lives inside RobotsService, and any error
+      # here fails open (false => not disallowed) so robots never breaks a fetch.
+      def robots_disallowed?(absolute_url)
+        return false unless respect_robots?
+        return false if absolute_url.blank?
+
+        !robots_service.allowed?(absolute_url)
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::QueryService] robots check failed (fail-open allow) for #{safe_slug}: #{e.message}")
+        false
+      end
+
+      def respect_robots?
+        data_source.respond_to?(:respect_robots) && data_source.respect_robots == true
+      rescue StandardError
+        false
+      end
+
+      def robots_service
+        @robots_service ||= Ai::DataSources::RobotsService.new(data_source, agent: agent)
+      end
+
+      # Internal result for a robots-disallowed URL: a blocked envelope (status
+      # "blocked", error "robots_disallowed") routed through finalize() so it
+      # persists a blocked query row + cost attribution exactly like the kill-flag
+      # / SSRF blocked paths. No dispatch happened, so no credential failure is
+      # recorded (robots is a policy decision, not an upstream fault).
+      def robots_blocked_result(absolute_url)
+        @anomalies << "robots_disallowed"
+        {
+          success: false,
+          status: STATUS_BLOCKED,
+          http_status: nil,
+          data: [],
+          provenance: build_provenance(
+            absolute_url: absolute_url,
+            detection: empty_detection,
+            schema_valid: nil,
+            record_count: 0,
+            response_sha256: nil,
+            normalization_provenance: [],
+            from_cache: false
+          ),
+          raw_body: nil,
+          bytes_in: 0,
+          error: "robots_disallowed",
           redacted_snippet: nil
         }
       end
