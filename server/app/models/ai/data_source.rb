@@ -17,6 +17,8 @@ module Ai
              foreign_key: "ai_data_source_id", dependent: :destroy
     has_many :subscriptions, class_name: "Ai::DataSourceSubscription",
              foreign_key: "ai_data_source_id", dependent: :destroy
+    has_many :config_versions, class_name: "Ai::DataSourceConfigVersion",
+             foreign_key: "ai_data_source_id", dependent: :destroy
     has_one :knowledge_graph_node, class_name: "Ai::KnowledgeGraphNode",
             foreign_key: "ai_data_source_id", dependent: :nullify
 
@@ -250,6 +252,28 @@ module Ai
       return 0.5 if total.zero?
 
       (positive_usage_count.to_f / total).round(4)
+    end
+
+    # Capture a CREDENTIAL-FREE config snapshot of this source (+ its endpoints)
+    # as the next Ai::DataSourceConfigVersion, delegating to
+    # Ai::DataSources::ConfigPortabilityService. This is the LIGHTWEIGHT, OPT-IN
+    # hook for config versioning: callers (controller update paths, the MCP
+    # action, a future "snapshot before change" flow) invoke it explicitly.
+    #
+    # We deliberately do NOT register an after_update_commit callback to snapshot
+    # automatically — that would be too implicit and would risk snapshot storms
+    # (every counter/health/effectiveness update_columns bump, KG re-sync, etc.
+    # could trip it). Keeping the snapshot an explicit call leaves the decision of
+    # WHEN a version is worth capturing with the caller.
+    #
+    # @param note [String, nil] optional human note recorded on the version.
+    # @param created_by_type [String] provenance — one of
+    #   Ai::DataSourceConfigVersion::CREATED_BY_TYPES (default "manual").
+    # @return [Ai::DataSourceConfigVersion] the persisted version record.
+    def snapshot_config!(note: nil, created_by_type: "manual")
+      Ai::DataSources::ConfigPortabilityService
+        .new(account: account)
+        .snapshot!(self, created_by_type: created_by_type, note: note)
     end
 
     private
