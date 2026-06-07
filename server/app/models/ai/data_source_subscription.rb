@@ -30,6 +30,11 @@ module Ai
     attribute :params, :json, default: -> { {} }
     attribute :metadata, :json, default: -> { {} }
 
+    # Incremental high-watermark cursor (Phase 5). nil => no watermark yet
+    # (full fetch). Persisted via record_poll!(cursor:) when the paired endpoint
+    # declares incremental config; see Ai::DataSources::IncrementalSync.
+    attribute :sync_cursor, :string
+
     # Validations
     validates :ai_data_source_id, presence: true
     validates :ai_data_source_endpoint_id, presence: true
@@ -65,20 +70,25 @@ module Ai
     end
 
     # Record the outcome of a single poll. Updates last_polled_at, the change
-    # fingerprint (last_checksum / last_etag, only when supplied), schedules the
-    # next poll, and maintains the consecutive_failures counter:
+    # fingerprint (last_checksum / last_etag, only when supplied), the incremental
+    # high-watermark (sync_cursor, only when supplied), schedules the next poll,
+    # and maintains the consecutive_failures counter:
     #   - any error (changed: nil / status handled by caller) is not modeled here;
     #     callers pass changed:true|false on a successful poll.
     #   - a successful poll resets consecutive_failures to 0.
+    #   - cursor: advances the incremental high-watermark when present (blank
+    #     leaves the existing sync_cursor untouched — same opt-in semantics as
+    #     checksum / etag).
     # Failures are recorded via record_failure! instead so the counter and error
     # status transition stay in one place.
-    def record_poll!(changed:, checksum: nil, etag: nil)
+    def record_poll!(changed:, checksum: nil, etag: nil, cursor: nil)
       attrs = {
         last_polled_at: Time.current,
         consecutive_failures: 0
       }
       attrs[:last_checksum] = checksum if checksum.present?
       attrs[:last_etag] = etag if etag.present?
+      attrs[:sync_cursor] = cursor if cursor.present?
       # A successful poll clears a prior error status back to active.
       attrs[:status] = "active" if status == "error"
 

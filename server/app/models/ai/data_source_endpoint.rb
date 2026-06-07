@@ -49,6 +49,10 @@ module Ai
     # Outbound pagination config consumed by the REST adapter / QueryService.
     # Blank ({}) == OFF (single request, unchanged behavior).
     attribute :pagination, :json, default: -> { {} }
+    # Incremental-sync config consumed by Ai::DataSources::IncrementalSync /
+    # MonitorService — { cursor_param:, cursor_path:, mode: "cursor"|"timestamp" }.
+    # Blank ({}) == OFF (no cursor injection, unchanged behavior).
+    attribute :incremental, :json, default: -> { {} }
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }
@@ -70,6 +74,12 @@ module Ai
 
     def to_param
       slug
+    end
+
+    # True when incremental-sync config is present (cursor injection enabled).
+    # Mirrors the blank == OFF semantics of the +incremental+ jsonb default.
+    def incremental?
+      incremental.present?
     end
 
     private
