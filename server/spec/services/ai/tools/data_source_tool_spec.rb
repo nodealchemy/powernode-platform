@@ -43,7 +43,7 @@ RSpec.describe Ai::Tools::DataSourceTool do
   end
 
   describe ".action_definitions" do
-    it "exposes all eighteen data-source actions" do
+    it "exposes all nineteen data-source actions" do
       keys = described_class.action_definitions.keys
       expect(keys).to contain_exactly(
         "data_source_list", "data_source_get", "data_source_describe",
@@ -52,7 +52,8 @@ RSpec.describe Ai::Tools::DataSourceTool do
         "data_source_discover", "data_source_provenance", "data_source_impact",
         "data_source_schema_history", "data_source_quality",
         "data_source_contract", "data_source_introspect",
-        "data_source_subscribe", "data_source_unsubscribe"
+        "data_source_subscribe", "data_source_unsubscribe",
+        "data_source_invalidate_cache"
       )
     end
   end
@@ -377,6 +378,103 @@ RSpec.describe Ai::Tools::DataSourceTool do
       expect(result[:success]).to be true
       expect(result).not_to include(:requires_approval)
       expect(result[:data][:data_source][:name]).to eq("Managed")
+    end
+  end
+
+  # ------------------------------------------------------------------------
+  # cache invalidation (operational write — ai.data_sources.update / .manage)
+  # ------------------------------------------------------------------------
+
+  describe "#execute data_source_invalidate_cache" do
+    it "invalidates by surrogate tag and reports the action + permission used" do
+      allow(Ai::DataSources::ResponseCacheService).to receive(:invalidate_by_tag).with("slug:forecast").and_return(3)
+
+      result = tool.execute(params: { action: "data_source_invalidate_cache", tag: "slug:forecast" })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:action]).to eq("data_source_invalidate_cache")
+      expect(result[:data][:scope]).to eq("tag")
+      expect(result[:data][:tag]).to eq("slug:forecast")
+      expect(result[:data][:invalidated]).to eq(3)
+      expect(result[:data][:permission_used]).to eq("ai.data_sources.update")
+    end
+
+    it "invalidates a single endpoint scope when given data_source_id + endpoint_id" do
+      expect(Ai::DataSources::ResponseCacheService).to receive(:invalidate)
+        .with(hash_including(data_source: data_source)).and_return(2)
+
+      result = tool.execute(params: {
+        action: "data_source_invalidate_cache", data_source_id: "open-meteo", endpoint_id: "forecast"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:scope]).to eq("endpoint")
+      expect(result[:data][:endpoint][:slug]).to eq("forecast")
+      expect(result[:data][:invalidated]).to eq(2)
+    end
+
+    it "invalidates the whole source when only data_source_id is given" do
+      expect(Ai::DataSources::ResponseCacheService).to receive(:invalidate)
+        .with(data_source: data_source, endpoint: nil).and_return(5)
+
+      result = tool.execute(params: { action: "data_source_invalidate_cache", data_source_id: "open-meteo" })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:scope]).to eq("data_source")
+      expect(result[:data][:invalidated]).to eq(5)
+    end
+
+    it "raises a not-found for an unknown source (scoped, no tag)" do
+      result = tool.execute(params: { action: "data_source_invalidate_cache", data_source_id: "nope" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Data source not found/)
+    end
+  end
+
+  describe "data_source_invalidate_cache permission gate (agent context)" do
+    # Locked account whose users carry no data-source mutation grant, so
+    # permission? truly reflects the absence of update / manage.
+    let(:locked_account) { create(:account) }
+    let(:no_perm_user) { create(:user, account: locked_account, permissions: []) }
+    let(:locked_agent) { create(:ai_agent, account: locked_account, creator: no_perm_user) }
+    let!(:locked_source) { create(:ai_data_source, account: locked_account, slug: "locked-cache-src") }
+
+    it "denies when no user in the account holds ai.data_sources.update or .manage" do
+      agent_tool = described_class.new(account: locked_account, agent: locked_agent, user: no_perm_user)
+
+      result = agent_tool.execute(params: {
+        action: "data_source_invalidate_cache", data_source_id: "locked-cache-src"
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Permission denied: ai\.data_sources\.update/)
+    end
+
+    it "allows when a user in the account holds ai.data_sources.update" do
+      create(:user, account: locked_account, permissions: ["ai.data_sources.update"])
+      agent_tool = described_class.new(account: locked_account, agent: locked_agent, user: no_perm_user)
+      allow(Ai::DataSources::ResponseCacheService).to receive(:invalidate).and_return(0)
+
+      result = agent_tool.execute(params: {
+        action: "data_source_invalidate_cache", data_source_id: "locked-cache-src"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:permission_used]).to eq("ai.data_sources.update")
+    end
+
+    it "allows (via .manage) and reports manage as the permission used when only manage is held" do
+      create(:user, account: locked_account, permissions: ["ai.data_sources.manage"])
+      agent_tool = described_class.new(account: locked_account, agent: locked_agent, user: no_perm_user)
+      allow(Ai::DataSources::ResponseCacheService).to receive(:invalidate_by_tag).and_return(1)
+
+      result = agent_tool.execute(params: {
+        action: "data_source_invalidate_cache", tag: "ds:#{locked_source.id}"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:permission_used]).to eq("ai.data_sources.manage")
     end
   end
 

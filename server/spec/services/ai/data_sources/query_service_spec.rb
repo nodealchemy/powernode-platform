@@ -1889,4 +1889,250 @@ RSpec.describe Ai::DataSources::QueryService, type: :service do
       end
     end
   end
+
+  # ==========================================================================
+  # (7a) CONFIG-DRIVEN TRANSFORM PIPELINE (endpoint.transforms)
+  #
+  # The pipeline runs AFTER NormalizationService and BEFORE the cache write /
+  # persist / mask, so the TRANSFORMED shape is what is cached, persisted, and
+  # returned. OFF by default (no transforms => records byte-for-byte unchanged).
+  # ==========================================================================
+  describe "transform pipeline" do
+    # A nested body so flatten/select/computed have structure to operate on.
+    let(:json_body) do
+      JSON.generate([
+                      { "first" => "Ada",  "last" => "Lovelace", "geo" => { "lat" => 51.5, "lon" => -0.1 } },
+                      { "first" => "Alan", "last" => "Turing",   "geo" => { "lat" => 53.4, "lon" => -2.2 } }
+                    ])
+    end
+
+    before { stub_http }
+
+    it "leaves records byte-for-byte unchanged when no pipeline is configured" do
+      expect(endpoint.transforms?).to be(false)
+
+      envelope = service.call
+
+      expect(envelope[:status]).to eq("success")
+      expect(envelope[:data]).to eq([
+                                      { "first" => "Ada",  "last" => "Lovelace", "geo" => { "lat" => 51.5, "lon" => -0.1 } },
+                                      { "first" => "Alan", "last" => "Turing",   "geo" => { "lat" => 53.4, "lon" => -2.2 } }
+                                    ])
+      expect(envelope[:provenance][:transforms_applied]).to be(false)
+      expect(envelope[:provenance][:record_count]).to eq(2)
+    end
+
+    it "applies an ordered flatten -> computed -> select pipeline to the canonical records" do
+      endpoint.update!(transforms: {
+                         "pipeline" => [
+                           { "op" => "flatten" },
+                           { "op" => "computed", "as" => "name", "fn" => "concat",
+                             "fields" => %w[first last], "separator" => " " },
+                           { "op" => "select", "fields" => %w[name geo.lat] }
+                         ]
+                       })
+      expect(endpoint.transforms?).to be(true)
+
+      envelope = service.call
+
+      expect(envelope[:status]).to eq("success")
+      expect(envelope[:provenance][:transforms_applied]).to be(true)
+      expect(envelope[:provenance][:record_count]).to eq(2)
+      expect(envelope[:data]).to eq([
+                                      { "name" => "Ada Lovelace", "geo.lat" => 51.5 },
+                                      { "name" => "Alan Turing",  "geo.lat" => 53.4 }
+                                    ])
+    end
+
+    it "caches the TRANSFORMED shape so the next read returns it from cache" do
+      endpoint.update!(transforms: {
+                         "pipeline" => [{ "op" => "select", "fields" => %w[first] }]
+                       })
+
+      first = service.call
+      expect(first[:provenance][:from_cache]).to be(false)
+      expect(first[:data]).to eq([{ "first" => "Ada" }, { "first" => "Alan" }])
+
+      second = described_class.new(
+        data_source: data_source, endpoint: endpoint, params: params, agent: agent
+      ).call
+
+      expect(second[:provenance][:from_cache]).to be(true)
+      expect(second[:status]).to eq("cached")
+      # The cached payload is already transformed — no re-transform on read.
+      expect(second[:data]).to eq([{ "first" => "Ada" }, { "first" => "Alan" }])
+    end
+
+    it "explodes nested arrays with unnest, fanning one record per element" do
+      stub_http(response: FakeResponse.new(
+        status: 200,
+        body: JSON.generate([{ "id" => 1, "tags" => %w[a b] }]),
+        headers: { "content-type" => "application/json" }
+      ))
+      endpoint.update!(transforms: {
+                         "pipeline" => [{ "op" => "unnest", "field" => "tags" }]
+                       })
+
+      envelope = service.call
+
+      expect(envelope[:provenance][:transforms_applied]).to be(true)
+      expect(envelope[:provenance][:record_count]).to eq(2)
+      expect(envelope[:data]).to eq([
+                                      { "id" => 1, "value" => "a" },
+                                      { "id" => 1, "value" => "b" }
+                                    ])
+    end
+
+    it "persists the post-transform row with the transformed record count" do
+      endpoint.update!(transforms: {
+                         "pipeline" => [{ "op" => "select", "fields" => %w[first] }]
+                       })
+
+      service.call
+
+      row = Ai::DataSourceQuery.order(created_at: :desc).first
+      expect(row.status).to eq("success")
+      expect(row.rows_returned).to eq(2)
+    end
+
+    it "falls back to untransformed records (never raises) when the pipeline faults" do
+      # Force a transform fault deep in the service; the fetch must still succeed
+      # with the untransformed records and transforms_applied:false.
+      allow(Ai::DataSources::TransformService).to receive(:new).and_raise(StandardError, "boom")
+      endpoint.update!(transforms: {
+                         "pipeline" => [{ "op" => "select", "fields" => %w[first] }]
+                       })
+
+      envelope = service.call
+
+      expect(envelope[:success]).to be(true)
+      expect(envelope[:status]).to eq("success")
+      expect(envelope[:provenance][:transforms_applied]).to be(false)
+      expect(envelope[:data]).to eq([
+                                      { "first" => "Ada",  "last" => "Lovelace", "geo" => { "lat" => 51.5, "lon" => -0.1 } },
+                                      { "first" => "Alan", "last" => "Turing",   "geo" => { "lat" => 53.4, "lon" => -2.2 } }
+                                    ])
+      expect(envelope[:provenance][:anomalies]).to include("transform_error")
+    end
+  end
+
+  # ==========================================================================
+  # (2.6) DRY-RUN + PRE-EXECUTION COST ESTIMATE
+  #
+  # A dry-run short-circuits after the kill-flag/quota/governance gates and
+  # performs NO upstream fetch, NO credential resolution/signing, NO cache write
+  # and NO persistence. It returns a "dry_run" envelope with an estimate.
+  # ==========================================================================
+  describe "dry-run + cost estimate" do
+    subject(:dry_service) do
+      described_class.new(data_source: data_source, endpoint: endpoint,
+                          params: params, agent: agent, dry_run: true)
+    end
+
+    it "returns a dry_run envelope with empty data and no upstream fetch" do
+      conn = stub_http
+      expect(conn).not_to receive(:run_request)
+
+      envelope = dry_service.call
+
+      expect(envelope[:status]).to eq("dry_run")
+      expect(envelope[:success]).to be(true)
+      expect(envelope[:data]).to eq([])
+      expect(envelope[:bytes]).to eq(0)
+      expect(envelope[:error]).to be_nil
+    end
+
+    it "carries the documented estimate keys on provenance" do
+      stub_http
+      estimate = dry_service.call[:provenance][:estimate]
+
+      expect(estimate).to include(
+        :would_fetch, :from_cache, :source_url, :http_method,
+        :estimated_cost_usd, :estimated_rows, :cache_hit_available
+      )
+      expect(estimate[:http_method]).to eq("GET") # endpoint factory default
+    end
+
+    it "writes NO query row and NO cache entry on a dry-run" do
+      stub_http
+
+      expect { dry_service.call }.not_to change(Ai::DataSourceQuery, :count)
+      # A subsequent LIVE call must still be a cache MISS (dry-run wrote nothing).
+      live = described_class.new(
+        data_source: data_source, endpoint: endpoint, params: params, agent: agent
+      ).call
+      expect(live[:provenance][:from_cache]).to be(false)
+    end
+
+    it "reports would_fetch:false + cache_hit_available:true when a fresh cache hit exists" do
+      stub_http
+      # Prime the cache with a real live fetch first.
+      described_class.new(
+        data_source: data_source, endpoint: endpoint, params: params, agent: agent
+      ).call
+
+      estimate = dry_service.call[:provenance][:estimate]
+
+      expect(estimate[:cache_hit_available]).to be(true)
+      expect(estimate[:from_cache]).to be(true)
+      expect(estimate[:would_fetch]).to be(false)
+    end
+
+    it "reports would_fetch:true + cache_hit_available:false on a cold source" do
+      stub_http
+      estimate = dry_service.call[:provenance][:estimate]
+
+      expect(estimate[:cache_hit_available]).to be(false)
+      expect(estimate[:would_fetch]).to be(true)
+    end
+
+    it "estimates cost from the source cost config using historical avg bytes" do
+      data_source.update!(configuration: { "cost_per_request_usd" => 0.01, "cost_per_gb_usd" => 1024.0 })
+      # Seed history: one successful, non-cached query that transferred ~1 MiB.
+      Ai::DataSourceQuery.create!(
+        data_source: data_source, endpoint: endpoint, account_id: account.id,
+        status: "success", cached: false, bytes_in: 1_048_576, rows_returned: 5,
+        actual_cost_usd: 0.5, http_status: 200
+      )
+      stub_http
+
+      estimate = dry_service.call[:provenance][:estimate]
+
+      # 0.01 + (1024 * (1_048_576 / 1_073_741_824)) = 0.01 + (1024 * 0.0009765625) = 1.01
+      expect(estimate[:estimated_cost_usd]).to be_within(0.0001).of(1.01)
+      expect(estimate[:estimated_rows]).to eq(5)
+    end
+
+    it "falls back to historical actual_cost_usd when the source declares no cost config" do
+      Ai::DataSourceQuery.create!(
+        data_source: data_source, endpoint: endpoint, account_id: account.id,
+        status: "success", cached: false, bytes_in: 2048, rows_returned: 3,
+        actual_cost_usd: 0.25, http_status: 200
+      )
+      stub_http
+
+      estimate = dry_service.call[:provenance][:estimate]
+
+      expect(estimate[:estimated_cost_usd]).to be_within(0.0001).of(0.25)
+      expect(estimate[:estimated_rows]).to eq(3)
+    end
+
+    it "degrades to 0 cost and nil rows on a source with neither config nor history" do
+      stub_http
+      estimate = dry_service.call[:provenance][:estimate]
+
+      expect(estimate[:estimated_cost_usd]).to eq(0.0)
+      expect(estimate[:estimated_rows]).to be_nil
+    end
+
+    it "still honors the kill-flag gate (a disabled source is blocked, not dry-run)" do
+      stub_http
+      Flipper.enable(:"data_source.weather_src.enabled") # ensure exists
+      Flipper.disable(:"data_source.weather_src.enabled")
+
+      envelope = dry_service.call
+
+      expect(envelope[:status]).to eq("blocked")
+    end
+  end
 end

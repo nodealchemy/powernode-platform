@@ -60,6 +60,23 @@ RSpec.describe Ai::DataSources::ResponseCacheService, type: :service do
       end
     end
 
+    # SADD — append member(s) to a Set stored at key (used by the tag index).
+    def sadd(key, *members)
+      @mutex.synchronize do
+        set = (live?(key) ? @data[key] : nil)
+        set = Set.new unless set.is_a?(Set)
+        before = set.size
+        members.flatten.each { |m| set.add(m) }
+        @data[key] = set
+        set.size - before
+      end
+    end
+
+    # SMEMBERS — return the Set's members as an Array (empty when absent).
+    def smembers(key)
+      @mutex.synchronize { live?(key) && @data[key].is_a?(Set) ? @data[key].to_a : [] }
+    end
+
     def expire(key, ttl)
       @mutex.synchronize do
         next 0 unless @data.key?(key)
@@ -258,6 +275,110 @@ RSpec.describe Ai::DataSources::ResponseCacheService, type: :service do
 
     it "returns 0 when there is nothing to invalidate" do
       expect(described_class.invalidate(data_source: data_source, endpoint: endpoint)).to eq(0)
+    end
+  end
+
+  # ==========================================================================
+  # Surrogate-key (tag) invalidation. .write indexes each entry's cache key into
+  # a Redis SET per tag ("data_source_cache:tag:<tag>"); .invalidate_by_tag drops
+  # every key in the set then the set itself. .write stays backward compatible
+  # (tags optional) and tags by default_tags when no tags are supplied.
+  # ==========================================================================
+  describe "tag / surrogate-key cache invalidation" do
+    describe ".default_tags" do
+      it "addresses an entry by data source id, endpoint id, and endpoint slug" do
+        expect(described_class.default_tags(data_source, endpoint)).to eq(
+          ["ds:#{data_source.id}", "endpoint:#{endpoint.id}", "slug:#{endpoint.slug}"]
+        )
+      end
+
+      it "omits endpoint tags when no endpoint is given (source-granularity entries)" do
+        expect(described_class.default_tags(data_source, nil)).to eq(["ds:#{data_source.id}"])
+      end
+    end
+
+    describe ".write default tagging" do
+      it "indexes the entry under each default tag set so it is tag-addressable" do
+        described_class.write(data_source: data_source, endpoint: endpoint, payload: { "v" => 1 })
+
+        cache_key = described_class.send(:build_cache_key, data_source, endpoint, {})
+        described_class.default_tags(data_source, endpoint).each do |tag|
+          expect(fake_redis.smembers("#{described_class::TAG_NAMESPACE}:#{tag}")).to include(cache_key)
+        end
+      end
+
+      it "uses explicit tags when supplied instead of the defaults" do
+        described_class.write(data_source: data_source, endpoint: endpoint, payload: { "v" => 1 }, tags: ["team:weather"])
+
+        cache_key = described_class.send(:build_cache_key, data_source, endpoint, {})
+        expect(fake_redis.smembers("#{described_class::TAG_NAMESPACE}:team:weather")).to include(cache_key)
+        # The defaults are NOT applied when explicit tags are given.
+        expect(fake_redis.smembers("#{described_class::TAG_NAMESPACE}:ds:#{data_source.id}")).to be_empty
+      end
+
+      it "still writes (and round-trips) the payload, returning true" do
+        expect(
+          described_class.write(data_source: data_source, endpoint: endpoint, payload: { "v" => 1 })
+        ).to be(true)
+        expect(described_class.read(data_source: data_source, endpoint: endpoint)).to eq({ "v" => 1 })
+      end
+    end
+
+    describe ".invalidate_by_tag" do
+      it "drops every cache entry recorded under the tag and returns the count" do
+        # Two distinct param-variants, both tagged with the shared endpoint slug.
+        described_class.write(data_source: data_source, endpoint: endpoint, params: { "q" => "a" }, payload: { "v" => "a" })
+        described_class.write(data_source: data_source, endpoint: endpoint, params: { "q" => "b" }, payload: { "v" => "b" })
+
+        count = described_class.invalidate_by_tag("slug:#{endpoint.slug}")
+        expect(count).to eq(2)
+
+        # Both variants are gone.
+        expect(described_class.read(data_source: data_source, endpoint: endpoint, params: { "q" => "a" })).to be_nil
+        expect(described_class.read(data_source: data_source, endpoint: endpoint, params: { "q" => "b" })).to be_nil
+      end
+
+      it "deletes the tag index set itself after invalidation" do
+        described_class.write(data_source: data_source, endpoint: endpoint, payload: { "v" => 1 })
+        tag = "ds:#{data_source.id}"
+
+        described_class.invalidate_by_tag(tag)
+        expect(fake_redis.smembers("#{described_class::TAG_NAMESPACE}:#{tag}")).to be_empty
+      end
+
+      it "returns 0 for a blank or unknown tag" do
+        expect(described_class.invalidate_by_tag("")).to eq(0)
+        expect(described_class.invalidate_by_tag(nil)).to eq(0)
+        expect(described_class.invalidate_by_tag("nope:does-not-exist")).to eq(0)
+      end
+
+      it "fails open (logs, returns 0) when the tag index read raises" do
+        allow(fake_redis).to receive(:smembers).and_raise(Redis::ConnectionError, "down")
+        expect(Rails.logger).to receive(:error).with(/invalidate_by_tag failed/)
+
+        expect(described_class.invalidate_by_tag("ds:#{data_source.id}")).to eq(0)
+      end
+
+      it "isolates a tag from sibling tags (only the named tag is cleared)" do
+        described_class.write(data_source: data_source, endpoint: endpoint, payload: { "v" => 1 }, tags: ["keep:me"])
+        other = create(:ai_data_source_endpoint, data_source: data_source)
+        described_class.write(data_source: data_source, endpoint: other, payload: { "v" => 2 }, tags: ["drop:me"])
+
+        expect(described_class.invalidate_by_tag("drop:me")).to eq(1)
+        # The untouched tag's entry is still readable.
+        expect(described_class.read(data_source: data_source, endpoint: endpoint)).to eq({ "v" => 1 })
+      end
+    end
+
+    it "does not break .write when the Redis SET commands are unsupported (fail-open index)" do
+      # Simulate a Redis without SADD: the tag index step must be swallowed while
+      # the payload write itself still succeeds.
+      allow(fake_redis).to receive(:sadd).and_raise(NoMethodError, "undefined method sadd")
+
+      expect(
+        described_class.write(data_source: data_source, endpoint: endpoint, payload: { "v" => 9 })
+      ).to be(true)
+      expect(described_class.read(data_source: data_source, endpoint: endpoint)).to eq({ "v" => 9 })
     end
   end
 
