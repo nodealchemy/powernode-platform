@@ -52,6 +52,8 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
     is_active: true,
     priority_order: 1,
     documentation_url: '',
+    respect_robots: false,
+    crawl_delay_seconds: '',
     rate_limit_minute: '',
     rate_limit_hour: '',
     rate_limit_day: '',
@@ -78,6 +80,8 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
         is_active: ds.is_active ?? true,
         priority_order: ds.priority_order ?? 1,
         documentation_url: ds.documentation_url || '',
+        respect_robots: ds.respect_robots ?? false,
+        crawl_delay_seconds: ds.crawl_delay_seconds != null ? String(ds.crawl_delay_seconds) : '',
         rate_limit_minute: ds.rate_limits?.requests_per_minute?.toString() || '',
         rate_limit_hour: ds.rate_limits?.requests_per_hour?.toString() || '',
         rate_limit_day: ds.rate_limits?.requests_per_day?.toString() || '',
@@ -120,6 +124,11 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
         is_active: formData.is_active,
         priority_order: formData.priority_order,
         documentation_url: formData.documentation_url || undefined,
+        respect_robots: formData.respect_robots,
+        // null clears the per-host crawl delay override; a value sets it.
+        crawl_delay_seconds: formData.crawl_delay_seconds
+          ? parseInt(formData.crawl_delay_seconds, 10)
+          : null,
         rate_limits: Object.keys(rateLimits).length > 0 ? rateLimits : undefined,
       });
 
@@ -320,6 +329,37 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
             <input type="checkbox" checked={formData.is_active} onChange={(e) => handleInputChange('is_active', e.target.checked)} className="rounded border-theme-300 text-theme-info focus:ring-theme-info" />
             <span className="text-sm text-theme-secondary">Active</span>
           </label>
+        </div>
+
+        {/* Crawl politeness — off by default. */}
+        <div className="space-y-3 rounded-lg border border-dashed border-theme p-4">
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={formData.respect_robots}
+              onChange={(e) => handleInputChange('respect_robots', e.target.checked)}
+              className="rounded border-theme-300 text-theme-info focus:ring-theme-info"
+            />
+            <span className="text-sm text-theme-secondary">Respect robots.txt</span>
+          </label>
+          <p className="text-xs text-theme-tertiary">
+            When enabled, the background monitor honors the host&apos;s robots.txt and paces
+            requests per host. Off by default.
+          </p>
+          <div>
+            <label className="block text-xs text-theme-tertiary mb-1">Crawl Delay (seconds)</label>
+            <Input
+              value={formData.crawl_delay_seconds}
+              onChange={(e) => handleInputChange('crawl_delay_seconds', e.target.value)}
+              type="number"
+              min={0}
+              placeholder="e.g., 5"
+            />
+            <p className="mt-1 text-xs text-theme-tertiary">
+              Minimum seconds between requests to the same host. A robots.txt Crawl-delay may
+              raise it. Leave blank for no per-host delay.
+            </p>
+          </div>
         </div>
 
         {/* Rate Limits */}

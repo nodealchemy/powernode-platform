@@ -462,6 +462,13 @@ export interface AiDataSource {
   requires_auth: boolean;
   priority_order: number;
   documentation_url?: string;
+  // Crawl-politeness: when true, the monitor honors the host's robots.txt and
+  // paces requests per host. Off by default. crawl_delay_seconds is the minimum
+  // seconds between requests to the same host (used as the floor; robots.txt
+  // Crawl-delay may raise it). Optional so the UI degrades while the backend
+  // serializer rollout is in flight.
+  respect_robots?: boolean;
+  crawl_delay_seconds?: number | null;
   health_status: DataSourceHealthStatus;
   last_health_check_at?: string;
   credential_count: number;
@@ -547,6 +554,24 @@ export interface DataSourceEndpointPagination {
   max_pages?: number;
 }
 
+// Incremental-sync mode for an endpoint. "cursor" carries an opaque cursor token;
+// "timestamp" carries a high-watermark time value. Both inject the stored
+// subscription high-watermark into the next fetch and read the next watermark
+// back from the response. Mirrors the ai_data_source_endpoints.incremental jsonb.
+export type DataSourceIncrementalMode = 'cursor' | 'timestamp';
+
+// Incremental-sync config (ai_data_source_endpoints.incremental jsonb). When
+// configured AND a subscription has a sync_cursor, the monitor injects the
+// cursor into the fetch params under `cursor_param` and extracts the next cursor
+// from the response via `cursor_path`. Empty object => incremental disabled.
+export interface DataSourceEndpointIncremental {
+  // Request param that carries the stored high-watermark (cursor/timestamp).
+  cursor_param?: string;
+  // JSON path to read the next high-watermark from the response.
+  cursor_path?: string;
+  mode?: DataSourceIncrementalMode;
+}
+
 export interface AiDataSourceEndpoint {
   id: string;
   ai_data_source_id: string;
@@ -568,6 +593,10 @@ export interface AiDataSourceEndpoint {
   // Empty object => single request (the default). Optional so the UI degrades
   // gracefully until the backend serializer exposes the column.
   pagination?: DataSourceEndpointPagination;
+  // Incremental-sync config (ai_data_source_endpoints.incremental jsonb). Empty
+  // object => incremental disabled (the default). Optional so the UI degrades
+  // gracefully until the backend serializer exposes the column.
+  incremental?: DataSourceEndpointIncremental;
   // Phase 2b observability opt-in flags + SLA/ownership/contract metadata. All
   // OFF by default; populated once the backend serializer exposes the columns
   // added by AddQualityOptInToAiDataSourceEndpoints. Optional so the UI degrades
@@ -608,6 +637,8 @@ export interface DataSourceEndpointRequest {
   metadata?: Record<string, unknown>;
   // Outbound pagination config. Send {} (or omit) to leave pagination off.
   pagination?: DataSourceEndpointPagination;
+  // Incremental-sync config. Send {} (or omit) to leave incremental sync off.
+  incremental?: DataSourceEndpointIncremental;
   // Phase 2b opt-in observability controls.
   track_schema?: boolean;
   quality_checks_enabled?: boolean;
@@ -902,6 +933,11 @@ export interface AiDataSourceSubscription {
   // Change fingerprint from the most recent successful poll.
   last_checksum: string | null;
   last_etag?: string | null;
+  // Incremental-sync high-watermark (opaque cursor or timestamp token) carried
+  // across polls when the endpoint has incremental sync configured. null until
+  // the first incremental poll persists one. Optional so the UI degrades while
+  // the backend serializer rollout is in flight.
+  sync_cursor?: string | null;
   // Count of consecutive failed polls; reset to 0 on a successful poll.
   consecutive_failures: number;
   // Optional owning agent (the agent that subscribed), null for system/UI subs.

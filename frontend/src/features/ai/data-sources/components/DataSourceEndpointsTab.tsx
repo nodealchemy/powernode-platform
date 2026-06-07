@@ -14,7 +14,9 @@ import type {
   AiDataSourceEndpoint,
   DataSourceEndpointRequest,
   DataSourceEndpointPagination,
+  DataSourceEndpointIncremental,
   DataSourceHttpMethod,
+  DataSourceIncrementalMode,
   DataSourcePaginationType,
   DataSourceResponseFormat,
 } from '@/shared/types/ai';
@@ -45,6 +47,14 @@ const PAGINATION_TYPE_OPTIONS: ReadonlyArray<{ value: DataSourcePaginationType |
   { value: 'link', label: 'Link header' },
 ];
 
+// '' = incremental sync disabled (full fetch each poll — the default). "cursor"
+// carries an opaque token, "timestamp" carries a high-watermark time value.
+const INCREMENTAL_MODE_OPTIONS: ReadonlyArray<{ value: DataSourceIncrementalMode | ''; label: string }> = [
+  { value: '', label: 'Off (full fetch each poll)' },
+  { value: 'cursor', label: 'Cursor token' },
+  { value: 'timestamp', label: 'Timestamp high-watermark' },
+];
+
 interface EndpointFormState {
   name: string;
   http_method: DataSourceHttpMethod;
@@ -60,6 +70,10 @@ interface EndpointFormState {
   pagination_cursor_param: string;
   pagination_cursor_path: string;
   pagination_max_pages: string;
+  // Incremental sync (optional). incremental_mode === '' leaves it off.
+  incremental_mode: DataSourceIncrementalMode | '';
+  incremental_cursor_param: string;
+  incremental_cursor_path: string;
 }
 
 const EMPTY_FORM: EndpointFormState = {
@@ -76,6 +90,9 @@ const EMPTY_FORM: EndpointFormState = {
   pagination_cursor_param: '',
   pagination_cursor_path: '',
   pagination_max_pages: '',
+  incremental_mode: '',
+  incremental_cursor_param: '',
+  incremental_cursor_path: '',
 };
 
 // Serialize a JSON object to a pretty string for the editor textarea.
@@ -90,6 +107,7 @@ function stringifyMapping(value: Record<string, unknown> | undefined): string {
 
 function endpointToForm(endpoint: AiDataSourceEndpoint): EndpointFormState {
   const pagination = endpoint.pagination ?? {};
+  const incremental = endpoint.incremental ?? {};
   return {
     name: endpoint.name,
     http_method: endpoint.http_method,
@@ -104,6 +122,9 @@ function endpointToForm(endpoint: AiDataSourceEndpoint): EndpointFormState {
     pagination_cursor_param: pagination.cursor_param ?? '',
     pagination_cursor_path: pagination.cursor_path ?? '',
     pagination_max_pages: pagination.max_pages != null ? String(pagination.max_pages) : '',
+    incremental_mode: incremental.mode ?? '',
+    incremental_cursor_param: incremental.cursor_param ?? '',
+    incremental_cursor_path: incremental.cursor_path ?? '',
   };
 }
 
@@ -135,6 +156,21 @@ function buildPaginationPayload(form: EndpointFormState): DataSourceEndpointPagi
   if (maxPages) pagination.max_pages = Number(maxPages);
 
   return pagination;
+}
+
+// Assemble the incremental jsonb payload from the form. Returns {} when disabled
+// (full fetch each poll) so the backend default is preserved.
+function buildIncrementalPayload(form: EndpointFormState): DataSourceEndpointIncremental {
+  if (form.incremental_mode === '') return {};
+
+  const incremental: DataSourceEndpointIncremental = { mode: form.incremental_mode };
+
+  const cursorParam = form.incremental_cursor_param.trim();
+  if (cursorParam) incremental.cursor_param = cursorParam;
+  const cursorPath = form.incremental_cursor_path.trim();
+  if (cursorPath) incremental.cursor_path = cursorPath;
+
+  return incremental;
 }
 
 export const DataSourceEndpointsTab: React.FC<DataSourceEndpointsTabProps> = ({
@@ -231,6 +267,8 @@ export const DataSourceEndpointsTab: React.FC<DataSourceEndpointsTabProps> = ({
       response_mapping: mapping,
       // {} when pagination disabled — keeps single-request behavior unchanged.
       pagination: buildPaginationPayload(form),
+      // {} when incremental disabled — keeps full-fetch behavior unchanged.
+      incremental: buildIncrementalPayload(form),
     };
   };
 
@@ -449,6 +487,44 @@ export const DataSourceEndpointsTab: React.FC<DataSourceEndpointsTabProps> = ({
                   />
                 </>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Incremental sync (optional). Disabled by default → full fetch each poll. */}
+        <div className="space-y-4 rounded-lg border border-dashed border-theme p-4">
+          <div>
+            <p className="text-sm font-medium text-theme-primary">Incremental sync (optional)</p>
+            <p className="text-xs text-theme-tertiary mt-1">
+              When enabled, monitored subscriptions carry a high-watermark between polls: the
+              stored cursor is injected into the request param, and the next cursor is read back
+              from the response. Leave as &quot;Off&quot; to fetch the full payload each poll.
+            </p>
+          </div>
+
+          <Select
+            label="Mode"
+            value={form.incremental_mode}
+            onValueChange={(value) => updateField('incremental_mode', value as DataSourceIncrementalMode | '')}
+            options={INCREMENTAL_MODE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+          />
+
+          {form.incremental_mode !== '' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Cursor Param"
+                value={form.incremental_cursor_param}
+                onChange={(e) => updateField('incremental_cursor_param', e.target.value)}
+                placeholder={form.incremental_mode === 'timestamp' ? 'e.g. updated_since' : 'e.g. since'}
+                description="Request param carrying the stored high-watermark."
+              />
+              <Input
+                label="Cursor Path"
+                value={form.incremental_cursor_path}
+                onChange={(e) => updateField('incremental_cursor_path', e.target.value)}
+                placeholder={form.incremental_mode === 'timestamp' ? 'e.g. meta.max_updated_at' : 'e.g. meta.next_cursor'}
+                description="JSON path to read the next high-watermark from the response."
+              />
             </div>
           )}
         </div>

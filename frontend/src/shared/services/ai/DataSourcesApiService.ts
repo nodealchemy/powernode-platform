@@ -65,6 +65,11 @@ export interface CreateDataSourceRequest {
   requires_auth?: boolean;
   priority_order?: number;
   documentation_url?: string;
+  // Crawl-politeness (off by default). respect_robots toggles robots.txt
+  // honoring + per-host pacing; crawl_delay_seconds is the minimum seconds
+  // between requests to the same host. null clears the override.
+  respect_robots?: boolean;
+  crawl_delay_seconds?: number | null;
 }
 
 export interface CreateDataSourceCredentialRequest {

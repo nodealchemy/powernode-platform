@@ -45,6 +45,8 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
     description: '',
     api_base_url: '',
     requires_auth: true,
+    respect_robots: false,
+    crawl_delay_seconds: '',
     rate_limit_minute: '',
     rate_limit_hour: '',
     rate_limit_day: '',
@@ -71,6 +73,11 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
         description: formData.description,
         api_base_url: formData.api_base_url || undefined,
         requires_auth: formData.requires_auth,
+        respect_robots: formData.respect_robots,
+        // Only send a crawl delay when one is provided; blank leaves it unset.
+        crawl_delay_seconds: formData.crawl_delay_seconds
+          ? parseInt(formData.crawl_delay_seconds, 10)
+          : undefined,
         rate_limits: Object.keys(rateLimits).length > 0 ? rateLimits : undefined,
         is_active: true,
       });
@@ -94,6 +101,8 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
         description: '',
         api_base_url: '',
         requires_auth: true,
+        respect_robots: false,
+        crawl_delay_seconds: '',
         rate_limit_minute: '',
         rate_limit_hour: '',
         rate_limit_day: '',
@@ -275,6 +284,37 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
               {SOURCE_TYPE_PRESETS[formData.source_type].auth_instructions}
             </p>
           )}
+        </div>
+
+        {/* Crawl politeness — off by default. */}
+        <div className="space-y-3 rounded-lg border border-dashed border-theme p-4">
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={formData.respect_robots}
+              onChange={(e) => handleInputChange('respect_robots', e.target.checked)}
+              className="rounded border-theme-300 text-theme-info focus:ring-theme-info"
+            />
+            <span className="text-sm text-theme-secondary">Respect robots.txt</span>
+          </label>
+          <p className="text-xs text-theme-tertiary">
+            When enabled, the background monitor honors the host&apos;s robots.txt and paces
+            requests per host. Off by default.
+          </p>
+          <div>
+            <label className="block text-xs text-theme-tertiary mb-1">Crawl Delay (seconds)</label>
+            <Input
+              value={formData.crawl_delay_seconds}
+              onChange={(e) => handleInputChange('crawl_delay_seconds', e.target.value)}
+              placeholder="e.g., 5"
+              type="number"
+              min={0}
+            />
+            <p className="mt-1 text-xs text-theme-tertiary">
+              Minimum seconds between requests to the same host. A robots.txt Crawl-delay may
+              raise it. Leave blank for no per-host delay.
+            </p>
+          </div>
         </div>
 
         <div>

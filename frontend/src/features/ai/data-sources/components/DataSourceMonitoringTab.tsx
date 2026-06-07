@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Fingerprint,
   Timer,
+  Bookmark,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -69,6 +70,13 @@ function statusBadge(
 function shortChecksum(checksum: string | null | undefined): string {
   if (!checksum) return '—';
   return checksum.length > 12 ? `${checksum.slice(0, 12)}…` : checksum;
+}
+
+// Compact an incremental sync cursor (opaque token or timestamp) for inline
+// display; the full value is exposed via the title attribute.
+function shortCursor(cursor: string | null | undefined): string {
+  if (!cursor) return '—';
+  return cursor.length > 24 ? `${cursor.slice(0, 24)}…` : cursor;
 }
 
 function formatTimestamp(value: string | null | undefined): string {
@@ -294,6 +302,13 @@ export const DataSourceMonitoringTab: React.FC<DataSourceMonitoringTabProps> = (
               <Fingerprint className="h-3 w-3" />
               Last change: <span className="font-mono">{shortChecksum(subscription.last_checksum)}</span>
             </span>
+            {/* Incremental high-watermark — only shown once an incremental poll persists one. */}
+            {subscription.sync_cursor && (
+              <span className="flex items-center gap-1" title={subscription.sync_cursor}>
+                <Bookmark className="h-3 w-3" />
+                Sync cursor: <span className="font-mono">{shortCursor(subscription.sync_cursor)}</span>
+              </span>
+            )}
             {subscription.consecutive_failures > 0 && (
               <span className="flex items-center gap-1 text-theme-warning">
                 <AlertTriangle className="h-3 w-3" />
