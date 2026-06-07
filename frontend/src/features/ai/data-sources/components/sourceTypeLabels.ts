@@ -1,22 +1,84 @@
 /**
  * Source type display name mapping.
  * Used across DataSourceCard, DataSourceDetailModal, DataSourceFilters, and CreateDataSourceModal.
+ *
+ * NOTE: `source_type` is now FREE-FORM on the backend (the inclusion constraint
+ * was relaxed to a presence + lowercase/format check). These labels are only a
+ * curated suggestion set for known sources — any lowercase token is a valid
+ * source type. Use {@link humanizeSourceType} to render arbitrary values.
  */
 export const SOURCE_TYPE_LABELS: Record<string, string> = {
   noaa_ncei: 'NOAA Climate (NCEI)',
   noaa_gfs: 'NOAA GFS Forecasts',
   noaa_observations: 'NOAA Observations',
   open_meteo: 'Open-Meteo',
+  fred: 'FRED (Economic Data)',
+  yahoo_finance: 'Yahoo Finance',
+  espn: 'ESPN',
+  newsapi: 'NewsAPI',
   custom: 'Custom API',
 };
 
 /**
- * All available source types for select dropdowns.
+ * Suggested source types for combobox suggestions. The source type field is
+ * free-form, so these are hints only — not an enforced enumeration.
  */
-export const SOURCE_TYPE_OPTIONS = Object.entries(SOURCE_TYPE_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
+export const SUGGESTED_SOURCE_TYPE_OPTIONS = Object.entries(SOURCE_TYPE_LABELS).map(
+  ([value, label]) => ({ value, label })
+);
+
+/**
+ * @deprecated Source types are free-form; prefer SUGGESTED_SOURCE_TYPE_OPTIONS
+ * for combobox hints and {@link humanizeSourceType} for rendering. Retained as an
+ * alias so existing imports keep compiling.
+ */
+export const SOURCE_TYPE_OPTIONS = SUGGESTED_SOURCE_TYPE_OPTIONS;
+
+/**
+ * Render a source type for display. Known types use their curated label;
+ * unknown (free-form) tokens are humanized gracefully —
+ * `crypto_coingecko` -> `Crypto Coingecko`, `sec-edgar` -> `Sec Edgar`.
+ */
+export function humanizeSourceType(type: string | null | undefined): string {
+  if (!type) return 'Unknown';
+  const known = SOURCE_TYPE_LABELS[type];
+  if (known) return known;
+  return type
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
+    .join(' ');
+}
+
+/**
+ * Request protocol for a data source. Drives which adapter the backend registry
+ * selects (REST is the generic fallback). Mirrors the Adapters::Registry tokens.
+ */
+export type DataSourceProtocol = 'rest' | 'graphql' | 'rss' | 'atom';
+
+export const DATA_SOURCE_PROTOCOL_OPTIONS: ReadonlyArray<{ value: DataSourceProtocol; label: string }> = [
+  { value: 'rest', label: 'REST / HTTP' },
+  { value: 'graphql', label: 'GraphQL' },
+  { value: 'rss', label: 'RSS Feed' },
+  { value: 'atom', label: 'Atom Feed' },
+];
+
+/**
+ * Suggested categories for grouping/filtering data sources. Free-form like
+ * source_type — these are combobox hints, not an enforced list. The backfill
+ * migration seeds these from known source types (weather/finance/sports/news).
+ */
+export const SUGGESTED_CATEGORIES: readonly string[] = [
+  'weather',
+  'finance',
+  'sports',
+  'news',
+  'geospatial',
+  'social',
+  'reference',
+] as const;
 
 /**
  * Presets for each source type — pre-fills the creation form with accurate

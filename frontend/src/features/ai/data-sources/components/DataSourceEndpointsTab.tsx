@@ -13,7 +13,9 @@ import { logger } from '@/shared/utils/logger';
 import type {
   AiDataSourceEndpoint,
   DataSourceEndpointRequest,
+  DataSourceEndpointPagination,
   DataSourceHttpMethod,
+  DataSourcePaginationType,
   DataSourceResponseFormat,
 } from '@/shared/types/ai';
 
@@ -33,6 +35,16 @@ const RESPONSE_FORMATS: DataSourceResponseFormat[] = [
   'json', 'xml', 'csv', 'ndjson', 'rss', 'atom', 'html', 'text', 'binary',
 ];
 
+// '' = pagination disabled (single request — the default). Each type enables a
+// distinct set of param fields below.
+const PAGINATION_TYPE_OPTIONS: ReadonlyArray<{ value: DataSourcePaginationType | ''; label: string }> = [
+  { value: '', label: 'None (single request)' },
+  { value: 'offset', label: 'Offset / limit' },
+  { value: 'page', label: 'Page number' },
+  { value: 'cursor', label: 'Cursor' },
+  { value: 'link', label: 'Link header' },
+];
+
 interface EndpointFormState {
   name: string;
   http_method: DataSourceHttpMethod;
@@ -40,6 +52,14 @@ interface EndpointFormState {
   response_format: DataSourceResponseFormat | '';
   cache_ttl_seconds: string;
   response_mapping: string;
+  // Outbound pagination (optional). pagination_type === '' leaves it off.
+  pagination_type: DataSourcePaginationType | '';
+  pagination_limit_param: string;
+  pagination_offset_param: string;
+  pagination_page_param: string;
+  pagination_cursor_param: string;
+  pagination_cursor_path: string;
+  pagination_max_pages: string;
 }
 
 const EMPTY_FORM: EndpointFormState = {
@@ -49,6 +69,13 @@ const EMPTY_FORM: EndpointFormState = {
   response_format: 'json',
   cache_ttl_seconds: '',
   response_mapping: '{}',
+  pagination_type: '',
+  pagination_limit_param: '',
+  pagination_offset_param: '',
+  pagination_page_param: '',
+  pagination_cursor_param: '',
+  pagination_cursor_path: '',
+  pagination_max_pages: '',
 };
 
 // Serialize a JSON object to a pretty string for the editor textarea.
@@ -62,6 +89,7 @@ function stringifyMapping(value: Record<string, unknown> | undefined): string {
 }
 
 function endpointToForm(endpoint: AiDataSourceEndpoint): EndpointFormState {
+  const pagination = endpoint.pagination ?? {};
   return {
     name: endpoint.name,
     http_method: endpoint.http_method,
@@ -69,7 +97,44 @@ function endpointToForm(endpoint: AiDataSourceEndpoint): EndpointFormState {
     response_format: endpoint.response_format ?? '',
     cache_ttl_seconds: endpoint.cache_ttl_seconds != null ? String(endpoint.cache_ttl_seconds) : '',
     response_mapping: stringifyMapping(endpoint.response_mapping),
+    pagination_type: pagination.type ?? '',
+    pagination_limit_param: pagination.limit_param ?? '',
+    pagination_offset_param: pagination.offset_param ?? '',
+    pagination_page_param: pagination.page_param ?? '',
+    pagination_cursor_param: pagination.cursor_param ?? '',
+    pagination_cursor_path: pagination.cursor_path ?? '',
+    pagination_max_pages: pagination.max_pages != null ? String(pagination.max_pages) : '',
   };
+}
+
+// Assemble the pagination jsonb payload from the form. Returns {} when disabled
+// (single request) so the backend default is preserved. Only includes the param
+// fields relevant to the selected type.
+function buildPaginationPayload(form: EndpointFormState): DataSourceEndpointPagination {
+  if (form.pagination_type === '') return {};
+
+  const pagination: DataSourceEndpointPagination = { type: form.pagination_type };
+
+  const limitParam = form.pagination_limit_param.trim();
+  if (limitParam) pagination.limit_param = limitParam;
+
+  if (form.pagination_type === 'offset') {
+    const offsetParam = form.pagination_offset_param.trim();
+    if (offsetParam) pagination.offset_param = offsetParam;
+  } else if (form.pagination_type === 'page') {
+    const pageParam = form.pagination_page_param.trim();
+    if (pageParam) pagination.page_param = pageParam;
+  } else if (form.pagination_type === 'cursor') {
+    const cursorParam = form.pagination_cursor_param.trim();
+    if (cursorParam) pagination.cursor_param = cursorParam;
+    const cursorPath = form.pagination_cursor_path.trim();
+    if (cursorPath) pagination.cursor_path = cursorPath;
+  }
+
+  const maxPages = form.pagination_max_pages.trim();
+  if (maxPages) pagination.max_pages = Number(maxPages);
+
+  return pagination;
 }
 
 export const DataSourceEndpointsTab: React.FC<DataSourceEndpointsTabProps> = ({
@@ -164,6 +229,8 @@ export const DataSourceEndpointsTab: React.FC<DataSourceEndpointsTabProps> = ({
       response_format: form.response_format === '' ? null : form.response_format,
       cache_ttl_seconds: trimmedTtl === '' ? null : Number(trimmedTtl),
       response_mapping: mapping,
+      // {} when pagination disabled — keeps single-request behavior unchanged.
+      pagination: buildPaginationPayload(form),
     };
   };
 
@@ -175,6 +242,15 @@ export const DataSourceEndpointsTab: React.FC<DataSourceEndpointsTabProps> = ({
     const trimmedTtl = form.cache_ttl_seconds.trim();
     if (trimmedTtl !== '' && (Number.isNaN(Number(trimmedTtl)) || Number(trimmedTtl) < 0)) {
       addNotification({ type: 'error', title: 'Validation', message: 'Cache TTL must be a non-negative number.' });
+      return;
+    }
+    const trimmedMaxPages = form.pagination_max_pages.trim();
+    if (
+      form.pagination_type !== '' &&
+      trimmedMaxPages !== '' &&
+      (Number.isNaN(Number(trimmedMaxPages)) || Number(trimmedMaxPages) < 1)
+    ) {
+      addNotification({ type: 'error', title: 'Validation', message: 'Max pages must be a whole number ≥ 1.' });
       return;
     }
     const mapping = parseMapping();
@@ -294,6 +370,88 @@ export const DataSourceEndpointsTab: React.FC<DataSourceEndpointsTabProps> = ({
           className="font-mono text-xs"
           spellCheck={false}
         />
+
+        {/* Pagination (optional). Disabled by default → single request. */}
+        <div className="space-y-4 rounded-lg border border-dashed border-theme p-4">
+          <div>
+            <p className="text-sm font-medium text-theme-primary">Pagination (optional)</p>
+            <p className="text-xs text-theme-tertiary mt-1">
+              When enabled, the fetch follows pages up to the max (hard-capped server-side),
+              concatenating records. Leave as &quot;None&quot; for a single request.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Select
+              label="Strategy"
+              value={form.pagination_type}
+              onValueChange={(value) => updateField('pagination_type', value as DataSourcePaginationType | '')}
+              options={PAGINATION_TYPE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+            />
+            {form.pagination_type !== '' && (
+              <Input
+                label="Max Pages"
+                type="number"
+                min={1}
+                value={form.pagination_max_pages}
+                onChange={(e) => updateField('pagination_max_pages', e.target.value)}
+                placeholder="Server default cap"
+                description="Hard cap on follow-up requests."
+              />
+            )}
+          </div>
+
+          {form.pagination_type !== '' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Limit Param"
+                value={form.pagination_limit_param}
+                onChange={(e) => updateField('pagination_limit_param', e.target.value)}
+                placeholder="e.g. limit"
+                description="Query param controlling page size."
+              />
+
+              {form.pagination_type === 'offset' && (
+                <Input
+                  label="Offset Param"
+                  value={form.pagination_offset_param}
+                  onChange={(e) => updateField('pagination_offset_param', e.target.value)}
+                  placeholder="e.g. offset"
+                  description="Query param for the row offset."
+                />
+              )}
+
+              {form.pagination_type === 'page' && (
+                <Input
+                  label="Page Param"
+                  value={form.pagination_page_param}
+                  onChange={(e) => updateField('pagination_page_param', e.target.value)}
+                  placeholder="e.g. page"
+                  description="Query param for the page number."
+                />
+              )}
+
+              {form.pagination_type === 'cursor' && (
+                <>
+                  <Input
+                    label="Cursor Param"
+                    value={form.pagination_cursor_param}
+                    onChange={(e) => updateField('pagination_cursor_param', e.target.value)}
+                    placeholder="e.g. cursor"
+                    description="Query param carrying the next cursor."
+                  />
+                  <Input
+                    label="Cursor Path"
+                    value={form.pagination_cursor_path}
+                    onChange={(e) => updateField('pagination_cursor_path', e.target.value)}
+                    placeholder="e.g. meta.next_cursor"
+                    description="JSON path to read the next cursor from the response."
+                  />
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center justify-end gap-2 pt-2">
           <Button variant="outline" onClick={closeForm} disabled={saving}>

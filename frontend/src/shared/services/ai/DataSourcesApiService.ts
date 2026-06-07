@@ -15,6 +15,7 @@ import type {
   AiDataSourceSubscription,
   DataSourceSubscriptionsResponse,
   CreateDataSourceSubscriptionRequest,
+  DataSourceProtocol,
 } from '@/shared/types/ai';
 import type { ConnectionTestResult } from '@/shared/services/ai/ProvidersApiService';
 
@@ -42,11 +43,16 @@ import type { ConnectionTestResult } from '@/shared/services/ai/ProvidersApiServ
 
 export interface DataSourceQueryFilters extends QueryFilters {
   source_type?: string;
+  category?: string;
 }
 
 export interface CreateDataSourceRequest {
   name: string;
   source_type: string;
+  // Free-form grouping label. Optional; backend backfills from source_type.
+  category?: string | null;
+  // Request protocol selecting the backend adapter (rest|graphql|rss|atom).
+  protocol?: DataSourceProtocol | string;
   slug?: string;
   description?: string;
   api_base_url?: string;

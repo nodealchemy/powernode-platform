@@ -21,7 +21,7 @@ import { EntityLink } from '@/shared/components/entity';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { dataSourcesApi } from '@/shared/services/ai/DataSourcesApiService';
-import { SOURCE_TYPE_LABELS } from './sourceTypeLabels';
+import { humanizeSourceType } from './sourceTypeLabels';
 import type { AiDataSource } from '@/shared/types/ai';
 
 interface DataSourceCardProps {
@@ -105,9 +105,7 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
     }
   };
 
-  const getSourceTypeLabel = (type: string): string => {
-    return SOURCE_TYPE_LABELS[type] || type.replace(/_/g, ' ');
-  };
+  const getSourceTypeLabel = (type: string): string => humanizeSourceType(type);
 
   const getHealthStatusBadge = (status: string) => {
     switch (status) {
@@ -228,6 +226,9 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
 
             <div className="flex flex-wrap items-center gap-2 mt-1">
               <Badge variant="outline" size="sm">{getSourceTypeLabel(dataSource.source_type)}</Badge>
+              {dataSource.category && (
+                <Badge variant="secondary" size="sm" className="capitalize">{dataSource.category}</Badge>
+              )}
               {getHealthStatusBadge(dataSource.health_status)}
               {effectivenessTier && effectivenessPct !== null && (
                 <span title={`Effectiveness score: ${effectivenessPct}%`}>

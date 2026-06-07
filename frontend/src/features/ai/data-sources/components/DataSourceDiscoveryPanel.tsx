@@ -9,7 +9,7 @@ import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { logger } from '@/shared/utils/logger';
 import { dataSourcesApi } from '@/shared/services/ai/DataSourcesApiService';
-import { SOURCE_TYPE_LABELS } from './sourceTypeLabels';
+import { humanizeSourceType } from './sourceTypeLabels';
 import type {
   DataSourceDiscoveryResult,
   DataSourceDiscoverySignals,
@@ -67,8 +67,7 @@ export const DataSourceDiscoveryPanel: React.FC<DataSourceDiscoveryPanelProps> =
   const { addNotification } = useNotifications();
   const inFlight = useRef(false);
 
-  const getSourceTypeLabel = (type: string): string =>
-    SOURCE_TYPE_LABELS[type] || type.replace(/_/g, ' ');
+  const getSourceTypeLabel = (type: string): string => humanizeSourceType(type);
 
   const runDiscovery = useCallback(async () => {
     const trimmed = query.trim();

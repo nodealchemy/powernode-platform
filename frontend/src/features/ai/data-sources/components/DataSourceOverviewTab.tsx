@@ -3,7 +3,7 @@ import { ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
-import { SOURCE_TYPE_LABELS } from './sourceTypeLabels';
+import { humanizeSourceType } from './sourceTypeLabels';
 import type { AiDataSource } from '@/shared/types/ai';
 
 interface DataSourceOverviewTabProps {
@@ -27,7 +27,19 @@ export const DataSourceOverviewTab: React.FC<DataSourceOverviewTabProps> = ({ da
           <div>
             <label className="text-sm font-medium text-theme-tertiary">Source Type</label>
             <p className="mt-1 text-theme-primary">
-              {SOURCE_TYPE_LABELS[dataSource.source_type] || dataSource.source_type}
+              {humanizeSourceType(dataSource.source_type)}
+            </p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-theme-tertiary">Category</label>
+            <p className="mt-1 text-theme-primary capitalize">
+              {dataSource.category || 'Uncategorized'}
+            </p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-theme-tertiary">Protocol</label>
+            <p className="mt-1 text-theme-primary uppercase">
+              {dataSource.protocol || 'rest'}
             </p>
           </div>
           <div>

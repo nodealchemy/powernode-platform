@@ -9,14 +9,25 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { dataSourcesApi } from '@/shared/services/ai/DataSourcesApiService';
-import { SOURCE_TYPE_OPTIONS } from './sourceTypeLabels';
-import type { AiDataSource, AiDataSourceCredential } from '@/shared/types/ai';
+import {
+  SUGGESTED_SOURCE_TYPE_OPTIONS,
+  DATA_SOURCE_PROTOCOL_OPTIONS,
+  SUGGESTED_CATEGORIES,
+} from './sourceTypeLabels';
+import type { AiDataSource, AiDataSourceCredential, DataSourceProtocol } from '@/shared/types/ai';
 
 interface EditDataSourceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   dataSourceId: string;
+}
+
+// Narrow the free-form backend protocol string to a known option, defaulting to
+// 'rest' so the selector always has a valid value even for legacy/unknown rows.
+function normalizeProtocol(protocol: string | null | undefined): DataSourceProtocol {
+  const match = DATA_SOURCE_PROTOCOL_OPTIONS.find((opt) => opt.value === protocol);
+  return match ? match.value : 'rest';
 }
 
 export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
@@ -33,6 +44,8 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
     name: '',
     slug: '',
     source_type: 'custom',
+    category: '',
+    protocol: 'rest' as DataSourceProtocol,
     description: '',
     api_base_url: '',
     requires_auth: true,
@@ -57,6 +70,8 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
         name: ds.name || '',
         slug: ds.slug || '',
         source_type: ds.source_type || 'custom',
+        category: ds.category || '',
+        protocol: normalizeProtocol(ds.protocol),
         description: ds.description || '',
         api_base_url: ds.api_base_url || '',
         requires_auth: ds.requires_auth ?? true,
@@ -95,7 +110,9 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
 
       await dataSourcesApi.updateDataSource(dataSourceId, {
         name: formData.name,
-        source_type: formData.source_type,
+        source_type: formData.source_type.trim(),
+        category: formData.category.trim() || null,
+        protocol: formData.protocol,
         slug: formData.slug,
         description: formData.description,
         api_base_url: formData.api_base_url || undefined,
@@ -227,9 +244,43 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-theme-secondary mb-1">Source Type</label>
-            <Select value={formData.source_type} onChange={(value) => handleInputChange('source_type', value)}>
-              {SOURCE_TYPE_OPTIONS.map(({ value, label }) => (
+            <label className="block text-sm font-medium text-theme-secondary mb-1">Source Type *</label>
+            <Input
+              value={formData.source_type}
+              onChange={(e) => handleInputChange('source_type', e.target.value)}
+              list="edit-source-type-suggestions"
+              placeholder="e.g., open_meteo or crypto_coingecko"
+              description="Free-form. Pick a suggestion or type any lowercase token."
+              required
+            />
+            <datalist id="edit-source-type-suggestions">
+              {SUGGESTED_SOURCE_TYPE_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-theme-secondary mb-1">Category</label>
+            <Input
+              value={formData.category}
+              onChange={(e) => handleInputChange('category', e.target.value)}
+              list="edit-category-suggestions"
+              placeholder="e.g., weather"
+              description="Optional grouping label."
+            />
+            <datalist id="edit-category-suggestions">
+              {SUGGESTED_CATEGORIES.map((category) => (
+                <option key={category} value={category} />
+              ))}
+            </datalist>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-theme-secondary mb-1">Protocol *</label>
+            <Select value={formData.protocol} onChange={(value) => handleInputChange('protocol', value)}>
+              {DATA_SOURCE_PROTOCOL_OPTIONS.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </Select>

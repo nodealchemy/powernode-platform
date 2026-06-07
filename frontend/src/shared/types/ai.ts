@@ -445,6 +445,12 @@ export interface AiDataSource {
   name: string;
   slug: string;
   source_type: string;
+  // Free-form grouping label (weather/finance/sports/news/…). Nullable: legacy
+  // rows and sources without a category yet. Backfilled from source_type.
+  category?: string | null;
+  // Request protocol selecting the backend adapter (rest|graphql|rss|atom).
+  // Defaults to "rest" server-side; optional so older serializers degrade.
+  protocol?: DataSourceProtocol | string | null;
   description: string;
   api_base_url: string;
   capabilities: string[];
@@ -499,9 +505,16 @@ export interface DataSourceQuota {
 
 export interface DataSourceFilters extends PaginationParams {
   source_type?: string;
+  // Free-form category filter (mirrors Ai::DataSource scope :by_category).
+  category?: string;
   search?: string;
   sort?: 'name' | 'priority' | 'created_at';
 }
+
+// Request protocol selecting which backend adapter the registry uses. REST is
+// the generic fallback; graphql/rss/atom have dedicated adapters. Backend stores
+// it as a free-form string column (default "rest"), so allow string widening.
+export type DataSourceProtocol = 'rest' | 'graphql' | 'rss' | 'atom';
 
 // Data Source Endpoints — governed external-fetch endpoint definitions.
 // Mirrors Ai::DataSourceSerialization#serialize_data_source_endpoint.
@@ -513,6 +526,26 @@ export type DataSourceResponseFormat =
 
 export type DataSourceChangeDetection =
   | 'etag' | 'last_modified' | 'content_hash' | 'polling' | 'none';
+
+// Outbound pagination strategy for an endpoint. When configured, the REST
+// adapter / QueryService follows up to `max_pages` (hard-capped server-side,
+// e.g. 20), concatenating canonical records. Blank/absent => single request
+// (the default). Mirrors the ai_data_source_endpoints.pagination jsonb column.
+export type DataSourcePaginationType = 'offset' | 'page' | 'cursor' | 'link';
+
+export interface DataSourceEndpointPagination {
+  type?: DataSourcePaginationType;
+  limit_param?: string;
+  // offset-based
+  offset_param?: string;
+  // page-number-based
+  page_param?: string;
+  // cursor-based: param to send the cursor in + JSON path to read the next cursor
+  cursor_param?: string;
+  cursor_path?: string;
+  // Hard cap on follow-up requests (server clamps to its own max).
+  max_pages?: number;
+}
 
 export interface AiDataSourceEndpoint {
   id: string;
@@ -531,6 +564,10 @@ export interface AiDataSourceEndpoint {
   response_mapping: Record<string, unknown>;
   response_schema: Record<string, unknown>;
   metadata: Record<string, unknown>;
+  // Outbound pagination config (ai_data_source_endpoints.pagination jsonb).
+  // Empty object => single request (the default). Optional so the UI degrades
+  // gracefully until the backend serializer exposes the column.
+  pagination?: DataSourceEndpointPagination;
   // Phase 2b observability opt-in flags + SLA/ownership/contract metadata. All
   // OFF by default; populated once the backend serializer exposes the columns
   // added by AddQualityOptInToAiDataSourceEndpoints. Optional so the UI degrades
@@ -569,6 +606,8 @@ export interface DataSourceEndpointRequest {
   response_mapping?: Record<string, unknown>;
   response_schema?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  // Outbound pagination config. Send {} (or omit) to leave pagination off.
+  pagination?: DataSourceEndpointPagination;
   // Phase 2b opt-in observability controls.
   track_schema?: boolean;
   quality_checks_enabled?: boolean;

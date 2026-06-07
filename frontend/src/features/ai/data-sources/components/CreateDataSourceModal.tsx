@@ -6,12 +6,28 @@ import { Select } from '@/shared/components/ui/Select';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { dataSourcesApi } from '@/shared/services/ai/DataSourcesApiService';
-import { SOURCE_TYPE_OPTIONS, SOURCE_TYPE_PRESETS } from './sourceTypeLabels';
+import {
+  SUGGESTED_SOURCE_TYPE_OPTIONS,
+  SOURCE_TYPE_PRESETS,
+  DATA_SOURCE_PROTOCOL_OPTIONS,
+  SUGGESTED_CATEGORIES,
+} from './sourceTypeLabels';
+import type { DataSourceProtocol } from '@/shared/types/ai';
 
 interface CreateDataSourceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+}
+
+// Suggested category for a known source type — mirrors the backend backfill
+// mapping. Free-form sources return '' (the user picks/types a category).
+function inferCategoryFromSourceType(sourceType: string): string {
+  if (sourceType.startsWith('noaa_') || sourceType === 'open_meteo') return 'weather';
+  if (sourceType === 'fred' || sourceType === 'yahoo_finance') return 'finance';
+  if (sourceType === 'espn') return 'sports';
+  if (sourceType === 'newsapi') return 'news';
+  return '';
 }
 
 export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
@@ -24,6 +40,8 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
     name: '',
     slug: '',
     source_type: 'custom',
+    category: '',
+    protocol: 'rest' as DataSourceProtocol,
     description: '',
     api_base_url: '',
     requires_auth: true,
@@ -46,7 +64,9 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
 
       await dataSourcesApi.createDataSource({
         name: formData.name,
-        source_type: formData.source_type,
+        source_type: formData.source_type.trim(),
+        category: formData.category.trim() || undefined,
+        protocol: formData.protocol,
         slug: formData.slug,
         description: formData.description,
         api_base_url: formData.api_base_url || undefined,
@@ -69,6 +89,8 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
         name: '',
         slug: '',
         source_type: 'custom',
+        category: '',
+        protocol: 'rest',
         description: '',
         api_base_url: '',
         requires_auth: true,
@@ -96,13 +118,15 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
       setFormData(prev => ({ ...prev, slug }));
     }
 
-    // Auto-fill from preset when source type changes
+    // Auto-fill from preset when a KNOWN source type is chosen. Free-form values
+    // simply skip the preset (lookup returns undefined) — no enforcement.
     if (field === 'source_type' && typeof value === 'string') {
       const preset = SOURCE_TYPE_PRESETS[value];
       if (preset && value !== 'custom') {
         setFormData(prev => ({
           ...prev,
           source_type: value,
+          category: prev.category || inferCategoryFromSourceType(value),
           description: prev.description || preset.description,
           api_base_url: preset.api_base_url,
           requires_auth: preset.requires_auth,
@@ -155,19 +179,60 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
           </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-theme-secondary mb-1">
+              Source Type *
+            </label>
+            <Input
+              value={formData.source_type}
+              onChange={(e) => handleInputChange('source_type', e.target.value)}
+              list="create-source-type-suggestions"
+              placeholder="e.g., open_meteo or crypto_coingecko"
+              description="Free-form. Pick a suggestion or type any lowercase token."
+              required
+            />
+            <datalist id="create-source-type-suggestions">
+              {SUGGESTED_SOURCE_TYPE_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </datalist>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-theme-secondary mb-1">
+              Category
+            </label>
+            <Input
+              value={formData.category}
+              onChange={(e) => handleInputChange('category', e.target.value)}
+              list="create-category-suggestions"
+              placeholder="e.g., weather"
+              description="Optional grouping label. Backfilled from source type."
+            />
+            <datalist id="create-category-suggestions">
+              {SUGGESTED_CATEGORIES.map((category) => (
+                <option key={category} value={category} />
+              ))}
+            </datalist>
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-theme-secondary mb-1">
-            Source Type *
+            Protocol *
           </label>
           <Select
-            value={formData.source_type}
-            onChange={(value) => handleInputChange('source_type', value)}
+            value={formData.protocol}
+            onChange={(value) => handleInputChange('protocol', value)}
           >
-            <option value="">Select a source type</option>
-            {SOURCE_TYPE_OPTIONS.map(({ value, label }) => (
+            {DATA_SOURCE_PROTOCOL_OPTIONS.map(({ value, label }) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </Select>
+          <p className="mt-1 text-xs text-theme-tertiary">
+            Selects the fetch adapter. REST is the generic default; GraphQL/RSS/Atom use dedicated adapters.
+          </p>
         </div>
 
         <div>
@@ -258,7 +323,7 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
           </Button>
           <Button
             type="submit"
-            disabled={submitting || !formData.name || !formData.slug}
+            disabled={submitting || !formData.name || !formData.slug || !formData.source_type.trim()}
             className="flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />

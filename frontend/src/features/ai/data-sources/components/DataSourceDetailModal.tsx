@@ -19,7 +19,7 @@ import { DataSourceQualityTab } from './DataSourceQualityTab';
 import { DataSourceMonitoringTab } from './DataSourceMonitoringTab';
 import { DataSourceImportOpenApiModal } from './DataSourceImportOpenApiModal';
 import { DataSourceActionsBar } from './DataSourceActionsBar';
-import { SOURCE_TYPE_LABELS } from './sourceTypeLabels';
+import { humanizeSourceType } from './sourceTypeLabels';
 import type { AiDataSource } from '@/shared/types/ai';
 
 export interface DataSourceDetailModalProps {
@@ -101,9 +101,7 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
     }
   };
 
-  const getSourceTypeLabel = (type: string): string => {
-    return SOURCE_TYPE_LABELS[type] || type.replace(/_/g, ' ');
-  };
+  const getSourceTypeLabel = (type: string): string => humanizeSourceType(type);
 
   const getHealthStatusBadge = (status: string) => {
     switch (status) {
