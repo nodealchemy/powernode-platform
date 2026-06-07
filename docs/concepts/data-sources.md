@@ -19,6 +19,7 @@
 - [Query-time governance (Phase 4b-2b)](#query-time-governance-phase-4b-2b)
 - [Transform & retrieval shaping (Phase 4b-3a)](#transform--retrieval-shaping-phase-4b-3a)
 - [Onboarding portability (Phase 4b-3b)](#onboarding-portability-phase-4b-3b)
+- [Multi-source coordination & RAG ingestion (Phase 4b-3c)](#multi-source-coordination--rag-ingestion-phase-4b-3c)
 - [Provenance and the FetchEnvelope](#provenance-and-the-fetchenvelope)
 - [Surfaces: REST + MCP](#surfaces-rest--mcp)
 - [Frontend](#frontend)
@@ -654,6 +655,112 @@ A template is a **starting point, not a runnable source**: the `api_base_url` po
 
 - **`snapshot!(data_source, created_by_type:, note:)`** persists the source's *current* `export` at the next sequential version (`next_version_for` is a `MAX(version)+1` check-then-act, so a concurrent snapshot that collides on the unique `(source, version)` index simply retries a couple of times).
 - **`rollback!(data_source, version)`** returns a source's config to an earlier snapshot by **replaying that historical manifest through `import`** — which, being `import`, *still never touches credentials*: a rollback restores structure/endpoints/non-secret config, never re-introduces an old secret. Rollback is itself made reversible and audited: it captures the **pre-rollback** state first, but **persists that `rollback` snapshot only once the replay succeeds** — a failed replay (which `import` rolls back transactionally) leaves no spurious version behind. On success the pre-rollback snapshot is recorded with a note, so the rollback can itself be rolled back.
+
+## Multi-source coordination & RAG ingestion (Phase 4b-3c)
+
+Every layer up to here governs **one** fetch against **one** endpoint. **Phase 4b-3c** is the long tail that comes after the single-fetch contract is solid: an agent rarely wants *a* source — it wants *the right answer*, assembled from several sources, kept available when one is down, reproducible after the fact, and queryable long after the bytes arrived. Four small, independent coordinators add exactly that on top of the existing pipeline — **deterministic reconciliation** (merge overlapping results from many sources by canonical key), **failover** (re-query an ordered mirror list, first success wins), **deterministic replay** (re-serve a *recorded* fetch from its audit row + cache without an upstream call), and the **RAG ingestion bridge** (turn fetched records into embedded knowledge-base documents so the data can be *interpreted over time*).
+
+The load-bearing invariant ties all four to everything above: **every byte they touch still comes through the full governed `QueryService`** ([The QueryService pipeline](#the-queryservice-pipeline)). Reconciliation, failover, and the ingestion bridge each call `QueryService` per source — so the kill-flag, per-source + per-agent quota, query-time ABAC/compliance governance, credential brokering, the response cache, SSRF egress validation, the circuit breaker, schema/quality, redacted+hash-chained audit persistence, and cost attribution **all apply independently per source**. These coordinators add **no fetch path of their own and no bypass**: reconciliation and failover only *sequence* `QueryService` calls and shape/annotate the results; replay deliberately performs **no** fetch at all (it reconstructs from what a prior governed fetch already sealed). Reconciliation is **pure/stateless** (no I/O); the others are individually rescued and **never raise** into the caller.
+
+All backend code lives under `server/app/services/ai/data_sources/` (`reconciliation_service.rb`, `failover_service.rb`, `replay_service.rb`, `rag_ingestion_service.rb`).
+
+```mermaid
+flowchart TB
+    subgraph Gov["governed fetch — applied PER SOURCE, no bypass"]
+        QS["Ai::DataSources::QueryService#call<br/>(kill-flag · quota · ABAC/compliance · broker ·<br/>cache · SSRF · breaker · schema/quality ·<br/>redacted audit · cost)"]
+    end
+
+    REC["ReconciliationService<br/>fan-OUT N sources → merge by canonical key<br/>(first_wins / last_wins / merge) · NO entity resolution"]
+    FO["FailoverService<br/>ordered mirrors → FIRST success wins<br/>+ failover provenance"]
+    BR["RagIngestionService<br/>records → embedded KB documents<br/>(incremental re-embed)"]
+
+    REC -->|QueryService per target| QS
+    FO -->|QueryService per target, in order| QS
+    BR -->|QueryService once, then embed| QS
+
+    RP["ReplayService<br/>re-serve a RECORDED fetch<br/>NO upstream call"]
+    ROW[("ai_data_source_queries<br/>redacted audit row")]
+    CACHE[("ResponseCacheService<br/>cached RAW payload")]
+    RP -.read-only.-> ROW
+    RP -.read-only.-> CACHE
+    RP -->|re-run authorize + re-mask<br/>for CURRENT requester| GZ["GovernanceService"]
+```
+
+### Deterministic reconciliation — canonical-key merge
+
+`Ai::DataSources::ReconciliationService.new(key:, strategy:).reconcile(record_sets)` collapses several `Array<Hash>` record sets — the records each governed fetch returned — into **one** list by **exact** canonical-key match. It is the merge half of the multi-source long tail: when the same logical entity is served by several endpoints or sources (a primary + mirrors, or complementary feeds), a caller ends up with N overlapping sets that share a canonical key field; this service deduplicates and combines them per a fixed strategy.
+
+The three strategies decide how a group of same-key records collapses to one winner:
+
+| Strategy | Collapse rule |
+|----------|---------------|
+| `first_wins` | Keep the **first** record seen for the key (earliest set, earliest index); later duplicates are discarded. |
+| `last_wins` (**default**) | Keep the **last** record seen; each later duplicate **wholly replaces** the prior winner. |
+| `merge` | **Shallow, one-level** field-merge: start from the first record, then overlay each later same-key record's **non-nil** fields on top (later non-nil wins per field; earlier values survive where the later record is nil/absent). Nested Hashes/Arrays are replaced wholesale, never deep-merged — which keeps the merge deterministic and unambiguous. |
+
+Key semantics are **exact, never fuzzy**. The grouping value is the key field coerced to a String (so `1` and `"1"` reconcile, and the key may live under a String **or** Symbol field name), but `"Acme"` and `"ACME"` are **different keys** — the service never guesses two records are the same. Records **missing** the key entirely are not dropped; they pass through unmerged in first-appearance order, each tagged with an `_unreconciled` flag so a caller can tell a pass-through from a reconciled record. Output order is **stable**: the first appearance of each distinct key fixes its slot regardless of strategy (a `last_wins` winner stays in the key's original position, it does not move to the end). The result is bounded (`MAX_OUTPUT = 100_000`) — past the cap, new distinct keys/keyless rows stop being admitted while updates to already-admitted keys still apply, so the cap never yields a partially-merged winner.
+
+> **Hard non-goal: this is NOT entity resolution, and NOT a join engine.** Reconciliation is deterministic canonical-key merge — an in-memory group/collapse — and nothing more. There is **no** cross-source SQL/join, **no** predicate pushdown or query plan, **no** query-plan IR, **no** migration FSM, and explicitly **no probabilistic / fuzzy entity resolution**. Matching is purely by the exact string form of the canonical key. This boundary is what keeps `reconcile` pure, stateless, and safe to call inline on a request: it touches no DB, network, Redis, or clock, never mutates its inputs (winners are duped before any in-place overlay), and the same inputs always yield the same output. A reconcile fault degrades to a flat pass-through of all input records (logged by class only) rather than breaking the caller.
+
+### Failover / mirror — ordered governed re-query
+
+`Ai::DataSources::FailoverService.new(account:, agent:, user:).query(targets, params:)` is the resilience half. Given an **ordered** list of equivalent `{ data_source:, endpoint: }` targets (primary first), it tries each **in order** through a complete `QueryService#call` and returns the **first** successful `FetchEnvelope` — stopping immediately, so no further mirrors are touched once one wins. Where reconciliation *merges* many sources, failover *picks one healthy source* from a preference list.
+
+A target **succeeds** when its envelope has `success: true`. A target **fails** when its envelope is `success: false` (error / timeout / rate_limited / blocked) **or** the `QueryService` call raises (defensive — `QueryService` is documented never to raise, but a malformed target/construction fault is caught here and counted as a failure rather than aborting the whole failover). A failed attempt advances to the next target with **no sleep / backoff** — the per-source circuit breaker already governs upstream pressure. When **every** target fails, the service returns the **last** real failure envelope (audited per source), not a synthesized one, so the caller sees a true governed failure; only an empty target list yields a synthesized "nothing to try" error envelope.
+
+Because each attempt is a full governed fetch, **every governance gate applies independently per mirror** — a denied or quota-throttled mirror simply counts as a failure and the loop moves on, and a mirror may legitimately win by serving a warm **cache** hit. The service stamps **failover provenance** onto the returned envelope without disturbing the rest of it:
+
+| Provenance flag | Meaning |
+|-----------------|---------|
+| `failover_used` | Boolean — true when more than one target was attempted (the primary did not win on the first try) |
+| `failover_attempts` | Integer — how many targets were actually tried |
+| `failover_source` | String\|nil — slug of the target that **won**, or nil when all failed |
+
+Every returned envelope — success, all-fail, or no-targets — carries the same three keys (routed through one `augment` step), so a caller can read failover bookkeeping off provenance unconditionally. The default single-source path is unaffected: a caller with exactly one target gets that source's envelope with `failover_used: false`, `failover_attempts: 1`. Caught exception messages are PII-redacted before they land in an envelope or log.
+
+### Deterministic replay — re-serve a recorded fetch, no upstream call
+
+`Ai::DataSources::ReplayService.new(account:, agent:).replay(query_ref, params:)` reconstructs a `FetchEnvelope`-shaped view of a **past** query from its already-redacted `Ai::DataSourceQuery` audit row — an auditor's reconstruction, **not** a re-execution. A replay **never** performs an upstream fetch, **never** re-signs a request, and **never** resolves credentials. The forensic provenance (slug, endpoint, `response_sha256`, the **already-redacted** URL, `schema_valid`, cached/served-stage, anomalies, the mirrored audit-chain anchor, the original live status, the recorded timestamp) is rebuilt straight from the row; the returned status is `"replayed"` (distinct from the original live status, preserved under `provenance.original_status`), and `duration_ms` is `0` because a replay does no work.
+
+The audit row deliberately stores only a redacted **snippet** + the `response_sha256`, never the full body — so a replay can surface the **body** only when the **original** `(source, endpoint, params)` cache entry is *still present*. The row stores a one-way `params_hash`, not the params, so the cache key is otherwise unreconstructable; the cache lookup therefore runs **only** when the caller supplies the original `params:` *and* their digest (recomputed exactly as `QueryService` does) **matches** the recorded `params_hash` — reading the same entry, never a different param-variant's. Any miss (no params, hash mismatch, evicted entry, a row predating `params_hash`, a decode fault) degrades to `data: []` with a `payload_not_cached` provenance note — forensic metadata only. The cache read is read-only and never writes.
+
+The defining security property is that **a replay can never leak more than a live read would today**. When the body *is* recovered, the replay re-runs **both** halves of `GovernanceService` for the **current** requester before returning anything:
+
+- **Re-authorize.** It runs the same `GovernanceService#authorize` gate a live read would (ABAC + compliance) for the current account + agent. If the current requester is **not** authorized for this source now, the cached body is **withheld entirely** — the forensic provenance still returns. This gate **fails closed** (withhold on any error), which is safe precisely because the provenance is returned regardless.
+- **Re-mask.** The recovered records are run back through `GovernanceService#mask_records` for the current requester (account + agent), so the per-request egress redaction of a live read still applies on replay. A masking fault degrades to passthrough-but-flagged (`masking_applied: false`), exactly like the live path's masking rescue — never leaking unmasked data and never breaking the replay.
+
+Replay is **account-scoped** (a `query_ref` outside the account is treated as not-found; `query_ref` may be a row UUID **or** a `correlation_id`) and fully resilient — every failure path rescues to a safe error result Hash rather than raising.
+
+### The RAG ingestion bridge — records → embedded KB documents
+
+`Ai::DataSources::RagIngestionService.new(account:, user:).ingest(data_source:, endpoint:, knowledge_base:, records:, key:)` is the bridge from point-in-time fetched records to **semantically retrievable** knowledge. The `QueryService` returns canonical, normalized, masked records *now*; this bridge turns a batch of them into embedded `Ai::Document` rows in an `Ai::KnowledgeBase`, so the same data is queryable through the existing RAG retrieval path (vector / hybrid search) long after the fetch — the "interpret data over time" capability. It is a one-directional **PULL sink** (records in → embedded documents out): it **never** fetches (that is `QueryService`, run upstream of it) and **never** reconciles across sources (that is the coordinator above). It **invents no new model and no new embedding path** — it reuses `Ai::RagService` end to end: `create_document` (builds the `Ai::Document` + checksum) → `process_document` (chunks) → `embed_chunks` (embeds). Documents are stamped `source_type "api"` (the `Ai::Document` allow-list entry that fits an external-API-derived record).
+
+The bridge is **incremental** when a canonical record-key field (`key:`) is supplied — it avoids re-embedding records that have not changed:
+
+| Per record (vs the prior ingested doc for the same `record_key`) | Action |
+|------------------------------------------------------------------|--------|
+| **unchanged** — same `record_key` **and** same `content_sha256` | **skip** (no re-embed) |
+| **changed** — same `record_key`, **different** `content_sha256` | **update** — create the new doc + re-embed first, *then* destroy the stale doc(s), so there is never a window with zero docs for that key |
+| **brand new** — no prior doc with this `record_key` | **create** |
+
+Dedup is **source-scoped**, not just KB-scoped: prior docs are located by the `record_key` stamped on each `Document`'s metadata **and** scoped to the same `(data_source, endpoint)` (`metadata->>'record_key'` + `data_source_id` + `endpoint_id`), so two **different** sources that happen to share a record-key value in the same knowledge base cannot clobber each other's documents. Without a `key:`, every record is created (no dedup is meaningful without a stable key). Embedding is **batched** — newly-created chunks are embedded in a **single** post-loop pass (so the KB's indexing finalizes once per ingest, not once per record). The bridge is **bounded** (`MAX_RECORDS_PER_CALL = 5_000`, overflow reported as `capped` and logged, never a runaway embed storm) and **resilient** (a per-record failure is logged + counted under `errors` and never aborts the batch). It is **account-scoped** — the knowledge base must belong to the account. It returns a tally: `{ ingested, updated, skipped, capped, errors, knowledge_base_id }`.
+
+### Surface (MCP)
+
+All four coordinators are exposed to agents through `Ai::Tools::DataSourceTool` (the `data_source_management` MCP tool), which grows from 18 to **22 actions**, each registered per-action in `PlatformApiToolRegistry`:
+
+| Action | Backed by | Permission |
+|--------|-----------|-----------|
+| `data_source_reconcile` | governed-fetch every `{ data_source_id, endpoint_id }` target, then `ReconciliationService` (`key`, `strategy`); returns merged records + per-source status | `ai.data_sources.query` (it fetches) |
+| `data_source_failover_query` | `FailoverService#query` over ordered targets; returns the winning `FetchEnvelope` + failover provenance | `ai.data_sources.query` (it fetches) |
+| `data_source_replay` | `ReplayService#replay` by `query_id`/`correlation_id` (optional `params` to recover the re-masked body) | `ai.data_sources.read` |
+| `data_source_ingest_to_kb` | governed-fetch a source+endpoint, then `RagIngestionService#ingest` into a KB; returns the ingest counts | `ai.data_sources.manage` (writes docs/embeddings); an agent lacking it **files a proposal** rather than mutating |
+
+Because `reconcile` and `failover_query` fan out, the tool caps targets per call at `MAX_TARGETS = 25` to bound the outbound fan-out a single MCP request can trigger. `data_source_ingest_to_kb` follows the established managed-mutation pattern (mirroring `data_source_rollback_config` / `data_source_introspect`): when the acting agent's account lacks `ai.data_sources.manage`, it files an `Ai::AgentProposal` and returns `requires_approval: true` instead of writing documents.
+
+### Off by default
+
+Like every layer above, none of this changes behavior until a caller *invokes* it. There is no new column, no cron, no background loop, and no per-fetch overhead added to the single-source path — a plain `QueryService` fetch is byte-for-byte unchanged. Reconciliation runs only when you hand it record sets; failover only when you pass a target list; replay only when you ask for a recorded query (and even then performs **no** upstream work); and the ingestion bridge only when you point it at a knowledge base. You pay only for the coordination you actually request.
 
 ## Provenance and the FetchEnvelope
 
@@ -1334,6 +1441,6 @@ Remaining out of scope:
 
 ## Materials previously at
 
-This is a new concept document for the Phase 1 Data Source feature, extended in place for Phase 2a (discovery + evaluation), Phase 2b (data quality, schema-drift & contracts), Phase 3 (streaming & monitoring), Phase 4 (the generic framework — free-form `source_type` + category, the protocol adapter registry, outbound pagination, schema-sync), Phase 4b-2a (credential brokering), and Phase 4b-2b (query-time governance — per-agent ABAC, residency/consent compliance, PII masking, outbound mTLS). It complements the pre-existing operational runbook at `docs/operations/data-sources.md` (which retains the register/rotate/troubleshoot procedures).
+This is a new concept document for the Phase 1 Data Source feature, extended in place for Phase 2a (discovery + evaluation), Phase 2b (data quality, schema-drift & contracts), Phase 3 (streaming & monitoring), Phase 4 (the generic framework — free-form `source_type` + category, the protocol adapter registry, outbound pagination, schema-sync), Phase 4b-2a (credential brokering), Phase 4b-2b (query-time governance — per-agent ABAC, residency/consent compliance, PII masking, outbound mTLS), Phase 4b-3a (transform & retrieval shaping), Phase 4b-3b (onboarding portability), and Phase 4b-3c (multi-source coordination — deterministic reconciliation, failover, deterministic replay, and the RAG ingestion bridge). It complements the pre-existing operational runbook at `docs/operations/data-sources.md` (which retains the register/rotate/troubleshoot procedures).
 
-_Last verified: 2026-06-06 (Phase 4b-2b: query-time governance)_
+_Last verified: 2026-06-07 (Phase 4b-3c: multi-source coordination & RAG ingestion)_

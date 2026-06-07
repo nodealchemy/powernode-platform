@@ -19,6 +19,7 @@
 - [Govern a data source (access, masking, residency, mTLS) (Phase 4b-2b)](#govern-a-data-source-access-masking-residency-mtls-phase-4b-2b)
 - [Shape & preview data (transforms, dry-run, cache tags) (Phase 4b-3a)](#shape--preview-data-transforms-dry-run-cache-tags-phase-4b-3a)
 - [Export, import, template & version a source config (Phase 4b-3b)](#export-import-template--version-a-source-config-phase-4b-3b)
+- [Coordinate multiple sources & ingest into RAG (Phase 4b-3c)](#coordinate-multiple-sources--ingest-into-rag-phase-4b-3c)
 - [Agent usage via MCP](#agent-usage-via-mcp)
 - [How agents discover and evaluate sources over time (Phase 2a)](#how-agents-discover-and-evaluate-sources-over-time-phase-2a)
 - [Enabling quality & drift per endpoint (Phase 2b)](#enabling-quality--drift-per-endpoint-phase-2b)
@@ -1407,6 +1408,214 @@ version:        1                 # the version NUMBER to restore
 ```
 
 A rollback only restores **config** — the source's existing credential keeps working (auth material was never in the manifest), so an authenticated source stays runnable across a rollback without re-attaching a key. A version that doesn't belong to this source, or a failed replay, returns an error rather than a misleading success.
+
+## Coordinate multiple sources & ingest into RAG (Phase 4b-3c)
+
+Once you have several sources onboarded, four MCP actions let an agent treat them as a *fleet* rather than one endpoint at a time: **reconcile** N endpoints into one canonical record set, **fail over** across mirror sources, **replay** a recorded fetch for debugging, and **ingest** fetched records into a knowledge base for semantic retrieval. Each is a thin MCP wrapper over a dedicated, resilient service under `server/app/services/ai/data_sources/`; all are **MCP-only** (there is no REST route for them — unlike the single-source query, which has both).
+
+Every multi-source action still runs each upstream call through the **full governed `QueryService` pipeline** independently — per-source kill flag, per-source + per-agent quota, query-time governance, response cache, SSRF guard, circuit breaker, schema/quality, redacted audit, cost. None of these actions adds its own fetching or any bypass; they only **sequence** or **merge** governed fetches.
+
+| Action | Permission | Service | What it does |
+|---|---|---|---|
+| `data_source_reconcile` | `ai.data_sources.query` | `ReconciliationService` | Fetch every target independently, then collapse the record sets by exact canonical key |
+| `data_source_failover_query` | `ai.data_sources.query` | `FailoverService` | Try ordered mirrors and return the first success (full `FetchEnvelope`) |
+| `data_source_replay` | `ai.data_sources.read` | `ReplayService` | Reconstruct a recorded fetch from its audit row — no network, no signing, no credentials |
+| `data_source_ingest_to_kb` | `ai.data_sources.manage` (proposal fallback) | `RagIngestionService` | Fetch a source+endpoint, then embed the records into a knowledge base as `Ai::Document` rows |
+
+### Reconcile N endpoints by a canonical key
+
+`data_source_reconcile` governed-fetches **every** target in `targets` independently, collects each *successful* envelope's records, then hands the ordered `Array<Array<Hash>>` to `Ai::DataSources::ReconciliationService` to collapse into ONE list by **exact** canonical-key match. This is a deterministic in-memory key group/collapse — **not** a cross-source SQL join and **not** fuzzy entity resolution: `"Acme"` and `"ACME"` are different keys, while `1` (Integer) and `"1"` (String) reconcile together (the key value is coerced to its canonical String form).
+
+Parameters:
+
+| Param | Required | Meaning |
+|---|---|---|
+| `targets` | yes | Ordered `Array` of `{ data_source_id, endpoint_id }` (UUIDs or slugs). Capped at **25** per call (`MAX_TARGETS`) to bound the outbound fan-out |
+| `key` | yes | The canonical key **field name** shared across the sources (e.g. `"id"`, `"isbn"`) |
+| `strategy` | no | How same-key records collapse — `first_wins` \| `last_wins` \| `merge`. Default **`last_wins`** (an unknown value degrades to the default rather than erroring) |
+| `params` | no | Query params forwarded to **every** target fetch verbatim |
+
+The three strategies (from `ReconciliationService`):
+
+- **`first_wins`** — keep the first record seen for a key; later duplicates discarded.
+- **`last_wins`** (default) — each later same-key record wholly replaces the prior winner.
+- **`merge`** — shallow field-merge: start from the first record, overlay each later record's **non-nil** fields (later non-nil wins per field; one level deep — nested Hashes are replaced wholesale, never deep-merged).
+
+Output order is **stable**: the first appearance of each distinct key fixes its slot regardless of strategy. Records that **lack** the key entirely are not dropped — they pass through unmerged, each flagged with `"_unreconciled": true`. The result is bounded at `MAX_OUTPUT` (100,000) records.
+
+```
+# MCP: platform.data_source_reconcile
+targets:
+  - { data_source_id: "noaa-observations", endpoint_id: "latest-by-station" }
+  - { data_source_id: "open-meteo",        endpoint_id: "current" }
+key:      "station_id"
+strategy: "merge"
+params:   { "station": "KJFK" }
+```
+
+```jsonc
+{
+  "success": true,
+  "action": "data_source_reconcile",
+  "key": "station_id",
+  "strategy": "merge",
+  "reconciled": [ /* one canonical Array<Hash>, collapsed by station_id */ ],
+  "reconciled_count": 1,
+  "sources": [
+    { "data_source_id": "…", "data_source_slug": "noaa-observations", "endpoint_id": "…", "endpoint_slug": "latest-by-station", "success": true,  "status": "success", "record_count": 1, "error": null },
+    { "data_source_id": "…", "data_source_slug": "open-meteo",        "endpoint_id": "…", "endpoint_slug": "current",           "success": false, "status": "rate_limited", "record_count": 0, "error": "…redacted…" }
+  ],
+  "source_count": 2,
+  "succeeded_count": 1
+}
+```
+
+Note the **per-source status for every target** (including failures) — a failed fetch simply contributes no records to the merge rather than aborting the whole reconcile, so the caller can always see exactly which sources merged.
+
+### Fail over across mirror sources
+
+`data_source_failover_query` tries an **ordered** list of equivalent targets (primary first) and returns the **first** `FetchEnvelope` with `success: true`, stopping immediately — no later mirror is touched. If every target fails, it returns the **last** failure envelope (a real, audited one — not a synthesized success). A target fails when its envelope is `success: false` (error / timeout / rate_limited / blocked); failover then advances to the next with **no backoff** (the per-source circuit breaker already governs upstream pressure). It reuses the same `{ data_source_id, endpoint_id }` target shape and `MAX_TARGETS` cap as reconcile.
+
+Parameters:
+
+| Param | Required | Meaning |
+|---|---|---|
+| `targets` | yes | **Ordered** `Array` of `{ data_source_id, endpoint_id }` — primary first, then mirrors |
+| `params` | no | Query params forwarded to every attempt |
+
+The action returns the winning (or final-failure) `FetchEnvelope` **verbatim** — exactly like `data_source_query` — with three failover keys stamped onto `provenance`:
+
+```
+# MCP: platform.data_source_failover_query
+targets:
+  - { data_source_id: "fred-primary",  endpoint_id: "series-observations" }
+  - { data_source_id: "fred-mirror-a", endpoint_id: "series-observations" }
+params: { "series_id": "GDP" }
+```
+
+```jsonc
+{
+  "success": true,
+  "data": [ /* canonical records from the first source that succeeded */ ],
+  "provenance": {
+    "slug": "fred-mirror-a",
+    "endpoint_id": "…",
+    "response_sha256": "…",
+    "source_url": "https://…[REDACTED]…",
+    "failover_used": true,        // true when >1 target was attempted (primary didn't win outright)
+    "failover_attempts": 2,       // how many targets were actually tried
+    "failover_source": "fred-mirror-a"  // slug of the winner, or null when all failed
+  },
+  "status": "success",
+  "duration_ms": 168,
+  "bytes": 2048,
+  "error": null
+}
+```
+
+Every returned envelope carries the three keys unconditionally — a single-target call returns `failover_used: false`, `failover_attempts: 1`; an empty target list returns a synthesized error envelope with `failover_attempts: 0`, `failover_source: null`.
+
+### Replay a recorded query for debugging
+
+`data_source_replay` reconstructs a `FetchEnvelope`-shaped view of a **past** fetch from its already-redacted `ai_data_source_queries` audit row via `Ai::DataSources::ReplayService` — **without any network call, signing, or credential resolution**. It is an auditor's reconstruction, not a re-execution: the status comes back as `"replayed"` (the original live status is preserved on `provenance.original_status`), and the redacted URL is the value persisted at fetch time (nothing is un-redacted). It requires only `ai.data_sources.read`.
+
+Parameters:
+
+| Param | Required | Meaning |
+|---|---|---|
+| `query_id` | one of these two | The `ai_data_source_queries` row **UUID** to replay |
+| `correlation_id` | one of these two | The fetch **correlation id** to replay (most-recent wins if duplicated) |
+| `params` | no | The **original** request params — supplied ONLY to recover the cached body (see below) |
+
+The audit row stores only a redacted snippet + the `response_sha256`, **not** the full body. So a replay can surface the actual records **only** when the original `(source, endpoint, params)` cache entry is still present **and** you pass the original `params` (the row keeps just a one-way `params_hash`, so the cache key is otherwise unreconstructable — `ReplayService` recomputes the digest of your supplied params and requires it to match the recorded hash). When recovered, the body is **re-masked for the current requester** (`GovernanceService#mask_records`, after re-checking authorization) so a replay can never leak more than a live read would today. On any miss (no params, hash mismatch, evicted entry) `data` is `[]` and provenance carries `"payload_not_cached": true` — forensic metadata only.
+
+```
+# MCP: platform.data_source_replay  — by audit-row id, recovering the cached body
+query_id: "0190f2c3-…"             # or:  correlation_id: "…"
+params:   { "lat": 40.71, "lon": -74.01 }   # original params → recover + re-mask the body
+```
+
+```jsonc
+{
+  "success": true,
+  "data": [ /* re-masked cached records, or [] when not cached */ ],
+  "provenance": {
+    "slug": "open-meteo",
+    "replayed": true,
+    "original_status": "success",   // the original live status (replay status is "replayed")
+    "from_cache": false,
+    "served_stage": "…",
+    "response_sha256": "…",
+    "source_url": "https://…[REDACTED]…",
+    "record_count": 24,
+    "masking_applied": true,
+    "anomalies": [],
+    "audit_chain": { /* original hash-chain anchor */ }
+    // "note": "payload_not_cached", "payload_not_cached": true  ← when the body could not be recovered
+  },
+  "status": "replayed",
+  "replayed": true,
+  "replayed_from_query_id": "0190f2c3-…",
+  "correlation_id": "…",
+  "recorded_at": "2026-06-06T12:00:00Z",
+  "duration_ms": 0                  // a replay does no work
+}
+```
+
+A reference that resolves to no row in the current account returns `{ "success": false, "status": "replay_not_found", "replayed": false }` (replays are account-scoped — they can never reach across tenants).
+
+### Ingest fetched records into a knowledge base
+
+`data_source_ingest_to_kb` is the **RAG ingestion bridge**: it governed-fetches a source+endpoint, then pipes the canonical records into a knowledge base as embedded `Ai::Document` rows via `Ai::DataSources::RagIngestionService` — so the same external data is later queryable through the existing RAG retrieval path (vector / hybrid search) long after the fetch, instead of re-fetching and re-parsing on every question. Because it **writes documents + embeddings**, it is a managed mutation gated by `ai.data_sources.manage`; an agent lacking it **files a proposal** instead (the same fallback as `data_source_create/update/delete`). Ingested documents are stamped `source_type: "api"`.
+
+Parameters:
+
+| Param | Required | Meaning |
+|---|---|---|
+| `data_source_id` | yes | Source UUID or slug to fetch from |
+| `endpoint_id` | yes | Endpoint UUID or slug to fetch |
+| `knowledge_base_id` | yes | Target knowledge base **UUID** (must belong to the account) |
+| `key` | no | Canonical record-key field for **incremental re-embed** dedup (see below) |
+| `params` | no | Query/path/body params for the fetch |
+
+When you pass `key`, records are deduplicated by their canonical `record[key]` value so unchanged data is not re-embedded on every run:
+
+- **unchanged** (same `record_key` AND same `content_sha256`) → **skipped** (no re-embed)
+- **changed** (same `record_key`, different `content_sha256`) → **updated** (a new doc is created + embedded, then the stale one is dropped — never a window with zero docs for the key)
+- **brand new** (no prior doc for this `record_key`) → **created**
+
+Dedup is scoped to this `(source, endpoint, record_key)` triple, so two different sources that share a key value in the same KB never clobber each other. Ingestion is bounded at **5,000 records per call** (`MAX_RECORDS_PER_CALL`); the overflow is reported as `capped` and logged, never silently dropped. A per-record failure is counted under `errors` and never aborts the batch.
+
+```
+# MCP: platform.data_source_ingest_to_kb
+data_source_id:    "open-meteo"
+endpoint_id:       "hourly-forecast"
+knowledge_base_id: "0190abcd-…"
+key:               "time"            # incremental re-embed dedup by record["time"]
+params:            { "lat": 40.71, "lon": -74.01 }
+```
+
+```jsonc
+{
+  "success": true,
+  "action": "data_source_ingest_to_kb",
+  "data_source": { "id": "…", "slug": "open-meteo", "name": "Open-Meteo Forecast" },
+  "endpoint": { "id": "…", "slug": "hourly-forecast", "name": "Hourly Forecast" },
+  "knowledge_base_id": "0190abcd-…",
+  "fetch_status": "success",         // the originating fetch's status…
+  "fetch_success": true,             // …so a fetch failure is distinguishable from an empty-but-successful batch
+  "ingest": {
+    "ingested": 18,                  // newly created + embedded
+    "updated": 4,                    // changed record_keys re-embedded
+    "skipped": 2,                    // unchanged record_keys (no re-embed)
+    "capped": 0,                     // records beyond MAX_RECORDS_PER_CALL
+    "errors": 0,                     // per-record failures (logged, non-fatal)
+    "knowledge_base_id": "0190abcd-…"
+  }
+}
+```
+
+`fetch_status` / `fetch_success` reflect the **upstream fetch**, while the `ingest` tally reflects what landed in the KB — so an empty `ingested`/`updated`/`skipped` against `fetch_success: true` means a successful-but-empty batch, not a fetch failure. Once ingested, query the data semantically with `platform.query_knowledge_base` against that `knowledge_base_id`.
 
 ## Agent usage via MCP
 

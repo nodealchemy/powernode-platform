@@ -26,6 +26,12 @@
   - [Bulk-onboarding from templates](#bulk-onboarding-from-templates)
   - [Auditing config history](#auditing-config-history)
   - [Rolling back a bad config change](#rolling-back-a-bad-config-change)
+- [Multi-source failover, forensic replay & RAG ingestion (Phase 4b-3c)](#multi-source-failover-forensic-replay--rag-ingestion-phase-4b-3c)
+  - [Configuring a primary + mirror failover group](#configuring-a-primary--mirror-failover-group)
+  - [Reading the failover provenance flags](#reading-the-failover-provenance-flags)
+  - [Investigating a past fetch with replay](#investigating-a-past-fetch-with-replay)
+  - [RAG ingestion operations](#rag-ingestion-operations)
+  - [Reconciliation determinism (same inputs ⇒ same merge)](#reconciliation-determinism-same-inputs--same-merge)
 - [Discovery & effectiveness (Phase 2a)](#discovery--effectiveness-phase-2a)
 - [Quality, drift & contracts (Phase 2b)](#quality-drift--contracts-phase-2b)
 - [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3)
@@ -841,6 +847,195 @@ So a rollback never loses the state it replaced — it becomes the newest versio
 | Rolled back but the source still fetches the wrong shape | The endpoint's old transformed/mapped payload is still cached (transforms/cache are pre-change) | Invalidate the endpoint's cache (`endpoint:<id>` tag or scope) so the next fetch re-runs under the restored config |
 | Rolled back but the source can't authenticate | Rollback restores config only — credentials are never touched, and the rolled-back-to manifest carries no secret | Re-attach/`make_default` the credential and re-point any `vault_path`/`external_id` per the security contract |
 | Want to undo the rollback itself | The pre-rollback state was snapshotted as a new `rollback`-type version | Roll *forward* by restoring that pre-rollback version number — it's just another entry in the history |
+
+## Multi-source failover, forensic replay & RAG ingestion (Phase 4b-3c)
+
+Phase 4b-3c adds the **multi-source long-tail** plus two adjacent operator capabilities, all built **on top of** the unchanged governed `QueryService` — none of them adds a fetching, signing, or credential path of its own:
+
+1. **Failover** (`Ai::DataSources::FailoverService`) — try an **ordered** list of equivalent targets (primary + mirrors) and return the **first** success.
+2. **Reconciliation** (`Ai::DataSources::ReconciliationService`) — **merge** the records from several sources into one list by exact canonical-key match. (Deterministic; see [its own section](#reconciliation-determinism-same-inputs--same-merge).)
+3. **Replay** (`Ai::DataSources::ReplayService`) — reconstruct a **past** fetch from its redacted audit row, with **no** network call.
+4. **RAG ingestion** (`Ai::DataSources::RagIngestionService`) — pipe canonical records into a knowledge base as embedded documents.
+
+Five MCP actions on the existing `data_source_management` tool drive them:
+
+| Action | Permission | Fetches upstream? | What it does |
+|--------|------------|-------------------|--------------|
+| `data_source_failover_query` | `ai.data_sources.query` | yes (ordered, until one wins) | Try `targets` in order; return the first success (or last failure) with failover provenance |
+| `data_source_reconcile` | `ai.data_sources.query` | yes (every target) | Fetch all `targets`, merge their records by `key` per `strategy` |
+| `data_source_replay` | `ai.data_sources.read` | **no** | Reconstruct a recorded fetch by `query_id`/`correlation_id` from the audit row |
+| `data_source_ingest_to_kb` | `ai.data_sources.manage` | yes (one fetch) | Fetch a source+endpoint, embed the records into `knowledge_base_id` |
+| `data_source_invalidate_cache` | `ai.data_sources.update` | no | (Phase 4b-3a — listed here for the permission contrast below) |
+
+> **Two permission tiers, two unauthorized behaviors.** `failover_query` / `reconcile` are **query** actions (they exercise the upstream fetch) gated by `ai.data_sources.query`; a caller without it is **hard-denied** (`permission_denied`), same as `data_source_query`. `data_source_ingest_to_kb` **writes** `Ai::Document` rows + embeddings, so it is a **managed mutation** (`ai.data_sources.manage`) and an agent lacking the grant files an `Ai::AgentProposal` (`action: "ingest_to_kb"`) rather than ingesting — mirroring `data_source_rollback_config`. `data_source_replay` is **read-only** (`ai.data_sources.read`). **`MAX_TARGETS = 25`** caps the fan-out a single reconcile/failover request can trigger.
+
+### Configuring a primary + mirror failover group
+
+There is **no "failover group" model** — a group is just an **ordered `targets` list you pass at call time**, primary first. `FailoverService#query` walks them in order through a full governed `QueryService#call` per attempt and returns the **first** envelope with `success: true`, stopping immediately (no later mirror is touched). Every governance gate applies **independently per source** on each attempt — the per-source kill flag, per-source + per-agent quota, query-time ABAC/compliance, the response cache (a mirror may serve a warm cache **hit** and win without an upstream call), SSRF egress, the per-source circuit breaker, schema/quality, redacted audit persistence, and cost attribution. There is **no sleep/backoff** between attempts — the per-source circuit breaker already governs upstream pressure.
+
+```bash
+# Primary first, then mirrors, in preference order. Returns the WINNING FetchEnvelope
+# (verbatim, like data_source_query) with failover provenance stamped on it.
+#   platform.data_source_failover_query
+#     targets: [ { data_source_id: "<primary>", endpoint_id: "<ep>" },
+#                { data_source_id: "<mirror-1>", endpoint_id: "<ep>" },
+#                { data_source_id: "<mirror-2>", endpoint_id: "<ep>" } ]
+#     params:  { ... }          # forwarded VERBATIM to every attempt
+```
+
+What counts as a **failed** attempt (advance to the next target): the envelope has `success: false` for **any** reason — `error` / `timeout` / `rate_limited` / **`blocked`** (a governance/egress deny on that source is just a failure here, so failover transparently routes *around* a source an agent is fenced off from) — or the `QueryService` construction itself raised (defensive; `QueryService` is documented never to raise, but a malformed target is caught and counts as a failure). A failed attempt never aborts the batch.
+
+**The all-fail outcome is a real, audited failure — not a synthesized one.** When **every** target fails, failover returns the **last** mirror's actual failure envelope (each attempt was independently audited) with `failover_source: nil`, so you see a genuine governed failure rather than a fabricated one. Only an **empty/blank `targets` list** yields a synthesized `"no data sources available for failover"` error (nothing was tried).
+
+> **`params` are forwarded verbatim to every target — the endpoints must be genuinely interchangeable.** Failover does no per-mirror param translation; if a mirror expects a different query shape, it will simply fail and be skipped. Equivalence is the operator's contract.
+
+### Reading the failover provenance flags
+
+Every returned envelope — success, all-fail, **and** the no-targets error — carries the **same three** failover keys on `provenance`, so a caller can read them unconditionally:
+
+| Provenance key | Type | Meaning |
+|----------------|------|---------|
+| `failover_used` | bool | `true` when **more than one** target was attempted (the primary did **not** win outright). `false` when the first target succeeded on the first try. |
+| `failover_attempts` | int | How many targets were actually tried (1 when the primary won; 0 for the no-targets error). |
+| `failover_source` | string \| nil | Slug of the target that **won**, or `nil` when all failed / nothing was tried. |
+
+```bash
+# Read the failover bookkeeping off the returned envelope.
+#   platform.data_source_failover_query  targets: [...]  params: {...}
+#   → .provenance.failover_used     (true ⇒ a mirror was needed)
+#     .provenance.failover_attempts (how many targets were tried)
+#     .provenance.failover_source   (which slug actually served; nil ⇒ all failed)
+```
+
+Operational reading: a steadily rising `failover_attempts` / a `failover_source` that is consistently a **mirror** (not the primary) means the **primary is unhealthy** — go check the primary's circuit breaker, quota, and health (`data_source_health`). `failover_used: false` is the steady state (primary serving). On a failover-attempted envelope, a **non-Hash/missing** provenance from a source is normalized to a Hash, and any stale string-keyed `"provenance"` is dropped so the three keys live under a single (symbol) source of truth.
+
+> **A synthesized per-attempt failure is flagged.** A target that could not even produce an envelope (construction fault) contributes a `provenance.failover_synthesized: true` failure internally; the *returned* envelope (a real source's, on all-fail) carries the three bookkeeping keys above. The all-fail return is the last real attempt, so its `error`/`status` are that mirror's actual values.
+
+### Investigating a past fetch with replay
+
+`data_source_replay` reconstructs a **FetchEnvelope-shaped view of a past query** from its already-redacted `ai_data_source_queries` audit row — for forensics, audit, and "what did this agent actually receive." It is a **reconstruction, not a re-execution**: it **NEVER** performs an upstream fetch, **NEVER** re-signs a request, and **NEVER** resolves credentials. The replayed envelope carries `status: "replayed"` (a forensic token, **not** a `DataSourceQuery::STATUSES` member — a replay persists **nothing**); the original live status is preserved under `provenance.original_status`.
+
+Resolve the row by **`query_id`** (the row UUID) **or** **`correlation_id`** — both are **account-scoped**, so a replay can never reach across tenants (an out-of-account ref is treated as not-found):
+
+```bash
+# Replay by audit-row id (or pass correlation_id instead).
+#   platform.data_source_replay  query_id: "<ai_data_source_queries uuid>"
+#   → { success: true, status: "replayed", replayed: true,
+#       replayed_from_query_id, correlation_id, recorded_at,
+#       data: [...]|[],  provenance: { ...forensic... } }
+```
+
+The reconstructed `provenance` surfaces the recorded forensic linkage straight off the row + its metadata jsonb: `response_sha256`, `served_stage`, the **already-redacted** `source_url` (nothing is un-redacted), `original_status`, `http_status`, `from_cache`, `rows_returned`, the original `anomalies`, the `audit_chain` anchor, the `redacted_params` / `redacted_response_snippet`, and the `policy_decision`. `recorded_at` is the row's `created_at` as ISO8601 UTC; `duration_ms` is **0** (a replay does no work — the original duration lives on provenance for reference).
+
+**The body is withheld unless it is still recoverable AND you are still authorized.** The audit row deliberately stores **only** a redacted snippet + the `response_sha256`, never the full body. So `data` is populated **only** when **all** of these hold — otherwise `data: []` with `provenance.note: "payload_not_cached"` (forensic metadata only):
+
+1. **You supplied the original `params`.** The row stores only a one-way `params_hash` (SHA256), so the cache key is otherwise unreconstructable. The supplied params are re-hashed **the exact same way `QueryService` did** (deep-sorted canonical JSON → SHA256 → first 64 hex) and must **match** the recorded `params_hash` — a mismatch (or a row predating `params_hash`) refuses the read rather than risk surfacing a *different* param-variant's payload.
+2. **The original (source, endpoint, params) cache entry is still present.** Replay does a **read-only** `ResponseCacheService.read` (never a write); an evicted/aged-out entry is a miss ⇒ `payload_not_cached`.
+3. **The CURRENT requester passes the live governance authorize gate** for that source **right now** (`GovernanceService#authorize`), and the recovered records are **RE-MASKED** for the current requester (`#mask_records`) before return.
+
+> **Replay can never leak more than a live read would today.** Point (3) is the load-bearing security property: the body is gated by the **same** authorization a live read enforces and re-masked for the **current** requester — so even if a source's masking config (or the requester's privileges) tightened *after* the original fetch, the replayed body reflects **today's** egress controls, not the original (possibly looser) ones. The authorize gate **fails CLOSED** (withhold the body) on any error; the forensic provenance still returns. `provenance.masking_applied` / `masked_field_count` report the re-mask outcome, not the original fetch's.
+
+```bash
+# Recover the (re-masked) body too — supply the ORIGINAL params so the cache key is
+# reconstructable. Body comes back ONLY if it is still cached AND you are authorized.
+#   platform.data_source_replay  correlation_id: "<corr-id>"  params: { lat: 52.5, lon: 13.4 }
+#   → .data                          ([] when not cached / params omitted / unauthorized)
+#     .provenance.note               ("payload_not_cached" when the body was withheld)
+#     .provenance.masking_applied    (re-mask outcome for the CURRENT requester)
+#     .provenance.original_status    (the live status of the original fetch)
+```
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| `status: "replay_not_found"` | The `query_id`/`correlation_id` doesn't exist **in this account**, or no ref supplied | Confirm the ref and that it belongs to the current account (replay is account-scoped); list recent rows via `data_source_provenance` |
+| `data: []` + `note: "payload_not_cached"` despite supplying `params` | The cache entry **aged out / was evicted**, the params **didn't hash-match** the recorded `params_hash`, or the row predates `params_hash` | Expected when the entry expired; if it should be warm, verify the params are byte-identical to the original request (deep order doesn't matter, values do) |
+| `data: []` even though the entry is warm and params match | The **current requester is not authorized** for that source now (authorize gate fails closed), or the source/endpoint association was destroyed | Check `GovernanceService` authz for the current agent (see [Query-time governance](#query-time-governance-phase-4b-2b)); the forensic provenance still returned |
+| `status: "replay_error"` | A reconstruction fault (rescued to a safe error) | A replay never raises into the caller; capture the `[DataSources::ReplayService] replay failed (<class>)` backend log line |
+| Replayed body **more redacted** than what the agent originally saw | Working as designed — the body is re-masked for **today's** config/requester, not the original | This is the anti-leak guarantee; to see the original masking outcome read the **original** row via `data_source_provenance` |
+
+### RAG ingestion operations
+
+`data_source_ingest_to_kb` is the **fetch → embed** bridge: it governed-fetches a source+endpoint via `QueryService`, then pipes the **canonical records** into a knowledge base as embedded `Ai::Document` rows via `RagIngestionService#ingest`, so the same point-in-time data is **semantically retrievable** through the existing RAG path long after the fetch (without re-fetching + re-parsing on every question). It **reuses** `Ai::RagService` end-to-end (`create_document` → `process_document` → `embed_chunks`) — it invents **no** new model and **no** new embedding path. Documents are stamped `source_type: "api"` (the only `Ai::Document` allow-list value that fits an external-API record).
+
+> **Ingested records are the ALREADY-MASKED QueryService output.** The bridge embeds exactly what the governed fetch returned — i.e. the **masked** records (egress masking from [Query-time governance](#query-time-governance-phase-4b-2b) has already run at envelope finalization). So a redacted field (`[REDACTED:email]`, etc.) is embedded **as the redacted placeholder**; the knowledge base never sees the unmasked value. Masking happens upstream in `QueryService`, not in the ingestion bridge — the bridge is a pure sink. This means the source's `metadata.governance.mask` config governs what lands in the KB.
+
+```bash
+# Fetch a source+endpoint and embed the records into a knowledge base.
+#   platform.data_source_ingest_to_kb
+#     data_source_id: "<ds>"  endpoint_id: "<ep>"  knowledge_base_id: "<kb-uuid>"
+#     key:    "id"            # OPTIONAL canonical record-key for incremental re-embed
+#     params: { ... }         # query/path/body params for the fetch
+#   → { fetch_status, fetch_success,
+#       ingest: { ingested, updated, skipped, capped, errors, knowledge_base_id } }
+```
+
+**Incremental re-embed by `record_key`.** When you pass **`key:`**, records are deduplicated by their canonical `record[key]` against prior ingested documents **in this KB** (located by the `metadata->>'record_key'` stamped on each `Ai::Document`, **scoped to this source+endpoint** so two different sources sharing a key value in the same KB never clobber each other):
+
+| Per-record outcome | Condition | Tally bucket |
+|--------------------|-----------|--------------|
+| **SKIP** (no re-embed) | Same `record_key` **and** same `content_sha256` as the prior doc — unchanged | `skipped` |
+| **UPDATE** | Same `record_key`, **different** `content_sha256` — content changed | `updated` |
+| **CREATE** | No prior doc with this `record_key` (or `key:` omitted ⇒ always create) | `ingested` |
+
+> **An UPDATE never leaves a zero-document window for a key.** The update path **creates the new doc first, then deletes the stale one(s)** (scoped to source+endpoint+key, including any accumulated duplicates, excluding the freshly created doc) — so if create/chunk raises, the **prior** document stays intact. Re-running the same ingest with **no upstream change** is therefore cheap and idempotent: every record SKIPs (no re-embed). Without `key:`, dedup is impossible, so **every** record CREATEs a fresh doc — re-running **duplicates**.
+
+**The per-call cap.** At most **`MAX_RECORDS_PER_CALL = 5_000`** records are ingested per call; the overflow is reported as **`capped`** (and logged) so a single ingest can never kick off a runaway embedding storm over a huge fetched batch. (A pathological single record's body is also defensively bounded at `MAX_CONTENT_CHARS = 100_000`.)
+
+**Batch embedding — one pass, not per-record.** `create_document` + `process_document` run **per record** (create + chunk), but **embedding is deferred** to a **single** post-loop `embed_chunks(kb.id)` pass (no `document_id:` ⇒ embeds every chunk lacking an embedding) — so the KB's `complete_indexing!` fires **once for the whole batch** rather than once per record. The embed pass runs only when at least one doc was created or updated.
+
+**Resilience + scoping.** A per-record failure is logged + counted under **`errors`** and **never aborts the batch**. The knowledge base **must** belong to the caller's account (`KnowledgeBase.for_account` — an out-of-account KB resolves to `"knowledge base not found for account"`). The bridge never raises.
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| `data_source_ingest_to_kb` returns `requires_approval: true` | The agent lacks `ai.data_sources.manage` — it filed a proposal (`action: "ingest_to_kb"`) instead of ingesting | Approve the proposal, or grant `ai.data_sources.manage`; this is a managed write (documents + embeddings), not a read |
+| `error: "knowledge base not found for account"` | The `knowledge_base_id` doesn't exist **or** belongs to another account | Confirm the KB UUID via `platform.list_knowledge_bases`; ingestion is account-scoped |
+| `ingest.skipped` == record count, `ingested`/`updated` == 0 | Re-ran with `key:` and **nothing changed** upstream — every record matched a prior doc's `content_sha256` | Expected and cheap (no re-embed). This is the steady state of incremental re-embed |
+| Re-running **duplicates** documents | You omitted **`key:`**, so dedup is impossible and every record CREATEs anew | Pass `key:` (a stable canonical field) to enable skip/update incremental dedup |
+| `ingest.capped` > 0 | The fetched batch exceeded `MAX_RECORDS_PER_CALL` (5_000) | Narrow the endpoint `response_mapping`/`query_template`, or page the source so each call stays under the cap; the overflow was not silently dropped |
+| `fetch_success: false` but `ingest.errors: 0` | The **fetch** failed (kill flag / quota / governance block / upstream error), so there were no records to embed | Read `fetch_status`; this is a fetch problem, not an ingestion one — diagnose the source per the fetch-pipeline runbook |
+| Embedded fields are `[REDACTED:…]` | The source has egress masking on — the bridge embeds the **already-masked** `QueryService` output | Expected; the KB never sees unmasked values. Change `metadata.governance.mask` on the source if the redaction is wrong (see [Masking](#masking--fields-coming-back-redacted)) |
+| Records ingested but not retrievable | The embed backend is down (chunks created, never embedded) | Check `embed_chunks` health; the batch embed is best-effort and logs `batch embed failed` — re-run the ingest once the backend recovers |
+
+### Reconciliation determinism (same inputs ⇒ same merge)
+
+`data_source_reconcile` fetches **every** target independently (each through the full governed `QueryService` pipeline), collects the records from each **successful** envelope, then collapses them into **one** list by **exact canonical-key match** via `ReconciliationService`. It records a per-source `status` for **every** target (including failures, which simply contribute no records) so you can see exactly what merged.
+
+```bash
+#   platform.data_source_reconcile
+#     targets:  [ { data_source_id: "<a>", endpoint_id: "<ep>" },
+#                 { data_source_id: "<b>", endpoint_id: "<ep>" } ]
+#     key:      "id"                 # canonical key field shared across the sources
+#     strategy: "last_wins"          # first_wins | last_wins | merge  (default last_wins)
+#     params:   { ... }              # forwarded to EVERY target fetch
+#   → { key, strategy, reconciled: [...], reconciled_count,
+#       sources: [ { data_source_slug, success, status, record_count, error }, ... ],
+#       source_count, succeeded_count }
+```
+
+**The merge is PURE and DETERMINISTIC — the same record sets always produce the same merged output.** `ReconciliationService#reconcile` touches **no DB, no network, no Redis, no clock**, and does **not mutate its inputs** (winners are shallow-duped before any in-place merge). Given the same `targets` results, `key`, and `strategy`, the output is **byte-identical** every time — so a reconcile is safe to call inline on a request, and a discrepancy between two runs always traces to a **fetch** difference (a target returned different/over data), never to the merge. The determinism rests on three fixed rules:
+
+- **Exact-key grouping, never fuzzy.** Records group **only** by the **exact** value of the `key` field, **string-coerced** (so `1` and `"1"` reconcile together; `"Acme"` and `"ACME"` are **different** keys — there is **no** probabilistic / fuzzy entity resolution, no cross-source SQL/join, no query plan). The key is read string/symbol-tolerant. An **empty-string** value (`""`) is a **real** key, distinct from absent.
+- **Stable output order.** The **first appearance** of each distinct key **fixes its slot** in the output, regardless of strategy — so `last_wins` keeps the winner in the key's **original** position (it does **not** move to the end). Keyless records (below) hold their own first-appearance slots, interleaved with keyed groups.
+- **Three fixed collapse strategies:**
+
+| `strategy` | A group of same-key records collapses to… |
+|------------|-------------------------------------------|
+| `first_wins` | The **first** record seen for the key (earliest set, earliest index). Later duplicates discarded. |
+| `last_wins` (**default**) | The **last** record seen — each later duplicate **wholly replaces** the prior winner. |
+| `merge` | Shallow field-merge: start from the first record, overlay each later same-key record's **non-nil** fields (later non-nil wins per field; earlier values survive where the later record is nil/absent). **One level deep** — a nested Hash/Array value is replaced **wholesale**, never deep-merged (this is what keeps `merge` deterministic and structurally unambiguous). An unknown `strategy` falls back to `last_wins` (logged), never raising. |
+
+> **Keyless records are passed through, not dropped.** A record missing the `key` entirely (no String and no Symbol key field, or a `nil` value) is **not** discarded — it passes through **unmerged** in first-appearance order, flagged with **`_unreconciled: true`** so a caller can tell a passed-through record from a reconciled one. Keyless records never collide with each other. (An empty-string key value is *not* keyless — it groups normally under `""`.)
+
+**Bounded + resilient.** At most **`MAX_OUTPUT = 100_000`** records are emitted; once the cap is hit, **new** distinct keys / new keyless rows are dropped (and it logs once), but **updates to already-admitted keys still apply** — so the cap never produces a partially-merged winner. A reconcile fault degrades to a **flat pass-through** of all input records (logged, class only) so the caller still gets data; the per-source fetch loop is independently guarded so one bad target never aborts the batch.
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| `reconciled_count` < total fetched records | Expected — same-key duplicates across sources collapsed to one per key | Read `sources[].record_count` vs `reconciled_count`; the delta is the de-duplication |
+| Two runs return **different** merged output | The **fetch** differed (a target returned different/extra data), **not** the merge — the merge is deterministic | Compare `sources[].record_count`/`status` between runs; chase the source whose count changed (cache vs live, partial upstream) |
+| Records you expected to merge stayed separate | The `key` values differ by **case/whitespace/type-as-string** (`"Acme"` ≠ `"ACME"`) — matching is exact, never fuzzy | Normalize the key upstream (an endpoint `transforms` `computed`/`rename` step) so the canonical key is identical across sources |
+| Output has `_unreconciled: true` records | Those records **lack the `key`** field (or it's nil) — passed through unmerged by design | Add/repair the key field upstream if they should participate; otherwise this flag is the intended "could not reconcile" marker |
+| `merge` didn't combine a nested object | `merge` is **one level deep** — nested Hashes/Arrays are replaced wholesale, not deep-merged | Expected; flatten the nested field with a `transforms` step first if you need field-level merge inside it |
+| `succeeded_count` < `source_count` | One or more targets **failed** to fetch (they contribute no records) | Inspect `sources[].status`/`error`; a failed target is silently excluded from the merge — fix it per the fetch-pipeline runbook |
 
 ## Discovery & effectiveness (Phase 2a)
 
