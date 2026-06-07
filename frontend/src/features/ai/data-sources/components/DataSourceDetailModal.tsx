@@ -12,6 +12,11 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { DataSourceOverviewTab } from './DataSourceOverviewTab';
 import { DataSourceCredentialsTab } from './DataSourceCredentialsTab';
 import { DataSourceQuotaTab } from './DataSourceQuotaTab';
+import { DataSourceEndpointsTab } from './DataSourceEndpointsTab';
+import { DataSourceQueryConsole } from './DataSourceQueryConsole';
+import { DataSourceSchemaHistoryTab } from './DataSourceSchemaHistoryTab';
+import { DataSourceQualityTab } from './DataSourceQualityTab';
+import { DataSourceImportOpenApiModal } from './DataSourceImportOpenApiModal';
 import { DataSourceActionsBar } from './DataSourceActionsBar';
 import { SOURCE_TYPE_LABELS } from './sourceTypeLabels';
 import type { AiDataSource } from '@/shared/types/ai';
@@ -35,11 +40,16 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const testingRef = useRef(false);
 
   const canManageDataSources = currentUser?.permissions?.includes('ai.data_sources.update') || false;
   const canDeleteDataSources = currentUser?.permissions?.includes('ai.data_sources.delete') || false;
   const canTestConnection = currentUser?.permissions?.includes('ai.data_sources.update') || false;
+  const canQueryDataSources = currentUser?.permissions?.includes('ai.data_sources.query') || false;
+  // Importing from OpenAPI creates endpoints — the backend gates the introspect
+  // action on the manage super-grant.
+  const canImportEndpoints = currentUser?.permissions?.includes('ai.data_sources.manage') || false;
 
   const loadDataSource = async () => {
     if (!dataSourceId || !isOpen) return;
@@ -186,6 +196,10 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="overview" className="whitespace-nowrap">Overview</TabsTrigger>
             <TabsTrigger value="credentials" className="whitespace-nowrap">Credentials ({dataSource.credential_count ?? 0})</TabsTrigger>
+            <TabsTrigger value="endpoints" className="whitespace-nowrap">Endpoints</TabsTrigger>
+            <TabsTrigger value="schema" className="whitespace-nowrap">Schema History</TabsTrigger>
+            <TabsTrigger value="quality" className="whitespace-nowrap">Data Quality</TabsTrigger>
+            <TabsTrigger value="query" className="whitespace-nowrap">Query Console</TabsTrigger>
             <TabsTrigger value="quota" className="whitespace-nowrap">Quota</TabsTrigger>
           </TabsList>
 
@@ -197,11 +211,44 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
               onEdit={handleEdit}
             />
           </TabsContent>
+          <TabsContent value="endpoints">
+            <DataSourceEndpointsTab
+              dataSourceId={dataSource.id}
+              canManageDataSources={canManageDataSources}
+              canImportEndpoints={canImportEndpoints}
+              onImportOpenApi={() => setImportModalOpen(true)}
+              onEndpointsChanged={onUpdate}
+            />
+          </TabsContent>
+          <TabsContent value="schema">
+            <DataSourceSchemaHistoryTab dataSourceId={dataSource.id} />
+          </TabsContent>
+          <TabsContent value="quality">
+            <DataSourceQualityTab dataSourceId={dataSource.id} />
+          </TabsContent>
+          <TabsContent value="query">
+            <DataSourceQueryConsole
+              dataSourceId={dataSource.id}
+              canQuery={canQueryDataSources}
+            />
+          </TabsContent>
           <TabsContent value="quota">
             <DataSourceQuotaTab dataSource={dataSource} />
           </TabsContent>
         </Tabs>
       </div>
+
+      {canImportEndpoints && (
+        <DataSourceImportOpenApiModal
+          isOpen={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          dataSourceId={dataSource.id}
+          onImported={() => {
+            setImportModalOpen(false);
+            onUpdate?.();
+          }}
+        />
+      )}
     </Modal>
   );
 };

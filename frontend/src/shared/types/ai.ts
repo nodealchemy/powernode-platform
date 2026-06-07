@@ -437,6 +437,8 @@ export interface ConversationAnalytics {
 
 // AI Data Source System TypeScript Interfaces
 
+export type DataSourceHealthStatus = 'healthy' | 'degraded' | 'critical' | 'unknown';
+
 export interface AiDataSource {
   id: string;
   account_id: string;
@@ -454,13 +456,22 @@ export interface AiDataSource {
   requires_auth: boolean;
   priority_order: number;
   documentation_url?: string;
-  health_status: 'healthy' | 'degraded' | 'critical' | 'unknown';
+  health_status: DataSourceHealthStatus;
   last_health_check_at?: string;
   credential_count: number;
   created_at: string;
   updated_at: string;
   credentials?: AiDataSourceCredential[];
   quota?: DataSourceQuota;
+  // Phase 2 trust signals — populated once the backend serializer exposes the
+  // effectiveness/usage columns (Ai::DataSource#recalculate_effectiveness!).
+  // Optional so cards degrade gracefully while the rollout is in flight.
+  effectiveness_score?: number | null;
+  usage_count?: number | null;
+  positive_usage_count?: number | null;
+  negative_usage_count?: number | null;
+  usage_success_rate?: number | null;
+  last_used_at?: string | null;
 }
 
 export interface AiDataSourceCredential {
@@ -490,4 +501,325 @@ export interface DataSourceFilters extends PaginationParams {
   source_type?: string;
   search?: string;
   sort?: 'name' | 'priority' | 'created_at';
+}
+
+// Data Source Endpoints — governed external-fetch endpoint definitions.
+// Mirrors Ai::DataSourceSerialization#serialize_data_source_endpoint.
+
+export type DataSourceHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+
+export type DataSourceResponseFormat =
+  | 'json' | 'xml' | 'csv' | 'ndjson' | 'rss' | 'atom' | 'html' | 'text' | 'binary';
+
+export type DataSourceChangeDetection =
+  | 'etag' | 'last_modified' | 'content_hash' | 'polling' | 'none';
+
+export interface AiDataSourceEndpoint {
+  id: string;
+  ai_data_source_id: string;
+  name: string;
+  slug: string;
+  http_method: DataSourceHttpMethod;
+  path_template: string | null;
+  response_format: DataSourceResponseFormat | null;
+  expected_content_type: string | null;
+  cache_ttl_seconds: number | null;
+  monitorable: boolean;
+  change_detection: DataSourceChangeDetection | null;
+  query_template: Record<string, unknown>;
+  body_template: Record<string, unknown>;
+  response_mapping: Record<string, unknown>;
+  response_schema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  // Phase 2b observability opt-in flags + SLA/ownership/contract metadata. All
+  // OFF by default; populated once the backend serializer exposes the columns
+  // added by AddQualityOptInToAiDataSourceEndpoints. Optional so the UI degrades
+  // gracefully while the rollout is in flight.
+  track_schema?: boolean;
+  quality_checks_enabled?: boolean;
+  quarantine_on_failure?: boolean;
+  sla_max_age_seconds?: number | null;
+  owner?: string | null;
+  contract?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+// Payload accepted by the endpoint create/update controller actions.
+export interface DataSourceEndpointRequest {
+  name: string;
+  slug?: string;
+  http_method: DataSourceHttpMethod;
+  path_template?: string | null;
+  response_format?: DataSourceResponseFormat | null;
+  expected_content_type?: string | null;
+  cache_ttl_seconds?: number | null;
+  monitorable?: boolean;
+  change_detection?: DataSourceChangeDetection | null;
+  query_template?: Record<string, unknown>;
+  body_template?: Record<string, unknown>;
+  response_mapping?: Record<string, unknown>;
+  response_schema?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  // Phase 2b opt-in observability controls.
+  track_schema?: boolean;
+  quality_checks_enabled?: boolean;
+  quarantine_on_failure?: boolean;
+  sla_max_age_seconds?: number | null;
+  owner?: string | null;
+  contract?: Record<string, unknown>;
+}
+
+// Canonical record returned by the governed fetch — shape is source-specific.
+export type DataSourceCanonicalRecord = Record<string, unknown>;
+
+export type DataSourceQueryStatus =
+  | 'success' | 'error' | 'timeout' | 'rate_limited' | 'blocked' | 'cached';
+
+export interface DataSourceContentTypeComparison {
+  declared?: string | null;
+  detected?: string | null;
+  content_type?: string | null;
+  mismatch?: boolean;
+}
+
+// Mirrors the FetchEnvelope provenance from Ai::DataSources::QueryService.
+export interface DataSourceQueryProvenance {
+  slug?: string;
+  endpoint_id?: string | null;
+  fetched_at?: string | null;
+  from_cache?: boolean;
+  cache_age_seconds?: number;
+  response_sha256?: string | null;
+  source_url?: string | null;
+  declared_vs_detected_content_type?: DataSourceContentTypeComparison | null;
+  charset?: string | null;
+  applied_encoding?: string | null;
+  schema_valid?: boolean | null;
+  record_count?: number;
+  anomalies?: string[];
+  normalization?: unknown;
+  retry_after?: number;
+  limit?: string;
+  // Phase 2b stage outputs surfaced on provenance when the endpoint's opt-in
+  // drift / quality / quarantine stages ran during the governed fetch.
+  schema_drift?: DataSourceSchemaClassification | null;
+  quality_score?: number | null;
+  quality_passed?: boolean | null;
+  quarantined?: boolean;
+}
+
+// FetchEnvelope returned by POST .../endpoints/:endpoint_id/query.
+export interface DataSourceFetchEnvelope {
+  success: boolean;
+  data: DataSourceCanonicalRecord[];
+  provenance: DataSourceQueryProvenance;
+  status: DataSourceQueryStatus;
+  duration_ms: number;
+  bytes: number;
+  error?: string | null;
+  retry_after?: number;
+  // Cost attribution is emitted server-side; surfaced when the API includes it.
+  cost?: { amount?: number; currency?: string } | null;
+  // Phase 2b: when the endpoint's quality stage ran, the verdict may ride on the
+  // envelope directly (mirrors ContractService's envelope-first quality lookup).
+  quality_passed?: boolean | null;
+  quality_score?: number | null;
+  quarantined?: boolean;
+}
+
+// ── Semantic discovery ────────────────────────────────────────────────────
+// Ranked data-source discovery backed by Ai::DataSources::SemanticDiscoveryService
+// (embedding + pgvector nearest-neighbor blended with effectiveness / health /
+// recency). Mirrors DataSourceTool#discovery_result (a summarize_source payload
+// merged with the blended score + its component signals).
+
+// Per-candidate breakdown of the blended ranking score (each 0..1).
+export interface DataSourceDiscoverySignals {
+  semantic?: number;
+  effectiveness?: number;
+  health?: number;
+  recency?: number;
+}
+
+// One ranked candidate. Carries the compact source summary surfaced by
+// summarize_source plus the discovery ranking metadata.
+export interface DataSourceDiscoveryResult {
+  id: string;
+  name: string;
+  slug: string;
+  source_type: string;
+  protocol?: string | null;
+  auth_scheme?: string | null;
+  is_active: boolean;
+  requires_auth: boolean;
+  priority_order: number;
+  health_status: DataSourceHealthStatus;
+  credential_count: number;
+  // Blended rank score (0..1) and its component signals.
+  score: number;
+  signals: DataSourceDiscoverySignals;
+  effectiveness_score?: number | null;
+}
+
+// Envelope returned by DataSourcesApiService.discover().
+export interface DataSourceDiscoveryResponse {
+  query: string;
+  count: number;
+  results: DataSourceDiscoveryResult[];
+}
+
+// ── Phase 2b: schema drift, data quality, OpenAPI import, contract ──────────
+// Mirrors the backend Ai::DataSources::{SchemaDriftService, QualityService,
+// OpenApiImportService, ContractService} contracts and the Phase 2b models
+// (Ai::DataSourceSchemaVersion, Ai::DataSourceExpectation).
+
+// How a recorded schema version differs from its immediate predecessor.
+//   initial  : first version for the endpoint (no prior schema)
+//   none     : structurally identical to the previous version
+//   additive : only new optional fields added (backward compatible)
+//   breaking : a field was removed or changed type (NOT backward compatible)
+export type DataSourceSchemaClassification = 'initial' | 'none' | 'additive' | 'breaking';
+
+// One field whose declared type changed between two schema versions.
+export interface DataSourceSchemaTypeChange {
+  field: string;
+  from: string;
+  to: string;
+}
+
+// Structural diff stored on a schema version (vs the prior version). Dotted
+// property paths; array element schemas use a "[]" suffix.
+export interface DataSourceSchemaDiff {
+  added_fields: string[];
+  removed_fields: string[];
+  type_changes: DataSourceSchemaTypeChange[];
+}
+
+// One appended response-schema snapshot for an endpoint.
+// Mirrors Ai::DataSourceSchemaVersion.
+export interface AiDataSourceSchemaVersion {
+  id: string;
+  ai_data_source_endpoint_id: string;
+  version: number;
+  schema: Record<string, unknown>;
+  checksum: string | null;
+  classification: DataSourceSchemaClassification;
+  diff: DataSourceSchemaDiff;
+  created_at: string;
+  updated_at?: string;
+}
+
+// Response of GET .../endpoints/:endpoint_id/schema_history. `latest` is a
+// convenience pointer to the most recent version (versions[0] when desc-ordered).
+export interface DataSourceSchemaHistoryResponse {
+  endpoint_id: string;
+  count: number;
+  versions: AiDataSourceSchemaVersion[];
+  latest?: AiDataSourceSchemaVersion | null;
+}
+
+// Data-quality expectation rule kinds (Ai::DataSourceExpectation::RULE_TYPES).
+export type DataSourceExpectationRuleType =
+  | 'required_fields'
+  | 'min_records'
+  | 'max_records'
+  | 'non_null'
+  | 'allowed_values'
+  | 'distribution';
+
+// warn lowers the score only; error fails the batch (and can trigger quarantine).
+export type DataSourceExpectationSeverity = 'warn' | 'error';
+
+// One configured expectation for an endpoint. Mirrors Ai::DataSourceExpectation.
+export interface AiDataSourceExpectation {
+  id: string;
+  ai_data_source_endpoint_id: string;
+  name: string;
+  rule_type: DataSourceExpectationRuleType;
+  config: Record<string, unknown>;
+  severity: DataSourceExpectationSeverity;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+// One rule outcome from a QualityService evaluation.
+export interface DataSourceQualityResult {
+  name: string;
+  rule_type: string;
+  passed: boolean;
+  severity: DataSourceExpectationSeverity;
+  detail: string;
+}
+
+// The QualityService#evaluate result shape (weighted score + per-rule outcomes).
+export interface DataSourceQualityEvaluation {
+  quality_score: number;
+  passed: boolean;
+  results: DataSourceQualityResult[];
+  anomalies: string[];
+}
+
+// The latest persisted quality outcome for an endpoint, distilled from the most
+// recent quality-evaluated query-log row. All optional: an endpoint that has
+// never run a quality-checked fetch has no latest outcome.
+export interface DataSourceLatestQuality {
+  quality_score?: number | null;
+  quality_passed?: boolean | null;
+  quarantined?: boolean;
+  schema_drift?: DataSourceSchemaClassification | null;
+  evaluated_at?: string | null;
+  results?: DataSourceQualityResult[];
+  anomalies?: string[];
+}
+
+// Response of GET .../endpoints/:endpoint_id/quality: the latest outcome plus the
+// endpoint's configured expectations and whether the quality stage is enabled.
+export interface DataSourceQualityResponse {
+  endpoint_id: string;
+  quality_checks_enabled: boolean;
+  quarantine_on_failure: boolean;
+  latest?: DataSourceLatestQuality | null;
+  expectations: AiDataSourceExpectation[];
+}
+
+// One previewed/created endpoint from an OpenAPI import (the compact serialize
+// shape OpenApiImportService returns in `created`/`preview`).
+export interface DataSourceOpenApiImportPreview {
+  id?: string;
+  name: string;
+  slug?: string;
+  http_method: DataSourceHttpMethod;
+  path_template: string | null;
+  response_format: DataSourceResponseFormat | string | null;
+  response_schema?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+// Result of an OpenAPI import. On dry_run, `created` is empty and `preview` lists
+// what would be created; on confirm, `created` holds the persisted endpoints.
+export interface DataSourceOpenApiImportResult {
+  created: DataSourceOpenApiImportPreview[];
+  preview: DataSourceOpenApiImportPreview[];
+  errors: string[];
+  dry_run?: boolean;
+}
+
+// Request body for the introspect (OpenAPI import) action. Supply either a
+// parsed/raw spec or a URL for the server to fetch (SSRF-guarded server-side).
+export interface DataSourceOpenApiImportRequest {
+  spec?: Record<string, unknown>;
+  url?: string;
+  dry_run?: boolean;
+}
+
+// ContractService verdict for a source+endpoint fetch. A nil signal means "not
+// asserted" (e.g. no schema configured / no SLA) and is not a violation.
+export interface DataSourceContractVerdict {
+  met: boolean;
+  schema_valid: boolean | null;
+  quality_passed: boolean | null;
+  within_sla: boolean | null;
+  violations: string[];
 }

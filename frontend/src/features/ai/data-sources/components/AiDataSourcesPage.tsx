@@ -7,6 +7,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { DataSourceStatsCards } from './DataSourceStatsCards';
 import { DataSourceCard } from './DataSourceCard';
+import { DataSourceDiscoveryPanel } from './DataSourceDiscoveryPanel';
 import { DataSourceFilters } from './DataSourceFilters';
 import { CreateDataSourceModal } from './CreateDataSourceModal';
 import { DataSourceDetailModal } from './DataSourceDetailModal';
@@ -64,6 +65,8 @@ export const AiDataSourcesPage: React.FC<AiDataSourcesPageProps> = ({ onActionsR
         requiresAuthCount={getRequiresAuthCount()}
         credentialCount={dataSources.reduce((sum, ds) => sum + (ds.credential_count || 0), 0)}
       />
+
+      <DataSourceDiscoveryPanel onSelectDataSource={handleViewDataSource} />
 
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">

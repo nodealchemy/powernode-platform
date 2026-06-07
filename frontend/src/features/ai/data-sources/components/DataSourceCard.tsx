@@ -9,7 +9,9 @@ import {
   Trash2,
   TestTube,
   Eye,
-  Key
+  Key,
+  ShieldCheck,
+  Circle
 } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -129,6 +131,24 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
     }
   };
 
+  // Trust/effectiveness badge — only rendered once the backend serializer
+  // surfaces effectiveness_score (Phase 2 rollout). Tier thresholds mirror the
+  // effectiveness gauges used across the skills UI.
+  const effectivenessScore =
+    typeof dataSource.effectiveness_score === 'number' ? dataSource.effectiveness_score : null;
+
+  const getEffectivenessTier = (
+    score: number
+  ): { variant: 'success' | 'info' | 'warning' | 'danger'; label: string } => {
+    if (score >= 0.8) return { variant: 'success', label: 'Trusted' };
+    if (score >= 0.6) return { variant: 'info', label: 'Reliable' };
+    if (score >= 0.4) return { variant: 'warning', label: 'Fair' };
+    return { variant: 'danger', label: 'Low Trust' };
+  };
+
+  const effectivenessTier = effectivenessScore !== null ? getEffectivenessTier(effectivenessScore) : null;
+  const effectivenessPct = effectivenessScore !== null ? Math.round(effectivenessScore * 100) : null;
+
   const getSourceTypeIcon = (type: string): string => {
     const iconMap: Record<string, string> = {
       'noaa_ncei': '🌡️',
@@ -193,6 +213,11 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
 
           <div>
             <div className="flex items-center gap-2">
+              {/* Health indicator dot — quick at-a-glance status next to the name */}
+              <Circle
+                className={`h-2.5 w-2.5 shrink-0 fill-current ${getHealthStatusColor(dataSource.health_status)}`}
+                aria-label={`Health: ${dataSource.health_status}`}
+              />
               <h3 className="font-semibold text-theme-text-primary">
                 <EntityLink type="data_source" id={dataSource.id} label={dataSource.name} />
               </h3>
@@ -201,9 +226,17 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               <Badge variant="outline" size="sm">{getSourceTypeLabel(dataSource.source_type)}</Badge>
               {getHealthStatusBadge(dataSource.health_status)}
+              {effectivenessTier && effectivenessPct !== null && (
+                <span title={`Effectiveness score: ${effectivenessPct}%`}>
+                  <Badge variant={effectivenessTier.variant} size="sm" className="inline-flex items-center gap-1">
+                    <ShieldCheck className="h-3 w-3" />
+                    {effectivenessTier.label} · {effectivenessPct}%
+                  </Badge>
+                </span>
+              )}
             </div>
           </div>
         </div>
