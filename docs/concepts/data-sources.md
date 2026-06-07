@@ -335,7 +335,7 @@ A broker slots into `QueryService#resolve_credential` **after** the base credent
 ```ruby
 broker.acquire(data_source:, base_credential:, config:)
 #   data_source     [Ai::DataSource]
-#   base_credential [#decrypted_api_key/#decrypted_api_secret/#[](name)] the resolved
+#   base_credential [#decrypted_api_key / #decrypted_api_secret / #[] by name] the resolved
 #                   STATIC/VAULT cred (or nil). Brokers read the BASE secret off this —
 #                   e.g. OAuth client_id/secret, the low-priv AWS keys used to call
 #                   AssumeRole. NEVER off config.
