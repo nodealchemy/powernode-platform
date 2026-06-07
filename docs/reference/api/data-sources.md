@@ -9,6 +9,8 @@
 > **Phase 2b (quality / drift / contracts / introspection)** adds opt-in response-schema drift tracking, data-quality expectations with quarantine, an aggregate data-contract verdict, and OpenAPI 3 introspection. Surfaced as four REST routes (`GET endpoints/:id/{schema_history,quality,contract}`, `POST :id/introspect`) and four MCP actions (`data_source_schema_history` / `data_source_quality` / `data_source_contract` = read, `data_source_introspect` = manage, `dry_run`). Two new tables (`ai_data_source_schema_versions`, `ai_data_source_expectations`), quality columns on `ai_data_source_queries`, and opt-in/SLA/contract columns on `ai_data_source_endpoints` back it. **All three endpoint observability flags default `false`** — a pre-2b endpoint runs the exact same fetch with zero added overhead. Grouped in [Phase 2b additions](#phase-2b-additions).
 >
 > **Phase 3 (streaming / monitoring)** adds pull-based **subscriptions**: a `(data_source, endpoint)` pairing with a poll cadence that the server-side `Ai::DataSources::MonitorService` walks, change-detects (etag / SHA256 checksum), and on change warms the cache + emits a `data_source_changed` stigmergic signal. Subscriptions are managed over REST (`GET/POST/DELETE /data_sources/:id/subscriptions`) and MCP (`data_source_subscribe` / `data_source_unsubscribe`, gated by the new `ai.data_sources.stream` grant). The standalone worker only fires two thin mTLS cron ticks (`POST /api/v1/internal/ai/data_sources/{monitor,health}_tick`) — all poll/fetch/signal logic is server-side. Phase 3 also wires the **stale-while-revalidate / stale-if-error** cache policies via two opt-in endpoint columns (`stale_while_revalidate_seconds` / `stale_if_error_seconds`, nil = OFF) and adds the `ai_data_source_subscriptions` table. Grouped in [Phase 3 additions](#phase-3-additions).
+>
+> **Phase 4 (generic framework)** makes `source_type` **free-form** (format-validated, no longer an enum) and adds a `category` grouping + a `protocol` selector to the source (both settable through this controller now), drives behavior off the **protocol-keyed adapter registry** (`rest`/`custom` → REST fallback, `graphql` → GraphQL POST, `rss`/`atom` → feed adapter), adds **opt-in outbound pagination** as an endpoint `pagination` jsonb config (`offset`/`page`/`cursor`/`link`, capped at 20 pages), and adds a nightly **schema-sync** internal tick (`POST /api/v1/internal/ai/data_sources/schema_sync_tick`). The `category`/`pagination` columns land in migration `20260606122000`. **Off by default**: a `rest` source with no `pagination` config runs the identical single-request path. Grouped in [Phase 4 additions](#phase-4-additions).
 
 ## Table of Contents
 
@@ -39,6 +41,11 @@
   - [REST: Subscriptions](#rest-subscriptions)
   - [Internal: worker monitor / health ticks](#internal-worker-monitor--health-ticks)
   - [MCP: subscription actions](#mcp-subscription-actions)
+- [Phase 4 additions](#phase-4-additions)
+  - [Free-form source_type + category + protocol](#free-form-source_type--category--protocol)
+  - [Adapter protocols: REST / GraphQL / RSS-Atom](#adapter-protocols-rest--graphql--rss-atom)
+  - [Endpoint pagination config](#endpoint-pagination-config)
+  - [Internal: schema-sync tick](#internal-schema-sync-tick)
 - [REST: Endpoints (nested)](#rest-endpoints-nested)
   - [List endpoints](#list-endpoints)
   - [Create an endpoint](#create-an-endpoint)
@@ -122,6 +129,8 @@ Response (`200`) — `items` are serialized via `serialize_data_source`:
         "name": "Open-Meteo",
         "slug": "open-meteo",
         "source_type": "open_meteo",
+        "category": "weather",
+        "protocol": "rest",
         "is_active": true,
         "requires_auth": false,
         "api_base_url": "https://api.open-meteo.com",
@@ -151,7 +160,9 @@ Response (`200`) — `items` are serialized via `serialize_data_source`:
 }
 ```
 
-The `effectiveness_score` / `usage_count` / `positive_usage_count` / `negative_usage_count` / `usage_success_rate` / `last_used_at` fields are Phase 2a additions present on **every** serialized source (list and detail) — see [Effectiveness + trust signals](#effectiveness--trust-signals).
+The `effectiveness_score` / `usage_count` / `positive_usage_count` / `negative_usage_count` / `usage_success_rate` / `last_used_at` fields are Phase 2a additions present on **every** serialized source (list and detail) — see [Effectiveness + trust signals](#effectiveness--trust-signals). The `category` (nullable) and `protocol` fields are Phase 4 additions, also on every serialized source — see [Phase 4 additions](#phase-4-additions).
+
+> Query params: in addition to `source_type`, the list action accepts a `category` filter (`?category=weather`, applied via the `by_category` scope) — a Phase 4 addition.
 
 ### Get a data source
 
@@ -220,6 +231,8 @@ Body — keyed under `data_source`, permitted by `data_source_params`:
     "name": "Open-Meteo",
     "slug": "open-meteo",
     "source_type": "open_meteo",
+    "category": "weather",
+    "protocol": "rest",
     "description": "Free weather API",
     "api_base_url": "https://api.open-meteo.com",
     "is_active": true,
@@ -235,7 +248,7 @@ Body — keyed under `data_source`, permitted by `data_source_params`:
 }
 ```
 
-Permitted keys: `name`, `slug`, `source_type`, `description`, `api_base_url`, `is_active`, `requires_auth`, `priority_order`, `documentation_url`, and the JSON/array fields `capabilities` (array), `configuration`, `rate_limits`, `default_parameters`, `metadata` (hashes). `source_type` is a fixed enum (`noaa_ncei`, `noaa_gfs`, `noaa_observations`, `open_meteo`, `fred`, `yahoo_finance`, `espn`, `newsapi`, `custom`). `slug` is unique per account. **`protocol`, `auth_scheme`, and `auth_config` are not settable through this controller** in Phase 1 — they default to `rest` / `none` / `{}` and are configured at the model layer.
+Permitted keys: `name`, `slug`, `source_type`, `category` *(4)*, `protocol` *(4)*, `description`, `api_base_url`, `is_active`, `requires_auth`, `priority_order`, `documentation_url`, and the JSON/array fields `capabilities` (array), `configuration`, `rate_limits`, `default_parameters`, `metadata` (hashes). As of **Phase 4**, `source_type` is **free-form** — validated only for presence + length (≤ 50) + lowercase format (`/\A[a-z0-9_-]+\z/`), **not** constrained to the legacy list (which survives as `SUGGESTED_SOURCE_TYPES`, UI hints only); `422` `render_validation_error` on a malformed token. `category` is a free-form nullable grouping (≤ 100). `protocol` selects the adapter (`rest`/`custom`/`graphql`/`rss`/`atom`; defaults to `rest`; an unknown value still resolves to the generic REST adapter — see [Adapter protocols](#adapter-protocols-rest--graphql--rss-atom)). `slug` is unique per account. **`auth_scheme` and `auth_config` remain not settable through this controller** — they default to `none` / `{}` and are configured at the model layer.
 
 Response: `201` with `{ "data_source": <detail> }`, or `422` `render_validation_error` on invalid attributes. Emits the `ai.data_sources.create` audit event.
 
@@ -713,12 +726,15 @@ POST /api/v1/internal/ai/data_sources/health_tick
 - **`monitor_tick`** — optional `limit` body param (clamped `1..1000`, default `100`); calls `MonitorService.new.tick(limit:)` across all accounts → `{ polled, changed, errors }`.
 - **`health_tick`** — calls `MonitorService.new.health_tick` → `{ refreshed, errors }`.
 
-On any raised error both return a `render_error` (not a 500). The worker side is two **thin** cron triggers that only POST these paths and log the batch summary:
+> **Phase 4** adds a third tick to the same controller — `POST /api/v1/internal/ai/data_sources/schema_sync_tick` → `Api::V1::Internal::Ai::DataSourcesController#schema_sync_tick`, fully documented in [Internal: schema-sync tick](#internal-schema-sync-tick).
+
+On any raised error all three return a `render_error` (not a 500). The worker side is **thin** cron triggers that only POST these paths and log the batch summary:
 
 | Worker job | Cron (`worker/config/sidekiq.yml`) | Posts |
 |-----------|-------------------------------------|-------|
 | `worker/app/jobs/ai_data_source_monitor_job.rb` | `*/5 * * * *` | `POST /api/v1/internal/ai/data_sources/monitor_tick` |
 | `worker/app/jobs/ai_data_source_health_job.rb` | `*/10 * * * *` | `POST /api/v1/internal/ai/data_sources/health_tick` |
+| `worker/app/jobs/ai_data_source_schema_sync_job.rb` *(4)* | `0 4 * * *` | `POST /api/v1/internal/ai/data_sources/schema_sync_tick` |
 
 ### MCP: subscription actions
 
@@ -731,6 +747,83 @@ On any raised error both return a `render_error` (not a 500). The worker side is
 
 - **`data_source_subscribe`** validates `poll_frequency` against `POLL_FREQUENCIES`, sets the acting `agent` when present, re-arms the cadence on a new/changed-frequency record, and returns `{ subscription: <summary>, message: "Subscription created"|"Subscription updated" }`. (The MCP `subscription_summary` omits `last_etag`; the REST `serialize_subscription` includes it.)
 - **`data_source_unsubscribe`** deletes by `subscription_id` (account-scoped via a join through the parent source) → `{ message, subscription_id }`; or, given `data_source_id + endpoint_id`, `destroy_all` matching subscriptions → `{ message, removed_count, data_source_id, endpoint_id }`. Raises `ArgumentError` when neither selector is supplied.
+
+## Phase 4 additions
+
+Phase 4 finishes the **generic framework**: `source_type` becomes free-form, the source gains `category` + `protocol`, endpoints gain opt-in outbound `pagination`, and a nightly schema-sync tick is added. These wire through the **existing** REST surface (no new public routes) plus one new internal tick. Conceptual internals — the adapter registry, the GraphQL/RSS adapters, the `Paginator`, and `SchemaSyncService` — are in [`../../concepts/data-sources.md`](../../concepts/data-sources.md#generic-framework-phase-4).
+
+### Free-form `source_type` + `category` + `protocol`
+
+`Ai::DataSource#source_type` is **no longer an enum**. It is validated for presence + length (≤ 50) + lowercase format (`/\A[a-z0-9_-]+\z/`) only — any new token can be created without a code change. The old list lives on solely as `Ai::DataSource::SUGGESTED_SOURCE_TYPES` (aliased to `SOURCE_TYPES` for backward compatibility) and is used only for UI presets/autocomplete.
+
+| Field | Type | Settable | Notes |
+|-------|------|----------|-------|
+| `source_type` | string | yes | Free-form, format `/\A[a-z0-9_-]+\z/`, ≤ 50; `422` on a malformed token |
+| `category` | string \| null | yes (`data_source_params`) | Free-form coarse grouping (≤ 100). Backfilled by `20260606122000` from legacy tokens: `noaa_*`/`open_meteo` → `weather`, `fred`/`yahoo_finance` → `finance`, `espn` → `sports`, `newsapi` → `news`; `custom`/unknown stay `null`. Filterable via the list `?category=` param (`by_category` scope) |
+| `protocol` | string | yes (`data_source_params`) | Adapter selector; default `rest`. See below |
+
+Both `category` and `protocol` are emitted by `serialize_data_source` on **every** source response (list, detail, discover). `data_source_params` permits `:category` and `:protocol`; the list action's `apply_filters` adds `by_category(params[:category])` alongside the existing `source_type` filter.
+
+### Adapter protocols: REST / GraphQL / RSS-Atom
+
+`protocol` chooses the request/response adapter via `Ai::DataSources::Adapters::Registry.for(data_source)` — normalize-with-fallback, so an **unknown or blank protocol resolves to the generic REST adapter** (never an error):
+
+| `protocol` | Adapter | Request | Response → canonical records |
+|------------|---------|---------|------------------------------|
+| `rest`, `custom`, *(unknown/blank)* | `RestAdapter` | Template-driven (`path_template`/`query_template`/`body_template`) | Format-detected decode (JSON/XML/CSV/NDJSON/…) |
+| `graphql` | `GraphqlAdapter` | **`POST`** to `path_template` with JSON body `{ query, variables }`, no query string | Unwraps the GraphQL `data` envelope |
+| `rss`, `atom` | `RssAdapter` | **`GET`** (inherited from `RestAdapter`) | RSS `<item>` / Atom `<entry>` → canonical feed records |
+
+**GraphQL behavior.** The operation document is resolved from `params["query"]` → `body_template["query"]` → `query_template["query"]`. Variables are the union of `body_template["variables"]` (interpolated) + every other caller param folded in as a top-level variable + an explicit `params["variables"]` Hash (which wins); the reserved `__conditional_etag` monitor hint and the `query`/`variables` control keys are never sent as variables. `parse` honors `response_mapping["records_path"]` (dotted path / JSON pointer against the whole document) when set; otherwise it descends into top-level `data` and, when `data` is a single-key object, unwraps that one field. GraphQL `errors` never raise — a null-`data` body yields `[]` and the HTTP/anomaly outcome is recorded normally.
+
+**RSS/Atom behavior.** `parse` delegates structural decoding to the shared XML decoder, then maps each feed item onto a canonical record with stable keys: `title`, `link`, `published`, `summary`, `guid`, `id` (alias of `guid`), and `raw` (the full decoded item). Source-key precedence handles both dialects (e.g. `published` ← `pubDate`/`published`/`updated`/`date`; `summary` ← `description`/`summary`/`content`). When an entry carries **multiple `<link>`s**, `rel="alternate"` is preferred (else the first `href`). An operator's `response_mapping["record_node"]`/`["record_xpath"]` still flows to the decoder. (Backed by the XML decoder's `Array.wrap` fix so repeated siblings aggregate into an array of hashes instead of exploding.)
+
+These protocols are **read-only over this API in the sense that there is no new request shape to send** — the same `POST .../endpoints/:endpoint_id/query` action drives every protocol; the adapter is selected by the source's `protocol` column. `data_source_validate_config` reports a protocol as supported when it is a known token (or degrades to REST).
+
+### Endpoint pagination config
+
+Outbound pagination is an **opt-in** endpoint config: `ai_data_source_endpoints.pagination` (jsonb, default `{}` = OFF). `endpoint_params` permits `pagination: {}`; `serialize_data_source_endpoint` emits it. **When blank, the fetch is a single request and the `FetchEnvelope` is byte-for-byte unchanged.** When a non-blank Hash with a supported `type` is present, `QueryService#perform_fetch` runs `Ai::DataSources::Paginator`, which walks pages, concatenates canonical records, and returns **one** envelope (with the records from every page) — honoring `check_quota!` before each subsequent page.
+
+Config shape (string keys; `type` is required and case-insensitive):
+
+```json
+{
+  "endpoint": {
+    "pagination": {
+      "type": "offset",
+      "limit_param": "limit",
+      "offset_param": "offset",
+      "limit": 100,
+      "max_pages": 5
+    }
+  }
+}
+```
+
+| `type` | Recognized keys | Advance / terminate |
+|--------|-----------------|---------------------|
+| `offset` | `offset_param` (default `offset`), `limit_param`, `limit`/`page_size` (default 100) | `offset += limit` each page; stops on an empty page |
+| `page` | `page_param` (default `page`), `start_page` (default 1), `limit_param`, `limit`/`page_size` | `page += 1` from `start_page`; stops on an empty page |
+| `cursor` | `cursor_param` (default `cursor`), `cursor_path` (dotted/pointer path into the decoded JSON body) | reads the next cursor from each body; stops when it is absent / blank / unchanged |
+| `link` | *(none — pure header following)* | follows the RFC 5988 `Link` header `rel="next"` URL; stops when no `rel="next"` |
+
+Universal stops (any one halts the walk): a zero-record page, the strategy terminator, the per-page quota veto (the partial result is kept), a failed page (non-2xx / transport — partial records + real outcome surfaced), and **`max_pages`**, which is **clamped to a hard ceiling of 20** (`Paginator::HARD_MAX_PAGES`) regardless of the configured value. A garbage/empty config is treated as OFF. The aggregate provenance carries `pagination: { type, pages_fetched, stopped_reason, truncated }`, and the envelope records a `paginated_<N>_pages` anomaly (plus `pagination_truncated` when the hard cap is hit).
+
+### Internal: schema-sync tick
+
+Worker-only, mTLS (no JWT) — the third tick on `Api::V1::Internal::Ai::DataSourcesController` (alongside `monitor_tick` / `health_tick`).
+
+```
+POST /api/v1/internal/ai/data_sources/schema_sync_tick
+```
+
+Optional `limit` body param (clamped `1..1000`, default `100`); calls `Ai::DataSources::SchemaSyncService.new.sync(limit:)` across all accounts and returns its batch summary in the standard envelope:
+
+```json
+{ "success": true, "data": { "synced": 3, "errors": [ { "endpoint_id": "uuid", "error": "…" } ] } }
+```
+
+`SchemaSyncService#sync` walks endpoints that are **due** — `track_schema = TRUE` **OR** `response_schema` is blank (`NULL`/`{}`) — on **active** sources, samples each via a **live governed `QueryService` fetch**, infers a top-level-array JSON schema (`{ type: array, items: { type: object, properties: {…} } }`, the same shape `QueryService#infer_schema` emits), appends a version through `SchemaDriftService#record_version!`, and **seeds** `endpoint.response_schema` when it was blank. A throttled / blocked / errored sample is a **skip** (not a hard error), and per-endpoint failures are collected without aborting the batch. On any raised error the action returns `render_error` (not a 500). The standalone worker fires it nightly via `AiDataSourceSchemaSyncJob` (cron `0 4 * * *`), which does nothing but POST this path and log `synced` / `errors` count.
 
 ## REST: Endpoints (nested)
 
@@ -767,10 +860,13 @@ The serialized endpoint shape (`serialize_data_source_endpoint`):
   "response_mapping": { "records_path": "hourly" },
   "response_schema": {},
   "metadata": {},
+  "pagination": {},
   "created_at": "2026-06-06T00:00:00Z",
   "updated_at": "2026-06-06T00:00:00Z"
 }
 ```
+
+`pagination` is a Phase 4 addition (jsonb, default `{}` = OFF) — its config shape is documented in [Endpoint pagination config](#endpoint-pagination-config).
 
 ### List endpoints
 
@@ -804,12 +900,13 @@ Body — keyed under `endpoint`, permitted by `endpoint_params`:
     "body_template": {},
     "response_mapping": { "records_path": "hourly" },
     "response_schema": {},
-    "metadata": {}
+    "metadata": {},
+    "pagination": {}
   }
 }
 ```
 
-Permitted keys: `name`, `slug`, `http_method`, `path_template`, `response_format`, `expected_content_type`, `cache_ttl_seconds`, `monitorable`, `change_detection`, and the JSON fields `query_template`, `body_template`, `response_mapping`, `response_schema`, `metadata`. Validation (model `Ai::DataSourceEndpoint`): `name` required; `slug` lowercase `[a-z0-9_-]+`, unique per source, auto-generated from `name` when omitted; `http_method` in `GET/POST/PUT/PATCH/DELETE/HEAD`; `response_format` in `json/xml/csv/ndjson/rss/atom/html/text/binary` (nil allowed); `change_detection` in `etag/last_modified/content_hash/polling/none` (nil allowed); `cache_ttl_seconds` >= 0.
+Permitted keys: `name`, `slug`, `http_method`, `path_template`, `response_format`, `expected_content_type`, `cache_ttl_seconds`, `monitorable`, `change_detection`, and the JSON fields `query_template`, `body_template`, `response_mapping`, `response_schema`, `metadata`, and `pagination` *(Phase 4 — see [Endpoint pagination config](#endpoint-pagination-config))*. Validation (model `Ai::DataSourceEndpoint`): `name` required; `slug` lowercase `[a-z0-9_-]+`, unique per source, auto-generated from `name` when omitted; `http_method` in `GET/POST/PUT/PATCH/DELETE/HEAD`; `response_format` in `json/xml/csv/ndjson/rss/atom/html/text/binary` (nil allowed); `change_detection` in `etag/last_modified/content_hash/polling/none` (nil allowed); `cache_ttl_seconds` >= 0.
 
 Response: `201` with `{ "endpoint": <endpoint> }`, or `422` `render_validation_error`. Emits the `ai.data_sources.endpoint.create` audit event.
 
@@ -938,6 +1035,8 @@ UUIDv7 primary keys; `t.references` semantics per the platform's [data-model](..
 
 > **Phase 3** added the `ai_data_source_subscriptions` table plus the two stale-window columns (`stale_while_revalidate_seconds`, `stale_if_error_seconds`) on `ai_data_source_endpoints` — both in migration `20260606121000`. Detailed below.
 
+> **Phase 4** (migration `20260606122000`) added `ai_data_sources.category` (string ≤ 100, nullable, **partial index** `WHERE category IS NOT NULL`, backfilled from the legacy `source_type` tokens) and `ai_data_source_endpoints.pagination` (jsonb, default `{}`, no index — read alongside its row). It also relaxed `source_type` from an enum to a format-validated free-form string (no schema change — the constraint was app-level). The `protocol` column on `ai_data_sources` (default `rest`, present since Phase 1) is now controller-settable. Detailed below.
+
 ### `ai_data_source_endpoints`
 
 Declarative request template + response contract for one operation against a source. Model: `Ai::DataSourceEndpoint`. Unique index on `(ai_data_source_id, slug)`.
@@ -969,10 +1068,11 @@ Declarative request template + response contract for one operation against a sou
 | `contract` | jsonb | yes | `{}` | **(2b)** Free-form contract metadata |
 | `stale_while_revalidate_seconds` | integer | yes | — | **(3)** SWR grace window; serve a hard-expired entry while refreshing in the background (nil = OFF) |
 | `stale_if_error_seconds` | integer | yes | — | **(3)** Stale-if-error window; serve last-known-good on a transient upstream failure (nil = OFF) |
+| `pagination` | jsonb | no | `{}` | **(4)** Opt-in outbound pagination config (`{}` = OFF). See [Endpoint pagination config](#endpoint-pagination-config) |
 | `metadata` | jsonb | no | `{}` | Free-form |
 | `created_at` / `updated_at` | datetime | no | — | Timestamps |
 
-The six Phase 2b columns are added by `20260606120700_add_quality_opt_in_to_ai_data_source_endpoints`. The two Phase 3 stale-window columns are added by `20260606121000_create_ai_data_source_subscriptions` (alongside the subscriptions table). The endpoint serializer (`serialize_data_source_endpoint`) does **not** echo any of them — the 2b columns are read through the dedicated `schema_history` / `quality` / `contract` routes and the stale-window columns are consumed internally by `ResponseCacheService` / `QueryService`. `has_many :schema_versions` / `has_many :expectations` / `has_many :subscriptions` (all `dependent: :destroy`) link the three new tables.
+The six Phase 2b columns are added by `20260606120700_add_quality_opt_in_to_ai_data_source_endpoints`. The two Phase 3 stale-window columns are added by `20260606121000_create_ai_data_source_subscriptions` (alongside the subscriptions table). The Phase 4 `pagination` column is added by `20260606122000_generalize_ai_data_source_with_category` (which also adds `ai_data_sources.category`). The endpoint serializer (`serialize_data_source_endpoint`) echoes `pagination` (Phase 4) but **not** the 2b/3 columns — the 2b columns are read through the dedicated `schema_history` / `quality` / `contract` routes and the stale-window columns are consumed internally by `ResponseCacheService` / `QueryService`. `has_many :schema_versions` / `has_many :expectations` / `has_many :subscriptions` (all `dependent: :destroy`) link the three new tables.
 
 ### `ai_data_source_queries`
 
@@ -1076,4 +1176,4 @@ The four Phase 2b columns are added by `20260606120600_add_quality_to_ai_data_so
 - [`../../concepts/mcp-and-tools.md`](../../concepts/mcp-and-tools.md) — how the `data_source_management` MCP tool dispatches
 - [`reference/database-schema.md`](../database-schema.md) — full `ai_data_source*` table reference
 
-_Last verified: 2026-06-06 (Phase 3: streaming / monitoring)_
+_Last verified: 2026-06-06 (Phase 4: generic framework)_

@@ -9,7 +9,7 @@
 - [Prerequisites](#prerequisites)
 - [When to use this](#when-to-use-this)
 - [Overview](#overview)
-- [Supported Source Types](#supported-source-types)
+- [Source Types & Categories](#source-types--categories)
 - [Models](#models)
 - [HTTP API](#http-api)
 - [Procedure — register a new source](#procedure--register-a-new-source)
@@ -19,6 +19,8 @@
 - [Quality, drift & contracts (Phase 2b)](#quality-drift--contracts-phase-2b)
 - [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3)
 - [Stale-while-revalidate & stale-if-error](#stale-while-revalidate--stale-if-error)
+- [Nightly schema sync (Phase 4)](#nightly-schema-sync-phase-4)
+- [Outbound pagination operational limits (Phase 4)](#outbound-pagination-operational-limits-phase-4)
 - [Sync & Health Jobs](#sync--health-jobs)
 - [Verification](#verification)
 - [Rollback](#rollback)
@@ -50,22 +52,26 @@ Data Sources is the unified registry for external data providers that the platfo
 > **Quality, drift & contracts (Phase 2b).** Each *endpoint* can opt into response schema-drift tracking, data-quality expectations, and quarantine-on-failure, with an aggregate contract verdict and an OpenAPI importer. **All three stages are OFF by default** — zero overhead until enabled. Operating them — monitoring the `data_source_schema_drift` signal, quarantine + last-known-good behavior, tuning expectations, and SLA/contract ownership — is in [Quality, drift & contracts (Phase 2b)](#quality-drift--contracts-phase-2b). The enable-and-configure walkthrough is in [../guides/data-sources.md](../guides/data-sources.md#enabling-quality--drift-per-endpoint-phase-2b).
 >
 > **Monitoring & stale-serving (Phase 3).** A pull-based **monitor** can poll a chosen endpoint on a cadence (a `subscription`), change-detect the result, and emit a `data_source_changed` signal — driven by two thin worker crons (monitor `*/5`, health `*/10`) over server-side `Ai::DataSources::MonitorService`. Separately, endpoints can opt into **stale-while-revalidate** and **stale-if-error** cache policies (both nullable columns, **OFF by default**). The operating side — the cron, `due_for_poll` auto-recovery, quota-aware polling, the change signal, and SWR/SIE behavior — is in [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3) and [Stale-while-revalidate & stale-if-error](#stale-while-revalidate--stale-if-error). The create-a-subscription / enable-the-policy walkthrough is in [../guides/data-sources.md](../guides/data-sources.md#monitoring-a-source-for-changes-phase-3).
+>
+> **Generic source framework (Phase 4).** `source_type` is now free-form (no enum), sources carry a `category` grouping, and the `protocol` column selects the adapter (REST / GraphQL / RSS-Atom). Two operational concerns land here: a **nightly schema-sync cron** (`AiDataSourceSchemaSyncJob`, `0 4 * * *`) that samples schema-tracked / baseline-less endpoints and records inferred schema versions — see [Nightly schema sync (Phase 4)](#nightly-schema-sync-phase-4) — and **outbound pagination** limits when an endpoint sets a `pagination` config — see [Outbound pagination operational limits (Phase 4)](#outbound-pagination-operational-limits-phase-4). The onboarding / config walkthroughs are in [../guides/data-sources.md](../guides/data-sources.md#onboarding-a-graphql-or-rssatom-source-phase-4).
 
-## Supported Source Types
+## Source Types & Categories
 
-From `Ai::DataSource::SOURCE_TYPES`:
+> **Phase 4: `source_type` is now FREE-FORM.** The model no longer enforces an enum — `source_type` accepts any lowercase token (`/\A[a-z0-9_-]+\z/`, ≤50 chars). The list below is `Ai::DataSource::SUGGESTED_SOURCE_TYPES` (UI autocomplete hints only; `SOURCE_TYPES` is a backward-compat alias of it), **not** a constraint. New source kinds need no code change.
 
-| Type | Description |
-|------|-------------|
-| `noaa_ncei` | NOAA National Centers for Environmental Information — historical climate data |
-| `noaa_gfs` | NOAA Global Forecast System — numerical weather prediction |
-| `noaa_observations` | NOAA current observations |
-| `open_meteo` | Open-Meteo — free weather API (no key for historical / forecast) |
-| `fred` | Federal Reserve Economic Data — macroeconomic indicators |
-| `yahoo_finance` | Yahoo Finance — market data |
-| `espn` | ESPN — sports data |
-| `newsapi` | NewsAPI — news aggregation |
-| `custom` | Arbitrary custom-adapter source |
+| Suggested type | Description | Backfilled `category` |
+|------|-------------|------|
+| `noaa_ncei` | NOAA National Centers for Environmental Information — historical climate data | `weather` |
+| `noaa_gfs` | NOAA Global Forecast System — numerical weather prediction | `weather` |
+| `noaa_observations` | NOAA current observations | `weather` |
+| `open_meteo` | Open-Meteo — free weather API (no key for historical / forecast) | `weather` |
+| `fred` | Federal Reserve Economic Data — macroeconomic indicators | `finance` |
+| `yahoo_finance` | Yahoo Finance — market data | `finance` |
+| `espn` | ESPN — sports data | `sports` |
+| `newsapi` | NewsAPI — news aggregation | `news` |
+| `custom` | Arbitrary REST source with a hand-rolled template | — (NULL) |
+
+The **`category`** column (string, ≤100 chars, nullable) is the coarse grouping the `by_category` scope and the `?category=` list filter use. Migration `20260606122000` backfilled it from the legacy `source_type` tokens per the mapping above (a partial index on `category WHERE category IS NOT NULL` keeps the filter fast); `custom` and any later free-form token stay NULL. The **`protocol`** column (string, default `"rest"`) selects the adapter — `rest`/`custom` → generic REST, `graphql` → GraphQL, `rss`/`atom` → feed adapter (see the [guide](../guides/data-sources.md#onboarding-a-graphql-or-rssatom-source-phase-4)).
 
 Health status values: `healthy`, `degraded`, `critical`, `unknown`.
 
@@ -106,7 +112,7 @@ metadata              # {} — free-form annotations
 - `healthy?` — active + health status in `{healthy, unknown}`
 - `check_quota!` — returns `{ allowed: true }` or `{ allowed: false, retry_after: N, limit: "name" }` based on current per-minute / per-hour / per-day usage
 
-**Scopes:** `active`, `by_type(type)`, `for_account(account)`, `ordered_by_priority`, `requiring_auth`.
+**Scopes:** `active`, `by_type(type)`, `by_category(category)`, `for_account(account)`, `ordered_by_priority`, `requiring_auth`.
 
 ### `Ai::DataSourceCredential` (`ai_data_source_credentials`)
 
@@ -589,9 +595,58 @@ It is recorded with `served_stage: "stale_if_error"` and **never re-writes the c
 | SWR never refreshes in the background | `MonitorService` undefined in the process, or the NX refresh lock is held | Confirm the server (not worker) serves the cache; the lock auto-expires — a stuck lock self-clears within the lock TTL |
 | Cache "grew" a longer TTL after enabling | Expected — the Redis key now lives `hard_ttl + max(swr, sie)` so stale reads can find it; the hard-expiry epoch is unchanged | None; disable both columns to restore the legacy `TTL == hard_ttl` |
 
+## Nightly schema sync (Phase 4)
+
+A third thin worker cron — `AiDataSourceSchemaSyncJob` (`0 4 * * *`, daily at 04:00 UTC, queue `ai_orchestration`) — POSTs the mTLS worker-only internal endpoint `POST /api/v1/internal/ai/data_sources/schema_sync_tick` (handled by `Api::V1::Internal::Ai::DataSourcesController#schema_sync_tick`), which calls server-side `Ai::DataSources::SchemaSyncService.new.sync(limit:)`. Like the monitor/health ticks it holds **no business logic** — it triggers, the server does the work. `schema_sync_tick` accepts an optional `limit` (clamped 1..1000, default 100); the service returns `{ synced:, errors: [{endpoint_id:, error:}] }`.
+
+| Job class | Cron | Internal endpoint (POST) | Server entry point | Returns |
+|-----------|------|--------------------------|--------------------|---------|
+| `AiDataSourceSchemaSyncJob` | `0 4 * * *` | `/api/v1/internal/ai/data_sources/schema_sync_tick` | `SchemaSyncService#sync(limit: 100)` | `{ synced:, errors: [{endpoint_id:, error:}] }` |
+
+**What it samples.** `SchemaSyncService#sync` walks endpoints that are **due** — `track_schema = TRUE` **OR** `response_schema` blank (`NULL` / `{}`) — on **active** sources only (account-scoped when constructed with an account; the cron runs account-less = all accounts). For each due endpoint it runs a **governed sample fetch** through the full `QueryService` (same kill-flag / quota / cache / circuit-breaker / decode pipeline as any read, `params: {}`), infers a top-level-**array** JSON-Schema from the canonical records (the same shape `QueryService#infer_schema` emits, so drift comparisons across the two entry points are apples-to-apples), records a version via `SchemaDriftService#record_version!`, and — **only when the endpoint had no baseline** — seeds the inferred schema onto `endpoint.response_schema` (via `update_column`, off the audit/validation path).
+
+> **First-run sampling fan-out caveat.** The due-clause matches **every endpoint with a blank `response_schema`** — which, on first run after enabling Phase 4, is *most* endpoints (only those that already captured a schema are excluded). Each due endpoint triggers one **live** sample fetch against its upstream. So the **first** nightly tick can fan out into a burst of outbound calls (up to `limit`, default 100, per tick) across many sources. Mitigations baked in:
+>
+> - The sample fetch respects each source's `check_quota!` — a **throttled / blocked / errored** sample is recorded as a **skip, not a hard error** (`sync_endpoint` returns `:skipped`, it is not counted in `synced` and not added to `errors`), so a busy source does not spam the error list or burn its budget.
+> - Per-endpoint failures are caught and collected into `errors`; one bad endpoint **never aborts the batch** (mirrors `MonitorService#tick`).
+> - `limit` (default 100) caps endpoints per tick — a large backlog drains over successive nightly runs (or trigger a one-off `schema_sync_tick` POST with a higher `limit`). Once an endpoint's `response_schema` is seeded, it drops out of the due set unless it also has `track_schema = true`.
+>
+> **Operational guidance:** the very first post-upgrade 04:00 tick is the heavy one. If a large account has thousands of baseline-less endpoints, watch the source quotas / upstream rate limits that night, and let subsequent ticks (which see far fewer due endpoints) settle the steady state.
+
+```bash
+# Tail the schema-sync cron summary (synced / errors per tick)
+journalctl -u powernode-worker@default -f | grep AiDataSourceSchemaSyncJob
+```
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| First 04:00 tick fans out to many upstreams | Most endpoints are baseline-less (blank `response_schema`) so all are "due" | Expected once; watch source quotas that night — throttled samples skip safely; later ticks see far fewer due endpoints |
+| `synced` is 0 but no `errors` | Every sample was throttled / blocked / returned no records (all skipped) | Confirm sources have quota headroom and the endpoints actually return array records; skips are not failures |
+| An endpoint never gets a baseline schema | Its sample fetch keeps failing or skipping (quota, upstream down, non-array body) | Check the source `quota_status` and run a manual `data_source_query`; a non-array response yields an empty-properties array schema |
+| Drift versions appearing nightly without a live read | Expected — the sync tick *is* a live sample fetch on `track_schema` endpoints | This is the batch counterpart to inline drift; see [Monitoring schema-drift signals](#monitoring-schema-drift-signals) |
+
+## Outbound pagination operational limits (Phase 4)
+
+When an endpoint sets a non-blank `pagination` config with a supported `type` (`offset` / `page` / `cursor` / `link`), `QueryService#perform_fetch` drives `Ai::DataSources::Paginator` to walk the upstream's pages and concatenate the decoded canonical records into a **single** `FetchEnvelope` (the [guide](../guides/data-sources.md#configuring-outbound-pagination-phase-4) covers the config keys). A **blank `pagination`** (the column default `{}`) is OFF — the ordinary single request runs, byte-identical to pre-Phase-4. The operational rails:
+
+- **`HARD_MAX_PAGES = 20`** — an absolute ceiling on pages per fetch, independent of and **capping** the endpoint's configured `max_pages`. The effective cap is `config["max_pages"]` clamped to `[1, HARD_MAX_PAGES]`; an unset/`<=0` `max_pages` defaults to the full 20. This is the runaway-upstream safety rail — no single fetch can issue more than 20 outbound requests regardless of config.
+- **Per-page quota** — the parent source's `check_quota!` is re-evaluated **before each subsequent page** (`paginate_quota_veto` → `quota_exceeded?`, the same per-source + per-agent budget the single-request path enforces). A veto **stops the walk and keeps the partial result** (`stopped_reason: "quota:<limit>"`) rather than blowing past the budget — a paginated walk can therefore return fewer pages than configured when the source is near its limit.
+- **Other stop conditions:** an **empty page** (zero records → ran off the end), the strategy terminator (no next cursor / no `rel="next"` link), or a **failed page** (non-2xx / transport — the records gathered so far are returned and the real outcome is recorded). The walk **never raises**: a callback error ends it and returns what was gathered.
+- **Default page size** for `offset`/`page` strides when no `limit`/`page_size` is configured is `DEFAULT_PAGE_SIZE = 100`.
+
+The aggregate fetch surfaces the walk in provenance — `provenance.pagination = { type, pages_fetched, stopped_reason, truncated }` — and appends `paginated_<N>_pages` to `provenance.anomalies` (plus `pagination_truncated` when the walk hit `max_pages` with more likely available). `truncated: true` / the `pagination_truncated` anomaly is the signal that the cap (configured or `HARD_MAX_PAGES`) cut the result short.
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| Paginated result looks truncated (`pagination_truncated` anomaly) | Hit `max_pages` (configured or the `HARD_MAX_PAGES = 20` ceiling) with more pages available | Raise the endpoint's `max_pages` (still capped at 20), or narrow the query so the result fits; you cannot exceed 20 pages per fetch |
+| Walk stops early with `stopped_reason: "quota:…"` | The per-page `check_quota!` vetoed the next page | Expected back-pressure — the partial result is returned; raise the source `rate_limits` or reduce paginated reads |
+| Cursor pagination stops after one page | `cursor_path` doesn't resolve in the body, or the cursor is unchanged/blank | Verify `cursor_path` (dotted path / JSON pointer) against the actual response JSON |
+| `link` pagination never advances | The upstream omits an RFC 5988 `Link` header with `rel="next"` | Confirm the upstream sends `Link: <…>; rel="next"`; otherwise use `offset`/`page` |
+| Far more outbound calls than expected from one fetch | Pagination is enabled and the upstream has many pages | Each fetch can issue up to `max_pages` (≤20) requests; budget source quota accordingly |
+
 ## Sync & Health Jobs
 
-Provider model sync and health monitoring for data sources run in the worker. Jobs tag logs with `data_source_id` and post health transitions via the audit log, so operators see state flips in both `Monitoring` dashboards and `Trading::AuditLog` (where applicable). The Phase-3 monitor + health crons are documented above in [Monitoring a source for changes](#monitoring-a-source-for-changes-phase-3).
+Provider model sync and health monitoring for data sources run in the worker. Jobs tag logs with `data_source_id` and post health transitions via the audit log, so operators see state flips in both `Monitoring` dashboards and `Trading::AuditLog` (where applicable). The Phase-3 monitor + health crons are documented above in [Monitoring a source for changes](#monitoring-a-source-for-changes-phase-3); the Phase-4 nightly schema-sync cron is in [Nightly schema sync (Phase 4)](#nightly-schema-sync-phase-4).
 
 ## Verification
 
@@ -641,8 +696,8 @@ curl -X PATCH \
 
 | Role | Path |
 |------|------|
-| Model — Data Source | `server/app/models/ai/data_source.rb` (`record_query!`, `recalculate_effectiveness!`, `usage_success_rate`) |
-| Model — Endpoint (Phase 2b/3) | `server/app/models/ai/data_source_endpoint.rb` (2b: `track_schema`/`quality_checks_enabled`/`quarantine_on_failure`/`sla_max_age_seconds`/`owner`/`contract`; 3: `stale_while_revalidate_seconds`/`stale_if_error_seconds`; `has_many :schema_versions`/`:expectations`/`:subscriptions`) |
+| Model — Data Source | `server/app/models/ai/data_source.rb` (Phase 4: free-form `source_type`, `SUGGESTED_SOURCE_TYPES`/`SOURCE_TYPES` alias, `category` + `protocol` attrs, `by_type`/`by_category` scopes; `record_query!`, `recalculate_effectiveness!`, `usage_success_rate`) |
+| Model — Endpoint (Phase 2b/3/4) | `server/app/models/ai/data_source_endpoint.rb` (2b: `track_schema`/`quality_checks_enabled`/`quarantine_on_failure`/`sla_max_age_seconds`/`owner`/`contract`; 3: `stale_while_revalidate_seconds`/`stale_if_error_seconds`; 4: `pagination` jsonb; `has_many :schema_versions`/`:expectations`/`:subscriptions`) |
 | Model — Subscription (Phase 3) | `server/app/models/ai/data_source_subscription.rb` (`POLL_FREQUENCIES`, `STATUSES`; `.active`/`.due_for_poll`/`.for_data_source`/`.for_endpoint`; `record_poll!`/`record_failure!`/`schedule_next_poll!`/`activate!`/`pause!`) |
 | Model — Credential | `server/app/models/ai/data_source_credential.rb` |
 | Model — Schema version (Phase 2b) | `server/app/models/ai/data_source_schema_version.rb` (`CLASSIFICATIONS`; `for_endpoint`/`ordered`/`latest_first`/`breaking`) |
@@ -654,17 +709,23 @@ curl -X PATCH \
 | Service — Quality (Phase 2b) | `server/app/services/ai/data_sources/quality_service.rb` (`#evaluate`) |
 | Service — OpenAPI import (Phase 2b) | `server/app/services/ai/data_sources/open_api_import_service.rb` (`#import`) |
 | Service — Contract (Phase 2b) | `server/app/services/ai/data_sources/contract_service.rb` (`#validate`) |
-| QueryService wiring (Phase 2b/3) | `server/app/services/ai/data_sources/query_service.rb` (2b: `#apply_observability_stages`, `#track_schema_drift`, `#evaluate_quality`, `#quarantine_records`; 3: `#maybe_serve_stale_if_error`, `#build_stale_if_error_result`) |
+| QueryService wiring (Phase 2b/3/4) | `server/app/services/ai/data_sources/query_service.rb` (2b: `#apply_observability_stages`, `#track_schema_drift`, `#evaluate_quality`, `#quarantine_records`; 3: `#maybe_serve_stale_if_error`, `#build_stale_if_error_result`; 4: `#pagination_enabled?`, `#perform_paginated_fetch`, `#dispatch_page`, `#paginate_quota_veto`) |
 | Service — Monitor (Phase 3) | `server/app/services/ai/data_sources/monitor_service.rb` (`#tick`, `#health_tick`, `#refresh!`; `CHANGE_SIGNAL_KEY = "data_source_changed"`) |
+| Adapters — registry + protocols (Phase 4) | `server/app/services/ai/data_sources/adapters/registry.rb` (`ADAPTERS`, `.for`, `known_protocol?`), `adapters/graphql_adapter.rb` (POST `{query,variables}`, `data` unwrap), `adapters/rss_adapter.rb` (`RestAdapter` subclass; canonical feed records) |
+| Service — Paginator (Phase 4) | `server/app/services/ai/data_sources/paginator.rb` (`SUPPORTED_TYPES` offset/page/cursor/link, `HARD_MAX_PAGES = 20`, `DEFAULT_PAGE_SIZE = 100`; `#each_page`) |
+| Service — Schema sync (Phase 4) | `server/app/services/ai/data_sources/schema_sync_service.rb` (`#sync(limit:)`, due = `track_schema` OR blank `response_schema` on active sources; throttled sample = skip) |
+| Decoder — XML (Phase 4 fix) | `server/app/services/ai/data_sources/decoders/xml.rb` (repeated siblings aggregate via `Array.wrap` — fixes the `Array()` hash-explosion) |
 | Cache SWR/SIE (Phase 3) | `server/app/services/ai/data_sources/response_cache_service.rb` (`.read_stale`, `#grace_window`, `#schedule_background_refresh`) |
 | Controller — Sources | `server/app/controllers/api/v1/ai/data_sources_controller.rb` (`#discover`; subscription permission gating) |
 | Controller concern — Endpoints (Phase 2b/3) | `server/app/controllers/concerns/ai/data_source_endpoints.rb` (2b: `#schema_history`, `#quality`, `#contract`, `#introspect`; 3: `#subscriptions_index`, `#subscriptions_create`, `#subscriptions_destroy`) |
-| Internal controller (Phase 3) | `server/app/controllers/api/v1/internal/data_sources_controller.rb` (`#monitor_tick`, `#health_tick`; mTLS worker-only) |
-| Worker crons (Phase 3) | `worker/app/jobs/ai_data_source_monitor_job.rb` (`*/5`), `worker/app/jobs/ai_data_source_health_job.rb` (`*/10`) — thin triggers to the internal ticks |
+| Internal controller (Phase 3/4) | `server/app/controllers/api/v1/internal/ai/data_sources_controller.rb` (`#monitor_tick`, `#health_tick`; 4: `#schema_sync_tick`; mTLS worker-only, `Internal::Ai` namespace) |
+| Worker crons (Phase 3/4) | `worker/app/jobs/ai_data_source_monitor_job.rb` (`*/5`), `worker/app/jobs/ai_data_source_health_job.rb` (`*/10`), `worker/app/jobs/ai_data_source_schema_sync_job.rb` (`0 4 * * *`) — thin triggers to the internal ticks |
 | Controller — Credentials | `server/app/controllers/api/v1/ai/data_source_credentials_controller.rb` |
-| Serialisation concern | `server/app/controllers/concerns/ai/data_source_serialization.rb` (effectiveness/usage fields) |
+| Serialisation concern (Phase 4) | `server/app/controllers/concerns/ai/data_source_serialization.rb` (effectiveness/usage fields; 4: `serialize_data_source` emits `category`+`protocol`, `serialize_data_source_endpoint` emits `pagination`) |
+| Controller params/filters (Phase 4) | `server/app/controllers/api/v1/ai/data_sources_controller.rb` (`data_source_params` permits `:category`/`:protocol`; `apply_filters` `by_category(params[:category])`), `concerns/ai/data_source_endpoints.rb` (`endpoint_params` permits `pagination: {}`) |
+| Migration (Phase 4) | `server/db/migrate/20260606122000_*.rb` (adds `ai_data_sources.category` + partial index, `ai_data_source_endpoints.pagination` jsonb; backfills `category` from legacy `source_type`). `20260606120000_*` adds `ai_data_sources.protocol` (default `"rest"`) |
 | MCP tool | `server/app/services/ai/tools/data_source_tool.rb` (`data_source_discover` / `_provenance` / `_impact`; 2b: `_schema_history` / `_quality` / `_contract` / `_introspect`; 3: `_subscribe` / `_unsubscribe`, `STREAM_ACTIONS` gated by `ai.data_sources.stream`) |
-| Routes | `server/config/routes.rb` (`resources :data_sources`; collection `post :discover`; 2b: `endpoints/:endpoint_id/{schema_history,quality,contract}`, `post :introspect`; 3: `{get,post} :subscriptions` + `delete subscriptions/:subscription_id`; internal `ai/data_sources/{monitor_tick,health_tick}`) |
+| Routes | `server/config/routes.rb` (`resources :data_sources`; collection `post :discover`; 2b: `endpoints/:endpoint_id/{schema_history,quality,contract}`, `post :introspect`; 3: `{get,post} :subscriptions` + `delete subscriptions/:subscription_id`; internal `ai/data_sources/{monitor_tick,health_tick}`; 4: internal `ai/data_sources/schema_sync_tick`) |
 | Permissions (Phase 3) | `server/config/permissions.rb` (`ai.data_sources.stream` — granted to `member`/`manager`/`ai_specialist`) |
 
 ---
@@ -672,7 +733,7 @@ curl -X PATCH \
 ## Related runbooks
 
 - [data-source-fetch-pipeline.md](data-source-fetch-pipeline.md) — Phase 1: the governed fetch pipeline (kill flag, per-agent fairness, response cache, circuit breaker, SSRF guard, decode/normalize, cost, hash-chained query log) and its troubleshooting
-- [../guides/data-sources.md](../guides/data-sources.md) — Phase 2a/2b/3 from the agent/author angle: discover → describe → query, how effectiveness accrues, reading trust signals, enabling per-endpoint quality/drift/contracts, creating monitoring subscriptions, and enabling SWR/stale-if-error
+- [../guides/data-sources.md](../guides/data-sources.md) — Phase 2a/2b/3/4 from the agent/author angle: discover → describe → query, how effectiveness accrues, reading trust signals, enabling per-endpoint quality/drift/contracts, creating monitoring subscriptions, enabling SWR/stale-if-error, and onboarding GraphQL/RSS sources + configuring outbound pagination
 - [ai-operations.md](ai-operations.md) — AI provider sister system; same encryption / credential patterns
 - [worker-operations.md](worker-operations.md) — Sync / health jobs schedule
 

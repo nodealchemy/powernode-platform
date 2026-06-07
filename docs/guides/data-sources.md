@@ -1,6 +1,6 @@
 # Data Sources Guide
 
-> How to onboard, extend, secure, query, and discover external data sources — the governed external-fetch pipeline (Phase 1), semantic discovery and effectiveness scoring (Phase 2a), per-endpoint quality, schema-drift, and contract observability (Phase 2b), plus pull-based change monitoring and stale-serving cache policies (Phase 3) for the Powernode AI fleet.
+> How to onboard, extend, secure, query, and discover external data sources — the governed external-fetch pipeline (Phase 1), semantic discovery and effectiveness scoring (Phase 2a), per-endpoint quality, schema-drift, and contract observability (Phase 2b), pull-based change monitoring and stale-serving cache policies (Phase 3), plus the generic source framework — free-form `source_type` + `category`, protocol-selected adapters (GraphQL / RSS / Atom), and outbound pagination (Phase 4) — for the Powernode AI fleet.
 
 > Status: active
 
@@ -11,6 +11,8 @@
 - [Architecture at a glance](#architecture-at-a-glance)
 - [Core models](#core-models)
 - [Onboard a new REST/CSV/XML source (no code)](#onboard-a-new-restcsvxml-source-no-code)
+- [Onboarding a GraphQL or RSS/Atom source (Phase 4)](#onboarding-a-graphql-or-rssatom-source-phase-4)
+- [Configuring outbound pagination (Phase 4)](#configuring-outbound-pagination-phase-4)
 - [Writing a custom adapter, decoder, or signer](#writing-a-custom-adapter-decoder-or-signer)
 - [Security](#security)
 - [Agent usage via MCP](#agent-usage-via-mcp)
@@ -81,8 +83,8 @@ Key invariants this guide assumes:
 
 | Model | Table | Role |
 |---|---|---|
-| `Ai::DataSource` | `ai_data_sources` | The source: `protocol`, `auth_scheme`, `auth_config`, `api_base_url`, `rate_limits`, `configuration`, quota counters (Redis) |
-| `Ai::DataSourceEndpoint` | `ai_data_source_endpoints` | A callable endpoint: `http_method`, `path_template`, `query_template`, `body_template`, `response_format`, `response_schema`, `response_mapping`, `cache_ttl_seconds` |
+| `Ai::DataSource` | `ai_data_sources` | The source: free-form `source_type` + `category`, `protocol`, `auth_scheme`, `auth_config`, `api_base_url`, `rate_limits`, `configuration`, quota counters (Redis) |
+| `Ai::DataSourceEndpoint` | `ai_data_source_endpoints` | A callable endpoint: `http_method`, `path_template`, `query_template`, `body_template`, `response_format`, `response_schema`, `response_mapping`, `cache_ttl_seconds`, `pagination` |
 | `Ai::DataSourceCredential` | `ai_data_source_credentials` | Auth material: Rails-encrypted `encrypted_api_key`/`encrypted_api_secret`, plus `vault_path` + `migrated_to_vault_at` for the Vault path |
 | `Ai::DataSourceQuery` | `ai_data_source_queries` | The query/audit log — one (redacted) row per fetch, linked into the audit hash chain |
 
@@ -96,14 +98,14 @@ Most sources need **no Ruby at all** — they are pure configuration: one `DataS
 
 ### Step 1 — Create the source
 
-The `source_type` column is constrained to a fixed allow-list (`Ai::DataSource::SOURCE_TYPES`):
+`source_type` is **free-form** (Phase 4): any lowercase token matching `/\A[a-z0-9_-]+\z/` (max 50 chars) is accepted — there is **no** enum inclusion check, so a brand-new source kind needs no code change. The old fixed list survives only as UI hints: `Ai::DataSource::SUGGESTED_SOURCE_TYPES` (`SOURCE_TYPES` is a backward-compat alias of it):
 
 ```
 noaa_ncei  noaa_gfs  noaa_observations  open_meteo  fred
 yahoo_finance  espn  newsapi  custom
 ```
 
-For any source not in that list, use **`custom`** — it is the catch-all and behaves identically. `slug` must be lowercase alphanumeric with hyphens/underscores and is unique per account (auto-generated from `name` when omitted).
+Those are *autocomplete presets*, not a constraint — `source_type: "weather_underground"` is just as valid. The optional **`category`** column (string, ≤100 chars, nullable) is the coarse grouping used by the `by_category` scope and the list filter (e.g. `weather`, `finance`, `sports`, `news`); the migration backfilled it from the legacy `source_type` tokens (`noaa_*`/`open_meteo` → `weather`, `fred`/`yahoo_finance` → `finance`, `espn` → `sports`, `newsapi` → `news`; `custom` and any later token stay NULL). `slug` must be lowercase alphanumeric with hyphens/underscores and is unique per account (auto-generated from `name` when omitted).
 
 ```bash
 # POST /api/v1/ai/data_sources  (requires ai.data_sources.create)
@@ -138,7 +140,8 @@ Notes on the fields that drive behavior:
 - **`api_base_url`** is validated against the SSRF egress policy at fetch time — a private/loopback/metadata host is rejected. Validate it ahead of time with `data_source_validate_config` (MCP) or the `validate_config` action.
 - **`rate_limits`** — `requests_per_minute` / `requests_per_hour` / `requests_per_day` apply to the whole source; an optional nested `per_agent` block applies the same keys per requesting agent so one noisy agent cannot exhaust the source budget. Quota is enforced via Redis atomic counters.
 - **`configuration`** knobs read by `HttpConnectionFactory`: `open_timeout_seconds` (default 5), `read_timeout_seconds` (default 20), `max_redirects` (default 5), and `max_response_bytes` (default and hard ceiling 10 MiB — endpoints may **lower** but never raise it).
-- **`protocol`** defaults to `rest`. Both `rest` and `custom` use the generic `RestAdapter`; an unrecognized protocol degrades to it too.
+- **`protocol`** (default `rest`) selects the adapter via `Adapters::Registry.for`. `rest`/`custom` (and any unrecognized/blank token) resolve to the generic `RestAdapter`; `graphql` → `GraphqlAdapter`; `rss`/`atom` → `RssAdapter`. See [Onboarding a GraphQL or RSS/Atom source](#onboarding-a-graphql-or-rssatom-source-phase-4) below for the non-REST protocols.
+- **`category`** is the optional grouping described above — set it (`"weather"`, `"finance"`, …) so the source shows up under `?category=` filtering; leave it nil for ungrouped/custom sources.
 - **`auth_scheme`** defaults to `none`. Set it (and `auth_config`) when the source needs auth — see [Authentication](#step-3--add-a-credential-when-authenticated) below.
 
 ### Step 2 — Define endpoints
@@ -244,6 +247,146 @@ curl -s -X POST \
 ```
 
 A successful response carries the **`FetchEnvelope`** (see [Agent usage](#understanding-the-fetchenvelope) for the full shape): `success`, the canonical `data` records, and a `provenance` block describing exactly what happened (source URL **redacted**, declared-vs-detected content type, charset, `schema_valid`, `record_count`, `anomalies`, cache age, `response_sha256`).
+
+## Onboarding a GraphQL or RSS/Atom source (Phase 4)
+
+Phase 4 generalized the source model so the **protocol** — not a per-source adapter class — decides how requests are built and responses parsed. Three protocols are wired in via `Ai::DataSources::Adapters::Registry.for(data_source)`, selected purely by the source's `protocol` column:
+
+| `protocol` | Adapter | Request | Response → canonical records |
+|---|---|---|---|
+| `rest` / `custom` (and anything unknown/blank) | `RestAdapter` | the templated REST request (Step 2 above) | the decoder registry |
+| `graphql` | `GraphqlAdapter` | **POST** `{ query:, variables: }` JSON | unwraps the GraphQL `data` envelope |
+| `rss` / `atom` | `RssAdapter` (a `RestAdapter` subclass) | **GET** the feed URL | maps `<item>`/`<entry>` to canonical feed records |
+
+These need **no code** — onboarding is the same three-row config (source + endpoint + optional credential), only with `protocol` set and the endpoint templates shaped for the protocol.
+
+### A GraphQL source
+
+Set `protocol: "graphql"` on the source, then store the GraphQL operation in the **endpoint's `body_template`** under the `query` key (GraphQL is single-URL, POST-only, so `path_template` is just the gateway path and `query_template` is ignored for params):
+
+```bash
+# 1. The source carries protocol: "graphql"
+curl -s -X POST http://localhost:3000/api/v1/ai/data_sources \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "data_source": {
+      "name": "Countries GraphQL", "slug": "countries-gql",
+      "source_type": "graphql_demo", "category": "reference",
+      "protocol": "graphql",
+      "api_base_url": "https://countries.example.com",
+      "requires_auth": false, "is_active": true
+    }
+  }'
+
+# 2. The endpoint stores the operation in body_template.query.
+#    {var} placeholders interpolate caller params just like a REST body.
+curl -s -X POST http://localhost:3000/api/v1/ai/data_sources/countries-gql/endpoints \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "endpoint": {
+      "name": "Country by code", "slug": "country-by-code",
+      "http_method": "POST", "path_template": "/graphql",
+      "body_template": {
+        "query": "query($code:ID!){ country(code:$code){ name capital } }",
+        "variables": { "code": "{code}" }
+      },
+      "response_format": "json",
+      "response_mapping": { "records_path": "data.country" }
+    }
+  }'
+```
+
+How `GraphqlAdapter` builds the request and parses the reply:
+
+- **The document (`query`)** is sourced in order: caller `params["query"]` → `body_template["query"]` → (legacy) `query_template["query"]`. A blank document is sent as-is (the server returns an error the pipeline records) rather than raising.
+- **Variables** are the union of: `body_template["variables"]` (interpolated with the same whole-value/embedded `{var}` rules as a REST body), every *other* loose caller param folded in as a top-level variable (so `{ code: "US" }` becomes a GraphQL variable without nesting under `variables`), and an explicit `params["variables"]` Hash (which wins). The reserved monitor hint key and the `query`/`variables` control keys are never leaked into the variable map.
+- **Records location**: an explicit `response_mapping` `records_path` (a.k.a. `root` / `data_path`) is a dotted path / JSON pointer resolved against the **whole** document (e.g. `"data.country"`). With no path the adapter applies the default GraphQL convention — descend into top-level `data`, and when `data` is a single-key object (`{ data: { field: … } }`), unwrap that one field so the records are its value. The located value is normalized to `Array<Hash>` (array → each element, hash → one record, scalar → `{ "value" => … }`). GraphQL `errors` never raise here.
+
+### An RSS / Atom source
+
+Set `protocol: "rss"` (or `"atom"` — they share `RssAdapter`). The endpoint is a plain **GET**; `path_template` (joined to `api_base_url`) is the feed URL. The outbound request is identical to generic REST — the adapter only overrides parsing:
+
+```bash
+curl -s -X POST http://localhost:3000/api/v1/ai/data_sources \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "data_source": {
+      "name": "Project Blog", "slug": "project-blog",
+      "source_type": "blog_feed", "category": "news",
+      "protocol": "rss",
+      "api_base_url": "https://blog.example.com",
+      "requires_auth": false, "is_active": true
+    }
+  }'
+
+curl -s -X POST http://localhost:3000/api/v1/ai/data_sources/project-blog/endpoints \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "endpoint": {
+      "name": "Feed", "slug": "feed",
+      "http_method": "GET", "path_template": "/feed.xml",
+      "response_format": "rss"
+    }
+  }'
+```
+
+`RssAdapter` delegates structural decoding to the existing XML decoder (which auto-locates `<item>`/`<entry>` and strips namespaces), then maps each feed item onto a **canonical record** with stable keys regardless of dialect:
+
+| Canonical key | Sourced from (first non-blank) |
+|---|---|
+| `title` | `<title>` |
+| `link` | RSS `<link>` text, or Atom `<link href="…">` — when multiple links exist, the `rel="alternate"` one is preferred |
+| `published` | `pubDate` / `published` / `updated` / `dc:date` |
+| `summary` | `description` / `summary` / `content` / `content:encoded` |
+| `guid` | RSS `<guid>`, or Atom `<id>` |
+| `id` | alias of `guid` (for callers keying on `id`) |
+| `raw` | the full decoded item Hash — nothing is dropped (`<author>`, `<category>`, media extensions stay queryable) |
+
+An omitted feed field is simply **absent** from the record (never a fabricated nil). An explicit `response_mapping` `record_node` / `record_xpath` still flows through to the decoder, so a non-standard item element still yields canonical records.
+
+> **XML decoder fix (Phase 4).** Repeated sibling elements (e.g. two Atom `<link>`s on one entry) now aggregate via `Array.wrap` into an array of hashes. The previous `Array(...)` exploded a hash into `[[k,v],…]` pairs, corrupting attributed repeated nodes; the canonical `link` preference for `rel="alternate"` relies on this fix.
+
+## Configuring outbound pagination (Phase 4)
+
+When an upstream paginates a result set across multiple physical requests, set the endpoint's **`pagination`** config (jsonb, permitted as `pagination: {}`) and the pipeline walks the pages for you, concatenating the decoded canonical records into a **single** `FetchEnvelope` — the envelope shape is unchanged, just with more records. **Pagination is OFF by default**: an empty/blank `pagination` (the column default `{}`) runs the ordinary single request, byte-for-byte the pre-Phase-4 behavior. It turns on only when `pagination` is a non-blank Hash whose `type` is one of the four supported strategies.
+
+`QueryService#perform_fetch` branches to the paginated walk (`Ai::DataSources::Paginator`) only when `pagination_enabled?` — a non-blank Hash with a `type` in `Paginator::SUPPORTED_TYPES`.
+
+### The four strategies
+
+| `type` | Extra config keys | How the next page is found |
+|---|---|---|
+| `offset` | `offset_param` (default `offset`), `limit_param`, `limit`/`page_size` | advance `offset` by the page size each request (or by the page's record count when no limit is set) |
+| `page` | `page_param` (default `page`), `start_page` (default 1), `limit_param`, `limit`/`page_size` | increment the page number from `start_page` |
+| `cursor` | `cursor_param` (default `cursor`), `cursor_path` | read the next cursor from the response **body** at `cursor_path` (dotted path / JSON pointer); stops when the cursor is absent/blank/unchanged |
+| `link` | — | follow the RFC 5988 `Link` header `rel="next"` URL (no param math); stops when no `rel="next"` is present |
+
+Plus the universal cap key: **`max_pages`** (clamped to `[1, HARD_MAX_PAGES]`; see the operational limits below).
+
+```bash
+# Offset pagination, 50 per page, at most 5 pages:
+curl -s -X PATCH \
+  http://localhost:3000/api/v1/ai/data_sources/my-api/endpoints/list \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "endpoint": {
+      "pagination": {
+        "type": "offset",
+        "offset_param": "offset",
+        "limit_param": "limit",
+        "limit": 50,
+        "max_pages": 5
+      }
+    }
+  }'
+
+# Cursor pagination — next cursor lives at meta.next_cursor in the JSON body:
+#   "pagination": { "type": "cursor", "cursor_param": "after", "cursor_path": "meta.next_cursor" }
+# Link-header pagination — just follow rel="next":
+#   "pagination": { "type": "link" }
+```
+
+The walk halts on the first of: `max_pages` reached, a page that returned **zero** records (run off the end), the strategy's own terminator (no next cursor / no next link), the **per-page quota veto** (`check_quota!` is re-evaluated before each subsequent page — a partial result is kept), or a failed page (non-2xx / transport — the records gathered so far are returned and the real outcome is recorded). The aggregate fetch adds a `pagination` block to provenance (`type`, `pages_fetched`, `stopped_reason`, `truncated`) and `paginated_<N>_pages` (plus `pagination_truncated` when it hit the cap) to `provenance.anomalies`. Per-page operational limits are in the [operations runbook](../operations/data-sources.md#outbound-pagination-operational-limits-phase-4).
 
 ## Writing a custom adapter, decoder, or signer
 

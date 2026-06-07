@@ -2,7 +2,7 @@
 
 > Status: active
 
-> How a declarative catalog, a template-driven endpoint layer, and a governed fetch pipeline let agents pull from any external API — where adding a new source is configuration, not code — plus the Phase-2a layer that lets agents *discover* the right source by intent and *evaluate* how much to trust it, the Phase-2b layer that adds per-endpoint **data quality, schema-drift detection, and contracts** with zero overhead until you opt in, and the Phase-3 layer that turns one-shot fetches into **pull-based streaming & monitoring** — a server-side poll loop that change-detects, warms the cache, and signals agents on change, plus opt-in **stale-while-revalidate / stale-if-error** serving.
+> How a declarative catalog, a template-driven endpoint layer, and a governed fetch pipeline let agents pull from any external API — where adding a new source is configuration, not code — plus the Phase-2a layer that lets agents *discover* the right source by intent and *evaluate* how much to trust it, the Phase-2b layer that adds per-endpoint **data quality, schema-drift detection, and contracts** with zero overhead until you opt in, and the Phase-3 layer that turns one-shot fetches into **pull-based streaming & monitoring** — a server-side poll loop that change-detects, warms the cache, and signals agents on change, plus opt-in **stale-while-revalidate / stale-if-error** serving — and the Phase-4 layer that finishes the **generic framework**: a free-form `source_type` + `category` grouping, a protocol-keyed **adapter registry** (REST/custom, GraphQL, RSS/Atom), opt-in **outbound pagination**, and a nightly **schema-sync**.
 
 ## Table of Contents
 
@@ -21,15 +21,16 @@
 - [Discovery & Evaluation (Phase 2)](#discovery--evaluation-phase-2)
 - [Data quality, schema-drift & contracts (Phase 2b)](#data-quality-schema-drift--contracts-phase-2b)
 - [Streaming & Monitoring (Phase 3)](#streaming--monitoring-phase-3)
+- [Generic framework (Phase 4)](#generic-framework-phase-4)
 - [Phase boundaries](#phase-boundaries)
 - [Related concepts](#related-concepts)
 - [Materials previously at](#materials-previously-at)
 
 ## What this concept covers
 
-A **data source** is a registered external API — NOAA, Open-Meteo, FRED, Yahoo Finance, ESPN, NewsAPI, or any `custom` HTTP source — that AI agents and workflows can pull from under platform governance. The data-source subsystem turns "an agent needs weather data" into a single audited, cached, SSRF-guarded, redacted fetch that returns canonical records plus a complete provenance record.
+A **data source** is a registered external API — NOAA, Open-Meteo, FRED, Yahoo Finance, ESPN, NewsAPI, a GraphQL/RSS endpoint, or any HTTP source under a free-form `source_type` label — that AI agents and workflows can pull from under platform governance. The data-source subsystem turns "an agent needs weather data" into a single audited, cached, SSRF-guarded, redacted fetch that returns canonical records plus a complete provenance record.
 
-The defining design principle is **a new source is config, not code**. A source is described by rows in the database (a catalog entry, its endpoints, its credentials) and three generic registries — protocol adapters, response decoders, and auth signers — pick the right behavior at runtime from those rows. There is zero per-source Ruby in the common case: the `rest`/`custom` protocols, every JSON/XML/CSV/NDJSON response shape, and the `none`/`api_key`/`bearer`/`aws_sigv4`/`hmac` auth schemes are all driven by stored templates and config. Adding a new bespoke protocol later means registering one class name in a registry; until then every unrecognized source degrades safely to the generic REST adapter and JSON decoder.
+The defining design principle is **a new source is config, not code**. A source is described by rows in the database (a catalog entry, its endpoints, its credentials) and three generic registries — protocol adapters, response decoders, and auth signers — pick the right behavior at runtime from those rows. There is zero per-source Ruby in the common case: the `rest`/`custom` protocols, every JSON/XML/CSV/NDJSON response shape, and the `none`/`api_key`/`bearer`/`aws_sigv4`/`hmac` auth schemes are all driven by stored templates and config. **Phase 4** completes the generic-framework arc: `source_type` becomes a free-form label (no enum), purpose-built `graphql`/`rss`/`atom` adapters ship alongside the generic REST fallback, outbound pagination becomes an opt-in endpoint config, and a nightly schema-sync keeps endpoint baselines current — see [Generic framework (Phase 4)](#generic-framework-phase-4). Adding a further bespoke protocol still means registering one class name in a registry; until then every unrecognized source degrades safely to the generic REST adapter and JSON decoder.
 
 This document is the canonical reference for how the catalog, endpoint templates, decoders, normalization, the fetch pipeline, the response cache, and the security model compose. The **operational** counterpart — how to register a source, rotate a credential, and troubleshoot a failing integration — lives in [`operations/data-sources.md`](../operations/data-sources.md).
 
@@ -60,11 +61,11 @@ flowchart LR
 
 | Registry | Lookup key | Map | Generic fallback | Contract |
 |----------|-----------|-----|------------------|----------|
-| `Ai::DataSources::Adapters::Registry` | `data_source.protocol` | `rest`, `custom` → `RestAdapter` | `RestAdapter` (any unknown/blank protocol) | `.for(data_source)` → adapter with `build_request(endpoint:, params:)` + `parse(raw_body, endpoint:)` |
+| `Ai::DataSources::Adapters::Registry` | `data_source.protocol` | `rest`/`custom` → `RestAdapter`; `graphql` → `GraphqlAdapter`; `rss`/`atom` → `RssAdapter` | `RestAdapter` (any unknown/blank protocol) | `.for(data_source)` → adapter with `build_request(endpoint:, params:)` + `parse(raw_body, endpoint:)` |
 | `Ai::DataSources::Auth::SignerRegistry` | `data_source.auth_scheme` | `none`, `api_key`, `bearer`, `aws_sigv4`, `hmac` | `NoneSigner` (no-op) | `.for(auth_scheme)` → signer with `sign!(conn_or_env, credential:, config:)` |
 | `Ai::DataSources::Decoders::Registry` | `endpoint.response_format` (cross-checked against the sniffed bytes) | `json`, `ndjson`, `xml`, `rss`, `atom`, `html`, `csv` | `Json` (unknown bodies are most often JSON-ish) | `.for(format:, content_type:)` → decoder with `decode(raw_body, endpoint:)` |
 
-"Custom" deliberately maps to the same generic `RestAdapter` as `rest` — it means "a REST source with a hand-rolled template", not "needs its own adapter class". A truly bespoke protocol (GraphQL, SOAP, gRPC-gateway) is a future opt-in: register a class name in `Adapters::Registry::ADAPTERS` and it takes over; absent that, the source still works via REST.
+"Custom" deliberately maps to the same generic `RestAdapter` as `rest` — it means "a REST source with a hand-rolled template", not "needs its own adapter class". The `graphql` and `rss`/`atom` protocols are the first purpose-built adapters registered this way (see [Generic framework (Phase 4)](#generic-framework-phase-4)); a further bespoke protocol (SOAP, gRPC-gateway) is the same opt-in: register a class name in `Adapters::Registry::ADAPTERS` and it takes over; absent that, the source still works via REST.
 
 ## Data model
 
@@ -132,7 +133,7 @@ erDiagram
 | `Ai::DataSourceCredential` | `ai_data_source_credentials` | Auth material. Rails-8 `encrypts` on `encrypted_api_key`/`encrypted_api_secret`, plus `vault_path` + `migrated_to_vault_at` for Vault-backed secrets. Tracks `consecutive_failures` for health. |
 | `Ai::DataSourceQuery` | `ai_data_source_queries` | The **query/audit log**: one row per governed fetch (including cache hits and blocked/rate-limited attempts). Every operator-visible field is redacted before write; the row is hash-chained into the audit log. |
 
-`source_type` is a fixed enum (`SOURCE_TYPES`: `noaa_ncei`, `noaa_gfs`, `noaa_observations`, `open_meteo`, `fred`, `yahoo_finance`, `espn`, `newsapi`, `custom`). `protocol` defaults to `rest`; `auth_scheme` defaults to `none`. JSON columns use lambda defaults per platform convention.
+As of **Phase 4**, `source_type` is a **free-form** label, not an enforced enum — validated for presence + length (≤ 50) + lowercase format (`/\A[a-z0-9_-]+\z/`), with the old list kept only as UI hints (`SUGGESTED_SOURCE_TYPES`, aliased to `SOURCE_TYPES` for backward compatibility). A nullable `category` column gives a coarse grouping (`weather`/`finance`/`sports`/`news`/…), and `protocol` (default `rest`) selects the adapter. Scopes `by_type` and `by_category` filter on the two. `auth_scheme` defaults to `none`. JSON columns use lambda defaults per platform convention. See [Generic framework (Phase 4)](#generic-framework-phase-4).
 
 ## Catalog → endpoints
 
@@ -798,6 +799,112 @@ The new permission **`ai.data_sources.stream`** ("Subscribe to AI data source en
 
 **Frontend.** `DataSourceMonitoringTab.tsx` surfaces a source's subscriptions (cadence, status, last poll, checksum/etag, failure count), backed by `DataSourcesApiService.getSubscriptions` / `createSubscription` / `deleteSubscription` and the `AiDataSourceSubscription` TypeScript type in `frontend/src/shared/types/ai.ts` (which mirrors the `serialize_subscription` summary).
 
+## Generic framework (Phase 4)
+
+Phases 1–3 made a source *config, not code* but kept three soft constraints: `source_type` was a fixed enum, the only adapter was REST, and every fetch was a single request. **Phase 4** removes all three — `source_type` goes free-form (with a `category` grouping), behavior is driven entirely by the **protocol-keyed adapter registry** (now with purpose-built GraphQL and RSS/Atom adapters beside the generic REST fallback), and pagination becomes an opt-in endpoint config. A nightly **schema-sync** rounds it out by keeping endpoint baselines current without an interactive fetch. It is **merged + verified** (877 specs green, smoke-confirmed) and, like every prior phase, **zero overhead until used** — a pre-4 source with the default `rest` protocol and no `pagination` config runs the byte-for-byte-identical single-request path.
+
+### Free-form `source_type` + `category`
+
+`Ai::DataSource#source_type` is no longer constrained to a known set. It is validated only for **presence**, **length** (≤ 50), and a lowercase **format** (`/\A[a-z0-9_-]+\z/`) so tokens stay normalized for the `by_type` scope and the knowledge-graph embedding text — but any new token (e.g. `crypto_prices`, `gov_data`) can be created without a code change. The legacy enum survives purely as UI guidance:
+
+```ruby
+SUGGESTED_SOURCE_TYPES = %w[noaa_ncei noaa_gfs noaa_observations open_meteo
+                            fred yahoo_finance espn newsapi custom].freeze
+SOURCE_TYPES = SUGGESTED_SOURCE_TYPES   # backward-compat alias for existing callers
+```
+
+A new nullable `category` column (string, ≤ 100) gives a coarse grouping orthogonal to the now-unbounded `source_type`. The migration (`20260606122000`) **backfills** it from the legacy tokens — `noaa_*` / `open_meteo` → `weather`, `fred` / `yahoo_finance` → `finance`, `espn` → `sports`, `newsapi` → `news` — and leaves `custom` (and any later free-form token) NULL. A **partial index** (`WHERE category IS NOT NULL`) keeps the `by_category` scope fast without indexing the unset tail. Both `scope :by_type` and `scope :by_category` are plain `where` filters; the REST list action filters on either.
+
+### The protocol-keyed adapter registry
+
+`Ai::DataSources::Adapters::Registry.for(data_source)` selects the adapter by the source's `protocol` column, normalize-with-fallback:
+
+| Protocol token | Adapter | Behavior |
+|----------------|---------|----------|
+| `rest`, `custom`, *(any unknown/blank)* | `RestAdapter` (generic fallback — **never raises** on an unmapped token) | Template-driven REST request, format-detected decode |
+| `graphql` | `GraphqlAdapter` | Single-URL `POST { query:, variables: }`; unwraps the GraphQL `data` envelope |
+| `rss`, `atom` | `RssAdapter` (subclass of `RestAdapter`) | GET feed → canonical item records |
+
+Both new adapters honor the same `build_request(endpoint:, params:)` / `parse(raw_body, endpoint:)` contract as `RestAdapter`, so the rest of the `QueryService` pipeline (signing, SSRF guard, decode/normalize, provenance) is unchanged.
+
+**`GraphqlAdapter`** (`adapters/graphql_adapter.rb`, `< Base`). GraphQL is a single-endpoint POST-only protocol, so `build_request` always emits a `POST` to the endpoint's `path_template` with a JSON body of `{ "query" => …, "variables" => … }` and no query string. The operation document is sourced, in order, from `params["query"]` → `body_template["query"]` → `query_template["query"]` (legacy convenience); variables are the union of `body_template["variables"]` (interpolated like a REST body) ← every *other* caller param folded in as a top-level variable ← an explicit `params["variables"]` Hash (which wins). The reserved `__conditional_etag` monitor hint and the `query`/`variables` control keys never leak into the variables map. `parse` decodes the JSON envelope and locates records via `response_mapping["records_path"]` (a dotted path / JSON pointer against the whole document) when set; **otherwise** it applies the GraphQL convention — descend into top-level `data`, and when `data` is a single-key object (`{ data: { field: … } }`) unwrap that one field so the records are its value. The located node is coerced to `Array<Hash>` with the same rules as the JSON decoder. GraphQL `errors` never raise — a body with errors and null `data` yields `[]`, and `QueryService` records the HTTP/anomaly outcome.
+
+**`RssAdapter`** (`adapters/rss_adapter.rb`, `< RestAdapter`). Feeds are ordinary HTTP GETs, so `build_request` is inherited from `RestAdapter` unchanged — the adapter only overrides `parse`. It delegates structural decoding to the shared XML decoder (which already auto-locates `<item>`/`<entry>` nodes and namespace-strips), then maps each raw feed item onto a **canonical record** with stable keys, regardless of RSS-vs-Atom dialect:
+
+| Canonical key | Sourced from (first non-blank) |
+|---------------|--------------------------------|
+| `title` | `title` |
+| `link` | RSS `<link>` text, or Atom `<link href="…">` — **`rel="alternate"` preferred** when multiple `<link>`s are present |
+| `published` | `pubDate` / `published` / `updated` / `date` (namespaces already stripped, so `dc:date` arrives as `date`) |
+| `summary` | `description` / `summary` / `content` |
+| `guid` | RSS `<guid>`, or Atom `<id>` |
+| `id` | alias of `guid` (for callers keying on `id`) |
+| `raw` | the full decoded item — nothing is dropped |
+
+An operator's explicit `response_mapping["record_node"]` / `["record_xpath"]` still flows through to the XML decoder, so a non-standard item element still yields canonical records. Fields a feed omits are simply absent (never a fabricated nil).
+
+> **XML decoder fix (load-bearing for RSS/Atom).** Repeated sibling elements now aggregate via `Array.wrap` instead of `Array()`. `Array({"a"=>1})` *explodes* a Hash into `[["a",1]]`; `Array.wrap` keeps it `[{"a"=>1}]`. This is what lets multiple `<item>`s — or two Atom `<link rel=… href=…/>` elements on one entry — decode to a clean array of hashes (which the `rel="alternate"` link preference then walks).
+
+### Outbound pagination (opt-in)
+
+`Ai::DataSources::Paginator` (`paginator.rb`) walks an upstream's pages and concatenates the decoded canonical records into one set, so `QueryService` keeps returning **one** `FetchEnvelope` regardless of how many physical requests were needed. It is deliberately **I/O-free** — it never signs, dispatches, decodes, or touches quota itself; `QueryService` owns all of that and injects callbacks:
+
+```ruby
+Ai::DataSources::Paginator.new(
+  endpoint:, base_params:, fetch_page:, decode_page:, check_quota:, logger:
+).each_page
+# => { records:, pages_fetched:, first_response:, last_response:, stopped_reason:, truncated: }
+```
+
+`SUPPORTED_TYPES` are `offset` / `page` / `cursor` / `link`:
+
+| `pagination["type"]` | Advance | Stop |
+|----------------------|---------|------|
+| `offset` | `&<offset_param>=N&<limit_param>=L`; advance offset by limit | empty page / max pages |
+| `page` | `&<page_param>=N`; advance from `start_page` (default 1) | empty page / max pages |
+| `cursor` | `&<cursor_param>=C`, next cursor read from the decoded body at `cursor_path` | cursor absent/blank/unchanged |
+| `link` | follow the RFC 5988 `Link` header `rel="next"` URL | no `rel="next"` |
+
+Universal stop conditions: a page with zero records, the strategy's own terminator, the per-page **quota veto** (the partial result is kept), a failed page (non-2xx / transport — partial records returned, the real outcome surfaced), and a hard cap of **`HARD_MAX_PAGES = 20`** that clamps the endpoint's configured `max_pages` regardless of config.
+
+`QueryService#perform_fetch` branches on `pagination_enabled?` — true only when `endpoint.pagination` is a **non-blank Hash with a supported `type`**:
+
+- **OFF (the default):** `pagination` blank → the single-request path runs, producing a **byte-identical** `FetchEnvelope`.
+- **ON:** `perform_paginated_fetch` drives the page walk (each page through the same governed build → sign → SSRF-validate → circuit-breaker dispatch, with `check_quota!` honored before each subsequent page), concatenates the canonical records, then runs the **same** decode/normalize/provenance path over the combined set so the envelope shape is unchanged — just more records. Aggregate `pagination_provenance` (`{ type, pages_fetched, stopped_reason, truncated }`) is folded into provenance, and a `paginated_<N>_pages` anomaly (plus `pagination_truncated` when the hard cap is hit) is recorded.
+
+The endpoint column is jsonb default `{}` (migration `20260606122000`); a blank or garbage config is an explicit no-op rather than a single odd request.
+
+### Nightly schema-sync
+
+`Ai::DataSources::SchemaSyncService.new(account = nil)#sync(limit:)` is the **batch** counterpart to the inline `track_schema` drift recording: a cron tick that walks endpoints needing a schema refresh, samples each, infers a top-level-array JSON schema, and appends a version. It returns `{ synced:, errors: }`.
+
+```mermaid
+flowchart LR
+    Cron[AiDataSourceSchemaSyncJob<br/>cron 0 4 * * *] --> Tick["POST /internal/ai/data_sources/schema_sync_tick"]
+    Tick --> SVC[SchemaSyncService#sync]
+    SVC -->|due endpoints| Due["track_schema=TRUE<br/>OR response_schema blank<br/>on ACTIVE sources"]
+    Due --> Sample[governed QueryService fetch]
+    Sample --> Infer[infer array-root schema]
+    Infer --> Rec[SchemaDriftService#record_version!]
+    Infer -->|when response_schema blank| Seed[seed endpoint.response_schema]
+```
+
+- **Due selection** (filtered in SQL): an endpoint qualifies when `track_schema = TRUE` **OR** `response_schema` is blank (`NULL`/`{}`), and its source is **active**; account-scoped when an account is supplied.
+- **Sampling**: a **live governed `QueryService` fetch** (the same kill-flag / quota / cache / circuit-breaker / decode pipeline as any read) — the query log doesn't persist decoded payloads, so a real sample is required. The inferred schema (`{ type: array, items: { type: object, properties: {…} } }`, the same shape `QueryService#infer_schema` emits) feeds `SchemaDriftService#record_version!`, and when the endpoint has **no** `response_schema` yet the inferred schema is also **seeded** onto it (via `update_column`, off the audit/validation path) so subsequent fetches have a baseline.
+- **A throttled / blocked / errored sample is a skip, not a hard error** — a busy source doesn't spam the error list (mirrors `MonitorService#tick`). Per-endpoint failures are collected and never abort the batch.
+
+The cron path is **pull, never push** like the Phase-3 monitor: the standalone worker job `AiDataSourceSchemaSyncJob` (cron `0 4 * * *`, `worker/config/sidekiq.yml`) does nothing but POST the internal tick — all sampling/inference/recording is server-side. The internal route is `POST /api/v1/internal/ai/data_sources/schema_sync_tick` → `Api::V1::Internal::Ai::DataSourcesController#schema_sync_tick` (worker-only, mTLS), which calls `SchemaSyncService.new.sync(limit:)` across all accounts.
+
+### Surfaces
+
+Phase 4 wires the new fields through the existing REST surface without new routes:
+
+- `data_source_params` permits `:category` and `:protocol`; `serialize_data_source` emits both on every source response; the list action filters via `by_category(params[:category])` (alongside the existing `source_type` filter).
+- `endpoint_params` permits `pagination: {}`; `serialize_data_source_endpoint` emits `pagination`.
+- The frontend (`frontend/src/features/ai/data-sources/`) gets a free-form `source_type` input, a `category` field, a `protocol` selector, a category filter, and a pagination editor in create/edit; `sourceTypeLabels` humanizes unknown tokens.
+
+The full API contract for these fields, the pagination config shape, the `schema_sync_tick` route, and the GraphQL/RSS protocol behaviors is in [`reference/api/data-sources.md`](../reference/api/data-sources.md#phase-4-additions).
+
 ## Phase boundaries
 
 **Phase 1** is the governed-fetch foundation: catalog + endpoint templates, the three generic registries, decode/normalize, the full `QueryService` pipeline, the response cache, the security model, and the REST + MCP surfaces — all merged, migrated, and smoke-tested.
@@ -807,6 +914,8 @@ The new permission **`ai.data_sources.stream`** ("Subscribe to AI data source en
 **Phase 2b** (the [Data quality, schema-drift & contracts](#data-quality-schema-drift--contracts-phase-2b) section above) adds the per-endpoint observability layer: opt-in `SchemaDriftService` versioned history + breaking-drift signal, `QualityService` expectations/scoring/quarantine, the aggregate `ContractService` verdict, and `OpenApiImportService` introspection — with all three endpoint flags defaulting off (zero overhead until opted in). Merged, migrated (zeitwerk-clean), full suite green, drift smoke-confirmed.
 
 **Phase 3** (the [Streaming & Monitoring](#streaming--monitoring-phase-3) section above) adds the pull-based monitoring layer: the `Ai::DataSourceSubscription` cadence model (mirroring `DataConnector`, with `due_for_poll` including `"error"` for auto-recovery), the server-side `MonitorService` poll loop (worker `*/5` + `*/10` cron firing thin internal-tick triggers → governed `QueryService` fetch → checksum/etag change-detect → cache warm + `data_source_changed` stigmergic signal), and the opt-in per-endpoint stale-while-revalidate / stale-if-error serving (off by default). Merged and verified: migration applied, zeitwerk-clean, regression green, monitor loop smoke-confirmed.
+
+**Phase 4** (the [Generic framework](#generic-framework-phase-4) section above) finishes the generic-framework arc: free-form `source_type` + a backfilled `category` grouping (migration `20260606122000`), the protocol-keyed adapter registry with purpose-built `GraphqlAdapter` and `RssAdapter` (+ the XML-decoder `Array.wrap` fix), opt-in outbound pagination (`Paginator`, `HARD_MAX_PAGES 20`), and the nightly `SchemaSyncService` (cron `0 4 * * *` → `schema_sync_tick`). Off by default throughout — a pre-4 `rest`/no-pagination source is byte-for-byte unchanged. Merged + verified: 877 specs green, smoke-confirmed.
 
 Remaining out of scope:
 
@@ -825,6 +934,6 @@ Remaining out of scope:
 
 ## Materials previously at
 
-This is a new concept document for the Phase 1 Data Source feature, extended in place for Phase 2a (discovery + evaluation), Phase 2b (data quality, schema-drift & contracts), and Phase 3 (streaming & monitoring). It complements the pre-existing operational runbook at `docs/operations/data-sources.md` (which retains the register/rotate/troubleshoot procedures).
+This is a new concept document for the Phase 1 Data Source feature, extended in place for Phase 2a (discovery + evaluation), Phase 2b (data quality, schema-drift & contracts), Phase 3 (streaming & monitoring), and Phase 4 (the generic framework — free-form `source_type` + category, the protocol adapter registry, outbound pagination, schema-sync). It complements the pre-existing operational runbook at `docs/operations/data-sources.md` (which retains the register/rotate/troubleshoot procedures).
 
-_Last verified: 2026-06-06_
+_Last verified: 2026-06-06 (Phase 4: generic framework)_
