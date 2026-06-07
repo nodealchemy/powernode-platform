@@ -15,6 +15,8 @@ module Ai
              foreign_key: "ai_data_source_id", dependent: :destroy
     has_many :queries, class_name: "Ai::DataSourceQuery",
              foreign_key: "ai_data_source_id", dependent: :destroy
+    has_many :subscriptions, class_name: "Ai::DataSourceSubscription",
+             foreign_key: "ai_data_source_id", dependent: :destroy
     has_one :knowledge_graph_node, class_name: "Ai::KnowledgeGraphNode",
             foreign_key: "ai_data_source_id", dependent: :nullify
 

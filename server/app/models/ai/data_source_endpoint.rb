@@ -15,6 +15,8 @@ module Ai
              foreign_key: "ai_data_source_endpoint_id", dependent: :destroy
     has_many :expectations, class_name: "Ai::DataSourceExpectation",
              foreign_key: "ai_data_source_endpoint_id", dependent: :destroy
+    has_many :subscriptions, class_name: "Ai::DataSourceSubscription",
+             foreign_key: "ai_data_source_endpoint_id", dependent: :destroy
 
     # Auditable resolves the account through the parent source (this model has no
     # direct account association). Without this, AuditLog.create! fails its
