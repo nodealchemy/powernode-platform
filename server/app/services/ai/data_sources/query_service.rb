@@ -109,6 +109,14 @@ module Ai
         # exactly once here in call, never inside the cache block.
         result = fetch_via_cache
 
+        # (8.5) stale-if-error: when the live fetch failed with a transient
+        # upstream fault (timeout / 5xx / transport / breaker-OPEN) and the
+        # endpoint opts into stale_if_error_seconds, serve the last-known-good
+        # cached payload (flagged) within that window instead of failing. Policy
+        # rejections (blocked / rate_limited) and successes are passed through
+        # untouched, so the default FetchEnvelope path is unaffected.
+        result = maybe_serve_stale_if_error(result)
+
         # (9) persist (redacted) + audit-chain + cost; (10) cache + return.
         finalize(result)
       rescue StandardError => e
@@ -268,6 +276,92 @@ module Ai
         Rails.logger.warn("[DataSources::QueryService] cache layer error, bypassing cache: #{e.message}")
         # Fall back to a direct fetch; finalize() still persists it once.
         perform_fetch
+      end
+
+      # Transient upstream fault statuses eligible for a stale-if-error serve.
+      # Policy rejections (blocked / rate_limited) are deliberately excluded — a
+      # blocked or throttled request is a decision, not an upstream outage.
+      STALE_IF_ERROR_STATUSES = [STATUS_ERROR, STATUS_TIMEOUT].freeze
+
+      # When the live fetch failed transiently and the endpoint opts into
+      # stale_if_error_seconds, swap the failure for the last-known-good cached
+      # payload within that window. The substituted result is flagged
+      # (served_stage: "stale_if_error", stale_if_error: true, success: true) so
+      # downstream persistence/provenance record an honest "served stale on
+      # error" outcome rather than a fresh success. OFF (no-op) when the column is
+      # nil, when no qualifying failure occurred, or when no stale entry exists.
+      def maybe_serve_stale_if_error(result)
+        return result unless result.is_a?(Hash)
+        return result if result[:success]
+        return result if result[:from_cache]
+        return result unless STALE_IF_ERROR_STATUSES.include?(result[:status])
+
+        window = stale_if_error_window
+        return result unless window.positive?
+
+        stale = ResponseCacheService.read_stale(
+          data_source: data_source, endpoint: endpoint, params: cache_params
+        )
+        return result unless stale.is_a?(Hash)
+        return result if stale[:payload].blank?
+        # A still-fresh entry would have satisfied the cache layer; if we are here
+        # with a non-expired entry, the failure is unrelated to staleness — pass
+        # the failure through rather than masking it with a fresh value.
+        return result unless stale[:hard_expired]
+        # Only serve within the configured stale-if-error window, measured from
+        # the moment the entry went stale (past the hard expiry).
+        return result if stale[:stale_age_seconds].to_i > window
+
+        build_stale_if_error_result(stale, result)
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::QueryService] stale-if-error serve failed for #{safe_slug}: #{e.message}")
+        result
+      end
+
+      def stale_if_error_window
+        return 0 unless endpoint.respond_to?(:stale_if_error_seconds)
+
+        value = endpoint.stale_if_error_seconds
+        value.to_i.positive? ? value.to_i : 0
+      rescue StandardError
+        0
+      end
+
+      # Reconstruct a served result from a stale cached payload after a transient
+      # upstream error. Flagged stale_if_error so it never re-writes the cache
+      # (finalize gates write_cache on a FRESH success) and is auditable as a
+      # degraded serve.
+      def build_stale_if_error_result(stale, failed_result)
+        payload = stale[:payload]
+        data = payload.is_a?(Hash) ? (payload["data"] || payload[:data] || []) : []
+        prov = if payload.is_a?(Hash)
+                 (payload["provenance"] || payload[:provenance] || {}).deep_symbolize_keys
+               else
+                 {}
+               end
+        prov = prov.merge(
+          from_cache: true,
+          stale_if_error: true,
+          cache_age_seconds: stale[:age_seconds].to_i,
+          stale_age_seconds: stale[:stale_age_seconds].to_i,
+          served_on_error: failed_result[:status],
+          anomalies: (Array(prov[:anomalies]) + ["stale_if_error"]).uniq
+        )
+        @anomalies = Array(prov[:anomalies]).map(&:to_s)
+
+        {
+          success: true,
+          status: STATUS_CACHED,
+          http_status: nil,
+          data: data,
+          provenance: prov,
+          raw_body: nil,
+          bytes_in: 0,
+          error: nil,
+          redacted_snippet: nil,
+          from_cache: true,
+          served_stage: "stale_if_error"
+        }
       end
 
       # Rebuild an internal result Hash from a cached payload, flagged from_cache so
@@ -763,6 +857,11 @@ module Ai
 
         # (9) persist the query row with everything REDACTED before it touches the
         # database, linked into the Audit::LogIntegrityService SHA256 hash chain.
+        # Served stage: an explicit override (e.g. "stale_if_error" /
+        # "stale_while_revalidate") wins; otherwise a cache hit is "cache" and a
+        # live fetch is "fresh".
+        served_stage = result[:served_stage] || (from_cache ? "cache" : "fresh")
+
         query_row = persist_query(
           status: result[:status],
           http_status: result[:http_status],
@@ -771,7 +870,7 @@ module Ai
           bytes_in: result[:bytes_in].to_i,
           error: result[:error],
           cached: from_cache,
-          served_stage: from_cache ? "cache" : "fresh",
+          served_stage: served_stage,
           redacted_snippet: result[:redacted_snippet]
         )
 

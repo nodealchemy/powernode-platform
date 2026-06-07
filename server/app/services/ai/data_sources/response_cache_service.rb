@@ -66,18 +66,35 @@ module Ai
           entry = read_entry(key)
 
           if entry && !should_early_refresh?(entry)
-            record_hit(data_source)
-            return entry[:payload]
+            # When SWR is enabled the entry may have been kept in Redis past its
+            # hard expiry (extended TTL). A still-fresh entry (within hard TTL) is
+            # a normal hit; a hard-expired entry inside the SWR grace window is
+            # served stale while a background refresh repopulates it (so the next
+            # caller gets a fresh value). Outside any grace window read_entry would
+            # have returned nil (Redis expired the key), so we never serve beyond
+            # the window.
+            if hard_expired?(entry)
+              if swr_window(endpoint).positive?
+                record_hit(data_source)
+                schedule_background_refresh(data_source, endpoint, params)
+                return entry[:payload]
+              end
+              # SWR off: treat the hard-expired entry as a miss and recompute.
+            else
+              record_hit(data_source)
+              return entry[:payload]
+            end
           end
 
           ttl = ttl_for(endpoint)
+          grace = grace_window(endpoint)
 
           # Try to become the single recomputing caller for this key.
           if acquire_lock(key)
             begin
-              record_miss(data_source) unless entry
+              record_miss(data_source) unless entry && !hard_expired?(entry)
               payload, delta = timed { block.call }
-              write_entry(key, payload, ttl: ttl, delta: delta)
+              write_entry(key, payload, ttl: ttl, delta: delta, grace: grace)
               payload
             ensure
               release_lock(key)
@@ -130,6 +147,51 @@ module Ai
           nil
         end
 
+        # Stale-aware read for the SWR / stale-if-error policies.
+        #
+        # Returns a flagged descriptor instead of the bare payload:
+        #   { payload:, stale:, hard_expired:, age_seconds:, stale_age_seconds: }
+        # or nil on miss.
+        #
+        # The stored entry is kept in Redis past its hard expiry by up to
+        # max(stale_while_revalidate_seconds, stale_if_error_seconds) (see
+        # grace_window), so a reader can distinguish:
+        #   - hard_expired:false -> fresh (within hard TTL)
+        #   - hard_expired:true  -> stale (in the grace window); caller decides
+        #     whether to serve it (SWR while refreshing / stale-if-error on fault).
+        #
+        # age_seconds        = total age since the entry was written.
+        # stale_age_seconds  = seconds elapsed PAST the hard expiry (0 while fresh).
+        #     The stale-if-error / SWR windows are measured against this value, per
+        #     the HTTP Cache-Control stale-* semantics (the window starts when the
+        #     entry becomes stale, not when it was written).
+        #
+        # Does NOT count toward hit/miss metrics — it is a side-channel read used
+        # only by the stale policies, not the primary fetch path.
+        def read_stale(data_source:, endpoint:, params: {})
+          return nil unless cache_enabled?(data_source)
+
+          key = build_cache_key(data_source, endpoint, params)
+          entry = read_entry(key)
+          return nil unless entry
+
+          now_ms = (Time.now.to_f * 1000).to_i
+          hard_expired = entry[:expiry].positive? && now_ms >= entry[:expiry]
+          age_ms = entry[:expiry].positive? ? (now_ms - (entry[:expiry] - hard_ttl_ms(endpoint))) : 0
+          stale_age_ms = hard_expired ? (now_ms - entry[:expiry]) : 0
+
+          {
+            payload: entry[:payload],
+            stale: hard_expired,
+            hard_expired: hard_expired,
+            age_seconds: [(age_ms / 1000), 0].max,
+            stale_age_seconds: [(stale_age_ms / 1000), 0].max
+          }
+        rescue => e
+          Rails.logger.error "[ResponseCache] read_stale failed: #{e.message}"
+          nil
+        end
+
         # Raw write with explicit TTL (seconds). Stores the XFetch metadata
         # (delta defaults to 0 for externally-written entries) alongside the
         # payload. Returns true on success.
@@ -138,7 +200,7 @@ module Ai
 
           key = build_cache_key(data_source, endpoint, params)
           ttl_seconds = (ttl || ttl_for(endpoint)).to_i
-          write_entry(key, payload, ttl: ttl_seconds, delta: 0.0)
+          write_entry(key, payload, ttl: ttl_seconds, delta: 0.0, grace: grace_window(endpoint))
           true
         rescue => e
           Rails.logger.error "[ResponseCache] write failed: #{e.message}"
@@ -239,11 +301,17 @@ module Ai
           nil
         end
 
-        def write_entry(key, payload, ttl:, delta:)
+        # Stores the payload with a HARD expiry epoch ("e") of now + ttl, but
+        # keeps the Redis key alive for ttl + grace seconds so a stale-while-
+        # revalidate / stale-if-error reader can still find it after the hard
+        # expiry. With grace 0 (SWR/SIE off) the Redis TTL equals the hard TTL,
+        # so the legacy behaviour is byte-for-byte preserved.
+        def write_entry(key, payload, ttl:, delta:, grace: 0)
           ttl_seconds = [ttl.to_i, 1].max
+          grace_seconds = [grace.to_i, 0].max
           expiry_ms = (Time.now.to_f * 1000).to_i + (ttl_seconds * 1000)
           envelope = { "p" => payload, "d" => delta.to_f, "e" => expiry_ms }
-          redis.setex(key, ttl_seconds, envelope.to_json)
+          redis.setex(key, ttl_seconds + grace_seconds, envelope.to_json)
         end
 
         # --- XFetch probabilistic early refresh -------------------------------
@@ -339,6 +407,83 @@ module Ai
         def ttl_for(endpoint)
           ttl = endpoint.respond_to?(:cache_ttl_seconds) ? endpoint.cache_ttl_seconds : nil
           (ttl && ttl.to_i.positive?) ? ttl.to_i : DEFAULT_TTL.to_i
+        end
+
+        # --- Stale-while-revalidate / stale-if-error windows ------------------
+
+        # The hard TTL in milliseconds (used by read_stale to back out the entry
+        # age from the stored hard-expiry epoch).
+        def hard_ttl_ms(endpoint)
+          ttl_for(endpoint) * 1000
+        end
+
+        # True when the entry has passed its HARD expiry (the freshness boundary),
+        # regardless of how long the Redis key itself is kept around for grace.
+        def hard_expired?(entry)
+          return false unless entry && entry[:expiry].positive?
+
+          (Time.now.to_f * 1000).to_i >= entry[:expiry]
+        end
+
+        # SWR window (seconds) declared on the endpoint; 0 when unset/disabled.
+        def swr_window(endpoint)
+          window_column(endpoint, :stale_while_revalidate_seconds)
+        end
+
+        # Stale-if-error window (seconds) declared on the endpoint; 0 when unset.
+        def sie_window(endpoint)
+          window_column(endpoint, :stale_if_error_seconds)
+        end
+
+        # The Redis key is kept alive past the hard expiry by the LARGER of the
+        # SWR / SIE windows so either policy can still find the entry. 0 keeps the
+        # legacy behaviour (Redis TTL == hard TTL).
+        def grace_window(endpoint)
+          [swr_window(endpoint), sie_window(endpoint)].max
+        end
+
+        def window_column(endpoint, column)
+          return 0 unless endpoint.respond_to?(column)
+
+          value = endpoint.public_send(column)
+          value.to_i.positive? ? value.to_i : 0
+        rescue StandardError
+          0
+        end
+
+        # Trigger a background refresh of a stale-but-served entry. Enqueues the
+        # server-side monitor tick via the worker indirection is overkill here, so
+        # we recompute inline on a detached thread guarded by the singleflight
+        # lock: only one refresher runs per key, and a failure is swallowed (the
+        # stale value was already served to the caller). The actual fetch is owned
+        # by the caller's block on the next fetch; here we simply best-effort warm
+        # by clearing the early-refresh pressure — the next fetch repopulates. To
+        # avoid coupling the cache to QueryService, we delegate the real refresh to
+        # MonitorService when available, else no-op (the entry still serves until
+        # its grace window lapses).
+        def schedule_background_refresh(data_source, endpoint, params)
+          return unless defined?(Ai::DataSources::MonitorService)
+
+          refresh_key = lock_key(build_cache_key(data_source, endpoint, params) + ":swr")
+          # Only one background refresh per key per grace window.
+          return unless redis.set(refresh_key, "1", nx: true, px: LOCK_TTL_SECONDS * 1000)
+
+          Thread.new do
+            begin
+              # Detached thread: check out (and release) its own AR connection so the
+              # SWR refetch's DB work doesn't leak/exhaust the pool under load.
+              ActiveRecord::Base.connection_pool.with_connection do
+                Ai::DataSources::MonitorService.new(data_source.respond_to?(:account) ? data_source.account : nil)
+                                               .refresh!(data_source: data_source, endpoint: endpoint, params: params)
+              end
+            rescue StandardError => e
+              Rails.logger.warn "[ResponseCache] background SWR refresh failed: #{e.message}"
+            ensure
+              redis.del(refresh_key) rescue nil
+            end
+          end
+        rescue StandardError => e
+          Rails.logger.warn "[ResponseCache] could not schedule SWR refresh: #{e.message}"
         end
 
         def id_of(data_source)
