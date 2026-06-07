@@ -529,6 +529,12 @@ module Ai
         "data_source_install_template" => "Ai::Tools::DataSourceTool",
         "data_source_config_versions" => "Ai::Tools::DataSourceTool",
         "data_source_rollback_config" => "Ai::Tools::DataSourceTool",
+        # AI data sources — Phase 4b-3 multi-source coordination (reconcile/failover/
+        # replay) + RAG ingestion bridge (fetch -> embed into a knowledge base)
+        "data_source_reconcile" => "Ai::Tools::DataSourceTool",
+        "data_source_failover_query" => "Ai::Tools::DataSourceTool",
+        "data_source_replay" => "Ai::Tools::DataSourceTool",
+        "data_source_ingest_to_kb" => "Ai::Tools::DataSourceTool",
         # Docker infrastructure management — Swarm stacks
         "docker_list_stacks" => "Ai::Tools::DockerStackTool",
         "docker_get_stack" => "Ai::Tools::DockerStackTool",

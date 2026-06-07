@@ -42,7 +42,11 @@ module Ai
         "data_source_delete" => "ai.data_sources.delete",
         "data_source_import" => "ai.data_sources.create",
         "data_source_install_template" => "ai.data_sources.create",
-        "data_source_rollback_config" => "ai.data_sources.manage"
+        "data_source_rollback_config" => "ai.data_sources.manage",
+        # RAG ingestion WRITES Ai::Document rows + embeddings into a knowledge base,
+        # so it is a managed mutation: gated by ai.data_sources.manage and falls back
+        # to a proposal when the agent lacks it (mirrors data_source_rollback_config).
+        "data_source_ingest_to_kb" => "ai.data_sources.manage"
       }.freeze
 
       READ_ACTIONS = %w[
@@ -51,6 +55,14 @@ module Ai
         data_source_discover data_source_provenance data_source_impact
         data_source_schema_history data_source_quality data_source_contract
         data_source_export data_source_list_templates data_source_config_versions
+        data_source_replay
+      ].freeze
+
+      # QUERY-permission actions: a governed external fetch (data_source_query) plus
+      # the multi-source coordinators that fetch + merge / fetch + failover. All
+      # require ai.data_sources.query because they exercise the upstream fetch path.
+      QUERY_ACTIONS = %w[
+        data_source_query data_source_reconcile data_source_failover_query
       ].freeze
 
       # Phase 2b introspection creates endpoints from an OpenAPI spec, so it is a
@@ -65,6 +77,10 @@ module Ai
       # rather than filing a proposal like the model-mutation actions.
       INVALIDATE_CACHE_ACTION = "data_source_invalidate_cache"
       INVALIDATE_CACHE_PERMISSION = "ai.data_sources.update"
+
+      # Cap on multi-source reconcile/failover targets per call — bounds the outbound
+      # fan-out a single MCP request can trigger.
+      MAX_TARGETS = 25
 
       def self.definition
         {
@@ -99,7 +115,16 @@ module Ai
             rate_limits: { type: "object", required: false, description: "Rate limits hash (create/update)" },
             manifest: { type: "object", required: false, description: "Credential-free config manifest (data_source_import)" },
             template_slug: { type: "string", required: false, description: "Template catalog slug (data_source_install_template)" },
-            version: { type: "integer", required: false, description: "Config version number to restore (data_source_rollback_config)" }
+            version: { type: "integer", required: false, description: "Config version number to restore (data_source_rollback_config)" },
+            # Phase 4b-3 multi-source coordination + RAG ingestion bridge
+            targets: { type: "array", required: false,
+                       description: "Ordered list of { data_source_id, endpoint_id } targets (data_source_reconcile / data_source_failover_query)" },
+            key: { type: "string", required: false,
+                   description: "Canonical key field shared across sources for an exact-match merge (data_source_reconcile / data_source_ingest_to_kb dedup)" },
+            strategy: { type: "string", required: false,
+                        description: "Reconciliation merge strategy: first_wins|last_wins|merge (data_source_reconcile; default last_wins)" },
+            knowledge_base_id: { type: "string", required: false,
+                                 description: "Target knowledge base UUID for RAG ingestion (data_source_ingest_to_kb)" }
           }
         }
       end
@@ -333,6 +358,61 @@ module Ai
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" },
               version: { type: "integer", required: true, description: "Config version NUMBER to restore" }
             }
+          },
+          # ── Phase 4b-3 multi-source coordination + RAG ingestion bridge ──────
+          "data_source_reconcile" => {
+            description: "DETERMINISTIC multi-source merge: governed-fetch every target (Ai::DataSources::QueryService) " \
+                         "INDEPENDENTLY, collect each successful FetchEnvelope's records, then collapse them into one list " \
+                         "by EXACT canonical-key match via Ai::DataSources::ReconciliationService (strategy first_wins|" \
+                         "last_wins|merge). No cross-source SQL/join, no fuzzy entity resolution — exact key merge only. " \
+                         "Requires ai.data_sources.query (it fetches). Returns the merged records plus per-source status.",
+            parameters: {
+              targets: { type: "array", required: true,
+                         description: "Targets to fetch + merge; each { data_source_id, endpoint_id }" },
+              key: { type: "string", required: true, description: "Canonical key field name shared across the sources" },
+              strategy: { type: "string", required: false,
+                          description: "Merge strategy: first_wins|last_wins|merge (default last_wins)" },
+              params: { type: "object", required: false, description: "Query params forwarded to EVERY target fetch" }
+            }
+          },
+          "data_source_failover_query" => {
+            description: "Ordered FAILOVER across equivalent targets via Ai::DataSources::FailoverService#query: try each " \
+                         "{ data_source_id, endpoint_id } IN ORDER (primary first) through the full governed QueryService " \
+                         "pipeline and return the FIRST success; if all fail, return the last failure envelope. Requires " \
+                         "ai.data_sources.query. Returns the winning FetchEnvelope with failover provenance " \
+                         "(failover_used/failover_attempts/failover_source).",
+            parameters: {
+              targets: { type: "array", required: true,
+                         description: "Ordered targets (primary first); each { data_source_id, endpoint_id }" },
+              params: { type: "object", required: false, description: "Query params forwarded to every attempt" }
+            }
+          },
+          "data_source_replay" => {
+            description: "Forensic, side-effect-free REPLAY of a recorded fetch via Ai::DataSources::ReplayService#replay: " \
+                         "reconstruct a FetchEnvelope-shaped view from the redacted ai_data_source_queries audit row WITHOUT " \
+                         "any network call, signing, or credential resolution. The cached body (when still present and the " \
+                         "original params are supplied) is RE-MASKED for the current requester. Requires ai.data_sources.read.",
+            parameters: {
+              query_id: { type: "string", required: false, description: "ai_data_source_queries row UUID to replay" },
+              correlation_id: { type: "string", required: false, description: "Fetch correlation id to replay" },
+              params: { type: "object", required: false,
+                        description: "Original request params — supplied ONLY to recover the cached (re-masked) body" }
+            }
+          },
+          "data_source_ingest_to_kb" => {
+            description: "RAG ingestion bridge: governed-fetch a source+endpoint (Ai::DataSources::QueryService) then pipe the " \
+                         "canonical records into a knowledge base as embedded Ai::Document rows via " \
+                         "Ai::DataSources::RagIngestionService#ingest (source_type \"api\", incremental re-embed dedup by " \
+                         "record key). Requires ai.data_sources.manage (it writes documents/embeddings); agents lacking it " \
+                         "file a proposal. Returns the ingest counts (ingested/updated/skipped/capped/errors).",
+            parameters: {
+              data_source_id: { type: "string", required: true, description: "Data source UUID or slug to fetch from" },
+              endpoint_id: { type: "string", required: true, description: "Endpoint UUID or slug to fetch" },
+              knowledge_base_id: { type: "string", required: true, description: "Target knowledge base UUID" },
+              key: { type: "string", required: false,
+                     description: "Canonical record-key field for incremental re-embed dedup (optional)" },
+              params: { type: "object", required: false, description: "Query/path/body parameters for the fetch" }
+            }
           }
         }
       end
@@ -346,7 +426,7 @@ module Ai
         # mutation branch routes through the proposal fallback when unauthorized.
         if READ_ACTIONS.include?(action)
           return permission_denied(READ_PERMISSION) unless permission?(READ_PERMISSION)
-        elsif action == "data_source_query"
+        elsif QUERY_ACTIONS.include?(action)
           return permission_denied(QUERY_PERMISSION) unless permission?(QUERY_PERMISSION)
         elsif action == INTROSPECT_ACTION
           return permission_denied(MANAGE_PERMISSION) unless permission?(MANAGE_PERMISSION)
@@ -388,6 +468,10 @@ module Ai
         when "data_source_install_template" then install_template(params)
         when "data_source_config_versions" then list_config_versions(params)
         when "data_source_rollback_config" then rollback_config(params)
+        when "data_source_reconcile" then reconcile_sources(params)
+        when "data_source_failover_query" then failover_query(params)
+        when "data_source_replay" then replay_query(params)
+        when "data_source_ingest_to_kb" then ingest_to_kb(params)
         else error_result("Unknown action: #{action}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -540,6 +624,171 @@ module Ai
           health_status: ds.health_status,
           trust_signals: trust_signals(ds)
         )
+      end
+
+      # ----------------------------------------------------------------------
+      # Phase 4b-3 — multi-source coordination + RAG ingestion bridge
+      # ----------------------------------------------------------------------
+
+      # DETERMINISTIC multi-source reconciliation. Governed-fetch EVERY target
+      # independently through QueryService (each gets the full kill-flag/quota/
+      # governance/cache/SSRF/circuit-breaker/schema/redact/audit pipeline), collect
+      # the records from each SUCCESSFUL envelope into an ordered Array<Array<Hash>>,
+      # then collapse to one list by exact canonical-key match via
+      # ReconciliationService. Records a per-source status for EVERY target (including
+      # failures, which simply contribute no records) so the caller sees what merged.
+      def reconcile_sources(params)
+        targets = resolve_targets(params[:targets])
+        raise ArgumentError, "key is required" if params[:key].blank?
+
+        sets = []
+        sources = []
+        targets.each do |target|
+          envelope = fetch_envelope(target, params[:params])
+          sets << Array(envelope[:data]) if envelope[:success] == true
+          sources << source_fetch_status(target, envelope)
+        end
+
+        reconciled = Ai::DataSources::ReconciliationService.new(
+          key: params[:key].to_s,
+          strategy: params[:strategy].presence || Ai::DataSources::ReconciliationService::DEFAULT_STRATEGY
+        ).reconcile(sets)
+
+        success_result(
+          key: params[:key].to_s,
+          strategy: params[:strategy].presence || Ai::DataSources::ReconciliationService::DEFAULT_STRATEGY,
+          reconciled: reconciled,
+          reconciled_count: reconciled.size,
+          sources: sources,
+          source_count: sources.size,
+          succeeded_count: sources.count { |s| s[:success] }
+        )
+      end
+
+      # Ordered FAILOVER across equivalent targets. Resolve the ordered targets to
+      # { data_source:, endpoint: } model pairs and hand them to FailoverService,
+      # which tries each through the full governed QueryService pipeline and returns
+      # the FIRST success (or the last failure) with failover provenance stamped.
+      # Returns the FetchEnvelope verbatim — exactly like data_source_query — so the
+      # caller gets the full governed result plus the failover bookkeeping.
+      def failover_query(params)
+        pairs = resolve_target_pairs(params[:targets])
+
+        Ai::DataSources::FailoverService.new(
+          account: account, agent: agent, user: user
+        ).query(pairs, params: (params[:params] || {}).to_h)
+      end
+
+      # Forensic REPLAY of a recorded fetch from the redacted audit row — no network,
+      # no signing, no credential resolution. Resolve by query_id OR correlation_id;
+      # params (when supplied) let ReplayService recover + RE-MASK the cached body for
+      # the current requester. Returns the replayed FetchEnvelope-shaped Hash verbatim.
+      def replay_query(params)
+        ref = params[:query_id].presence || params[:correlation_id].presence
+        raise ArgumentError, "Provide query_id or correlation_id" if ref.blank?
+
+        Ai::DataSources::ReplayService.new(account: account, agent: agent).replay(
+          ref, params: params[:params].present? ? params[:params].to_h : nil
+        )
+      end
+
+      # RAG ingestion bridge: governed-fetch the source+endpoint, then pipe the
+      # canonical records into the knowledge base as embedded documents via
+      # RagIngestionService (which resolves the KB account-scoped, dedups incrementally
+      # by record key, and stamps source_type "api"). Only reached when authorized —
+      # otherwise #call routes to propose_mutation. Returns the ingest tally plus the
+      # originating fetch's status so the caller can tell a fetch failure from an
+      # empty-but-successful batch.
+      def ingest_to_kb(params)
+        ds = resolve_source(params[:data_source_id])
+        endpoint = resolve_endpoint(ds, params[:endpoint_id])
+        raise ArgumentError, "knowledge_base_id is required" if params[:knowledge_base_id].blank?
+
+        envelope = Ai::DataSources::QueryService.new(
+          data_source: ds, endpoint: endpoint,
+          params: (params[:params] || {}).to_h, agent: agent, user: user
+        ).call
+
+        tally = Ai::DataSources::RagIngestionService.new(account: account, user: user).ingest(
+          data_source: ds,
+          endpoint: endpoint,
+          knowledge_base: params[:knowledge_base_id],
+          records: Array(envelope[:data]),
+          key: params[:key].presence
+        )
+
+        success_result(
+          data_source: { id: ds.id, slug: ds.slug, name: ds.name },
+          endpoint: { id: endpoint.id, slug: endpoint.slug, name: endpoint.name },
+          knowledge_base_id: params[:knowledge_base_id],
+          fetch_status: envelope[:status],
+          fetch_success: envelope[:success],
+          ingest: tally
+        )
+      end
+
+      # Resolve a targets array (each { data_source_id, endpoint_id }, string OR symbol
+      # keys) into resolved { data_source:, endpoint: } model pairs, account-scoped via
+      # resolve_source/resolve_endpoint. Raises ArgumentError on an empty/malformed
+      # list so the caller gets a clear error rather than a silent no-op.
+      def resolve_targets(raw_targets)
+        raw = Array(raw_targets)
+        raise ArgumentError, "too many targets (max #{MAX_TARGETS})" if raw.size > MAX_TARGETS
+
+        list = raw.filter_map do |t|
+          h = t.respond_to?(:to_h) ? t.to_h : nil
+          next unless h.is_a?(Hash)
+
+          ds_id = h[:data_source_id] || h["data_source_id"]
+          ep_id = h[:endpoint_id] || h["endpoint_id"]
+          next if ds_id.blank? || ep_id.blank?
+
+          ds = resolve_source(ds_id)
+          { data_source: ds, endpoint: resolve_endpoint(ds, ep_id) }
+        end
+        raise ArgumentError, "targets is required (each { data_source_id, endpoint_id })" if list.empty?
+
+        list
+      end
+
+      # FailoverService accepts the same { data_source:, endpoint: } pairs — order is
+      # preserved (primary first). Reuses resolve_targets so resolution + account
+      # scoping + validation are identical to reconcile.
+      def resolve_target_pairs(raw_targets)
+        resolve_targets(raw_targets)
+      end
+
+      # Run ONE governed fetch for a resolved target pair. QueryService never raises
+      # (it maps every fault to a failure envelope), but guard defensively so a single
+      # bad target cannot abort the whole reconcile — degrade to a failure envelope.
+      def fetch_envelope(target, query_params)
+        Ai::DataSources::QueryService.new(
+          data_source: target[:data_source],
+          endpoint: target[:endpoint],
+          params: (query_params || {}).to_h,
+          agent: agent,
+          user: user
+        ).call
+      rescue StandardError => e
+        Rails.logger.warn("[DataSourceTool] reconcile fetch failed for #{target[:data_source]&.slug}: #{e.class}")
+        { success: false, data: [], status: "error", error: "fetch failed" }
+      end
+
+      # Compact per-source fetch outcome for a reconcile target — what merged and what
+      # did not. Never leaks anything but public identifiers + the envelope status.
+      def source_fetch_status(target, envelope)
+        ds = target[:data_source]
+        ep = target[:endpoint]
+        {
+          data_source_id: ds&.id,
+          data_source_slug: ds&.slug,
+          endpoint_id: ep&.id,
+          endpoint_slug: ep&.slug,
+          success: envelope[:success] == true,
+          status: envelope[:status],
+          record_count: Array(envelope[:data]).size,
+          error: envelope[:error]
+        }
       end
 
       # ----------------------------------------------------------------------
@@ -1023,6 +1272,9 @@ module Ai
           { action: "install_template", template_slug: params[:template_slug] }
         when "data_source_rollback_config"
           { action: "rollback_config", data_source_id: params[:data_source_id], version: params[:version] }
+        when "data_source_ingest_to_kb"
+          { action: "ingest_to_kb", data_source_id: params[:data_source_id],
+            endpoint_id: params[:endpoint_id], knowledge_base_id: params[:knowledge_base_id], key: params[:key] }
         else {}
         end
       end
