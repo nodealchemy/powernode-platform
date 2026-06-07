@@ -42,6 +42,13 @@ FactoryBot.define do
       sequence(:name) { |n| "Organization #{n}" }
     end
 
+    # Phase 2a: a node representing an Ai::DataSource. Link it to a source by
+    # passing data_source: or setting ai_data_source_id after build.
+    trait :data_source_node do
+      entity_type { "data_source" }
+      sequence(:name) { |n| "Data Source Node #{n}" }
+    end
+
     trait :merged do
       status { "merged" }
       association :merged_into, factory: :ai_knowledge_graph_node

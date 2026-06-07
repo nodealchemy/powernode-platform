@@ -55,6 +55,50 @@ RSpec.describe Ai::KnowledgeGraphNode, type: :model do
         expect(results).to include(node)
       end
     end
+
+    # Phase 2a: data_source-backed nodes.
+    describe ".data_source_nodes" do
+      it "returns only nodes whose entity_type is data_source" do
+        ds_node = create(:ai_knowledge_graph_node, :data_source_node, account: account)
+        other = create(:ai_knowledge_graph_node, account: account, entity_type: "technology")
+
+        expect(described_class.data_source_nodes).to include(ds_node)
+        expect(described_class.data_source_nodes).not_to include(other)
+      end
+    end
+
+    describe ".for_data_source" do
+      it "filters by the ai_data_source_id foreign key" do
+        data_source = create(:ai_data_source, account: account)
+        linked = create(:ai_knowledge_graph_node, :data_source_node, account: account)
+        linked.update_columns(ai_data_source_id: data_source.id)
+        unlinked = create(:ai_knowledge_graph_node, :data_source_node, account: account)
+
+        results = described_class.for_data_source(data_source.id)
+        expect(results).to include(linked)
+        expect(results).not_to include(unlinked)
+      end
+    end
+  end
+
+  describe "ENTITY_TYPES" do
+    it "includes data_source as a permitted entity type" do
+      expect(described_class::ENTITY_TYPES).to include("data_source")
+    end
+
+    it "permits a node with entity_type data_source" do
+      node = build(:ai_knowledge_graph_node, :data_source_node, account: account)
+      expect(node).to be_valid
+    end
+  end
+
+  describe "data_source association" do
+    it do
+      should belong_to(:data_source)
+        .class_name("Ai::DataSource")
+        .with_foreign_key("ai_data_source_id")
+        .optional
+    end
   end
 
   describe "#connected_nodes" do
