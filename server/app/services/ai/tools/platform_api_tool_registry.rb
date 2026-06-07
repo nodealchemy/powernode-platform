@@ -519,6 +519,8 @@ module Ai
         "data_source_create" => "Ai::Tools::DataSourceTool",
         "data_source_update" => "Ai::Tools::DataSourceTool",
         "data_source_delete" => "Ai::Tools::DataSourceTool",
+        # AI data sources — surrogate-key / scoped response-cache invalidation
+        "data_source_invalidate_cache" => "Ai::Tools::DataSourceTool",
         # Docker infrastructure management — Swarm stacks
         "docker_list_stacks" => "Ai::Tools::DockerStackTool",
         "docker_get_stack" => "Ai::Tools::DockerStackTool",

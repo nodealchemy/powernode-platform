@@ -49,6 +49,14 @@ module Ai
       # the action is fundamentally a write surface).
       INTROSPECT_ACTION = "data_source_introspect"
 
+      # Cache invalidation is an operational write: it clears cached responses for a
+      # source (optionally one endpoint) or a surrogate-key tag. Gated by the write
+      # grant ai.data_sources.update (ai.data_sources.manage also satisfies it). It
+      # is idempotent and reversible-by-refetch, so it hard-denies when unauthorized
+      # rather than filing a proposal like the model-mutation actions.
+      INVALIDATE_CACHE_ACTION = "data_source_invalidate_cache"
+      INVALIDATE_CACHE_PERMISSION = "ai.data_sources.update"
+
       def self.definition
         {
           name: "data_source_management",
@@ -69,6 +77,7 @@ module Ai
             dry_run: { type: "boolean", required: false, description: "Preview without persisting (data_source_introspect)" },
             poll_frequency: { type: "string", required: false, description: "Poll cadence (data_source_subscribe)" },
             subscription_id: { type: "string", required: false, description: "Subscription UUID (data_source_unsubscribe)" },
+            tag: { type: "string", required: false, description: "Surrogate cache tag to invalidate (data_source_invalidate_cache)" },
             name: { type: "string", required: false, description: "Data source name (create/update)" },
             slug: { type: "string", required: false, description: "Data source slug (create)" },
             source_type: { type: "string", required: false, description: "Source type (create/update)" },
@@ -246,6 +255,17 @@ module Ai
             parameters: {
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" }
             }
+          },
+          "data_source_invalidate_cache" => {
+            description: "Invalidate cached responses via Ai::DataSources::ResponseCacheService. With a tag, clears every entry under " \
+                         "that surrogate key (ResponseCacheService.invalidate_by_tag). Otherwise clears by scope: data_source + " \
+                         "endpoint_id clears that endpoint's variants, data_source alone clears all of the source's entries. " \
+                         "Requires ai.data_sources.update (or .manage).",
+            parameters: {
+              data_source_id: { type: "string", required: false, description: "Data source UUID or slug (required unless tag is given)" },
+              endpoint_id: { type: "string", required: false, description: "Endpoint UUID or slug to scope the invalidation" },
+              tag: { type: "string", required: false, description: "Surrogate cache tag (e.g. ds:<id>, endpoint:<id>, slug:<slug>); takes precedence over scope" }
+            }
           }
         }
       end
@@ -263,6 +283,12 @@ module Ai
           return permission_denied(QUERY_PERMISSION) unless permission?(QUERY_PERMISSION)
         elsif action == INTROSPECT_ACTION
           return permission_denied(MANAGE_PERMISSION) unless permission?(MANAGE_PERMISSION)
+        elsif action == INVALIDATE_CACHE_ACTION
+          # Operational write: ai.data_sources.update OR .manage. Hard-deny (no
+          # proposal fallback) since invalidation is idempotent and recoverable.
+          unless permission?(INVALIDATE_CACHE_PERMISSION) || permission?(MANAGE_PERMISSION)
+            return permission_denied(INVALIDATE_CACHE_PERMISSION)
+          end
         elsif STREAM_ACTIONS.include?(action)
           return permission_denied(STREAM_PERMISSION) unless permission?(STREAM_PERMISSION)
         elsif MUTATION_PERMISSIONS.key?(action)
@@ -288,6 +314,7 @@ module Ai
         when "data_source_create" then create_source(params)
         when "data_source_update" then update_source(params)
         when "data_source_delete" then delete_source(params)
+        when "data_source_invalidate_cache" then invalidate_cache(params)
         else error_result("Unknown action: #{action}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -682,6 +709,46 @@ module Ai
         else
           error_result(ds.errors.full_messages.presence&.join(", ") || "Failed to delete data source")
         end
+      end
+
+      # ----------------------------------------------------------------------
+      # cache invalidation (operational write)
+      # ----------------------------------------------------------------------
+
+      # Clear cached responses. A tag (surrogate key) invalidates every entry
+      # recorded under it; otherwise the (account-scoped) data source — optionally
+      # narrowed to one endpoint — is cleared by key prefix. Returns the action
+      # name, the permission that authorized it, the count invalidated, and the
+      # scope that was applied.
+      def invalidate_cache(params)
+        permission_used = permission?(INVALIDATE_CACHE_PERMISSION) ? INVALIDATE_CACHE_PERMISSION : MANAGE_PERMISSION
+
+        if params[:tag].present?
+          tag = params[:tag].to_s
+          invalidated = Ai::DataSources::ResponseCacheService.invalidate_by_tag(tag)
+          return success_result(
+            action: INVALIDATE_CACHE_ACTION,
+            permission_used: permission_used,
+            scope: "tag",
+            tag: tag,
+            invalidated: invalidated,
+            message: "Invalidated #{invalidated} cached entr#{invalidated == 1 ? 'y' : 'ies'} for tag '#{tag}'"
+          )
+        end
+
+        ds = resolve_source(params[:data_source_id])
+        endpoint = params[:endpoint_id].present? ? resolve_endpoint(ds, params[:endpoint_id]) : nil
+        invalidated = Ai::DataSources::ResponseCacheService.invalidate(data_source: ds, endpoint: endpoint)
+
+        success_result(
+          action: INVALIDATE_CACHE_ACTION,
+          permission_used: permission_used,
+          scope: endpoint ? "endpoint" : "data_source",
+          data_source: { id: ds.id, slug: ds.slug, name: ds.name },
+          endpoint: endpoint ? { id: endpoint.id, slug: endpoint.slug, name: endpoint.name } : nil,
+          invalidated: invalidated,
+          message: "Invalidated #{invalidated} cached entr#{invalidated == 1 ? 'y' : 'ies'}"
+        )
       end
 
       # ----------------------------------------------------------------------
