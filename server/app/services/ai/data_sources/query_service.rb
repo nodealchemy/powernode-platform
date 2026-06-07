@@ -90,6 +90,9 @@ module Ai
         @quality_passed = nil
         @quarantined = false
         @schema_drift = nil
+        # Aggregate transferred bytes across paginated pages (single-request path
+        # leaves this nil and uses the per-response bytesize unchanged).
+        @paginated_bytes_in = nil
       end
 
       # Run the full pipeline. Never raises: every failure path is mapped to a
@@ -429,8 +432,17 @@ module Ai
       # Performs the live fetch and returns an internal result Hash:
       #   { success:, status:, http_status:, data:, provenance:, raw_body:,
       #     bytes_in:, error:, redacted_snippet: }
+      #
+      # Outbound pagination is OFF unless endpoint.pagination is configured: the
+      # default single-request path below is byte-for-byte unchanged. When a
+      # pagination config is present, perform_paginated_fetch drives the page walk
+      # and feeds the concatenated canonical records into the same decode/normalize
+      # path so the FetchEnvelope shape is identical (just more records).
       def perform_fetch
         credential = resolve_credential
+
+        return perform_paginated_fetch(credential) if pagination_enabled?
+
         request = adapter.build_request(endpoint: endpoint, params: params)
         absolute_url = resolved_request_url(request)
 
@@ -467,6 +479,114 @@ module Ai
         Rails.logger.error("[DataSources::QueryService] fetch error for #{safe_slug}: #{e.class}: #{e.message}")
         record_failure(@last_credential, e.message)
         fetch_failure(STATUS_ERROR, redact_message(e.message), absolute_url: nil)
+      end
+
+      # ----------------------------------------------------------------------
+      # (5b) OUTBOUND PAGINATION — opt-in page walk (OFF when endpoint.pagination
+      # is blank). Drives Ai::DataSources::Paginator, which concatenates the
+      # decoded canonical records across pages; we then run the SAME
+      # decode/normalize/provenance path over the combined set so the
+      # FetchEnvelope shape is unchanged.
+      # ----------------------------------------------------------------------
+
+      # Pagination is enabled only when the endpoint carries a non-blank config
+      # with a supported "type". Any other state (blank / garbage) is OFF, so the
+      # default single-request path runs and FetchEnvelope is identical.
+      def pagination_enabled?
+        cfg = endpoint.respond_to?(:pagination) ? endpoint.pagination : nil
+        return false unless cfg.is_a?(Hash) && cfg.present?
+
+        type = (cfg["type"] || cfg[:type]).to_s.strip.downcase
+        Ai::DataSources::Paginator::SUPPORTED_TYPES.include?(type)
+      rescue StandardError
+        false
+      end
+
+      # Walk pages, concatenate canonical records, and finalize through the shared
+      # decode/normalize path. Each page is dispatched via the same governed
+      # build->sign->validate->dispatch sequence (inside the circuit breaker) the
+      # single-request path uses; check_quota! is honored before each subsequent
+      # page so a long walk cannot blow past the source's budget.
+      def perform_paginated_fetch(credential)
+        paginator = Ai::DataSources::Paginator.new(
+          endpoint: endpoint,
+          base_params: stringify_query(params),
+          fetch_page: ->(page_params) { dispatch_page(page_params, credential) },
+          decode_page: ->(response) { decode_records(response.body.to_s) },
+          check_quota: -> { paginate_quota_veto }
+        )
+
+        # Defensive: if the paginator decides it is not actually enabled (empty
+        # config slipped past the gate), fall back to a single request.
+        return perform_single_after_pagination_guard(credential) unless paginator.enabled?
+
+        walk = paginator.each_page
+        last = walk[:last_response]
+        return fetch_failure(STATUS_ERROR, "pagination produced no response", absolute_url: @last_absolute_url) if last.nil?
+
+        @anomalies << "paginated_#{walk[:pages_fetched]}_pages"
+        @anomalies << "pagination_truncated" if walk[:truncated]
+
+        pagination_provenance = {
+          type: paginator_type,
+          pages_fetched: walk[:pages_fetched],
+          stopped_reason: walk[:stopped_reason],
+          truncated: walk[:truncated]
+        }
+
+        decode_and_normalize(
+          last, @last_absolute_url, credential,
+          records_override: walk[:records],
+          bytes_override: @paginated_bytes_in.to_i,
+          pagination_provenance: pagination_provenance
+        )
+      end
+
+      # When the paginator self-disables after the enable gate (race on an empty
+      # config), run exactly one ordinary request — identical to the default path.
+      def perform_single_after_pagination_guard(credential)
+        request = adapter.build_request(endpoint: endpoint, params: params)
+        absolute_url = resolved_request_url(request)
+        sign_request!(request, credential)
+        response = with_circuit_breaker { dispatch_with_retry(request, absolute_url) }
+        decode_and_normalize(response, absolute_url, credential)
+      end
+
+      # Dispatch one page. Accepts either page-augmented params or, in link-follow
+      # mode, a reserved absolute-URL override that bypasses path/param building.
+      # Runs inside the circuit breaker with SSRF validation + idempotent retry,
+      # exactly like the single-request path, and tallies transferred bytes for the
+      # aggregate provenance.
+      def dispatch_page(page_params, credential)
+        absolute_override = page_params[Ai::DataSources::Paginator::ABSOLUTE_URL_PARAM]
+
+        if absolute_override.present?
+          request = adapter.build_request(endpoint: endpoint, params: {})
+          request[:query] = {}
+          absolute_url = absolute_override.to_s
+          @last_absolute_url = absolute_url
+        else
+          request = adapter.build_request(endpoint: endpoint, params: page_params)
+          absolute_url = resolved_request_url(request)
+        end
+
+        sign_request!(request, credential)
+        response = with_circuit_breaker { dispatch_with_retry(request, absolute_url) }
+        @paginated_bytes_in = @paginated_bytes_in.to_i + response.body.to_s.bytesize
+        response
+      end
+
+      # Per-page quota gate: re-check the shared per-source + per-agent quota before
+      # the NEXT page. Returns the quota descriptor (truthy) to veto, or nil to
+      # allow. Mirrors the call()-level quota check so a paginated walk obeys the
+      # same budget as discrete queries.
+      def paginate_quota_veto
+        quota_exceeded?
+      end
+
+      def paginator_type
+        cfg = endpoint.respond_to?(:pagination) ? endpoint.pagination : {}
+        (cfg.is_a?(Hash) ? (cfg["type"] || cfg[:type]) : nil).to_s
       end
 
       # (4) Prefer Vault when the active credential carries a vault_path; otherwise
@@ -611,9 +731,17 @@ module Ai
 
       # (6)+(7) Detect format, decode to canonical records, validate the decoded
       # payload against the endpoint response_schema, then normalize.
-      def decode_and_normalize(response, absolute_url, _credential)
+      #
+      # records_override / bytes_override / pagination_provenance are supplied ONLY
+      # by the paginated path: the records are the concatenation already decoded
+      # per page, bytes is the summed transfer, and pagination_provenance is folded
+      # into the envelope provenance. On the default single-request path all three
+      # are nil and behavior is unchanged.
+      def decode_and_normalize(response, absolute_url, _credential,
+                               records_override: nil, bytes_override: nil,
+                               pagination_provenance: nil)
         raw_body = response.body.to_s
-        bytes_in = raw_body.bytesize
+        bytes_in = bytes_override || raw_body.bytesize
         http_status = response.status
         declared_ct = response_content_type(response)
 
@@ -622,7 +750,7 @@ module Ai
         )
         @anomalies << "content_type_mismatch" if detection[:mismatch]
 
-        records = decode_records(raw_body)
+        records = records_override || decode_records(raw_body)
         schema_valid = validate_schema(records)
         @anomalies << "schema_invalid" if schema_valid == false
 
@@ -653,6 +781,7 @@ module Ai
         provenance[:quality_score] = @quality_score unless @quality_score.nil?
         provenance[:schema_drift] = @schema_drift if @schema_drift.present?
         provenance[:quarantined] = true if @quarantined
+        provenance[:pagination] = pagination_provenance if pagination_provenance.present?
 
         # (8) credential health accounting.
         if success

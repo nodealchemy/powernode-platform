@@ -13,8 +13,11 @@ module Ai
       # Selection is by the data source's +protocol+ column. The generic
       # +RestAdapter+ is the fallback, so the +rest+ and +custom+ protocols — and
       # any unrecognised/blank protocol — resolve to it with ZERO per-source code.
-      # Bespoke protocols (e.g. GraphQL, SOAP, gRPC-gateway) can be added later by
-      # registering a class name here; until then they degrade safely to REST.
+      # Purpose-built protocols register a class name here:
+      #   * +graphql+      -> GraphqlAdapter (single-URL POST { query:, variables: })
+      #   * +rss+ / +atom+ -> RssAdapter     (GET feed -> canonical item records)
+      # Any further bespoke protocol (SOAP, gRPC-gateway, ...) can be added the same
+      # way; until then they degrade safely to REST.
       #
       # This mirrors the generic-fallback registry shape used by sibling
       # registries (Ai::DataSources::Auth::SignerRegistry,
@@ -30,8 +33,11 @@ module Ai
         # the generic RestAdapter intentionally — "custom" means "a REST source
         # with a hand-rolled template", not "needs its own adapter class".
         ADAPTERS = {
-          "rest"   => "Ai::DataSources::Adapters::RestAdapter",
-          "custom" => "Ai::DataSources::Adapters::RestAdapter"
+          "rest"    => "Ai::DataSources::Adapters::RestAdapter",
+          "custom"  => "Ai::DataSources::Adapters::RestAdapter",
+          "graphql" => "Ai::DataSources::Adapters::GraphqlAdapter",
+          "rss"     => "Ai::DataSources::Adapters::RssAdapter",
+          "atom"    => "Ai::DataSources::Adapters::RssAdapter"
         }.freeze
 
         # The adapter used when the protocol is unknown / unmapped / blank.

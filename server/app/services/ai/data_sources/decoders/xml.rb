@@ -161,7 +161,10 @@ module Ai
           value = child_value(child)
 
           if result.key?(key)
-            result[key] = Array(result[key]) << value
+            # Array.wrap (NOT Array()) — Array({"a"=>1}) explodes a hash into
+            # [["a",1]] pairs, corrupting repeated element-with-attributes nodes
+            # (e.g. two Atom <link rel=.. href=../>). Array.wrap keeps it [{...}].
+            result[key] = Array.wrap(result[key]) << value
           else
             result[key] = value
           end
