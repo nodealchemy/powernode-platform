@@ -24,6 +24,10 @@ module Ai
       READ_PERMISSION   = "ai.data_sources.read"
       QUERY_PERMISSION  = "ai.data_sources.query"
       MANAGE_PERMISSION = "ai.data_sources.manage"
+      STREAM_PERMISSION = "ai.data_sources.stream"
+
+      # Subscription (pull-based monitoring) actions, gated by STREAM_PERMISSION.
+      STREAM_ACTIONS = %w[data_source_subscribe data_source_unsubscribe].freeze
 
       # Per-action mutation permission. ai.data_sources.manage satisfies any of
       # these (checked separately in #mutation_permitted?).
@@ -63,6 +67,8 @@ module Ai
             correlation_id: { type: "string", required: false, description: "Fetch correlation id (data_source_provenance)" },
             spec: { type: "object", required: false, description: "Parsed OpenAPI 3 document (data_source_introspect)" },
             dry_run: { type: "boolean", required: false, description: "Preview without persisting (data_source_introspect)" },
+            poll_frequency: { type: "string", required: false, description: "Poll cadence (data_source_subscribe)" },
+            subscription_id: { type: "string", required: false, description: "Subscription UUID (data_source_unsubscribe)" },
             name: { type: "string", required: false, description: "Data source name (create/update)" },
             slug: { type: "string", required: false, description: "Data source slug (create)" },
             source_type: { type: "string", required: false, description: "Source type (create/update)" },
@@ -184,6 +190,27 @@ module Ai
               params: { type: "object", required: false, description: "Query/path/body parameters for the fetch" }
             }
           },
+          "data_source_subscribe" => {
+            description: "Create or update a pull-based subscription to an endpoint (Ai::DataSourceSubscription). The server-side " \
+                         "monitor polls due subscriptions on the given cadence, change-detects (etag/checksum), warms the cache " \
+                         "and emits a data_source_changed signal on change. Requires ai.data_sources.stream.",
+            parameters: {
+              data_source_id: { type: "string", required: true, description: "Data source UUID or slug" },
+              endpoint_id: { type: "string", required: true, description: "Endpoint UUID or slug to subscribe to" },
+              params: { type: "object", required: false, description: "Query/path/body parameters passed to each poll" },
+              poll_frequency: { type: "string", required: false,
+                                description: "Cadence: manual|5min|hourly|daily|weekly|monthly|realtime (default hourly)" }
+            }
+          },
+          "data_source_unsubscribe" => {
+            description: "Remove a pull-based subscription. Provide subscription_id, or data_source_id + endpoint_id to remove " \
+                         "the matching subscription(s). Requires ai.data_sources.stream.",
+            parameters: {
+              subscription_id: { type: "string", required: false, description: "Subscription UUID" },
+              data_source_id: { type: "string", required: false, description: "Data source UUID or slug (with endpoint_id)" },
+              endpoint_id: { type: "string", required: false, description: "Endpoint UUID or slug (with data_source_id)" }
+            }
+          },
           "data_source_create" => {
             description: "Create a new data source (requires ai.data_sources.create or .manage; agents lacking it file a proposal instead)",
             parameters: {
@@ -236,6 +263,8 @@ module Ai
           return permission_denied(QUERY_PERMISSION) unless permission?(QUERY_PERMISSION)
         elsif action == INTROSPECT_ACTION
           return permission_denied(MANAGE_PERMISSION) unless permission?(MANAGE_PERMISSION)
+        elsif STREAM_ACTIONS.include?(action)
+          return permission_denied(STREAM_PERMISSION) unless permission?(STREAM_PERMISSION)
         elsif MUTATION_PERMISSIONS.key?(action)
           return propose_mutation(action, params) unless mutation_permitted?(action)
         end
@@ -254,6 +283,8 @@ module Ai
         when "data_source_quality" then quality_report(params)
         when "data_source_introspect" then introspect_source(params)
         when "data_source_contract" then contract_verdict(params)
+        when "data_source_subscribe" then subscribe_source(params)
+        when "data_source_unsubscribe" then unsubscribe_source(params)
         when "data_source_create" then create_source(params)
         when "data_source_update" then update_source(params)
         when "data_source_delete" then delete_source(params)
@@ -530,6 +561,93 @@ module Ai
           is_active: expectation.is_active,
           config: expectation.config
         }
+      end
+
+      # ----------------------------------------------------------------------
+      # Phase 3 — pull-based subscriptions (stream-gated)
+      # ----------------------------------------------------------------------
+
+      # Create or update a subscription for a (source, endpoint) pair. Idempotent
+      # on the pair: a second subscribe with the same endpoint updates the
+      # existing subscription's cadence/params rather than creating a duplicate.
+      def subscribe_source(params)
+        ds = resolve_source(params[:data_source_id])
+        endpoint = resolve_endpoint(ds, params[:endpoint_id])
+        frequency = params[:poll_frequency].presence || "hourly"
+
+        unless Ai::DataSourceSubscription::POLL_FREQUENCIES.include?(frequency)
+          return error_result(
+            "Invalid poll_frequency '#{frequency}' (allowed: #{Ai::DataSourceSubscription::POLL_FREQUENCIES.join(', ')})"
+          )
+        end
+
+        subscription = ds.subscriptions.find_or_initialize_by(ai_data_source_endpoint_id: endpoint.id)
+        new_record = subscription.new_record?
+        subscription.poll_frequency = frequency
+        subscription.params = (params[:params] || {}).to_h
+        subscription.agent = agent if agent
+        subscription.status = "active"
+        # Re-arm the cadence so an updated frequency takes effect immediately.
+        subscription.next_poll_at = nil if new_record || subscription.poll_frequency_changed?
+
+        if subscription.save
+          subscription.schedule_next_poll! if subscription.next_poll_at.nil?
+          success_result(
+            subscription: subscription_summary(subscription),
+            message: new_record ? "Subscription created" : "Subscription updated"
+          )
+        else
+          error_result(subscription.errors.full_messages.join(", "))
+        end
+      end
+
+      # Remove a subscription by id, or every subscription matching a
+      # (data_source, endpoint) pair. Account-scoped via resolve_source.
+      def unsubscribe_source(params)
+        if params[:subscription_id].present?
+          subscription = account_subscriptions.find_by(id: params[:subscription_id])
+          raise ActiveRecord::RecordNotFound, "Subscription not found: #{params[:subscription_id]}" if subscription.nil?
+
+          subscription.destroy
+          return success_result(message: "Subscription deleted", subscription_id: params[:subscription_id])
+        end
+
+        raise ArgumentError, "Provide subscription_id, or data_source_id + endpoint_id" if params[:data_source_id].blank? || params[:endpoint_id].blank?
+
+        ds = resolve_source(params[:data_source_id])
+        endpoint = resolve_endpoint(ds, params[:endpoint_id])
+        removed = ds.subscriptions.where(ai_data_source_endpoint_id: endpoint.id).destroy_all
+
+        success_result(
+          message: "Removed #{removed.size} subscription(s)",
+          removed_count: removed.size,
+          data_source_id: ds.id,
+          endpoint_id: endpoint.id
+        )
+      end
+
+      def subscription_summary(subscription)
+        {
+          id: subscription.id,
+          data_source_id: subscription.ai_data_source_id,
+          endpoint_id: subscription.ai_data_source_endpoint_id,
+          poll_frequency: subscription.poll_frequency,
+          status: subscription.status,
+          params: subscription.params,
+          next_poll_at: subscription.next_poll_at&.iso8601,
+          last_polled_at: subscription.last_polled_at&.iso8601,
+          last_checksum: subscription.last_checksum,
+          consecutive_failures: subscription.consecutive_failures,
+          agent_id: subscription.ai_agent_id
+        }
+      end
+
+      # Account-scoped subscription lookup, joining through the parent source.
+      def account_subscriptions
+        raise ArgumentError, "No account context" unless account
+
+        Ai::DataSourceSubscription.joins(:data_source)
+                                  .where(ai_data_sources: { account_id: account.id })
       end
 
       # ----------------------------------------------------------------------

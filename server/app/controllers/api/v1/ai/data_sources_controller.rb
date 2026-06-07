@@ -13,7 +13,8 @@ module Api
           :test_connection, :quota_status,
           :endpoints_index, :endpoints_create, :endpoints_update,
           :endpoints_destroy, :endpoints_query,
-          :schema_history, :quality, :contract, :introspect
+          :schema_history, :quality, :contract, :introspect,
+          :subscriptions_index, :subscriptions_create, :subscriptions_destroy
         ]
         before_action :set_endpoint, only: [
           :endpoints_update, :endpoints_destroy, :endpoints_query,
@@ -209,7 +210,7 @@ module Api
           return if current_worker
 
           case action_name
-          when "index", "show", "quota_status", "endpoints_index", "discover"
+          when "index", "show", "quota_status", "endpoints_index", "discover", "subscriptions_index"
             require_permission("ai.data_sources.read")
           when "create"
             require_permission("ai.data_sources.create")
@@ -228,6 +229,10 @@ module Api
           when "schema_history", "quality", "contract"
             # Phase 2b read-only observability — same read grant as index/show.
             require_permission("ai.data_sources.read")
+          when "subscriptions_create", "subscriptions_destroy"
+            # Phase 3 — creating/cancelling a pull-based subscription is gated by
+            # the stream grant (same as the MCP data_source_subscribe action).
+            require_permission("ai.data_sources.stream")
           when "introspect"
             # OpenAPI import creates endpoints (even dry_run is a write surface),
             # so it is gated by the manage super-grant.

@@ -142,7 +142,109 @@ module Ai
         dry_run: dry_run, created_count: result[:created].size)
     end
 
+    # GET /api/v1/ai/data_sources/:data_source_id/subscriptions
+    # List the pull-based monitoring subscriptions for this data source. Mirrors
+    # the nested endpoints#index envelope ({ items, count }) and reuses the same
+    # subscription summary shape the MCP DataSourceTool returns.
+    def subscriptions_index
+      subscriptions = @data_source.subscriptions.includes(:endpoint).order(created_at: :desc)
+      render_success({
+        items: subscriptions.map { |sub| serialize_subscription(sub) },
+        count: subscriptions.size
+      })
+    end
+
+    # POST /api/v1/ai/data_sources/:data_source_id/subscriptions
+    # Create or update (idempotent on the source+endpoint pair) a pull-based
+    # subscription. The endpoint is resolved from the body param endpoint_id, the
+    # cadence from poll_frequency, and any per-poll params from params. Shares the
+    # find_or_initialize-on-endpoint logic with DataSourceTool#subscribe_source.
+    def subscriptions_create
+      endpoint = @data_source.endpoints.find_by(id: subscription_params[:endpoint_id])
+      return render_error("Endpoint not found", status: :not_found) if endpoint.nil?
+
+      frequency = subscription_params[:poll_frequency].presence || "hourly"
+      unless ::Ai::DataSourceSubscription::POLL_FREQUENCIES.include?(frequency)
+        return render_error(
+          "Invalid poll_frequency '#{frequency}' " \
+          "(allowed: #{::Ai::DataSourceSubscription::POLL_FREQUENCIES.join(', ')})",
+          status: :unprocessable_content
+        )
+      end
+
+      subscription = @data_source.subscriptions.find_or_initialize_by(
+        ai_data_source_endpoint_id: endpoint.id
+      )
+      new_record = subscription.new_record?
+      subscription.poll_frequency = frequency
+      subscription.params = subscription_poll_params
+      subscription.status = "active"
+      # Re-arm the cadence so a changed frequency takes effect on the next tick.
+      subscription.next_poll_at = nil if new_record || subscription.poll_frequency_changed?
+
+      if subscription.save
+        subscription.schedule_next_poll! if subscription.next_poll_at.nil?
+        render_success({ subscription: serialize_subscription(subscription) },
+          status: new_record ? :created : :ok)
+        log_audit_event("ai.data_sources.subscription.create", @data_source,
+          endpoint_id: endpoint.id, poll_frequency: frequency, new_record: new_record)
+      else
+        render_validation_error(subscription.errors)
+      end
+    end
+
+    # DELETE /api/v1/ai/data_sources/:data_source_id/subscriptions/:subscription_id
+    # Cancel (delete) a subscription scoped to this data source.
+    def subscriptions_destroy
+      subscription = @data_source.subscriptions.find_by(id: params[:subscription_id])
+      return render_error("Subscription not found", status: :not_found) if subscription.nil?
+
+      if subscription.destroy
+        render_success({ message: "Subscription cancelled successfully" })
+        log_audit_event("ai.data_sources.subscription.delete", @data_source,
+          subscription_id: params[:subscription_id])
+      else
+        render_error("Failed to cancel subscription", status: :unprocessable_content)
+      end
+    end
+
     private
+
+    # Subscription summary shape — kept in lockstep with the AiDataSourceSubscription
+    # frontend TS type and Ai::Tools::DataSourceTool#subscription_summary so the REST
+    # and MCP surfaces serialize a subscription identically.
+    def serialize_subscription(subscription)
+      {
+        id: subscription.id,
+        data_source_id: subscription.ai_data_source_id,
+        endpoint_id: subscription.ai_data_source_endpoint_id,
+        poll_frequency: subscription.poll_frequency,
+        status: subscription.status,
+        params: subscription.params,
+        next_poll_at: subscription.next_poll_at&.iso8601,
+        last_polled_at: subscription.last_polled_at&.iso8601,
+        last_checksum: subscription.last_checksum,
+        last_etag: subscription.last_etag,
+        consecutive_failures: subscription.consecutive_failures,
+        agent_id: subscription.ai_agent_id
+      }
+    end
+
+    # Strong params for the subscription create body. The frontend posts
+    # { subscription: { endpoint_id, poll_frequency } }; endpoint_id + poll_frequency
+    # are scalars, params is a free-form per-poll variable hash handled separately.
+    def subscription_params
+      params.fetch(:subscription, {}).permit(:endpoint_id, :poll_frequency)
+    end
+
+    # Free-form per-poll variables for the governed fetch. Permitted as an open hash
+    # because endpoint query/path/body variables are source-specific (the
+    # MonitorService runs them through the same redacting QueryService).
+    def subscription_poll_params
+      raw = params.dig(:subscription, :params) || {}
+      raw = raw.permit! if raw.respond_to?(:permit!)
+      raw.to_h
+    end
 
     def set_endpoint
       return unless @data_source

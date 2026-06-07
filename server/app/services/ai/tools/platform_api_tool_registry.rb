@@ -514,6 +514,8 @@ module Ai
         "data_source_quality" => "Ai::Tools::DataSourceTool",
         "data_source_introspect" => "Ai::Tools::DataSourceTool",
         "data_source_contract" => "Ai::Tools::DataSourceTool",
+        "data_source_subscribe" => "Ai::Tools::DataSourceTool",
+        "data_source_unsubscribe" => "Ai::Tools::DataSourceTool",
         "data_source_create" => "Ai::Tools::DataSourceTool",
         "data_source_update" => "Ai::Tools::DataSourceTool",
         "data_source_delete" => "Ai::Tools::DataSourceTool",

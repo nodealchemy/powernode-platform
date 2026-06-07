@@ -417,6 +417,11 @@ Rails.application.routes.draw do
           # Memory pool cleanup callbacks (worker → server)
           post "memory_pools/cleanup_results", to: "memory_pools#cleanup_results"
 
+          # Data-source monitor ticks (worker cron → server). All poll/fetch/
+          # change-detect/signal logic runs in Ai::DataSources::MonitorService.
+          post "data_sources/monitor_tick", to: "data_sources#monitor_tick"
+          post "data_sources/health_tick", to: "data_sources#health_tick"
+
           # Tool bridge endpoints (worker → server)
           # LLM completion endpoints removed — worker calls providers directly.
           # Only tool registry and reasoning orchestration remain server-side.
@@ -1635,6 +1640,13 @@ Rails.application.routes.draw do
           get    "endpoints/:endpoint_id/schema_history", to: "data_sources#schema_history"
           get    "endpoints/:endpoint_id/quality",        to: "data_sources#quality"
           get    "endpoints/:endpoint_id/contract",       to: "data_sources#contract"
+          # Phase 3 — pull-based monitoring subscriptions. The endpoint is supplied
+          # in the create body (endpoint_id), so only the subscription_id is a route
+          # param. Shares the Ai::DataSourceSubscription create/list/destroy path with
+          # the MCP DataSourceTool (data_source_subscribe / data_source_unsubscribe).
+          get    "subscriptions",                  to: "data_sources#subscriptions_index"
+          post   "subscriptions",                  to: "data_sources#subscriptions_create"
+          delete "subscriptions/:subscription_id", to: "data_sources#subscriptions_destroy"
           resources :credentials, controller: "data_source_credentials" do
             member do
               post :test

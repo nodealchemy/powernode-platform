@@ -383,6 +383,24 @@
       queue: ai_orchestration
       description: 'AI system self-healing: detect and remediate degraded/orphaned resources'
 
+    # Data-source subscription monitor - every 5 minutes. Thin cron trigger; the
+    # server-side Ai::DataSources::MonitorService walks due subscriptions, runs
+    # the governed fetch, change-detects (etag/checksum), warms the cache and
+    # emits a data_source_changed signal on change.
+    ai_data_source_monitor:
+      cron: '*/5 * * * *'
+      class: AiDataSourceMonitorJob
+      queue: ai_orchestration
+      description: 'Poll due data-source subscriptions, change-detect, warm cache + signal on change'
+
+    # Data-source health sweep - every 10 minutes. Refreshes health_status for
+    # all active sources via MonitorService#health_tick.
+    ai_data_source_health:
+      cron: '*/10 * * * *'
+      class: AiDataSourceHealthJob
+      queue: ai_orchestration
+      description: 'Refresh health_status for active data sources'
+
     # Trajectory analysis - generate improvement recommendations per account
     ai_trajectory_analysis:
       cron: '0 5 * * *'  # Daily at 5:00 AM UTC
