@@ -30,11 +30,19 @@ module Ai
       STREAM_ACTIONS = %w[data_source_subscribe data_source_unsubscribe].freeze
 
       # Per-action mutation permission. ai.data_sources.manage satisfies any of
-      # these (checked separately in #mutation_permitted?).
+      # these (checked separately in #mutation_permitted?). The Phase 4b-3b
+      # onboarding-portability writes (import a manifest, install a template,
+      # rollback a config) all create-or-update a source, so they require the
+      # create grant (manifest import/template install materialize a NEW source)
+      # / manage grant and file a proposal when the agent lacks it — exactly like
+      # data_source_create/update/delete.
       MUTATION_PERMISSIONS = {
         "data_source_create" => "ai.data_sources.create",
         "data_source_update" => "ai.data_sources.update",
-        "data_source_delete" => "ai.data_sources.delete"
+        "data_source_delete" => "ai.data_sources.delete",
+        "data_source_import" => "ai.data_sources.create",
+        "data_source_install_template" => "ai.data_sources.create",
+        "data_source_rollback_config" => "ai.data_sources.manage"
       }.freeze
 
       READ_ACTIONS = %w[
@@ -42,6 +50,7 @@ module Ai
         data_source_health data_source_validate_config
         data_source_discover data_source_provenance data_source_impact
         data_source_schema_history data_source_quality data_source_contract
+        data_source_export data_source_list_templates data_source_config_versions
       ].freeze
 
       # Phase 2b introspection creates endpoints from an OpenAPI spec, so it is a
@@ -87,7 +96,10 @@ module Ai
             requires_auth: { type: "boolean", required: false, description: "Requires auth flag (create/update)" },
             priority_order: { type: "integer", required: false, description: "Priority order (create/update)" },
             configuration: { type: "object", required: false, description: "Configuration hash (create/update)" },
-            rate_limits: { type: "object", required: false, description: "Rate limits hash (create/update)" }
+            rate_limits: { type: "object", required: false, description: "Rate limits hash (create/update)" },
+            manifest: { type: "object", required: false, description: "Credential-free config manifest (data_source_import)" },
+            template_slug: { type: "string", required: false, description: "Template catalog slug (data_source_install_template)" },
+            version: { type: "integer", required: false, description: "Config version number to restore (data_source_rollback_config)" }
           }
         }
       end
@@ -266,6 +278,61 @@ module Ai
               endpoint_id: { type: "string", required: false, description: "Endpoint UUID or slug to scope the invalidation" },
               tag: { type: "string", required: false, description: "Surrogate cache tag (e.g. ds:<id>, endpoint:<id>, slug:<slug>); takes precedence over scope" }
             }
+          },
+          # ── Phase 4b-3b onboarding portability ──────────────────────────────
+          "data_source_export" => {
+            description: "Export a data source's CREDENTIAL-FREE config manifest via " \
+                         "Ai::DataSources::ConfigPortabilityService#export (source + endpoints MINUS all secrets). " \
+                         "The manifest carries the auth_scheme NAME and non-secret broker knobs only — never api keys, " \
+                         "credentials, or secret auth_config values. Re-importable to recreate the source elsewhere.",
+            parameters: {
+              data_source_id: { type: "string", required: true, description: "Data source UUID or slug" }
+            }
+          },
+          "data_source_import" => {
+            description: "Import a CREDENTIAL-FREE config manifest into the account via " \
+                         "Ai::DataSources::ConfigPortabilityService#import (create-or-update the source by slug, upsert " \
+                         "endpoints by slug, all in one transaction). NEVER sets credentials — attach those separately " \
+                         "after import. Requires ai.data_sources.create or .manage; agents lacking it file a proposal. " \
+                         "Supports dry_run to preview the create/update plan without persisting.",
+            parameters: {
+              manifest: { type: "object", required: true, description: "Credential-free manifest (as produced by data_source_export)" },
+              slug: { type: "string", required: false, description: "Override target source slug (clones under a new slug; name auto-deduped)" },
+              dry_run: { type: "boolean", required: false, description: "Preview the create/update plan without persisting (default false)" }
+            }
+          },
+          "data_source_list_templates" => {
+            description: "List the built-in library of reusable, credential-free data-source templates " \
+                         "(Ai::DataSources::TemplateLibrary). Each entry is a starter manifest for a well-known or " \
+                         "generic source: slug, name, description, category.",
+            parameters: {}
+          },
+          "data_source_install_template" => {
+            description: "Install a library template by slug into the account via Ai::DataSources::TemplateLibrary.install " \
+                         "(materializes the template's credential-free manifest through ConfigPortabilityService#import). " \
+                         "NEVER sets credentials — attach those afterward if the source requires auth. Requires " \
+                         "ai.data_sources.create or .manage; agents lacking it file a proposal.",
+            parameters: {
+              template_slug: { type: "string", required: true, description: "Catalog slug of the template to install (see data_source_list_templates)" }
+            }
+          },
+          "data_source_config_versions" => {
+            description: "List a data source's append-only config-version history (Ai::DataSourceConfigVersion), latest " \
+                         "first: version number, created_by_type (auto|manual|rollback), note, and created_at. Each row " \
+                         "is a credential-free manifest snapshot captured by snapshot!/rollback.",
+            parameters: {
+              data_source_id: { type: "string", required: true, description: "Data source UUID or slug" }
+            }
+          },
+          "data_source_rollback_config" => {
+            description: "Roll a data source's config back to a prior version via Ai::DataSources::ConfigPortabilityService" \
+                         "#rollback! (captures the current state as a new 'rollback' snapshot first, then replays the " \
+                         "historical manifest — credentials are never touched). Requires ai.data_sources.manage; agents " \
+                         "lacking it file a proposal.",
+            parameters: {
+              data_source_id: { type: "string", required: true, description: "Data source UUID or slug" },
+              version: { type: "integer", required: true, description: "Config version NUMBER to restore" }
+            }
           }
         }
       end
@@ -315,6 +382,12 @@ module Ai
         when "data_source_update" then update_source(params)
         when "data_source_delete" then delete_source(params)
         when "data_source_invalidate_cache" then invalidate_cache(params)
+        when "data_source_export" then export_config(params)
+        when "data_source_import" then import_config(params)
+        when "data_source_list_templates" then list_templates(params)
+        when "data_source_install_template" then install_template(params)
+        when "data_source_config_versions" then list_config_versions(params)
+        when "data_source_rollback_config" then rollback_config(params)
         else error_result("Unknown action: #{action}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -752,6 +825,145 @@ module Ai
       end
 
       # ----------------------------------------------------------------------
+      # Phase 4b-3b — onboarding portability (export/import/templates/versions)
+      # ----------------------------------------------------------------------
+
+      # Export a source's CREDENTIAL-FREE manifest. The service never traverses
+      # the credentials association or serializes any secret; we stamp exported_at
+      # here (the service leaves it nil so raw exports stay byte-stable/diffable).
+      def export_config(params)
+        ds = resolve_source(params[:data_source_id])
+        manifest = portability_service.export(ds).merge("exported_at" => Time.current.utc.iso8601)
+
+        success_result(
+          data_source: { id: ds.id, slug: ds.slug, name: ds.name },
+          manifest: manifest
+        )
+      end
+
+      # Import a credential-free manifest (create-or-update a source + endpoints).
+      # Only reached when authorized — otherwise #call routes to propose_mutation.
+      # NEVER sets credentials (that is the service's contract). dry_run previews.
+      def import_config(params)
+        manifest = (params[:manifest] || {}).to_h
+        raise ArgumentError, "manifest is required" if manifest.blank?
+
+        dry_run = to_bool(params[:dry_run]) || false
+        result = portability_service.import(manifest, slug: params[:slug].presence, dry_run: dry_run)
+        import_result_payload(result, dry_run)
+      end
+
+      # List the built-in template catalog (slug/name/description/category). The
+      # full manifests are intentionally omitted from the listing — fetch one by
+      # installing it (or exporting the installed source).
+      def list_templates(_params)
+        templates = Ai::DataSources::TemplateLibrary.all.map do |tpl|
+          { slug: tpl[:slug], name: tpl[:name], description: tpl[:description], category: tpl[:category] }
+        end
+
+        success_result(templates: templates, count: templates.size)
+      end
+
+      # Install a template by slug into the account (materializes its
+      # credential-free manifest via ConfigPortabilityService#import). Only reached
+      # when authorized. NEVER sets credentials.
+      def install_template(params)
+        slug = params[:template_slug].to_s
+        raise ArgumentError, "template_slug is required" if slug.blank?
+
+        result = Ai::DataSources::TemplateLibrary.install(slug, account: account)
+        import_result_payload(result, false).merge(template_slug: slug)
+      end
+
+      # List a source's append-only config-version history, latest first.
+      def list_config_versions(params)
+        ds = resolve_source(params[:data_source_id])
+        versions = ds.config_versions.latest_first
+
+        success_result(
+          data_source: { id: ds.id, slug: ds.slug, name: ds.name },
+          versions: versions.map { |v| config_version_summary(v) },
+          count: versions.size
+        )
+      end
+
+      # Roll a source's config back to a prior version. Only reached when
+      # authorized. The service snapshots the pre-rollback state first, then
+      # replays the historical manifest (credentials untouched).
+      def rollback_config(params)
+        ds = resolve_source(params[:data_source_id])
+        raise ArgumentError, "version is required" if params[:version].blank?
+
+        result = portability_service.rollback!(ds, params[:version])
+        return error_result(result[:error]) if result[:error].present?
+
+        # A failed replay returns restored_version:nil + a populated errors array;
+        # surface that as a failure rather than a misleading "rolled back" success.
+        if result[:restored_version].nil? || Array(result[:errors]).any?
+          return error_result(Array(result[:errors]).presence&.join(", ") || "Rollback failed")
+        end
+
+        success_result(
+          data_source: detail_source(result[:data_source] || ds),
+          restored_version: result[:restored_version],
+          created: result[:created],
+          updated_endpoints: result[:updated_endpoints],
+          errors: result[:errors],
+          message: "Rolled config back to version #{result[:restored_version]}"
+        )
+      end
+
+      # Shared serialization for an import/install/rollback ConfigPortabilityService
+      # result. On hard failure the service returns a nil data_source + errors; we
+      # surface that as an error_result so callers see the failure clearly.
+      def import_result_payload(result, dry_run)
+        ds = result[:data_source]
+        if ds.nil?
+          return error_result(Array(result[:errors]).presence&.join(", ") || "Import failed")
+        end
+
+        success_result(
+          data_source: dry_run ? import_preview_source(ds) : detail_source(ds),
+          created: result[:created],
+          updated_endpoints: result[:updated_endpoints],
+          dry_run: result[:dry_run],
+          errors: result[:errors]
+        )
+      end
+
+      # Compact, persistence-free view of the (possibly in-memory) source returned
+      # by a dry_run import — detail_source touches associations that an unsaved
+      # record cannot count reliably.
+      def import_preview_source(ds)
+        {
+          id: ds.id,
+          name: ds.name,
+          slug: ds.slug,
+          source_type: ds.source_type,
+          api_base_url: ds.api_base_url,
+          auth_scheme: ds.auth_scheme,
+          requires_auth: ds.requires_auth
+        }
+      end
+
+      def config_version_summary(version)
+        {
+          id: version.id,
+          version: version.version,
+          created_by_type: version.created_by_type,
+          note: version.note,
+          created_at: version.created_at&.iso8601
+        }
+      end
+
+      # Account-scoped portability service (never serializes/logs secrets).
+      def portability_service
+        raise ArgumentError, "No account context" unless account
+
+        @portability_service ||= Ai::DataSources::ConfigPortabilityService.new(account: account)
+      end
+
+      # ----------------------------------------------------------------------
       # proposal fallback
       # ----------------------------------------------------------------------
 
@@ -802,16 +1014,54 @@ module Ai
           { action: "update", data_source_id: params[:data_source_id], attributes: update_attributes(params) }
         when "data_source_delete"
           { action: "delete", data_source_id: params[:data_source_id] }
+        when "data_source_import"
+          # The manifest is credential-free by construction; re-sanitize it through
+          # the export allowlist before it lands in the proposal record so a
+          # hand-supplied manifest can never park a secret in the proposal payload.
+          { action: "import", slug: params[:slug], manifest: sanitized_manifest_for_proposal(params[:manifest]) }
+        when "data_source_install_template"
+          { action: "install_template", template_slug: params[:template_slug] }
+        when "data_source_rollback_config"
+          { action: "rollback_config", data_source_id: params[:data_source_id], version: params[:version] }
         else {}
         end
       end
 
       def proposal_subject(action, params)
-        if action == "data_source_create"
+        case action
+        when "data_source_create"
           params[:name].presence || params[:slug].presence || "new source"
+        when "data_source_import"
+          params[:slug].presence || manifest_source_slug(params[:manifest]) || "manifest import"
+        when "data_source_install_template"
+          params[:template_slug].presence || "template"
         else
           params[:data_source_id].to_s
         end
+      end
+
+      # Run a proposed import manifest back through ConfigPortabilityService#export's
+      # sanitizer so the proposal record stores only the credential-free view (the
+      # service re-sanitizes on the real import too — this keeps the proposal clean).
+      def sanitized_manifest_for_proposal(manifest)
+        hash = manifest.respond_to?(:to_h) ? manifest.to_h : {}
+        return {} if hash.blank?
+
+        result = portability_service.import(hash, slug: hash["slug"] || hash[:slug], dry_run: true)
+        ds = result[:data_source]
+        return {} if ds.nil?
+
+        # Re-export the in-memory (dry-run) source to get a guaranteed-clean manifest.
+        portability_service.export(ds).merge("exported_at" => nil)
+      rescue StandardError
+        {}
+      end
+
+      # Best-effort source slug from a manifest hash for the proposal title.
+      def manifest_source_slug(manifest)
+        hash = manifest.respond_to?(:to_h) ? manifest.to_h : {}
+        src = hash["source"] || hash[:source] || {}
+        (src["slug"] || src[:slug]).presence
       end
 
       # ----------------------------------------------------------------------

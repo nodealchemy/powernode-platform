@@ -521,6 +521,14 @@ module Ai
         "data_source_delete" => "Ai::Tools::DataSourceTool",
         # AI data sources — surrogate-key / scoped response-cache invalidation
         "data_source_invalidate_cache" => "Ai::Tools::DataSourceTool",
+        # AI data sources — Phase 4b-3b onboarding portability (export/import,
+        # template library, config versioning + rollback)
+        "data_source_export" => "Ai::Tools::DataSourceTool",
+        "data_source_import" => "Ai::Tools::DataSourceTool",
+        "data_source_list_templates" => "Ai::Tools::DataSourceTool",
+        "data_source_install_template" => "Ai::Tools::DataSourceTool",
+        "data_source_config_versions" => "Ai::Tools::DataSourceTool",
+        "data_source_rollback_config" => "Ai::Tools::DataSourceTool",
         # Docker infrastructure management — Swarm stacks
         "docker_list_stacks" => "Ai::Tools::DockerStackTool",
         "docker_get_stack" => "Ai::Tools::DockerStackTool",
