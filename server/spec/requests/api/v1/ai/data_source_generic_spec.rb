@@ -67,6 +67,26 @@ RSpec.describe "Api::V1::Ai::DataSource Generic API wiring", type: :request do
       expect(persisted.protocol).to eq("graphql")
     end
 
+    # Phase 4b-1 crawl politeness — the create modal sends these; strong params
+    # must permit them and the serializer must round-trip them (else the UI
+    # silently discards the operator's politeness settings).
+    it "persists crawl-politeness (respect_robots + crawl_delay_seconds) and round-trips them" do
+      post "/api/v1/ai/data_sources",
+           params: { data_source: valid_params[:data_source].merge(
+             respect_robots: true, crawl_delay_seconds: 5
+           ) },
+           headers: auth_headers_for(creator), as: :json
+
+      expect(response).to have_http_status(:created)
+      ds = json_response_data["data_source"]
+      expect(ds["respect_robots"]).to eq(true)
+      expect(ds["crawl_delay_seconds"]).to eq(5)
+
+      persisted = Ai::DataSource.find(ds["id"])
+      expect(persisted.respect_robots).to be(true)
+      expect(persisted.crawl_delay_seconds).to eq(5)
+    end
+
     include_examples "requires authentication", :post, "/api/v1/ai/data_sources"
     include_examples "requires permission", :post, "/api/v1/ai/data_sources", "ai.data_sources.create"
   end

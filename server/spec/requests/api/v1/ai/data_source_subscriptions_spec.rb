@@ -61,8 +61,20 @@ RSpec.describe "Api::V1::Ai::DataSource Subscriptions", type: :request do
       expect(sub["status"]).to eq("active")
       expect(sub).to include(
         "params", "next_poll_at", "last_polled_at",
-        "last_checksum", "last_etag", "consecutive_failures", "agent_id"
+        "last_checksum", "last_etag", "sync_cursor", "consecutive_failures", "agent_id"
       )
+    end
+
+    # Phase 4b-1 — the monitoring tab renders the incremental high-watermark, so
+    # the subscription summary must surface sync_cursor once a poll persists one.
+    it "serializes the incremental high-watermark (sync_cursor) when present" do
+      subscription.update_column(:sync_cursor, "wm-2026-06-06")
+
+      get base_path, headers: auth_headers_for(reader), as: :json
+
+      expect_success_response
+      sub = json_response_data["items"].first
+      expect(sub["sync_cursor"]).to eq("wm-2026-06-06")
     end
 
     it "returns an empty list (count 0) when the source has no subscriptions" do

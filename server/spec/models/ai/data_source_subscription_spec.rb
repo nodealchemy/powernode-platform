@@ -498,4 +498,96 @@ RSpec.describe Ai::DataSourceSubscription, type: :model do
       expect(build_subscription(status: 'error').active?).to be(false)
     end
   end
+
+  # --- 4b-1: sync_cursor opt-in high-watermark via record_poll!(cursor:) -----
+  # The incremental high-watermark follows the SAME opt-in semantics as
+  # last_checksum / last_etag: record_poll! advances sync_cursor only when a
+  # present cursor is supplied; a nil or blank cursor leaves the stored watermark
+  # untouched so a "no-change" poll never resets incremental progress.
+  describe '#record_poll! sync_cursor' do
+    it 'sets sync_cursor to the supplied cursor on a changed poll (and keeps the existing success contract)' do
+      sub = create_subscription(poll_frequency: 'hourly', status: 'error', consecutive_failures: 4)
+      freeze_time do
+        sub.record_poll!(changed: true, cursor: 'c1')
+        sub.reload
+        expect(sub.sync_cursor).to eq('c1')
+        # Existing record_poll! contract still holds alongside the cursor write.
+        expect(sub.consecutive_failures).to eq(0)
+        expect(sub.last_polled_at).to be_within(1.second).of(Time.current)
+        expect(sub.status).to eq('active')
+        expect(sub.next_poll_at).to be_within(1.second).of(Time.current + 1.hour)
+      end
+    end
+
+    it 'advances an existing sync_cursor to a new value when supplied' do
+      sub = create_subscription(poll_frequency: 'hourly')
+      sub.update_column(:sync_cursor, 'cursor-baseline')
+      sub.record_poll!(changed: true, cursor: 'cursor-next')
+      expect(sub.reload.sync_cursor).to eq('cursor-next')
+    end
+
+    it 'leaves an existing sync_cursor untouched when called with NO cursor (opt-in)' do
+      sub = create_subscription(poll_frequency: 'hourly')
+      sub.update_column(:sync_cursor, 'keep-me')
+      sub.record_poll!(changed: false)
+      expect(sub.reload.sync_cursor).to eq('keep-me')
+    end
+
+    it 'does not clobber an existing sync_cursor with a blank cursor: ""' do
+      sub = create_subscription(poll_frequency: 'hourly')
+      sub.update_column(:sync_cursor, 'keep-me')
+      sub.record_poll!(changed: true, cursor: '')
+      expect(sub.reload.sync_cursor).to eq('keep-me')
+    end
+
+    it 'does not clobber an existing sync_cursor with an explicit nil cursor' do
+      sub = create_subscription(poll_frequency: 'hourly')
+      sub.update_column(:sync_cursor, 'cursor-baseline')
+      sub.record_poll!(changed: false, cursor: nil)
+      expect(sub.reload.sync_cursor).to eq('cursor-baseline')
+    end
+
+    it 'leaves sync_cursor nil when none has ever been supplied' do
+      sub = create_subscription(poll_frequency: 'hourly')
+      sub.record_poll!(changed: false)
+      expect(sub.reload.sync_cursor).to be_nil
+    end
+  end
+
+  # --- 4b-1: due_for_poll includes error status (auto-recovery) -------------
+  # Re-pinned at the cadence level: an errored + overdue subscription MUST be
+  # returned by .due_for_poll so the monitor can re-poll it — record_poll! is the
+  # ONLY transition that clears error -> active, so excluding errored rows would
+  # strand the subscription in "error" forever. Operator-set "paused" stays out.
+  describe '.due_for_poll auto-recovery of error status' do
+    def with_poll_at(sub, time)
+      sub.update_column(:next_poll_at, time)
+      sub
+    end
+
+    it 'returns a due ERROR subscription, a due ACTIVE one, but NOT a due PAUSED one' do
+      errored = with_poll_at(create_subscription(poll_frequency: 'hourly', status: 'error'), 1.minute.ago)
+      active  = with_poll_at(create_subscription(poll_frequency: 'hourly', status: 'active'), 1.minute.ago)
+      paused  = with_poll_at(create_subscription(poll_frequency: 'hourly', status: 'paused'), 1.minute.ago)
+
+      due = described_class.due_for_poll
+      expect(due).to include(errored)
+      expect(due).to include(active)
+      expect(due).not_to include(paused)
+    end
+
+    it 'transitions an ERROR subscription back to active when record_poll! runs (closing the loop)' do
+      sub = with_poll_at(
+        create_subscription(poll_frequency: 'hourly', status: 'error', consecutive_failures: 6),
+        1.minute.ago
+      )
+      # Confirm the monitor would actually pick it up before recovering it.
+      expect(described_class.due_for_poll).to include(sub)
+
+      sub.record_poll!(changed: false)
+      sub.reload
+      expect(sub.status).to eq('active')
+      expect(sub.consecutive_failures).to eq(0)
+    end
+  end
 end

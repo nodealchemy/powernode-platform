@@ -398,4 +398,169 @@ RSpec.describe Ai::DataSources::MonitorService, type: :service do
       expect(result[:refreshed]).to eq(0)
     end
   end
+
+  # --------------------------------------------------------------------------
+  # #tick — crawl pacing (per-host politeness via HostPacer)
+  # --------------------------------------------------------------------------
+  #
+  # When a source opts into politeness (here: an explicit crawl_delay_seconds via
+  # the :polite trait — no respect_robots, so effective_crawl_delay resolves the
+  # delay WITHOUT a robots.txt fetch), MonitorService#poll_subscription consults
+  # Ai::DataSources::HostPacer.ready? BEFORE issuing the fetch. A host that was
+  # hit too recently (ready? == false) DEFERS the poll to a later tick: it
+  # reschedules (schedule_next_poll!) and returns without fetching — counted as
+  # polled-but-unchanged, NOT a failure. A ready host proceeds and stamps the
+  # host's last-request time via HostPacer.touch after a successful fetch.
+  describe "#tick crawl pacing (HostPacer)" do
+    let(:polite_source) { create(:ai_data_source, :polite, account: account) }
+    let(:polite_endpoint) { create(:ai_data_source_endpoint, data_source: polite_source) }
+    let!(:subscription) do
+      create(:ai_data_source_subscription, :due,
+             data_source: polite_source, endpoint: polite_endpoint,
+             last_checksum: "checksum-steady")
+    end
+
+    context "when the host is NOT ready (within its crawl-delay window)" do
+      before do
+        allow(Ai::DataSources::HostPacer).to receive(:ready?).and_return(false)
+      end
+
+      it "defers WITHOUT fetching (QueryService is never constructed)" do
+        # The whole governed fetch pipeline must be skipped for a paced host.
+        expect(Ai::DataSources::QueryService).not_to receive(:new)
+
+        service.tick
+      end
+
+      it "reschedules the deferred poll and counts it as polled-but-unchanged" do
+        expect_any_instance_of(Ai::DataSourceSubscription).to receive(:schedule_next_poll!)
+
+        result = service.tick
+
+        expect(result[:polled]).to eq(1)
+        expect(result[:changed]).to eq(0)
+        expect(result[:errors]).to be_empty
+      end
+
+      it "does NOT touch the host pacer when the poll is deferred" do
+        # touch only happens AFTER a successful fetch — a deferred tick never gets there.
+        expect(Ai::DataSources::HostPacer).not_to receive(:touch)
+
+        service.tick
+      end
+
+      it "records no failure for a deferred (busy-host) poll" do
+        service.tick
+
+        subscription.reload
+        expect(subscription.consecutive_failures).to eq(0)
+        expect(subscription.status).to eq("active")
+        expect(subscription.next_poll_at).to be_present
+      end
+    end
+
+    context "when the host IS ready" do
+      before do
+        allow(Ai::DataSources::HostPacer).to receive(:ready?).and_return(true)
+        # Steady payload (sha == stored last_checksum) so the fetch proceeds but
+        # registers as unchanged — isolates the touch behaviour from cache/signal.
+        allow_any_instance_of(Ai::DataSources::QueryService)
+          .to receive(:call).and_return(fetch_envelope(sha: "checksum-steady"))
+      end
+
+      it "proceeds with the fetch and stamps the host's last-request time" do
+        expect_any_instance_of(Ai::DataSources::QueryService).to receive(:call)
+          .and_return(fetch_envelope(sha: "checksum-steady"))
+        expect(Ai::DataSources::HostPacer).to receive(:touch).with("api.example.com")
+
+        result = service.tick
+
+        expect(result[:polled]).to eq(1)
+        expect(result[:errors]).to be_empty
+      end
+    end
+  end
+
+  # --------------------------------------------------------------------------
+  # #tick — incremental sync round-trip (cursor in -> fetch -> cursor out)
+  # --------------------------------------------------------------------------
+  #
+  # An endpoint that declares incremental config (:incremental trait —
+  # cursor_param "since", cursor_path "next_cursor") drives a high-watermark
+  # round-trip through poll_subscription:
+  #   1. BEFORE the fetch, the subscription's stored sync_cursor is stamped onto
+  #      the outbound params under cursor_param (via IncrementalSync.apply_cursor).
+  #   2. AFTER a successful fetch, the NEXT cursor is dug out of the envelope (via
+  #      IncrementalSync.extract_cursor) and persisted through record_poll!(cursor:),
+  #      advancing the subscription's sync_cursor.
+  #   3. A response that carries NO cursor leaves the existing watermark untouched.
+  describe "#tick incremental sync round-trip" do
+    let(:incremental_endpoint) do
+      create(:ai_data_source_endpoint, :incremental, data_source: data_source)
+    end
+    let!(:subscription) do
+      create(:ai_data_source_subscription, :due, :with_cursor,
+             data_source: data_source, endpoint: incremental_endpoint,
+             last_checksum: "incr-steady")
+    end
+
+    # Like fetch_envelope but with an explicit next-watermark cursor on the
+    # provenance under the endpoint's cursor_path ("next_cursor"). The plain
+    # fetch_envelope helper (no next_cursor) models the "response omits a cursor"
+    # case.
+    def incremental_envelope(sha:, next_cursor:)
+      env = fetch_envelope(sha: sha)
+      env[:provenance] = env[:provenance].merge(next_cursor: next_cursor)
+      env
+    end
+
+    before do
+      # Default factory source is NOT polite, so HostPacer is never consulted here
+      # (pacing OFF) — keeps these examples focused on the cursor plumbing. Stub the
+      # warm/emit side-effects so a change branch (when exercised) stays hermetic.
+      allow(Ai::DataSources::ResponseCacheService).to receive(:write).and_return(true)
+      allow_any_instance_of(Ai::Coordination::StigmergicSignalService).to receive(:emit!)
+    end
+
+    it "stamps the stored sync_cursor onto the outbound fetch params under cursor_param" do
+      captured_params = nil
+      allow_any_instance_of(Ai::DataSources::QueryService).to receive(:call) do |svc|
+        # `params` is a private attr_reader on QueryService — read it via send so
+        # the explicit-receiver call doesn't raise NoMethodError (which the
+        # monitor's per-poll rescue would swallow, leaving this nil).
+        captured_params = svc.send(:params)
+        fetch_envelope(sha: "incr-steady")
+      end
+
+      service.tick
+
+      # cursor_param is "since" (factory :incremental); stored cursor is "cursor-page-1".
+      expect(captured_params).to include("since" => "cursor-page-1")
+    end
+
+    it "persists the NEXT cursor from the envelope via record_poll! and advances sync_cursor" do
+      allow_any_instance_of(Ai::DataSources::QueryService)
+        .to receive(:call).and_return(incremental_envelope(sha: "incr-steady", next_cursor: "cursor-page-2"))
+
+      expect_any_instance_of(Ai::DataSourceSubscription).to receive(:record_poll!)
+        .with(hash_including(cursor: "cursor-page-2")).and_call_original
+
+      service.tick
+
+      expect(subscription.reload.sync_cursor).to eq("cursor-page-2")
+    end
+
+    it "leaves the existing sync_cursor untouched when the response carries no cursor" do
+      # Steady sha (== last_checksum) so this is an unchanged poll; the plain
+      # envelope carries no next_cursor, so extract_cursor yields nil and
+      # record_poll!(cursor: nil) leaves the watermark in place.
+      allow_any_instance_of(Ai::DataSources::QueryService)
+        .to receive(:call).and_return(fetch_envelope(sha: "incr-steady"))
+
+      result = service.tick
+
+      expect(result[:changed]).to eq(0)
+      expect(subscription.reload.sync_cursor).to eq("cursor-page-1")
+    end
+  end
 end

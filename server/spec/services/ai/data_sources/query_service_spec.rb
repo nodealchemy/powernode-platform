@@ -1275,4 +1275,211 @@ RSpec.describe Ai::DataSources::QueryService, type: :service do
       end
     end
   end
+
+  # ==========================================================================
+  # Phase 4b-1 — CRAWL POLITENESS robots.txt GATE
+  #
+  # When the SOURCE opts into robots (data_source.respect_robots == true) and
+  # Ai::DataSources::RobotsService disallows the resolved request path for our
+  # User-Agent, QueryService short-circuits with a BLOCKED FetchEnvelope BEFORE
+  # any outbound dispatch — exactly mirroring the SSRF / kill-flag blocked paths.
+  # The block reason is surfaced as the "robots_disallowed" anomaly on
+  # provenance (and as the envelope error). RobotsService is stubbed at the class
+  # level so the gate decision is hermetic (no robots.txt fetch); only a
+  # successfully-parsed Disallow returns false from #allowed?, so allowing (or
+  # respect_robots OFF, the factory default) runs the normal path unchanged.
+  # ==========================================================================
+  describe "robots gate" do
+    # A RobotsService double substituted for the one QueryService builds. We stub
+    # the class .new so the service's memoized robots_service is OUR double; its
+    # #allowed? verdict then drives the gate without any network robots fetch.
+    let(:robots) { instance_double(Ai::DataSources::RobotsService) }
+
+    describe "with respect_robots enabled and RobotsService DISALLOWING the path" do
+      let(:data_source) do
+        create(:ai_data_source, :respect_robots, account: account,
+                                                 slug: "weather_src", api_base_url: "https://api.example.com")
+      end
+
+      before do
+        allow(Ai::DataSources::RobotsService).to receive(:new)
+          .with(data_source, agent: agent).and_return(robots)
+        allow(robots).to receive(:allowed?).and_return(false)
+      end
+
+      it "returns a blocked envelope without dispatching the outbound fetch" do
+        conn = stub_http
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(false)
+        expect(envelope[:status]).to eq("blocked")
+        # Short-circuit happens BEFORE dispatch: the connection is never invoked.
+        expect(conn).not_to have_received(:run_request)
+      end
+
+      it "records the block reason (robots_disallowed) in provenance and the error" do
+        stub_http
+
+        envelope = service.call
+
+        expect(envelope[:provenance][:anomalies]).to include("robots_disallowed")
+        expect(envelope[:error]).to eq("robots_disallowed")
+      end
+
+      it "consults RobotsService#allowed? with the resolved absolute URL" do
+        stub_http
+
+        service.call
+
+        # The gate is asked about the exact URL the service resolved (pinned by the
+        # stub_http resolved_request_url override).
+        expect(robots).to have_received(:allowed?).with(fetched_url)
+      end
+
+      it "persists a blocked query row (no live dispatch, so robots is a policy block)" do
+        stub_http
+
+        expect { service.call }.to change(Ai::DataSourceQuery, :count).by(1)
+
+        row = Ai::DataSourceQuery.order(created_at: :desc).first
+        expect(row.status).to eq("blocked")
+        expect(row.http_status).to be_nil
+        expect(Array(row.metadata["anomalies"])).to include("robots_disallowed")
+      end
+    end
+
+    describe "with respect_robots enabled but RobotsService ALLOWING the path" do
+      let(:data_source) do
+        create(:ai_data_source, :respect_robots, account: account,
+                                                 slug: "weather_src", api_base_url: "https://api.example.com")
+      end
+
+      before do
+        allow(Ai::DataSources::RobotsService).to receive(:new)
+          .with(data_source, agent: agent).and_return(robots)
+        allow(robots).to receive(:allowed?).and_return(true)
+      end
+
+      it "runs the normal fetch path and dispatches as usual" do
+        conn = stub_http
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:status]).to eq("success")
+        expect(envelope[:data].size).to eq(2)
+        expect(conn).to have_received(:run_request).once
+        # An allowed request carries no robots block anomaly.
+        expect(envelope[:provenance][:anomalies]).not_to include("robots_disallowed")
+      end
+    end
+
+    describe "with respect_robots OFF (the default source)" do
+      it "never instantiates RobotsService and runs the normal path unchanged" do
+        # The default :ai_data_source factory leaves respect_robots false.
+        expect(data_source.respect_robots).to be(false)
+        # respect_robots? short-circuits BEFORE robots_service is built, so the
+        # gate is entirely skipped for a normal source.
+        expect(Ai::DataSources::RobotsService).not_to receive(:new)
+        conn = stub_http
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:status]).to eq("success")
+        expect(conn).to have_received(:run_request).once
+        expect(envelope[:provenance][:anomalies]).not_to include("robots_disallowed")
+      end
+    end
+  end
+
+  # ==========================================================================
+  # Phase 4b-1 — INCREMENTAL CURSOR SURFACING
+  #
+  # After decode, when endpoint.incremental? (the +incremental+ jsonb config is
+  # present), QueryService digs the NEXT high-watermark cursor out of the RAW
+  # response body via Ai::DataSources::IncrementalSync.cursor_from_body(raw_body,
+  # endpoint.incremental) and stashes a non-blank result into
+  # provenance[:incremental_cursor]. The raw-body extraction is required because
+  # the records_path unwrap discards top-level paging tokens (e.g. meta.next),
+  # so they would otherwise never reach the FetchEnvelope. When the endpoint is
+  # NOT incremental (the default) the key is entirely absent — the path is
+  # byte-for-byte unchanged.
+  # ==========================================================================
+  describe "incremental cursor surfacing" do
+    describe "when the endpoint is incremental and the body carries a paging token" do
+      # A paging body: the canonical records live under "items"; the next cursor
+      # is a TOP-LEVEL token at meta.next that the records_path unwrap discards.
+      let(:paging_body) do
+        JSON.generate("meta" => { "next" => "c2" }, "items" => [{ "id" => 1 }, { "id" => 2 }])
+      end
+
+      # Build the endpoint with the :incremental trait (so #incremental? is true),
+      # overriding the trait's default cursor_path to the meta.next token this body
+      # carries, and pinning records_path so the decoded data is the items array.
+      let(:endpoint) do
+        create(:ai_data_source_endpoint, :incremental, data_source: data_source,
+                                                       slug: "obs", path_template: "/v1/obs",
+                                                       response_format: "json", cache_ttl_seconds: 300,
+                                                       incremental: { "cursor_param" => "since", "cursor_path" => "meta.next" },
+                                                       response_mapping: { "records_path" => "items" })
+      end
+
+      before do
+        stub_http(response: FakeResponse.new(status: 200, body: paging_body,
+                                             headers: { "content-type" => "application/json" }))
+      end
+
+      it "surfaces the cursor dug from the raw body at provenance[:incremental_cursor]" do
+        envelope = service.call
+
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:provenance][:incremental_cursor]).to eq("c2")
+      end
+
+      it "still decodes the canonical records under records_path (cursor is read off the raw body)" do
+        envelope = service.call
+
+        # The cursor extraction is independent of the records decode: the items
+        # array is returned as the data, while the cursor comes from meta.next.
+        expect(envelope[:data].map { |r| r["id"] }).to eq([1, 2])
+        expect(envelope[:provenance][:record_count]).to eq(2)
+      end
+
+      it "omits the incremental_cursor key when the configured path is absent from the body" do
+        # A body WITHOUT meta.next: cursor_from_body returns nil, so the non-blank
+        # guard leaves the key off entirely (never sets it to nil).
+        stub_http(response: FakeResponse.new(
+          status: 200,
+          body: JSON.generate("items" => [{ "id" => 9 }]),
+          headers: { "content-type" => "application/json" }
+        ))
+
+        prov = service.call[:provenance]
+
+        expect(prov).not_to have_key(:incremental_cursor)
+      end
+    end
+
+    describe "when the endpoint is NOT incremental (default)" do
+      before { stub_http }
+
+      it "leaves provenance with no incremental_cursor key (path unchanged)" do
+        # The default endpoint's incremental config is blank, so #incremental? is
+        # false and the surfacing branch is skipped entirely.
+        expect(endpoint.incremental?).to be(false)
+
+        prov = service.call[:provenance]
+
+        expect(prov).not_to have_key(:incremental_cursor)
+      end
+
+      it "does not call IncrementalSync.cursor_from_body" do
+        expect(Ai::DataSources::IncrementalSync).not_to receive(:cursor_from_body)
+
+        expect(service.call[:status]).to eq("success")
+      end
+    end
+  end
 end

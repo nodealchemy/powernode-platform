@@ -89,6 +89,26 @@ RSpec.describe "Api::V1::Ai::DataSource Endpoints", type: :request do
       expect(data["endpoint"]["slug"]).to eq("forecast") # auto-generated
     end
 
+    # Phase 4b-1 incremental sync — the endpoints editor sends the incremental
+    # jsonb; endpoint_params must permit it (like pagination) and the serializer
+    # must round-trip it so the UI can pre-fill the config.
+    it "persists the incremental jsonb config and round-trips it" do
+      params = { endpoint: valid_params[:endpoint].merge(
+        incremental: { cursor_param: "since", cursor_path: "meta.next", mode: "cursor" }
+      ) }
+
+      post base_path, params: params, headers: auth_headers_for(editor), as: :json
+
+      expect(response).to have_http_status(:created)
+      incremental = json_response_data["endpoint"]["incremental"]
+      expect(incremental).to include(
+        "cursor_param" => "since", "cursor_path" => "meta.next", "mode" => "cursor"
+      )
+
+      persisted = data_source.endpoints.find(json_response_data["endpoint"]["id"])
+      expect(persisted.incremental["cursor_param"]).to eq("since")
+    end
+
     it "allows the manage super-grant to create endpoints" do
       manager = user_with_permissions("ai.data_sources.manage", account: account)
 

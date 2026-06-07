@@ -54,6 +54,21 @@ FactoryBot.define do
     trait :graphql_protocol do
       protocol { "graphql" }
     end
+
+    # Opts the source into crawl politeness via an explicit crawl_delay_seconds
+    # (no respect_robots, so MonitorService#effective_crawl_delay resolves the
+    # delay directly WITHOUT fetching robots.txt — keeps pacing specs hermetic).
+    # This is what flips MonitorService#pacing_enabled? on so HostPacer is
+    # consulted before a poll.
+    trait :polite do
+      crawl_delay_seconds { 5 }
+    end
+
+    # Opts in via robots.txt instead — only for specs that explicitly exercise the
+    # RobotsService crawl-delay path (stub RobotsService to keep it network-free).
+    trait :respect_robots do
+      respect_robots { true }
+    end
   end
 
   # Ai::DataSourceEndpoint — a single addressable operation on a data source,
@@ -111,6 +126,21 @@ FactoryBot.define do
 
     trait :monitorable do
       monitorable { true }
+    end
+
+    # Opts the endpoint into incremental sync. The +incremental+ jsonb config
+    # carries the outbound cursor_param and the dotted cursor_path the response is
+    # dug for the NEXT watermark. cursor_path is resolved relative to the fetch
+    # envelope's provenance first, then its data (see Ai::DataSources::IncrementalSync),
+    # so "next_cursor" reads provenance[:next_cursor]. Blank == OFF.
+    trait :incremental do
+      incremental do
+        {
+          "cursor_param" => "since",
+          "cursor_path" => "next_cursor",
+          "mode" => "cursor"
+        }
+      end
     end
 
     # A minimal JSON Schema so QueryService runs schema validation and records
@@ -179,6 +209,13 @@ FactoryBot.define do
     # compare the next fetch against.
     trait :with_checksum do
       last_checksum { "a" * 64 }
+    end
+
+    # A stored incremental high-watermark so MonitorService#apply_sync_cursor has a
+    # cursor to stamp onto the outbound fetch params (paired with an :incremental
+    # endpoint). Blank sync_cursor == incremental OFF for that subscription.
+    trait :with_cursor do
+      sync_cursor { "cursor-page-1" }
     end
   end
 
