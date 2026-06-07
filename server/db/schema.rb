@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_06_122000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_06_123000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1843,6 +1843,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_122000) do
     t.string "etag", limit: 500
     t.string "expected_content_type", limit: 255
     t.string "http_method", limit: 10, default: "GET", null: false
+    t.jsonb "incremental", default: {}
     t.string "last_modified", limit: 255
     t.jsonb "metadata", default: {}, null: false
     t.boolean "monitorable", default: false, null: false
@@ -1942,6 +1943,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_122000) do
     t.jsonb "params", default: {}, null: false
     t.string "poll_frequency", limit: 50
     t.string "status", limit: 50, default: "active", null: false
+    t.string "sync_cursor", limit: 500
     t.datetime "updated_at", null: false
     t.index ["ai_agent_id"], name: "index_ai_data_source_subscriptions_on_ai_agent_id"
     t.index ["ai_data_source_endpoint_id"], name: "idx_on_ai_data_source_endpoint_id_e7e881bfa8"
@@ -1957,6 +1959,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_122000) do
     t.jsonb "capabilities", default: [], null: false
     t.string "category", limit: 100
     t.jsonb "configuration", default: {}, null: false
+    t.integer "crawl_delay_seconds"
     t.datetime "created_at", null: false
     t.jsonb "default_parameters", default: {}, null: false
     t.text "description"
@@ -1974,6 +1977,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_122000) do
     t.string "protocol", default: "rest", null: false
     t.jsonb "rate_limits", default: {}, null: false
     t.boolean "requires_auth", default: false, null: false
+    t.boolean "respect_robots", default: false, null: false
     t.string "slug", limit: 100, null: false
     t.string "source_type", limit: 50, null: false
     t.datetime "updated_at", null: false
