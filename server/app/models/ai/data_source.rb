@@ -11,6 +11,12 @@ module Ai
     belongs_to :account
     has_many :credentials, class_name: "Ai::DataSourceCredential",
              foreign_key: "ai_data_source_id", dependent: :destroy
+    has_many :endpoints, class_name: "Ai::DataSourceEndpoint",
+             foreign_key: "ai_data_source_id", dependent: :destroy
+    has_many :queries, class_name: "Ai::DataSourceQuery",
+             foreign_key: "ai_data_source_id", dependent: :destroy
+    has_one :knowledge_graph_node, class_name: "Ai::KnowledgeGraphNode",
+            foreign_key: "ai_data_source_id", dependent: :nullify
 
     # Constants
     SOURCE_TYPES = %w[noaa_ncei noaa_gfs noaa_observations open_meteo fred yahoo_finance espn newsapi custom].freeze
@@ -32,9 +38,11 @@ module Ai
     attribute :rate_limits, :json, default: -> { {} }
     attribute :default_parameters, :json, default: -> { {} }
     attribute :metadata, :json, default: -> { {} }
+    attribute :auth_config, :json, default: -> { {} }
 
     # Callbacks
     before_validation :generate_slug, on: :create
+    after_commit :sync_to_knowledge_graph, on: [:create, :update]
 
     # Scopes
     scope :active, -> { where(is_active: true) }
@@ -88,7 +96,7 @@ module Ai
     def record_request!(bytes: 0)
       prefix = "data_source:#{id}:quota"
       begin
-        redis = Redis.current
+        redis = Powernode::Redis.client
       rescue StandardError
         return
       end
@@ -118,7 +126,7 @@ module Ai
     def current_quota_usage
       prefix = "data_source:#{id}:quota"
       begin
-        redis = Redis.current
+        redis = Powernode::Redis.client
       rescue StandardError
         return { minute: 0, hour: 0, day: 0, bandwidth_today: 0 }
       end
@@ -170,7 +178,96 @@ module Ai
       update_columns(health_status: status, last_health_check_at: Time.current)
     end
 
+    # Records the outcome of a single query against this source. The
+    # ai_data_source_queries table IS the per-request audit log (written
+    # by Ai::DataSources::QueryService) — this method only maintains the
+    # rolled-up scoring counters used by recalculate_effectiveness!, so it
+    # does NOT create a separate usage record.
+    #
+    #   outcome:  "success" or "failure"
+    #   freshness: optional 0.0..1.0 override for the freshness signal on
+    #              this query (e.g. how recent the upstream data was). When
+    #              nil, recalculate_effectiveness! derives freshness from
+    #              health-check / last-used recency instead.
+    #   agent:    optional requesting agent (reserved for future per-agent
+    #             attribution; counters are source-wide today).
+    def record_query!(outcome:, freshness: nil, agent: nil)
+      pos = positive_usage_count + (outcome == "success" ? 1 : 0)
+      neg = negative_usage_count + (outcome == "success" ? 0 : 1)
+
+      # ONE write that bypasses callbacks/audit. Counter bumps on the hot fetch
+      # path must not flood the audit hash chain (Auditable#after_update) nor
+      # trigger an after_commit KG re-sync (the embedding only depends on
+      # name/description/source_type, not on usage counters).
+      update_columns(
+        usage_count: usage_count + 1,
+        positive_usage_count: pos,
+        negative_usage_count: neg,
+        last_used_at: Time.current
+      )
+
+      total = pos + neg
+      recalculate_effectiveness!(freshness: freshness) if total.positive? && (total % 5).zero?
+    end
+
+    # Blends three trust signals into a single 0..1 effectiveness score:
+    #   - knowledge-graph node confidence (semantic standing in the graph)
+    #   - observed query success rate
+    #   - freshness (how recently the source produced usable data)
+    def recalculate_effectiveness!(freshness: nil)
+      kg_confidence = knowledge_graph_node&.confidence&.to_f || 0.5
+      usage_rate = usage_success_rate
+      fresh = freshness.nil? ? freshness_score : freshness.to_f.clamp(0.0, 1.0)
+
+      score = (0.3 * kg_confidence + 0.4 * usage_rate + 0.3 * fresh).round(4)
+      # update_columns (not update!) so the periodic recalc also stays off the
+      # audit + KG-resync callback path — same hot-path rationale as record_query!.
+      update_columns(effectiveness_score: score)
+    end
+
+    # Share of recorded queries that succeeded. Neutral 0.5 until there is
+    # at least one outcome to avoid penalizing brand-new sources.
+    def usage_success_rate
+      total = positive_usage_count + negative_usage_count
+      return 0.5 if total.zero?
+
+      (positive_usage_count.to_f / total).round(4)
+    end
+
     private
+
+    # Mirrors Ai::Skill#sync_to_knowledge_graph: on every create/update,
+    # (re)build this source's knowledge-graph node + embedding via the
+    # DataSourceGraph bridge. Guarded so accountless rows are skipped and
+    # so environments without an embedding backend (test/CI) degrade to a
+    # logged warning instead of raising out of the commit.
+    def sync_to_knowledge_graph
+      return unless account_id.present?
+      # Only (re)build the embedding/node when a field that actually feeds the
+      # embedding text changed (name/description/source_type/slug). Counter,
+      # health, and effectiveness updates must NOT trigger a re-embed. On create
+      # every saved_change_to_* is true, so the initial node is always built.
+      return unless saved_change_to_name? || saved_change_to_description? ||
+                    saved_change_to_source_type? || saved_change_to_slug?
+
+      Ai::DataSourceGraph::BridgeService.new(Account.find(account_id)).sync_data_source(self)
+    rescue StandardError => e
+      Rails.logger.warn "[Ai::DataSource] KG sync failed for data source #{id}: #{e.message}"
+    end
+
+    # Recency-derived freshness in 0..1, defaulting to 0.5 when the source
+    # has never been used or health-checked. Uses the most recent of
+    # last_used_at / last_health_check_at and decays linearly over a 7-day
+    # window: just-touched -> ~1.0, a week stale -> 0.0.
+    def freshness_score
+      reference = [last_used_at, last_health_check_at].compact.max
+      return 0.5 if reference.nil?
+
+      age_days = (Time.current - reference) / 1.day
+      return 1.0 if age_days <= 0
+
+      (1.0 - (age_days / 7.0)).clamp(0.0, 1.0).round(4)
+    end
 
     def generate_slug
       return if slug.present?

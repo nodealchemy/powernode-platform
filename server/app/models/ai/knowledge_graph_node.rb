@@ -10,6 +10,7 @@ module Ai
     ENTITY_TYPES = %w[
       person organization technology event location skill agent team custom
       file directory class module method function variable type_definition interface constant
+      data_source
     ].freeze
     STATUSES = %w[active merged archived].freeze
 
@@ -19,6 +20,7 @@ module Ai
     belongs_to :source_document, class_name: "Ai::Document", foreign_key: "source_document_id", optional: true
     belongs_to :merged_into, class_name: "Ai::KnowledgeGraphNode", foreign_key: "merged_into_id", optional: true
     belongs_to :skill, class_name: "Ai::Skill", foreign_key: "ai_skill_id", optional: true
+    belongs_to :data_source, class_name: "Ai::DataSource", foreign_key: "ai_data_source_id", optional: true
 
     has_many :outgoing_edges, class_name: "Ai::KnowledgeGraphEdge", foreign_key: :source_node_id, dependent: :destroy
     has_many :incoming_edges, class_name: "Ai::KnowledgeGraphEdge", foreign_key: :target_node_id, dependent: :destroy
@@ -41,6 +43,8 @@ module Ai
     scope :search_by_name, ->(query) { where("name ILIKE ?", "%#{sanitize_sql_like(query)}%") }
     scope :skill_nodes, -> { where(entity_type: "skill") }
     scope :for_skill, ->(skill_id) { where(ai_skill_id: skill_id) }
+    scope :data_source_nodes, -> { where(entity_type: "data_source") }
+    scope :for_data_source, ->(id) { where(ai_data_source_id: id) }
     scope :code_entities, -> { where(node_type: "code_entity") }
     scope :for_project, ->(kb_id) { code_entities.for_knowledge_base(kb_id) }
 

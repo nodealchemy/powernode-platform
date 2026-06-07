@@ -29,7 +29,7 @@ module Ai
     # CONSTANTS
     # ==========================================================================
 
-    SOURCE_TYPES = %w[workflow agent provider team execution].freeze
+    SOURCE_TYPES = %w[workflow agent provider team execution data_source].freeze
     COST_CATEGORIES = %w[ai_inference ai_training embedding storage compute api_calls bandwidth other].freeze
 
     # ==========================================================================
@@ -86,6 +86,8 @@ module Ai
         Ai::Provider.find_by(id: source_id)
       when "execution"
         Ai::AgentExecution.find_by(id: source_id)
+      when "data_source"
+        Ai::DataSource.find_by(id: source_id)
       else
         nil
       end
@@ -205,6 +207,45 @@ module Ai
         cost_per_token: execution.tokens_used.present? && execution.tokens_used > 0 ?
                           (execution.cost_usd / execution.tokens_used) : nil,
         attribution_date: execution.created_at.to_date
+      )
+    end
+
+    # Class method: Create attribution from an external data-source fetch.
+    #
+    # Emits exactly one row per fetch. The cost is config-driven (no hard-coded
+    # pricing): data_source.configuration may declare "cost_per_request_usd"
+    # and/or "cost_per_gb_usd"; absent both, a zero-amount row is still written so
+    # every governed fetch is attributable. The originating query id and (optional)
+    # requesting agent id are recorded in metadata for traceability.
+    #
+    # @param account [Account]
+    # @param data_source [Ai::DataSource]
+    # @param query [Ai::DataSourceQuery, nil] the persisted query row (for linkage)
+    # @param bytes [Integer] response bytes for bandwidth-based costing
+    # @param agent [Ai::Agent, nil] originating agent
+    # @return [Ai::CostAttribution]
+    def self.from_data_source_query(account:, data_source:, query: nil, bytes: 0, agent: nil)
+      config = data_source.respond_to?(:configuration) ? (data_source.configuration || {}) : {}
+      per_request = config["cost_per_request_usd"].to_f
+      per_gb = config["cost_per_gb_usd"].to_f
+      gb = bytes.to_i / 1_073_741_824.0
+      amount = (per_request + (per_gb * gb)).round(6)
+
+      create!(
+        account: account,
+        source_type: "data_source",
+        source_id: data_source.id,
+        source_name: data_source.try(:name) || data_source.try(:slug),
+        cost_category: "api_calls",
+        amount_usd: amount,
+        api_calls: 1,
+        attribution_date: Date.current,
+        metadata: {
+          "data_source_slug" => data_source.try(:slug),
+          "query_id" => query&.id,
+          "agent_id" => agent&.id,
+          "bytes" => bytes.to_i
+        }.compact
       )
     end
 
