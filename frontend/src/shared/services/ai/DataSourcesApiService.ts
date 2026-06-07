@@ -12,6 +12,9 @@ import type {
   DataSourceOpenApiImportRequest,
   DataSourceOpenApiImportResult,
   DataSourceContractVerdict,
+  AiDataSourceSubscription,
+  DataSourceSubscriptionsResponse,
+  CreateDataSourceSubscriptionRequest,
 } from '@/shared/types/ai';
 import type { ConnectionTestResult } from '@/shared/services/ai/ProvidersApiService';
 
@@ -408,6 +411,66 @@ class DataSourcesApiService extends BaseApiService {
     // resource root (buildPath only appends an action when an id is present).
     const path = `${this.baseNamespace}/${this.resource}/${dataSourceId}/introspect`;
     return this.post<DataSourceOpenApiImportResult>(path, request);
+  }
+
+  // ===================================================================
+  // Data Source Subscriptions - Phase 3 Pull-Based Monitoring
+  //
+  // Subscriptions bind an endpoint to a poll cadence; the server-side
+  // Ai::DataSources::MonitorService walks due subscriptions, runs the governed
+  // fetch, change-detects (etag/checksum), warms the cache, and emits a
+  // "data_source_changed" signal on change.
+  //
+  // Transport: nested REST under the data source, mirroring `endpoints` and
+  // `credentials` — the same transport every other data-sources UI action uses.
+  // The subscribe/unsubscribe logic itself is shared with the MCP DataSourceTool
+  // (data_source_subscribe / data_source_unsubscribe), so the controller and the
+  // tool both call the same Ai::DataSourceSubscription create/destroy path.
+  //
+  // - GET    /api/v1/ai/data_sources/:data_source_id/subscriptions
+  // - POST   /api/v1/ai/data_sources/:data_source_id/subscriptions
+  // - DELETE /api/v1/ai/data_sources/:data_source_id/subscriptions/:subscription_id
+  // ===================================================================
+
+  /**
+   * List the pull-based monitoring subscriptions for a data source.
+   * GET /api/v1/ai/data_sources/:data_source_id/subscriptions
+   * Server returns { items, count }; this returns just the subscription array.
+   */
+  async getSubscriptions(dataSourceId: string): Promise<AiDataSourceSubscription[]> {
+    const path = this.buildPath(this.resource, dataSourceId, 'subscriptions');
+    const response = await this.get<DataSourceSubscriptionsResponse>(path);
+    return response.items ?? [];
+  }
+
+  /**
+   * Create or update a subscription for an endpoint on this data source.
+   * POST /api/v1/ai/data_sources/:data_source_id/subscriptions
+   *
+   * Idempotent on the (source, endpoint) pair server-side: re-subscribing an
+   * endpoint updates the existing subscription's cadence/params instead of
+   * creating a duplicate. Requires ai.data_sources.stream. Server returns
+   * { subscription }, unwrapped here to the subscription.
+   */
+  async createSubscription(
+    dataSourceId: string,
+    data: CreateDataSourceSubscriptionRequest
+  ): Promise<AiDataSourceSubscription> {
+    const path = this.buildPath(this.resource, dataSourceId, 'subscriptions');
+    const response = await this.post<{ subscription: AiDataSourceSubscription }>(path, {
+      subscription: data,
+    });
+    return response.subscription;
+  }
+
+  /**
+   * Cancel (delete) a subscription.
+   * DELETE /api/v1/ai/data_sources/:data_source_id/subscriptions/:subscription_id
+   * Requires ai.data_sources.stream.
+   */
+  async deleteSubscription(dataSourceId: string, subscriptionId: string): Promise<void> {
+    const path = this.buildPath(this.resource, dataSourceId, 'subscriptions', subscriptionId);
+    return this.delete<void>(path);
   }
 }
 

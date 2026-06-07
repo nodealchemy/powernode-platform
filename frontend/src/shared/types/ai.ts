@@ -541,6 +541,14 @@ export interface AiDataSourceEndpoint {
   sla_max_age_seconds?: number | null;
   owner?: string | null;
   contract?: Record<string, unknown>;
+  // Phase 3 stale-while-revalidate window (seconds) for the response cache. When
+  // set, a cache hit within [hard_expiry, hard_expiry + stale_while_revalidate]
+  // serves the stale payload (flagged) and triggers a background refresh;
+  // stale_if_error serves a stale entry on upstream 5xx/timeout/breaker-OPEN.
+  // Both null/absent => SWR disabled (the default). Optional so the UI degrades
+  // gracefully until the backend serializer exposes the columns.
+  stale_while_revalidate_seconds?: number | null;
+  stale_if_error_seconds?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -568,6 +576,10 @@ export interface DataSourceEndpointRequest {
   sla_max_age_seconds?: number | null;
   owner?: string | null;
   contract?: Record<string, unknown>;
+  // Phase 3 stale-while-revalidate / stale-if-error windows (seconds). null or
+  // omitted leaves SWR disabled for the endpoint.
+  stale_while_revalidate_seconds?: number | null;
+  stale_if_error_seconds?: number | null;
 }
 
 // Canonical record returned by the governed fetch — shape is source-specific.
@@ -822,4 +834,53 @@ export interface DataSourceContractVerdict {
   quality_passed: boolean | null;
   within_sla: boolean | null;
   violations: string[];
+}
+
+// Phase 3 — pull-based monitoring subscriptions. A subscription binds an endpoint
+// to a poll cadence; the server-side Ai::DataSources::MonitorService walks due
+// subscriptions, runs the governed fetch, change-detects (etag/checksum), warms
+// the cache, and emits a "data_source_changed" signal on change.
+
+// Cadence values mirror Ai::DataSourceSubscription::POLL_FREQUENCIES.
+export type DataSourcePollFrequency =
+  | 'manual' | '5min' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'realtime';
+
+// Lifecycle status (Ai::DataSourceSubscription::STATUSES). "error" is set after
+// repeated consecutive poll failures; the monitor keeps polling to self-heal.
+export type DataSourceSubscriptionStatus = 'active' | 'paused' | 'error';
+
+// Mirrors Ai::Tools::DataSourceTool#subscription_summary (the serialized shape
+// returned by the subscribe action and the per-source subscription listing).
+export interface AiDataSourceSubscription {
+  id: string;
+  data_source_id: string;
+  endpoint_id: string;
+  poll_frequency: DataSourcePollFrequency;
+  status: DataSourceSubscriptionStatus;
+  params: Record<string, unknown>;
+  next_poll_at: string | null;
+  last_polled_at: string | null;
+  // Change fingerprint from the most recent successful poll.
+  last_checksum: string | null;
+  last_etag?: string | null;
+  // Count of consecutive failed polls; reset to 0 on a successful poll.
+  consecutive_failures: number;
+  // Optional owning agent (the agent that subscribed), null for system/UI subs.
+  agent_id?: string | null;
+}
+
+// Envelope returned by the per-source subscription listing. `count` mirrors the
+// other nested-collection responses (endpoints#index returns { items, count }).
+export interface DataSourceSubscriptionsResponse {
+  items: AiDataSourceSubscription[];
+  count: number;
+}
+
+// Payload accepted when creating/updating a subscription. Idempotent on the
+// (source, endpoint) pair server-side: re-subscribing an endpoint updates the
+// existing subscription's cadence/params rather than creating a duplicate.
+export interface CreateDataSourceSubscriptionRequest {
+  endpoint_id: string;
+  poll_frequency?: DataSourcePollFrequency;
+  params?: Record<string, unknown>;
 }

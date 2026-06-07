@@ -16,6 +16,7 @@ import { DataSourceEndpointsTab } from './DataSourceEndpointsTab';
 import { DataSourceQueryConsole } from './DataSourceQueryConsole';
 import { DataSourceSchemaHistoryTab } from './DataSourceSchemaHistoryTab';
 import { DataSourceQualityTab } from './DataSourceQualityTab';
+import { DataSourceMonitoringTab } from './DataSourceMonitoringTab';
 import { DataSourceImportOpenApiModal } from './DataSourceImportOpenApiModal';
 import { DataSourceActionsBar } from './DataSourceActionsBar';
 import { SOURCE_TYPE_LABELS } from './sourceTypeLabels';
@@ -47,6 +48,9 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
   const canDeleteDataSources = currentUser?.permissions?.includes('ai.data_sources.delete') || false;
   const canTestConnection = currentUser?.permissions?.includes('ai.data_sources.update') || false;
   const canQueryDataSources = currentUser?.permissions?.includes('ai.data_sources.query') || false;
+  // Pull-based monitoring create/cancel is gated on the stream grant; the
+  // subscription listing + SWR config stay visible read-only without it.
+  const canManageSubscriptions = currentUser?.permissions?.includes('ai.data_sources.stream') || false;
   // Importing from OpenAPI creates endpoints — the backend gates the introspect
   // action on the manage super-grant.
   const canImportEndpoints = currentUser?.permissions?.includes('ai.data_sources.manage') || false;
@@ -199,6 +203,7 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
             <TabsTrigger value="endpoints" className="whitespace-nowrap">Endpoints</TabsTrigger>
             <TabsTrigger value="schema" className="whitespace-nowrap">Schema History</TabsTrigger>
             <TabsTrigger value="quality" className="whitespace-nowrap">Data Quality</TabsTrigger>
+            <TabsTrigger value="monitoring" className="whitespace-nowrap">Monitoring</TabsTrigger>
             <TabsTrigger value="query" className="whitespace-nowrap">Query Console</TabsTrigger>
             <TabsTrigger value="quota" className="whitespace-nowrap">Quota</TabsTrigger>
           </TabsList>
@@ -225,6 +230,12 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
           </TabsContent>
           <TabsContent value="quality">
             <DataSourceQualityTab dataSourceId={dataSource.id} />
+          </TabsContent>
+          <TabsContent value="monitoring">
+            <DataSourceMonitoringTab
+              dataSourceId={dataSource.id}
+              canManageSubscriptions={canManageSubscriptions}
+            />
           </TabsContent>
           <TabsContent value="query">
             <DataSourceQueryConsole
