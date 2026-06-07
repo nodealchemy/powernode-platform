@@ -81,12 +81,20 @@ module Ai
         # @param data_source [Ai::DataSource]
         # @param agent [Ai::Agent, nil] originating agent (for User-Agent attribution)
         # @return [Faraday::Connection]
-        def build(data_source:, agent: nil)
+        def build(data_source:, agent: nil, max_redirects: nil)
           config = data_source.respond_to?(:configuration) ? (data_source.configuration || {}) : {}
 
           open_timeout = positive_int(config["open_timeout_seconds"], DEFAULT_OPEN_TIMEOUT)
           read_timeout = positive_int(config["read_timeout_seconds"], DEFAULT_READ_TIMEOUT)
-          max_redirects = positive_int(config["max_redirects"], DEFAULT_MAX_REDIRECTS)
+          # A caller MAY force a redirect limit (a credential broker passes 0 so a
+          # token endpoint is never followed cross-host with a secret in the body).
+          # nil => fall back to the per-source config (DEFAULT_MAX_REDIRECTS), so the
+          # default path is byte-for-byte unchanged.
+          max_redirects = if max_redirects.nil?
+                            positive_int(config["max_redirects"], DEFAULT_MAX_REDIRECTS)
+                          else
+                            [max_redirects.to_i, 0].max
+                          end
           max_bytes = response_size_cap(config["max_response_bytes"])
 
           base_url = data_source.respond_to?(:api_base_url) ? data_source.api_base_url : nil

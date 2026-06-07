@@ -448,6 +448,16 @@ module Ai
         request = adapter.build_request(endpoint: endpoint, params: params)
         absolute_url = resolved_request_url(request)
 
+        # (4c) PRESIGNED-URL HONOR HOOK. A PresignedUrlBroker returns a credential
+        # carrying a fully self-authenticating URL (S3 presign / Azure SAS) via
+        # #presigned_url. When present, that URL IS the fetch target and signing is
+        # SKIPPED (the signature lives in the URL's query string). The override
+        # still flows through dispatch_with_retry -> validate_url! + the SSRF-guarded
+        # connection, so the presigned host is validated like any other. Tiny and
+        # guarded: a nil/blank presigned_url leaves the normal path byte-for-byte.
+        presigned = presigned_url_for(credential)
+        absolute_url = presigned if presigned
+
         # CRAWL POLITENESS (robots.txt): when the source opts in and robots.txt
         # disallows this path for our User-Agent, short-circuit with a blocked
         # envelope BEFORE dispatch — mirroring the kill-flag / SSRF blocked path.
@@ -459,8 +469,10 @@ module Ai
 
         return perform_paginated_fetch(credential) if pagination_enabled?
 
-        # (5) sign the outbound request env in place.
-        sign_request!(request, credential)
+        # (5) sign the outbound request env in place — UNLESS a presigned URL is
+        # carrying the auth itself, in which case signing would be redundant (and
+        # could append a conflicting Authorization header).
+        sign_request!(request, credential) unless presigned
 
         # (5) breaker-wrapped dispatch with SSRF validation + idempotent retry.
         response = with_circuit_breaker do
@@ -606,17 +618,65 @@ module Ai
       # fall back to the Rails-encrypted decrypted_* accessors. The signer layer
       # reads decrypted_api_key / decrypted_api_secret, so when Vault returns the
       # secret material we wrap it in a lightweight struct exposing those readers.
+      #
+      # (4b) DYNAMIC BROKERING — when data_source.auth_config["broker"]["type"] is
+      # configured, the resolved BASE credential (static or Vault) is then EXCHANGED
+      # with an external authority (AWS STS, an OAuth2 token endpoint, a Vault
+      # dynamic engine, an S3 presigner) for a SHORT-LIVED credential just before
+      # the signed fetch. The broker returns an object satisfying the SAME signer
+      # contract (decrypted_api_key / decrypted_api_secret / [](name)), so the
+      # signer layer below is unchanged. @last_credential deliberately stays pinned
+      # to the BASE credential so failure/success counters track the STORED
+      # credential, not the ephemeral brokered one. Brokers fail-safe internally
+      # (degrade to base, never raise), so a broker fault cannot break this path. No
+      # broker configured => byte-for-byte the original behavior.
       def resolve_credential
         cred = data_source.active_credential
         @last_credential = cred
         return nil unless cred
 
+        base = cred
         if cred.respond_to?(:vault_path) && cred.vault_path.present?
           vaulted = read_vault_credential(cred)
-          return vaulted if vaulted
+          base = vaulted if vaulted
         end
 
-        cred
+        maybe_broker_credential(base)
+      end
+
+      # (4b) Apply the configured credential broker to the resolved base credential.
+      # Returns the brokered (short-lived) credential on success, or the base
+      # credential unchanged when no broker is configured / the type is unknown /
+      # the exchange fails. @last_credential is left pointing at the base cred.
+      def maybe_broker_credential(base_credential)
+        broker_cfg = broker_config
+        return base_credential if broker_cfg.blank?
+
+        broker_type = broker_cfg["type"] || broker_cfg[:type]
+        return base_credential if broker_type.blank?
+
+        Ai::DataSources::Credentials::Registry.for(broker_type).acquire(
+          data_source: data_source,
+          base_credential: base_credential,
+          config: broker_cfg
+        )
+      rescue StandardError => e
+        # Defense in depth: the broker already degrades internally, but never let a
+        # brokering fault escape credential resolution. Log class only (no material).
+        Rails.logger.warn("[DataSources::QueryService] credential brokering failed (using base) for #{safe_slug}: #{e.class}")
+        base_credential
+      end
+
+      # Read the broker sub-config off auth_config, tolerating string OR symbol keys
+      # at both levels. Returns the broker Hash or nil when unconfigured.
+      def broker_config
+        auth_config = data_source.respond_to?(:auth_config) ? data_source.auth_config : nil
+        return nil unless auth_config.is_a?(Hash)
+
+        broker = auth_config["broker"] || auth_config[:broker]
+        broker.is_a?(Hash) ? broker : nil
+      rescue StandardError
+        nil
       end
 
       def read_vault_credential(cred)
@@ -655,6 +715,19 @@ module Ai
         def [](name)
           @secret[name]
         end
+      end
+
+      # (4c) Extract a self-authenticating presigned URL from the resolved
+      # credential, if it carries one (only a PresignedUrlBroker's BrokeredCredential
+      # does). Returns the URL String when present, else nil so the normal
+      # sign-then-dispatch path runs unchanged. Never raises.
+      def presigned_url_for(credential)
+        return nil unless credential.respond_to?(:presigned_url)
+
+        url = credential.presigned_url
+        url.present? ? url.to_s : nil
+      rescue StandardError
+        nil
       end
 
       def sign_request!(request, credential)
