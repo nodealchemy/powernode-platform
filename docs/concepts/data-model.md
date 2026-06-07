@@ -596,6 +596,7 @@ uuid_info(User.first.id)
 ## Related concepts
 
 - [`concepts/architecture.md`](./architecture.md) — service decomposition and namespace conventions
+- [`concepts/data-sources.md`](./data-sources.md) — the `ai_data_source*` tables and the governed-fetch model over them
 - [`concepts/permissions.md`](./permissions.md) — role/permission schema
 - [`reference/database-schema.md`](../reference/database-schema.md) — exhaustive per-table reference
 - [`guides/backend.md`](../guides/backend.md) — migration and model patterns

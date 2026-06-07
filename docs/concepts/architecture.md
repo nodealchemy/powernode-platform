@@ -662,6 +662,7 @@ After modifying seed files, run `cd server && rails db:seed` and watch for assoc
 - [`concepts/permissions.md`](./permissions.md) — `require_permission` / `has_permission?` semantics
 - [`concepts/chat-and-realtime.md`](./chat-and-realtime.md) — ActionCable channel layout
 - [`concepts/mcp-and-tools.md`](./mcp-and-tools.md) — how MCP tool calls land in services
+- [`concepts/data-sources.md`](./data-sources.md) — the governed external-fetch subsystem (catalog, adapters/decoders, QueryService)
 - [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md) — live MCP tool catalog
 - [`reference/database-schema.md`](../reference/database-schema.md) — full table reference
 - [`guides/backend.md`](../guides/backend.md) — backend implementation how-to
