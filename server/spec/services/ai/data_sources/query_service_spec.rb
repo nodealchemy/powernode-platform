@@ -990,4 +990,289 @@ RSpec.describe Ai::DataSources::QueryService, type: :service do
       end
     end
   end
+
+  # ==========================================================================
+  # Phase 4 — OUTBOUND PAGINATION
+  #
+  # perform_fetch branches to perform_paginated_fetch when endpoint.pagination is
+  # a non-blank Hash with a supported "type" (offset/page/cursor/link). The
+  # QueryService drives Ai::DataSources::Paginator, which walks multiple physical
+  # requests and concatenates the decoded canonical records into ONE
+  # FetchEnvelope — capped at Paginator::HARD_MAX_PAGES, re-checking the quota
+  # before each subsequent page. When endpoint.pagination is blank ({}) the path
+  # is OFF: exactly ONE request, and the FetchEnvelope is byte-identical to the
+  # default single-request path.
+  #
+  # The HTTP layer is stubbed at the HttpConnectionFactory.build boundary (same
+  # as stub_http) but with a connection whose run_request returns SUCCESSIVE
+  # page responses in order, so the real Paginator -> dispatch_page ->
+  # build->sign->dispatch path is exercised end to end (no network).
+  # ==========================================================================
+  describe "pagination" do
+    # A JSON-array body for one page (decoded by the RestAdapter into records).
+    def page_body(*records)
+      JSON.generate(records)
+    end
+
+    def page_response(*records, status: 200, headers: { "content-type" => "application/json" })
+      FakeResponse.new(status: status, body: page_body(*records), headers: headers)
+    end
+
+    # Stub HttpConnectionFactory.build with a connection whose run_request hands
+    # back the queued page responses in order (then keeps returning the last one
+    # defensively). validate_url! is neutralised; resolved_request_url is pinned
+    # exactly as stub_http does so the dispatch path is hermetic and the page walk
+    # is deterministic. Returns the connection double for call-count assertions.
+    def stub_paginated_http(pages)
+      queue = pages.dup
+      conn = instance_double(Faraday::Connection)
+      allow(conn).to receive(:run_request) do
+        queue.length > 1 ? queue.shift : queue.first
+      end
+      allow(Ai::DataSources::HttpConnectionFactory).to receive(:build).and_return(conn)
+      allow(Ai::DataSources::HttpConnectionFactory).to receive(:validate_url!).and_return(true)
+      allow_any_instance_of(described_class).to receive(:resolved_request_url) do |svc, _req|
+        svc.instance_variable_set(:@last_absolute_url, fetched_url)
+        fetched_url
+      end
+      conn
+    end
+
+    describe "with endpoint.pagination configured (offset)" do
+      before do
+        endpoint.update!(pagination: {
+                           "type" => "offset", "limit" => 2,
+                           "limit_param" => "limit", "offset_param" => "offset"
+                         })
+      end
+
+      it "follows multiple pages and concatenates the canonical records into ONE envelope" do
+        stub_paginated_http([
+                              page_response({ "id" => 1 }, { "id" => 2 }),
+                              page_response({ "id" => 3 }, { "id" => 4 }),
+                              page_response({ "id" => 5 }),
+                              page_response # empty page -> stop
+                            ])
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:status]).to eq("success")
+        # 2 + 2 + 1 records from three non-empty pages, concatenated in order.
+        expect(envelope[:data].map { |r| r["id"] }).to eq([1, 2, 3, 4, 5])
+        expect(envelope[:provenance][:record_count]).to eq(5)
+      end
+
+      it "dispatches one HTTP request per page until an empty page halts the walk" do
+        conn = stub_paginated_http([
+                                     page_response({ "id" => 1 }, { "id" => 2 }),
+                                     page_response({ "id" => 3 }),
+                                     page_response # empty -> stop
+                                   ])
+
+        service.call
+
+        # Two non-empty pages + the terminating empty page = three dispatches.
+        expect(conn).to have_received(:run_request).exactly(3).times
+      end
+
+      it "records the page walk on provenance and as anomalies" do
+        stub_paginated_http([
+                              page_response({ "id" => 1 }),
+                              page_response({ "id" => 2 }),
+                              page_response # empty -> stop
+                            ])
+
+        prov = service.call[:provenance]
+
+        expect(prov[:pagination]).to include(
+          type: "offset", pages_fetched: 3, truncated: false
+        )
+        expect(prov[:pagination][:stopped_reason]).to eq("empty_page")
+        expect(prov[:anomalies]).to include("paginated_3_pages")
+      end
+
+      it "aggregates transferred bytes across all fetched pages" do
+        p1 = page_response({ "id" => 1 }, { "id" => 2 })
+        p2 = page_response({ "id" => 3 })
+        empty = page_response
+        stub_paginated_http([p1, p2, empty])
+
+        envelope = service.call
+
+        total = p1.body.bytesize + p2.body.bytesize + empty.body.bytesize
+        expect(envelope[:bytes]).to eq(total)
+      end
+
+      it "persists a single audit-chained query row whose rows_returned spans every page" do
+        stub_paginated_http([
+                              page_response({ "id" => 1 }, { "id" => 2 }),
+                              page_response({ "id" => 3 }),
+                              page_response
+                            ])
+
+        expect { service.call }.to change(Ai::DataSourceQuery, :count).by(1)
+
+        row = Ai::DataSourceQuery.order(created_at: :desc).first
+        expect(row.status).to eq("success")
+        expect(row.rows_returned).to eq(3)
+        expect(row.served_stage).to eq("fresh")
+        # The single combined fetch is still tied into the audit hash chain.
+        expect(row.metadata["audit_chain"]).to be_present
+      end
+    end
+
+    describe "with endpoint.pagination type 'page'" do
+      before { endpoint.update!(pagination: { "type" => "page", "page_param" => "p", "start_page" => 1 }) }
+
+      it "walks successive pages and concatenates records" do
+        stub_paginated_http([
+                              page_response({ "id" => "a" }),
+                              page_response({ "id" => "b" }),
+                              page_response # empty -> stop
+                            ])
+
+        envelope = service.call
+
+        expect(envelope[:data].map { |r| r["id"] }).to eq(%w[a b])
+        expect(envelope[:provenance][:pagination][:type]).to eq("page")
+      end
+    end
+
+    describe "with endpoint.pagination type 'cursor'" do
+      before do
+        endpoint.update!(pagination: {
+                           "type" => "cursor", "cursor_param" => "after", "cursor_path" => "meta.next"
+                         })
+      end
+
+      it "follows the body cursor across pages and stops when it is absent" do
+        # Cursor bodies are objects; the QueryService decode path (adapter.parse)
+        # unwraps a single top-level object, but the canonical records here live
+        # under "data", so we map records via response_mapping records_path and
+        # read the cursor from meta.next (Paginator reads the cursor off the raw
+        # body independently of the record decode).
+        endpoint.update!(response_mapping: { "records_path" => "data" })
+        stub_paginated_http([
+                              FakeResponse.new(status: 200,
+                                               body: JSON.generate("data" => [{ "id" => 1 }], "meta" => { "next" => "C2" }),
+                                               headers: { "content-type" => "application/json" }),
+                              FakeResponse.new(status: 200,
+                                               body: JSON.generate("data" => [{ "id" => 2 }], "meta" => { "next" => nil }),
+                                               headers: { "content-type" => "application/json" })
+                            ])
+
+        envelope = service.call
+
+        expect(envelope[:data].map { |r| r["id"] }).to eq([1, 2])
+        expect(envelope[:provenance][:pagination][:stopped_reason]).to eq("no_cursor")
+        expect(envelope[:provenance][:pagination][:pages_fetched]).to eq(2)
+      end
+    end
+
+    describe "HARD_MAX_PAGES safety cap" do
+      before { endpoint.update!(pagination: { "type" => "page", "max_pages" => 999 }) }
+
+      it "never fetches more than Paginator::HARD_MAX_PAGES pages and flags truncation" do
+        # Every page is non-empty so only the hard cap can halt the walk.
+        many = Array.new(Ai::DataSources::Paginator::HARD_MAX_PAGES + 5) { page_response({ "id" => 1 }) }
+        conn = stub_paginated_http(many)
+
+        envelope = service.call
+
+        expect(conn).to have_received(:run_request)
+          .exactly(Ai::DataSources::Paginator::HARD_MAX_PAGES).times
+        expect(envelope[:provenance][:pagination][:pages_fetched])
+          .to eq(Ai::DataSources::Paginator::HARD_MAX_PAGES)
+        expect(envelope[:provenance][:pagination][:truncated]).to be(true)
+        expect(envelope[:provenance][:anomalies]).to include("pagination_truncated")
+      end
+    end
+
+    describe "per-page quota enforcement (check_quota! before each page)" do
+      before { endpoint.update!(pagination: { "type" => "page" }) }
+
+      it "re-checks the source quota before every subsequent page" do
+        stub_paginated_http([
+                              page_response({ "id" => 1 }),
+                              page_response({ "id" => 2 }),
+                              page_response # empty -> stop after 3 fetches
+                            ])
+        # The model quota gate is consulted once at call() entry, then again
+        # before EACH subsequent page via paginate_quota_veto -> quota_exceeded!.
+        allow(data_source).to receive(:check_quota!).and_call_original
+
+        service.call
+
+        # 1 (call entry) + 2 (before page 2 and page 3) = at least 3 checks.
+        expect(data_source).to have_received(:check_quota!).at_least(3).times
+      end
+
+      it "stops the walk early and keeps the partial result when the quota vetoes the next page" do
+        stub_paginated_http([
+                              page_response({ "id" => 1 }),
+                              page_response({ "id" => 2 }),
+                              page_response({ "id" => 3 })
+                            ])
+        # check_quota! is consulted at call() entry (#1, allow -> page 1 fetched),
+        # then again before page 2 (#2) — deny there so the walk keeps only page 1.
+        allowed = { allowed: true }
+        denied  = { allowed: false, retry_after: 30, limit: "requests_per_minute" }
+        call_count = 0
+        allow(data_source).to receive(:check_quota!) do
+          call_count += 1
+          call_count <= 1 ? allowed : denied
+        end
+
+        envelope = service.call
+
+        # Page 1 succeeded; the quota vetoed page 2, so only page 1 records remain
+        # and the overall fetch is still a success (partial result is honored).
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:data].map { |r| r["id"] }).to eq([1])
+        expect(envelope[:provenance][:pagination][:pages_fetched]).to eq(1)
+        expect(envelope[:provenance][:pagination][:stopped_reason]).to match(/\Aquota:/)
+      end
+    end
+
+    describe "with endpoint.pagination blank (OFF — single request, unchanged envelope)" do
+      it "makes exactly ONE request and never invokes the Paginator" do
+        # Default endpoint pagination is {} (blank == OFF).
+        expect(endpoint.pagination).to eq({})
+        conn = stub_http
+        expect(Ai::DataSources::Paginator).not_to receive(:new)
+
+        service.call
+
+        expect(conn).to have_received(:run_request).once
+      end
+
+      it "leaves the FetchEnvelope byte-identical to the default single-request path" do
+        stub_http
+
+        envelope = service.call
+
+        # Single-page data + NO pagination provenance / pagination anomalies.
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:data].size).to eq(2)
+        expect(envelope[:bytes]).to eq(json_body.bytesize)
+        expect(envelope[:provenance]).not_to have_key(:pagination)
+        expect(envelope[:provenance][:anomalies]).not_to include(
+          a_string_matching(/\Apaginated_/)
+        )
+        expect(envelope[:provenance][:anomalies]).not_to include("pagination_truncated")
+      end
+
+      it "treats a non-blank config with an UNSUPPORTED type as OFF (single request)" do
+        endpoint.update!(pagination: { "type" => "soap" })
+        conn = stub_http
+        expect(Ai::DataSources::Paginator).not_to receive(:new)
+
+        envelope = service.call
+
+        expect(conn).to have_received(:run_request).once
+        expect(envelope[:provenance]).not_to have_key(:pagination)
+      end
+    end
+  end
 end

@@ -38,7 +38,9 @@ RSpec.describe Ai::DataSource, type: :model do
     it { is_expected.to validate_presence_of(:name) }
     it { is_expected.to validate_presence_of(:source_type) }
 
-    it { is_expected.to validate_inclusion_of(:source_type).in_array(described_class::SOURCE_TYPES) }
+    # source_type is now free-form (Phase 4): presence + lowercase format, no enum.
+    it { is_expected.to allow_value("any_new_source_type").for(:source_type) }
+    it { is_expected.not_to allow_value("Upper Case").for(:source_type) }
 
     it 'validates name uniqueness within an account (case-insensitive)' do
       create(:ai_data_source, account: account, name: 'NOAA Feed')

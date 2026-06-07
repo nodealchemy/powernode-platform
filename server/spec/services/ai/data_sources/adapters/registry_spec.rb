@@ -23,9 +23,22 @@ RSpec.describe Ai::DataSources::Adapters::Registry do
     end
 
     it "falls back to the generic RestAdapter for an unknown protocol" do
-      adapter = described_class.for(source_with_protocol("graphql"))
+      adapter = described_class.for(source_with_protocol("soap"))
 
       expect(adapter).to be_an_instance_of(Ai::DataSources::Adapters::RestAdapter)
+    end
+
+    it "resolves the 'graphql' protocol to the GraphqlAdapter" do
+      adapter = described_class.for(source_with_protocol("graphql"))
+
+      expect(adapter).to be_an_instance_of(Ai::DataSources::Adapters::GraphqlAdapter)
+    end
+
+    it "resolves the 'rss' and 'atom' protocols to the RssAdapter" do
+      expect(described_class.for(source_with_protocol("rss")))
+        .to be_an_instance_of(Ai::DataSources::Adapters::RssAdapter)
+      expect(described_class.for(source_with_protocol("atom")))
+        .to be_an_instance_of(Ai::DataSources::Adapters::RssAdapter)
     end
 
     it "falls back to the generic RestAdapter for a blank protocol" do
@@ -70,14 +83,20 @@ RSpec.describe Ai::DataSources::Adapters::Registry do
       expect(described_class.known_protocol?(" REST ")).to be(true)
     end
 
+    it "is true for the purpose-built protocols" do
+      expect(described_class.known_protocol?("graphql")).to be(true)
+      expect(described_class.known_protocol?("rss")).to be(true)
+      expect(described_class.known_protocol?("atom")).to be(true)
+    end
+
     it "is false for an unregistered protocol that only hits the generic fallback" do
-      expect(described_class.known_protocol?("graphql")).to be(false)
+      expect(described_class.known_protocol?("soap")).to be(false)
     end
   end
 
   describe ".protocols" do
     it "lists the registered protocol tokens" do
-      expect(described_class.protocols).to contain_exactly("rest", "custom")
+      expect(described_class.protocols).to contain_exactly("rest", "custom", "graphql", "rss", "atom")
     end
   end
 end

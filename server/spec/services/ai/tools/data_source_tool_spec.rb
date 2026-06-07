@@ -329,9 +329,11 @@ RSpec.describe Ai::Tools::DataSourceTool do
       expect(Ai::DataSource.where(account: account, name: "FRED")).to exist
     end
 
-    it "returns a validation error on create with an invalid source_type" do
+    it "returns a validation error on create with a malformed source_type" do
+      # Phase 4 made source_type free-form (any lowercase token), so the rejection
+      # case is now a FORMAT violation (uppercase/spaces), not an out-of-enum value.
       result = tool.execute(params: {
-        action: "data_source_create", name: "Bad", source_type: "not_a_real_type"
+        action: "data_source_create", name: "Bad", source_type: "Not A Real Type!"
       })
 
       expect(result[:success]).to be false
