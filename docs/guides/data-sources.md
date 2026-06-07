@@ -20,6 +20,8 @@
 - [Enabling quality & drift per endpoint (Phase 2b)](#enabling-quality--drift-per-endpoint-phase-2b)
 - [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3)
 - [Enabling stale-serving cache policies per endpoint (Phase 3)](#enabling-stale-serving-cache-policies-per-endpoint-phase-3)
+- [Configure incremental sync on an endpoint (Phase 5)](#configure-incremental-sync-on-an-endpoint-phase-5)
+- [Make a source crawl-polite (Phase 5)](#make-a-source-crawl-polite-phase-5)
 - [The fetch pipeline in detail](#the-fetch-pipeline-in-detail)
 - [Related guides](#related-guides)
 
@@ -1067,6 +1069,133 @@ How they behave (full mechanics in the [operations runbook](../operations/data-s
 - **SWR** (`ResponseCacheService.fetch`): a hard-expired entry inside the SWR window is returned immediately and a single NX-locked detached background thread runs `MonitorService#refresh!` to re-warm it (the thread checks out its own AR connection). Outside the window Redis has already evicted the key, so you never serve beyond the grace.
 - **Stale-if-error** (`QueryService`): only kicks in *after* a live fetch returns `error`/`timeout` (not a policy rejection like `blocked`/`rate_limited`), via `ResponseCacheService.read_stale`, and only within `stale_if_error_seconds` measured from when the entry went stale. The served result is flagged `success: true`, `status: "cached"`, `served_stage: "stale_if_error"`, with `provenance.stale_if_error: true` — an honest "served stale on error", and it never re-writes the cache.
 - `ResponseCacheService.read_stale` is the shared primitive both policies use. It returns `{ payload:, stale:, hard_expired:, age_seconds:, stale_age_seconds: }` (or nil) and, unlike `fetch`/`read`, does **not** count toward hit/miss metrics — it is a side-channel read for the stale policies only.
+
+## Configure incremental sync on an endpoint (Phase 5)
+
+A monitored endpoint normally re-fetches the **whole** result set on every poll and change-detects against the stored checksum. **Incremental sync** lets the monitor instead pass a **high-watermark cursor** to the upstream so each poll asks only for rows *newer than last time* — cheaper polls, smaller payloads. It is an opt-in layer on top of a [Phase-3 subscription](#monitoring-a-source-for-changes-phase-3): the cursor only advances on the background monitor loop, never on an interactive `data_source_query`.
+
+Two columns carry it, both verified against `Ai::DataSourceEndpoint` / `Ai::DataSourceSubscription`:
+
+| Column | Model / type | Role |
+|---|---|---|
+| `incremental` | `Ai::DataSourceEndpoint` (jsonb, default `{}`) | The cursor config — `{ cursor_param, cursor_path, mode }`. **Blank `{}` == OFF** (no cursor injection, the poll path is byte-for-byte the non-incremental behavior). `endpoint.incremental?` is just `incremental.present?`. |
+| `sync_cursor` | `Ai::DataSourceSubscription` (string, limit 500, nullable) | The per-subscription high-watermark. `nil` ⇒ no watermark yet (the first poll runs a full fetch and *seeds* it). Advanced only via `record_poll!(cursor:)`; a blank extracted cursor leaves it untouched (a response that omits the cursor never clobbers progress). |
+
+The `incremental` jsonb has exactly three keys (`Ai::DataSources::IncrementalSync`):
+
+- **`cursor_param`** — the outbound query/body param name the stored cursor is stamped onto *before* the next fetch (e.g. `since`, `after`, `updated_since`). `apply_cursor` merges `params[cursor_param] = sync_cursor` only when both a `cursor_param` and a non-blank cursor exist.
+- **`cursor_path`** — a **dotted path** to the *next* cursor in the response. Segments split on `.`; each hop digs a Hash by string-or-symbol key, or an Array by **integer index** (negative indexes supported — `-1` is the last element). A malformed/unresolvable path yields `nil` (never raises).
+- **`mode`** — `"cursor"` or `"timestamp"`. **Advisory only** — both modes dig the same `cursor_path` identically. Use it as documentation of intent (an opaque paging token vs. a timestamp/record watermark); the extraction logic does not branch on it.
+
+> **There is no REST/MCP surface for `incremental`** — it is not in the endpoint strong-params permit list (only `pagination`, `query_template`, `body_template`, `response_mapping`, `response_schema`, `metadata` are the permitted endpoint jsonb fields) and is not returned by any serializer. Set it at the **model layer** (a `rails runner` or seed), the same way [`Ai::DataSourceExpectation` rules](#step-2--write-aidatasourceexpectation-rules) are configured.
+
+### How the cursor flows through one poll
+
+Driven by `Ai::DataSources::MonitorService#poll_subscription`, for an endpoint where `incremental?` is true:
+
+1. **Before the fetch** (`apply_sync_cursor`): when the subscription already holds a `sync_cursor`, it is stamped onto the outbound params under `cursor_param`. With no cursor yet, params are unchanged — so the *first* incremental poll is a full fetch that seeds the watermark.
+2. **After a successful fetch** (`extract_sync_cursor` → `IncrementalSync.extract_cursor`): the next watermark is dug out of the `FetchEnvelope` and persisted via `record_poll!(cursor:)`.
+
+Extraction tries three locations in order, taking the first non-blank **scalar** (a Hash/Array is never a valid cursor):
+
+1. **`provenance["incremental_cursor"]`** — the cursor `QueryService` already dug from the **raw response body** at fetch time (see the top-level-token example below).
+2. **`cursor_path` against `provenance`**.
+3. **`cursor_path` against `data`** (the canonical records array — e.g. the last row's timestamp).
+
+### Worked example A — top-level cursor token
+
+Upstream returns the next-page token at the top level, alongside the records:
+
+```jsonc
+{ "meta": { "next_cursor": "eyJpZCI6OTAwfQ" }, "items": [ /* records */ ] }
+```
+
+Here the endpoint's `response_mapping.records_path` is `"items"`, so the JSON decoder unwraps to the `items` array — which means `meta.next_cursor` is **discarded from the records** and unreachable from `data`. This is exactly the case `QueryService` handles by calling `IncrementalSync.cursor_from_body` on the **raw, pre-unwrap** body and stashing the result into `provenance["incremental_cursor"]`, where `extract_cursor` finds it first. Config:
+
+```ruby
+# rails runner — incremental sync off a top-level paging token
+ep = Ai::DataSource.for_account(account).find_by!(slug: "my-api")
+       .endpoints.find_by!(slug: "list")
+
+ep.update!(
+  response_mapping: { "records_path" => "items" },   # records live under "items"
+  incremental: {
+    "cursor_param" => "after",          # outbound:  ...&after=<sync_cursor>
+    "cursor_path"  => "meta.next_cursor", # dug from the RAW body (survives the unwrap)
+    "mode"         => "cursor"           # advisory: this is an opaque token
+  }
+)
+```
+
+On each poll the monitor sends `?after=<last sync_cursor>`, reads `meta.next_cursor` from the raw body, and saves it as the new `sync_cursor`.
+
+### Worked example B — timestamp/record-embedded watermark
+
+Upstream has no paging envelope — the watermark is a field on the records themselves, and you key off the **last** record's timestamp:
+
+```jsonc
+[ { "id": 1, "updated_at": "2026-06-06T11:00:00Z" },
+  { "id": 2, "updated_at": "2026-06-06T11:30:00Z" } ]
+```
+
+```ruby
+# rails runner — incremental sync off the last record's timestamp
+ep.update!(
+  incremental: {
+    "cursor_param" => "updated_since",  # outbound:  ...&updated_since=<last updated_at>
+    "cursor_path"  => "-1.updated_at",  # last array element (-1), its updated_at field
+    "mode"         => "timestamp"        # advisory: this is a watermark, not a token
+  }
+)
+```
+
+With no top-level token, `provenance["incremental_cursor"]` is absent and the `cursor_path` falls through to the `data` records: `-1` selects the last record, `.updated_at` its timestamp. That value (`"2026-06-06T11:30:00Z"`) becomes the next `sync_cursor`, sent as `?updated_since=2026-06-06T11:30:00Z` on the following poll. (Use `"0.updated_at"` instead if the upstream returns newest-first.)
+
+### Verifying the watermark advances
+
+`sync_cursor` is **not** in the subscription summary (`serialize_subscription` / the MCP `subscription_summary` expose `last_polled_at` / `last_checksum` / `last_etag` / `consecutive_failures` but *not* `sync_cursor`), so confirm it on the model directly after the monitor has run a poll or two:
+
+```ruby
+# rails console — watch the high-watermark move across polls
+sub = Ai::DataSourceSubscription.for_endpoint(ep).first
+sub.sync_cursor        # nil before the first poll (full fetch seeds it)
+# …after a monitor tick…
+sub.reload.sync_cursor # => "2026-06-06T11:30:00Z" (example B) — advances each poll
+sub.last_polled_at     # confirms a poll actually ran
+```
+
+If it stays `nil` after a poll, the response carried no value at `cursor_path` (extraction returned blank, so `record_poll!` left it untouched) — re-check `cursor_path` against the actual payload shape, and remember a top-level token must be reachable in the **raw** body via `cursor_path`, not under `records_path`.
+
+## Make a source crawl-polite (Phase 5)
+
+For sources you do not own — public sites, third-party feeds — the platform can honor `robots.txt` and a crawl delay so background monitoring stays a good citizen. Two columns on `Ai::DataSource` (the **source**, not the endpoint) turn it on, both **OFF by default** so existing sources incur zero overhead:
+
+| Column | Model / type | Effect |
+|---|---|---|
+| `respect_robots` | `Ai::DataSource` (boolean, `null: false`, default `false`) | When `true`, the source's `robots.txt` is fetched, parsed for our User-Agent, and consulted before fetches (interactive **and** monitored), and its `Crawl-delay` is honored. |
+| `crawl_delay_seconds` | `Ai::DataSource` (integer, nullable) | A minimum interval between requests to the source's host on the **background monitor loop**. Used directly when `respect_robots` is off; when on, the `robots.txt` `Crawl-delay` takes precedence and this is the fallback. |
+
+> Like `incremental`, neither column is in the source strong-params permit list or any serializer — set them at the **model layer**:
+>
+> ```ruby
+> # rails runner — make a source crawl-polite
+> ds = Ai::DataSource.for_account(account).find_by!(slug: "project-blog")
+> ds.update!(respect_robots: true, crawl_delay_seconds: 5)
+> ```
+
+### What behavior to expect
+
+**Deferred polls (per-host pacing).** Politeness is enabled when `respect_robots` is `true` **OR** `crawl_delay_seconds` is positive. When enabled, `MonitorService` checks `Ai::DataSources::HostPacer` *before* polling a due subscription: if the source's host was hit within its effective min-interval, the poll is **deferred** — rescheduled to a later tick via `schedule_next_poll!`, with **no failure counted** (`consecutive_failures` is untouched; it is not an error, the host is just busy). The effective min-interval is `max(effective_crawl_delay, 1s)` — the `HostPacer` floor is 1 second. The effective crawl-delay itself is the `robots.txt` `Crawl-delay` when `respect_robots` is on (falling back to `crawl_delay_seconds`), else `crawl_delay_seconds`. The host's last-request time is stamped (`HostPacer.touch`) only **after a successful poll**.
+
+Pacing is achieved by **deferring work across monitor ticks — never by sleeping.** `HostPacer` is a stateless Redis timestamp check (`ready?`) plus a stamp (`touch`); it never blocks a thread, so the synchronous interactive `QueryService` path is never slowed by pacing (per-host pacing applies to the background monitor only).
+
+**Robots-blocked queries.** When `respect_robots` is on, `QueryService#perform_fetch` resolves the absolute request URL and gates it through `RobotsService#allowed?` **before any dispatch** (covering both single and paginated fetches). If a successfully fetched `robots.txt` explicitly **disallows** that path for our User-Agent, the fetch short-circuits to a blocked `FetchEnvelope` — `success: false`, `status: "blocked"`, `error: "robots_disallowed"`, with `robots_disallowed` appended to `provenance.anomalies` — mirroring the kill-flag / SSRF blocked paths. No request goes out, so no upstream/credential failure is recorded; the blocked row is still persisted + cost-attributed through `finalize`. This gate runs on **interactive queries too**, not only monitored polls. Path matching follows the de-facto Google/Bing rules: longest matching rule wins, `Allow` beats `Disallow` on a length tie, `*` wildcards and a trailing `$` anchor are honored, and an empty `Disallow:` value means "allow everything".
+
+**robots.txt fetching.** The `robots.txt` is fetched through the **same SSRF-guarded `HttpConnectionFactory`** as a real fetch (same egress pinning, size cap, timeout), using the same contactable User-Agent the factory advertises (longest-matching User-Agent group, then `*`). Parsed rules are cached in Redis per host for 24h (a fetch-failure/missing result is negatively cached for 15 min) so a realtime monitor does not refetch on every tick.
+
+### The default-allow safety guarantee
+
+Robots is **advisory politeness, never a hard gate that can wedge a source on an unrelated network blip.** Every failure mode resolves to **allowed**: a missing `robots.txt` (404 / any 4xx), an empty body, a fetch failure (timeout / transport / SSRF rejection / oversized), or a Redis fault all default to allowed inside `RobotsService`. The **only** thing that returns `false` is a `robots.txt` that loads and explicitly `Disallow`s the path. The `QueryService` gate fails open on top of that — any error in the robots check is logged and treated as not-disallowed — and `HostPacer` is likewise fail-open (a Redis fault makes `ready?` return `true`, degrading to "no pacing" rather than stalling the monitor). The net guarantee: enabling `respect_robots` can only ever make the platform fetch **less**, and never breaks a fetch because of a robots-side fault.
 
 ## The fetch pipeline in detail
 

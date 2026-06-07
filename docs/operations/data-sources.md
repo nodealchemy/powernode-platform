@@ -19,6 +19,8 @@
 - [Quality, drift & contracts (Phase 2b)](#quality-drift--contracts-phase-2b)
 - [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3)
 - [Stale-while-revalidate & stale-if-error](#stale-while-revalidate--stale-if-error)
+- [Incremental sync stuck / not advancing](#incremental-sync-stuck--not-advancing)
+- [Crawl politeness troubleshooting](#crawl-politeness-troubleshooting)
 - [Nightly schema sync (Phase 4)](#nightly-schema-sync-phase-4)
 - [Outbound pagination operational limits (Phase 4)](#outbound-pagination-operational-limits-phase-4)
 - [Sync & Health Jobs](#sync--health-jobs)
@@ -595,6 +597,147 @@ It is recorded with `served_stage: "stale_if_error"` and **never re-writes the c
 | SWR never refreshes in the background | `MonitorService` undefined in the process, or the NX refresh lock is held | Confirm the server (not worker) serves the cache; the lock auto-expires — a stuck lock self-clears within the lock TTL |
 | Cache "grew" a longer TTL after enabling | Expected — the Redis key now lives `hard_ttl + max(swr, sie)` so stale reads can find it; the hard-expiry epoch is unchanged | None; disable both columns to restore the legacy `TTL == hard_ttl` |
 
+## Incremental sync stuck / not advancing
+
+Incremental sync is an **opt-in, per-endpoint** monitor-loop feature: an endpoint declares an `incremental` jsonb config and each successful poll advances a high-watermark `sync_cursor` on the **subscription**, so the next poll only asks the upstream for rows newer than the watermark. It is **OFF by default** — a blank `incremental` (`{}`) leaves the poll path byte-for-byte unchanged. When it *is* on but the watermark never moves, the subscription keeps re-fetching the same window every tick. This section is how to recognize and inspect that.
+
+The config (on `Ai::DataSourceEndpoint#incremental`, see `Ai::DataSources::IncrementalSync`):
+
+```jsonc
+{
+  "cursor_param": "since",            // outbound query/body param the cursor is stamped onto
+  "cursor_path":  "provenance.next",  // dotted path to the NEXT cursor in the response
+  "mode":         "cursor"            // "cursor" | "timestamp" (advisory only — both dig the same path)
+}
+```
+
+How the loop is *supposed* to advance (`MonitorService#poll_subscription`):
+
+1. **Before** the fetch — `apply_cursor` stamps the subscription's stored `sync_cursor` onto the outbound params under `cursor_param`. With **no cursor yet** (the first incremental poll) this is a no-op, so the first poll runs a **full fetch and seeds** the watermark — that is expected, not a bug.
+2. **After** a successful fetch — `extract_cursor` pulls the *next* watermark out of the `FetchEnvelope`. It checks in order: `provenance[:incremental_cursor]` (the cursor `QueryService` already dug from the **raw** body via `cursor_from_body` — see below), then `cursor_path` dug against `provenance`, then `cursor_path` dug against the canonical `data` (records).
+3. `record_poll!(cursor:)` persists it — **but only when the cursor is non-blank**. A `nil`/blank cursor **leaves the existing `sync_cursor` untouched**, so a response that omits the token never clobbers progress (it also never advances it).
+
+So "stuck" almost always means **step 2 resolved to nil** every poll.
+
+> **Why `provenance[:incremental_cursor]` exists.** The JSON decoder's `records_path` unwrap **discards top-level paging tokens** — a body like `{"meta":{"next_cursor":"…"},"items":[…]}` becomes just the `items` array in `envelope[:data]`, so `meta.next_cursor` is unreachable from the records. To handle that, `QueryService` runs `IncrementalSync.cursor_from_body` against the **raw, pre-unwrap** body at fetch time and stashes the result at `provenance[:incremental_cursor]`, which `extract_cursor` prefers. **Timestamp-mode** sources (cursor embedded *in* a record, e.g. the last row's `updated_at`) carry no top-level token, so `cursor_from_body` returns nil for them and they fall through to the records-based `cursor_path` dig — which is exactly the intended split.
+
+### How to inspect
+
+```sql
+-- The subscription's stored high-watermark. If this never changes across polls,
+-- the cursor is not advancing. NULL = no watermark yet (first poll not yet run,
+-- or every extract resolved to nil).
+SELECT id, last_polled_at, sync_cursor, last_checksum, status, consecutive_failures
+FROM   ai_data_source_subscriptions
+WHERE  id = '<subscription_id>';
+```
+
+```ruby
+# rails runner — inspect the endpoint's incremental config and dry-run the extract
+sub = Ai::DataSourceSubscription.find("<subscription_id>")
+ep  = sub.endpoint
+ep.incremental                  # the jsonb config — confirm cursor_param / cursor_path / mode
+ep.incremental?                 # => true only when the config is present (blank == OFF)
+sub.sync_cursor                 # the current watermark (nil until first successful seed)
+```
+
+To see what the upstream actually returns and whether the cursor resolves, run one governed fetch and read the provenance:
+
+```bash
+# MCP: a single governed fetch; inspect provenance.incremental_cursor
+#   platform.data_source_query  data_source_id: ":id"  endpoint_id: ":ep"
+#   → look at .provenance.incremental_cursor (the cursor QueryService dug from the raw body).
+#     Present  => extract WILL advance the watermark next poll.
+#     Absent   => the path/token did not resolve — see the table below.
+```
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| Subscription keeps re-fetching the **same window**; `sync_cursor` never changes | `extract_cursor` resolves to nil every poll, so `record_poll!` leaves the watermark untouched | Run one `data_source_query` and check `provenance.incremental_cursor`; if absent, the cursor isn't being found — work down the rows below |
+| `provenance.incremental_cursor` absent but the upstream *does* return a token | **Wrong `cursor_path`** — `cursor_from_body` dug the wrong dotted path so it returned nil | Fix `cursor_path` to the actual location in the **raw** JSON (e.g. `meta.next_cursor`); top-level paging tokens live in provenance, not the records |
+| `sync_cursor` stays NULL forever on a timestamp-mode endpoint | `cursor_path` points at a top-level field, but timestamp-mode carries the cursor *inside a record* | Point `cursor_path` at the record-relative path (e.g. `0.updated_at` against the data array); `cursor_from_body` legitimately returns nil for these and the records dig takes over |
+| Upstream **omits** the token on some responses | A response with no cursor returns nil → `record_poll!` deliberately keeps the old watermark (never clobbers progress) | Expected safety behavior; if the watermark is *always* stale, the upstream may never emit a usable token — switch `mode`/`cursor_path` to a field it does return |
+| `sync_cursor` is set but the upstream still returns the full window | **Mode mismatch** — the cursor value is stamped onto `cursor_param`, but the upstream expects a different param name or value semantics | Confirm `cursor_param` matches the upstream's incremental parameter; `mode` is advisory only (both modes dig the same path) — the real lever is `cursor_param` + `cursor_path` |
+| First incremental poll fetched everything | Expected — with no `sync_cursor` yet, `apply_cursor` no-ops and the first poll seeds the watermark | None; the *second* poll should carry the cursor. Confirm `sync_cursor` populated after the first successful poll |
+
+> **Cursor injection / extraction never fails the poll.** Both `apply_sync_cursor` and `extract_sync_cursor` in `MonitorService` are wrapped — an error injecting the cursor falls back to the un-cursored params (logged `cursor inject failed`), and an error extracting returns nil (logged `cursor extract failed`). So a malformed `incremental` config degrades to a **full fetch that doesn't advance**, never a failed subscription. Check the monitor log for those two warnings if a configured endpoint silently behaves like incremental is off.
+
+## Crawl politeness troubleshooting
+
+Crawl politeness applies **only to the background monitor loop**, and **only when a source opts in** — `respect_robots = true` (default `false`) **or** a positive `crawl_delay_seconds`. The interactive `QueryService` path **never** sleeps or paces. Two independent mechanisms can hold back a background poll:
+
+- **robots.txt** (`Ai::DataSources::RobotsService`) — a fetched-and-parsed robots.txt that **explicitly Disallows** the path.
+- **per-host pacing** (`Ai::DataSources::HostPacer`) — the host was hit more recently than its min-interval, so the monitor **defers** the poll to a later tick.
+
+Both fail **open** (a fault degrades to "allowed" / "not paced"), so neither can wedge a source on an unrelated network or Redis blip.
+
+### robots blocking legitimate fetches
+
+The single most important fact: **robots is DEFAULT-ALLOW.** A missing robots.txt (404 / any 4xx), an empty body, a fetch failure (timeout / transport / SSRF rejection / oversized), or a Redis fault **all resolve to allowed**. The **only** thing that returns `false` is a robots.txt that *successfully loaded and parsed* and carries an **explicit `Disallow`** matching the request path (longest-match wins; `Allow` beats `Disallow` on a length tie). So if politeness is blocking a fetch you believe is legitimate, there is a **real `Disallow` rule** in the cached ruleset — go read it.
+
+Parsed rules are cached in **Redis DB 0** (the shared client) under `data_source_robots:<scheme>:<authority>`, TTL **86400s** (1 day) for a successful parse, **900s** for a negative/failed result (which is cached as a sentinel `{"__robots_unavailable": true}` that the read path maps back to "default allow"). robots matching uses the **same User-Agent** the connection factory advertises on real fetches (`HttpConnectionFactory.user_agent`) — a rule keyed to a different UA group won't apply.
+
+Inspect the cached ruleset for a host:
+
+```bash
+# Read the cached parsed robots rules (DB 0). authority = host[:port-if-non-default].
+redis-cli -n 0 GET 'data_source_robots:https:api.example.com' | jq
+# A real block looks like:  {"rules":[{"allow":false,"pattern":"/v1/"}], "crawl_delay": null}
+# default-allow sentinel:    {"__robots_unavailable": true}   (fetch failed/missing — NOT a block)
+# permissive (loaded, no rules for us):  {"rules":[], "crawl_delay": null}
+
+# See the actual robots.txt the host serves (sanity-check the rule is real)
+curl -s https://api.example.com/robots.txt
+```
+
+Clear the cache to force an immediate re-fetch + re-parse (e.g. after the upstream un-Disallows a path, or to drop a stale negative sentinel without waiting out the TTL):
+
+```bash
+# Drop one host's cached ruleset; the next poll re-fetches robots.txt and re-parses.
+redis-cli -n 0 DEL 'data_source_robots:https:api.example.com'
+# Or sweep all cached robots rulesets (use sparingly — forces a robots re-fetch per host)
+redis-cli -n 0 --scan --pattern 'data_source_robots:*' | xargs -r redis-cli -n 0 DEL
+```
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| Monitor never fetches a path you expect; source has `respect_robots: true` | A loaded robots.txt has a real `Disallow` matching the path (the **only** thing that blocks) | Read the cached ruleset (`GET data_source_robots:<scheme>:<authority>`); confirm against the live `/robots.txt`. If the upstream changed it, `DEL` the key to re-parse |
+| robots was un-Disallowed upstream but the monitor still skips | The 1-day (86400s) cached ruleset is stale | `DEL` the host's `data_source_robots:*` key to force an immediate re-fetch; otherwise it self-corrects within a day |
+| A `__robots_unavailable` sentinel is cached but robots.txt is actually fine | A transient fetch failure (timeout / SSRF / oversized) was negatively cached for 900s | This is **default-allow** — it does **not** block. If you want a fresh parse sooner, `DEL` the key; otherwise it re-probes in ≤15 min |
+| robots changes have no effect at all | `respect_robots` is `false` (the default) — robots is never consulted | robots applies only when `respect_robots: true`; if you only set `crawl_delay_seconds`, the robots.txt `Crawl-delay` is **not** read |
+
+### pacing causing deferred polls
+
+Per-host pacing is **deferral, not failure** — and that distinction is the whole point. When a source is paced and its host was hit within the min-interval, `MonitorService#poll_subscription` calls `subscription.schedule_next_poll!` and **returns without recording a failure** — the poll simply rolls to a later tick. This is **expected back-pressure** when `crawl_delay_seconds` (or a robots `Crawl-delay`) is throttling a host, not a problem to fix.
+
+The min-interval the monitor enforces is `max(effective_crawl_delay, HostPacer::DEFAULT_MIN_INTERVAL_SECONDS)` where the floor is **1 second**. The effective crawl-delay is resolved by `RobotsService#crawl_delay`: when `respect_robots` is on it prefers the robots.txt `Crawl-delay` and falls back to the source's `crawl_delay_seconds`; otherwise it uses `crawl_delay_seconds` directly (no robots fetch). The last-request timestamp lives in **Redis DB 0** under `data_source_pacer:<host>` (TTL 86400s), stamped via `HostPacer.touch` **only after a successful poll**. `HostPacer.ready?` **never sleeps** — pacing is achieved purely by deferring work across ticks, which is why the interactive path is never slowed.
+
+**The deferred-not-failed signal** — how to tell a deferral apart from an error:
+
+- The monitor logs an **info** line (not a warn/error): `subscription <id> deferred: host pacing (<host>)` (quota deferrals log `deferred: quota (<limit>)`).
+- The subscription's `consecutive_failures` does **not** increment and `status` stays `active` (a deferral never touches the failure counter or trips the `error` status). `last_polled_at` is also **not** advanced — only `next_poll_at` moves.
+- The monitor-tick summary counts the subscription in **neither** `changed` nor `errors`; it just isn't polled this tick.
+
+```bash
+# Deferrals are INFO, not errors. Tail the monitor and look for "deferred: host pacing".
+journalctl -u powernode-backend@default -f | grep -E 'deferred: (host pacing|quota)'
+
+# Inspect a host's last-request stamp (epoch seconds). A recent value means the
+# next poll within min-interval will defer.
+redis-cli -n 0 GET 'data_source_pacer:api.example.com'
+
+# Force the next poll to NOT pace (clears the stamp) — use only to break a stuck cadence.
+redis-cli -n 0 DEL 'data_source_pacer:api.example.com'
+```
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| Subscription polls far less often than its cadence; **no** failures recorded | Host pacing is **deferring** every tick — `crawl_delay_seconds` (or robots `Crawl-delay`) exceeds the poll cadence | Expected throttle. Confirm via the `deferred: host pacing` info log + flat `consecutive_failures`. Lower `crawl_delay_seconds` (or the robots `Crawl-delay`) if you need a tighter cadence |
+| Polls are minimum 1s apart even with `crawl_delay_seconds` unset | The `DEFAULT_MIN_INTERVAL_SECONDS = 1` floor applies once **any** politeness is enabled (e.g. `respect_robots: true`) | Expected — 1s/host is the conservative background floor. There is no way below it while politeness is on; disable politeness entirely (both `respect_robots: false` and no `crawl_delay_seconds`) to remove pacing |
+| Operator can't tell deferral from failure | Deferrals are **info** logs and don't bump `consecutive_failures`; failures go through `record_failure!` | Check `consecutive_failures` / `status` — a paced subscription stays `active` with a flat counter; an erroring one climbs toward `status: "error"` |
+| Two hosts on the same source pace independently | Pacing is **per host** (`data_source_pacer:<host>`), keyed off the source's `api_base_url` host | Expected; a source whose base URL host is missing/unparseable is **skipped** for pacing entirely (no defer) |
+| Pacing seems to stop working entirely | Redis fault — `HostPacer` **fails open** (`ready?` returns true, `touch` is a no-op) | A Redis outage degrades to "no pacing", never a wedge. Restore Redis; pacing resumes once stamps can be written/read |
+
 ## Nightly schema sync (Phase 4)
 
 A third thin worker cron — `AiDataSourceSchemaSyncJob` (`0 4 * * *`, daily at 04:00 UTC, queue `ai_orchestration`) — POSTs the mTLS worker-only internal endpoint `POST /api/v1/internal/ai/data_sources/schema_sync_tick` (handled by `Api::V1::Internal::Ai::DataSourcesController#schema_sync_tick`), which calls server-side `Ai::DataSources::SchemaSyncService.new.sync(limit:)`. Like the monitor/health ticks it holds **no business logic** — it triggers, the server does the work. `schema_sync_tick` accepts an optional `limit` (clamped 1..1000, default 100); the service returns `{ synced:, errors: [{endpoint_id:, error:}] }`.
@@ -710,7 +853,10 @@ curl -X PATCH \
 | Service — OpenAPI import (Phase 2b) | `server/app/services/ai/data_sources/open_api_import_service.rb` (`#import`) |
 | Service — Contract (Phase 2b) | `server/app/services/ai/data_sources/contract_service.rb` (`#validate`) |
 | QueryService wiring (Phase 2b/3/4) | `server/app/services/ai/data_sources/query_service.rb` (2b: `#apply_observability_stages`, `#track_schema_drift`, `#evaluate_quality`, `#quarantine_records`; 3: `#maybe_serve_stale_if_error`, `#build_stale_if_error_result`; 4: `#pagination_enabled?`, `#perform_paginated_fetch`, `#dispatch_page`, `#paginate_quota_veto`) |
-| Service — Monitor (Phase 3) | `server/app/services/ai/data_sources/monitor_service.rb` (`#tick`, `#health_tick`, `#refresh!`; `CHANGE_SIGNAL_KEY = "data_source_changed"`) |
+| Service — Monitor (Phase 3) | `server/app/services/ai/data_sources/monitor_service.rb` (`#tick`, `#health_tick`, `#refresh!`; `CHANGE_SIGNAL_KEY = "data_source_changed"`; pacing: `#pacing_defer?`/`#effective_crawl_delay`/`#touch_host_pacer`; incremental: `#apply_sync_cursor`/`#extract_sync_cursor`) |
+| Service — Incremental sync | `server/app/services/ai/data_sources/incremental_sync.rb` (pure/stateless `apply_cursor`/`extract_cursor`/`cursor_from_body`; digs `cursor_param`/`cursor_path` from `endpoint.incremental`; watermark on `subscription.sync_cursor`) |
+| Service — robots.txt | `server/app/services/ai/data_sources/robots_service.rb` (`#allowed?`/`#crawl_delay`; **DEFAULT ALLOW**; Redis `data_source_robots:<scheme>:<authority>`, TTL 86400/900; only on `respect_robots`) |
+| Service — Host pacer | `server/app/services/ai/data_sources/host_pacer.rb` (`.ready?`/`.touch`/`.seconds_until_ready`; never sleeps — defers across ticks; Redis `data_source_pacer:<host>`; `DEFAULT_MIN_INTERVAL_SECONDS = 1`; fail-open) |
 | Adapters — registry + protocols (Phase 4) | `server/app/services/ai/data_sources/adapters/registry.rb` (`ADAPTERS`, `.for`, `known_protocol?`), `adapters/graphql_adapter.rb` (POST `{query,variables}`, `data` unwrap), `adapters/rss_adapter.rb` (`RestAdapter` subclass; canonical feed records) |
 | Service — Paginator (Phase 4) | `server/app/services/ai/data_sources/paginator.rb` (`SUPPORTED_TYPES` offset/page/cursor/link, `HARD_MAX_PAGES = 20`, `DEFAULT_PAGE_SIZE = 100`; `#each_page`) |
 | Service — Schema sync (Phase 4) | `server/app/services/ai/data_sources/schema_sync_service.rb` (`#sync(limit:)`, due = `track_schema` OR blank `response_schema` on active sources; throttled sample = skip) |
