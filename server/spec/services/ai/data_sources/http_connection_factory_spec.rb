@@ -245,10 +245,213 @@ RSpec.describe Ai::DataSources::HttpConnectionFactory, type: :service do
     end
   end
 
+  # ==========================================================================
+  # Phase 4b-2b — outbound mTLS client-certificate (query-time governance)
+  #
+  # A data source MAY present a client certificate on its outbound TLS handshake
+  # so a peer can mutually authenticate the fetch. The cert/key PEM bytes live
+  # ONLY in Vault — configuration["mtls"] carries a reference (vault_path), never
+  # the material. The factory loads them per connection build with cache: false
+  # (a PRIVATE KEY must never be persisted to Rails.cache).
+  #
+  #   OFF by default     — no mtls block / disabled => build is byte-for-byte the
+  #                         pre-mTLS build (no ssl client_cert on the connection).
+  #   ENABLED + present  — ssl[:client_cert] is an OpenSSL::X509::Certificate and
+  #                         ssl[:client_key] is an OpenSSL::PKey, read from Vault
+  #                         with cache: false.
+  #   required + missing — fail closed: raises MtlsConfigError (non-secret msg).
+  #   optional + missing — degrade: build WITHOUT a client cert, no raise.
+  #
+  # Hermetic: the cert/key are generated in-spec via OpenSSL (no network, no
+  # Vault) so OpenSSL::X509::Certificate.new / OpenSSL::PKey.read succeed, and
+  # ::Security::VaultClient.read_secret is stubbed — no real Vault round-trip.
+  # We inspect the built connection's ssl hash directly, consistent with the
+  # existing build-and-inspect approach in `.build`.
+  # ==========================================================================
+  describe "outbound mTLS (4b-2b)" do
+    # A real, throwaway self-signed cert + RSA key generated in-process. These are
+    # never persisted and never leave the spec — they exist only so the factory's
+    # OpenSSL::X509::Certificate.new / OpenSSL::PKey.read parse real PEM.
+    let(:mtls_keypair) do
+      key = OpenSSL::PKey::RSA.new(2048)
+      cert = OpenSSL::X509::Certificate.new
+      cert.version = 2
+      cert.serial = 1
+      name = OpenSSL::X509::Name.parse("/CN=powernode-mtls-spec")
+      cert.subject = name
+      cert.issuer = name
+      cert.public_key = key.public_key
+      cert.not_before = Time.now - 3600
+      cert.not_after = Time.now + 3600
+      cert.sign(key, OpenSSL::Digest.new("SHA256"))
+      { cert_pem: cert.to_pem, key_pem: key.to_pem }
+    end
+
+    # Pull the ssl config off the constructed connection. Faraday exposes it as
+    # an Faraday::SSLOptions struct; #to_hash gives a plain hash with only the
+    # keys the factory actually set (compact — nils dropped), so an unconfigured
+    # connection yields an empty/no-client_cert hash.
+    def ssl_settings(conn)
+      conn.ssl.to_hash
+    end
+
+    context "when no mtls block is configured (OFF by default)" do
+      it "builds a connection with NO ssl client_cert (unchanged build)" do
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: {})
+        conn = described_class.build(data_source: source)
+
+        # No mTLS => the factory carries no ssl: key, so the connection's ssl has
+        # no client_cert/client_key — byte-for-byte the pre-mTLS build.
+        expect(ssl_settings(conn)).not_to have_key(:client_cert)
+        expect(conn.ssl[:client_cert]).to be_nil
+        expect(conn.ssl[:client_key]).to be_nil
+      end
+    end
+
+    context "when mtls is enabled and Vault has the material (happy path)" do
+      let(:source) do
+        build(:ai_data_source, api_base_url: "https://api.example.com",
+                               configuration: {
+                                 "mtls" => { "enabled" => true, "vault_path" => "secret/ds/mtls" }
+                               })
+      end
+
+      before do
+        allow(::Security::VaultClient).to receive(:read_secret).and_return(
+          { "cert_pem" => mtls_keypair[:cert_pem], "key_pem" => mtls_keypair[:key_pem] }
+        )
+      end
+
+      it "reads the Vault secret with cache: false (key must NOT be cached)" do
+        described_class.build(data_source: source)
+
+        expect(::Security::VaultClient).to have_received(:read_secret)
+          .with("secret/ds/mtls", cache: false)
+      end
+
+      it "sets ssl[:client_cert] to an OpenSSL::X509::Certificate" do
+        conn = described_class.build(data_source: source)
+
+        expect(conn.ssl[:client_cert]).to be_a(OpenSSL::X509::Certificate)
+      end
+
+      it "sets ssl[:client_key] to an OpenSSL::PKey" do
+        conn = described_class.build(data_source: source)
+
+        expect(conn.ssl[:client_key]).to be_a(OpenSSL::PKey::PKey)
+      end
+    end
+
+    context "when mtls is REQUIRED but the material is missing (fail closed)" do
+      it "raises MtlsConfigError when Vault returns nil" do
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: {
+                                          "mtls" => {
+                                            "enabled" => true,
+                                            "required" => true,
+                                            "vault_path" => "secret/ds/mtls"
+                                          }
+                                        })
+        allow(::Security::VaultClient).to receive(:read_secret).and_return(nil)
+
+        expect do
+          described_class.build(data_source: source)
+        end.to raise_error(described_class::MtlsConfigError)
+      end
+
+      it "raises MtlsConfigError when Vault returns a secret missing the cert" do
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: {
+                                          "mtls" => {
+                                            "enabled" => true,
+                                            "required" => true,
+                                            "vault_path" => "secret/ds/mtls"
+                                          }
+                                        })
+        # key present, cert absent => load_mtls_material returns nil => fail closed.
+        allow(::Security::VaultClient).to receive(:read_secret).and_return(
+          { "key_pem" => mtls_keypair[:key_pem] }
+        )
+
+        expect do
+          described_class.build(data_source: source)
+        end.to raise_error(described_class::MtlsConfigError)
+      end
+
+      it "raises a NON-secret MtlsConfigError message (no PEM / no vault path)" do
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: {
+                                          "mtls" => {
+                                            "enabled" => true,
+                                            "required" => true,
+                                            "vault_path" => "secret/ds/mtls"
+                                          }
+                                        })
+        allow(::Security::VaultClient).to receive(:read_secret).and_return(nil)
+
+        expect do
+          described_class.build(data_source: source)
+        end.to raise_error(described_class::MtlsConfigError) { |err|
+          expect(err.message).not_to include("secret/ds/mtls")
+          expect(err.message).not_to include("BEGIN")
+        }
+      end
+    end
+
+    context "when mtls is OPTIONAL and the material is missing (degrade)" do
+      it "builds a connection WITHOUT a client cert and does not raise" do
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: {
+                                          "mtls" => { "enabled" => true, "vault_path" => "secret/ds/mtls" }
+                                        })
+        allow(::Security::VaultClient).to receive(:read_secret).and_return(nil)
+
+        conn = nil
+        expect { conn = described_class.build(data_source: source) }.not_to raise_error
+        expect(conn).to be_a(Faraday::Connection)
+        expect(conn.ssl[:client_cert]).to be_nil
+        expect(conn.ssl[:client_key]).to be_nil
+      end
+    end
+
+    context "when the enabled flag is falsey or absent" do
+      it "ignores an explicitly disabled mtls block (no ssl client_cert)" do
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: {
+                                          "mtls" => { "enabled" => false, "vault_path" => "secret/ds/mtls" }
+                                        })
+
+        # Disabled => Vault is never consulted and no client cert is wired in.
+        # The negative message expectation is set BEFORE the action it guards.
+        expect(::Security::VaultClient).not_to receive(:read_secret)
+
+        conn = described_class.build(data_source: source)
+
+        expect(conn.ssl[:client_cert]).to be_nil
+      end
+
+      it "ignores an mtls block with no enabled key (defaults OFF)" do
+        source = build(:ai_data_source, api_base_url: "https://api.example.com",
+                                        configuration: {
+                                          "mtls" => { "vault_path" => "secret/ds/mtls" }
+                                        })
+
+        conn = described_class.build(data_source: source)
+
+        expect(conn.ssl[:client_cert]).to be_nil
+      end
+    end
+  end
+
   describe "error classes" do
     it "defines SsrfError and ResponseTooLargeError" do
       expect(described_class::SsrfError.ancestors).to include(StandardError)
       expect(described_class::ResponseTooLargeError.ancestors).to include(StandardError)
+    end
+
+    it "defines MtlsConfigError (a StandardError) for fail-closed mTLS" do
+      expect(described_class::MtlsConfigError.ancestors).to include(StandardError)
     end
   end
 end

@@ -1695,4 +1695,198 @@ RSpec.describe Ai::DataSources::QueryService, type: :service do
       end
     end
   end
+
+  # ==========================================================================
+  # Phase 4b-2b — QUERY-TIME GOVERNANCE (authz gate + per-request masking)
+  #
+  # call() runs Ai::DataSources::GovernanceService#authorize AFTER the kill-flag
+  # and quota gates but BEFORE the cache lookup / upstream fetch (step 2.5), so an
+  # EXPLICIT policy deny returns a STATUS_BLOCKED envelope without ever touching
+  # the cache or the network — mirroring the kill-flag / SSRF / robots blocked
+  # paths. The policy decision is recorded on provenance[:policy_decision].
+  #
+  # On the success path finalize() computes masking ONCE via
+  # GovernanceService#mask_records: the RAW (unmasked) records are persisted into
+  # the audit row and written to the cache (so a later cache HIT is not pre-masked),
+  # while the returned envelope carries the MASKED records and the masking outcome
+  # is stamped onto provenance + the ai_data_source_queries row.
+  #
+  # GovernanceService is stubbed at the instance level (mirroring the file's
+  # existing allow_any_instance_of style) so the gate/mask decisions are hermetic;
+  # the no-governance baseline (no agent + no metadata.governance) exercises the
+  # REAL service to prove the default path is byte-for-byte unchanged.
+  # ==========================================================================
+  describe "query-time governance (4b-2b)" do
+    # ------------------------------------------------------------------------
+    # AUTHZ GATE — explicit DENY short-circuits BEFORE cache + network
+    # ------------------------------------------------------------------------
+    describe "authorization gate DENY" do
+      before do
+        allow_any_instance_of(Ai::DataSources::GovernanceService).to receive(:authorize)
+          .and_return({ allowed: false, reason: "nope", enforcement: "block" })
+      end
+
+      it "returns a blocked envelope without dispatching the outbound fetch" do
+        conn = stub_http
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(false)
+        expect(envelope[:status]).to eq("blocked")
+        expect(envelope[:error]).to eq("nope")
+        # Short-circuit happens at the governance gate (step 2.5): the SSRF-guarded
+        # connection is never built/invoked, exactly like the kill-flag block.
+        expect(conn).not_to have_received(:run_request)
+      end
+
+      it "records the policy decision and a governance_blocked anomaly in provenance" do
+        stub_http
+
+        prov = service.call[:provenance]
+
+        expect(prov[:policy_decision]).to eq(
+          allowed: false, reason: "nope", enforcement: "block"
+        )
+        expect(prov[:anomalies]).to include("governance_blocked")
+      end
+
+      it "never consults the cache layer (a deny short-circuits before fetch)" do
+        stub_http
+        # The deny precedes fetch_via_cache entirely, so the response cache is never
+        # read to serve — no singleflight fetch is attempted.
+        expect(Ai::DataSources::ResponseCacheService).not_to receive(:fetch)
+
+        envelope = service.call
+
+        expect(envelope[:status]).to eq("blocked")
+      end
+
+      it "persists a blocked query row (policy block, no live dispatch)" do
+        stub_http
+
+        expect { service.call }.to change(Ai::DataSourceQuery, :count).by(1)
+
+        row = Ai::DataSourceQuery.order(created_at: :desc).first
+        expect(row.status).to eq("blocked")
+        expect(row.http_status).to be_nil
+        expect(row.error).to eq("nope")
+        expect(Array(row.metadata["anomalies"])).to include("governance_blocked")
+      end
+    end
+
+    # ------------------------------------------------------------------------
+    # AUTHZ GATE — ALLOW lets the normal fetch path proceed
+    # ------------------------------------------------------------------------
+    describe "authorization gate ALLOW" do
+      before do
+        allow_any_instance_of(Ai::DataSources::GovernanceService).to receive(:authorize)
+          .and_return({ allowed: true, reason: nil, enforcement: nil })
+      end
+
+      it "runs the normal fetch path and dispatches as usual" do
+        conn = stub_http
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:status]).to eq("success")
+        expect(envelope[:data].size).to eq(2)
+        expect(conn).to have_received(:run_request).once
+        # An allowed read carries no governance block anomaly / policy decision.
+        expect(envelope[:provenance][:anomalies]).not_to include("governance_blocked")
+        expect(envelope[:provenance]).not_to have_key(:policy_decision)
+      end
+    end
+
+    # ------------------------------------------------------------------------
+    # MASKING — envelope returns MASKED records; RAW is persisted + cached
+    # ------------------------------------------------------------------------
+    describe "per-request masking" do
+      # The RAW (unmasked) canonical records the default json_body decodes to. The
+      # cache write and the audit row must see THESE, never the masked substitute.
+      let(:raw_records) do
+        [{ "city" => "NYC", "temp" => 72 }, { "city" => "LA", "temp" => 81 }]
+      end
+
+      before do
+        # Allow the read, then force the masking outcome so the assertions are
+        # deterministic regardless of the source's governance config.
+        allow_any_instance_of(Ai::DataSources::GovernanceService).to receive(:authorize)
+          .and_return({ allowed: true, reason: nil, enforcement: nil })
+        allow_any_instance_of(Ai::DataSources::GovernanceService).to receive(:mask_records)
+          .and_return({ records: [{ "x" => "MASKED" }], masking_applied: true, masked_count: 1 })
+        stub_http
+      end
+
+      it "returns the MASKED records as the envelope data with masking provenance" do
+        envelope = service.call
+
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:data]).to eq([{ "x" => "MASKED" }])
+        expect(envelope[:provenance][:masking_applied]).to be(true)
+        expect(envelope[:provenance][:masked_field_count]).to eq(1)
+      end
+
+      it "persists masking_applied:true on the ai_data_source_queries row" do
+        service.call
+
+        row = Ai::DataSourceQuery.order(created_at: :desc).first
+        expect(row.masking_applied).to be(true)
+        # rows_returned counts the RAW decoded records (the row records the real
+        # fetch, not the masked envelope shape).
+        expect(row.rows_returned).to eq(2)
+        expect(row.metadata["masked_field_count"]).to eq(1)
+      end
+
+      it "writes the RAW (unmasked) records to the cache, never the masked payload" do
+        # Spy on the cache write: finalize computes masking once but caches the RAW
+        # result[:data] so a later HIT is not pre-masked (masking is per-request).
+        # The cacheable payload stores records under the string "data" key; assert it
+        # carries the RAW records and NOT the masked substitute.
+        allow(Ai::DataSources::ResponseCacheService).to receive(:write).and_call_original
+
+        service.call
+
+        expect(Ai::DataSources::ResponseCacheService).to have_received(:write)
+          .with(hash_including(payload: hash_including("data" => raw_records)))
+        expect(Ai::DataSources::ResponseCacheService).not_to have_received(:write)
+          .with(hash_including(payload: hash_including("data" => [{ "x" => "MASKED" }])))
+      end
+    end
+
+    # ------------------------------------------------------------------------
+    # NO-GOVERNANCE BASELINE — no agent + no metadata.governance => unchanged
+    # ------------------------------------------------------------------------
+    describe "no-governance path (REAL service, unchanged)" do
+      # No agent AND no metadata.governance config: authorize short-circuits to
+      # allow with zero policy resolution and mask_records is OFF (passthrough), so
+      # the default FetchEnvelope is byte-for-byte the legacy path.
+      subject(:service) do
+        described_class.new(data_source: data_source, endpoint: endpoint, params: params,
+                            agent: nil, user: nil)
+      end
+
+      before { stub_http }
+
+      it "leaves the envelope data unmasked and masking_applied false on the row" do
+        # Sanity: the default source carries no governance config.
+        expect(data_source.metadata["governance"]).to be_nil
+
+        envelope = service.call
+
+        expect(envelope[:success]).to be(true)
+        expect(envelope[:status]).to eq("success")
+        expect(envelope[:data].size).to eq(2)
+        expect(envelope[:data]).to eq([
+                                        { "city" => "NYC", "temp" => 72 },
+                                        { "city" => "LA", "temp" => 81 }
+                                      ])
+        expect(envelope[:provenance][:masking_applied]).to be(false)
+        expect(envelope[:provenance][:masked_field_count]).to eq(0)
+
+        row = Ai::DataSourceQuery.order(created_at: :desc).first
+        expect(row.masking_applied).to be(false)
+      end
+    end
+  end
 end
