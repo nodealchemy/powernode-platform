@@ -382,7 +382,8 @@ module Ai
         body_template: {},
         response_mapping: {},
         response_schema: {},
-        metadata: {}
+        metadata: {},
+        pagination: {}
       )
     end
 

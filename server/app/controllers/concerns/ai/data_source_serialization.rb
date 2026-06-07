@@ -13,6 +13,8 @@ module Ai
         name: ds.name,
         slug: ds.slug,
         source_type: ds.source_type,
+        category: ds.category,
+        protocol: ds.protocol,
         is_active: ds.is_active,
         requires_auth: ds.requires_auth,
         api_base_url: ds.api_base_url,
@@ -100,6 +102,7 @@ module Ai
         response_mapping: ep.response_mapping,
         response_schema: ep.response_schema,
         metadata: ep.metadata,
+        pagination: ep.pagination,
         created_at: ep.created_at&.iso8601,
         updated_at: ep.updated_at&.iso8601
       }

@@ -242,7 +242,7 @@ module Api
 
         def data_source_params
           params.require(:data_source).permit(
-            :name, :slug, :source_type, :description, :api_base_url,
+            :name, :slug, :source_type, :category, :protocol, :description, :api_base_url,
             :is_active, :requires_auth, :priority_order, :documentation_url,
             capabilities: [],
             configuration: {},
@@ -254,6 +254,7 @@ module Api
 
         def apply_filters(data_sources)
           data_sources = data_sources.where(source_type: params[:source_type]) if params[:source_type].present?
+          data_sources = data_sources.by_category(params[:category]) if params[:category].present?
           data_sources = data_sources.where(is_active: params[:is_active]) if params[:is_active].present?
           if params[:search].present?
             data_sources = data_sources.where(

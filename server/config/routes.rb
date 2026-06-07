@@ -421,6 +421,7 @@ Rails.application.routes.draw do
           # change-detect/signal logic runs in Ai::DataSources::MonitorService.
           post "data_sources/monitor_tick", to: "data_sources#monitor_tick"
           post "data_sources/health_tick", to: "data_sources#health_tick"
+          post "data_sources/schema_sync_tick", to: "data_sources#schema_sync_tick"
 
           # Tool bridge endpoints (worker → server)
           # LLM completion endpoints removed — worker calls providers directly.

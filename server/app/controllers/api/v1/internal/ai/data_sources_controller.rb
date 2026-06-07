@@ -33,6 +33,18 @@ module Api
             Rails.logger.error("[Internal::Ai::DataSourcesController] health_tick failed: #{e.class}: #{e.message}")
             render_error("Health tick failed: #{e.message}")
           end
+
+          # POST /api/v1/internal/ai/data_sources/schema_sync_tick
+          # Walk schema-tracked (or baseline-less) endpoints across all accounts,
+          # sample each, and record an inferred schema version.
+          def schema_sync_tick
+            limit = params[:limit].present? ? params[:limit].to_i.clamp(1, 1000) : 100
+            result = ::Ai::DataSources::SchemaSyncService.new.sync(limit: limit)
+            render_success(result)
+          rescue StandardError => e
+            Rails.logger.error("[Internal::Ai::DataSourcesController] schema_sync_tick failed: #{e.class}: #{e.message}")
+            render_error("Schema sync tick failed: #{e.message}")
+          end
         end
       end
     end

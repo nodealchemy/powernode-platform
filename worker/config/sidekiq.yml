@@ -401,6 +401,15 @@
       queue: ai_orchestration
       description: 'Refresh health_status for active data sources'
 
+    # Data-source schema sync - nightly at 04:00. Thin cron trigger; the
+    # server-side Ai::DataSources::SchemaSyncService samples schema-tracked (or
+    # baseline-less) endpoints and records an inferred schema version.
+    ai_data_source_schema_sync:
+      cron: '0 4 * * *'
+      class: AiDataSourceSchemaSyncJob
+      queue: ai_orchestration
+      description: 'Sample schema-tracked endpoints and record inferred schema versions'
+
     # Trajectory analysis - generate improvement recommendations per account
     ai_trajectory_analysis:
       cron: '0 5 * * *'  # Daily at 5:00 AM UTC
