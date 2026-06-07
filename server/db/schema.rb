@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_06_123000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_07_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1862,6 +1862,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_123000) do
     t.integer "stale_if_error_seconds"
     t.integer "stale_while_revalidate_seconds"
     t.boolean "track_schema", default: false, null: false
+    t.jsonb "transforms", default: {}
     t.datetime "updated_at", null: false
     t.index ["ai_data_source_id", "slug"], name: "index_ai_data_source_endpoints_unique_slug", unique: true
     t.index ["ai_data_source_id"], name: "index_ai_data_source_endpoints_on_ai_data_source_id"
