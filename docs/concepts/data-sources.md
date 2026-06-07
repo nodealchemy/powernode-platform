@@ -16,6 +16,7 @@
 - [Response cache](#response-cache)
 - [Security model](#security-model)
 - [Credential brokering (Phase 4b-2a)](#credential-brokering-phase-4b-2a)
+- [Query-time governance (Phase 4b-2b)](#query-time-governance-phase-4b-2b)
 - [Provenance and the FetchEnvelope](#provenance-and-the-fetchenvelope)
 - [Surfaces: REST + MCP](#surfaces-rest--mcp)
 - [Frontend](#frontend)
@@ -419,6 +420,91 @@ Brokering introduces an external exchange step, so it carries the data-source pi
 ### Off by default
 
 The whole capability is dormant until a source sets `auth_config["broker"]`. With no broker config, `broker_config` returns nil, `maybe_broker_credential` returns the base credential immediately, and the credential resolution + sign + fetch path is **byte-for-byte the Phase-1 behavior** — zero added overhead, no Redis touch, no external call. You pay only for what you turn on, per source.
+
+## Query-time governance (Phase 4b-2b)
+
+The Phase-1 [security model](#security-model) governs *how* a fetch leaves the process (SSRF, redaction, signing, encryption); credential brokering governs *what secret* it signs with. **Query-time governance** adds the orthogonal question that comes *before* either: *may **this agent** read **this source** right now, under **this account's** residency/consent rules — and if the bytes come back, **which of them is this caller allowed to see**?* It layers four controls onto the existing pipeline without inventing a new model or policy engine — it **reuses** the platform's per-agent ABAC (`Ai::AgentPrivilegePolicy`), account compliance (`Ai::CompliancePolicy`), PII masking (`Ai::Security::PiiRedactionService`), and the SSRF-guarded connection factory — and, like every layer above it, is **OFF by default**: a user/system fetch of a source with no governance config, no `metadata.governance`, and no `configuration.mtls` runs the **byte-for-byte** pre-2b path.
+
+The four controls split into two stages of the fetch and two cross-cutting transport concerns:
+
+1. **Authorization** (per-agent ABAC + data-residency/consent compliance) — an authz gate that runs **before** cache or upstream.
+2. **Masking** (PII/secret redaction of the returned records) — applied **post-cache**, per-request, at envelope finalization.
+3. **Outbound mTLS** (a Vault-sourced client certificate on the egress connection) — a transport control consumed by the connection factory.
+
+`Ai::DataSources::GovernanceService` owns (1) and (2); the connection factory owns (3). Governance config is **migration-free** — it is read from *existing* jsonb columns: `data_source.metadata["governance"]` (classification / mask / region/residency) and `data_source.configuration["mtls"]` (the mTLS reference). String and symbol keys are tolerated at every level.
+
+```mermaid
+flowchart TB
+    subgraph Call["QueryService#call"]
+        K[1. kill flag] --> Q[2. quota]
+        Q --> GZ["2.5 GOVERNANCE AUTHORIZE<br/>(ABAC + compliance)<br/>BEFORE cache/upstream"]
+        GZ -->|allowed:false<br/>explicit deny| BL[blocked_by_governance envelope]
+        GZ -->|allowed| C["3. cache (singleflight)<br/>holds RAW records"]
+        C --> Up[4-8 credential / fetch / decode / normalize]
+    end
+
+    subgraph Fin["finalize (post-cache)"]
+        M["mask_response_records(RAW data)<br/>PiiRedactionService#redact"]
+        WC["write_cache(RAW)"]
+        AR["persist audit row(RAW + masking outcome)"]
+        EN["build_envelope(MASKED records)"]
+    end
+
+    Up --> M
+    C -.cache hit.-> M
+    M --> WC
+    M --> AR
+    M --> EN
+
+    subgraph Egress["HttpConnectionFactory (transport)"]
+        MTLS["outbound mTLS client-cert<br/>Vault-sourced, cache:false"]
+    end
+    Up -.SSRF-guarded conn.-> MTLS
+```
+
+The governance backend lives in `server/app/services/ai/data_sources/governance_service.rb`; the mTLS path lives in `client_ssl_options`/`load_mtls_material` within `http_connection_factory.rb`.
+
+### Authorization: per-agent ABAC + compliance
+
+`GovernanceService#authorize(context:)` returns `{ allowed:, reason:, enforcement: }` and is wired into `QueryService#call` as **stage 2.5** — *after* the kill-flag and quota gates, *before* the cache lookup and any upstream dispatch — so a denied read never touches the cache or the network, exactly mirroring the kill-flag and SSRF blocked-before-dispatch short-circuits. On an explicit deny, `QueryService` returns a `blocked_by_governance` envelope (`status: "blocked"`, a `governance_blocked` anomaly). Authorize composes two checks in order — ABAC first, then compliance — and returns the first deny.
+
+**(1) Per-agent ABAC** (`Ai::AgentPrivilegePolicy`). Each data source is addressed by the resource token `"data_source:<uuid>"` (`RESOURCE_PREFIX = "data_source"`). The service resolves the agent's trust tier, loads `Ai::AgentPrivilegePolicy.applicable_to(agent.id, trust_tier)`, and **denies only on an *explicit* deny** of the resource — when the token (or `"*"`) appears in a policy's `denied_resources`. The posture is deliberately **default-allow, deny-on-explicit**, *not* require-explicit-grant: if **no** applicable policy mentions `"data_source:<id>"` at all (absent from both `allowed_resources` and `denied_resources`, no wildcard), the request is **allowed**. This keeps every existing fetch working until an operator authors a resource-scoped policy. A **user/system context** (no agent) skips ABAC entirely — the controller already authorized the human via `ai.data_sources.*` permissions, and ABAC is a per-*agent* overlay.
+
+**(2) Data residency / consent compliance** (`Ai::CompliancePolicy`). The service evaluates every `Ai::CompliancePolicy.active.by_type("data_access").ordered_by_priority` policy that `#applies_to?` the source, calling `policy.evaluate(context)` with a context carrying the source's `region`/`residency` and `classification` (read from `metadata.governance`), the agent's trust tier, the account id, and the **mTLS posture** (`mtls: present?`) so residency/consent conditions can match. The split between **blocking** and **advisory** is load-bearing:
+
+| Policy kind | On `evaluate → allowed:false` |
+|-------------|-------------------------------|
+| **Blocking** (`policy.blocking?`) | **Denies** the read, **records the violation** (`record_violation!` with `source_type: "data_source"`, severity `high`), and returns `{ allowed: false, … }` |
+| **Advisory** (non-blocking: log/warn/require_approval) | **Logged** as a non-blocking flag, **never denies** the read here |
+
+Unlike ABAC, compliance is **account-wide** — a `data_access` block applies to *every* read of the source, agent-initiated or not. That is why a user/system fetch is short-circuited to allow **only** when the source *also* has no `metadata.governance` config; a governance-configured source still runs the full compliance check even for a human-initiated read.
+
+### Posture: fail-OPEN on infra error, fail-CLOSED on explicit deny
+
+The governance overlay sits on a read path the controller already authorized, so its failure semantics are asymmetric and deliberate:
+
+- **An *explicit* policy decision is honored — fail-closed.** An applicable privilege policy that explicitly denies the resource, or a *blocking* compliance policy returning `allowed:false`, makes `authorize` return `allowed:false` and the read is blocked.
+- **An *infra* fault fails open.** A raised exception while *resolving or evaluating* policies (a policy-engine bug, a malformed policy row) is rescued to `allowed:true` and logged **by class only** (never the message or material), so a governance fault degrades to "allow + log" rather than hard-failing every query. `QueryService` wraps the call in a second defense-in-depth rescue with the same fail-open contract. The principle is: *infra error ⇒ open; explicit deny ⇒ closed.*
+
+### Masking: PII/secret redaction on fetch
+
+`GovernanceService#mask_records(records)` returns `{ records:, masking_applied:, masked_count: }` and strips PII/secret material out of the **returned** records. Three properties define it:
+
+- **Redact-all-detected, per value.** It deep-walks every Hash/Array and, for every **string value**, runs the shared `Ai::Security::PiiRedactionService#redact(text:, context:, log: false)` — the *redact-all-detected* primitive that strips **every** detected PII/secret pattern, not a classification-threshold subset. Keys are never masked; non-string scalars pass through untouched. (It deliberately uses `#redact`, **not** `#apply_policy`: `apply_policy` threshold-filters by classification — so a secret can slip through at a permissive level — **and** writes a policy-enforcement audit row *per value*, a write-amplification storm on a large response. `#redact` strips everything detected and is silent.) The redaction service is instantiated **once** per call, and a pathological payload is capped at `MAX_MASKED_VALUES = 50_000` (flagged, not blocked).
+- **Post-cache, per-request — the cache holds RAW.** Masking is applied at the single envelope-finalization chokepoint (`QueryService#finalize`), computed **once on the RAW decoded data** *after* a cache hit or fresh decode. The cache write and the persisted audit row both consume the **RAW** records; only the **returned** envelope carries the **masked** records. So the cache stays **classification-agnostic** — the same cached payload can be masked differently per requester/policy without poisoning the shared entry — and the audit row records the *real* masking outcome (`masking_applied`, `masked_field_count`) rather than a hardcoded flag.
+- **OFF by default, explicit opt-in.** Masking is enabled only when `metadata.governance` requests it — a truthy `"mask"`, or a configured `"mask_at_classification"` marker. A bare `"classification"` label (used only for the compliance context) does **not** by itself turn on egress masking: labeling a source's sensitivity and stripping values from its payload are separate decisions. A masking *fault* fails closed on availability the safe way — it logs the class and returns the records with `masking_applied:false` flagged, so provenance shows masking did not run rather than silently leaking or breaking the response.
+
+### Outbound mTLS client certificate
+
+A data source can require the platform to present a **client certificate** on the egress TLS handshake — mutual TLS to a partner API that pins clients. This is built in `HttpConnectionFactory.client_ssl_options` and is, again, **OFF by default**: when no `configuration["mtls"]` block is present (or it is disabled), the method returns `{}`, the Faraday options carry **no** `ssl:` key, and the connection is byte-for-byte identical to the pre-mTLS build.
+
+- **Vault-sourced, never cached.** The cert/key/CA PEM bytes live **only in Vault** — the config carries a reference (`vault_path`, or a `credential_id` resolved via the account-scoped credential convention), never the material. The secret is read fresh from Vault on every connection build with **`cache: false`** — a client *private key* must never persist to `Rails.cache` (Redis / Solid Cache), honoring the absolute vault-only-storage rule for key material. mTLS is rare and the connection is short-lived, so a per-build read is cheap. The cert is parsed into `OpenSSL::X509::Certificate` + `OpenSSL::PKey` objects (an optional CA chain is written to a deduplicated, mutex-guarded per-process tempfile because Faraday's `ssl.ca_file` wants a path); the key is **never** logged or stringified.
+- **Required vs optional — fail-closed vs degrade.** The `"required"` flag picks the failure mode when the material can't be loaded (Vault returned nothing usable, or the PEM is malformed): **`required: true` fails closed** — it raises `MtlsConfigError`, which `QueryService` turns into an error envelope, so a mandatory-mTLS source can never silently fall back to an unauthenticated TLS attempt. **`required: false` degrades** — it returns `{}` and proceeds with a normal (no client cert) handshake. Either way the `MtlsConfigError` message is deliberately **non-secret** (no path, no key, no cert) and the underlying exception is logged **by class only**, since it may embed PEM bytes or a Vault path.
+- **mTLS posture surfaces into compliance.** `GovernanceService` reads only *whether* `configuration["mtls"]` is present (a boolean) into the compliance evaluation context (`mtls: present?`) — the cert material itself is never read there. A residency/consent policy can therefore condition on "this source is mutually authenticated" without the governance service ever touching the key.
+
+### Off by default
+
+The whole Phase-4b-2b layer is dormant until a source opts in. With **no agent** (user/system context) **and no** `metadata.governance` block, `authorize` short-circuits to allow before any policy resolution; with no `metadata.governance.mask` marker, `mask_records` is a passthrough; with no `configuration["mtls"]` block, `client_ssl_options` returns `{}`. So a default source runs the **byte-for-byte** Phase-1/4b-2a fetch path — no policy queries, no per-value redaction walk, no Vault read, no `ssl:` key on the connection. You pay only for what you turn on, per source.
 
 ## Provenance and the FetchEnvelope
 
@@ -1099,6 +1185,6 @@ Remaining out of scope:
 
 ## Materials previously at
 
-This is a new concept document for the Phase 1 Data Source feature, extended in place for Phase 2a (discovery + evaluation), Phase 2b (data quality, schema-drift & contracts), Phase 3 (streaming & monitoring), and Phase 4 (the generic framework — free-form `source_type` + category, the protocol adapter registry, outbound pagination, schema-sync). It complements the pre-existing operational runbook at `docs/operations/data-sources.md` (which retains the register/rotate/troubleshoot procedures).
+This is a new concept document for the Phase 1 Data Source feature, extended in place for Phase 2a (discovery + evaluation), Phase 2b (data quality, schema-drift & contracts), Phase 3 (streaming & monitoring), Phase 4 (the generic framework — free-form `source_type` + category, the protocol adapter registry, outbound pagination, schema-sync), Phase 4b-2a (credential brokering), and Phase 4b-2b (query-time governance — per-agent ABAC, residency/consent compliance, PII masking, outbound mTLS). It complements the pre-existing operational runbook at `docs/operations/data-sources.md` (which retains the register/rotate/troubleshoot procedures).
 
-_Last verified: 2026-06-06 (Phase 4: generic framework)_
+_Last verified: 2026-06-06 (Phase 4b-2b: query-time governance)_

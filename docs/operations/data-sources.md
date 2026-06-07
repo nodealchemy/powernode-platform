@@ -16,6 +16,7 @@
 - [Procedure — rotate a credential](#procedure--rotate-a-credential)
 - [Quota Enforcement Pattern](#quota-enforcement-pattern)
 - [Credential brokering (Phase 4b-2a)](#credential-brokering-phase-4b-2a)
+- [Query-time governance (Phase 4b-2b)](#query-time-governance-phase-4b-2b)
 - [Discovery & effectiveness (Phase 2a)](#discovery--effectiveness-phase-2a)
 - [Quality, drift & contracts (Phase 2b)](#quality-drift--contracts-phase-2b)
 - [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3)
@@ -366,6 +367,189 @@ The brokering layer mirrors the data-source pipeline's `sign_request!` disciplin
 - **`BrokeredCredential` is leak-proof.** It is frozen on construction, its material Hash is duplicated and read-only, and `#inspect` / `#to_s` are **redacted** (they print field *names* and the expiry, never values) so a token cannot escape through a `raise cred`, `pp cred`, or string interpolation in a trace.
 - **SSRF-guarded outbound, fixed AWS endpoints.** Every config-supplied URL is validated (above); AWS SDK calls and presigners use fixed/regional AWS endpoints with **no** config override, so there is no acquisition-time SSRF surface. (A *presigned* URL is fetched later by `QueryService` through the same SSRF-guarded connection, where its host is validated like any other fetch.)
 - **No long-lived key generation.** Brokering never generates or persists long-lived key material — it only *exchanges* an existing base secret for a short-lived one. Base secrets continue to live encrypted in Vault / the credential store per [Cryptographic Material Safety](../../CLAUDE.md); the broker reads them via `decrypted_api_key` / `decrypted_api_secret` inside the service only.
+
+## Query-time governance (Phase 4b-2b)
+
+Phase 4b-2b adds a **per-request governance overlay** to the governed fetch — invoked from `QueryService` between the quota gate and the cache lookup — with two independent responsibilities, both implemented in `Ai::DataSources::GovernanceService` over **existing** policy infrastructure (it invents no new models):
+
+1. **Authorize** (`#authorize`) — decide whether *this* principal may read *this* source right now, combining **per-agent ABAC** (`Ai::AgentPrivilegePolicy`) with **account-level data-access compliance** (`Ai::CompliancePolicy` of type `data_access`: residency / consent / usage). A deny short-circuits to a **`blocked`** envelope *before* any cache read or upstream dispatch (mirroring the kill-flag / SSRF short-circuit).
+2. **Mask** (`#mask_records`) — redact PII/secret string values out of the response records at the single envelope-finalization chokepoint, using the shared `Ai::Security::PiiRedactionService`.
+
+> **Posture: fail-OPEN on infra error, DENY on explicit policy.** A policy-engine **bug** (an exception while resolving/evaluating policies) rescues to `allowed: true` and logs the **class only** — governance is an overlay on a read path the controller already authorized for the human, so an internal fault degrades to "allow + log", never "hard-fail every query". An **explicit** policy decision is the opposite: an applicable privilege policy that lists the resource under `denied_resources`, or a **blocking** compliance policy returning `allowed: false`, yields `allowed: false`. Infra error ⇒ open; explicit deny ⇒ closed.
+
+> **Zero-overhead default.** A **user/system** fetch (no agent) of a source with **no** `metadata.governance` config skips ALL policy resolution and allows — byte-for-byte the pre-4b-2b path. Agent-initiated fetches and governance-configured sources run the full check (so account-wide `data_access` compliance applies to every agent read). ABAC is **default-allow / deny-on-explicit**: a resource that no applicable policy mentions (absent from both `allowed_resources` and `denied_resources`, no wildcard) is **allowed** — a read is denied **only** when an applicable policy explicitly lists `data_source:<id>` (or `"*"`) under `denied_resources`.
+
+### A query returning 403 / "blocked by ... policy" — ABAC vs compliance
+
+A governance deny surfaces as a **`blocked`** FetchEnvelope (`success: false`, `status: "blocked"`), persisted as a blocked query-log row with **no upstream dispatch and no cache read**. The `governance_blocked` anomaly is appended and the decision is recorded on **`provenance.policy_decision`**:
+
+```jsonc
+{
+  "success": false,
+  "status": "blocked",
+  "error": "Privilege policy 'agent-data-fence' denies data_source:0192…",
+  "provenance": {
+    "anomalies": ["governance_blocked"],
+    "policy_decision": {
+      "allowed": false,
+      "reason": "Privilege policy 'agent-data-fence' denies data_source:0192…",
+      "enforcement": "block"
+    }
+  }
+}
+```
+
+> **First, separate governance from egress.** A governance block carries the `governance_blocked` anomaly **and** a `provenance.policy_decision` object. The **SSRF egress** block (a different gate) has `error: "request blocked by egress policy"` with **no** `policy_decision` — see [SSRF guard](#the-ssrf-guard-rejecting-a-token_url) / the fetch-pipeline runbook. If there is no `policy_decision`, it is not governance.
+
+**Read the `reason` to tell ABAC from compliance** — the two paths produce structurally different strings:
+
+| Path | `reason` shape | `enforcement` | Side effect |
+|------|----------------|---------------|-------------|
+| **ABAC** (per-agent privilege) | `Privilege policy '<policy_name>' denies data_source:<id>` | `"block"` | None recorded — the deny is computed from `denied_resources`, no violation row |
+| **Compliance** (`data_access`) | `decision[:reason]` from the policy's own `#evaluate` (e.g. a residency/consent message), else `Compliance policy '<name>' denied access` | `decision[:enforcement]` or `"block"` | **Records an `Ai::PolicyViolation`** (`severity: "high"`, `status: "open"`, `source_type: "data_source"`, `source_id: <id>`) via `CompliancePolicy#record_violation!` |
+
+So the discriminator is the recorded violation: an **ABAC** deny leaves no `Ai::PolicyViolation`; a **compliance** deny always writes one. Check both:
+
+```bash
+# 1. The deny itself — read provenance.policy_decision off the most recent query-log
+#    row (a governed fetch returns it inline; MCP exposes it on the provenance read).
+#    platform.data_source_query  data_source_id: ":id"  endpoint_id: ":ep"
+#    → .provenance.policy_decision  (reason / enforcement) + .provenance.anomalies
+
+# 2. Was a compliance violation recorded? (compliance deny ⇒ yes; ABAC deny ⇒ no)
+#    platform.governance_dashboard          # open violations across policies
+#    platform.list_governance_reports       # or scope a scan
+```
+
+```ruby
+# rails runner — the authoritative ABAC-vs-compliance check for one source + agent.
+ds    = Ai::DataSource.for_account(account).find_by!(slug: "open-meteo")
+agent = Ai::Agent.find("<agent_id>")
+decision = Ai::DataSources::GovernanceService
+             .new(data_source: ds, agent: agent, account: account)
+             .authorize
+# => { allowed: false, reason: "...", enforcement: "block" }
+
+# Compliance deny leaves a high-severity violation row; ABAC deny does NOT.
+Ai::PolicyViolation.for_source("data_source", ds.id).recent.limit(5)
+  .pluck(:detected_at, :severity, :status, :description)
+```
+
+**Granting access** — fix whichever layer denied:
+
+| Deny path | How to grant |
+|-----------|--------------|
+| **ABAC** — `Privilege policy '<name>' denies …` | Remove `data_source:<id>` (and any `"*"`) from that `Ai::AgentPrivilegePolicy`'s **`denied_resources`** for the agent's trust tier. Under default-allow, simply *not denying* is enough — you do **not** need to add it to `allowed_resources`. Confirm with `AgentPrivilegePolicy.applicable_to(agent.id, trust_tier)` that no *other* applicable policy still denies it |
+| **Compliance** — blocking `data_access` policy | The policy genuinely rejected the **context** (region/residency/consent). Either satisfy the condition (set the source's `metadata.governance.region` / `residency` correctly, or supply the missing consent context), or — if the policy should not apply here — narrow its `applies_to` (`types`/`tags`) or set it non-blocking (`enforcement` log/warn) so it advises instead of blocks. After resolving, mark the recorded `Ai::PolicyViolation` `resolved!`/`dismissed!` |
+
+> **Trust tier drives which ABAC policies apply.** `applicable_to(agent_id, trust_tier)` is filtered by the agent's resolved tier (`autonomous` ≥ 0.9 / `trusted` ≥ 0.7 / `monitored` ≥ 0.4 / `supervised` ≥ 0.0, mirroring `Ai::AgentTrustScore`). A missing/altered trust signal resolves to the most restrictive `supervised`, so a deny that only appears for a low-trust agent is expected — raising the agent's trust score (or scoping the deny to specific tiers) changes the applicable set.
+
+### Masking — fields coming back `[REDACTED:...]`
+
+When response fields arrive as `[REDACTED:<type>]` (e.g. `[REDACTED:email]`, `[REDACTED:jwt_token]`, `[REDACTED:bearer_token]`), **egress masking is ON** for the source. Masking is an **explicit opt-in** via `metadata.governance` — it is OFF (passthrough) unless one of:
+
+- `metadata.governance.mask` is truthy (`true` / `"true"` / `"1"` / `"yes"` / `"on"`), **or**
+- `metadata.governance.mask_at_classification` is present.
+
+A bare `metadata.governance.classification` label does **not** by itself enable masking — labeling a source's sensitivity and stripping values from its payload are separate decisions.
+
+When on, `GovernanceService#mask_records` deep-walks every Hash/Array and runs `PiiRedactionService#redact(log: false)` on every **string value** — which strips **every** detected PII/secret pattern (email, JWT, bearer token, AWS keys, private-key headers, SSN/DOB/MRN, generic api-key, etc.), not a classification-threshold subset. **Keys are never masked; non-string scalars are untouched.** The placeholder is `[REDACTED:%{type}]` (the `type` is the detected pattern name). The per-fetch outcome lands on **`provenance.masking_applied`** (bool) and **`provenance.masked_field_count`** (int), and is mirrored onto the persisted query-log row (`masking_applied` / `masked_field_count`).
+
+Inspect whether/why masking ran:
+
+```bash
+# The masking flags ride on every governed-fetch envelope's provenance.
+#   platform.data_source_query  data_source_id: ":id"  endpoint_id: ":ep"
+#   → .provenance.masking_applied   (true ⇒ masking ran)
+#     .provenance.masked_field_count (how many string values were replaced)
+```
+
+```ruby
+# rails runner — read the source's masking config directly.
+ds = Ai::DataSource.for_account(account).find_by!(slug: "people-api")
+ds.metadata["governance"]          # => { "mask" => true, "classification" => "pii", ... }
+                                    #    string OR symbol keys are tolerated
+```
+
+**Disabling / changing masking** — edit `metadata.governance` on the source. To turn it **off**, remove the opt-in markers (set `mask` falsey AND clear `mask_at_classification`); a leftover `classification` alone will not re-enable it:
+
+```bash
+# Turn masking OFF (preserve any other metadata; this overwrites metadata wholesale,
+# so include the keys you want to keep). PATCH requires ai.data_sources.update.
+curl -s -X PATCH -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
+  -d '{"data_source":{"metadata":{"governance":{"mask":false}}}}' \
+  https://api.powernode.example.com/api/v1/ai/data_sources/:id
+```
+
+> **The cache holds RAW — toggling masking takes effect on the very next request.** `QueryService` caches the **unmasked** records; masking is computed per-request at envelope finalization (the cache write and the audit row consume RAW `result[:data]`, the returned envelope carries the MASKED copy). So flipping `metadata.governance.mask` needs **no cache flush** — the next fetch (even a cache *hit*) re-derives masking from the new config. This is also why the same cached payload can be masked differently per requester/policy without poisoning the shared entry.
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| Fields unexpectedly `[REDACTED:…]` | `metadata.governance.mask` truthy (or `mask_at_classification` set) | Read `provenance.masking_applied`; edit `metadata.governance` to disable — effective next request (no flush) |
+| Toggled `mask` off but still redacted | Edited the wrong key, or `mask_at_classification` is still set (it *also* enables masking) | Clear **both** `mask` and `mask_at_classification`; a bare `classification` does not enable masking |
+| Masking on but `masked_field_count: 0` | No values matched a PII/secret pattern — the payload had nothing to redact | Expected; redaction is pattern-driven, not "redact every field" |
+| `provenance.masking_applied: false` despite `mask: true` | A masking **fault** degraded to passthrough (fail-open on availability, flagged) — logged `masking error (<class>)` | Check the backend log for `[DataSources::GovernanceService] masking error`; the data was served **unmasked** and flagged so you can detect it |
+| Huge payload only partially masked | Hit `MAX_MASKED_VALUES = 50_000` — masking is capped per response | Logged `masking capped at 50000 values`; narrow the endpoint `response_mapping` so the payload (and PII surface) is smaller |
+
+### mTLS troubleshooting (outbound client certificates)
+
+A source can present an **outbound client certificate** on its upstream fetches via `data_source.configuration["mtls"]` (read by `Ai::DataSources::HttpConnectionFactory`, **not** the governance service — `GovernanceService` only surfaces `mtls: <present?>` into the compliance context for residency conditions). It is **OFF by default**: with no `configuration["mtls"]` block (or `enabled` falsey) the Faraday connection carries **no `ssl:` key** and is byte-for-byte the pre-mTLS build. The cert/key/CA are **never in the config** — config holds only a Vault **reference**:
+
+```jsonc
+"mtls": {
+  "enabled":     true,            // off unless truthy
+  "required":    false,           // true => fail CLOSED on any load error
+  "vault_path":  "secret/data/…", // explicit Vault KV path (preferred)
+  "credential_id": "<uuid>",      // OR convention lookup (account scope + id)
+  "cert_key":    "cert_pem",      // field name in the Vault secret (default cert_pem)
+  "key_key":     "key_pem",       // field name in the Vault secret (default key_pem)
+  "ca_key":      "ca_pem"         // optional CA-chain field (default ca_pem)
+}
+```
+
+**`required: true` + bad/missing Vault material ⇒ `MtlsConfigError`.** When `enabled` and `required` are both set, a missing secret, missing `cert_pem`/`key_pem` fields, or malformed PEM raises `Ai::DataSources::HttpConnectionFactory::MtlsConfigError` rather than silently attempting an unauthenticated TLS handshake. The message is deliberately **non-secret** (no path, no key, no cert bytes) — one of:
+
+- `mTLS is required for this data source but no client certificate is configured` (Vault returned nothing usable),
+- `mTLS is required for this data source but the client certificate could not be loaded` (Vault read / lookup raised — the underlying class is logged, never the message),
+- `mTLS is required for this data source but the client certificate is invalid` (PEM parse failed — `OpenSSL::PKey::PKeyError` / `OpenSSL::X509::CertificateError`).
+
+`MtlsConfigError` propagates out of the connection build through `QueryService#perform_fetch`'s catch-all rescue, surfacing as a normal **`error`** FetchEnvelope (`status: "error"`) with the non-secret message — *not* a `blocked` envelope and *not* a raw 500.
+
+**`required: false` (or unset) ⇒ optional-degrade.** The same load failures **silently return `{}`** (no client cert) and the fetch proceeds over **plain TLS** — there is no `MtlsConfigError`, no envelope error attributable to mTLS, and only an `Rails.logger.error("[DataSources::HttpConnectionFactory] mTLS setup failed: <class>")` (class only). So an `enabled: true, required: false` source whose Vault material is broken will *appear to work* while never actually presenting a client cert — if the upstream then rejects the unauthenticated request you will see a downstream auth/TLS error, **not** an mTLS one. **Set `required: true` whenever the upstream truly mandates mTLS**, so a material fault fails loud instead of degrading.
+
+> **`cache: false` is a hard guarantee — the private key is NEVER in Redis.** `read_vault_secret` reads the Vault secret with `cache: false`, so a client **private key** is never written to `Rails.cache` (Redis / Solid Cache). It is read **fresh from Vault per connection build** (mTLS is rare and the connection is short-lived), honoring the absolute vault-only-storage rule for key material. The loaded key becomes an in-memory `OpenSSL::PKey` that is never logged or stringified; an optional CA chain is written to a per-process, content-deduplicated tempfile (Faraday's `ssl.ca_file` wants a path) whose handle is retained for the process lifetime. **Do not** try to "warm" or cache the cert — there is no cache entry to inspect, and that is by design.
+
+**Where the cert/key live (Vault).** The material lives **only in Vault**, resolved one of two ways:
+
+- **`vault_path`** (preferred) — read directly via `::Security::VaultClient.read_secret(vault_path, cache: false)`. The secret is expected to carry `cert_pem` / `key_pem` (and optional `ca_pem`) fields, overridable via `cert_key` / `key_key` / `ca_key`.
+- **`credential_id`** (convention) — when no `vault_path`, falls back to `::Security::VaultCredentialProvider.new(account_id:).get_credential(credential_type: :data_source, credential_id:)`. Requires **both** the source's `account_id` and the `credential_id` (else it resolves to nil ⇒ the required/optional branch above).
+
+Per [Cryptographic Material Safety](../../CLAUDE.md), do **not** generate or echo the cert/key via CLI — store the PEM material into Vault out-of-band (UI/API/Vault directly) and reference it by `vault_path` / `credential_id` here.
+
+```bash
+# An mTLS-required source failing surfaces as a normal error envelope with the
+# non-secret message — confirm it is mTLS (not a generic upstream error):
+#   platform.data_source_query  data_source_id: ":id"  endpoint_id: ":ep"
+#   → .error  contains "mTLS is required for this data source but …"
+
+# The class-only setup-failure log (no path/key/cert ever appears here):
+journalctl -u powernode-backend@default --since "15 minutes ago" \
+  | grep -E '\[DataSources::HttpConnectionFactory\] mTLS (setup failed|material is invalid)'
+
+# Verify the referenced Vault secret carries the cert/key fields (run where Vault
+# is reachable; NEVER print the values — list field names only).
+vault kv get -format=json <vault_path> | jq '.data.data | keys'
+#   → expect ["ca_pem","cert_pem","key_pem"]  (or your cert_key/key_key/ca_key names)
+```
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| Fetch errors with `mTLS is required … no client certificate is configured` | `required: true` but Vault returned nothing usable (wrong `vault_path`, sealed Vault, no policy, or `credential_id`/`account_id` missing) | Verify the `vault_path` (or `credential_id` + the source is account-bound); confirm Vault is unsealed and the token's policy can read the path |
+| Fetch errors with `… could not be loaded` | `required: true` and the Vault read/lookup **raised** (transport, auth, policy) | The underlying class is in the `mTLS setup failed: <class>` log; resolve the Vault access cause (the message is intentionally withheld) |
+| Fetch errors with `… is invalid` | `required: true` and the PEM failed to parse (truncated cert, non-PEM `key_pem`, wrong field mapping) | Check the secret's `cert_pem`/`key_pem` fields are valid PEM; if an exporter prepended metadata lines they are stripped, but a genuinely malformed key still fails — re-store clean PEM |
+| Upstream rejects the request but **no** mTLS error appears | `required: false` (or unset) and the material is broken ⇒ **optional-degrade** to plain TLS (silent) | Look for `mTLS setup failed: <class>` in the backend log; set `required: true` so the fault fails loud, then fix the Vault material |
+| Suspect the private key is cached somewhere | It is not — `read_vault_secret` uses `cache: false`; the key is read fresh per build and only held in-memory | Nothing to flush; if you need a fresh read, the next fetch already re-reads Vault (no warm cache exists) |
+| mTLS "stopped working" after a cert rotation | The new PEM is in Vault but the source still references the old `vault_path`/secret, or the rotated secret renamed the fields | Point `vault_path`/`credential_id` at the rotated secret; confirm the field names match `cert_key`/`key_key`/`ca_key` (no cache to bust — reads are live) |
 
 ## Discovery & effectiveness (Phase 2a)
 
@@ -997,7 +1181,10 @@ curl -X PATCH \
 | Brokers — concrete (Phase 4b-2a) | `credentials/static_broker.rb` (no-op), `credentials/aws_sts_broker.rb` (`AssumeRole`), `credentials/aws_sts_web_identity_broker.rb` (`AssumeRoleWithWebIdentity`, OIDC token via inline/file/`token_url`), `credentials/oauth2_client_credentials_broker.rb` (`client_credentials` grant, `max_redirects: 0`), `credentials/vault_dynamic_broker.rb` (dynamic mount), `credentials/presigned_url_broker.rb` (S3 presign / Azure SAS) |
 | Broker — cache + value object (Phase 4b-2a) | `credentials/broker_cache.rb` (`NAMESPACE = "ds_cred_broker:"`, `MIN_TTL = 5`, `LOCK_TTL = 10`, `.fetch` singleflight, `.ttl_with_skew`; fail-open), `credentials/brokered_credential.rb` (signer contract, redacted `#inspect`/`#to_s`, `#expires_at`/`#expired?`/`#presigned_url`) |
 | QueryService brokering wiring (Phase 4b-2a) | `server/app/services/ai/data_sources/query_service.rb` (`#resolve_credential`, `#maybe_broker_credential`, `#broker_config`; presigned honor hook `#presigned_url_for`) |
-| SSRF guard | `server/app/services/ai/data_sources/http_connection_factory.rb` (`SsrfError`, `.validate_url!`, `SsrfGuardMiddleware`, `.user_agent`) |
+| SSRF guard + outbound mTLS (Phase 4b-2b) | `server/app/services/ai/data_sources/http_connection_factory.rb` (`SsrfError`, `.validate_url!`, `SsrfGuardMiddleware`, `.user_agent`; mTLS: `MtlsConfigError`, `.client_ssl_options`, `.load_mtls_material`, `.read_vault_secret` with `cache: false`, `.build_ssl_hash`; `required` ⇒ fail-closed, optional ⇒ degrade to plain TLS) |
+| Service — Governance (Phase 4b-2b) | `server/app/services/ai/data_sources/governance_service.rb` (`#authorize` — ABAC `Ai::AgentPrivilegePolicy` + compliance `Ai::CompliancePolicy` `data_access`; `#mask_records` via `Ai::Security::PiiRedactionService`; fail-open on infra / deny on explicit; `RESOURCE_PREFIX`, `MAX_MASKED_VALUES = 50_000`) |
+| Model — Policy violation | `server/app/models/ai/policy_violation.rb` (`.for_source(type, id)`, `.open`/`.recent`; `resolve!`/`dismiss!`) recorded by `Ai::CompliancePolicy#record_violation!` on a blocking compliance deny |
+| QueryService governance wiring (Phase 4b-2b) | `server/app/services/ai/data_sources/query_service.rb` (`#governance_authorize`, `#blocked_by_governance_envelope` — `provenance.policy_decision` + `governance_blocked` anomaly; `#mask_response_records` — `provenance.masking_applied`/`masked_field_count`; cache holds RAW, masking per-request) |
 | Model — Schema version (Phase 2b) | `server/app/models/ai/data_source_schema_version.rb` (`CLASSIFICATIONS`; `for_endpoint`/`ordered`/`latest_first`/`breaking`) |
 | Model — Quality expectation (Phase 2b) | `server/app/models/ai/data_source_expectation.rb` (`RULE_TYPES`, `SEVERITIES`; `active`/`errors`) |
 | Model — KG node | `server/app/models/ai/knowledge_graph_node.rb` (`data_source` entity type, `.data_source_nodes`, `.for_data_source`) |
@@ -1042,4 +1229,4 @@ curl -X PATCH \
 
 - `docs/platform/DATA_SOURCES.md`
 
-_Last verified: 2026-06-06 (Phase 4b-2a credential brokering added)_
+_Last verified: 2026-06-06 (Phase 4b-2b query-time governance + outbound mTLS added)_

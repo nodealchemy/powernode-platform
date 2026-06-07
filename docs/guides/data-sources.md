@@ -16,6 +16,7 @@
 - [Configure dynamic credential brokering (Phase 4b)](#configure-dynamic-credential-brokering-phase-4b)
 - [Writing a custom adapter, decoder, or signer](#writing-a-custom-adapter-decoder-or-signer)
 - [Security](#security)
+- [Govern a data source (access, masking, residency, mTLS) (Phase 4b-2b)](#govern-a-data-source-access-masking-residency-mtls-phase-4b-2b)
 - [Agent usage via MCP](#agent-usage-via-mcp)
 - [How agents discover and evaluate sources over time (Phase 2a)](#how-agents-discover-and-evaluate-sources-over-time-phase-2a)
 - [Enabling quality & drift per endpoint (Phase 2b)](#enabling-quality--drift-per-endpoint-phase-2b)
@@ -792,6 +793,187 @@ Before **any** caller- or operator-visible string is written to `ai_data_source_
 Layered on top of PII heuristics is an unconditional **sensitive-key mask**: any URL query param or top-level param whose key matches `SENSITIVE_QUERY_KEY` is masked to `[REDACTED]` regardless of whether the value looks like PII. That regex covers `api_key`, `key`, `token`/`tokens`, `access_token`, `refresh_token`, `id_token`, `secret`, `client_secret`, `auth`, `authorization`, `password`/`passwd`/`pwd`, `sig`, `signature`, `sign`, `credential`, `session`, and `cookie` (with optional `_`/`-` prefixes). So `?token=abc&sig=xyz` always persists as `?token=[REDACTED]&sig=[REDACTED]`, even when the values are opaque.
 
 The persisted row also sets `redaction_applied: true` and `masking_applied: true`, and is sealed into the **audit hash chain** via `Audit::LogIntegrityService` (a companion `AuditLog` whose `before_create` hook assigns `sequence_number` + `previous_hash` + `integrity_hash`; the anchor is mirrored back into the query's `metadata["audit_chain"]`). Audit-chain or cost-attribution failures never break the fetch — the query row still persists.
+
+## Govern a data source (access, masking, residency, mTLS) (Phase 4b-2b)
+
+Phase 4b-2b layers **query-time governance** on top of the fetch pipeline. Where [Security](#security) covers the structural controls that always run (SSRF, redaction, Vault-backed credentials), governance is the **opt-in policy overlay** that decides, per request: *may this agent read this source right now?* (ABAC + compliance), *what must be stripped from the response?* (masking), and *how is the outbound TLS authenticated?* (mTLS client certs).
+
+It is implemented by `Ai::DataSources::GovernanceService` (`authorize` + `mask_records`) and the mTLS branch of `Ai::DataSources::HttpConnectionFactory`. The design rules that shape every recipe below:
+
+- **Migration-free.** All governance config lives in **existing jsonb columns** — `data_source.metadata["governance"]` (access classification, masking, residency) and `data_source.configuration["mtls"]` (client-cert reference). No new tables, no new policy engine.
+- **Reuses existing models.** Per-agent access reuses `Ai::AgentPrivilegePolicy`; residency/consent reuses `Ai::CompliancePolicy` (`policy_type: "data_access"`); masking reuses `Ai::Security::PiiRedactionService`.
+- **Off by default, fail-safe.** A source with no governance config and no agent context skips all policy resolution (byte-for-byte the pre-2b path). An **infra fault** in the policy engine fails *open* (allow + log the exception class only); an **explicit policy deny** fails *closed* (a `blocked` envelope). String OR symbol jsonb keys are tolerated throughout.
+- **`authorize` runs before cache and network** (`QueryService` gate 2.5, after the kill-flag and quota gates), so a denied read never touches the cache or the upstream. **`mask_records` runs post-cache**, at envelope finalization — the cache holds RAW records, so the same cached payload can be masked differently per requester without poisoning the shared entry.
+
+### (a) Grant or deny an agent via `Ai::AgentPrivilegePolicy`
+
+Per-agent access is **attribute-based** (ABAC) and keyed on the resource token **`data_source:<id>`** (the source's UUID, `Ai::DataSources::GovernanceService::RESOURCE_PREFIX` = `"data_source"`). `GovernanceService#authorize_abac` resolves the applicable policies with `Ai::AgentPrivilegePolicy.applicable_to(agent.id, trust_tier)` and checks each against the resource token.
+
+The posture is **deny-on-explicit, default-allow** (documented intentionally in the service): a request is denied **only** when an applicable policy lists the resource (or `"*"`) in **`denied_resources`**. If no applicable policy mentions the resource at all, the read is **allowed** — so authoring a permissive `allowed_resources` grant for one source does not implicitly lock out every other source.
+
+> User/system fetches (no agent) skip ABAC entirely — the controller already authorized the human via permissions. ABAC applies to **agent-initiated** reads.
+
+**Deny** an agent (or a whole trust tier) access to one source — put the resource token in `denied_resources`:
+
+```ruby
+# DENY: agent-scoped block of one data source.
+Ai::AgentPrivilegePolicy.create!(
+  account:      account,
+  policy_name:  "block-untrusted-from-payroll-feed",
+  policy_type:  "custom",            # system | trust_tier | custom
+  agent_id:     agent.id,            # agent-scoped; OR set trust_tier: for a tier-wide rule
+  active:       true,
+  priority:     100,
+  denied_resources: ["data_source:#{data_source.id}"]  # "*" denies ALL sources
+)
+```
+
+**Grant** explicitly with `allowed_resources` (only meaningful when you intend an allow-list posture — remember a non-mentioning policy already allows by default):
+
+```ruby
+# ALLOW-LIST: this policy only grants the two named sources (+ nothing else it lists).
+Ai::AgentPrivilegePolicy.create!(
+  account:      account,
+  policy_name:  "research-agent-source-allowlist",
+  policy_type:  "custom",
+  trust_tier:   "trusted",           # applies to every "trusted"-tier agent
+  active:       true,
+  priority:     50,
+  allowed_resources: [
+    "data_source:#{open_meteo.id}",
+    "data_source:#{fred.id}"
+  ]
+)
+```
+
+Field semantics (verified against `Ai::AgentPrivilegePolicy#resource_allowed?`):
+
+| Field | Type | Role in the data-source decision |
+|---|---|---|
+| `denied_resources` | jsonb array | `"*"` or `"data_source:<id>"` here is the **only** thing that produces a deny. Checked first, wins over `allowed_resources`. |
+| `allowed_resources` | jsonb array | An allow-list. **Empty** = allow anything not denied (the default-allow posture). `"*"` or the token grants. |
+| `agent_id` / `trust_tier` / `policy_type` | uuid / string / string | Selectors for `applicable_to(agent_id, trust_tier)` — a policy applies when its `agent_id` matches, its `trust_tier` matches the agent's tier, or it is a tier-agnostic `policy_type: "system"` policy. |
+| `priority` | int | Higher first (`by_priority`); a higher-priority explicit deny is reached before lower ones. |
+
+A denied agent fetch returns a `FetchEnvelope` with `status: "blocked"` and `enforcement: "block"` — the same shape as an SSRF block, and it never reaches cache or network.
+
+### (b) A `data_access` `Ai::CompliancePolicy` for residency / consent
+
+Account-wide residency/consent rules reuse `Ai::CompliancePolicy` with **`policy_type: "data_access"`** (`GovernanceService::COMPLIANCE_TYPE`). Unlike ABAC, these apply to **every** read of a matching source (agent *and*, for the residency case, governance-configured user fetches). `GovernanceService#authorize_compliance` evaluates the **active**, `data_access`, priority-ordered policies (`Ai::CompliancePolicy.active.by_type("data_access").ordered_by_priority`), keeping only those whose `applies_to?` matches the source, and calls `policy.evaluate(context)`.
+
+A policy denies the read **only when it is blocking** (`enforcement_level == "block"`, i.e. `#blocking?` is true) **and** `evaluate` returns `allowed: false` — in which case the violation is recorded via `record_violation!` and a `blocked` envelope is returned. Non-blocking levels (`log` / `warn` / `require_approval`) are logged as advisory, never denied here.
+
+```ruby
+# Residency: BLOCK any data_access read whose region is outside the EU.
+Ai::CompliancePolicy.create!(
+  account:           account,
+  name:              "eu-data-residency",
+  policy_type:       "data_access",        # GovernanceService only evaluates this type
+  status:            "active",             # only `active` policies are evaluated
+  enforcement_level: "block",             # log | warn | block | require_approval; "block" => deny
+  priority:          100,                  # ordered_by_priority (desc) — blocking rules first
+  applies_to: {                            # optional scoping; blank = applies to every source
+    "types" => ["Ai::DataSource"]
+  },
+  conditions: {                            # each key is matched against the eval context
+    "region" => { "in" => ["eu-west-1", "eu-central-1"] }
+  }
+)
+```
+
+How `conditions` are matched (`CompliancePolicy#evaluate` → `matches_condition?`): each `conditions` key is looked up in the **evaluation context** and compared to the expected value. A Hash value selects an operator — **`in`** (membership), **`not_in`** (exclusion), **`max`** / **`min`** (numeric bounds); any other scalar is a direct equality check. If **any** condition is unmet, `evaluate` returns `allowed: !blocking?` — so a `block`-level policy denies, while a `warn`/`log` policy returns allowed-with-reason (advisory).
+
+The context keys `GovernanceService#compliance_context` supplies (caller context merged on top wins) — match your `conditions` keys to these:
+
+| Context key | Source |
+|---|---|
+| `region` | `metadata.governance` `region` (falls back to `residency`) |
+| `residency`, `data_residency` | `metadata.governance` `residency` (falls back to `region`) |
+| `classification` | `metadata.governance` `classification` |
+| `agent_trust_tier` | the agent's resolved trust tier (`supervised`/`monitored`/`trusted`/`autonomous`) |
+| `account_id`, `data_source_id`, `data_source_slug` | the request's account + source |
+| `mtls` | boolean — whether the source has an `configuration["mtls"]` block (so a consent policy can *require* mTLS) |
+
+```ruby
+# Consent example: require the source to carry an mTLS posture, else warn (advisory).
+conditions:        { "mtls" => true },
+enforcement_level: "warn"     # logged, not denied — flip to "block" to hard-deny
+```
+
+So the residency/consent dimension comes from two halves: the **source** declares its region/classification in `metadata["governance"]` (next section), and the **account** authors `data_access` `CompliancePolicy` rows whose `conditions` match those context keys.
+
+### (c) Enable response masking via `metadata["governance"]`
+
+Masking strips PII/secret **values** out of the response records before they leave the pipeline. It is an **explicit opt-in** per source, configured on `data_source.metadata["governance"]` (string OR symbol keys tolerated). `GovernanceService#masking_enabled?` turns it on when **either**:
+
+- `metadata.governance["mask"]` is truthy, **or**
+- `metadata.governance["mask_at_classification"]` is present.
+
+A bare `classification` label does **not** by itself enable masking — labeling a source's sensitivity (for the compliance context) and stripping values from its payload are separate decisions.
+
+```ruby
+# Enable egress masking on a source. Merge — never clobber other metadata.
+data_source.update!(
+  metadata: data_source.metadata.merge(
+    "governance" => {
+      "mask"           => true,          # the masking switch (truthy enables)
+      "classification" => "confidential",# sensitivity label (feeds compliance context)
+      "region"         => "eu-west-1"    # residency/region (feeds compliance context)
+    }
+  )
+)
+```
+
+The `metadata["governance"]` fields and their roles:
+
+| Field | Read by | Role |
+|---|---|---|
+| `mask` | `masking_enabled?` | Truthy turns masking ON. |
+| `mask_at_classification` | `masking_enabled?` | Presence *also* turns masking ON (an alternative to `mask`). |
+| `classification` | `compliance_context` | Sensitivity label surfaced as the `classification` compliance-context key (does **not** alone enable masking). |
+| `region` / `residency` | `compliance_context` | Either spelling populates both the `region` and `residency`/`data_residency` context keys for residency policies. |
+
+> **What masking actually does — it redacts ALL detected PII/secrets, regardless of level.** When ON, `mask_records` deep-walks every Hash/Array in the records and runs **every string value** through `Ai::Security::PiiRedactionService#redact(log: false)` — the **redact-all-detected** primitive that strips *every* detected PII/secret pattern. It deliberately does **not** use `apply_policy` (which would threshold-filter by classification and could let a secret slip through at a permissive level, while also writing one audit row per value). So `mask_at_classification` only governs *whether* masking runs — once on, the redaction is unconditional and pattern-complete, not a classification-scoped subset. Keys are never masked; non-string scalars pass through; the walk is capped at `MAX_MASKED_VALUES` (50,000) for pathological payloads.
+
+Masking is reflected in the envelope: a masked response carries `masking_applied: true` and a `masked_count`. Because masking is **post-cache**, the shared cache entry stays RAW and classification-agnostic. A masking fault fails *closed on content but open on availability* — it returns the original records with `masking_applied: false` (and logs the exception class only) rather than leaking partially-masked data or breaking the response.
+
+### (d) Outbound mTLS client certificates via `configuration["mtls"]`
+
+When an upstream requires a **client certificate** (mutual TLS), configure it on `data_source.configuration["mtls"]` (jsonb; string OR symbol keys tolerated). `HttpConnectionFactory.build` reads this block and, when enabled, attaches a Faraday `ssl:` hash holding an `OpenSSL::X509::Certificate` + `OpenSSL::PKey` to the connection. With **no** `mtls` block (or `enabled` falsy) the build carries no `ssl:` key and is byte-for-byte the pre-mTLS connection.
+
+> **The certificate and private key live in Vault — NEVER in the config.** `configuration["mtls"]` holds only a **Vault reference** (`vault_path` or `credential_id`) plus non-secret field-name knobs. `read_vault_secret` reads the PEM material fresh from Vault per connection build with **`cache: false`** (a client private key must never persist to Rails.cache / Redis), honoring the platform's [Cryptographic Material Safety](../guides/security.md#cryptographic-material-safety) rules. The PEM bytes are never logged or stringified — on any error the factory logs the **exception class only**.
+
+```ruby
+# Point the source at a Vault-stored client cert/key. Merge — preserve other config.
+data_source.update!(
+  configuration: data_source.configuration.merge(
+    "mtls" => {
+      "enabled"    => true,                       # OFF unless truthy
+      "required"   => true,                       # true => fail closed (raise) on load failure
+      "vault_path" => "secret/data/data-sources/acme-mtls"  # explicit Vault KV path (preferred)
+      # cert_key / key_key / ca_key default to cert_pem / key_pem / ca_pem (see below)
+    }
+  )
+)
+```
+
+The `configuration["mtls"]` fields, verified against `HttpConnectionFactory` (`client_ssl_options` / `load_mtls_material` / `read_vault_secret`):
+
+| Field | Required | Default | Meaning |
+|---|---|---|---|
+| `enabled` | yes | `false` | mTLS is OFF unless this is truthy. |
+| `required` | no | `false` | `true` => **fail closed**: a load/parse failure raises `MtlsConfigError` (mapped to an error envelope) instead of degrading to a plain-TLS attempt. `false` => optional: a load failure degrades to a normal (no client cert) connection. |
+| `vault_path` (alias `path`) | one of these two | — | Explicit Vault KV path, read directly via `Security::VaultClient.read_secret(path, cache: false)`. **Preferred.** |
+| `credential_id` (alias `credential_reference`) | one of these two | — | Convention lookup instead of an explicit path — resolves through `Security::VaultCredentialProvider` (account scope + `credential_id`, `credential_type: :data_source`). Requires the source's `account_id`. |
+| `cert_key` | no | `cert_pem` | Field **name** of the client-cert PEM **inside the Vault secret**. |
+| `key_key` | no | `key_pem` | Field **name** of the private-key PEM inside the Vault secret. |
+| `ca_key` | no | `ca_pem` | Optional field name of a CA-chain PEM inside the Vault secret (written to a per-process tempfile for Faraday's `ssl.ca_file`). |
+
+So the Vault secret at `vault_path` is a map whose keys are the `*_key` field names — by default `{ "cert_pem" => "<client cert PEM>", "key_pem" => "<private key PEM>", "ca_pem" => "<optional CA PEM>" }`. The `cert_key`/`key_key`/`ca_key` knobs only rename which fields the factory reads; they never carry the material itself.
+
+Behavior summary: a missing/blank cert or key in the Vault secret returns no material — which, when `required: true`, raises `MtlsConfigError` (the source's fetch returns an error envelope), and when `required: false`, silently falls back to a non-mTLS connection. Malformed PEM is handled identically (fail-closed when required, degrade otherwise). The `mtls` block's mere presence is also surfaced (as a boolean) into the compliance context's `mtls` key, so a `data_access` policy can *require* a source to use mTLS (recipe (b)).
+
+> **Store the cert/key in Vault first.** Do not generate or paste key material into config, seeds, or shell history — guide the operation through `Security::VaultCredentialProvider#store_credential` (see [Moving credentials to Vault](#moving-credentials-to-vault)) or write the KV path directly in Vault, then reference it here by `vault_path`.
 
 ## Agent usage via MCP
 
