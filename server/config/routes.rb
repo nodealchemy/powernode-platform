@@ -1615,6 +1615,26 @@ Rails.application.routes.draw do
             get :quota_status
             post :test_connection
           end
+          collection do
+            post :discover
+          end
+          # Phase 2b — OpenAPI introspection imports endpoints onto a single source.
+          member do
+            post :introspect
+          end
+          # Nested endpoint CRUD + governed query under a data source. Handled by
+          # DataSourcesController to keep the data-source surface in one place.
+          get    "endpoints",            to: "data_sources#endpoints_index"
+          post   "endpoints",            to: "data_sources#endpoints_create"
+          patch  "endpoints/:endpoint_id", to: "data_sources#endpoints_update"
+          put    "endpoints/:endpoint_id", to: "data_sources#endpoints_update"
+          delete "endpoints/:endpoint_id", to: "data_sources#endpoints_destroy"
+          post   "endpoints/:endpoint_id/query", to: "data_sources#endpoints_query"
+          # Phase 2b observability — read-only schema history, quality, and the
+          # aggregate contract verdict for a single endpoint (keyed by :endpoint_id).
+          get    "endpoints/:endpoint_id/schema_history", to: "data_sources#schema_history"
+          get    "endpoints/:endpoint_id/quality",        to: "data_sources#quality"
+          get    "endpoints/:endpoint_id/contract",       to: "data_sources#contract"
           resources :credentials, controller: "data_source_credentials" do
             member do
               post :test

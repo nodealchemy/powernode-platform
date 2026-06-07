@@ -498,6 +498,25 @@ module Ai
         "docker_delete_service" => "Ai::Tools::DockerServiceTool",
         "docker_service_logs" => "Ai::Tools::DockerServiceTool",
         "docker_service_tasks" => "Ai::Tools::DockerServiceTool",
+        # AI data sources — governed external data fetch + CRUD (1:1 REST parity)
+        "data_source_list" => "Ai::Tools::DataSourceTool",
+        "data_source_get" => "Ai::Tools::DataSourceTool",
+        "data_source_describe" => "Ai::Tools::DataSourceTool",
+        "data_source_query" => "Ai::Tools::DataSourceTool",
+        "data_source_health" => "Ai::Tools::DataSourceTool",
+        "data_source_validate_config" => "Ai::Tools::DataSourceTool",
+        # AI data sources — discovery + provenance + impact (effectiveness/trust)
+        "data_source_discover" => "Ai::Tools::DataSourceTool",
+        "data_source_provenance" => "Ai::Tools::DataSourceTool",
+        "data_source_impact" => "Ai::Tools::DataSourceTool",
+        # AI data sources — Phase 2b observability (schema drift, quality, contract, introspect)
+        "data_source_schema_history" => "Ai::Tools::DataSourceTool",
+        "data_source_quality" => "Ai::Tools::DataSourceTool",
+        "data_source_introspect" => "Ai::Tools::DataSourceTool",
+        "data_source_contract" => "Ai::Tools::DataSourceTool",
+        "data_source_create" => "Ai::Tools::DataSourceTool",
+        "data_source_update" => "Ai::Tools::DataSourceTool",
+        "data_source_delete" => "Ai::Tools::DataSourceTool",
         # Docker infrastructure management — Swarm stacks
         "docker_list_stacks" => "Ai::Tools::DockerStackTool",
         "docker_get_stack" => "Ai::Tools::DockerStackTool",

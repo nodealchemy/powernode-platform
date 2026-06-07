@@ -6,10 +6,18 @@ module Api
       class DataSourcesController < ApplicationController
         include AuditLogging
         include ::Ai::DataSourceSerialization
+        include ::Ai::DataSourceEndpoints
 
         before_action :set_data_source, only: [
           :show, :update, :destroy,
-          :test_connection, :quota_status
+          :test_connection, :quota_status,
+          :endpoints_index, :endpoints_create, :endpoints_update,
+          :endpoints_destroy, :endpoints_query,
+          :schema_history, :quality, :contract, :introspect
+        ]
+        before_action :set_endpoint, only: [
+          :endpoints_update, :endpoints_destroy, :endpoints_query,
+          :schema_history, :quality, :contract
         ]
         before_action :validate_permissions
 
@@ -26,6 +34,34 @@ module Api
           render_success({
             items: data_sources.map { |ds| serialize_data_source(ds) },
             pagination: pagination_data(data_sources)
+          })
+        end
+
+        # POST /api/v1/ai/data_sources/discover
+        # Semantic discovery: rank the account's data sources by relevance to a
+        # natural-language need, blended with effectiveness/health/recency signals.
+        def discover
+          account = current_account || current_user&.account
+          return render_error("No account context", status: :unauthorized) unless account
+
+          query = params[:query].to_s
+          return render_error("query is required", status: :unprocessable_entity) if query.blank?
+
+          ranked = ::Ai::DataSources::SemanticDiscoveryService.new(account).discover(
+            query: query,
+            limit: (params[:limit] || 10).to_i.clamp(1, 50),
+            rerank: ActiveModel::Type::Boolean.new.cast(params[:rerank])
+          )
+
+          render_success({
+            query: query,
+            count: ranked.size,
+            results: ranked.map do |r|
+              serialize_data_source(r[:data_source]).merge(
+                score: r[:score],
+                signals: r[:signals]
+              )
+            end
           })
         end
 
@@ -162,7 +198,9 @@ module Api
           scope = current_account&.ai_data_sources || current_user&.account&.ai_data_sources
           return render_error("No account context", status: :unauthorized) unless scope
 
-          @data_source = scope.find(params[:id])
+          # Nested endpoint routes key the source on :data_source_id; the top-level
+          # member routes use :id.
+          @data_source = scope.find(params[:data_source_id] || params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Data source not found", status: :not_found)
         end
@@ -171,7 +209,7 @@ module Api
           return if current_worker
 
           case action_name
-          when "index", "show", "quota_status"
+          when "index", "show", "quota_status", "endpoints_index", "discover"
             require_permission("ai.data_sources.read")
           when "create"
             require_permission("ai.data_sources.create")
@@ -181,6 +219,19 @@ module Api
             require_permission("ai.data_sources.delete")
           when "test_connection"
             require_permission("ai.data_sources.read")
+          when "endpoints_create", "endpoints_update", "endpoints_destroy"
+            # Endpoint mutations are data-source updates — managing the source's
+            # endpoints requires update authority (or the manage super-grant).
+            require_any_permission("ai.data_sources.update", "ai.data_sources.manage")
+          when "endpoints_query"
+            require_permission("ai.data_sources.query")
+          when "schema_history", "quality", "contract"
+            # Phase 2b read-only observability — same read grant as index/show.
+            require_permission("ai.data_sources.read")
+          when "introspect"
+            # OpenAPI import creates endpoints (even dry_run is a write surface),
+            # so it is gated by the manage super-grant.
+            require_permission("ai.data_sources.manage")
           end
         end
 

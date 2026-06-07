@@ -20,6 +20,12 @@ module Ai
         capabilities: ds.capabilities,
         health_status: ds.health_status,
         last_health_check_at: ds.last_health_check_at&.iso8601,
+        effectiveness_score: ds.effectiveness_score&.to_f,
+        usage_count: ds.usage_count,
+        positive_usage_count: ds.positive_usage_count,
+        negative_usage_count: ds.negative_usage_count,
+        usage_success_rate: ds.usage_success_rate,
+        last_used_at: ds.last_used_at&.iso8601,
         created_at: ds.created_at.iso8601,
         updated_at: ds.updated_at.iso8601,
         credential_count: ds.credentials.size,
@@ -74,6 +80,29 @@ module Ai
       return 0 if total.zero?
 
       ((cred.success_count.to_f / total) * 100).round(2)
+    end
+
+    def serialize_data_source_endpoint(ep)
+      {
+        id: ep.id,
+        ai_data_source_id: ep.ai_data_source_id,
+        name: ep.name,
+        slug: ep.slug,
+        http_method: ep.http_method,
+        path_template: ep.path_template,
+        response_format: ep.response_format,
+        expected_content_type: ep.expected_content_type,
+        cache_ttl_seconds: ep.cache_ttl_seconds,
+        monitorable: ep.monitorable,
+        change_detection: ep.change_detection,
+        query_template: ep.query_template,
+        body_template: ep.body_template,
+        response_mapping: ep.response_mapping,
+        response_schema: ep.response_schema,
+        metadata: ep.metadata,
+        created_at: ep.created_at&.iso8601,
+        updated_at: ep.updated_at&.iso8601
+      }
     end
   end
 end
