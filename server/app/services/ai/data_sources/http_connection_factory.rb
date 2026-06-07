@@ -3,6 +3,9 @@
 require "ipaddr"
 require "resolv"
 require "uri"
+require "openssl"
+require "tempfile"
+require "digest"
 require "faraday/follow_redirects"
 
 module Ai
@@ -30,6 +33,14 @@ module Ai
       # Raised when a response body exceeds MAX_RESPONSE_BYTES.
       class ResponseTooLargeError < StandardError; end
 
+      # Raised when configuration["mtls"] declares "required": true but the
+      # client certificate / private key could not be loaded from Vault. The
+      # message is deliberately non-secret (no path, no key, no cert) — it only
+      # signals that a hard requirement was unmet. QueryService's rescue turns
+      # this into an error envelope rather than letting a misconfigured-but-
+      # required source fall back to an unauthenticated TLS attempt.
+      class MtlsConfigError < StandardError; end
+
       DEFAULT_OPEN_TIMEOUT = 5
       DEFAULT_READ_TIMEOUT = 20
       DEFAULT_MAX_REDIRECTS = 5
@@ -39,6 +50,10 @@ module Ai
       MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 
       ALLOWED_SCHEMES = %w[http https].freeze
+
+      # Serializes writes to the @ca_tempfiles memo (mTLS CA tempfiles). Load-time
+      # constant so the mutex itself is created exactly once (no ||= init race).
+      CA_TEMPFILE_MUTEX = Mutex.new
 
       # Private / reserved / loopback / link-local / unique-local ranges that an
       # outbound data-source fetch must never reach. Covers IPv4 + IPv6,
@@ -99,7 +114,18 @@ module Ai
 
           base_url = data_source.respond_to?(:api_base_url) ? data_source.api_base_url : nil
 
-          Faraday.new(url: base_url.presence) do |conn|
+          # Outbound mTLS client-cert (Phase 4b-2b). OFF by default: when no
+          # configuration["mtls"] block is present (or it is disabled), this
+          # returns {} and the Faraday options below carry NO ssl: key, so the
+          # connection is byte-for-byte identical to the pre-mTLS build. When
+          # enabled, the hash holds OpenSSL::X509::Certificate + OpenSSL::PKey
+          # objects loaded from Vault (never the raw PEM strings from config).
+          ssl_options = client_ssl_options(data_source)
+
+          faraday_options = { url: base_url.presence }
+          faraday_options[:ssl] = ssl_options if ssl_options.present?
+
+          Faraday.new(**faraday_options) do |conn|
             # Pin every outbound request URL before it leaves the process.
             conn.use Ai::DataSources::HttpConnectionFactory::SsrfGuardMiddleware
 
@@ -280,6 +306,186 @@ module Ai
             rescue LoadError
               false
             end
+        end
+
+        # ----------------------------------------------------------------------
+        # Outbound mTLS (Phase 4b-2b)
+        #
+        # CONFIG SHAPE (data_source.configuration["mtls"], a jsonb sub-hash;
+        # string OR symbol keys tolerated). The cert/key are NEVER in the config
+        # itself — only a Vault reference is:
+        #
+        #   "mtls" => {
+        #     "enabled"     => true,            # off unless truthy
+        #     "required"    => false,           # true => fail closed (raise) on load error
+        #     "vault_path"  => "secret/data/…", # explicit Vault KV path (preferred)
+        #     "credential_id" => "<uuid>",      # OR convention lookup by id
+        #     "cert_key"    => "cert_pem",      # field name in the Vault secret (default cert_pem)
+        #     "key_key"     => "key_pem",       # field name in the Vault secret (default key_pem)
+        #     "ca_key"      => "ca_pem"         # optional CA chain field in the Vault secret
+        #   }
+        #
+        # Returns the Faraday `ssl:` hash ({ client_cert:, client_key:[, ca_file:] })
+        # or {} when mTLS is disabled / unconfigured / (optionally) failed to load.
+        # ----------------------------------------------------------------------
+        def client_ssl_options(data_source)
+          mtls = mtls_config(data_source)
+          return {} if mtls.blank?
+          return {} unless truthy?(jget(mtls, "enabled"))
+
+          required = truthy?(jget(mtls, "required"))
+
+          material = load_mtls_material(data_source, mtls)
+          if material.nil?
+            # Vault returned nothing usable. Required => fail closed; optional =>
+            # degrade to a normal (no client cert) TLS attempt.
+            raise MtlsConfigError, "mTLS is required for this data source but no client certificate is configured" if required
+
+            return {}
+          end
+
+          build_ssl_hash(material, mtls, required)
+        rescue MtlsConfigError
+          raise
+        rescue StandardError => e
+          # NEVER echo cert/key material or the underlying message (it may embed
+          # PEM bytes or a Vault path). Log the exception CLASS only.
+          Rails.logger.error("[DataSources::HttpConnectionFactory] mTLS setup failed: #{e.class}")
+          raise MtlsConfigError, "mTLS is required for this data source but the client certificate could not be loaded" if truthy?(jget(mtls, "required"))
+
+          {}
+        end
+
+        # Read the mtls sub-hash off configuration, tolerating string OR symbol
+        # keys at the top level. Returns nil when absent/!Hash.
+        def mtls_config(data_source)
+          config = data_source.respond_to?(:configuration) ? (data_source.configuration || {}) : {}
+          return nil unless config.is_a?(Hash)
+
+          mtls = config["mtls"] || config[:mtls]
+          mtls.is_a?(Hash) ? mtls : nil
+        end
+
+        # Fetch the cert/key (and optional CA) PEM strings from Vault. The PEM
+        # bytes live ONLY in Vault — config carries a vault_path / credential_id
+        # reference. Returns { cert:, key:, ca: } of PEM strings, or nil when the
+        # secret is missing the mandatory cert/key fields.
+        def load_mtls_material(data_source, mtls)
+          secret = read_vault_secret(data_source, mtls)
+          return nil unless secret.is_a?(Hash)
+
+          secret = secret.with_indifferent_access if secret.respond_to?(:with_indifferent_access)
+
+          cert_field = jget(mtls, "cert_key").presence || "cert_pem"
+          key_field  = jget(mtls, "key_key").presence || "key_pem"
+          ca_field   = jget(mtls, "ca_key").presence  || "ca_pem"
+
+          cert_pem = secret[cert_field] || secret[cert_field.to_sym]
+          key_pem  = secret[key_field]  || secret[key_field.to_sym]
+          ca_pem   = secret[ca_field]   || secret[ca_field.to_sym]
+
+          return nil if cert_pem.blank? || key_pem.blank?
+
+          { cert: cert_pem, key: key_pem, ca: ca_pem }
+        end
+
+        # Resolve the Vault secret hash for the mTLS material. Prefers an explicit
+        # vault_path (read directly); otherwise falls back to the data_source
+        # credential convention (account scope + credential_id). Returns the raw
+        # secret Hash or nil. Raises nothing of its own — Vault errors propagate
+        # to client_ssl_options' rescue, which logs e.class only.
+        def read_vault_secret(data_source, mtls)
+          vault_path = jget(mtls, "vault_path", "path").presence
+          # cache: false — a client PRIVATE KEY must NEVER be persisted to Rails.cache
+          # (Redis / Solid Cache). It is read fresh from Vault per connection build
+          # (mTLS is rare and the connection is short-lived), honoring the absolute
+          # vault-only-storage rule for key material.
+          return ::Security::VaultClient.read_secret(vault_path, cache: false) if vault_path
+
+          account_id = data_source.respond_to?(:account_id) ? data_source.account_id : nil
+          credential_id = jget(mtls, "credential_id", "credential_reference").presence
+          return nil if account_id.blank? || credential_id.blank?
+
+          provider = ::Security::VaultCredentialProvider.new(account_id: account_id)
+          provider.get_credential(credential_type: :data_source, credential_id: credential_id)
+        end
+
+        # Construct the Faraday ssl: hash from loaded PEM material. The private
+        # key is parsed into an OpenSSL::PKey but NEVER logged or stringified.
+        # A CA, when supplied, is written to a per-process tempfile (Faraday's
+        # ssl.ca_file wants a path) whose handle is retained for the process
+        # lifetime so it is not GC-unlinked mid-request.
+        def build_ssl_hash(material, mtls, required)
+          ssl = {
+            client_cert: OpenSSL::X509::Certificate.new(material[:cert]),
+            client_key: OpenSSL::PKey.read(clean_pem_key(material[:key]))
+          }
+
+          ca_pem = material[:ca]
+          ssl[:ca_file] = write_ca_tempfile(ca_pem) if ca_pem.present?
+          ssl
+        rescue OpenSSL::PKey::PKeyError, OpenSSL::X509::CertificateError => e
+          # Malformed PEM. Same fail-closed-vs-degrade contract, message non-secret.
+          Rails.logger.error("[DataSources::HttpConnectionFactory] mTLS material is invalid: #{e.class}")
+          raise MtlsConfigError, "mTLS is required for this data source but the client certificate is invalid" if required
+
+          {}
+        end
+
+        # Strip non-PEM metadata lines (e.g. Docker Swarm "kek-version:" headers)
+        # that some exporters prepend, so OpenSSL::PKey.read sees clean PEM.
+        # Mirrors Devops::Docker::ApiClient#clean_pem_key.
+        def clean_pem_key(key_pem)
+          return key_pem if key_pem.blank?
+
+          key_pem.lines.reject { |line| line.match?(/\A[a-z]+-[a-z]+:/i) || line.strip.empty? }.join
+        end
+
+        # Faraday's ssl.ca_file expects a filesystem path. Persist the CA PEM to a
+        # tempfile and retain the handle (keyed by content digest, deduplicated)
+        # so it survives GC for the life of connections that reference it.
+        def write_ca_tempfile(ca_pem)
+          digest = Digest::SHA256.hexdigest(ca_pem)
+          # Guard the class-level memo against concurrent read-modify-write (multiple
+          # threads building mTLS connections at once would otherwise leak duplicate
+          # tempfiles). The mutex is a load-time constant, so it has no ||= init race.
+          CA_TEMPFILE_MUTEX.synchronize do
+            @ca_tempfiles ||= {}
+            existing = @ca_tempfiles[digest]
+            return existing.path if existing && File.exist?(existing.path)
+
+            file = Tempfile.new(["data-source-mtls-ca", ".pem"])
+            file.write(ca_pem)
+            file.flush
+            @ca_tempfiles[digest] = file
+            file.path
+          end
+        end
+
+        # Tolerant truthy read for jsonb booleans that may round-trip as strings
+        # ("true"/"1") or native booleans.
+        def truthy?(value)
+          case value
+          when true then true
+          when String then %w[true 1 yes on].include?(value.strip.downcase)
+          when Integer then value == 1
+          else false
+          end
+        end
+
+        # Tolerant jsonb scalar read: first present value among +keys+, checking
+        # both String and Symbol spellings. Mirrors the data-source pipeline's
+        # jsonb key tolerance.
+        def jget(hash, *keys)
+          return nil unless hash.is_a?(Hash)
+
+          keys.each do |key|
+            [key.to_s, key.to_sym].each do |variant|
+              value = hash[variant]
+              return value unless value.nil?
+            end
+          end
+          nil
         end
       end
 

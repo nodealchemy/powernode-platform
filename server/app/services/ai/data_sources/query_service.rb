@@ -106,6 +106,17 @@ module Ai
           return rate_limited_envelope(quota)
         end
 
+        # (2.5) QUERY-TIME GOVERNANCE — per-agent ABAC + data-access compliance
+        # (residency/consent). Runs AFTER the kill-flag + quota gates and BEFORE the
+        # cache lookup / upstream fetch so a denied read never touches cache or the
+        # network — mirroring the kill-flag / SSRF short-circuit. No-op (allow) when
+        # there is no agent AND no governance config, so the default path is
+        # unchanged. An explicit policy deny returns a blocked envelope; an infra
+        # fault in the policy engine fails open (see GovernanceService).
+        if (decision = governance_authorize) && decision[:allowed] == false
+          return blocked_by_governance_envelope(decision)
+        end
+
         # (3) cache (singleflight) wraps (4)-(8). The block performs the live
         # fetch+decode only on a miss; on a hit the cached payload is returned. We
         # determine hit vs miss with a recompute flag so persistence (9) runs
@@ -1084,6 +1095,15 @@ module Ai
         # live fetch is "fresh".
         served_stage = result[:served_stage] || (from_cache ? "cache" : "fresh")
 
+        # Compute masking ONCE here, on the RAW decoded data. The cache write and the
+        # persisted audit row below BOTH consume the RAW result[:data]; the returned
+        # envelope carries the MASKED records. So masking stays per-request and is
+        # NEVER baked into the cache, while the audit row records the REAL masking
+        # outcome (not a hardcoded flag).
+        masking = mask_response_records(result[:data] || [])
+        prov[:masking_applied] = masking[:masking_applied]
+        prov[:masked_field_count] = masking[:masked_count]
+
         query_row = persist_query(
           status: result[:status],
           http_status: result[:http_status],
@@ -1093,7 +1113,9 @@ module Ai
           error: result[:error],
           cached: from_cache,
           served_stage: served_stage,
-          redacted_snippet: result[:redacted_snippet]
+          redacted_snippet: result[:redacted_snippet],
+          masking_applied: masking[:masking_applied],
+          masked_field_count: masking[:masked_count]
         )
 
         # (9) one cost-attribution row per fetch (including cache hits — egress is
@@ -1106,13 +1128,17 @@ module Ai
         # already cached, so re-writing would either be a no-op or poison the cache.
         write_cache(result) if result[:success] && !from_cache && !@quarantined
 
-        build_envelope(result, prov)
+        build_envelope(result, prov, masking)
       end
 
-      def build_envelope(result, prov)
+      # Assemble the FetchEnvelope from the precomputed masking result. Masking is
+      # computed once in #finalize (so persist_query + write_cache see the RAW
+      # result[:data] while the envelope returns the MASKED records, per-request,
+      # never baked into the cache); provenance masking keys are already stamped there.
+      def build_envelope(result, prov, masking)
         {
           success: result[:success],
-          data: result[:data] || [],
+          data: masking[:records],
           provenance: prov,
           status: result[:status],
           duration_ms: elapsed_ms,
@@ -1173,7 +1199,8 @@ module Ai
       # resulting integrity_hash + sequence_number are mirrored into the query
       # metadata so the linkage is queryable from the query row itself.
       def persist_query(status:, http_status:, data:, provenance:, bytes_in:, error:,
-                        cached:, served_stage:, redacted_snippet: nil)
+                        cached:, served_stage:, redacted_snippet: nil,
+                        masking_applied: false, masked_field_count: 0)
         redacted_url = provenance[:source_url] || provenance["source_url"] || redact_url(@last_absolute_url)
         redacted_error = error.present? ? redact_message(error) : nil
 
@@ -1184,7 +1211,8 @@ module Ai
           "charset" => provenance[:charset] || provenance["charset"],
           "applied_encoding" => provenance[:applied_encoding] || provenance["applied_encoding"],
           "redacted_params" => redact_params(params),
-          "redacted_response_snippet" => redacted_snippet
+          "redacted_response_snippet" => redacted_snippet,
+          "masked_field_count" => masked_field_count
         }.compact
 
         query = Ai::DataSourceQuery.new(
@@ -1206,7 +1234,7 @@ module Ai
           served_stage: served_stage,
           response_sha256: provenance[:response_sha256] || provenance["response_sha256"],
           schema_valid: schema_valid_value(provenance),
-          masking_applied: true,
+          masking_applied: masking_applied,
           correlation_id: correlation_id,
           error: redacted_error,
           # Phase 2b opt-in outcomes (nil when the stage did not run).
@@ -1478,6 +1506,74 @@ module Ai
           schema_valid: nil,
           record_count: 0,
           anomalies: []
+        }
+      end
+
+      # ----------------------------------------------------------------------
+      # (2.5)+(10b) QUERY-TIME GOVERNANCE — ABAC + compliance gate + masking
+      # ----------------------------------------------------------------------
+
+      # Lazily built per-call governance service (ABAC + compliance + masking),
+      # composed from the existing privilege/compliance/redaction infrastructure.
+      def governance_service
+        @governance_service ||= Ai::DataSources::GovernanceService.new(
+          data_source: data_source, agent: agent, account: account
+        )
+      end
+
+      # (2.5) Run the authorization gate. Returns the decision Hash so call() can
+      # short-circuit on an explicit deny. The service itself fails open on an infra
+      # error (a policy-engine bug returns allowed:true), so a governance fault here
+      # cannot break the read; only an EXPLICIT policy deny yields allowed:false.
+      def governance_authorize
+        governance_service.authorize(context: governance_context)
+      rescue StandardError => e
+        # Defense in depth: the service already rescues internally, but never let a
+        # governance fault escape the pipeline. Log the class only, then allow.
+        Rails.logger.error("[DataSources::QueryService] governance authorize fault (fail-open) for #{safe_slug}: #{e.class}")
+        { allowed: true, reason: nil, enforcement: nil }
+      end
+
+      # Minimal context handed to the governance evaluator (the source's residency /
+      # classification are read by the service straight off metadata.governance).
+      def governance_context
+        { principal: principal_label, correlation_id: correlation_id }
+      end
+
+      # (10b) Apply per-request masking to the FINAL records. The service is OFF
+      # (passthrough) unless the source opts into masking via metadata.governance,
+      # so the no-governance path is byte-for-byte unchanged. Fully rescued so a
+      # masking fault never breaks the envelope (it degrades to unmasked + flagged).
+      def mask_response_records(records)
+        governance_service.mask_records(records)
+      rescue StandardError => e
+        Rails.logger.error("[DataSources::QueryService] governance masking fault for #{safe_slug}: #{e.class}")
+        { records: records, masking_applied: false, masked_count: 0 }
+      end
+
+      # (2.5) Blocked-by-governance short-circuit: a FetchEnvelope with
+      # status "blocked" and the policy reason, persisted as a blocked query row +
+      # cost attribution exactly like the kill-flag / SSRF blocked paths. NO cache
+      # read and NO upstream dispatch happened. The policy decision is recorded on
+      # provenance[:policy_decision] for auditability.
+      def blocked_by_governance_envelope(decision)
+        reason = decision[:reason].presence || "blocked by governance policy"
+        @anomalies << "governance_blocked"
+        prov = base_provenance.merge(
+          anomalies: @anomalies.uniq,
+          policy_decision: {
+            allowed: false,
+            reason: reason,
+            enforcement: decision[:enforcement]
+          }.compact
+        )
+        persist_query(
+          status: STATUS_BLOCKED, http_status: nil, data: [], provenance: prov,
+          bytes_in: 0, error: reason, cached: false, served_stage: "fresh"
+        )
+        {
+          success: false, data: [], provenance: prov, status: STATUS_BLOCKED,
+          duration_ms: elapsed_ms, bytes: 0, error: reason
         }
       end
 
