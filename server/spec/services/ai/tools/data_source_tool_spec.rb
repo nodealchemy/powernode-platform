@@ -43,7 +43,7 @@ RSpec.describe Ai::Tools::DataSourceTool do
   end
 
   describe ".action_definitions" do
-    it "exposes all twenty-five data-source actions" do
+    it "exposes all twenty-nine data-source actions" do
       keys = described_class.action_definitions.keys
       expect(keys).to contain_exactly(
         "data_source_list", "data_source_get", "data_source_describe",
@@ -57,7 +57,10 @@ RSpec.describe Ai::Tools::DataSourceTool do
         # Phase 4b-3b onboarding portability
         "data_source_export", "data_source_import", "data_source_list_templates",
         "data_source_install_template", "data_source_config_versions",
-        "data_source_rollback_config"
+        "data_source_rollback_config",
+        # Phase 4b-3c multi-source coordination + RAG ingestion bridge
+        "data_source_reconcile", "data_source_failover_query",
+        "data_source_replay", "data_source_ingest_to_kb"
       )
     end
   end
@@ -1288,6 +1291,475 @@ RSpec.describe Ai::Tools::DataSourceTool do
 
       expect(result[:success]).to be true
       expect(result[:data][:subscription][:endpoint_id]).to eq(locked_endpoint.id)
+    end
+  end
+
+  # ========================================================================
+  # Phase 4b-3c — multi-source coordination + RAG ingestion bridge
+  #
+  # Four new actions, each a thin router that wires params -> the underlying
+  # service -> the service's result:
+  #   * data_source_reconcile      (query)  -> QueryService (per target) + ReconciliationService
+  #   * data_source_failover_query (query)  -> FailoverService
+  #   * data_source_replay         (read)   -> ReplayService
+  #   * data_source_ingest_to_kb   (manage) -> QueryService + RagIngestionService (proposal fallback)
+  #
+  # The collaborators are stubbed (instance_double) so these specs assert the
+  # routing/permission wiring only — never hitting network, embeddings, or the
+  # full governed fetch pipeline.
+  # ------------------------------------------------------------------------
+
+  # ------------------------------------------------------------------------
+  # data_source_reconcile — deterministic multi-source merge (query-gated).
+  # Governed-fetch every target via QueryService, then collapse by exact key
+  # via ReconciliationService. Both collaborators are stubbed.
+  # ------------------------------------------------------------------------
+
+  describe "#execute data_source_reconcile" do
+    let!(:other_source) do
+      create(:ai_data_source, account: account, slug: "fred", source_type: "fred", name: "FRED")
+    end
+    let!(:other_endpoint) { create(:ai_data_source_endpoint, data_source: other_source, slug: "series") }
+
+    let(:envelope_a) do
+      { success: true, data: [{ "k" => "1", "v" => "a" }], provenance: {},
+        status: "success", duration_ms: 2, bytes: 10, error: nil }
+    end
+    let(:envelope_b) do
+      { success: true, data: [{ "k" => "1", "v" => "b" }, { "k" => "2", "v" => "c" }],
+        provenance: {}, status: "success", duration_ms: 3, bytes: 20, error: nil }
+    end
+    let(:merged) { [{ "k" => "1", "v" => "b" }, { "k" => "2", "v" => "c" }] }
+
+    let(:targets) do
+      [
+        { "data_source_id" => "open-meteo", "endpoint_id" => "forecast" },
+        { "data_source_id" => "fred", "endpoint_id" => "series" }
+      ]
+    end
+
+    it "fetches every target then merges by key via ReconciliationService" do
+      # One governed fetch per target (order preserved); stub QueryService to
+      # return a distinct envelope for each call.
+      fetch = instance_double(Ai::DataSources::QueryService)
+      allow(Ai::DataSources::QueryService).to receive(:new).and_return(fetch)
+      allow(fetch).to receive(:call).and_return(envelope_a, envelope_b)
+
+      recon = instance_double(Ai::DataSources::ReconciliationService, reconcile: merged)
+      expect(Ai::DataSources::ReconciliationService).to receive(:new)
+        .with(key: "k", strategy: "first_wins").and_return(recon)
+      # The successful envelopes' data arrays are handed to reconcile in order.
+      expect(recon).to receive(:reconcile)
+        .with([envelope_a[:data], envelope_b[:data]]).and_return(merged)
+
+      result = tool.execute(params: {
+        action: "data_source_reconcile", targets: targets, key: "k", strategy: "first_wins"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:key]).to eq("k")
+      expect(result[:data][:strategy]).to eq("first_wins")
+      expect(result[:data][:reconciled]).to eq(merged)
+      expect(result[:data][:reconciled_count]).to eq(2)
+      expect(result[:data][:source_count]).to eq(2)
+      expect(result[:data][:succeeded_count]).to eq(2)
+      expect(result[:data][:sources].map { |s| s[:endpoint_slug] }).to contain_exactly("forecast", "series")
+    end
+
+    it "defaults the strategy to last_wins when omitted" do
+      fetch = instance_double(Ai::DataSources::QueryService, call: envelope_a)
+      allow(Ai::DataSources::QueryService).to receive(:new).and_return(fetch)
+      expect(Ai::DataSources::ReconciliationService).to receive(:new)
+        .with(key: "k", strategy: Ai::DataSources::ReconciliationService::DEFAULT_STRATEGY)
+        .and_return(instance_double(Ai::DataSources::ReconciliationService, reconcile: []))
+
+      result = tool.execute(params: {
+        action: "data_source_reconcile",
+        targets: [{ "data_source_id" => "open-meteo", "endpoint_id" => "forecast" }],
+        key: "k"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:strategy]).to eq(Ai::DataSources::ReconciliationService::DEFAULT_STRATEGY)
+    end
+
+    it "records a per-source status (only successful envelopes feed the merge)" do
+      fetch = instance_double(Ai::DataSources::QueryService)
+      allow(Ai::DataSources::QueryService).to receive(:new).and_return(fetch)
+      failure = { success: false, data: [], provenance: {}, status: "error",
+                  duration_ms: 1, bytes: 0, error: "upstream down" }
+      allow(fetch).to receive(:call).and_return(envelope_a, failure)
+
+      recon = instance_double(Ai::DataSources::ReconciliationService, reconcile: envelope_a[:data])
+      # Only the successful envelope's records are passed to reconcile.
+      expect(Ai::DataSources::ReconciliationService).to receive(:new).and_return(recon)
+      expect(recon).to receive(:reconcile).with([envelope_a[:data]]).and_return(envelope_a[:data])
+
+      result = tool.execute(params: {
+        action: "data_source_reconcile", targets: targets, key: "k"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:source_count]).to eq(2)
+      expect(result[:data][:succeeded_count]).to eq(1)
+      statuses = result[:data][:sources]
+      expect(statuses.find { |s| s[:endpoint_slug] == "series" }).to include(success: false, error: "upstream down")
+    end
+
+    it "errors when key is blank" do
+      result = tool.execute(params: { action: "data_source_reconcile", targets: targets, key: "" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/key is required/i)
+    end
+
+    it "errors when targets is empty/malformed" do
+      result = tool.execute(params: { action: "data_source_reconcile", targets: [], key: "k" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/targets is required/i)
+    end
+
+    it "denies reconcile when no user in the account holds ai.data_sources.query" do
+      locked_account = create(:account)
+      no_perm_user = create(:user, account: locked_account, permissions: [])
+      locked_agent = create(:ai_agent, account: locked_account, creator: no_perm_user)
+      locked_source = create(:ai_data_source, account: locked_account, slug: "locked-src")
+      create(:ai_data_source_endpoint, data_source: locked_source, slug: "ep")
+      expect(Ai::DataSources::QueryService).not_to receive(:new)
+      expect(Ai::DataSources::ReconciliationService).not_to receive(:new)
+
+      agent_tool = described_class.new(account: locked_account, agent: locked_agent, user: no_perm_user)
+      result = agent_tool.execute(params: {
+        action: "data_source_reconcile", key: "k",
+        targets: [{ "data_source_id" => "locked-src", "endpoint_id" => "ep" }]
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Permission denied: ai\.data_sources\.query/)
+    end
+  end
+
+  # ------------------------------------------------------------------------
+  # data_source_failover_query — ordered failover (query-gated). Resolves the
+  # ordered targets to model pairs and hands them to FailoverService, returning
+  # its FetchEnvelope verbatim.
+  # ------------------------------------------------------------------------
+
+  describe "#execute data_source_failover_query" do
+    let!(:backup_source) do
+      create(:ai_data_source, account: account, slug: "fred", source_type: "fred", name: "FRED")
+    end
+    let!(:backup_endpoint) { create(:ai_data_source_endpoint, data_source: backup_source, slug: "series") }
+
+    let(:targets) do
+      [
+        { "data_source_id" => "open-meteo", "endpoint_id" => "forecast" },
+        { "data_source_id" => "fred", "endpoint_id" => "series" }
+      ]
+    end
+    let(:envelope) do
+      {
+        success: true,
+        data: [{ "city" => "NYC" }],
+        provenance: { slug: "open-meteo", failover_used: false, failover_attempts: 1, failover_source: "open-meteo" },
+        status: "success", duration_ms: 4, bytes: 12, error: nil
+      }
+    end
+
+    it "resolves ordered target pairs and returns FailoverService's envelope verbatim" do
+      fake = instance_double(Ai::DataSources::FailoverService, query: envelope)
+      expect(Ai::DataSources::FailoverService).to receive(:new)
+        .with(hash_including(account: account, agent: nil, user: user)).and_return(fake)
+      # Pairs preserve order (primary first) and resolve to the model records.
+      expect(fake).to receive(:query).with(
+        [
+          { data_source: data_source, endpoint: endpoint },
+          { data_source: backup_source, endpoint: backup_endpoint }
+        ],
+        params: { "series_id" => "GDP" }
+      ).and_return(envelope)
+
+      result = tool.execute(params: {
+        action: "data_source_failover_query", targets: targets, params: { "series_id" => "GDP" }
+      })
+
+      expect(result).to eq(envelope)
+      expect(result[:success]).to be true
+      expect(result[:provenance]).to include(:failover_used, :failover_attempts, :failover_source)
+    end
+
+    it "errors when targets is empty/malformed" do
+      result = tool.execute(params: { action: "data_source_failover_query", targets: [] })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/targets is required/i)
+    end
+
+    it "surfaces a not-found error for an unknown target endpoint" do
+      result = tool.execute(params: {
+        action: "data_source_failover_query",
+        targets: [{ "data_source_id" => "open-meteo", "endpoint_id" => "ghost" }]
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/not found/i)
+    end
+
+    it "denies failover_query when no user in the account holds ai.data_sources.query" do
+      locked_account = create(:account)
+      no_perm_user = create(:user, account: locked_account, permissions: [])
+      locked_agent = create(:ai_agent, account: locked_account, creator: no_perm_user)
+      locked_source = create(:ai_data_source, account: locked_account, slug: "locked-src")
+      create(:ai_data_source_endpoint, data_source: locked_source, slug: "ep")
+      expect(Ai::DataSources::FailoverService).not_to receive(:new)
+
+      agent_tool = described_class.new(account: locked_account, agent: locked_agent, user: no_perm_user)
+      result = agent_tool.execute(params: {
+        action: "data_source_failover_query",
+        targets: [{ "data_source_id" => "locked-src", "endpoint_id" => "ep" }]
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Permission denied: ai\.data_sources\.query/)
+    end
+  end
+
+  # ------------------------------------------------------------------------
+  # data_source_replay — forensic, side-effect-free replay (READ-gated).
+  # Routes a query_id/correlation_id ref (+ optional params) into
+  # ReplayService#replay and returns its envelope verbatim. No network.
+  # ------------------------------------------------------------------------
+
+  describe "#execute data_source_replay" do
+    let(:replayed) do
+      {
+        success: true,
+        data: [{ "city" => "NYC", "temp" => "72" }],
+        provenance: { replayed: true, from_cache: true, slug: "open-meteo" },
+        status: "success", duration_ms: 0, bytes: 0, error: nil
+      }
+    end
+
+    it "routes a query_id into ReplayService#replay and returns its envelope verbatim" do
+      fake = instance_double(Ai::DataSources::ReplayService, replay: replayed)
+      expect(Ai::DataSources::ReplayService).to receive(:new)
+        .with(hash_including(account: account, agent: nil)).and_return(fake)
+      expect(fake).to receive(:replay).with("q-123", params: nil).and_return(replayed)
+
+      result = tool.execute(params: { action: "data_source_replay", query_id: "q-123" })
+
+      expect(result).to eq(replayed)
+      expect(result[:success]).to be true
+      expect(result[:provenance]).to include(replayed: true)
+    end
+
+    it "passes the correlation_id ref and original params through to re-mask the cached body" do
+      fake = instance_double(Ai::DataSources::ReplayService)
+      allow(Ai::DataSources::ReplayService).to receive(:new).and_return(fake)
+      expect(fake).to receive(:replay)
+        .with("corr-xyz", params: { "latitude" => 40.7 }).and_return(replayed)
+
+      result = tool.execute(params: {
+        action: "data_source_replay", correlation_id: "corr-xyz", params: { "latitude" => 40.7 }
+      })
+
+      expect(result[:success]).to be true
+    end
+
+    it "prefers query_id over correlation_id when both are supplied" do
+      fake = instance_double(Ai::DataSources::ReplayService)
+      allow(Ai::DataSources::ReplayService).to receive(:new).and_return(fake)
+      expect(fake).to receive(:replay).with("q-123", params: nil).and_return(replayed)
+
+      result = tool.execute(params: {
+        action: "data_source_replay", query_id: "q-123", correlation_id: "corr-xyz"
+      })
+
+      expect(result[:success]).to be true
+    end
+
+    it "errors when neither query_id nor correlation_id is given" do
+      expect(Ai::DataSources::ReplayService).not_to receive(:new)
+
+      result = tool.execute(params: { action: "data_source_replay" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/query_id or correlation_id/i)
+    end
+
+    it "denies replay (a read action) when the agent's account lacks ai.data_sources.read" do
+      locked_account = create(:account)
+      no_perm_user = create(:user, account: locked_account, permissions: [])
+      locked_agent = create(:ai_agent, account: locked_account, creator: no_perm_user)
+      expect(Ai::DataSources::ReplayService).not_to receive(:new)
+
+      agent_tool = described_class.new(account: locked_account, agent: locked_agent, user: no_perm_user)
+      result = agent_tool.execute(params: { action: "data_source_replay", query_id: "q-123" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Permission denied: ai\.data_sources\.read/)
+    end
+  end
+
+  # ------------------------------------------------------------------------
+  # data_source_ingest_to_kb — RAG ingestion bridge (MANAGE-gated, proposal
+  # fallback). Governed-fetch the source+endpoint via QueryService, then pipe
+  # the records into a knowledge base via RagIngestionService#ingest. Both
+  # collaborators are stubbed.
+  # ------------------------------------------------------------------------
+
+  describe "#execute data_source_ingest_to_kb" do
+    let!(:knowledge_base) { create(:ai_knowledge_base, account: account) }
+    let(:envelope) do
+      {
+        success: true,
+        data: [{ "id" => "1", "title" => "Doc A" }, { "id" => "2", "title" => "Doc B" }],
+        provenance: {}, status: "success", duration_ms: 6, bytes: 30, error: nil
+      }
+    end
+    let(:tally) do
+      { ingested: 2, updated: 0, skipped: 0, capped: 0, errors: 0, knowledge_base_id: nil }
+    end
+
+    it "fetches the source then routes records + KB into RagIngestionService#ingest (no-agent => fail-open)" do
+      fetch = instance_double(Ai::DataSources::QueryService, call: envelope)
+      expect(Ai::DataSources::QueryService).to receive(:new).with(
+        hash_including(data_source: data_source, endpoint: endpoint, user: user)
+      ).and_return(fetch)
+
+      ingestor = instance_double(Ai::DataSources::RagIngestionService)
+      expect(Ai::DataSources::RagIngestionService).to receive(:new)
+        .with(hash_including(account: account, user: user)).and_return(ingestor)
+      expect(ingestor).to receive(:ingest).with(
+        hash_including(
+          data_source: data_source,
+          endpoint: endpoint,
+          knowledge_base: knowledge_base.id,
+          records: envelope[:data],
+          key: "id"
+        )
+      ).and_return(tally.merge(knowledge_base_id: knowledge_base.id))
+
+      result = tool.execute(params: {
+        action: "data_source_ingest_to_kb", data_source_id: "open-meteo",
+        endpoint_id: "forecast", knowledge_base_id: knowledge_base.id, key: "id"
+      })
+
+      expect(result[:success]).to be true
+      data = result[:data]
+      expect(data[:data_source]).to include(id: data_source.id, slug: "open-meteo")
+      expect(data[:endpoint]).to include(id: endpoint.id, slug: "forecast")
+      expect(data[:knowledge_base_id]).to eq(knowledge_base.id)
+      expect(data[:fetch_status]).to eq("success")
+      expect(data[:fetch_success]).to be true
+      expect(data[:ingest]).to include(ingested: 2, knowledge_base_id: knowledge_base.id)
+    end
+
+    it "passes a nil key through when none is supplied" do
+      fetch = instance_double(Ai::DataSources::QueryService, call: envelope)
+      allow(Ai::DataSources::QueryService).to receive(:new).and_return(fetch)
+      ingestor = instance_double(Ai::DataSources::RagIngestionService)
+      allow(Ai::DataSources::RagIngestionService).to receive(:new).and_return(ingestor)
+      expect(ingestor).to receive(:ingest).with(hash_including(key: nil)).and_return(tally)
+
+      result = tool.execute(params: {
+        action: "data_source_ingest_to_kb", data_source_id: "open-meteo",
+        endpoint_id: "forecast", knowledge_base_id: knowledge_base.id
+      })
+
+      expect(result[:success]).to be true
+    end
+
+    it "errors when knowledge_base_id is blank" do
+      expect(Ai::DataSources::RagIngestionService).not_to receive(:new)
+
+      result = tool.execute(params: {
+        action: "data_source_ingest_to_kb", data_source_id: "open-meteo", endpoint_id: "forecast"
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/knowledge_base_id is required/i)
+    end
+
+    it "surfaces a not-found error for an unknown endpoint" do
+      expect(Ai::DataSources::RagIngestionService).not_to receive(:new)
+
+      result = tool.execute(params: {
+        action: "data_source_ingest_to_kb", data_source_id: "open-meteo",
+        endpoint_id: "ghost", knowledge_base_id: knowledge_base.id
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/not found/i)
+    end
+
+    it "performs the ingest instead of filing a proposal when authorized via ai.data_sources.manage" do
+      manage_account = create(:account)
+      create(:user, account: manage_account, permissions: ["ai.data_sources.manage"])
+      no_perm_user = create(:user, account: manage_account, permissions: [])
+      manage_agent = create(:ai_agent, account: manage_account, creator: no_perm_user)
+      manage_source = create(:ai_data_source, account: manage_account, slug: "manage-src")
+      manage_endpoint = create(:ai_data_source_endpoint, data_source: manage_source, slug: "ep")
+      manage_kb = create(:ai_knowledge_base, account: manage_account)
+
+      fetch = instance_double(Ai::DataSources::QueryService, call: envelope)
+      allow(Ai::DataSources::QueryService).to receive(:new).and_return(fetch)
+      ingestor = instance_double(Ai::DataSources::RagIngestionService,
+                                 ingest: tally.merge(knowledge_base_id: manage_kb.id))
+      allow(Ai::DataSources::RagIngestionService).to receive(:new).and_return(ingestor)
+
+      agent_tool = described_class.new(account: manage_account, agent: manage_agent, user: no_perm_user)
+
+      result = nil
+      expect do
+        result = agent_tool.execute(params: {
+          action: "data_source_ingest_to_kb", data_source_id: "manage-src",
+          endpoint_id: "ep", knowledge_base_id: manage_kb.id
+        })
+      end.not_to change(Ai::AgentProposal, :count)
+
+      expect(result[:success]).to be true
+      expect(result).not_to include(:requires_approval)
+      expect(result[:data][:ingest]).to include(ingested: 2)
+    end
+
+    it "files a proposal (and does NOT ingest) when the account lacks ai.data_sources.manage" do
+      locked_account = create(:account)
+      # A user with the read grant but NOT manage, so mutation_permitted? is false
+      # and the tool proposes rather than ingesting.
+      create(:user, account: locked_account, permissions: ["ai.data_sources.read"])
+      locked_agent = create(:ai_agent, account: locked_account, creator: user)
+      locked_source = create(:ai_data_source, account: locked_account, slug: "locked-ingest")
+      create(:ai_data_source_endpoint, data_source: locked_source, slug: "ep")
+      locked_kb = create(:ai_knowledge_base, account: locked_account)
+      expect(Ai::DataSources::QueryService).not_to receive(:new)
+      expect(Ai::DataSources::RagIngestionService).not_to receive(:new)
+
+      agent_tool = described_class.new(account: locked_account, agent: locked_agent, user: user)
+
+      result = nil
+      expect do
+        result = agent_tool.execute(params: {
+          action: "data_source_ingest_to_kb", data_source_id: "locked-ingest",
+          endpoint_id: "ep", knowledge_base_id: locked_kb.id, key: "id"
+        })
+      end.to change(Ai::AgentProposal, :count).by(1)
+
+      expect(result[:success]).to be true
+      expect(result[:requires_approval]).to be true
+      expect(result[:proposal_id]).to be_present
+      expect(result[:status]).to eq("pending_review")
+      expect(result[:message]).to match(/ai\.data_sources\.manage required/)
+      expect(result[:proposed_changes]).to include(
+        action: "ingest_to_kb", data_source_id: "locked-ingest",
+        endpoint_id: "ep", knowledge_base_id: locked_kb.id, key: "id"
+      )
+
+      proposal = Ai::AgentProposal.order(:created_at).last
+      expect(proposal.proposal_type).to eq("configuration")
+      expect(proposal.agent).to eq(locked_agent)
+      expect(proposal.account).to eq(locked_account)
     end
   end
 
