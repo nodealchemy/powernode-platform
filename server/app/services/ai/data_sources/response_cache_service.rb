@@ -29,6 +29,10 @@ module Ai
       REDIS_NAMESPACE  = "data_source_cache"
       METRICS_NAMESPACE = "data_source_cache:metrics"
       LOCK_NAMESPACE   = "data_source_cache:lock"
+      # Surrogate-key (tag) index namespace. Each tag is a Redis SET of cache keys
+      # ("data_source_cache:tag:<tag>") so a single tag can invalidate every entry
+      # written under it without a keyspace SCAN.
+      TAG_NAMESPACE    = "data_source_cache:tag"
 
       # XFetch tuning. BETA > 1 makes early refresh more aggressive; 1.0 is the
       # canonical default. The roll uses the recorded recompute cost so that
@@ -195,12 +199,23 @@ module Ai
         # Raw write with explicit TTL (seconds). Stores the XFetch metadata
         # (delta defaults to 0 for externally-written entries) alongside the
         # payload. Returns true on success.
-        def write(data_source:, endpoint:, params: {}, payload:, ttl: nil)
+        #
+        # tags: optional Array<String> of surrogate keys. The entry's cache key is
+        # added to a Redis SET per tag so the whole tag can be invalidated in one
+        # shot (see .invalidate_by_tag). When tags is not supplied, the entry is
+        # tagged with default_tags so every cached entry is tag-addressable.
+        def write(data_source:, endpoint:, params: {}, payload:, ttl: nil, tags: nil)
           return false unless cache_enabled?(data_source)
 
           key = build_cache_key(data_source, endpoint, params)
           ttl_seconds = (ttl || ttl_for(endpoint)).to_i
-          write_entry(key, payload, ttl: ttl_seconds, delta: 0.0, grace: grace_window(endpoint))
+          grace = grace_window(endpoint)
+          write_entry(key, payload, ttl: ttl_seconds, delta: 0.0, grace: grace)
+          # Tag the entry so it is addressable by surrogate key. Tag indexing is
+          # best-effort and isolated from the payload write: a tag-index failure
+          # (e.g. Redis SADD unsupported) must NOT fail the cache write itself.
+          tag_list = tags.presence || default_tags(data_source, endpoint)
+          index_tags(key, tag_list, ttl_seconds + grace)
           true
         rescue => e
           Rails.logger.error "[ResponseCache] write failed: #{e.message}"
@@ -225,6 +240,44 @@ module Ai
         rescue => e
           Rails.logger.error "[ResponseCache] invalidate failed: #{e.message}"
           0
+        end
+
+        # Surrogate-key invalidation. Deletes every cache key recorded in the tag's
+        # Redis SET, then the tag set itself. Returns the number of cache entries
+        # invalidated (the tag set's own deletion is not counted). A blank/unknown
+        # tag invalidates nothing and returns 0. Fail-open like the rest of the
+        # service (a Redis error logs and returns 0 rather than raising).
+        def invalidate_by_tag(tag)
+          tag = tag.to_s
+          return 0 if tag.blank?
+
+          set_key = tag_key(tag)
+          members = redis.smembers(set_key)
+          deleted =
+            if members.present?
+              redis.del(*members)
+            else
+              0
+            end
+          # Drop the (now-stale) index set regardless of how many members it held.
+          redis.del(set_key)
+          deleted.to_i
+        rescue => e
+          Rails.logger.error "[ResponseCache] invalidate_by_tag failed for #{tag}: #{e.message}"
+          0
+        end
+
+        # The default surrogate keys applied to every cached entry so any entry is
+        # addressable by data source, endpoint, or endpoint slug without the caller
+        # having to supply tags. endpoint may be nil (some callers cache at the
+        # source granularity); its tags are simply omitted then.
+        def default_tags(data_source, endpoint)
+          tags = ["ds:#{id_of(data_source)}"]
+          if endpoint
+            tags << "endpoint:#{id_of(endpoint)}"
+            tags << "slug:#{slug_of(endpoint)}"
+          end
+          tags
         end
 
         # Aggregate metrics in the same shape as the prompt cache:
@@ -357,6 +410,35 @@ module Ai
 
             sleep(LOCK_POLL_INTERVAL_S)
           end
+        end
+
+        # --- Surrogate-key (tag) index ----------------------------------------
+
+        def tag_key(tag)
+          "#{TAG_NAMESPACE}:#{tag}"
+        end
+
+        # Add the cache key to each tag's Redis SET and (re)arm the set's TTL so the
+        # index self-expires no earlier than the entries it points at. Best-effort
+        # and self-contained: any failure is swallowed so tag indexing can never
+        # break the payload write that precedes it.
+        def index_tags(cache_key, tags, ttl_seconds)
+          tag_list = Array(tags).map(&:to_s).reject(&:blank?).uniq
+          return if tag_list.empty?
+
+          ttl = [ttl_seconds.to_i, 1].max
+          tag_list.each do |tag|
+            set_key = tag_key(tag)
+            redis.sadd(set_key, cache_key)
+            # Keep the index alive at least as long as the longest-lived entry it
+            # references. EXPIRE only extends here (we never shorten an existing
+            # longer TTL) so a tag indexing many entries tracks the latest write.
+            current = redis.ttl(set_key)
+            redis.expire(set_key, ttl) if current < 0 || current < ttl
+          end
+        rescue => e
+          Rails.logger.warn "[ResponseCache] tag indexing skipped: #{e.message}"
+          nil
         end
 
         # --- Prefix deletion (invalidate) -------------------------------------

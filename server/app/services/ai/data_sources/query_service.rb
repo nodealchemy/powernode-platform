@@ -54,6 +54,12 @@ module Ai
       STATUS_RATE_LIMITED  = "rate_limited"
       STATUS_BLOCKED       = "blocked"
       STATUS_CACHED        = "cached"
+      # A DRY-RUN short-circuits before any upstream fetch and returns a
+      # FetchEnvelope-shaped result carrying a pre-execution cost/row ESTIMATE
+      # instead of fetched data (see #dry_run_envelope). Not a member of
+      # DataSourceQuery::STATUSES — the dry-run path persists NOTHING, so this
+      # token never reaches a query row.
+      STATUS_DRY_RUN       = "dry_run"
 
       # HTTP verbs that are safe to auto-retry per RFC 7231 (idempotent). POST is
       # deliberately excluded — it is retried only when the caller supplies an
@@ -76,12 +82,18 @@ module Ai
       # Audit-trailed cost attribution category for external data egress.
       COST_CATEGORY = "api_calls"
 
-      def initialize(data_source:, endpoint:, params: {}, agent: nil, user: nil)
+      def initialize(data_source:, endpoint:, params: {}, agent: nil, user: nil, dry_run: false)
         @data_source = data_source
         @endpoint = endpoint
         @params = (params || {}).to_h
         @agent = agent
         @user = user
+        # When true, the pipeline SHORT-CIRCUITS after the kill-flag + quota +
+        # governance gates and returns a "dry_run" FetchEnvelope carrying a
+        # pre-execution cost/row estimate — NO credential resolution, NO signing,
+        # NO upstream call, NO cache write. Off (false) by default so the live
+        # path is byte-for-byte unchanged.
+        @dry_run = dry_run == true
         @account = data_source&.account
         @started_at = monotonic_now
         @anomalies = []
@@ -116,6 +128,14 @@ module Ai
         if (decision = governance_authorize) && decision[:allowed] == false
           return blocked_by_governance_envelope(decision)
         end
+
+        # (2.6) DRY-RUN — when requested, short-circuit HERE: after the kill-flag,
+        # quota and governance gates (so a dry-run respects the same permissions a
+        # live read would) but BEFORE any cache lookup, credential resolution,
+        # signing, upstream dispatch or cache write. Returns a FetchEnvelope-shaped
+        # result with status "dry_run", empty data, and a pre-execution ESTIMATE on
+        # provenance. Off by default => the live path below is untouched.
+        return dry_run_envelope if @dry_run
 
         # (3) cache (singleflight) wraps (4)-(8). The block performs the live
         # fetch+decode only on a miss; on a hit the cached payload is returned. We
@@ -853,6 +873,14 @@ module Ai
 
         normalized, normalization_provenance = normalize_records(records)
 
+        # (7a) CONFIG-DRIVEN TRANSFORM PIPELINE — flatten/unnest/select/rename/
+        # computed over the canonical records, AFTER NormalizationService and
+        # BEFORE the cache write/persist/mask, so the cached+persisted+masked shape
+        # IS the transformed shape. OFF by default (endpoint.transforms? false =>
+        # records pass through byte-for-byte). Resilient: a transform fault logs and
+        # falls back to the untransformed records (never breaks the fetch).
+        normalized, transforms_applied = apply_transforms(normalized)
+
         success = http_status.to_i.between?(200, 299)
         @anomalies << "http_#{http_status}" unless success
 
@@ -872,6 +900,10 @@ module Ai
           normalization_provenance: normalization_provenance,
           from_cache: false
         )
+        # Surface whether the config-driven transform pipeline ran. The record_count
+        # passed into build_provenance above already reflects the POST-transform set
+        # (normalized was reassigned by apply_transforms), so the count is honest.
+        provenance[:transforms_applied] = transforms_applied
         # Surface the quality verdict on provenance so ContractService and callers
         # can read it off the FetchEnvelope (nil when quality was not evaluated).
         provenance[:quality_passed] = @quality_passed unless @quality_passed.nil?
@@ -1062,6 +1094,35 @@ module Ai
         Rails.logger.warn("[DataSources::QueryService] normalization error for #{safe_slug}: #{e.message}")
         @anomalies << "normalization_error"
         [records, []]
+      end
+
+      # (7a) Apply the endpoint's config-driven transform pipeline to the canonical
+      # (post-normalization) records. Gated on endpoint.transforms? so the default
+      # path runs zero transform code and returns the records byte-for-byte. Returns
+      # [records, transforms_applied]. Resilient: a transform fault is logged and the
+      # UNTRANSFORMED records are returned with transforms_applied:false, so a bad
+      # config never breaks the fetch (TransformService is itself fully rescued, this
+      # is defense in depth).
+      def apply_transforms(records)
+        return [records, false] unless transforms_enabled?
+
+        transformed = Ai::DataSources::TransformService.new(endpoint.transforms).apply(records)
+        # provenance[:transforms_applied] already records this; no anomaly needed on
+        # the success path (anomalies are for unexpected conditions, e.g. the rescue).
+        [transformed, true]
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::QueryService] transform pipeline failed for #{safe_slug} (serving untransformed): #{e.class}: #{e.message}")
+        @anomalies << "transform_error"
+        [records, false]
+      end
+
+      # True when the endpoint declares a non-empty transform pipeline. Mirrors the
+      # blank == OFF semantics of endpoint.transforms? and is fully guarded so a
+      # model that predates the column (no predicate) is simply treated as OFF.
+      def transforms_enabled?
+        endpoint.respond_to?(:transforms?) && endpoint.transforms? == true
+      rescue StandardError
+        false
       end
 
       # ----------------------------------------------------------------------
@@ -1507,6 +1568,162 @@ module Ai
           record_count: 0,
           anomalies: []
         }
+      end
+
+      # ----------------------------------------------------------------------
+      # (2.6) DRY-RUN + PRE-EXECUTION COST ESTIMATE
+      # ----------------------------------------------------------------------
+
+      # Build the dry-run FetchEnvelope. NO credential resolution, NO signing, NO
+      # upstream dispatch, NO cache write, NO persistence (the "dry_run" status is
+      # not a DataSourceQuery::STATUSES member, and a dry-run is explicitly a
+      # no-side-effect preview). The kill-flag + quota + governance gates have
+      # ALREADY run in call() before this is reached, so a denied read never gets a
+      # dry-run estimate. provenance carries the ESTIMATE block; data is empty.
+      def dry_run_envelope
+        @anomalies << "dry_run"
+        estimate = build_cost_estimate
+        prov = base_provenance.merge(
+          anomalies: @anomalies.uniq,
+          source_url: estimate[:source_url],
+          estimate: estimate
+        )
+        {
+          success: true,
+          data: [],
+          provenance: prov,
+          status: STATUS_DRY_RUN,
+          duration_ms: elapsed_ms,
+          bytes: 0,
+          error: nil
+        }
+      end
+
+      # Assemble the pre-execution estimate Hash embedded on dry-run provenance:
+      #
+      #   { would_fetch:, from_cache:, source_url: (REDACTED), http_method:,
+      #     estimated_cost_usd:, estimated_rows:, cache_hit_available: }
+      #
+      # - source_url is resolved via the SAME pure build_request -> absolute-URL
+      #   path the live fetch uses, then REDACTED (no creds are resolved or signed).
+      # - cache_hit_available reflects whether a fresh cache entry exists right now.
+      # - would_fetch is FALSE when a fresh cache hit exists (the live call would be
+      #   served from cache, no upstream fetch), TRUE otherwise.
+      # - estimated_cost_usd / estimated_rows degrade to 0 / nil when no history.
+      def build_cost_estimate
+        redacted_url = dry_run_source_url
+        cache_available = cache_hit_available?
+        history = recent_query_stats
+
+        {
+          would_fetch: !cache_available,
+          from_cache: cache_available,
+          source_url: redacted_url,
+          http_method: dry_run_http_method,
+          estimated_cost_usd: estimated_cost_usd(history),
+          estimated_rows: history[:avg_rows],
+          cache_hit_available: cache_available
+        }
+      end
+
+      # Resolve the would-be request URL without resolving/signing credentials.
+      # adapter.build_request + resolved_request_url are pure (path/param assembly
+      # only); we then REDACT before exposing it. nil on any build fault.
+      def dry_run_source_url
+        request = adapter.build_request(endpoint: endpoint, params: params)
+        redact_url(resolved_request_url(request))
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::QueryService] dry-run URL build failed for #{safe_slug}: #{e.class}")
+        nil
+      end
+
+      def dry_run_http_method
+        m = endpoint.respond_to?(:http_method) ? endpoint.http_method : nil
+        m.presence&.to_s&.upcase || "GET"
+      rescue StandardError
+        "GET"
+      end
+
+      # True when a FRESH cache entry exists for this (source, endpoint, params) —
+      # i.e. a live call would be served from cache and skip the upstream fetch.
+      # ResponseCacheService.read returns nil on miss / disabled cache, so a Redis
+      # fault (rescued inside the service) degrades to "no hit available".
+      def cache_hit_available?
+        # Require a NOT-hard-expired entry so a grace-window (stale) entry is
+        # correctly reported as "a live call WOULD still fetch". #read returns raw
+        # (incl. grace-window) entries AND records hit/miss metrics, so it would both
+        # mis-report freshness and pollute metrics with dry-run probes; read_stale
+        # exposes the hard_expired flag we need without counting a hit.
+        descriptor = Ai::DataSources::ResponseCacheService.read_stale(
+          data_source: data_source, endpoint: endpoint, params: cache_params
+        )
+        descriptor.present? && !descriptor[:hard_expired]
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::QueryService] dry-run cache probe failed for #{safe_slug}: #{e.class}")
+        false
+      end
+
+      # Number of recent persisted queries averaged for the estimate.
+      DRY_RUN_HISTORY_SAMPLE = 20
+
+      # Average bytes / rows / cost over the most recent successful, NON-cached
+      # queries for THIS endpoint (a cache hit is zero-byte and would skew the
+      # bandwidth estimate downward). Returns a descriptor with nil/0 values when no
+      # usable history exists, so the estimate degrades gracefully on a cold source.
+      def recent_query_stats
+        return empty_history unless endpoint&.id && defined?(Ai::DataSourceQuery)
+
+        rows = Ai::DataSourceQuery
+               .where(ai_data_source_endpoint_id: endpoint.id, status: STATUS_SUCCESS, cached: false)
+               .order(created_at: :desc)
+               .limit(DRY_RUN_HISTORY_SAMPLE)
+               .pluck(:bytes_in, :rows_returned, :actual_cost_usd)
+        return empty_history if rows.empty?
+
+        {
+          sample_size: rows.size,
+          avg_bytes: average(rows.map { |r| r[0] }),
+          avg_rows: average(rows.map { |r| r[1] })&.round,
+          avg_cost_usd: average(rows.map { |r| r[2] })
+        }
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::QueryService] dry-run history lookup failed for #{safe_slug}: #{e.class}")
+        empty_history
+      end
+
+      def empty_history
+        { sample_size: 0, avg_bytes: nil, avg_rows: nil, avg_cost_usd: nil }
+      end
+
+      def average(values)
+        nums = values.compact.map(&:to_f)
+        return nil if nums.empty?
+
+        (nums.sum / nums.size)
+      end
+
+      # Estimate this fetch's cost. Prefer the source's declared cost/rate config
+      # (cost_per_request_usd + cost_per_gb_usd * avg_gb), mirroring exactly how
+      # Ai::CostAttribution.from_data_source_query prices a real fetch, using the
+      # average historical transfer size for the GB term. When the source declares
+      # NO cost config, fall back to the average historical actual_cost_usd, and
+      # finally to 0.0 when there is neither config nor history.
+      def estimated_cost_usd(history)
+        config = data_source.respond_to?(:configuration) ? (data_source.configuration || {}) : {}
+        per_request = config["cost_per_request_usd"].to_f
+        per_gb = config["cost_per_gb_usd"].to_f
+
+        if per_request.positive? || per_gb.positive?
+          gb = history[:avg_bytes].to_f / 1_073_741_824.0
+          (per_request + (per_gb * gb)).round(6)
+        elsif history[:avg_cost_usd]
+          history[:avg_cost_usd].to_f.round(6)
+        else
+          0.0
+        end
+      rescue StandardError => e
+        Rails.logger.warn("[DataSources::QueryService] dry-run cost estimate failed for #{safe_slug}: #{e.class}")
+        nil
       end
 
       # ----------------------------------------------------------------------

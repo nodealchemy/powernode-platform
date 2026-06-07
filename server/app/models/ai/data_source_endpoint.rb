@@ -53,6 +53,11 @@ module Ai
     # MonitorService — { cursor_param:, cursor_path:, mode: "cursor"|"timestamp" }.
     # Blank ({}) == OFF (no cursor injection, unchanged behavior).
     attribute :incremental, :json, default: -> { {} }
+    # Config-driven transform pipeline consumed by Ai::DataSources::TransformService.
+    # Shape: { "pipeline" => [ {op, ...}, ... ] } — an ORDERED array of steps
+    # (flatten/unnest/select/rename/computed) applied in sequence to the canonical
+    # records. Blank ({}) == OFF (records unchanged).
+    attribute :transforms, :json, default: -> { {} }
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }
@@ -80,6 +85,16 @@ module Ai
     # Mirrors the blank == OFF semantics of the +incremental+ jsonb default.
     def incremental?
       incremental.present?
+    end
+
+    # True when a non-empty transform pipeline is configured. Mirrors the
+    # blank == OFF semantics of the +transforms+ jsonb default: a bare {} (or a
+    # config with no/empty "pipeline") is OFF and leaves records unchanged.
+    def transforms?
+      cfg = transforms
+      return false unless cfg.is_a?(Hash) && cfg.present?
+
+      Array(cfg["pipeline"] || cfg[:pipeline]).any?
     end
 
     private
