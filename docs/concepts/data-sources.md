@@ -15,6 +15,7 @@
 - [The QueryService pipeline](#the-queryservice-pipeline)
 - [Response cache](#response-cache)
 - [Security model](#security-model)
+- [Credential brokering (Phase 4b-2a)](#credential-brokering-phase-4b-2a)
 - [Provenance and the FetchEnvelope](#provenance-and-the-fetchenvelope)
 - [Surfaces: REST + MCP](#surfaces-rest--mcp)
 - [Frontend](#frontend)
@@ -316,6 +317,108 @@ Outbound auth is applied by the signer layer (`auth/`), resolved by scheme from 
 ### Vault + encryption
 
 Credentials are encrypted at rest with Rails-8 `encrypts` on `encrypted_api_key`/`encrypted_api_secret`. The `vault_path` + `migrated_to_vault_at` columns support migrating a credential into Vault; when present, the pipeline reads the secret from Vault at fetch time (stage 4) and never touches the DB copy. Credential health is tracked via `consecutive_failures` — five consecutive failures deactivate the credential and drive `health_status` to `critical`.
+
+## Credential brokering (Phase 4b-2a)
+
+The Phase-1 signer layer assumes the stored secret *is* the credential you sign with. But the strongest auth schemes don't sign with a long-lived secret at all — they sign with a **short-lived** one minted just-in-time: an AWS STS role session, an OAuth2 `client_credentials` access token, a Vault dynamic-engine lease, a self-authenticating presigned URL. **Credential brokering** adds exactly that, *without* touching the signer contract: a broker **exchanges** the resolved base credential for a short-lived one immediately before the signed fetch, and returns an object the existing signers consume **unchanged**. It is **config, not code** (the brokering arc of the *new-source-is-config* principle), and it is **OFF by default** — a source with no `auth_config["broker"]` runs the byte-for-byte Phase-1 path.
+
+All backend code lives under `server/app/services/ai/data_sources/credentials/`.
+
+### The broker model
+
+A broker slots into `QueryService#resolve_credential` **after** the base credential is resolved (static `decrypted_*` or Vault, stage 4) and **before** signing (stage 5). The hand-off is a single method on every broker:
+
+```ruby
+broker.acquire(data_source:, base_credential:, config:)
+#   data_source     [Ai::DataSource]
+#   base_credential [#decrypted_api_key/#decrypted_api_secret/#[](name)] the resolved
+#                   STATIC/VAULT cred (or nil). Brokers read the BASE secret off this —
+#                   e.g. OAuth client_id/secret, the low-priv AWS keys used to call
+#                   AssumeRole. NEVER off config.
+#   config          [Hash] data_source.auth_config["broker"] — broker-specific
+#                   NON-secret knobs (token_url, role_arn, vault_path, region, ...).
+# => a credential satisfying the SAME signer contract — either a BrokeredCredential
+#    built from freshly-acquired material, OR base_credential unchanged (degrade/no-op).
+```
+
+```mermaid
+flowchart LR
+    R4["stage 4: resolve base credential<br/>(static decrypted_* or Vault)"]
+    REG["Credentials::Registry.for(type)"]
+    BRK["broker.acquire(...)<br/>EXCHANGE with external authority"]
+    BC["BrokeredCredential<br/>(short-lived material)<br/>#decrypted_api_key / #[] / #presigned_url"]
+    R5["stage 5: signer.sign! (UNCHANGED)<br/>or presigned-URL honor hook (skip sign)"]
+
+    R4 -->|base_credential| REG
+    REG -->|chosen broker| BRK
+    BRK -->|fresh material| BC
+    BRK -. no broker / unknown / degrade .-> R5
+    BC --> R5
+```
+
+The returned `Ai::DataSources::Credentials::BrokeredCredential` is an **immutable value object** that mirrors `QueryService::VaultCredentialView`'s signer contract — `#decrypted_api_key` (primary key/token), `#decrypted_api_secret` (secret half, nil for token-only schemes like a bearer), and `#[](name)` for any other field a signer reads (`session_token`, `security_token`). It tolerates the same key-spelling fallbacks the Vault view does (`api_key`/`access_key_id`/`token`/`key`; `api_secret`/`secret_access_key`/`secret`), so a broker can return whatever the upstream named its fields. It additionally carries **lease metadata** (`#expires_at`, `#expired?(skew)`) and an optional `#presigned_url`. It is frozen on construction, the material Hash is duplicated read-only, and **`#inspect`/`#to_s` are redacted** so a token can never leak through an exception trace or a `pp cred`.
+
+Because the brokered object satisfies the identical contract, **the signer layer, SSRF guard, decode/normalize, and provenance are all unchanged** — brokering is purely a credential-substitution step ahead of an otherwise-Phase-1 fetch.
+
+### Config, not code
+
+A source turns brokering on entirely through `auth_config["broker"]` — no Ruby:
+
+```ruby
+auth_config = {
+  "broker" => {
+    "type"     => "aws_sts",                                   # selects the broker
+    "role_arn" => "arn:aws:iam::123456789012:role/ds-reader",  # broker-specific knobs
+    "duration_seconds" => 3600
+  }
+}
+```
+
+`QueryService#broker_config` reads `auth_config["broker"]` (tolerating string OR symbol keys at both levels) and `#maybe_broker_credential` resolves the broker by its `type`, calls `acquire`, and uses the result. **The `config` hash carries NON-secret knobs only** — secrets always come off `base_credential`. A blank/absent `broker` config is the explicit no-op: the base credential flows straight to the signer exactly as in Phase 1.
+
+### The registry + generic StaticBroker fallback
+
+`Ai::DataSources::Credentials::Registry.for(type)` maps the configured `type` token to a broker class, **mirroring `Auth::SignerRegistry`'s `NoneSigner` fallback exactly**: a static map keyed by a normalized (stripped/down-cased) token, resolved lazily via `constantize` (so the concrete brokers needn't be loaded at definition time), with a generic fallback that **never raises**. An unknown or blank type resolves to **`StaticBroker`**, which returns the base credential unchanged — so a source configured with an unrecognized broker type degrades safely to the stored credential instead of crashing.
+
+| `type` token | Broker class | Fallback |
+|--------------|--------------|----------|
+| `static`, *(unknown/blank)* | `StaticBroker` (no-op — returns base unchanged) | — (this *is* the fallback) |
+| `oauth2_client_credentials` | `Oauth2ClientCredentialsBroker` | → base on any failure |
+| `aws_sts` | `AwsStsBroker` | → base on any failure |
+| `aws_sts_web_identity` | `AwsStsWebIdentityBroker` | → base on any failure |
+| `vault_dynamic` | `VaultDynamicBroker` | → base on any failure |
+| `presigned_url` | `PresignedUrlBroker` | → base on any failure |
+
+`BaseBroker` is the contract + fail-safe template. Its public `#acquire` wraps the subclass's protected `#acquire!` (which performs the exchange and **may** raise) in a rescue that logs `e.class` only and **degrades to `base_credential`** — so a broker fault can never crash the fetch. Subclasses override `#acquire!`; shared helpers handle tolerant jsonb config reads, the SSRF-guarded HTTP connection, lease-seconds math, and the non-secret audit line.
+
+### The six broker types, and when to use each
+
+| Broker | Exchanges → | Signs with | Reach | Use when |
+|--------|-------------|-----------|-------|----------|
+| `static` | nothing (no-op) | the stored secret | none | The default. No brokering — the stored credential is the credential. Also the safe landing for an unknown `type`. |
+| `oauth2_client_credentials` | stored `client_id`+`client_secret` → short-lived **bearer access token** (RFC 6749 `client_credentials` grant) | `BearerSigner` (`Authorization: Bearer <token>`), unchanged | **SSRF-guarded HTTP** POST to the config `token_url` | The source is an OAuth2-protected API you call machine-to-machine (Auth0/Okta/etc.). Knobs: `token_url` (required), `scope`, `audience`, `client_auth` (`basic` default / `body`). |
+| `aws_sts` | stored **low-priv IAM keys** → short-lived STS session via **AssumeRole** | `Sigv4Signer` over the temporary session, unchanged | AWS STS SDK (fixed AWS endpoint) | A SigV4 source (private `execute-api`, S3) where you want to store only a key that can `sts:AssumeRole` into a scoped role rather than a broad IAM user. Knobs: `role_arn` (required), `session_name`, `duration_seconds` (900–43200), `external_id`, `region`. |
+| `aws_sts_web_identity` | an **OIDC/JWT web-identity token** → short-lived STS session via **AssumeRoleWithWebIdentity** (**keyless** — no static AWS secret) | `Sigv4Signer`, unchanged | AWS STS SDK (unauthenticated — the token *is* the proof); the token may come **SSRF-guarded** from `token_url` | A workload with a federated identity (IRSA / EKS Pod Identity / GitHub-OIDC) — the canonical no-long-lived-AWS-secret pattern. Token source (first present wins): inline `web_identity_token` → `token_file` (projected on disk) → `token_url` (SSRF-guarded). `base_credential` is ignored for the exchange. |
+| `vault_dynamic` | a Vault **dynamic-secrets engine** mount → short-lived material Vault mints on demand (DB `{username,password}` or AWS `{access_key,secret_key,security_token}`) | whichever signer the source uses — the engine-shape is normalized so DB **and** AWS leases are consumable unchanged | the **same** platform Vault path the credential provider uses (`::Security::VaultClient.read_secret`, `cache: false`) | The secret should be minted per-use by Vault rather than stored at all (a database read-role, a Vault-managed AWS engine). Knobs: `vault_path` (required), `skew_seconds`. Requires `data_source.account` (account-scoped, folded into the cache key). |
+| `presigned_url` | stored cloud-storage keys → a **self-authenticating signed URL** (AWS S3 via `Aws::S3::Presigner`, default; or an Azure Blob **service SAS** via inline HMAC-SHA256, no SDK) | **nobody** — the URL's query string carries the signature; signing is **skipped** (see honor hook) | **no outbound HTTP** in acquisition — both are a local signing operation over a fixed cloud endpoint | The fetch target is a single object in S3/Azure Blob and you want a time-boxed read URL rather than a header credential. S3 knobs: `bucket`, `object_key`, `region`, `expires_in`. Azure knobs: `container`, `blob`, `account_name`, `expires_in`. |
+
+The presigned-URL broker is the one shape that doesn't end in a signer call. Its `BrokeredCredential` carries the URL via `#presigned_url` (and `decrypted_api_key` is intentionally nil). `QueryService` has a tiny **presigned-URL honor hook** (stage 4c): when the resolved credential exposes a non-blank `#presigned_url`, that URL **is** the fetch target and `sign_request!` is **skipped** — but the request still runs through the **same SSRF-guarded connection**, so the presigned host is validated like any other. A nil/blank `presigned_url` leaves the normal sign-then-fetch path byte-for-byte.
+
+### Security model
+
+Brokering introduces an external exchange step, so it carries the data-source pipeline's egress and secret-handling discipline through to every broker:
+
+- **SSRF guard on every config URL.** Any outbound HTTP a broker makes to a *config-supplied* URL — the OAuth2 `token_url`, the OIDC token-exchange `token_url` — goes through `BaseBroker#broker_http_connection`, which is the **same** SSRF-guarded Faraday connection a real fetch uses (`validate_url!` resolve-and-pin **plus** `SsrfGuardMiddleware` re-validation **plus** per-hop redirect re-pinning). A bare `Faraday.new` on a config URL would reopen the SSRF / DNS-rebinding hole (e.g. `token_url → 169.254.169.254`); the guard rejects it with `SsrfError`. The connection is dispatched against the **absolute** URL so the middleware validates the exact target.
+- **No-redirect on token exchange.** The OAuth2 token POST is built with **`max_redirects: 0`** — a token endpoint must never 3xx, and following a 307/308 cross-host could replay a body-mode `client_secret` to the redirect target. A 3xx then simply parses as non-2xx and degrades.
+- **Fixed AWS/cloud endpoints only.** The STS, S3-presigner, and Azure-SAS paths target the **fixed** (optionally regionalized) cloud endpoints; a **config-supplied endpoint override is deliberately NOT honored** (that would reintroduce SSRF through a different door). Region is honored where the service is regionalizable; the endpoint is not.
+- **Short-lived creds cached in Redis, never logged.** Acquired material is cached by `BrokerCache` (Redis, namespace `ds_cred_broker:`) for **`lease − skew`** seconds — derived via `ttl_with_skew` so the cached credential is dropped slightly *before* the upstream actually expires it, never signing with a just-expired token. The cache is **singleflight** (a `SET NX` recompute lock so a swarm at expiry collapses onto ~one `AssumeRole` / token request / Vault read; the contended caller computes its own copy **without sleeping** rather than stampeding) and **fail-open** (any Redis fault just runs the exchange uncached). Cache keys fold in a **non-reversible SHA-256 fingerprint** of the base secret so rotating the base credential naturally busts the cache — the raw secret never appears in the key. The cached value is short-lived, account/source-scoped secret material; only the non-secret key and the outcome are ever logged.
+- **NEVER logged.** No access token, secret, session token, `client_secret`, account key, or signed URL is ever logged, echoed, or placed in an exception message. Rescue blocks log `e.class` only. `BrokeredCredential#inspect`/`#to_s` are redacted.
+- **Fail-safe degrade to base.** Every failure path — Vault sealed, STS error, token endpoint down, SSRF rejection, missing knob, malformed response — degrades to the **base credential** via `BaseBroker#acquire`'s rescue, and `QueryService#maybe_broker_credential` adds a second defense-in-depth rescue around the whole exchange. A brokering fault **cannot** break the fetch; it just falls back to the stored credential.
+- **Audit line per acquisition.** Each acquisition emits one **non-secret** audit line via `BaseBroker#audit_log` — broker type, source slug, outcome (`acquired` / `cached` / `skipped` / `error`), and the lease expiry — never any material.
+
+### Off by default
+
+The whole capability is dormant until a source sets `auth_config["broker"]`. With no broker config, `broker_config` returns nil, `maybe_broker_credential` returns the base credential immediately, and the credential resolution + sign + fetch path is **byte-for-byte the Phase-1 behavior** — zero added overhead, no Redis touch, no external call. You pay only for what you turn on, per source.
 
 ## Provenance and the FetchEnvelope
 

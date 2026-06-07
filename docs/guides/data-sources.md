@@ -13,6 +13,7 @@
 - [Onboard a new REST/CSV/XML source (no code)](#onboard-a-new-restcsvxml-source-no-code)
 - [Onboarding a GraphQL or RSS/Atom source (Phase 4)](#onboarding-a-graphql-or-rssatom-source-phase-4)
 - [Configuring outbound pagination (Phase 4)](#configuring-outbound-pagination-phase-4)
+- [Configure dynamic credential brokering (Phase 4b)](#configure-dynamic-credential-brokering-phase-4b)
 - [Writing a custom adapter, decoder, or signer](#writing-a-custom-adapter-decoder-or-signer)
 - [Security](#security)
 - [Agent usage via MCP](#agent-usage-via-mcp)
@@ -389,6 +390,239 @@ curl -s -X PATCH \
 ```
 
 The walk halts on the first of: `max_pages` reached, a page that returned **zero** records (run off the end), the strategy's own terminator (no next cursor / no next link), the **per-page quota veto** (`check_quota!` is re-evaluated before each subsequent page — a partial result is kept), or a failed page (non-2xx / transport — the records gathered so far are returned and the real outcome is recorded). The aggregate fetch adds a `pagination` block to provenance (`type`, `pages_fetched`, `stopped_reason`, `truncated`) and `paginated_<N>_pages` (plus `pagination_truncated` when it hit the cap) to `provenance.anomalies`. Per-page operational limits are in the [operations runbook](../operations/data-sources.md#outbound-pagination-operational-limits-phase-4).
+
+## Configure dynamic credential brokering (Phase 4b)
+
+Static stored keys ([Step 3](#step-3--add-a-credential-when-authenticated)) and Vault-backed keys ([Moving credentials to Vault](#moving-credentials-to-vault)) both sign every fetch with a **long-lived** secret. A **credential broker** instead **exchanges** that resolved base credential — just before the signed fetch — for a **short-lived** credential from an external authority (an OAuth2 token endpoint, AWS STS, a Vault dynamic engine, an S3/Azure presigner), then hands the existing signer layer something it consumes **unchanged**. A short-lived bearer token, an `AssumeRole` session, or a self-authenticating presigned URL never persists in the platform and rotates on its own lease.
+
+Brokering is **opt-in and additive**: with no broker configured the credential path is byte-for-byte the pre-4b behavior. It turns on when the source's `auth_config` carries a `broker` sub-object with a recognized `type`.
+
+### Where the config lives, and the secret/config split
+
+The broker config is a single jsonb sub-object on the **source**: `auth_config["broker"]`. `QueryService#resolve_credential` resolves the base credential first (static or Vault), then `Ai::DataSources::Credentials::Registry.for(auth_config["broker"]["type"])` brokers it. Both key levels tolerate String or Symbol spellings.
+
+The non-negotiable rule (`BaseBroker`): **secrets live on the credential, never in `auth_config["broker"]`.** A broker reads its base secret off the resolved credential (`decrypted_api_key` / `decrypted_api_secret`, or the credential's `["session_token"]` pass-through) and reads only **non-secret knobs** from the broker config. So you still create a `DataSourceCredential` ([Step 3](#step-3--add-a-credential-when-authenticated), or push it to [Vault](#moving-credentials-to-vault)) to hold the base secret; the broker config only names *what to exchange it for*.
+
+The supported `type` values (`Ai::DataSources::Credentials::Registry::BROKERS`):
+
+| `type` | Broker | Exchanges base credential for | Signer that consumes it |
+|---|---|---|---|
+| *(unset / unknown)* | `StaticBroker` | nothing — base credential unchanged | whatever `auth_scheme` selects |
+| `oauth2_client_credentials` | `Oauth2ClientCredentialsBroker` | a short-lived OAuth2 bearer `access_token` | `bearer` (`BearerSigner`) |
+| `aws_sts` | `AwsStsBroker` | a 1-hour STS `AssumeRole` session | `aws_sigv4` (`Sigv4Signer`) |
+| `aws_sts_web_identity` | `AwsStsWebIdentityBroker` | a keyless STS `AssumeRoleWithWebIdentity` session | `aws_sigv4` (`Sigv4Signer`) |
+| `vault_dynamic` | `VaultDynamicBroker` | freshly-minted creds from a Vault dynamic engine | `bearer` / `aws_sigv4` (engine-dependent) |
+| `presigned_url` | `PresignedUrlBroker` | a self-authenticating presigned URL | *none* — URL carries the auth |
+
+Every broker **fails safe**: an unknown `type`, a misconfiguration, or an exchange error degrades to the **base credential** (it never raises into the fetch pipeline), and acquired material is cached in Redis for `lease − skew` seconds (singleflight) so a swarm at expiry collapses onto ~one exchange. A rotated base secret busts the cache automatically (the cache key folds in a one-way fingerprint of it). Nothing acquired — token, session, URL — is ever logged.
+
+> **Set `auth_scheme` to match the broker** (the right-hand column). The broker only *produces* material in the shape that signer reads; it does not change which signer runs. E.g. `oauth2_client_credentials` produces an `access_token` exposed as `decrypted_api_key`, so the source must use `auth_scheme: "bearer"` for it to be sent as `Authorization: Bearer <access_token>`.
+
+### `oauth2_client_credentials`
+
+Exchanges a stored OAuth2 client for a short-lived bearer token via the RFC 6749 `client_credentials` grant. The token endpoint URL is operator config, so the POST goes through the SSRF-guarded connection (no redirects followed).
+
+- **Secrets (on the credential):** `decrypted_api_key` → `client_id`, `decrypted_api_secret` → `client_secret`.
+- **Config (`auth_config["broker"]`, non-secret):**
+
+| Key | Required | Default | Meaning |
+|---|---|---|---|
+| `type` | yes | — | `"oauth2_client_credentials"` |
+| `token_url` | yes | — | the OAuth2 token endpoint |
+| `scope` | no | — | space-delimited scopes |
+| `audience` | no | — | audience / resource (Auth0 etc.) |
+| `client_auth` | no | `basic` | `basic` sends HTTP Basic `Authorization`; `body` puts `client_id`+`client_secret` in the form body |
+| `skew_seconds` | no | `60` | margin trimmed off the lease before caching |
+
+```jsonc
+// auth_scheme: "bearer"  — the access_token is sent as Authorization: Bearer <token>
+"auth_config": {
+  "broker": {
+    "type": "oauth2_client_credentials",
+    "token_url": "https://auth.example.com/oauth/token",
+    "scope": "reports:read prices:read",
+    "audience": "https://api.example.com",
+    "client_auth": "basic",
+    "skew_seconds": 60
+  }
+}
+```
+
+The exchanged token's own `expires_in` drives the cache lease (capped at 24h); `client_id`/`client_secret` stay on the credential.
+
+### `aws_sts`
+
+Exchanges the base credential's long-lived AWS keys for a short-lived STS `AssumeRole` session, so a SigV4 source signs with a scoped temporary session instead of a static IAM user key. The STS call hits the fixed (regional) AWS endpoint — a config endpoint override is deliberately **not** honored.
+
+- **Secrets (on the credential):** `decrypted_api_key` → AWS `access_key_id`, `decrypted_api_secret` → AWS `secret_access_key` (the low-privilege keys used only to call `AssumeRole`).
+- **Config (`auth_config["broker"]`, non-secret):**
+
+| Key | Required | Default | Meaning |
+|---|---|---|---|
+| `type` | yes | — | `"aws_sts"` |
+| `role_arn` | yes | — | the role to assume |
+| `session_name` | no | `powernode-ds` | `RoleSessionName` |
+| `duration_seconds` | no | `3600` | clamped to STS bounds `900..43200` |
+| `external_id` | no | — | confused-deputy guard (`ExternalId`) |
+| `region` | no | `us-east-1` | STS client region |
+| `skew_seconds` | no | `60` | margin trimmed off the lease before caching |
+
+```jsonc
+// auth_scheme: "aws_sigv4"  (set region/service in auth_config as usual)
+"auth_config": {
+  "region": "us-east-1",
+  "service": "execute-api",
+  "broker": {
+    "type": "aws_sts",
+    "role_arn": "arn:aws:iam::123456789012:role/powernode-reader",
+    "session_name": "powernode-ds",
+    "duration_seconds": 3600,
+    "external_id": "powernode-tenant-42",
+    "region": "us-east-1",
+    "skew_seconds": 60
+  }
+}
+```
+
+The broker shapes the STS reply into `access_key_id` / `secret_access_key` / `session_token`, which `Sigv4Signer` reads unchanged.
+
+### `aws_sts_web_identity`
+
+**Keyless** workload-identity variant: exchanges an OIDC/JWT web-identity token for an STS session via `AssumeRoleWithWebIdentity`. **No static AWS keys are needed** — the base credential is ignored for the exchange (the OIDC token *is* the proof of identity). Supply **exactly one** token source; they are tried inline → file → URL.
+
+- **Secrets:** none on the credential for the exchange. The OIDC token is short-lived and federation-scoped (never logged); when it comes from `token_url`, that fetch is SSRF-guarded.
+- **Config (`auth_config["broker"]`, non-secret):**
+
+| Key | Required | Default | Meaning |
+|---|---|---|---|
+| `type` | yes | — | `"aws_sts_web_identity"` |
+| `role_arn` | yes | — | the role to assume |
+| `web_identity_token` | one of these three | — | the raw JWT inline (e.g. injected by the runtime) |
+| `token_file` | one of these three | — | absolute path to the projected token (IRSA / EKS Pod Identity / `AWS_WEB_IDENTITY_TOKEN_FILE`) |
+| `token_url` | one of these three | — | HTTP endpoint returning the token in its body (fetched through the SSRF guard) |
+| `token_request_method` | no | `get` | method for the `token_url` fetch (`get` or `post`) |
+| `session_name` | no | `powernode-ds` | `RoleSessionName` |
+| `duration_seconds` | no | `3600` | clamped to `900..43200` |
+| `region` | no | `us-east-1` | STS client region |
+| `skew_seconds` | no | `60` | margin trimmed off the lease before caching |
+
+```jsonc
+// auth_scheme: "aws_sigv4"  — keyless: no DataSourceCredential secret required for the exchange
+"auth_config": {
+  "region": "us-east-1",
+  "service": "execute-api",
+  "broker": {
+    "type": "aws_sts_web_identity",
+    "role_arn": "arn:aws:iam::123456789012:role/powernode-irsa",
+    "token_file": "/var/run/secrets/eks.amazonaws.com/serviceaccount/token",
+    "session_name": "powernode-ds",
+    "duration_seconds": 3600,
+    "region": "us-east-1",
+    "skew_seconds": 60
+  }
+}
+```
+
+### `vault_dynamic`
+
+Reads a Vault **dynamic secrets engine** path and hands the signer freshly-minted, lease-bound material. The base credential is irrelevant as a secret here (the engine mints its own); the broker reads the per-source mount path from config. It tolerates both engine shapes — the DB engine's `{username, password}` and the AWS engine's `{access_key, secret_key, security_token}` — normalizing them into the signer contract. The data source's account must be present (the read is account-scoped, matching the Vault credential provider).
+
+- **Secrets:** none in config — Vault mints the material.
+- **Config (`auth_config["broker"]`, non-secret):**
+
+| Key | Required | Default | Meaning |
+|---|---|---|---|
+| `type` | yes | — | `"vault_dynamic"` |
+| `vault_path` | yes | — | the dynamic mount path (alias key `path` also read) |
+| `skew_seconds` | no | `30` | margin trimmed off Vault's advertised lease before caching |
+
+```jsonc
+// DB dynamic engine — auth_scheme typically "bearer" or whatever the upstream expects
+"auth_config": {
+  "broker": {
+    "type": "vault_dynamic",
+    "vault_path": "database/creds/readonly-role",
+    "skew_seconds": 30
+  }
+}
+
+// AWS dynamic engine — auth_scheme: "aws_sigv4" (engine returns access_key/secret_key/security_token)
+"auth_config": {
+  "region": "us-east-1",
+  "broker": { "type": "vault_dynamic", "vault_path": "aws/creds/s3-reader" }
+}
+```
+
+When Vault advertises no lease the material is returned **uncached** (re-read each fetch); otherwise the lease (minus skew) drives the cache TTL.
+
+### `presigned_url`
+
+Exchanges the base credential for a short-lived **self-authenticating presigned URL** — the URL's own query string carries the signature, so the fetch needs no `Authorization` header and **no signer at all**. `QueryService` detects the `BrokeredCredential#presigned_url` and dispatches straight to it (skipping signing) through the SSRF-guarded connection. No outbound HTTP happens during acquisition (both providers sign locally). Two providers via the `provider` key:
+
+**`provider: "s3"` (default)** — `Aws::S3::Presigner` presigns a GET on `get_object`, targeting the fixed regional AWS endpoint (no endpoint override).
+
+- **Secrets (on the credential):** `decrypted_api_key` → AWS `access_key_id`, `decrypted_api_secret` → AWS `secret_access_key`, optional `["session_token"]`.
+- **Config (`auth_config["broker"]`, non-secret):**
+
+| Key | Required | Default | Meaning |
+|---|---|---|---|
+| `type` | yes | — | `"presigned_url"` |
+| `provider` | no | `s3` | `"s3"` |
+| `bucket` | yes | — | the S3 bucket |
+| `object_key` | yes | — | the object key (alias key `key` also read) |
+| `region` | yes | — | the bucket's region |
+| `expires_in` | no | `900` | URL lifetime in seconds, clamped to the S3 max `604800` (7 days) |
+| `skew_seconds` | no | `0` | margin trimmed off the lifetime before caching |
+
+```jsonc
+// auth_scheme: "none"  — the presigned URL carries the auth; QueryService skips signing
+"auth_config": {
+  "broker": {
+    "type": "presigned_url",
+    "provider": "s3",
+    "bucket": "reports-bucket",
+    "object_key": "exports/latest.csv",
+    "region": "us-east-1",
+    "expires_in": 900
+  }
+}
+```
+
+**`provider: "azure_sas"`** — generates an Azure Blob **service SAS** (read-only) by HMAC-SHA256 over the canonical string-to-sign, using the storage account key.
+
+- **Secrets (on the credential):** `decrypted_api_secret` → the base64 storage **account key**; `decrypted_api_key` → the storage **account name** (or set `account_name` in config).
+- **Config (`auth_config["broker"]`, non-secret):**
+
+| Key | Required | Default | Meaning |
+|---|---|---|---|
+| `type` | yes | — | `"presigned_url"` |
+| `provider` | yes | — | `"azure_sas"` |
+| `container` | yes | — | the blob container |
+| `blob` | yes | — | the blob name (alias keys `object_key` / `key` also read) |
+| `account_name` | no | *(base `decrypted_api_key`)* | storage account name, if not taken from the credential |
+| `endpoint_suffix` | no | `core.windows.net` | storage endpoint suffix (sovereign clouds) |
+| `expires_in` | no | `900` | SAS lifetime in seconds |
+| `skew_seconds` | no | `0` | margin trimmed off the lifetime before caching |
+
+```jsonc
+// auth_scheme: "none"  — the SAS URL carries the auth; QueryService skips signing
+"auth_config": {
+  "broker": {
+    "type": "presigned_url",
+    "provider": "azure_sas",
+    "container": "exports",
+    "blob": "latest.csv",
+    "endpoint_suffix": "core.windows.net",
+    "expires_in": 900
+  }
+}
+```
+
+> For an `azure_sas` source the endpoint's `path_template` is irrelevant — the broker reconstructs the full blob URL (`https://<account>.blob.<suffix>/<container>/<blob>?<sas>`) and dispatches to it directly.
+
+### Verify a brokered source
+
+Brokering is transparent to the fetch surface: run the same governed fetch as [Step 4](#step-4--verify-the-config-and-run-a-test-fetch) (or `platform.data_source_query`) and inspect the `FetchEnvelope`. A broker failure does **not** surface as an error — it degrades to the base credential, so a misconfigured `role_arn` or unreachable `token_url` shows up as the *base* credential's auth result (often a `401`/`403` from the upstream), plus a non-secret `[Credentials::…] outcome=error`/`outcome=skipped` line in the Rails log. The acquired material itself never appears in logs or provenance.
 
 ## Writing a custom adapter, decoder, or signer
 

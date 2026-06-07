@@ -15,6 +15,7 @@
 - [Procedure — register a new source](#procedure--register-a-new-source)
 - [Procedure — rotate a credential](#procedure--rotate-a-credential)
 - [Quota Enforcement Pattern](#quota-enforcement-pattern)
+- [Credential brokering (Phase 4b-2a)](#credential-brokering-phase-4b-2a)
 - [Discovery & effectiveness (Phase 2a)](#discovery--effectiveness-phase-2a)
 - [Quality, drift & contracts (Phase 2b)](#quality-drift--contracts-phase-2b)
 - [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3)
@@ -216,6 +217,155 @@ end
 ```
 
 `check_quota!` reads from `current_quota_usage` (hour / minute / day counters tracked per source). Exceeding any configured limit returns a non-allowed response with `retry_after`.
+
+## Credential brokering (Phase 4b-2a)
+
+Phase 4b-2a adds **dynamic credential brokering** to the governed fetch. Instead of signing every request with a static stored secret, a source can configure a **broker** that EXCHANGES its resolved base credential with an external authority — AWS STS (`AssumeRole` / `AssumeRoleWithWebIdentity`), an OAuth2 token endpoint (`client_credentials` grant), a Vault dynamic secrets engine, or an S3/Azure presigner — for a **short-lived** credential, minted just before the signed fetch. The brokered credential satisfies the same signer contract (`decrypted_api_key` / `decrypted_api_secret` / `[](name)`), so the signer layer is unchanged.
+
+Brokering slots into `QueryService#resolve_credential` (via `maybe_broker_credential`) **after** the base credential is resolved, gated on `data_source.auth_config["broker"]["type"]`. **No broker configured (or a blank/unknown type) ⇒ byte-for-byte the original behavior** — `Registry.for` falls back to `StaticBroker`, which returns the base credential unchanged (mirroring `SignerRegistry`'s `NoneSigner` fallback). The seven broker types and their config are in the model layer; this section is the *operating* side.
+
+> **Two layers of fail-safe — a broker fault NEVER breaks a fetch.** `BaseBroker#acquire` wraps the subclass exchange in a rescue that **degrades to the base credential** on any error; `QueryService#maybe_broker_credential` then wraps *that* in a second rescue (defense in depth). So a misconfigured or unreachable broker silently falls back to signing with the stored credential. `@last_credential` deliberately stays pinned to the **base** credential, so the source's success/failure counters and `effectiveness_score` track the STORED credential, not the ephemeral brokered one.
+
+### Telling whether brokering is active
+
+Every acquisition emits a **single non-secret audit line** via `BaseBroker#audit_log` (`Rails.logger.info`), tagged with the demodulized broker class. The shape is fixed:
+
+```
+[Credentials::<BrokerClass>] broker=<type> source=<slug> outcome=<outcome> <k=v ...>
+```
+
+- **`broker=`** — the canonical broker type (`aws_sts`, `aws_sts_web_identity`, `oauth2_client_credentials`, `vault_dynamic`, `presigned_url`, `static`).
+- **`source=`** — the data source slug (`unknown` if unresolvable).
+- **`outcome=`** — the operationally relevant signal: **`acquired`** (a fresh short-lived credential was minted — carries `expires_at=<iso8601|none>`), **`skipped`** (brokering could not proceed — carries `reason=<...>`, the credential degraded to base), or **`error`** (the exchange raised — carries `error_class=<...>`, also degraded to base). (`cached` is defined in the contract but the current brokers do not emit it — a cache HIT is silent; only the miss-path mint logs `acquired`.)
+
+```bash
+# Is brokering firing at all? Tail the audit lines (all brokers share the prefix).
+journalctl -u powernode-backend@default -f | grep -E '\[Credentials::[A-Za-z]+\]'
+
+# Only the successful mints (fresh short-lived creds), with their lease expiry.
+journalctl -u powernode-backend@default --since "15 minutes ago" \
+  | grep -E '\[Credentials::.*\] .*outcome=acquired'
+
+# Confirm a specific source is being brokered (slug filter).
+journalctl -u powernode-backend@default --since "15 minutes ago" \
+  | grep -E 'source=open-meteo' | grep -E 'broker='
+```
+
+What the presence/absence of these lines tells you:
+
+| Observation | Meaning |
+|-------------|---------|
+| `outcome=acquired expires_at=<iso8601>` on the source | Brokering is **active and healthy** — a fresh lease was minted (this is a cache MISS; subsequent reads within the lease are silent cache HITs) |
+| No `[Credentials::…]` lines despite expecting brokering | Either no broker is configured (check `auth_config["broker"]["type"]`), the type resolved to `static` (unknown type ⇒ silent no-op), **or** every request is hitting the warm cache (no miss ⇒ no log). Flush the cache (below) to force one logged mint |
+| `outcome=skipped reason=<…>` | The broker bailed before any exchange and **degraded to base** — see the degrade table below |
+| `outcome=error error_class=<…>` | The exchange raised and **degraded to base** — see the degrade table below |
+
+### Troubleshooting a broker that silently degrades to base
+
+The whole design is fail-open, so a broker that "isn't working" usually means **it degraded to the base credential and the fetch still succeeded with the stored secret** — there is no fetch failure to chase, only the audit line. Two outcomes signal a degrade, each with a discriminating field:
+
+**`outcome=error error_class=<class>`** — the subclass `acquire!` raised and `BaseBroker#acquire` caught it. Only `error_class` is logged (never the exception message — an HTTP/SDK message can echo request material, e.g. a `client_secret`). Common classes:
+
+| `error_class` | Likely cause | First action |
+|---------------|--------------|--------------|
+| `Ai::DataSources::HttpConnectionFactory::SsrfError` | A config `token_url` (OAuth2 / web-identity) resolves to a private/loopback/link-local address or a disallowed scheme — see [SSRF guard](#the-ssrf-guard-rejecting-a-token_url) below | Fix the `token_url` to a public, resolvable HTTPS endpoint; confirm it does not resolve to `169.254.169.254` / RFC-1918 |
+| `Aws::STS::Errors::AccessDenied` | The base IAM key cannot `sts:AssumeRole` into `role_arn` (or `external_id` mismatch / wrong trust policy) | Verify the role's trust policy trusts the base principal; check `external_id` matches; confirm `role_arn` |
+| `Aws::STS::Errors::ValidationError` | `duration_seconds` out of the STS window, or a malformed `role_arn` | The broker clamps duration to 900..43200 — check `role_arn` syntax and `session_name` |
+| `Aws::Sigv4::Errors::MissingCredentialsError` / `Aws::Errors::MissingRegionError` | Base AWS keys empty (STS path) or no region resolvable | Brokers default region to `us-east-1`; verify the base credential actually carries AWS keys |
+| `Errno::ENOENT` (web-identity `token_file`) | The projected OIDC token path does not exist | Confirm the `token_file` path (the IRSA / EKS Pod Identity projection) is mounted and readable |
+| `Faraday::ConnectionFailed` / `Faraday::TimeoutError` | The OAuth2 / web-identity `token_url` is unreachable or slow | Check upstream IdP availability; the token endpoint must answer 2xx (a 3xx degrades — token endpoints are dispatched `max_redirects: 0`) |
+
+> A brokering fault that escapes the broker's own rescue (it shouldn't) is caught one level up and logged as `[DataSources::QueryService] credential brokering failed (using base) for <slug>: <class>` — same fail-open outcome, different prefix. If you see *that* line, the broker's internal rescue was bypassed (a bug); capture it.
+
+**`outcome=skipped reason=<reason>`** — the broker decided it could not proceed (a precondition was missing) and returned base **without** attempting an exchange. These are configuration gaps, not faults:
+
+| `reason` | Broker(s) | Meaning / fix |
+|----------|-----------|---------------|
+| `missing_base_aws_keys` | `aws_sts`, `presigned_url` (s3) | The base credential carries no `decrypted_api_key` / `decrypted_api_secret` to call STS / presign with. Attach AWS keys to the source's base credential |
+| `missing_web_identity_token` | `aws_sts_web_identity` | None of `web_identity_token` / `token_file` / `token_url` resolved a token. Provide exactly one token source |
+| `no_vault_path` | `vault_dynamic` | `config["vault_path"]` is blank. Set the dynamic mount path (e.g. `aws/creds/s3-reader`) |
+| `no_account` | `vault_dynamic` | `data_source.account` is nil — the Vault integration is account-scoped. Ensure the source is account-bound |
+| `empty_lease` | `vault_dynamic` | Vault returned an empty/unusable response for the path (sealed, wrong mount, no policy). Check Vault status + the mount path + the token's policy |
+| `missing_bucket_or_key` / `missing_region` | `presigned_url` (s3) | Required S3 presign config absent. Set `bucket`, `object_key`, and `region` |
+| `missing_azure_params` | `presigned_url` (azure_sas) | One of account name / account key / `container` / `blob` is missing. Provide all four |
+| `unknown_provider` | `presigned_url` | `config["provider"]` is neither `s3` nor `azure_sas`. Fix the provider token |
+
+General degrade workflow:
+
+1. Find the `skipped`/`error` line for the source (`grep 'source=<slug>'`) and read its discriminating field (`reason=` or `error_class=`).
+2. For `skipped` → fix the named config gap in `auth_config["broker"]` (and the base credential for the `missing_*_keys` reasons).
+3. For `error` → resolve the upstream/identity cause per the table; the message is intentionally withheld, so reproduce against the authority directly (STS/IdP/Vault) if the class alone is ambiguous.
+4. After fixing, **flush the broker cache** (next section) so the next fetch re-attempts the exchange and logs a fresh `outcome=acquired` rather than serving a stale degrade decision. (A *degrade* is never cached — only successful material is — but flushing forces an immediate logged mint to confirm the fix.)
+
+### The short-lived credential cache (`ds_cred_broker:*`)
+
+Brokered material is cached in **Redis** (the shared client, via `Powernode::Redis.client`) so a swarm hitting expiry does not hammer STS / the token endpoint / the Vault dynamic engine. `BrokerCache` is the owner:
+
+- **Key namespace** — `ds_cred_broker:` (`BrokerCache::NAMESPACE`). The value key is `ds_cred_broker:<digest>` where `<digest>` is a broker-built, **non-secret** stable key (broker type + source id + a one-way SHA-256 fingerprint of the base credential, so **rotating the base secret naturally busts the cache**). A SETNX singleflight **lock** lives alongside at `ds_cred_broker:lock:<key>` (TTL `LOCK_TTL = 10`s) so only one worker mints per key per window — a contended caller computes its own copy **without sleeping** (Kernel#sleep is forbidden in this pipeline) rather than blocking.
+- **TTL** — the entry is cached for `(lease − skew)` seconds (`ttl_with_skew`), floored at `MIN_TTL = 5`s. The absolute expiry is also embedded **inside** the cached material (as an ISO8601 string) so a cache HIT can still reconstruct `BrokeredCredential#expires_at`. A broker that returns `ttl_seconds <= 0` signals **uncacheable** (e.g. a Vault lease with no advertised duration) — the material is used but not stored, so the next fetch re-acquires.
+- **Fail-open** — any Redis error (read, write, or lock) degrades to "compute once, return uncached". A cache outage never breaks the fetch; you'll just see an `outcome=acquired` on *every* request instead of one per lease.
+
+Inspect and flush:
+
+```bash
+# List all brokered-credential cache + lock keys (values are short-lived secret
+# material — DO NOT GET them in a shared shell; the key names are non-secret).
+redis-cli --scan --pattern 'ds_cred_broker:*'
+
+# How long until a given entry expires (forces re-acquisition when it lapses).
+redis-cli TTL 'ds_cred_broker:<digest>'
+
+# Force re-acquisition of ONE source's brokered credential: delete its value key(s).
+# The next governed fetch misses the cache, re-runs the exchange, and logs outcome=acquired.
+redis-cli --scan --pattern 'ds_cred_broker:*' | xargs -r -n1 redis-cli DEL
+
+# Drop a stuck singleflight lock (self-expires in 10s anyway; only needed to force
+# an immediate re-mint after a crashed acquirer).
+redis-cli DEL 'ds_cred_broker:lock:<key>'
+```
+
+> **Which key belongs to which source?** The digest is a one-way hash and is **not** reversible to a source — there is no slug in the key. To force re-acquisition for a single source without flushing the whole namespace, **rotate its base credential** (which changes the fingerprint and orphans the old entry to expire on its own), or flush the whole `ds_cred_broker:*` namespace (cheap — every source just re-mints once on its next fetch). Use the audit line (`outcome=acquired source=<slug>`) to confirm the re-mint landed on the source you intended.
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| `outcome=acquired` logs on **every** request (no caching) | Redis unreachable (fail-open ⇒ compute-uncached), **or** the broker returns `ttl_seconds <= 0` (uncacheable lease, e.g. Vault with no `lease_duration`) | Check Redis connectivity; for Vault, confirm the dynamic engine advertises a lease (else it is re-read each fetch by design) |
+| Stale credential served after the upstream revoked it | The cached lease has not yet lapsed (cached for `lease − skew`) | Flush the source's `ds_cred_broker:*` entry to force a fresh mint; raise `skew_seconds` so the cache is dropped earlier before real expiry |
+| First request after a fix still degrades | A *successful* prior mint is cached — but a degrade is never cached, so this is the cache serving the **old good** material, or the warm lease pre-dates the fix | Flush `ds_cred_broker:*`; the next fetch re-mints and logs `outcome=acquired` |
+| Thundering herd of token/STS calls at expiry | Singleflight lock not engaging (Redis lock errors fail to the contended path) | Check Redis health; the contended path computes-without-caching, so a Redis fault degrades singleflight to a brief duplicate-compute (bounded, not a storm) |
+
+### The SSRF guard rejecting a `token_url`
+
+Only the brokers that fetch a **config-supplied URL** make outbound HTTP during acquisition — `oauth2_client_credentials` (the OAuth2 `token_url`) and `aws_sts_web_identity` (when it sources the OIDC token from a `token_url`). Because that URL is **operator config**, it MUST go through `BaseBroker#broker_http_connection`, which is the SSRF-guarded Faraday connection: it calls `HttpConnectionFactory.validate_url!` (resolve-and-pin, fail-fast before any socket opens) and carries `SsrfGuardMiddleware` (re-validates the exact target per request) plus a redirect callback that re-pins every hop. The AWS STS SDK calls and the S3/Azure presigners hit **fixed** endpoints and have no SSRF surface (and deliberately do **not** honor a config endpoint override).
+
+`validate_url!` raises `Ai::DataSources::HttpConnectionFactory::SsrfError` when the URL:
+
+- uses a disallowed scheme (anything but http/https → `Disallowed URL scheme`),
+- has no host, fails to resolve, or
+- resolves to **any** private / loopback / link-local address (the classic `token_url -> 169.254.169.254` IMDS-rebinding attempt → `URL resolves to a disallowed (private/loopback/link-local) address`).
+
+The `SsrfError` propagates out of the broker's exchange and is caught by `BaseBroker#acquire`, so it surfaces as **`outcome=error error_class=Ai::DataSources::HttpConnectionFactory::SsrfError`** and the fetch **degrades to base** — it is never a hard failure, and the rejected URL is never dispatched.
+
+```bash
+# Catch SSRF rejections of a broker token_url specifically.
+journalctl -u powernode-backend@default --since "1 hour ago" \
+  | grep -E 'outcome=error error_class=.*SsrfError'
+```
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| `outcome=error error_class=…SsrfError` on an OAuth2 / web-identity source | The `token_url` resolves to a private/loopback/link-local address or uses a non-http(s) scheme | Point `token_url` at a public, resolvable HTTPS IdP endpoint; verify DNS does not resolve it to `169.254.169.254` / RFC-1918. This is the guard working as intended — never bypass it |
+| OAuth2 broker degrades but the IdP is public and healthy | The token endpoint answered a **3xx** (dispatched `max_redirects: 0`, so a redirect parses as non-2xx ⇒ degrade), preventing a `client_secret` replay to the redirect target | Use the IdP's canonical token URL that returns 2xx directly; a token endpoint should never redirect |
+| Want to send the token request through a private/internal minter | Not supported by design — the guard blocks private targets to close the SSRF/DNS-rebinding hole | Expose the minter on a public, resolvable host, or use `token_file` / inline `web_identity_token` (file/inline sources bypass the URL fetch entirely) |
+
+### Security posture
+
+The brokering layer mirrors the data-source pipeline's `sign_request!` discipline and is **non-negotiable**:
+
+- **Short-lived material in Redis, never logged.** The cached value is ephemeral, account/source-scoped secret material that expires automatically. It is **never** written to a log — only the **non-secret cache KEY** (a one-way digest) and the **outcome** appear. Audit lines carry only `broker=` / `source=` / `outcome=` / `expires_at=` / `reason=` / `error_class=` — never a token, secret, `session_token`, `client_secret`, or any key material.
+- **No secrets in error paths.** Rescue blocks log `e.class` **only** — an exception message from an HTTP client or the AWS SDK can echo request material, so the message is deliberately withheld everywhere.
+- **`BrokeredCredential` is leak-proof.** It is frozen on construction, its material Hash is duplicated and read-only, and `#inspect` / `#to_s` are **redacted** (they print field *names* and the expiry, never values) so a token cannot escape through a `raise cred`, `pp cred`, or string interpolation in a trace.
+- **SSRF-guarded outbound, fixed AWS endpoints.** Every config-supplied URL is validated (above); AWS SDK calls and presigners use fixed/regional AWS endpoints with **no** config override, so there is no acquisition-time SSRF surface. (A *presigned* URL is fetched later by `QueryService` through the same SSRF-guarded connection, where its host is validated like any other fetch.)
+- **No long-lived key generation.** Brokering never generates or persists long-lived key material — it only *exchanges* an existing base secret for a short-lived one. Base secrets continue to live encrypted in Vault / the credential store per [Cryptographic Material Safety](../../CLAUDE.md); the broker reads them via `decrypted_api_key` / `decrypted_api_secret` inside the service only.
 
 ## Discovery & effectiveness (Phase 2a)
 
@@ -843,6 +993,11 @@ curl -X PATCH \
 | Model — Endpoint (Phase 2b/3/4) | `server/app/models/ai/data_source_endpoint.rb` (2b: `track_schema`/`quality_checks_enabled`/`quarantine_on_failure`/`sla_max_age_seconds`/`owner`/`contract`; 3: `stale_while_revalidate_seconds`/`stale_if_error_seconds`; 4: `pagination` jsonb; `has_many :schema_versions`/`:expectations`/`:subscriptions`) |
 | Model — Subscription (Phase 3) | `server/app/models/ai/data_source_subscription.rb` (`POLL_FREQUENCIES`, `STATUSES`; `.active`/`.due_for_poll`/`.for_data_source`/`.for_endpoint`; `record_poll!`/`record_failure!`/`schedule_next_poll!`/`activate!`/`pause!`) |
 | Model — Credential | `server/app/models/ai/data_source_credential.rb` |
+| Brokers — base + registry (Phase 4b-2a) | `server/app/services/ai/data_sources/credentials/base_broker.rb` (`#acquire` fail-safe template, `#broker_http_connection` SSRF guard, `#audit_log` — `broker=`/`source=`/`outcome=`), `credentials/registry.rb` (`BROKERS` map, `.for`; unknown ⇒ `StaticBroker`) |
+| Brokers — concrete (Phase 4b-2a) | `credentials/static_broker.rb` (no-op), `credentials/aws_sts_broker.rb` (`AssumeRole`), `credentials/aws_sts_web_identity_broker.rb` (`AssumeRoleWithWebIdentity`, OIDC token via inline/file/`token_url`), `credentials/oauth2_client_credentials_broker.rb` (`client_credentials` grant, `max_redirects: 0`), `credentials/vault_dynamic_broker.rb` (dynamic mount), `credentials/presigned_url_broker.rb` (S3 presign / Azure SAS) |
+| Broker — cache + value object (Phase 4b-2a) | `credentials/broker_cache.rb` (`NAMESPACE = "ds_cred_broker:"`, `MIN_TTL = 5`, `LOCK_TTL = 10`, `.fetch` singleflight, `.ttl_with_skew`; fail-open), `credentials/brokered_credential.rb` (signer contract, redacted `#inspect`/`#to_s`, `#expires_at`/`#expired?`/`#presigned_url`) |
+| QueryService brokering wiring (Phase 4b-2a) | `server/app/services/ai/data_sources/query_service.rb` (`#resolve_credential`, `#maybe_broker_credential`, `#broker_config`; presigned honor hook `#presigned_url_for`) |
+| SSRF guard | `server/app/services/ai/data_sources/http_connection_factory.rb` (`SsrfError`, `.validate_url!`, `SsrfGuardMiddleware`, `.user_agent`) |
 | Model — Schema version (Phase 2b) | `server/app/models/ai/data_source_schema_version.rb` (`CLASSIFICATIONS`; `for_endpoint`/`ordered`/`latest_first`/`breaking`) |
 | Model — Quality expectation (Phase 2b) | `server/app/models/ai/data_source_expectation.rb` (`RULE_TYPES`, `SEVERITIES`; `active`/`errors`) |
 | Model — KG node | `server/app/models/ai/knowledge_graph_node.rb` (`data_source` entity type, `.data_source_nodes`, `.for_data_source`) |
@@ -887,4 +1042,4 @@ curl -X PATCH \
 
 - `docs/platform/DATA_SOURCES.md`
 
-_Last verified: 2026-06-06_
+_Last verified: 2026-06-06 (Phase 4b-2a credential brokering added)_
