@@ -63,7 +63,9 @@ module Chat
       raise VerificationError, "WhatsApp app_secret not configured" if app_secret.blank?
 
       body = request.raw_post
-      expected_signature = "sha256=" + OpenSSL::HMAC.hexdigest("SHA256", app_secret, body)
+      expected_signature = Security::HttpSignature.sign(
+        secret: app_secret, data: body, algorithm: "sha256", prefix: "sha256"
+      )
 
       unless secure_compare(signature_header, expected_signature)
         raise InvalidSignature, "WhatsApp signature mismatch"
@@ -131,7 +133,9 @@ module Chat
       sig_basestring = "v0:#{slack_timestamp}:#{body}"
 
       # Calculate expected signature
-      expected_signature = "v0=" + OpenSSL::HMAC.hexdigest("SHA256", signing_secret, sig_basestring)
+      expected_signature = Security::HttpSignature.sign(
+        secret: signing_secret, data: sig_basestring, algorithm: "sha256", prefix: "v0"
+      )
 
       unless secure_compare(slack_signature, expected_signature)
         raise InvalidSignature, "Slack signature mismatch"
@@ -199,9 +203,7 @@ module Chat
     end
 
     def secure_compare(a, b)
-      return false if a.nil? || b.nil?
-
-      ActiveSupport::SecurityUtils.secure_compare(a, b)
+      Security::HttpSignature.secure_compare(a, b)
     end
   end
 end

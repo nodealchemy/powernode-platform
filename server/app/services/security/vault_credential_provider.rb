@@ -47,6 +47,12 @@ module Security
       # pg-replica module's recovery.conf.
       # Plan reference: Decentralized Federation §H + P6.4.
       cluster_member_pg_replica: "cluster-member-pg-replica",
+      # External data-source API credential material (API keys, bearer tokens,
+      # HMAC shared secrets, AWS access/secret keys). Stored per
+      # Ai::DataSourceCredential.id and read by Ai::DataSources::QueryService when
+      # the credential carries a vault_path; the on-the-wire signer
+      # (Ai::DataSources::Auth::SignerRegistry) consumes the returned material.
+      data_source: "data-sources",
       custom: "custom"
     }.freeze
 
