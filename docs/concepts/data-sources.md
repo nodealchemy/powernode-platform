@@ -18,6 +18,7 @@
 - [Credential brokering (Phase 4b-2a)](#credential-brokering-phase-4b-2a)
 - [Query-time governance (Phase 4b-2b)](#query-time-governance-phase-4b-2b)
 - [Transform & retrieval shaping (Phase 4b-3a)](#transform--retrieval-shaping-phase-4b-3a)
+- [Onboarding portability (Phase 4b-3b)](#onboarding-portability-phase-4b-3b)
 - [Provenance and the FetchEnvelope](#provenance-and-the-fetchenvelope)
 - [Surfaces: REST + MCP](#surfaces-rest--mcp)
 - [Frontend](#frontend)
@@ -584,6 +585,75 @@ This is the surgical complement to prefix invalidation: prefix-delete evicts *a 
 ### Off by default
 
 All three retrieval-shaping capabilities are dormant until used. With **no** `endpoint.transforms` pipeline, `apply_transforms` returns the records with `transforms_applied: false` and runs zero transform code; with `dry_run` unset (`false`), the live fetch path is untouched; and `invalidate_by_tag` only does work when a caller invokes it. So a default source runs the **byte-for-byte** pre-4b-3a path — no reshape pass, no estimate computation, no extra Redis round-trips beyond the cheap default-tag `SADD` on a write that already occurs. You pay only for what you turn on.
+
+## Onboarding portability (Phase 4b-3b)
+
+Every layer above shapes one *live* fetch. **Onboarding portability** is the orthogonal concern of moving a source's **configuration** around — out of one account and into another, into a shared starter library, or backward in time to an earlier revision — *without ever moving a secret*. It is the **"config, not code"** principle applied to the source definition itself: a configured `Ai::DataSource` (plus its endpoints) round-trips through a **credential-free manifest**, a curated **template library** ships account-agnostic starters built from that same manifest shape, and an append-only **config-version history** lets any source be snapshotted and rolled back. The defining constraint is the one that makes all three safe to serialize, check into the repo, and replay: **the manifest is credential-free by construction — import never sets credentials.**
+
+All backend code lives under `server/app/services/ai/data_sources/` (`config_portability_service.rb`, `template_library.rb`) plus the `Ai::DataSourceConfigVersion` model.
+
+```mermaid
+flowchart LR
+    DS[(Ai::DataSource + endpoints<br/>+ credentials [NOT traversed])]
+    CPS[ConfigPortabilityService]
+    MAN["credential-free MANIFEST<br/>{manifest_version, source, endpoints}<br/>auth_scheme NAME only<br/>auth_config SANITIZED"]
+    TL[TemplateLibrary<br/>seeded account-agnostic starters]
+    CV[(Ai::DataSourceConfigVersion<br/>append-only snapshots)]
+    DST[(Ai::DataSource in ANOTHER account<br/>credentials added SEPARATELY)]
+
+    DS -->|export| CPS --> MAN
+    MAN -->|import never sets credentials| CPS --> DST
+    TL -->|install = import seeded manifest| CPS
+    DS -->|snapshot!| CV
+    CV -->|rollback! replays a prior manifest| CPS
+```
+
+### The credential-free manifest
+
+`Ai::DataSources::ConfigPortabilityService.new(account:).export(data_source)` turns a source into a string-keyed manifest Hash:
+
+```ruby
+{
+  "manifest_version" => 1,
+  "source"    => { … SOURCE_EXPORT_KEYS only … "auth_scheme" => <NAME>, "auth_config" => { … sanitized … } },
+  "endpoints" => [ { … ENDPOINT_EXPORT_KEYS only … }, … ],   # ordered by slug → byte-stable
+  "exported_at" => nil   # left nil so the manifest is byte-stable / diffs cleanly across exports
+}
+```
+
+The serialization is an **allowlist**, not a blocklist — only the columns named in `SOURCE_EXPORT_KEYS` / `ENDPOINT_EXPORT_KEYS` are copied, so a new secret-bearing column added later is excluded by default rather than leaking until someone remembers to redact it.
+
+**What is included** — the portable *structure* and *non-secret config*: the source's `name`/`slug`/`source_type`/`category`/`protocol`/`api_base_url`/`description`, its crawl-politeness + priority + capability flags, and the free-form `configuration`/`rate_limits`/`default_parameters`/`metadata` jsonb; and per endpoint the full retrieval **contract** — `http_method`/`path_template`/`query_template`/`body_template`/`response_format`/`response_mapping`/`response_schema`, plus `pagination`/`incremental`/`transforms` and the `cache_ttl_seconds`/`monitorable`/`change_detection` knobs.
+
+**What is excluded** — anything secret or non-portable. The **entire `credentials` association is never traversed** (no `Ai::DataSourceCredential` row, no encrypted column, no Vault handle that resolves to material is ever read). Identity + runtime/usage state is dropped too — `id`/`account_id`/timestamps, `health_status`/`last_health_check_at`/`last_used_at`, and the evaluation counters (`effectiveness_score`/`usage_count`/`positive_`/`negative_usage_count`) on the source; the runtime cursor/etag/last-modified/contract columns on each endpoint. A manifest is a *definition*, not a snapshot of a source's live state.
+
+**Auth travels as a name, not a key.** The manifest carries the `auth_scheme` **NAME only** (`api_key`/`bearer`/`aws_sigv4`/…) — enough to describe *how* the source authenticates, never the secret it authenticates *with*. `auth_config` is exported only through a sanitizer (`sanitize_auth_config`) that keeps **non-secret broker knobs** (`token_url`, `role_arn`, `region`, `scope`, `vault_path`, …) and drops everything else. (Notably, an AWS STS `external_id` is deliberately **excluded** — it is a confused-deputy *shared secret* the importing operator re-supplies with the credential, not a portable structural knob.)
+
+**Free-form jsonb is secret-scrubbed.** Because `configuration`/`metadata`/`default_parameters`/`query_template`/… are open Hashes a user could plant a secret into, every exported jsonb value is recursively walked (`scrub_value`) and any **secret-keyed** entry is dropped — nested Hashes and Arrays included. The same `secret_key?` denylist (exact names like a bare `token`/`key`/`apikey`, plus substrings like `secret`/`password`/`private`/`access_key`/`web_identity_token`) gates the auth_config allowlist as **defense in depth**: a knob must be both allowlisted *and* not flagged secret to survive. So a secret buried in a free-form column can never ride the manifest out.
+
+### Export / import round-trip
+
+The point of the manifest is **"config, not code" portability across accounts**: export a source from account A, hand the manifest to account B, and `import` re-materializes the same source definition there — with B's own credentials attached afterward, never A's.
+
+`import(manifest, slug: nil, dry_run: false)` is scoped to the service's `@account` and is idempotent by slug: the source is `find_or_initialize_by(slug:)` (the manifest's slug, or an explicit override for cloning), and endpoints are upserted by slug — so importing the same manifest twice updates in place rather than duplicating. The whole apply runs in **one transaction** (a failed endpoint rolls the whole import back, never leaving a half-applied source), and a `dry_run` returns a preview of the create/update actions while persisting nothing.
+
+Two invariants make import safe to feed a hand-edited or third-party manifest:
+
+- **Import never sets credentials.** This is the contract's load-bearing half. `import` writes only the allowlisted source/endpoint attributes; it never touches the `credentials` association. After an import the source exists but is *unauthenticated* until an operator attaches a credential separately via the credentials API/UI — exactly mirroring `export`'s never-traverse-credentials half. A source moved between accounts therefore *cannot* carry account A's secret into account B.
+- **The sanitizer re-runs on the way in.** Import does not trust an inbound manifest to already be clean — it re-applies the export allowlist (`source.slice(*SOURCE_EXPORT_KEYS)`) and re-runs `sanitize_auth_config`, so a hand-edited manifest cannot smuggle a secret-keyed value or a non-allowlisted column into the stored record. `account_id` is never assigned from the manifest (the account is pinned to `@account`), and on a clone under a new slug the source `name` is de-duplicated to respect per-account name uniqueness.
+
+### The template library
+
+`Ai::DataSources::TemplateLibrary` is a curated, **account-agnostic, credential-free** set of **seeded starter manifests** — the onboarding story made concrete. Each entry is a manifest in the *exact* shape `ConfigPortabilityService` emits and accepts, so installing a template is literally "import this seeded manifest into your account": `TemplateLibrary.install(slug, account:)` routes straight through `ConfigPortabilityService#import` (honoring the same `slug:`/`dry_run:` overrides).
+
+A template is a **starting point, not a runnable source**: the `api_base_url` points at a documented *public* endpoint (no private host), `auth_scheme` is `none` or — to show the common case — `api_key` with **no key material** (just the scheme name), and the endpoints describe the retrieval contract only. Because installation goes through `import`, it inherits both guarantees: **installation never sets credentials** (the operator attaches one afterward when auth is required), and the **auth_config sanitizer re-runs** on the way in — a defense-in-depth promise that even a hand-edited template cannot land anything secret-ish in a stored record. The seeded starters cover the generic shapes (a REST/JSON scaffold, a public RSS/Atom feed, a GraphQL scaffold) plus a genuinely key-free working example (Open-Meteo) that doubles as a "this actually runs out of the box" reference.
+
+### Config versioning + rollback
+
+`Ai::DataSourceConfigVersion` is an **append-only** history of credential-free manifest snapshots, one row per `(source, version)` with a monotonically increasing `version` (mirroring the per-endpoint schema-version history, but scoped to the *whole source's* portable config). Each row stores the `export` manifest in a jsonb column and a `created_by_type` provenance tag — `manual` (an explicit operator snapshot), `auto` (captured automatically, e.g. before an automated config change), or `rollback` (the pre-rollback state preserved below). Because the stored manifest is the credential-free `export`, **a version row never contains secrets** — the history is as safe to retain and inspect as the manifest itself.
+
+- **`snapshot!(data_source, created_by_type:, note:)`** persists the source's *current* `export` at the next sequential version (`next_version_for` is a `MAX(version)+1` check-then-act, so a concurrent snapshot that collides on the unique `(source, version)` index simply retries a couple of times).
+- **`rollback!(data_source, version)`** returns a source's config to an earlier snapshot by **replaying that historical manifest through `import`** — which, being `import`, *still never touches credentials*: a rollback restores structure/endpoints/non-secret config, never re-introduces an old secret. Rollback is itself made reversible and audited: it captures the **pre-rollback** state first, but **persists that `rollback` snapshot only once the replay succeeds** — a failed replay (which `import` rolls back transactionally) leaves no spurious version behind. On success the pre-rollback snapshot is recorded with a note, so the rollback can itself be rolled back.
 
 ## Provenance and the FetchEnvelope
 

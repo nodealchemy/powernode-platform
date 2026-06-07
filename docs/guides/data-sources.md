@@ -18,6 +18,7 @@
 - [Security](#security)
 - [Govern a data source (access, masking, residency, mTLS) (Phase 4b-2b)](#govern-a-data-source-access-masking-residency-mtls-phase-4b-2b)
 - [Shape & preview data (transforms, dry-run, cache tags) (Phase 4b-3a)](#shape--preview-data-transforms-dry-run-cache-tags-phase-4b-3a)
+- [Export, import, template & version a source config (Phase 4b-3b)](#export-import-template--version-a-source-config-phase-4b-3b)
 - [Agent usage via MCP](#agent-usage-via-mcp)
 - [How agents discover and evaluate sources over time (Phase 2a)](#how-agents-discover-and-evaluate-sources-over-time-phase-2a)
 - [Enabling quality & drift per endpoint (Phase 2b)](#enabling-quality--drift-per-endpoint-phase-2b)
@@ -1194,6 +1195,218 @@ platform.data_source_invalidate_cache
 ```
 
 > **When to invalidate.** After changing an endpoint's `transforms` (or `response_mapping`/schema), flush its cache so the next fetch re-runs the pipeline and re-caches the new shape — the cache holds the *transformed* payload, so a stale entry would keep serving the old shape until its TTL lapses. Tag form (`endpoint:<id>`) is the precise tool; scope form is the broader hammer.
+
+## Export, import, template & version a source config (Phase 4b-3b)
+
+Onboarding a source by configuration alone ([Onboard a new source](#onboard-a-new-restcsvxml-source-no-code)) is the input side; Phase 4b-3b is the **portability** side — turning a configured source into a **portable, credential-free manifest** you can move between accounts/environments, seed from a curated **template library**, and **version + roll back** over time. Two services back it: `Ai::DataSources::ConfigPortabilityService` (export / import / `snapshot!` / `rollback!`, on top of `Ai::DataSourceConfigVersion`) and `Ai::DataSources::TemplateLibrary` (the built-in starter manifests). Six MCP actions on `Ai::Tools::DataSourceTool` expose them.
+
+> **The manifest is CREDENTIAL-FREE — by construction, not by convention.** Export **never** traverses the `credentials` association and never serializes a secret. `auth_config` is exported only through a sanitizer that keeps the **`auth_scheme` name** and **non-secret broker knobs** (`token_url`, `role_arn`, `region`, `scope`, …) and drops everything secret-bearing (an allowlist *plus* a `secret`/`password`/`token`/`key`/… denylist screens every key, nested ones too — even a secret hand-planted in `configuration`/`metadata`/`auth_config`). Import re-runs that same sanitizer on the way in, so a hand-edited manifest still can't smuggle a secret into a stored record. **Consequence:** a source restored from a manifest (import / template install / rollback) has **no credential** — you must [attach one separately](#step-3--add-a-credential-when-authenticated) afterward before an authenticated source will fetch. (`requires_auth` and `auth_scheme` survive in the manifest, so the source *knows* it needs auth — it just doesn't carry the key.)
+
+### The manifest shape
+
+`ConfigPortabilityService#export` emits a string-keyed Hash in exactly this shape (and `#import` / templates / config-version snapshots all accept it unchanged):
+
+```jsonc
+{
+  "manifest_version": 1,                  // ConfigPortabilityService::MANIFEST_VERSION
+  "source": {                             // SOURCE_EXPORT_KEYS only — non-secret, portable
+    "name": "Open-Meteo Forecast",
+    "slug": "open-meteo",
+    "source_type": "open_meteo",
+    "category": "weather",
+    "protocol": "rest",
+    "api_base_url": "https://api.open-meteo.com",
+    "description": null,
+    "documentation_url": null,
+    "is_active": true,
+    "requires_auth": false,
+    "respect_robots": true,
+    "crawl_delay_seconds": 0,
+    "priority_order": 100,
+    "capabilities": [],
+    "configuration": { "read_timeout_seconds": 20 },
+    "rate_limits": { "requests_per_minute": 60 },
+    "default_parameters": {},
+    "metadata": {},
+    "auth_scheme": "none",                // NAME only — never a key
+    "auth_config": {}                     // SANITIZED: non-secret knobs only (may be {})
+  },
+  "endpoints": [                          // ENDPOINT_EXPORT_KEYS only, ordered by slug
+    {
+      "name": "Hourly Forecast",
+      "slug": "hourly-forecast",
+      "http_method": "GET",
+      "path_template": "/v1/forecast",
+      "response_format": "json",
+      "expected_content_type": "application/json",
+      "cache_ttl_seconds": 300,
+      "monitorable": false,
+      "change_detection": null,
+      "query_template": { "latitude": "{lat}", "longitude": "{lon}" },
+      "body_template": {},
+      "response_mapping": { "records_path": "hourly" },
+      "response_schema": {},
+      "pagination": {},
+      "incremental": {},
+      "transforms": [],
+      "metadata": {}
+    }
+  ],
+  "exported_at": "2026-06-07T00:00:00Z"   // stamped on export/snapshot; nil in seed templates
+}
+```
+
+What is **deliberately excluded** (never serialized): identity + runtime/usage state (`id`, `account_id`, timestamps, `health_status`, `last_used_at`, `effectiveness_score`, the `usage_count` family), the **entire** `credentials` association, endpoints' runtime cursor/etag/last-modified/contract columns, and any secret-ish `auth_config` value. The manifest is byte-stable across exports (only `exported_at` moves), so two exports of an unchanged source diff cleanly.
+
+> **`exported_at` is informational.** Import ignores it — it exists so snapshots are timestamped and a re-export is diffable. The four built-in templates ship it as `null` (they're seeds, not point-in-time exports).
+
+### Export a source to a manifest
+
+`data_source_export` (`ai.data_sources.read`) returns the manifest for one source. It stamps `exported_at` and never touches credentials:
+
+```
+# MCP: platform.data_source_export
+data_source_id: "open-meteo"       # UUID or slug
+```
+
+```jsonc
+{
+  "success": true,
+  "action": "data_source_export",
+  "permission_used": "ai.data_sources.read",
+  "data_source": { "id": "…", "slug": "open-meteo", "name": "Open-Meteo Forecast" },
+  "manifest": { "manifest_version": 1, "source": { … }, "endpoints": [ … ], "exported_at": "2026-06-07T00:00:00Z" }
+}
+```
+
+Stash that `manifest` object — it's the input you hand to `data_source_import` (below) to recreate the source elsewhere.
+
+### Import / clone a manifest (slug override + dry-run)
+
+`data_source_import` (`ai.data_sources.create`, or `ai.data_sources.manage`) **create-or-updates** a source by slug and **upserts** its endpoints by slug, all in one transaction. It **never sets credentials** (the service contract). Two knobs shape it:
+
+- **`slug`** — override the target slug. Omit it to import under the manifest's own slug (create-or-update *in place* — re-importing an exported source updates it). Supply a **new** slug to **clone**: the importer creates a fresh source under that slug and, because `name` is unique per account, auto-de-dupes the cloned name (`"Open-Meteo Forecast"` → `"Open-Meteo Forecast (2)"`).
+- **`dry_run`** — when `true`, **persist nothing** and return a preview of what *would* happen: `created` (would the source be new?) and a per-endpoint `{ slug, action: "create" | "update" }` plan. Always dry-run an import into an account that may already hold the slug, so you see update-vs-create before committing.
+
+```
+# Dry-run a clone under a new slug — nothing is written:
+#   MCP: platform.data_source_import
+#     manifest: { …the manifest from data_source_export… }
+#     slug:     "open-meteo-staging"
+#     dry_run:  true
+```
+
+```jsonc
+// dry_run response — note the compact preview source + per-endpoint plan
+{
+  "success": true,
+  "action": "data_source_import",
+  "permission_used": "ai.data_sources.create",
+  "data_source": {
+    "id": null, "name": "Open-Meteo Forecast (2)", "slug": "open-meteo-staging",
+    "source_type": "open_meteo", "api_base_url": "https://api.open-meteo.com",
+    "auth_scheme": "none", "requires_auth": false
+  },
+  "created": true,
+  "updated_endpoints": [ { "slug": "hourly-forecast", "action": "create" } ],
+  "dry_run": true,
+  "errors": []
+}
+```
+
+Drop `dry_run` (or set it `false`) to land it. A real import returns the full source detail, `created`, the per-endpoint outcomes, and `errors: []`; on a validation failure the whole transaction rolls back and the action returns an error with the messages. **After a successful import of an authenticated source, attach a credential** ([Step 3](#step-3--add-a-credential-when-authenticated)) — the imported source has none.
+
+> **Agents without the grant file a proposal.** `data_source_import` / `data_source_install_template` / `data_source_rollback_config` are mutations; an agent lacking the required permission gets `requires_approval: true` + a `proposal_id` instead of an error (the manifest is re-sanitized into the proposal payload too). Direct REST/operator calls are authorized upstream.
+
+### List + install templates
+
+The built-in `TemplateLibrary` ships four curated, credential-free starter manifests. `data_source_list_templates` (`ai.data_sources.read`, no params) lists them (the full manifests are omitted from the listing — install one, or export the installed source, to see the whole thing):
+
+```jsonc
+{
+  "success": true,
+  "action": "data_source_list_templates",
+  "templates": [
+    { "slug": "generic-rest-json",  "name": "Generic REST JSON API",            "description": "…", "category": "general" },
+    { "slug": "rss-feed",           "name": "RSS / Atom Feed",                   "description": "…", "category": "news" },
+    { "slug": "open-meteo-weather", "name": "Open-Meteo Weather (public, no key)","description": "…", "category": "weather" },
+    { "slug": "generic-graphql",    "name": "Generic GraphQL API",               "description": "…", "category": "general" }
+  ],
+  "count": 4
+}
+```
+
+`data_source_install_template` (`ai.data_sources.create` / `.manage`) materializes a template's manifest into the account **through the same `import` path** — so it, too, never sets credentials:
+
+```
+# MCP: platform.data_source_install_template
+template_slug: "open-meteo-weather"     # a slug from data_source_list_templates
+```
+
+The response is the import payload (full source detail, `created`, `updated_endpoints`, `errors`) plus the echoed `template_slug`. Notes on the shipped templates:
+
+- **`open-meteo-weather`** is a genuinely public, key-free API — it runs out of the box after install (a good reference for the manifest shape).
+- **`generic-rest-json`** / **`rss-feed`** are scaffolds: their `api_base_url` is a placeholder you replace, and (for RSS) you set `path_template` to your feed path.
+- **`generic-graphql`** ships `auth_scheme: "api_key"` as a *hint* — **no key material is included**; attach the credential after install.
+
+Installing the same template twice collides on slug (create-or-update in place). To install a second copy, import its manifest with a `slug` override via `data_source_import`, or export-then-reimport under a new slug.
+
+### Snapshot, list versions & roll back
+
+Every export can be frozen as an immutable **config version** — an append-only, credential-free manifest snapshot in `ai_data_source_config_versions`, numbered monotonically per source (`next_version_for` = `MAX(version) + 1`). Each row carries a `created_by_type`:
+
+| `created_by_type` | When it's written |
+|---|---|
+| `manual` | an explicit operator snapshot (`ConfigPortabilityService#snapshot!`) |
+| `auto` | a snapshot captured automatically (e.g. before an automated config change) |
+| `rollback` | the **pre-rollback** state, captured automatically by `rollback!` so the rollback itself is reversible/audited |
+
+> **Snapshots are written by the service, not by a standalone MCP action.** `snapshot!` is invoked in-process (manual/auto capture); `rollback!` writes a `rollback` snapshot of the current state *before* it replays. The MCP surface exposes the two read/restore halves — **list** versions and **roll back** to one.
+
+**List the history** with `data_source_config_versions` (`ai.data_sources.read`), latest first:
+
+```
+# MCP: platform.data_source_config_versions
+data_source_id: "open-meteo"
+```
+
+```jsonc
+{
+  "success": true,
+  "action": "data_source_config_versions",
+  "data_source": { "id": "…", "slug": "open-meteo", "name": "Open-Meteo Forecast" },
+  "versions": [
+    { "id": "…", "version": 3, "created_by_type": "rollback", "note": "pre-rollback state before restoring v1", "created_at": "2026-06-07T…Z" },
+    { "id": "…", "version": 2, "created_by_type": "manual",   "note": "before widening rate limit",             "created_at": "2026-06-06T…Z" },
+    { "id": "…", "version": 1, "created_by_type": "manual",   "note": null,                                      "created_at": "2026-06-05T…Z" }
+  ],
+  "count": 3
+}
+```
+
+**Roll back** with `data_source_rollback_config` (`ai.data_sources.manage`) — give it a `version` **number**. The service captures the current state as a new `rollback` snapshot **first** (only persisted once the replay succeeds, so a failed replay leaves no spurious version), then replays the historical manifest through `import` — which, as always, **leaves credentials untouched**:
+
+```
+# MCP: platform.data_source_rollback_config
+data_source_id: "open-meteo"
+version:        1                 # the version NUMBER to restore
+```
+
+```jsonc
+{
+  "success": true,
+  "action": "data_source_rollback_config",
+  "permission_used": "ai.data_sources.manage",
+  "data_source": { "id": "…", "slug": "open-meteo", "name": "Open-Meteo Forecast", … },
+  "restored_version": 1,
+  "created": false,
+  "updated_endpoints": [ { "slug": "hourly-forecast", "action": "update" } ],
+  "errors": [],
+  "message": "Rolled config back to version 1"
+}
+```
+
+A rollback only restores **config** — the source's existing credential keeps working (auth material was never in the manifest), so an authenticated source stays runnable across a rollback without re-attaching a key. A version that doesn't belong to this source, or a failed replay, returns an error rather than a misleading success.
 
 ## Agent usage via MCP
 

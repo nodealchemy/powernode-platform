@@ -21,6 +21,11 @@
   - [A response changed shape — the config-driven transform pipeline](#a-response-changed-shape--the-config-driven-transform-pipeline)
   - [Estimating cost before enabling a costly source (dry-run)](#estimating-cost-before-enabling-a-costly-source-dry-run)
   - [Cache-tag invalidation operations](#cache-tag-invalidation-operations)
+- [Onboarding & config versioning (Phase 4b-3b)](#onboarding--config-versioning-phase-4b-3b)
+  - [Exports are credential-free — the security contract](#exports-are-credential-free--the-security-contract)
+  - [Bulk-onboarding from templates](#bulk-onboarding-from-templates)
+  - [Auditing config history](#auditing-config-history)
+  - [Rolling back a bad config change](#rolling-back-a-bad-config-change)
 - [Discovery & effectiveness (Phase 2a)](#discovery--effectiveness-phase-2a)
 - [Quality, drift & contracts (Phase 2b)](#quality-drift--contracts-phase-2b)
 - [Monitoring a source for changes (Phase 3)](#monitoring-a-source-for-changes-phase-3)
@@ -688,6 +693,155 @@ redis-cli TTL     'data_source_cache:tag:endpoint:<endpoint_id>'
 | Old shape still served right after editing `transforms` | The transformed payload is cached pre-transform-change | Invalidate `endpoint:<endpoint_id>` (or scope by endpoint); next fetch re-runs the pipeline |
 | Tag SETs accumulating in Redis | Normal — they self-expire with their entries (`ttl + grace`) | No action; `invalidate_by_tag` is only needed for *immediate* eviction, not cleanup |
 
+## Onboarding & config versioning (Phase 4b-3b)
+
+Phase 4b-3b adds the **"config not code"** onboarding and lifecycle surface — a source (and its endpoints) becomes a portable, **credential-free** manifest you can export, install from a library template, version, audit, and roll back. It is all built on `Ai::DataSources::ConfigPortabilityService`, the `Ai::DataSources::TemplateLibrary`, and an append-only `Ai::DataSourceConfigVersion` history. Six MCP actions on the existing `data_source_management` tool drive it:
+
+| Action | Permission | What it does |
+|--------|------------|--------------|
+| `data_source_export` | `ai.data_sources.read` | Emit the source's credential-free manifest (re-importable) |
+| `data_source_import` | `ai.data_sources.create` (or `.manage`) | Create-or-update a source + endpoints from a manifest (`dry_run` previews) |
+| `data_source_list_templates` | `ai.data_sources.read` | List the built-in starter-manifest catalog |
+| `data_source_install_template` | `ai.data_sources.create` (or `.manage`) | Materialize a library template into the account |
+| `data_source_config_versions` | `ai.data_sources.read` | List the source's append-only version history (latest first) |
+| `data_source_rollback_config` | `ai.data_sources.manage` | Replay a historical manifest (snapshots the pre-rollback state first) |
+
+> **The three write actions file a PROPOSAL when the agent lacks the grant.** `data_source_import`, `data_source_install_template`, and `data_source_rollback_config` all create-or-update a source, so they follow the same proposal fallback as `data_source_create/update/delete`: an agent whose account lacks the mutation permission does **not** mutate — it files an `Ai::AgentProposal` (the import manifest is **re-sanitized through the export allowlist** before it lands in the proposal record, so a hand-supplied manifest can never park a secret in the proposal payload) and returns `requires_approval: true`. This is unlike `data_source_invalidate_cache`, which hard-denies. The author-side walkthrough lives in [../guides/data-sources.md](../guides/data-sources.md); this section is the operating side.
+
+### Exports are credential-free — the security contract
+
+**A manifest NEVER carries secret material — re-attaching credentials is a deliberate, separate post-import step.** This is the load-bearing security property of the whole onboarding surface, enforced by `ConfigPortabilityService#export`:
+
+- The **credentials association is never traversed** — no `Ai::DataSourceCredential` row, no decrypted api key / secret / token / password / mnemonic, no encrypted column ever enters the manifest.
+- `auth_config` is exported **only through `#sanitize_auth_config`**, never raw: an **allowlist** (`AUTH_CONFIG_ALLOWED_KEYS` — only non-secret structural knobs like `token_url`, `role_arn`, `region`, `scope`, `vault_path`) intersected with a **denylist** (`SECRET_KEY_SUBSTRINGS` + `SECRET_KEY_EXACT`, applied recursively as defense-in-depth, so a key that turns secret-ish — `client_secret`, `web_identity_token`, a bare `token`/`key`/`api_key` — is stripped even if it somehow rode an allowlisted parent). The free-form jsonb columns (`configuration` / `default_parameters` / `metadata`, and the endpoint templates) are recursively **secret-scrubbed** the same way.
+- The same sanitizer **re-runs on import** (`sanitized_source_attrs` → `sanitize_auth_config`) — an inbound manifest is never trusted to already be clean, so a hand-edited manifest cannot smuggle a secret into the stored record.
+
+Because the manifest is credential-free, after **any** import / template install / rollback the operator must re-establish what the manifest deliberately omits, before the source can actually fetch:
+
+1. **Re-attach credentials.** `#import` *never* sets credentials (its hard contract). If the source `requires_auth`, attach a credential via the credentials API/UI — see [Procedure — register a new source](#procedure--register-a-new-source) step 2 — then `make_default` it. An imported `requires_auth: true` source with no credential will fail `validate_config` with `"Active but has no usable credential"` and fail live fetches at the signer.
+2. **Re-point Vault references.** A manifest *may* carry a `vault_path` **structural knob** (it is allowlisted as a path, not material), but that path is meaningful only in the **source** environment. After importing into a new account/cluster, re-point `configuration["mtls"].vault_path` (outbound client cert — see [mTLS troubleshooting](#mtls-troubleshooting-outbound-client-certificates)) and any broker `auth_config["broker"]["vault_path"]` (Vault dynamic engine — see [Credential brokering](#credential-brokering-phase-4b-2a)) at the secret that actually exists in the **target** Vault, and store that material out-of-band per [Cryptographic Material Safety](../../CLAUDE.md).
+3. **Re-supply the STS `external_id`.** `external_id` is **deliberately excluded** from the export allowlist — an AWS STS `external_id` is a confused-deputy **shared secret**, not a portable knob. After importing an `aws_sts` brokered source, the importing operator must re-supply `external_id` (alongside the base AWS credential) for the target role's trust policy.
+
+> **Templates ship in the repo, so they are credential-free *by construction*.** `TemplateLibrary` manifests are checked in and shipped to every account; they carry only `auth_scheme: "none"` or `"api_key"` (the scheme NAME, no key) and at most `{}` `auth_config`. Even so, `install` routes through `#import`, which re-runs the sanitizer — defense in depth against a hand-edited template. A template that declares `requires_auth: true` (e.g. `generic-graphql`) still needs the operator to attach the key afterward.
+
+### Bulk-onboarding from templates
+
+For standing up many sources fast, start from the built-in template catalog rather than hand-writing each manifest. `Ai::DataSources::TemplateLibrary` is an account-agnostic, credential-free library of starter manifests in the exact shape `#export`/`#import` use; **installing a template is just importing a seeded manifest**. The current catalog:
+
+| Template slug | Category | Auth | Notes |
+|---------------|----------|------|-------|
+| `generic-rest-json` | general | none | Blank REST/JSON scaffold — replace the placeholder base URL + example endpoint |
+| `rss-feed` | news | none | Public RSS/Atom feed reader (`respect_robots: true`, `crawl_delay_seconds: 5`) |
+| `open-meteo-weather` | weather | none | **Works out of the box** — real public no-key weather API; good reference manifest |
+| `generic-graphql` | general | api_key | GraphQL POST scaffold; `auth_scheme: "api_key"` is a HINT — attach the key after install |
+
+List the catalog, then install by slug:
+
+```bash
+# 1. List the starter catalog (slug / name / description / category — manifests omitted)
+#    platform.data_source_list_templates
+#      → { templates: [{slug, name, description, category}, ...], count: N }
+
+# 2. Install one (materializes its credential-free manifest via ConfigPortabilityService#import)
+#    platform.data_source_install_template  template_slug: "open-meteo-weather"
+#      → { data_source: {...}, created: true, updated_endpoints: [{slug, action}], errors: [] }
+```
+
+```ruby
+# rails runner — bulk-onboard several templates into one account in a loop.
+# install() NEVER sets credentials; target_slug lets you install the same template
+# more than once (the model de-dupes the name on a clone).
+account = Account.find_by!(slug: "acme")
+%w[open-meteo-weather rss-feed generic-rest-json].each do |slug|
+  result = Ai::DataSources::TemplateLibrary.install(slug, account: account)
+  Rails.logger.info("[data-sources] installed #{slug}: created=#{result[:created]} errors=#{result[:errors].inspect}")
+end
+```
+
+Operating notes:
+
+- **Idempotent by slug.** `#import` does `find_or_initialize_by(slug:)` for the source and upserts endpoints by slug, **all in one transaction** — re-installing the same template **updates** rather than duplicating (`created: false`). To install the same template as a *second* source, pass an override `slug:` / `target_slug:` (a clone under a new slug gets its **name de-duplicated** — `"… (2)"` — so it can't trip the per-account name-uniqueness validation).
+- **Preview with `dry_run`.** `data_source_import` / `install` accept `dry_run: true` — returns the create/update plan (`updated_endpoints: [{slug, action}]`, source compact preview) and persists **nothing**. Use it to confirm an import will *update* vs *create* before committing.
+- **Transactional all-or-nothing.** A single bad endpoint records an error and rolls the **whole** import back (no half-applied source). The action surfaces that as an `error_result` (nil `data_source` + populated `errors`).
+- **Migrating a source between accounts/clusters** is export-then-import: `data_source_export` the source (carry the manifest out — it is diffable and secret-free), `data_source_import` it into the target, then complete the credential-free gaps per [the security contract](#exports-are-credential-free--the-security-contract).
+
+### Auditing config history
+
+Every source carries an **append-only** config-version history in `ai_data_source_config_versions` (`Ai::DataSourceConfigVersion`) — one row per monotonic `version` (1, 2, 3…), each a full credential-free `manifest` snapshot of the source + endpoints at that point in time, classified by `created_by_type`:
+
+| `created_by_type` | Captured when |
+|-------------------|---------------|
+| `manual` | An explicit operator snapshot (`snapshot!(created_by_type: "manual")`) |
+| `auto` | Automatically (e.g. before an automated config change) |
+| `rollback` | The pre-rollback state, recorded by a `rollback!` to preserve reversibility |
+
+> **The persisted `manifest` is credential-free, same as an export** — it is produced by the same `#export`, so a version row **never** contains secrets (the model documents this as a `SECURITY` invariant). The history is safe to read, diff, and surface in the UI.
+
+List the history (newest first):
+
+```bash
+#    platform.data_source_config_versions  data_source_id: ":id"
+#      → { versions: [{id, version, created_by_type, note, created_at}, ...], count: N }
+```
+
+```ruby
+# rails runner — diff two versions' manifests to see exactly what changed.
+ds = Ai::DataSource.for_account(account).find_by!(slug: "open-meteo-weather")
+v_old, v_new = ds.config_versions.ordered.last(2)          # ascending → the two most recent
+require "json"
+puts JSON.pretty_generate(v_new.manifest)                  # full credential-free snapshot
+# (manifests are byte-stable except exported_at, so a plain Hash/JSON diff is honest)
+```
+
+- The unique index is `(ai_data_source_id, version)`; `next_version_for` is a `MAX(version)+1` check-then-act, so a concurrent snapshot that collides on the index is **retried** (up to 3×, recomputing the next version) rather than failing — versions stay gap-tolerant but never duplicate.
+- The listing carries metadata only (`version` / `created_by_type` / `note` / `created_at`) — the full `manifest` jsonb is read at the model layer (`ds.config_versions`), not in the compact MCP listing.
+- There is **no MCP/REST action that snapshots on demand** — versions are written by `ConfigPortabilityService#snapshot!` (manual/auto) and by `rollback!` (the `rollback` row). To capture a manual checkpoint before a risky hand-edit, call `snapshot!` from `rails runner`:
+
+```ruby
+Ai::DataSources::ConfigPortabilityService.new(account: account)
+  .snapshot!(ds, created_by_type: "manual", note: "before widening forecast query_template")
+```
+
+### Rolling back a bad config change
+
+When a config edit goes wrong — a broken `transforms` pipeline, a bad `response_mapping`, a wrong base URL, a fat-fingered rate limit — restore a known-good version with `data_source_rollback_config`. It does **not** blindly overwrite: `ConfigPortabilityService#rollback!` **captures the current (pre-rollback) state first**, then replays the historical manifest through the same transactional `#import` (so credentials are never touched and a partial replay rolls itself back).
+
+```bash
+# Restore the source's config to a prior version NUMBER (from data_source_config_versions).
+#    platform.data_source_rollback_config  data_source_id: ":id"  version: 3
+#      → { restored_version: 3, created: false, updated_endpoints: [...], errors: [],
+#          message: "Rolled config back to version 3" }
+```
+
+**The pre-rollback snapshot is what makes a rollback reversible.** The sequence is deliberate:
+
+1. `rollback!` builds the **current** manifest in memory (`export(data_source)`) but does **not** persist it yet.
+2. It replays version *N*'s historical manifest via `#import`.
+3. **Only if the replay succeeds** does it persist the pre-rollback manifest as a **new `rollback`-type version** (`note: "pre-rollback state before restoring v<N>"`). A *failed* replay therefore leaves **no spurious `rollback` row** behind.
+
+So a rollback never loses the state it replaced — it becomes the newest version in the history. If the rollback itself was a mistake, **roll forward** by rolling back *to that pre-rollback `rollback` version* (it is now just another numbered version you can restore). Recovery is always "pick a version, restore it," in either direction.
+
+**What a failed rollback returns.** The replay is `#import`, which is transactional — a bad historical manifest (e.g. an endpoint that no longer validates under current model rules) rolls its own partial writes back. `rollback!` then returns `restored_version: nil` with a **populated `errors`** array (and the pre-rollback snapshot is **not** written). The MCP action inspects exactly that and surfaces it as a **failure**, not a misleading success:
+
+```jsonc
+// data_source_rollback_config on a replay that failed:
+{ "success": false, "error": "endpoint forecast: Response mapping is invalid" }
+```
+
+- A **version not found for this source** returns `{ error: "config version not found for this data source" }` up front (the version is resolved account- and source-scoped, so you can't restore another source's version).
+- `version` is **required** — omitting it is an `ArgumentError` (`"version is required"`).
+- A rollback is a **mutation** gated by `ai.data_sources.manage`; an agent lacking it files a proposal (`proposed_changes: { action: "rollback_config", data_source_id:, version: }`) rather than rolling back.
+
+> **A rollback restores CONFIG, not credentials or cache.** Per the credential-free contract, replaying a manifest never re-attaches credentials — if the rolled-back-to version pre-dated a credential change, the *current* credentials still apply (re-attach/re-point per [the security contract](#exports-are-credential-free--the-security-contract) if needed). And because a config change can alter the response shape, **if the rollback changed an endpoint's `transforms`/`response_mapping`, invalidate that endpoint's cache** (see [Cache-tag invalidation operations](#cache-tag-invalidation-operations)) so stale-shaped entries are dropped and the next fetch re-derives under the restored config.
+
+| Symptom | Likely cause | First action |
+|---------|--------------|--------------|
+| `data_source_rollback_config` returns `success: false` with an endpoint error | The historical manifest no longer validates under current model rules; the transactional replay rolled back | Read the `error`; fix the offending field, or roll back to a *different* (still-valid) version. No `rollback` snapshot was written |
+| `error: "config version not found for this data source"` | The `version` number doesn't exist for this source (or belongs to another source) | List valid versions with `data_source_config_versions`; the version is account+source scoped |
+| Rolled back but the source still fetches the wrong shape | The endpoint's old transformed/mapped payload is still cached (transforms/cache are pre-change) | Invalidate the endpoint's cache (`endpoint:<id>` tag or scope) so the next fetch re-runs under the restored config |
+| Rolled back but the source can't authenticate | Rollback restores config only — credentials are never touched, and the rolled-back-to manifest carries no secret | Re-attach/`make_default` the credential and re-point any `vault_path`/`external_id` per the security contract |
+| Want to undo the rollback itself | The pre-rollback state was snapshotted as a new `rollback`-type version | Roll *forward* by restoring that pre-rollback version number — it's just another entry in the history |
+
 ## Discovery & effectiveness (Phase 2a)
 
 Phase 2a layers two operator-relevant capabilities onto the registry: a per-source **effectiveness score** that accrues from real fetches, and **semantic discovery** that ranks sources for a natural-language need. Both are backed by a `data_source`-type node in the knowledge graph (one per source), embedded with the same `Ai::Memory::EmbeddingService` used for skills. This section covers what to monitor, how to backfill the graph nodes, and how to read the ranking weights operationally.
@@ -1328,6 +1482,11 @@ curl -X PATCH \
 | Cache tag invalidation (Phase 4b-3a) | `server/app/services/ai/data_sources/response_cache_service.rb` (`TAG_NAMESPACE = "data_source_cache:tag"`, `.invalidate_by_tag`, `.default_tags` — `ds:`/`endpoint:`/`slug:`; `#index_tags` on write — TTL `ttl+grace`, extend-only, self-expiring; fail-open) |
 | MCP cache-invalidation action (Phase 4b-3a) | `server/app/services/ai/tools/data_source_tool.rb` (`data_source_invalidate_cache` — `INVALIDATE_CACHE_PERMISSION = "ai.data_sources.update"` or `.manage`; hard-deny (no proposal); `tag` > scope precedence; `#invalidate_cache`) registered in `platform_api_tool_registry.rb` |
 | Migration (Phase 4b-3a) | `server/db/migrate/20260607000000_add_transforms_to_ai_data_source_endpoints.rb` (adds `ai_data_source_endpoints.transforms` jsonb default `{}`; no index — config blob read with its endpoint row) |
+| Service — Config portability (Phase 4b-3b) | `server/app/services/ai/data_sources/config_portability_service.rb` (`#export`/`#import`/`#snapshot!`/`#rollback!`; `SOURCE_EXPORT_KEYS`/`ENDPOINT_EXPORT_KEYS` allowlists, `AUTH_CONFIG_ALLOWED_KEYS` + `SECRET_KEY_SUBSTRINGS`/`SECRET_KEY_EXACT` denylist, `#sanitize_auth_config`/`#scrub_value` — credentials never traversed, `external_id` excluded; transactional import, slug/name de-dup, `persist_manifest_snapshot` retry-on-collision) |
+| Library — Templates (Phase 4b-3b) | `server/app/services/ai/data_sources/template_library.rb` (`.all`/`.find`/`.install`; credential-free starter manifests `generic-rest-json`/`rss-feed`/`open-meteo-weather`/`generic-graphql`; `base_manifest`/`default_source`; install routes through `ConfigPortabilityService#import` — re-sanitizes, never sets credentials) |
+| Model — Config version (Phase 4b-3b) | `server/app/models/ai/data_source_config_version.rb` (`CREATED_BY_TYPES` auto/manual/rollback; `for_data_source`/`ordered`/`latest_first`; `.next_version_for`; credential-free `manifest` jsonb — SECURITY invariant) |
+| Migration (Phase 4b-3b) | `server/db/migrate/20260607010000_create_ai_data_source_config_versions.rb` (append-only `ai_data_source_config_versions`; unique `(ai_data_source_id, version)`, FK index suppressed — covered by the composite's leftmost prefix) |
+| MCP onboarding actions (Phase 4b-3b) | `server/app/services/ai/tools/data_source_tool.rb` (`data_source_export`/`_import`/`_list_templates`/`_install_template`/`_config_versions`/`_rollback_config`; `MUTATION_PERMISSIONS` — import/install ⇒ `.create`, rollback ⇒ `.manage`; proposal fallback with `sanitized_manifest_for_proposal`; `#rollback_config` surfaces `restored_version: nil` + errors as a failure) |
 | Model — Schema version (Phase 2b) | `server/app/models/ai/data_source_schema_version.rb` (`CLASSIFICATIONS`; `for_endpoint`/`ordered`/`latest_first`/`breaking`) |
 | Model — Quality expectation (Phase 2b) | `server/app/models/ai/data_source_expectation.rb` (`RULE_TYPES`, `SEVERITIES`; `active`/`errors`) |
 | Model — KG node | `server/app/models/ai/knowledge_graph_node.rb` (`data_source` entity type, `.data_source_nodes`, `.for_data_source`) |
@@ -1372,4 +1531,4 @@ curl -X PATCH \
 
 - `docs/platform/DATA_SOURCES.md`
 
-_Last verified: 2026-06-06 (Phase 4b-3a retrieval transforms + dry-run cost estimates + cache-tag invalidation added)_
+_Last verified: 2026-06-07 (Phase 4b-3b onboarding portability + config versioning/rollback + template library + credential-free export contract added)_
