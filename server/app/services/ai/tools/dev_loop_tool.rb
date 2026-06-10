@@ -131,7 +131,7 @@ module Ai
         iteration = prepare_iteration(loop_record, task, params)
         record_outcome(loop_record, task, iteration, outcome, summary, params)
 
-        {
+        response = {
           success: true,
           task_key: task.task_key,
           task_status: task.reload.status,
@@ -139,6 +139,13 @@ module Ai
           queue: queue_snapshot(loop_record.reload),
           all_tasks_completed: loop_record.all_tasks_completed?
         }
+        # Governance annotation (report-only — no approval lane until an
+        # executor consumes it; see audit finding F3-01 for why).
+        if Array(params[:files_changed]).size > 5
+          response[:governance] = { category: "dev.multi_file_change",
+                                    files_changed: Array(params[:files_changed]).size }
+        end
+        response
       rescue Ai::RalphTask::InvalidTransitionError, Ai::RalphIteration::InvalidTransitionError,
              ActiveRecord::RecordInvalid => e
         error_result(e.message)
@@ -235,7 +242,7 @@ module Ai
 
       def queue_snapshot(loop_record)
         tasks = loop_record.ralph_tasks
-        {
+        snapshot = {
           pending: tasks.pending.count,
           in_progress: tasks.in_progress.count,
           passed: tasks.passed.count,
@@ -243,6 +250,27 @@ module Ai
           blocked: tasks.blocked.count,
           progress_percentage: loop_record.progress_percentage
         }
+        if (criteria = (loop_record.configuration || {})["completion"]).is_a?(Hash)
+          snapshot[:completion] = completion_assessment(loop_record, criteria)
+        end
+        snapshot
+      end
+
+      # Evaluates configuration.completion criteria over executor-facing tasks
+      # (human-decision tasks are excluded — the loop can't resolve them).
+      # Report-only: operators complete the loop; executors use this to know
+      # when a run is effectively done.
+      def completion_assessment(loop_record, criteria)
+        executable = loop_record.ralph_tasks.where.not(execution_type: "human")
+        total = executable.count
+        non_terminal = executable.where.not(status: Ai::RalphTask::TERMINAL_STATUSES).count
+        failed_pct = total.zero? ? 0.0 : (executable.failed.count.to_f / total * 100).round(1)
+
+        met = total.positive?
+        met &&= non_terminal.zero? if criteria["all_tasks_terminal"]
+        met &&= failed_pct <= criteria["max_failed_pct"].to_f if criteria["max_failed_pct"]
+
+        { criteria: criteria, met: met, non_terminal: non_terminal, failed_pct: failed_pct }
       end
 
       def find_loop(id_or_name)

@@ -28,6 +28,8 @@ module Ai
       trading.modify_schedule
       trading.release_held_session trading.graduate_to_live trading.chain_session
       project.adapt project.cost_control project.scale_horizontal project.relocate project.schema_change project.security_change
+      dev.pull_task dev.complete_task dev.commit_to_branch
+      dev.multi_file_change dev.merge
       *
     ].freeze
 

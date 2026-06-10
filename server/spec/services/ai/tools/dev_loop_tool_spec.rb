@@ -250,6 +250,53 @@ RSpec.describe Ai::Tools::DevLoopTool do
     end
   end
 
+  describe "governance" do
+    it "registers the dev.* intervention categories" do
+      %w[dev.pull_task dev.complete_task dev.commit_to_branch dev.multi_file_change dev.merge].each do |cat|
+        expect(Ai::InterventionPolicy.category_registered?(cat)).to be(true), "expected #{cat} registered"
+      end
+    end
+
+    it "annotates completions touching more than 5 files (report-only)" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "wide")
+      ralph_loop.update!(status: "running", started_at: Time.current)
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+      result = tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "wide",
+        outcome: "passed", summary: "broad refactor",
+        files_changed: %w[a.rb b.rb c.rb d.rb e.rb f.rb g.rb]
+      })
+
+      expect(result[:governance]).to eq(category: "dev.multi_file_change", files_changed: 7)
+    end
+
+    it "assesses configuration.completion criteria in queue snapshots" do
+      ralph_loop.update!(configuration: {
+        "completion" => { "all_tasks_terminal" => true, "max_failed_pct" => 20 }
+      })
+      create(:ai_ralph_task, :passed, ralph_loop: ralph_loop, task_key: "done")
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "open")
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "decision", execution_type: "human")
+
+      result = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+      completion = result[:loop][:queue][:completion]
+
+      expect(completion[:met]).to be false
+      expect(completion[:non_terminal]).to eq(1) # "open" claimed in_progress; human excluded
+      expect(completion[:failed_pct]).to eq(0.0)
+
+      tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "open",
+        outcome: "passed", summary: "done"
+      })
+      snapshot = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+      expect(snapshot[:queue_empty]).to be true
+      expect(snapshot[:queue][:completion][:met]).to be true
+    end
+  end
+
   describe "context requirements" do
     it "requires a user or agent claimant" do
       anonymous = described_class.new(account: account)
