@@ -1,0 +1,264 @@
+# frozen_string_literal: true
+
+module Ai
+  module Tools
+    # MCP tool bridging Ralph Loop task queues to external loop executors
+    # (Claude Code sessions today, container agents later). Executors PULL
+    # work via dev_next_task and report results via dev_complete_task —
+    # the platform schedules, tracks, and governs but never pushes work.
+    class DevLoopTool < BaseTool
+      REQUIRED_PERMISSION = "ai.agents.update"
+
+      OUTCOMES = %w[passed failed blocked].freeze
+
+      def self.definition
+        {
+          name: "dev_loop",
+          description: "Pull-based task bridge for Ralph Loop executors (Claude Code or platform agents)",
+          parameters: {
+            action: { type: "string", required: true, description: "Action to perform" },
+            loop_id: { type: "string", required: false, description: "Ralph loop ID or name" },
+            task_key: { type: "string", required: false, description: "Task key being reported" },
+            outcome: { type: "string", required: false, description: "passed | failed | blocked" },
+            summary: { type: "string", required: false, description: "What was done / why it failed or blocked" },
+            check_results: { type: "object", required: false, description: "Verification evidence (specs run, results)" },
+            learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
+            git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
+            commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
+            files_changed: { type: "array", required: false, description: "Paths touched by this task" }
+          }
+        }
+      end
+
+      def self.action_definitions
+        {
+          "dev_next_task" => {
+            description: "Claim the next pending task from a Ralph Loop queue (priority/dependency ordered). " \
+                         "Returns the task with acceptance criteria, guardrails, and loop context. " \
+                         "Idempotent: re-claiming returns your own in-progress task. " \
+                         "Refuses when the loop is halted (kill switch, paused, terminal, max iterations).",
+            parameters: {
+              loop_id: { type: "string", required: true, description: "Ralph loop ID or name" }
+            }
+          },
+          "dev_complete_task" => {
+            description: "Report the outcome of a claimed task. Records a RalphIteration with verification " \
+                         "evidence, transitions the task (passed/failed/blocked), and captures learnings on the loop.",
+            parameters: {
+              loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
+              task_key: { type: "string", required: true, description: "Task key being reported" },
+              outcome: { type: "string", required: true, description: "passed | failed | blocked" },
+              summary: { type: "string", required: true, description: "What was done / why it failed or blocked" },
+              check_results: { type: "object", required: false, description: "Verification evidence (specs run, results)" },
+              learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
+              git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
+              commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
+              files_changed: { type: "array", required: false, description: "Paths touched by this task" }
+            }
+          }
+        }
+      end
+
+      protected
+
+      def call(params)
+        return error_result("Account context required") unless account
+        return error_result("User or agent context required") unless claimant_ref
+
+        case params[:action]
+        when "dev_next_task" then next_task(params)
+        when "dev_complete_task" then complete_task(params)
+        else
+          error_result("Unknown action: #{params[:action]}")
+        end
+      end
+
+      private
+
+      def next_task(params)
+        loop_record = find_loop(params[:loop_id])
+        return error_result("Ralph loop not found") unless loop_record
+
+        if (reason = halt_reason(loop_record))
+          return { success: true, halted: true, reason: reason, task: nil }
+        end
+
+        result = nil
+        loop_record.with_lock do
+          result = claim_under_lock(loop_record)
+        end
+        result
+      rescue Ai::RalphTask::InvalidTransitionError, ActiveRecord::RecordInvalid => e
+        error_result(e.message)
+      end
+
+      def claim_under_lock(loop_record)
+        if (mine = own_in_progress_task(loop_record))
+          return task_payload(loop_record, mine, reclaimed: true)
+        end
+
+        task = claimable_task(loop_record)
+        unless task
+          return { success: true, task: nil, queue_empty: true,
+                   queue: queue_snapshot(loop_record) }
+        end
+
+        loop_record.start! if loop_record.can_start?
+        task.start!
+        task.record_execution_attempt!
+        task.update!(metadata: (task.metadata || {}).merge(
+          "claimed_by" => claimant_ref,
+          "claimed_at" => Time.current.iso8601
+        ))
+
+        task_payload(loop_record, task)
+      end
+
+      def complete_task(params)
+        loop_record = find_loop(params[:loop_id])
+        return error_result("Ralph loop not found") unless loop_record
+
+        task = loop_record.ralph_tasks.find_by(task_key: params[:task_key])
+        return error_result("Task not found: #{params[:task_key]}") unless task
+        return error_result("Task is #{task.status}, not in_progress — claim it via dev_next_task first") unless task.in_progress?
+
+        outcome = params[:outcome].to_s
+        return error_result("Invalid outcome: #{outcome} (use #{OUTCOMES.join(' | ')})") unless OUTCOMES.include?(outcome)
+
+        summary = params[:summary].to_s
+        return error_result("summary is required") if summary.blank?
+
+        iteration = prepare_iteration(loop_record, task, params)
+        record_outcome(loop_record, task, iteration, outcome, summary, params)
+
+        {
+          success: true,
+          task_key: task.task_key,
+          task_status: task.reload.status,
+          iteration_number: iteration.iteration_number,
+          queue: queue_snapshot(loop_record.reload),
+          all_tasks_completed: loop_record.all_tasks_completed?
+        }
+      rescue Ai::RalphTask::InvalidTransitionError, Ai::RalphIteration::InvalidTransitionError,
+             ActiveRecord::RecordInvalid => e
+        error_result(e.message)
+      end
+
+      def prepare_iteration(loop_record, task, params)
+        iteration = loop_record.create_iteration(task: task)
+        iteration.update!(ralph_task: task) if iteration.ralph_task_id != task.id
+
+        check_results = params[:check_results].is_a?(Hash) ? params[:check_results] : {}
+        check_results = check_results.merge("files_changed" => params[:files_changed]) if params[:files_changed].present?
+
+        iteration.start!
+        iteration.update!(check_results: check_results, git_branch: params[:git_branch])
+        iteration
+      end
+
+      def record_outcome(loop_record, task, iteration, outcome, summary, params)
+        case outcome
+        when "passed"
+          # complete! promotes the learning onto the loop automatically
+          iteration.complete!(
+            output: summary,
+            checks_passed: true,
+            commit_sha: params[:commit_sha],
+            learning: params[:learning]
+          )
+          task.pass!(iteration_number: iteration.iteration_number)
+        when "failed"
+          iteration.fail!(error_message: summary)
+          task.fail!(error_message: summary)
+          capture_learning(loop_record, task, iteration, params[:learning])
+        when "blocked"
+          iteration.fail!(error_message: summary, error_code: "blocked")
+          task.block!(reason: summary)
+          capture_learning(loop_record, task, iteration, params[:learning])
+        end
+      end
+
+      def capture_learning(loop_record, task, iteration, learning)
+        return if learning.blank?
+
+        loop_record.add_learning(learning, context: {
+          iteration: iteration.iteration_number, task_key: task.task_key
+        })
+        iteration.update!(learning_extracted: learning)
+      end
+
+      # Halt checks — executors must stop pulling when any of these hold.
+      def halt_reason(loop_record)
+        return "emergency_halt" if account.respond_to?(:ai_suspended?) && account.ai_suspended?
+        return "schedule_paused" if loop_record.schedule_paused?
+        return "loop_#{loop_record.status}" if loop_record.status.in?(%w[paused completed cancelled failed])
+        return "max_iterations_reached" if loop_record.max_iterations_reached?
+
+        nil
+      end
+
+      def own_in_progress_task(loop_record)
+        loop_record.ralph_tasks.in_progress.detect do |t|
+          t.metadata&.dig("claimed_by") == claimant_ref
+        end
+      end
+
+      # Mirrors RalphLoop#next_task ordering but excludes human-decision tasks —
+      # those surface for operators, never for loop executors.
+      def claimable_task(loop_record)
+        loop_record.ralph_tasks.pending
+                   .where.not(execution_type: "human")
+                   .order(priority: :desc, position: :asc)
+                   .detect(&:dependencies_satisfied?)
+      end
+
+      def task_payload(loop_record, task, reclaimed: false)
+        config = loop_record.configuration || {}
+        {
+          success: true,
+          reclaimed: reclaimed,
+          task: task.task_details,
+          loop: {
+            id: loop_record.id,
+            name: loop_record.name,
+            status: loop_record.status,
+            branch: loop_record.branch,
+            repository_url: loop_record.repository_url,
+            loop_spec_path: config["loop_spec_path"],
+            guardrails: config["guardrails"],
+            current_iteration: loop_record.current_iteration,
+            max_iterations: loop_record.max_iterations,
+            queue: queue_snapshot(loop_record)
+          }
+        }
+      end
+
+      def queue_snapshot(loop_record)
+        tasks = loop_record.ralph_tasks
+        {
+          pending: tasks.pending.count,
+          in_progress: tasks.in_progress.count,
+          passed: tasks.passed.count,
+          failed: tasks.failed.count,
+          blocked: tasks.blocked.count,
+          progress_percentage: loop_record.progress_percentage
+        }
+      end
+
+      def find_loop(id_or_name)
+        return nil if id_or_name.blank?
+
+        account.ai_ralph_loops.find_by(id: id_or_name) ||
+          account.ai_ralph_loops.where("name ILIKE ?", id_or_name).first
+      end
+
+      def claimant_ref
+        if user
+          "user:#{user.id}"
+        elsif agent
+          "agent:#{agent.id}"
+        end
+      end
+    end
+  end
+end

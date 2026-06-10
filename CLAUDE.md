@@ -309,6 +309,7 @@ All `platform.*` tools by area — see [reference/auto/mcp-tools.md](docs/refere
 - **AI Autonomy & Safety** (16): `emergency_halt`, `emergency_resume`, `kill_switch_status`, `create_agent_goal`, `list_agent_goals`, `update_agent_goal`, `agent_introspect`, `propose_feature`, `send_proactive_notification`, `discover_claude_sessions`, `request_code_change`, `create_proposal`, `escalate`, `request_feedback`, `report_issue`
 - **Codebase Intelligence** (14): `code_context_tree`, `code_file_skeleton`, `code_semantic_search`, `code_identifier_search`, `code_semantic_navigate`, `code_feature_hub`, `code_blast_radius`, `code_static_analysis`, `code_index_status`, `code_upsert_node`, `code_create_relation`, `code_search_graph`, `code_prune_stale`, `code_bulk_index`
 - **DevOps & CI/CD** (6): `create_gitea_repository`, `update_gitea_repository`, `dispatch_to_runner`, `trigger_pipeline`, `list_pipelines`, `get_pipeline_status`
+- **Dev Loop Bridge** (2): `dev_next_task`, `dev_complete_task` — pull-based Ralph Loop task queue for loop executors (Claude Code sessions, future container agents)
 - **Storage Ownership** (4): `system_assign_storage_owner`, `system_list_storage_assignments_by_owner`, `system_storage_chown_status`, `system_storage_chown_retry`
 - **System Fleet** (3): `system_get_task`, `system_revert_disk_image`, `system_update_module_assignment`
 

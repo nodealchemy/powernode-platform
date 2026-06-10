@@ -105,6 +105,7 @@ All MCP actions grouped by subsystem. Full parameter docs: [reference/auto/mcp-t
 | Plans | `validate_plan`, `approve_plan` |
 | Missions | `get_mission_status` |
 | Ralph Loops | `list_ralph_loops`, `get_ralph_loop`, `pause_ralph_loop`, `resume_ralph_loop`, `delete_ralph_loop`, `get_ralph_loop_statistics` |
+| Dev Loop Bridge | `dev_next_task`, `dev_complete_task` |
 | Workspace | `send_message`, `list_messages`, `list_conversations`, `get_conversation_messages`, `send_concierge_message`, `confirm_concierge_action`, `create_workspace`, `list_workspaces` |
 | Monitoring | `get_activity_feed`, `recent_events`, `get_notifications`, `mark_all_notifications_read`, `dismiss_notification`, `dismiss_all_notifications`, `integration_health`, `get_system_health`, `active_sessions` |
 | Governance | `governance_dashboard`, `governance_scan`, `get_governance_report`, `list_governance_reports`, `resolve_governance_report` |
