@@ -67,6 +67,32 @@ RSpec.describe "Api::V1::Ai::Missions", type: :request do
     end
   end
 
+  describe "PATCH /api/v1/ai/missions/:id" do
+    let(:mission) { create(:ai_mission, :active, account: account, created_by: user) }
+
+    # F1-04: the worker's report_failure PATCHes a payload nested under
+    # :mission — it must actually flip the mission, not silently no-op.
+    it "applies worker-shaped nested payloads" do
+      patch "/api/v1/ai/missions/#{mission.id}", headers: headers,
+            params: { mission: { status: "failed", error_message: "provision exhausted retries" } },
+            as: :json
+
+      expect_success_response
+      expect(mission.reload.status).to eq("failed")
+      expect(mission.error_message).to eq("provision exhausted retries")
+    end
+
+    it "applies top-level payloads" do
+      patch "/api/v1/ai/missions/#{mission.id}", headers: headers,
+            params: { status: "failed", error_message: "boom" },
+            as: :json
+
+      expect_success_response
+      expect(mission.reload.status).to eq("failed")
+      expect(mission.error_message).to eq("boom")
+    end
+  end
+
   describe "POST /api/v1/ai/missions/:id/start" do
     let(:mission) { create(:ai_mission, account: account, created_by: user) }
 

@@ -587,7 +587,10 @@ module Api
         end
 
         def mission_params
-          params.permit(
+          # Worker callbacks (e.g. fleet-phase report_failure) send the payload
+          # nested under :mission; UI and API clients send top-level. Accept both.
+          source = params[:mission].is_a?(ActionController::Parameters) ? params.require(:mission) : params
+          source.permit(
             :name, :description, :mission_type, :objective,
             :repository_id, :team_id, :base_branch, :risk_contract_id,
             :status, :current_phase, :branch_name, :error_message,

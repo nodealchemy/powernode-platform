@@ -104,7 +104,7 @@ module Ai
         return { success: false, error: "Ralph loop not found" } unless loop_record
 
         detail = serialize_loop(loop_record)
-        detail[:recent_iterations] = loop_record.iterations
+        detail[:recent_iterations] = loop_record.ralph_iterations
           .order(created_at: :desc)
           .limit(5)
           .map { |i| { id: i.id, status: i.status, started_at: i.started_at, completed_at: i.completed_at } }
