@@ -35,6 +35,28 @@ RSpec.describe Ai::Mission, type: :model do
     it { is_expected.to validate_presence_of(:mission_type) }
     it { is_expected.to validate_inclusion_of(:mission_type).in_array(Ai::Mission::MISSION_TYPES) }
     it { is_expected.to validate_inclusion_of(:status).in_array(Ai::Mission::STATUSES) }
+
+    # Regression: OrchestratorService#complete_mission! writes the terminal
+    # sentinel current_phase="completed" for EVERY mission type, even when a
+    # template's own phase pipeline ends earlier (e.g. reap, adapting). Before
+    # this guard no mission could ever complete — the inclusion validation
+    # rejected "completed" for those types. See audit 2026-06-09 finding F1-02.
+    it "accepts current_phase='completed' even when the template pipeline ends earlier" do
+      mission = build(:ai_mission)
+      mission.mission_template = nil
+      mission.custom_phases = [ { "key" => "reap", "order" => 0 } ]
+      mission.current_phase = "completed"
+      expect(mission).to be_valid
+    end
+
+    it "still rejects a current_phase that is neither a template phase nor the terminal sentinel" do
+      mission = build(:ai_mission)
+      mission.mission_template = nil
+      mission.custom_phases = [ { "key" => "reap", "order" => 0 } ]
+      mission.current_phase = "not_a_real_phase"
+      expect(mission).not_to be_valid
+      expect(mission.errors[:current_phase]).to be_present
+    end
   end
 
   describe "repository validation for development type" do

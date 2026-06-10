@@ -4,7 +4,7 @@ module Ai
   class MissionApproval < ApplicationRecord
     self.table_name = "ai_mission_approvals"
 
-    GATES = %w[feature_selection prd_review code_review merge_approval plan_review handoff].freeze
+    GATES = %w[feature_selection prd_review code_review merge_approval plan_review handoff fleet_review].freeze
     DECISIONS = %w[approved rejected].freeze
 
     # Canonical phase-name → gate-name mapping. Mission phase pipelines

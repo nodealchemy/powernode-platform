@@ -14,6 +14,15 @@ RSpec.describe Ai::MissionApproval, type: :model do
     it { is_expected.to validate_presence_of(:decision) }
     it { is_expected.to validate_inclusion_of(:gate).in_array(Ai::MissionApproval::GATES) }
     it { is_expected.to validate_inclusion_of(:decision).in_array(Ai::MissionApproval::DECISIONS) }
+
+    # Regression: the system_agent_fleet mission template defines a
+    # gate_name override of "fleet_review". Before this gate was registered,
+    # every approval attempt on an agent-fleet mission raised RecordInvalid,
+    # leaving the entire launch_agent_fleet feature dead. See audit
+    # 2026-06-09 finding F1-01.
+    it "includes fleet_review (the agent-fleet template gate) in GATES" do
+      expect(Ai::MissionApproval::GATES).to include("fleet_review")
+    end
   end
 
   describe "#approved?" do

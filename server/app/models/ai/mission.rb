@@ -38,7 +38,11 @@ module Ai
     validates :name, presence: true, length: { maximum: 255 }
     validates :mission_type, presence: true, inclusion: { in: MISSION_TYPES }
     validates :status, presence: true, inclusion: { in: STATUSES }
-    validates :current_phase, inclusion: { in: ->(m) { m.phases_for_type } }, allow_nil: true
+    # "completed" is a universal terminal sentinel written by
+    # OrchestratorService#complete_mission! for every mission type, even when a
+    # template's own phase pipeline ends earlier (e.g. reap, adapting). Allow it
+    # alongside the template-defined phases so missions can actually finish.
+    validates :current_phase, inclusion: { in: ->(m) { m.phases_for_type + %w[completed] } }, allow_nil: true
     validates :deployed_port, numericality: { only_integer: true, greater_than_or_equal_to: 6000, less_than_or_equal_to: 6199 }, allow_nil: true
     validate :repository_required_for_development
 
