@@ -5,7 +5,7 @@
 
 SESSION_ID="${CLAUDE_SESSION_ID:-$$}"
 BATCH_FILE="/tmp/powernode_reindex_${SESSION_ID}.txt"
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/home/rett/Drive/Projects/powernode-platform}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/opt/powernode}"
 
 [[ ! -s "$BATCH_FILE" ]] && exit 0
 

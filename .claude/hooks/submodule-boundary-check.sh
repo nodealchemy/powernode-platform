@@ -7,7 +7,7 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // 
 
 [[ -z "$FILE_PATH" ]] && exit 0
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/home/rett/Drive/Projects/powernode-platform}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/opt/powernode}"
 SUBMODULES=("extensions/business" "extensions/trading" "extensions/supply-chain")
 
 for submod in "${SUBMODULES[@]}"; do

@@ -509,7 +509,7 @@ After adding a new action:
 ```bash
 # Regenerate the catalogue and confirm the new action appears
 cd server && bundle exec rails mcp:generate_tool_catalog
-grep -n "example_generate_report" /home/rett/Drive/Projects/powernode-platform/docs/reference/auto/mcp-tools.md
+grep -n "example_generate_report" /opt/powernode/docs/reference/auto/mcp-tools.md
 
 # Run the spec
 cd server && bundle exec rspec spec/services/ai/tools/example_report_tool_spec.rb
