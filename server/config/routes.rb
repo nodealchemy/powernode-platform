@@ -496,6 +496,7 @@ Rails.application.routes.draw do
           post "providers/:id/health_check", to: "providers#health_check"
           post "provider_health_metrics", to: "providers#store_health_metrics"
           post "providers/sync_all", to: "providers#sync_all"
+          post "providers/sync_pending", to: "providers#sync_pending"
 
           # Kill switch check (worker → server)
           get "kill_switch/check", to: "kill_switch#check"

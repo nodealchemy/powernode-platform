@@ -56,6 +56,8 @@ module Ai
     scope :with_code_execution, -> { where(supports_code_execution: true) }
     scope :for_account, ->(account) { where(account: account) }
     scope :default, -> { where(priority_order: 1) }
+    # ->> (not the jsonb ? operator) — ? is the AR bind placeholder
+    scope :model_sync_pending, -> { where("metadata ->> 'model_sync_pending_at' IS NOT NULL") }
 
     # Callbacks
     before_validation :generate_slug, if: -> { name.present? && slug.blank? }
@@ -112,6 +114,23 @@ module Ai
       }
     end
 
+    # Flag this provider for the worker's pull-based model sync sweep
+    # (AiProviderPendingSyncJob). update_column: no validations (a provider
+    # mid-sync may transiently fail supported_models presence) and no
+    # callbacks (the flag is set from after_commit — a writer that re-enters
+    # callbacks would loop).
+    def mark_model_sync_pending!
+      current_metadata = metadata || {}
+      current_metadata["model_sync_pending_at"] = Time.current.iso8601
+      update_column(:metadata, current_metadata)
+    end
+
+    def clear_model_sync_pending!
+      return unless (metadata || {}).key?("model_sync_pending_at")
+
+      update_column(:metadata, metadata.except("model_sync_pending_at"))
+    end
+
     # Class Methods
     def self.default_for_account(account = nil)
       return nil unless account
@@ -142,9 +161,13 @@ module Ai
       return unless relevant_change
       return unless is_active? # Don't sync if provider was just deactivated
 
-      Ai::ProviderManagementService.sync_provider_models(self, force_refresh: true)
+      # Flag for the worker pull-sweep instead of fetching inline — the old
+      # synchronous fetch put multi-second upstream HTTP calls inside every
+      # provider save. AiProviderPendingSyncJob picks flags up within
+      # minutes; the daily full sweep remains the backstop.
+      mark_model_sync_pending!
     rescue StandardError => e
-      Rails.logger.error "After-commit model sync failed for provider #{id}: #{e.message}"
+      Rails.logger.error "Failed to flag provider #{id} for model sync: #{e.message}"
     end
 
     def update_metadata(key, value)

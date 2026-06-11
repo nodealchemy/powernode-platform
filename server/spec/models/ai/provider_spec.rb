@@ -790,4 +790,69 @@ RSpec.describe Ai::Provider, type: :model do
       end
     end
   end
+
+  # C1 (operator decision 2026-06-11): the after_commit no longer performs the
+  # model fetch inline (multi-second upstream HTTP inside every provider save).
+  # It flags the provider sync-pending; the worker's short-interval pull sweep
+  # (AiProviderPendingSyncJob) picks the flag up, and the daily full sweep
+  # remains the backstop.
+  describe 'model sync queueing (after_commit)' do
+    let(:account) { create(:account) }
+
+    it 'flags a freshly created provider sync-pending instead of syncing inline' do
+      expect(Ai::ProviderManagementService).not_to receive(:sync_provider_models)
+
+      created = create(:ai_provider, :anthropic, account: account)
+
+      expect(created.reload.metadata['model_sync_pending_at']).to be_present
+    end
+
+    it 'flags the provider when a sync-trigger field changes' do
+      existing = create(:ai_provider, :anthropic, account: account)
+      existing.clear_model_sync_pending!
+
+      existing.update!(api_base_url: 'https://api.anthropic.example/v2')
+
+      expect(existing.reload.metadata['model_sync_pending_at']).to be_present
+    end
+
+    it 'does not flag on non-trigger updates' do
+      existing = create(:ai_provider, :anthropic, account: account)
+      existing.clear_model_sync_pending!
+
+      existing.update!(name: 'Renamed Provider')
+
+      expect(existing.reload.metadata).not_to have_key('model_sync_pending_at')
+    end
+
+    it 'does not flag a provider that was just deactivated' do
+      existing = create(:ai_provider, :anthropic, account: account)
+      existing.clear_model_sync_pending!
+
+      existing.update!(is_active: false)
+
+      expect(existing.reload.metadata).not_to have_key('model_sync_pending_at')
+    end
+
+    it 'exposes flagged providers via the model_sync_pending scope' do
+      flagged = create(:ai_provider, :anthropic, account: account)
+      unflagged = create(:ai_provider, :openai, account: account)
+      unflagged.clear_model_sync_pending!
+
+      expect(Ai::Provider.model_sync_pending).to include(flagged)
+      expect(Ai::Provider.model_sync_pending).not_to include(unflagged)
+    end
+
+    # Deferral contract (ModelSync#handle_sync_skipped): a provider created
+    # without credentials skips its fetch — the real sync must queue the
+    # moment a usable credential appears, not wait for the daily sweep.
+    it 'flags the provider when an active credential is created' do
+      existing = create(:ai_provider, :anthropic, account: account)
+      existing.clear_model_sync_pending!
+
+      create(:ai_provider_credential, provider: existing, account: account, is_active: true)
+
+      expect(existing.reload.metadata['model_sync_pending_at']).to be_present
+    end
+  end
 end

@@ -521,4 +521,57 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
       expect(credential).to be_persisted
     end
   end
+
+  # C1 (operator decision 2026-06-11): worker pull-sweep entry point. Walks
+  # providers flagged sync-pending by their create/update callbacks, claims
+  # each flag BEFORE attempting (a permanently failing provider must not
+  # wedge the sweep into retrying every tick), and syncs with force_refresh.
+  describe '.sync_pending_providers' do
+    let(:flagged_provider) { create(:ai_provider, :anthropic, account: account) }
+    let(:unflagged_provider) do
+      create(:ai_provider, :openai, account: account).tap(&:clear_model_sync_pending!)
+    end
+
+    # Account bootstrap seeds providers on create(:account); those get flagged
+    # by the same create callback under test. Clear them so the sweep sees
+    # only this block's fixtures.
+    before do
+      account
+      Ai::Provider.find_each(&:clear_model_sync_pending!)
+    end
+
+    it 'syncs flagged providers with force_refresh and clears the flag' do
+      flagged_provider
+      unflagged_provider
+      expect(described_class).to receive(:sync_provider_models)
+        .with(flagged_provider, force_refresh: true).and_return(true)
+      expect(described_class).not_to receive(:sync_provider_models)
+        .with(unflagged_provider, force_refresh: true)
+
+      results = described_class.sync_pending_providers
+
+      expect(results[:synced]).to eq(1)
+      expect(results[:failed]).to eq(0)
+      expect(flagged_provider.reload.metadata).not_to have_key('model_sync_pending_at')
+    end
+
+    it 'clears the flag even when the sync attempt fails (no retry storm)' do
+      flagged_provider
+      allow(described_class).to receive(:sync_provider_models).and_return(false)
+
+      results = described_class.sync_pending_providers
+
+      expect(results[:failed]).to eq(1)
+      expect(results[:errors].first[:provider_id]).to eq(flagged_provider.id)
+      expect(flagged_provider.reload.metadata).not_to have_key('model_sync_pending_at')
+    end
+
+    it 'returns zero counts when nothing is flagged' do
+      unflagged_provider
+
+      results = described_class.sync_pending_providers
+
+      expect(results).to eq({ synced: 0, failed: 0, errors: [] })
+    end
+  end
 end

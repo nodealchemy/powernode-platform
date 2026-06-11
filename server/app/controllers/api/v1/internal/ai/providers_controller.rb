@@ -62,7 +62,8 @@ module Api
           end
 
           # POST /api/v1/internal/ai/providers/sync_all
-          # Called by AiProviderModelSyncJob to refresh model lists from upstream APIs
+          # Called by AiProviderModelSyncJob (daily full sweep) to refresh
+          # model lists from upstream APIs
           def sync_all
             force_refresh = params[:force_refresh] == true || params[:force_refresh] == "true"
             results = ::Ai::ProviderManagementService.sync_all_providers(force_refresh: force_refresh)
@@ -70,6 +71,17 @@ module Api
             render_success(results: results)
           rescue StandardError => e
             render_internal_error("Failed to sync providers", exception: e)
+          end
+
+          # POST /api/v1/internal/ai/providers/sync_pending
+          # Called by AiProviderPendingSyncJob (short-interval sweep) to pick
+          # up providers flagged sync-pending by their create/update callbacks
+          def sync_pending
+            results = ::Ai::ProviderManagementService.sync_pending_providers
+
+            render_success(results: results)
+          rescue StandardError => e
+            render_internal_error("Failed to sync pending providers", exception: e)
           end
         end
       end

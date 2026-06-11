@@ -37,6 +37,7 @@ module Ai
     before_save :ensure_single_default
     before_destroy :prevent_destroy_if_default_and_only
     after_create :set_as_default_if_first
+    after_commit :flag_provider_model_sync, on: [ :create, :update ]
 
     # Methods
     def credentials
@@ -132,6 +133,19 @@ module Ai
     end
 
     private
+
+    # A provider created before its credentials exist defers its model fetch
+    # (ModelSync#handle_sync_skipped). Queue the real sync the moment a
+    # usable credential appears or changes — without this the deferred fetch
+    # would wait for the daily full sweep.
+    def flag_provider_model_sync
+      return unless is_active?
+      return unless saved_change_to_attribute?("encrypted_credentials") || saved_change_to_attribute?("is_active")
+
+      provider.mark_model_sync_pending! if provider&.is_active?
+    rescue StandardError => e
+      Rails.logger.error "Failed to flag provider #{ai_provider_id} for model sync: #{e.message}"
+    end
 
     def decrypt_credentials
       return {} unless encrypted_credentials.present?

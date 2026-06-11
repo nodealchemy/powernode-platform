@@ -43,6 +43,33 @@ class Ai::ProviderManagementService
         results
       end
 
+      # Sync providers flagged sync-pending by their create/update callbacks.
+      # Called by the worker's short-interval pull sweep
+      # (AiProviderPendingSyncJob → POST internal/ai/providers/sync_pending).
+      # Each flag is claimed BEFORE the attempt: a permanently failing
+      # provider must not wedge the sweep into retrying every tick — the
+      # daily full sweep is the retry path.
+      def sync_pending_providers
+        results = { synced: 0, failed: 0, errors: [] }
+
+        Ai::Provider.model_sync_pending.find_each do |provider|
+          provider.clear_model_sync_pending!
+
+          if sync_provider_models(provider, force_refresh: true)
+            results[:synced] += 1
+          else
+            results[:failed] += 1
+            results[:errors] << { provider_id: provider.id, name: provider.name }
+          end
+        rescue StandardError => e
+          Rails.logger.error "Failed pending model sync for provider #{provider.id}: #{e.message}"
+          results[:failed] += 1
+          results[:errors] << { provider_id: provider.id, name: provider.name, error: e.message }
+        end
+
+        results
+      end
+
       # Sync models for a specific provider (cached for 24 hours)
       # Runs for inactive providers too: syncing only reads from the upstream
       # API, and an inactive provider needs its models populated before the
