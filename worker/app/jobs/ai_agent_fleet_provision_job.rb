@@ -5,6 +5,7 @@
 # Runs only after the review_fleet gate is approved. Shared body:
 # AiAgentFleetPhaseExecution.
 class AiAgentFleetProvisionJob < BaseJob
+  include AiSuspensionCheckConcern
   include AiAgentFleetPhaseExecution
 
   sidekiq_options queue: "ai_execution", retry: 3

@@ -4,6 +4,7 @@
 # Collects per-subtask result envelopes into the mission's fleet report.
 # Shared body: AiAgentFleetPhaseExecution.
 class AiAgentFleetAggregateJob < BaseJob
+  include AiSuspensionCheckConcern
   include AiAgentFleetPhaseExecution
 
   sidekiq_options queue: "ai_execution", retry: 3

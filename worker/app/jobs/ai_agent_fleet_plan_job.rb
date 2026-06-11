@@ -4,6 +4,7 @@
 # Validates the fleet_spec + composes the plan; the mission then advances to the
 # review_fleet approval gate. Shared body: AiAgentFleetPhaseExecution.
 class AiAgentFleetPlanJob < BaseJob
+  include AiSuspensionCheckConcern
   include AiAgentFleetPhaseExecution
 
   sidekiq_options queue: "ai_execution", retry: 3

@@ -33,6 +33,19 @@ class AiMissionCleanupJob < BaseJob
       end
     end
 
+    # Fleet-aware cleanup: a cancelled agent_fleet mission with provisioned
+    # members still has live instances — the reap phase never runs once the
+    # chain stops. The reap callback releases them without advancing a
+    # terminal mission.
+    fleet_members = mission.dig('configuration', 'fleet', 'members')
+    if fleet_members.present?
+      AiAgentFleetReapJob.perform_async({
+        'mission_id' => mission_id,
+        'account_id' => params['account_id'] || mission['account_id']
+      })
+      log_info("Dispatched fleet reap cleanup", mission_id: mission_id, members: fleet_members.size)
+    end
+
     log_info("Mission cleanup completed", mission_id: mission_id)
   rescue StandardError => e
     log_error("Mission cleanup job failed", exception: e, mission_id: params['mission_id'])

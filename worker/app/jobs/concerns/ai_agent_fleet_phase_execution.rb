@@ -14,6 +14,8 @@ module AiAgentFleetPhaseExecution
   def execute(params)
     params = (params || {}).transform_keys(&:to_s)
     validate_required_params(params, "mission_id", "account_id")
+    return if bail_if_ai_suspended!(params["account_id"])
+
     mission_id = params["mission_id"]
     phase = self.class::PHASE
     log_info("[#{self.class.name}] #{phase} starting", mission_id: mission_id)
