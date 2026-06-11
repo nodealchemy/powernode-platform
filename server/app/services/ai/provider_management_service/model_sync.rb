@@ -58,7 +58,7 @@ class Ai::ProviderManagementService
 
         begin
           # Use provider_type for reliable matching (slug can vary)
-          case provider.provider_type&.downcase
+          synced = case provider.provider_type&.downcase
           when "ollama"
             sync_ollama_models(provider)
           when "openai"
@@ -102,6 +102,12 @@ class Ai::ProviderManagementService
               sync_generic_models(provider)
             end
           end
+
+          # A deferred sync (e.g. no credential yet — handle_sync_skipped)
+          # returns false WITHOUT raising: don't cache it as a success, or the
+          # 24h cache would swallow the first real sync after credentials are
+          # configured.
+          return false unless synced
 
           # Health status is now computed via the model's health_status method
           # Cache the successful sync
@@ -312,6 +318,24 @@ class Ai::ProviderManagementService
         raise StandardError, error_message
       end
 
+      # A missing credential is "not configured yet", not a provider failure —
+      # the create-time after_commit sync runs before credentials can possibly
+      # be attached, so deactivating here bricked every freshly created
+      # provider (and silently disabled factory providers across the test
+      # suite). Defer instead: keep is_active and the seeded supported_models
+      # untouched, stamp the skip reason, and let the next sync (post-
+      # credential) do the real fetch.
+      def handle_sync_skipped(provider, reason)
+        Rails.logger.info "[ProviderSync] sync deferred for provider #{provider.id} / #{provider.name}: #{reason}"
+
+        current_metadata = provider.metadata || {}
+        current_metadata["last_sync_skipped_at"] = Time.current.iso8601
+        current_metadata["last_sync_skipped_reason"] = reason
+        Ai::Provider.where(id: provider.id).update_all(metadata: current_metadata)
+        provider.reload
+        false
+      end
+
       # Shared fetch path for Bearer-auth providers that expose a JSON model
       # list (OpenAI-compatible and friends). Yields the parsed model array for
       # provider-specific mapping; the block returns the supported_models array
@@ -322,6 +346,11 @@ class Ai::ProviderManagementService
       def sync_bearer_models(provider, url:, label:, models_key: "data", success_label: nil)
         success_label ||= label
         credential = provider.provider_credentials.active.where(account_id: provider.account_id).first
+
+        if credential.nil?
+          return handle_sync_skipped(provider,
+                                     "no active credential for #{label} — model sync deferred until credentials are configured")
+        end
 
         if credential
           begin

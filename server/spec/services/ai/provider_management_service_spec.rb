@@ -358,30 +358,54 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
       end
     end
 
-    context 'for OpenAI provider' do
+    # A missing credential is "not configured yet", NOT a provider failure.
+    # The old contract deactivated the provider and blanked its model list the
+    # instant it was created (the after_commit sync runs before credentials can
+    # possibly be attached) — a chicken-and-egg that also silently disabled
+    # every factory-created provider in specs. Sync is deferred instead;
+    # genuine fetch failures WITH credentials still deactivate.
+    context 'for OpenAI provider without credentials' do
       let(:openai_provider) { create(:ai_provider, :openai) }
 
-      it 'deactivates provider when sync fails without credentials' do
+      it 'defers the sync and keeps the provider active with its seeded models' do
         result = described_class.sync_provider_models(openai_provider)
 
         expect(result).to be false
         openai_provider.reload
-        expect(openai_provider.supported_models).to be_empty
-        expect(openai_provider.is_active).to be false
-        expect(openai_provider.metadata["last_sync_error"]).to be_present
+        expect(openai_provider.is_active).to be true
+        expect(openai_provider.supported_models).to be_present
+        expect(openai_provider.metadata["last_sync_skipped_reason"]).to match(/no active credential/i)
       end
     end
 
-    context 'for Anthropic provider' do
+    context 'for Anthropic provider without credentials' do
       let(:anthropic_provider) { create(:ai_provider, :anthropic) }
 
-      it 'deactivates provider when sync fails without credentials' do
+      it 'defers the sync and keeps the provider active with its seeded models' do
         result = described_class.sync_provider_models(anthropic_provider)
 
         expect(result).to be false
         anthropic_provider.reload
-        expect(anthropic_provider.supported_models).to be_empty
+        expect(anthropic_provider.is_active).to be true
+        expect(anthropic_provider.supported_models).to be_present
+      end
+    end
+
+    context 'for a bearer provider whose API fetch fails WITH credentials' do
+      let(:anthropic_provider) { create(:ai_provider, :anthropic) }
+
+      it 'still deactivates the provider (genuine failure, not missing setup)' do
+        create(:ai_provider_credential, provider: anthropic_provider,
+               account: anthropic_provider.account, is_active: true)
+        allow(HTTP).to receive(:headers).and_raise(HTTP::ConnectionError.new("api unreachable"))
+
+        result = described_class.sync_provider_models(anthropic_provider, force_refresh: true)
+
+        expect(result).to be false
+        anthropic_provider.reload
         expect(anthropic_provider.is_active).to be false
+        expect(anthropic_provider.supported_models).to be_empty
+        expect(anthropic_provider.metadata["last_sync_error"]).to match(/Failed to sync/)
       end
     end
   end
