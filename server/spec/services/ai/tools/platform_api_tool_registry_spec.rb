@@ -40,6 +40,16 @@ RSpec.describe Ai::Tools::PlatformApiToolRegistry do
       )
     end
 
+    # Audit F4-08 — instance start/stop/reboot were absent from the MCP
+    # surface despite full InstanceControlService + AASM support.
+    it "registers the SystemFleetTool instance control actions" do
+      expect(described_class::TOOLS).to include(
+        "system_start_instance" => "Ai::Tools::SystemFleetTool",
+        "system_stop_instance" => "Ai::Tools::SystemFleetTool",
+        "system_reboot_instance" => "Ai::Tools::SystemFleetTool"
+      )
+    end
+
     it "registers the SystemFleetTool observability and runbook actions" do
       expect(described_class::TOOLS).to include(
         "system_module_diff" => "Ai::Tools::SystemFleetTool",
