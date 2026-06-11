@@ -46,6 +46,36 @@ RSpec.describe Devops::Docker::ContainerManager do
       manager.create_container(name: "test-app", image: "nginx:latest")
     end
 
+    # F2-01 (operator decision 2026-06-11): isolation runtimes are enforced
+    # only on the fleet/NodeInstance path. A raw HostConfig.Runtime naming an
+    # isolation runtime through this generic path would yield a half-enforced
+    # tier (no labeling, no attestation) — reject before any API call.
+    context 'isolation-runtime guard' do
+      it 'rejects HostConfig.Runtime values that name isolation runtimes' do
+        expect_any_instance_of(Devops::Docker::ApiClient).not_to receive(:container_create)
+
+        expect {
+          manager.create_container(name: "sneaky", image: "nginx:latest",
+                                   params: { HostConfig: { Runtime: "kata-runtime" } })
+        }.to raise_error(ArgumentError, /isolation runtime.*fleet/i)
+      end
+
+      it 'rejects the string-keyed variant too' do
+        expect {
+          manager.create_container(name: "sneaky", image: "nginx:latest",
+                                   params: { "HostConfig" => { "Runtime" => "runsc" } })
+        }.to raise_error(ArgumentError, /isolation runtime.*fleet/i)
+      end
+
+      it 'allows runc and unrelated runtimes through' do
+        expect_any_instance_of(Devops::Docker::ApiClient).to receive(:container_create)
+          .and_return(create_result)
+
+        manager.create_container(name: "ok", image: "nginx:latest",
+                                 params: { HostConfig: { Runtime: "runc" } })
+      end
+    end
+
     it 'creates an activity record' do
       expect {
         manager.create_container(name: "test-app", image: "nginx:latest")

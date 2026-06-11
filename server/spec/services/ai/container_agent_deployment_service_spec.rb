@@ -5,6 +5,16 @@ require "rails_helper"
 RSpec.describe Ai::ContainerAgentDeploymentService do
   let(:account) { create(:account) }
   let(:service) { described_class.new(account: account) }
+  # Agent model-config validation requires an active provider of the model's
+  # provider_type in the account (pre-existing harness gap — every example in
+  # this file failed at the agent factory without it). A save-path callback
+  # flips is_active to false on create regardless of the factory attribute, so
+  # force it back with update_column (callback-free).
+  let!(:anthropic_provider) do
+    create(:ai_provider, :anthropic, account: account).tap do |p|
+      p.update_column(:is_active, true)
+    end
+  end
   let(:agent) do
     create(:ai_agent, account: account, mcp_metadata: {
       "system_prompt" => "You are a helpful assistant",
@@ -44,6 +54,25 @@ RSpec.describe Ai::ContainerAgentDeploymentService do
         .and_return({ env_vars: { "POWERNODE_MCP_URL" => "http://test:3000" }, oauth_application: mock_oauth_app })
       # Stub port allocation — tested separately in PortAllocatorService specs
       allow_any_instance_of(Devops::PortAllocatorService).to receive(:allocate!).and_return(7001)
+    end
+
+    # F2-01 (operator decision 2026-06-11): isolation tiers are enforced ONLY
+    # on the fleet/NodeInstance path. SwarmKit has no per-service OCI runtime
+    # selection, so a tier request through this path would deploy with a
+    # half-enforced label — reject it loudly instead.
+    it "rejects templates requesting a non-native isolation tier" do
+      template.update!(security_options: { "isolation_tier" => "kata" })
+
+      expect {
+        service.deploy_agent_session(agent: agent, conversation_id: conversation_id, user: user)
+      }.to raise_error(described_class::DeploymentError, /isolation tier.*fleet/i)
+    end
+
+    it "allows an explicit native tier through" do
+      template.update!(security_options: { "isolation_tier" => "native" })
+
+      instance = service.deploy_agent_session(agent: agent, conversation_id: conversation_id, user: user)
+      expect(instance).to be_persisted
     end
 
     it "creates a container instance and starts provisioning" do

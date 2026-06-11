@@ -35,6 +35,12 @@ module Ai
       cluster = swarm_cluster || find_available_cluster
       template ||= find_chat_agent_template
 
+      # F2-01 (operator decision 2026-06-11): isolation tiers are enforced
+      # only on the fleet/NodeInstance path. SwarmKit has no per-service OCI
+      # runtime selection, so honoring a tier here is impossible — reject
+      # loudly instead of deploying with a half-enforced label.
+      reject_isolation_tier_request!(template)
+
       @logger.info "[ContainerAgentDeployment] Deploying agent #{agent.name} " \
                    "for conversation #{conversation_id} on cluster #{cluster.name}"
 
@@ -130,6 +136,20 @@ module Ai
     end
 
     private
+
+    # F2-01 — fail-closed guard. A template expressing an isolation tier
+    # (security_options["isolation_tier"]) cannot be honored on Swarm; only
+    # "native" (or no tier) deploys here. Fleet/NodeInstance deployments are
+    # the enforcement path for every stronger tier.
+    def reject_isolation_tier_request!(template)
+      tier = template.respond_to?(:security_options) &&
+             template.security_options.is_a?(Hash) ? template.security_options["isolation_tier"].to_s : ""
+      return if tier.blank? || tier == "native"
+
+      raise DeploymentError,
+            "isolation tier '#{tier}' cannot be enforced on the Swarm path — " \
+            "deploy isolation-tiered workloads through the fleet/NodeInstance path (F2-01)"
+    end
 
     def find_available_cluster
       cluster = Devops::SwarmCluster.where(account_id: @account.id)

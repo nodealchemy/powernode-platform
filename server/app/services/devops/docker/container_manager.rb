@@ -10,6 +10,8 @@ module Devops
       end
 
       def create_container(name:, image:, params: {})
+        reject_isolation_runtime!(params)
+
         activity = create_activity("create", params: { name: name, image: image }.merge(params))
 
         begin
@@ -128,6 +130,24 @@ module Devops
       end
 
       private
+
+      # F2-01 (operator decision 2026-06-11): isolation runtimes are enforced
+      # only on the fleet/NodeInstance path. A raw HostConfig.Runtime naming an
+      # isolation runtime through this generic pass-through would yield a
+      # half-enforced tier (no honest labeling, no attestation) — reject before
+      # any Docker API call. Soft extension reference: in core mode (system
+      # extension absent) no isolation runtimes exist and the guard is inert.
+      def reject_isolation_runtime!(params)
+        return unless defined?(::System::IsolationTier)
+
+        host_config = params[:HostConfig] || params["HostConfig"]
+        runtime = host_config.is_a?(Hash) ? (host_config[:Runtime] || host_config["Runtime"]) : nil
+        return if runtime.blank? || !::System::IsolationTier.isolation_runtime?(runtime)
+
+        raise ArgumentError,
+              "HostConfig.Runtime '#{runtime}' is an isolation runtime — isolation-tiered " \
+              "workloads must deploy through the fleet/NodeInstance path (F2-01)"
+      end
 
       def create_activity(type, container: nil, params: {})
         @host.docker_activities.create!(
