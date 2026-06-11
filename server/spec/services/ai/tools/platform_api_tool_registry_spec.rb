@@ -32,6 +32,19 @@ RSpec.describe Ai::Tools::PlatformApiToolRegistry do
         "create_gitea_repository" => "Ai::Tools::ProjectInitTool"
       )
     end
+
+    it "registers the SystemFleetTool observability and runbook actions" do
+      expect(described_class::TOOLS).to include(
+        "system_module_diff" => "Ai::Tools::SystemFleetTool",
+        "system_compliance_snapshot" => "Ai::Tools::SystemFleetTool",
+        "system_runbook_generate" => "Ai::Tools::SystemFleetTool",
+        "system_cve_runbook_generate" => "Ai::Tools::SystemFleetTool",
+        "system_cve_triage" => "Ai::Tools::SystemFleetTool",
+        "system_recent_signals" => "Ai::Tools::SystemFleetTool",
+        "system_attribute_failure" => "Ai::Tools::SystemFleetTool",
+        "system_inspect_correlation" => "Ai::Tools::SystemFleetTool"
+      )
+    end
   end
 
   describe ".available_tools" do
