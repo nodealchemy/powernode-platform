@@ -61,6 +61,59 @@ RSpec.describe System::InstancePoolReplenisherJob, type: :job do
       end
     end
 
+    # Audit F5-05 — per-pool failure isolation: one pool's replenish blowing
+    # up (timeout, connection refused) must not abort the remaining pools'
+    # tick, or a single bad pool starves every other pool of replenishment.
+    context "when one pool's replenish raises" do
+      let(:pools) { [ { "id" => "pool-bad" }, { "id" => "pool-good" } ] }
+
+      before do
+        allow(api_client).to receive(:get).and_return({ success: true, data: { pools: pools } })
+        allow(api_client).to receive(:post)
+          .with(%r{/instance_pools/pool-(bad|good)/recycle_stale})
+          .and_return({ success: true, data: { recycle_result: {} } })
+        allow(api_client).to receive(:post)
+          .with("/api/v1/system/instance_pools/pool-bad/replenish")
+          .and_raise(StandardError.new("connection refused"))
+        allow(api_client).to receive(:post)
+          .with("/api/v1/system/instance_pools/pool-good/replenish")
+          .and_return({ success: true, data: { replenish_result: { provisioned: 2 } } })
+      end
+
+      it "still replenishes the remaining pools and reports their counts" do
+        expect { @result = job.execute }.not_to raise_error
+
+        expect(@result).to eq(processed: 2, total_provisioned: 2)
+        expect(api_client).to have_received(:post)
+          .with("/api/v1/system/instance_pools/pool-good/replenish")
+      end
+    end
+
+    context "when one pool's replenish returns an error response" do
+      let(:pools) { [ { "id" => "pool-err" }, { "id" => "pool-ok" } ] }
+
+      before do
+        allow(api_client).to receive(:get).and_return({ success: true, data: { pools: pools } })
+        allow(api_client).to receive(:post)
+          .with(%r{/instance_pools/pool-(err|ok)/recycle_stale})
+          .and_return({ success: true, data: { recycle_result: {} } })
+        allow(api_client).to receive(:post)
+          .with("/api/v1/system/instance_pools/pool-err/replenish")
+          .and_return({ success: false, error: "pool is paused" })
+        allow(api_client).to receive(:post)
+          .with("/api/v1/system/instance_pools/pool-ok/replenish")
+          .and_return({ success: true, data: { replenish_result: { provisioned: 1 } } })
+      end
+
+      it "records the error for that pool and continues with the rest" do
+        result = job.execute
+
+        expect(result).to eq(processed: 2, total_provisioned: 1)
+        expect(api_client).to have_received(:post)
+          .with("/api/v1/system/instance_pools/pool-ok/replenish")
+      end
+    end
+
     context "when a pool's recycle fails" do
       let(:pools) { [ { "id" => "pool-x" } ] }
 
