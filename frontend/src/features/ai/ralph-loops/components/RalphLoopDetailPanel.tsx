@@ -132,6 +132,12 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
             {isRunning && <RotateCcw className="w-3 h-3 mr-1 animate-spin" />}
             {status.label}
           </Badge>
+          {loop.configuration?.workload && (
+            <Badge variant="outline" size="sm" data-testid="ralph-loop-workload-badge">
+              <GitFork className="w-3 h-3 mr-1" />
+              {loop.configuration.workload}
+            </Badge>
+          )}
           {(isRunning || loop.status === 'paused') && (
             <Badge variant={wsConnected ? 'success' : 'warning'} size="sm">
               {wsConnected ? (

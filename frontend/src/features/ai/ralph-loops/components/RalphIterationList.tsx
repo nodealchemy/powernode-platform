@@ -25,7 +25,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
-import type { RalphIterationSummary, RalphIteration, RalphIterationStatus } from '@/shared/services/ai/types/ralph-types';
+import type { RalphIterationSummary, RalphIteration, RalphIterationStatus, CheckCommandResult } from '@/shared/services/ai/types/ralph-types';
 
 interface RalphIterationListProps {
   loopId: string;
@@ -73,8 +73,19 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
     });
   };
 
+  // check_results has two producer shapes: agent executors report an array
+  // of command runs; dev-loop executors report a key/value evidence object
+  // via dev_complete_task. Normalize both up front.
+  const commandChecks: CheckCommandResult[] = Array.isArray(iteration.check_results)
+    ? iteration.check_results
+    : [];
+  const evidenceEntries: [string, unknown][] =
+    iteration.check_results && !Array.isArray(iteration.check_results)
+      ? Object.entries(iteration.check_results)
+      : [];
+
   const hasContent = iteration.ai_prompt || iteration.ai_output ||
-    (iteration.check_results && iteration.check_results.length > 0) ||
+    commandChecks.length > 0 || evidenceEntries.length > 0 ||
     iteration.error_message || iteration.learning_extracted ||
     iteration.input_tokens || iteration.output_tokens || iteration.total_tokens;
 
@@ -134,11 +145,11 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
         </ReportSection>
       )}
 
-      {/* Check Results */}
-      {iteration.check_results && iteration.check_results.length > 0 && (
-        <ReportSection icon={Terminal} title={`Checks (${iteration.check_results.filter(c => c.success).length}/${iteration.check_results.length} passed)`}>
+      {/* Check Results — command-run shape */}
+      {commandChecks.length > 0 && (
+        <ReportSection icon={Terminal} title={`Checks (${commandChecks.filter(c => c.success).length}/${commandChecks.length} passed)`}>
           <div className="space-y-1">
-            {iteration.check_results.map((check, idx) => {
+            {commandChecks.map((check, idx) => {
               const isOpen = expandedChecks.has(idx);
               const hasOutput = !check.success && (check.output || check.error);
               return (
@@ -170,6 +181,22 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
                 </div>
               );
             })}
+          </div>
+        </ReportSection>
+      )}
+
+      {/* Check Results — key/value evidence shape (dev-loop executors) */}
+      {evidenceEntries.length > 0 && (
+        <ReportSection icon={Terminal} title={`Verification Evidence (${evidenceEntries.length})`}>
+          <div className="space-y-1">
+            {evidenceEntries.map(([key, value]) => (
+              <div key={key} className="flex gap-2 text-xs p-2 rounded bg-theme-surface">
+                <span className="font-mono text-theme-secondary shrink-0">{key}</span>
+                <span className="text-theme-text-primary whitespace-pre-wrap break-words min-w-0">
+                  {typeof value === 'string' ? value : JSON.stringify(value)}
+                </span>
+              </div>
+            ))}
           </div>
         </ReportSection>
       )}

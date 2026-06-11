@@ -85,6 +85,9 @@ export interface RalphLoop {
     mcp_server_ids?: string[];
     run_all_active?: boolean;
     parallel_session_id?: string;
+    // Workload identity for queue-driven loops (e.g. "dev-audit") — set at
+    // loop creation; surfaces as a badge in the detail panel.
+    workload?: string;
   };
   metrics?: {
     total_iterations: number;
@@ -175,6 +178,13 @@ export interface RalphTaskSummary {
 }
 
 // Ralph Iteration
+export interface CheckCommandResult {
+  command: string;
+  success: boolean;
+  output?: string;
+  error?: string;
+}
+
 export interface RalphIteration {
   id: string;
   ralph_loop_id: string;
@@ -188,12 +198,10 @@ export interface RalphIteration {
   git_commit_sha?: string;
   git_branch?: string;
   checks_passed?: boolean;
-  check_results?: {
-    command: string;
-    success: boolean;
-    output?: string;
-    error?: string;
-  }[];
+  // Two producer shapes: agent executors report an array of command runs;
+  // dev-loop executors (dev_complete_task) report a key/value evidence
+  // object (e.g. {"rspec": "12 examples, 0 failures"}).
+  check_results?: CheckCommandResult[] | Record<string, unknown>;
   duration_ms?: number;
   input_tokens?: number;
   output_tokens?: number;
