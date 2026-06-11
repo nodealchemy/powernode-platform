@@ -14,7 +14,7 @@ module Ai
     #
     # Usage:
     #   service = Ai::Routing::PrefixCacheService.new(account: account)
-    #   key = service.cache_key_for(messages: messages, model: "claude-sonnet-4")
+    #   key = service.cache_key_for(messages: messages, model: model) # resolved from agent/provider, never a literal
     #   config = service.cache_config_for(provider_type: "anthropic", messages: messages)
     #
     class PrefixCacheService

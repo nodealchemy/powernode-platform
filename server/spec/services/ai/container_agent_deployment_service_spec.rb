@@ -7,18 +7,14 @@ RSpec.describe Ai::ContainerAgentDeploymentService do
   let(:service) { described_class.new(account: account) }
   # Agent model-config validation requires an active provider of the model's
   # provider_type in the account (pre-existing harness gap — every example in
-  # this file failed at the agent factory without it). A save-path callback
-  # flips is_active to false on create regardless of the factory attribute, so
-  # force it back with update_column (callback-free).
-  let!(:anthropic_provider) do
-    create(:ai_provider, :anthropic, account: account).tap do |p|
-      p.update_column(:is_active, true)
-    end
-  end
+  # this file failed at the agent factory without it).
+  let!(:anthropic_provider) { create(:ai_provider, :anthropic, account: account) }
   let(:agent) do
+    # Model resolved from the provider's catalog — never a hardcoded literal.
     create(:ai_agent, account: account, mcp_metadata: {
       "system_prompt" => "You are a helpful assistant",
-      "model_config" => { "model" => "claude-sonnet-4-5-20250929", "provider" => "anthropic" }
+      "model_config" => { "model" => anthropic_provider.supported_models.first["id"],
+                          "provider" => "anthropic" }
     })
   end
   let(:user) { create(:user, account: account) }
@@ -103,7 +99,7 @@ RSpec.describe Ai::ContainerAgentDeploymentService do
 
       params = instance.input_parameters
       expect(params["system_prompt"]).to eq("You are a helpful assistant")
-      expect(params["model"]).to eq("claude-sonnet-4-5-20250929")
+      expect(params["model"]).to eq(anthropic_provider.supported_models.first["id"])
       expect(params["provider"]).to eq("anthropic")
     end
 
@@ -134,7 +130,7 @@ RSpec.describe Ai::ContainerAgentDeploymentService do
 
       env = instance.environment_variables
       expect(env["SYSTEM_PROMPT"]).to eq("You are a helpful assistant")
-      expect(env["MODEL"]).to eq("claude-sonnet-4-5-20250929")
+      expect(env["MODEL"]).to eq(anthropic_provider.supported_models.first["id"])
       expect(env["PROVIDER"]).to eq("anthropic")
     end
 

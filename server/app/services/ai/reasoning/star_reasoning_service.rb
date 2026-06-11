@@ -16,7 +16,7 @@ module Ai
     #     task:       "Build user authentication module",
     #     context:    "Rails API with JWT tokens and Devise",
     #     llm_client: client,
-    #     model:      "gpt-4.1"
+    #     model:      agent.mcp_metadata.dig("model_config", "model") # never a literal
     #   )
     #   result[:task][:implicit_constraints]  # => ["Must handle token expiry", ...]
     #   result[:confidence]                   # => 0.87

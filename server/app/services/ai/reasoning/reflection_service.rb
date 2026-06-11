@@ -14,7 +14,7 @@ module Ai
     #     output:     generated_migration_code,
     #     context:    { agent_id: agent.id },
     #     llm_client: client,
-    #     model:      "gpt-4.1"
+    #     model:      agent.mcp_metadata.dig("model_config", "model") # never a literal
     #   )
     #   result[:should_retry]   # => false
     #   result[:quality_score]  # => 0.82

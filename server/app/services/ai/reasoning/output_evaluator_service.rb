@@ -16,7 +16,7 @@ module Ai
     #     output:     generated_yaml,
     #     criteria:   %w[completeness accuracy],
     #     llm_client: client,
-    #     model:      "gpt-4.1"
+    #     model:      agent.mcp_metadata.dig("model_config", "model") # never a literal
     #   )
     #   result[:verdict]   # => "pass" | "revise" | "reject"
     #   result[:scores]    # => { completeness: 0.9, accuracy: 0.85, ... }

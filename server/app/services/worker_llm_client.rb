@@ -11,10 +11,14 @@ require "uri"
 # Drop-in replacement for Ai::Llm::Client -- same public API (complete,
 # stream, complete_with_tools, complete_structured) returning Ai::Llm::Response.
 #
+# Model names are NEVER hardcoded — resolve from the agent's model_config or
+# the provider's available models (Ai::AgentModelSelector picks one for new
+# agents). Prefer routing work through an Ai::Agent over direct calls.
+#
 # Usage:
 #   # From provider + credential (most common -- mirrors Ai::Llm::Client.new)
 #   client = WorkerLlmClient.new(provider: provider, credential: credential)
-#   response = client.complete(messages: msgs, model: "gpt-4.1")
+#   response = client.complete(messages: msgs, model: agent_model_config["model"])
 #
 #   # From agent_id (worker resolves provider config via internal API)
 #   client = WorkerLlmClient.new(agent_id: agent.id)

@@ -14,7 +14,7 @@ module Ai
     #     task:       "Determine the optimal caching strategy",
     #     context:    "We have 10k RPM and 2GB Redis",
     #     llm_client: client,
-    #     model:      "gpt-4.1"
+    #     model:      agent.mcp_metadata.dig("model_config", "model") # never a literal
     #   )
     #   result[:reasoning_steps]  # => [{ step_number: 1, thought: "...", ... }, ...]
     #   result[:conclusion]       # => "Use write-through caching with 5-min TTL"

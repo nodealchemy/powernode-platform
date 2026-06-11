@@ -4,25 +4,31 @@ module Ai
   module Llm
     # Unified LLM client — single entry point for all provider interactions
     #
+    # Model names are NEVER hardcoded — resolve them from the agent's
+    # model_config (agent.mcp_metadata["model_config"]["model"]), the
+    # provider's supported_models, or Ai::AgentModelSelector. Prefer routing
+    # work through an Ai::Agent (execute path) over direct client calls.
+    #
     # Usage:
     #   client = Ai::Llm::Client.new(provider: provider, credential: credential)
-    #   response = client.complete(messages: [{role: "user", content: "Hello"}], model: "gpt-4.1")
+    #   model  = agent.mcp_metadata.dig("model_config", "model") # never a literal
+    #   response = client.complete(messages: [{role: "user", content: "Hello"}], model: model)
     #   response.content  # => "Hello! How can I help?"
     #   response.usage    # => {prompt_tokens: 5, completion_tokens: 10, ...}
     #
     #   # Streaming
-    #   client.stream(messages: msgs, model: "claude-sonnet-4-5") do |chunk|
+    #   client.stream(messages: msgs, model: model) do |chunk|
     #     print chunk.content if chunk.type == :content_delta
     #   end
     #
     #   # Tool calling
     #   tools = [{name: "get_weather", description: "...", parameters: {...}}]
-    #   response = client.complete_with_tools(messages: msgs, tools: tools, model: "gpt-4.1")
+    #   response = client.complete_with_tools(messages: msgs, tools: tools, model: model)
     #   response.tool_calls  # => [{id: "...", name: "get_weather", arguments: {...}}]
     #
     #   # Structured output
     #   schema = {name: "person", schema: {type: "object", properties: {name: {type: "string"}}}}
-    #   response = client.complete_structured(messages: msgs, schema: schema, model: "gpt-4.1")
+    #   response = client.complete_structured(messages: msgs, schema: schema, model: model)
     #
     class Client
       attr_reader :adapter, :provider, :credential
