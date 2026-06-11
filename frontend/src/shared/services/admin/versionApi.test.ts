@@ -1,5 +1,4 @@
 import { versionApi, VersionInfo, FullVersionInfo, HealthInfo } from './versionApi';
-import { api } from '@/shared/services/api';
 
 // =============================================================================
 // Mocks
@@ -43,16 +42,6 @@ const VERSION_INFO: VersionInfo = {
   patch: 3,
   build_date: '2026-01-15T10:00:00Z',
   git_commit: 'abc1234',
-};
-
-const VERSION_INFO_PRERELEASE: VersionInfo = {
-  version: '1.2.3-beta.1',
-  major: 1,
-  minor: 2,
-  patch: 3,
-  prerelease: 'beta.1',
-  build_date: '2026-01-14T09:00:00Z',
-  git_commit: 'def5678',
 };
 
 const FULL_VERSION_INFO: FullVersionInfo = {
