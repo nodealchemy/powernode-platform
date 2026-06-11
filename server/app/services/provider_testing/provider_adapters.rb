@@ -312,14 +312,51 @@ module ProviderTesting
       api_key = config["api_key"]
       return { success: false, error: "API key not configured", error_code: "MISSING_CREDENTIALS" } unless api_key
 
-      { success: true, provider_info: { status: "active" }, model_info: { test_model: "gpt2" } }
+      # Real credential check (was a stub returning success without any HTTP
+      # call): the free whoami endpoint validates the token — no model names,
+      # no inference spend.
+      response = make_http_request(
+        "https://huggingface.co/api/whoami-v2",
+        method: :get,
+        headers: { "Authorization" => "Bearer #{api_key}" }
+      )
+
+      if response.success?
+        data = JSON.parse(response.body) rescue {}
+        { success: true, provider_info: { status: "active", username: data["name"] }, model_info: {} }
+      else
+        error_data = JSON.parse(response.body) rescue {}
+        { success: false, error: error_data["error"] || "Authentication failed",
+          error_code: "AUTHENTICATION_FAILED" }
+      end
+    rescue StandardError => e
+      { success: false, error: "Hugging Face connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
     end
 
     def test_cohere_connection(provider, config)
       api_key = config["api_key"]
       return { success: false, error: "API key not configured", error_code: "MISSING_CREDENTIALS" } unless api_key
 
-      { success: true, provider_info: { status: "active" }, model_info: { test_model: "command" } }
+      # Real credential check (was a stub returning success without any HTTP
+      # call): the free models-list endpoint validates auth — no hardcoded
+      # model ids, no paid completion.
+      response = make_http_request(
+        "#{provider.api_base_url}/models",
+        method: :get,
+        headers: { "Authorization" => "Bearer #{api_key}" }
+      )
+
+      if response.success?
+        data = JSON.parse(response.body) rescue {}
+        { success: true, provider_info: { status: "active" },
+          model_info: { available_models: data["models"]&.size || 0 } }
+      else
+        error_data = JSON.parse(response.body) rescue {}
+        { success: false, error: error_data["message"] || error_data["error"] || "Authentication failed",
+          error_code: "AUTHENTICATION_FAILED" }
+      end
+    rescue StandardError => e
+      { success: false, error: "Cohere connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
     end
 
     def test_generic_connection(provider, config)

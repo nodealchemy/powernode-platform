@@ -49,6 +49,64 @@ RSpec.describe ProviderTesting::ProviderAdapters do
     end
   end
 
+  describe "#test_huggingface_connection" do
+    let(:provider) do
+      create(:ai_provider, account: account, provider_type: "huggingface",
+             api_base_url: "https://api-inference.huggingface.co")
+    end
+
+    it "validates the token against the free whoami endpoint instead of stub-succeeding" do
+      stub_request(:get, "https://huggingface.co/api/whoami-v2")
+        .with(headers: { "Authorization" => "Bearer sk-test-key" })
+        .to_return(status: 200, body: { name: "powernode-ci" }.to_json,
+                   headers: { "Content-Type" => "application/json" })
+
+      result = service_for(provider).send(:test_huggingface_connection, provider, { "api_key" => "sk-test-key" })
+
+      expect(result[:success]).to be true
+      expect(result[:provider_info][:username]).to eq("powernode-ci")
+    end
+
+    it "reports authentication failure honestly" do
+      stub_request(:get, "https://huggingface.co/api/whoami-v2")
+        .to_return(status: 401, body: { error: "Invalid token" }.to_json)
+
+      result = service_for(provider).send(:test_huggingface_connection, provider, { "api_key" => "sk-test-key" })
+
+      expect(result[:success]).to be false
+      expect(result[:error_code]).to eq("AUTHENTICATION_FAILED")
+    end
+  end
+
+  describe "#test_cohere_connection" do
+    let(:provider) do
+      create(:ai_provider, account: account, provider_type: "cohere",
+             api_base_url: "https://api.cohere.com/v1")
+    end
+
+    it "validates the credential against the free models endpoint instead of stub-succeeding" do
+      stub_request(:get, "https://api.cohere.com/v1/models")
+        .with(headers: { "Authorization" => "Bearer sk-test-key" })
+        .to_return(status: 200, body: { models: [ { name: "a" }, { name: "b" }, { name: "c" } ] }.to_json,
+                   headers: { "Content-Type" => "application/json" })
+
+      result = service_for(provider).send(:test_cohere_connection, provider, { "api_key" => "sk-test-key" })
+
+      expect(result[:success]).to be true
+      expect(result[:model_info][:available_models]).to eq(3)
+    end
+
+    it "reports authentication failure honestly" do
+      stub_request(:get, "https://api.cohere.com/v1/models")
+        .to_return(status: 401, body: { message: "invalid api token" }.to_json)
+
+      result = service_for(provider).send(:test_cohere_connection, provider, { "api_key" => "sk-test-key" })
+
+      expect(result[:success]).to be false
+      expect(result[:error_code]).to eq("AUTHENTICATION_FAILED")
+    end
+  end
+
   describe "#test_xai_connection" do
     let(:provider) do
       create(:ai_provider, account: account, provider_type: "grok",
