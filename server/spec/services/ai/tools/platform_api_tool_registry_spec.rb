@@ -33,6 +33,13 @@ RSpec.describe Ai::Tools::PlatformApiToolRegistry do
       )
     end
 
+    it "registers the SystemFleetTool provider CRUD actions" do
+      expect(described_class::TOOLS).to include(
+        "system_create_provider" => "Ai::Tools::SystemFleetTool",
+        "system_delete_provider" => "Ai::Tools::SystemFleetTool"
+      )
+    end
+
     it "registers the SystemFleetTool observability and runbook actions" do
       expect(described_class::TOOLS).to include(
         "system_module_diff" => "Ai::Tools::SystemFleetTool",

@@ -50,6 +50,8 @@ module Ai
         "system_list_providers"     => "Ai::Tools::SystemFleetTool",
         "system_get_provider"       => "Ai::Tools::SystemFleetTool",
         "system_update_provider"    => "Ai::Tools::SystemFleetTool",
+        "system_create_provider"    => "Ai::Tools::SystemFleetTool",
+        "system_delete_provider"    => "Ai::Tools::SystemFleetTool",
         "system_recycle_pool"       => "Ai::Tools::SystemFleetTool",
 
         # === Package repository management (apt/rpm catalog) ===
