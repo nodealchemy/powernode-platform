@@ -23,7 +23,6 @@ RSpec.describe Ai::Tools::PlatformApiToolRegistry do
         "create_agent" => "Ai::Tools::AgentManagementTool",
         "list_agents" => "Ai::Tools::AgentManagementTool",
         "create_team" => "Ai::Tools::TeamManagementTool",
-        "create_workflow" => "Ai::Tools::WorkflowManagementTool",
         "trigger_pipeline" => "Ai::Tools::PipelineManagementTool",
         "write_shared_memory" => "Ai::Tools::MemoryTool",
         "query_knowledge_base" => "Ai::Tools::KnowledgeTool",
