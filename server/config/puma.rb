@@ -29,6 +29,18 @@ if web_concurrency > 0
   # memory bloat from affecting the entire process.
   workers web_concurrency
   preload_app!
+
+  # Draw routes in the master before forking. With eager_load=false Rails
+  # defers route drawing to the first request (LazyRouteSet), and
+  # RoutesReloader#execute_unless_loaded sets @loaded=true BEFORE the
+  # multi-second draw finishes with no lock — concurrent first requests in a
+  # fresh worker match against a partially-built route set and 404 real
+  # routes (e.g. /api/v1/mcp/message after every SIGUSR2 hot restart, which
+  # made MCP clients drop the server). Drawing once here means every forked
+  # worker inherits the complete route set.
+  before_fork do
+    Rails.application.reload_routes_unless_loaded if defined?(Rails) && Rails.application
+  end
 else
   workers 0
 end
