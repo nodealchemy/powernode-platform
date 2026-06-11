@@ -282,6 +282,27 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
   describe '.sync_provider_models' do
     let(:provider) { create(:ai_provider) }
 
+    let(:ollama_provider) do
+      create(:ai_provider, account: account, provider_type: 'ollama',
+             api_base_url: 'http://localhost:11434',
+             api_endpoint: 'http://localhost:11434')
+    end
+
+    let(:ollama_tags_body) do
+      {
+        models: [
+          {
+            'name' => 'llama3:8b',
+            'size' => 4_661_224_676,
+            'digest' => 'abc123',
+            'modified_at' => '2026-06-01T00:00:00Z',
+            'details' => { 'family' => 'llama', 'parameter_size' => '8B',
+                           'quantization_level' => 'Q4_0', 'format' => 'gguf' }
+          }
+        ]
+      }.to_json
+    end
+
     it 'updates provider with model information' do
       result = described_class.sync_provider_models(provider)
 
@@ -290,12 +311,51 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
       expect(provider.supported_models).to be_present
     end
 
-    it 'returns false for inactive provider' do
-      inactive_provider = create(:ai_provider, is_active: false)
+    context 'with an inactive provider that has no models (activation deadlock)' do
+      before do
+        ollama_provider.update_columns(is_active: false, supported_models: [])
+        stub_request(:get, 'http://localhost:11434/api/tags')
+          .to_return(status: 200, body: ollama_tags_body,
+                     headers: { 'Content-Type' => 'application/json' })
+      end
 
-      result = described_class.sync_provider_models(inactive_provider)
+      it 'syncs models for the inactive provider so it can be activated' do
+        result = described_class.sync_provider_models(ollama_provider, force_refresh: true)
 
-      expect(result).to be false
+        expect(result).to be true
+        ollama_provider.reload
+        expect(ollama_provider.supported_models).to be_present
+        expect(ollama_provider.update(is_active: true)).to be true
+      end
+    end
+
+    context 'when the upstream API is unreachable' do
+      before do
+        ollama_provider.update_columns(is_active: false, supported_models: [])
+        stub_request(:get, 'http://localhost:11434/api/tags').to_timeout
+        stub_request(:get, 'http://localhost:11434/ollama/api/tags').to_timeout
+      end
+
+      it 'returns false and records the failure reason for the operator' do
+        result = described_class.sync_provider_models(ollama_provider, force_refresh: true)
+
+        expect(result).to be false
+        ollama_provider.reload
+        expect(ollama_provider.metadata['last_sync_error']).to include('Could not connect to Ollama API')
+        expect(ollama_provider.metadata['last_sync_failed_at']).to be_present
+      end
+    end
+
+    context 'when the sync raises unexpectedly' do
+      it 'returns false and records the error message' do
+        allow(described_class).to receive(:sync_ollama_models).and_raise(StandardError, 'boom upstream')
+
+        result = described_class.sync_provider_models(ollama_provider, force_refresh: true)
+
+        expect(result).to be false
+        ollama_provider.reload
+        expect(ollama_provider.metadata['last_sync_error']).to eq('boom upstream')
+      end
     end
 
     context 'for OpenAI provider' do

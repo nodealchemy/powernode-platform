@@ -43,14 +43,9 @@ module Api
         end
 
         # POST /api/v1/ai/providers/:id/sync_models
+        # Allowed for inactive providers: sync populates supported_models,
+        # which the presence validation requires before activation.
         def sync_models
-          unless @provider.is_active?
-            return render_error(
-              "Cannot sync models: Provider is not active. Please activate the provider first.",
-              status: :unprocessable_content
-            )
-          end
-
           success = ::Ai::ProviderManagementService.sync_provider_models(@provider, force_refresh: true)
 
           if success
@@ -63,11 +58,13 @@ module Api
               models_count: @provider.supported_models&.length || 0
             )
           else
-            error_message = case @provider.slug
-            when "ollama", "remote-ollama-server"
-                             "Failed to sync models: Could not connect to Ollama server at #{@provider.api_base_url}. Ensure the server is running."
+            recorded_reason = @provider.reload.metadata&.dig("last_sync_error")
+            error_message = if recorded_reason.present?
+                              "Failed to sync provider models: #{recorded_reason}"
+            elsif @provider.slug.in?(%w[ollama remote-ollama-server])
+                              "Failed to sync models: Could not connect to Ollama server at #{@provider.api_base_url}. Ensure the server is running."
             else
-                             "Failed to sync provider models. Please check the provider configuration."
+                              "Failed to sync provider models. Please check the provider configuration."
             end
             render_error(error_message, status: :unprocessable_content)
           end

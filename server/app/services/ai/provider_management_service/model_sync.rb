@@ -44,9 +44,10 @@ class Ai::ProviderManagementService
       end
 
       # Sync models for a specific provider (cached for 24 hours)
+      # Runs for inactive providers too: syncing only reads from the upstream
+      # API, and an inactive provider needs its models populated before the
+      # supported_models presence validation will allow activating it.
       def sync_provider_models(provider, force_refresh: false)
-        return false unless provider.is_active?
-
         cache_key = "ai:provider_models:#{provider.id}"
 
         # Use cache unless force refresh is requested
@@ -108,7 +109,7 @@ class Ai::ProviderManagementService
           true
         rescue StandardError => e
           Rails.logger.error "Failed to sync models for provider #{provider.id}: #{e.message}"
-          false
+          record_sync_failure(provider, e.message)
         end
       end
 
@@ -284,23 +285,29 @@ class Ai::ProviderManagementService
         breakdown
       end
 
-      # Handle sync failure: clear models, deactivate provider, raise error
-      def handle_sync_failure(provider, error_message)
-        Rails.logger.error "[ProviderSync] #{error_message} (provider: #{provider.id} / #{provider.name})"
-
-        # Store the sync error in metadata for visibility
+      # Record the sync failure reason on provider metadata for operator
+      # visibility. update_all bypasses validations: a provider with no synced
+      # models cannot satisfy the supported_models presence validation.
+      # Returns false so it can be the tail call of a failure path.
+      def record_sync_failure(provider, error_message, **extra_columns)
         current_metadata = provider.metadata || {}
         current_metadata["last_sync_error"] = error_message
         current_metadata["last_sync_failed_at"] = Time.current.iso8601
 
-        # Use update_all to bypass supported_models presence validation
-        # (we intentionally want 0 models on failure)
         Ai::Provider.where(id: provider.id).update_all(
-          supported_models: [],
-          is_active: false,
-          metadata: current_metadata
+          { metadata: current_metadata }.merge(extra_columns)
         )
         provider.reload
+        false
+      end
+
+      # Handle sync failure: clear models, deactivate provider, raise error
+      def handle_sync_failure(provider, error_message)
+        Rails.logger.error "[ProviderSync] #{error_message} (provider: #{provider.id} / #{provider.name})"
+
+        # We intentionally want 0 models and a deactivated provider on a
+        # failed fetch
+        record_sync_failure(provider, error_message, supported_models: [], is_active: false)
 
         raise StandardError, error_message
       end
