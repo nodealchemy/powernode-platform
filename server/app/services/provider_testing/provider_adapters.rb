@@ -245,18 +245,13 @@ module ProviderTesting
         "Content-Type" => "application/json"
       }
 
-      test_model = "claude-haiku-4-5-20251001"
-      payload = {
-        model: test_model,
-        messages: [ { role: "user", content: "Hi" } ],
-        max_tokens: 10
-      }
-
+      # Credential check via the free models-list endpoint (same pattern as
+      # the OpenAI tester): validates auth without a hardcoded model id or a
+      # paid test completion — model names are never hardcoded.
       response = make_http_request(
-        "#{provider.api_base_url}/messages",
-        method: :post,
-        headers: headers,
-        body: payload.to_json
+        "#{provider.api_base_url}/models",
+        method: :get,
+        headers: headers
       )
 
       if response.success?
@@ -264,7 +259,7 @@ module ProviderTesting
         {
           success: true,
           provider_info: { status: "active", api_version: "2023-06-01" },
-          model_info: { test_model: test_model, response_id: data["id"] }
+          model_info: { available_models: data["data"]&.size || 0 }
         }
       else
         error_data = JSON.parse(response.body) rescue {}
@@ -281,26 +276,21 @@ module ProviderTesting
 
       begin
         headers = { "Authorization" => "Bearer #{api_key}", "Content-Type" => "application/json" }
-        test_model = "grok-3"
-        payload = {
-          model: test_model,
-          messages: [ { role: "user", content: 'Hello, respond with just "OK"' } ],
-          max_tokens: 10,
-          temperature: 0
-        }
 
+        # Credential check via the free models-list endpoint (OpenAI-compatible
+        # API): no hardcoded model id, no paid test completion.
         response = make_http_request(
-          "#{provider.api_base_url}/chat/completions",
-          method: :post,
-          headers: headers,
-          body: payload.to_json
+          "#{provider.api_base_url}/models",
+          method: :get,
+          headers: headers
         )
 
         if response.success?
+          data = JSON.parse(response.body) rescue {}
           {
             success: true,
-            provider_info: { status: "active", api_version: "v1", models_available: [ "grok-3", "grok-vision" ] },
-            model_info: { test_model: test_model }
+            provider_info: { status: "active", api_version: "v1" },
+            model_info: { available_models: data["data"]&.size || 0 }
           }
         else
           error_data = JSON.parse(response.body) rescue {}
@@ -311,7 +301,7 @@ module ProviderTesting
           else
                             error_data["message"] || "Connection test failed"
           end
-          { success: false, error: error_message, error_code: "API_ERROR" }
+          { success: false, error: error_message, error_code: "AUTHENTICATION_FAILED" }
         end
       rescue StandardError => e
         { success: false, error: "x.ai connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
