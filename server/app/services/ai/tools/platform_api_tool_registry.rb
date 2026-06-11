@@ -250,6 +250,10 @@ module Ai
         "system_sdwan_delete_ovn_acl"                  => "Ai::Tools::SdwanTool",
         "system_sdwan_delete_ovn_logical_switch"       => "Ai::Tools::SdwanTool",
         "system_sdwan_delete_ovn_deployment"           => "Ai::Tools::SdwanTool",
+        "system_sdwan_list_ovn_deployments"            => "Ai::Tools::SdwanTool",
+        "system_sdwan_get_ovn_deployment"              => "Ai::Tools::SdwanTool",
+        "system_sdwan_list_ovn_logical_switches"       => "Ai::Tools::SdwanTool",
+        "system_sdwan_delete_ovn_logical_switch_port"  => "Ai::Tools::SdwanTool",
         "system_sdwan_delete_ipfix_collector"          => "Ai::Tools::SdwanTool",
         # Phase B: Docker daemon auto-provisioning on NodeInstances.
         # Distinct from the docker_* family below — those tools manage
