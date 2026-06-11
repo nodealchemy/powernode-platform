@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
-# Background job to sync AI provider models and pricing from upstream APIs
-# Runs every 6 hours to keep model lists and pricing up to date
+# Background job to sync AI provider models and pricing from upstream APIs.
+# Runs daily (early morning UTC) as the full-sweep backstop;
+# AiProviderPendingSyncJob handles prompt pickup of providers flagged
+# sync-pending by their create/update callbacks.
 class AiProviderModelSyncJob < BaseJob
   sidekiq_options queue: :ai_orchestration
 

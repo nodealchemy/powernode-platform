@@ -247,12 +247,24 @@
       queue: maintenance
       description: 'Clean up old acknowledged Docker events'
 
-    # AI Provider model sync - every 6 hours
+    # AI Provider model sync - daily full sweep, early morning UTC (after the
+    # 1 AM pricing sync). Backstop for the pending sweep below — also covers
+    # providers that never get flagged (e.g. upstream added models without
+    # any local config change).
     ai_provider_model_sync:
-      cron: '0 */6 * * *'
+      cron: '30 1 * * *'
       class: AiProviderModelSyncJob
       queue: ai_orchestration
-      description: 'Sync AI provider models and pricing from upstream APIs'
+      description: 'Daily full sweep: sync AI provider models and pricing from upstream APIs'
+
+    # AI Provider pending model sync - every 5 minutes. Providers flag
+    # themselves sync-pending on create/update (the after_commit no longer
+    # fetches inline); this sweep picks the flags up promptly.
+    ai_provider_pending_model_sync:
+      cron: '*/5 * * * *'
+      class: AiProviderPendingSyncJob
+      queue: ai_orchestration
+      description: 'Sync model lists for providers flagged sync-pending on create/update'
 
     # AI Provider health check - every 10 minutes
     ai_provider_health_check:
