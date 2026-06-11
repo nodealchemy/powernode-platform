@@ -20,7 +20,7 @@ RSpec.describe SystemExecuteTaskJob, type: :job do
   before { allow(job).to receive(:api_client).and_return(api_client) }
 
   describe "#execute" do
-    let(:endpoint) { "/api/v1/system/worker_api/operations/#{operation_id}/execute" }
+    let(:endpoint) { "/api/v1/system/worker_api/tasks/#{operation_id}/execute" }
 
     context "happy path (server returns 200)" do
       let(:response) do
