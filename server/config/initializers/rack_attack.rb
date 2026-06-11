@@ -66,6 +66,21 @@ class Rack::Attack
   # THROTTLE RULES
   # =========================================================================
 
+  # Anonymous device-claim polling (POST /api/v1/system/node_api/claim).
+  # Unauthenticated at this lifecycle stage, so it must be rate-limited to
+  # prevent unbounded UnclaimedDevice row creation from one source. A real
+  # device polls every ~30s (2/min); 20/min/IP leaves wide headroom while
+  # capping a flood. See audit 2026-06-09 finding F6-03.
+  #
+  # Registered OUTSIDE the test-env guard below so the rule itself is
+  # testable (extensions/system claim_throttle_spec.rb). The test-env
+  # fallback is effectively unlimited so unrelated request specs hitting
+  # the claim endpoint never trip it — the throttle spec opts in by
+  # stubbing get_rate_limit.
+  throttle("system_node_claim_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("node_claim_attempts_per_minute", Rails.env.test? ? 999_999 : 20) : 999_999 }, period: 1.minute) do |request|
+    request.ip if request.path == "/api/v1/system/node_api/claim" && request.post?
+  end
+
   unless Rails.env.test?
     # -----------------------------------------------------------------------
     # AUTHENTICATION ENDPOINTS (Strict limits - not tier-based)
@@ -247,15 +262,6 @@ class Rack::Attack
       if request.path.start_with?("/api/") && !extract_account_from_request(request)
         request.ip
       end
-    end
-
-    # Anonymous device-claim polling (POST /api/v1/system/node_api/claim).
-    # Unauthenticated at this lifecycle stage, so it must be rate-limited to
-    # prevent unbounded UnclaimedDevice row creation from one source. A real
-    # device polls every ~30s (2/min); 20/min/IP leaves wide headroom while
-    # capping a flood. See audit 2026-06-09 finding F6-03.
-    throttle("system_node_claim_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("node_claim_attempts_per_minute", 20) : 999_999 }, period: 1.minute) do |request|
-      request.ip if request.path == "/api/v1/system/node_api/claim" && request.post?
     end
 
     # -----------------------------------------------------------------------
