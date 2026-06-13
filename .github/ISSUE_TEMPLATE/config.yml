@@ -1,0 +1,16 @@
+# Issue template chooser configuration.
+# Disables the "blank issue" escape hatch so every issue starts from one of the
+# templates above, and routes non-issue traffic (Q&A, security reports) elsewhere.
+blank_issues_enabled: false
+contact_links:
+  - name: Community Q&A and discussion
+    url: https://github.com/nodealchemy/powernode-platform/discussions
+    about: >-
+      Questions, ideas, "is this the right approach," and general discussion
+      belong in GitHub Discussions — not the issue tracker.
+  - name: Report a security vulnerability (do not open an issue)
+    url: https://github.com/nodealchemy/powernode-platform/security/advisories/new
+    about: >-
+      Security issues are handled privately and outside the stability-tier system.
+      Open a private GitHub Security Advisory; see SECURITY.md for the full process
+      and disclosure timeline.

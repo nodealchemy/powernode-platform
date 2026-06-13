@@ -1,0 +1,55 @@
+# Powernode label catalog.
+#
+# GATED MAINTAINER STEP: this file is a declaration only. Applying it to the GitHub
+# repository (creating/updating/renaming labels) is a deliberate maintainer action,
+# not something to run automatically. Sync it with a labeler tool of choice
+# (e.g. github-label-sync, crazy-max/ghaction-github-labeler) only when a maintainer
+# decides to. Editing this file does NOT change anything on GitHub by itself.
+#
+# Tier labels mirror docs/STABILITY.md exactly — keep the names (`tier:stable`,
+# `tier:beta`, `tier:experimental`) in sync with that document. The issue and PR
+# templates ask reporters to choose one.
+#
+# Fields: name, color (6-hex, no leading '#'), description.
+
+# --- Stability tiers (mirror docs/STABILITY.md) ---
+
+- name: "tier:stable"
+  color: "0e8a16"
+  description: "Stable subsystem: settled contracts, regressions are priority work."
+
+- name: "tier:beta"
+  color: "fbca04"
+  description: "Beta subsystem: useful but contracts may shift at minor-version boundaries."
+
+- name: "tier:experimental"
+  color: "d93f0b"
+  description: "Experimental subsystem: no contract/response promises; community maintainers welcome."
+
+# --- Contributor onboarding ---
+
+- name: "good-first-issue"
+  color: "7057ff"
+  description: "Self-contained, well-scoped issue suitable for a first-time contributor."
+
+- name: "design-partner"
+  color: "5319e7"
+  description: "Work tied to a design-partner engagement or their feedback."
+
+# --- Standard triage labels ---
+
+- name: "bug"
+  color: "d73a4a"
+  description: "Something isn't working as intended."
+
+- name: "enhancement"
+  color: "a2eeef"
+  description: "New capability, integration, or improvement."
+
+- name: "documentation"
+  color: "0075ca"
+  description: "Improvements or additions to documentation."
+
+- name: "help-wanted"
+  color: "008672"
+  description: "Maintainers would welcome a contributor picking this up."

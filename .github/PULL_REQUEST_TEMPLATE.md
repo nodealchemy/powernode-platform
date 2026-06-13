@@ -17,6 +17,15 @@ Refs #
 - [ ] Test coverage improvement
 - [ ] Tooling / CI / scripts
 
+## Affected Subsystem & Tier
+
+Which area does this touch, and what stability tier is it? See
+[`docs/STABILITY.md`](../docs/STABILITY.md). Breaking changes in Stable areas need a
+deprecation path; Beta/Experimental have more latitude.
+
+- Subsystem / component:
+- Tier: `tier:stable` / `tier:beta` / `tier:experimental`
+
 ## Testing
 
 How was this verified?
@@ -30,22 +39,17 @@ How was this verified?
 Paste relevant test output or manual verification steps here.
 ```
 
-## Pre-Merge Checklist
+## Checklist
 
-- [ ] `./scripts/validate.sh` passes (or `--skip-tests` for incremental work)
-- [ ] TypeScript clean: `cd frontend && npx tsc --noEmit`
-- [ ] Conventions followed (see [`CLAUDE.md`](../CLAUDE.md)):
-  - [ ] Frontend uses `currentUser?.permissions?.includes()` — never roles
-  - [ ] Theme classes only (`bg-theme-*`, `text-theme-*`) — no hardcoded colors
-  - [ ] `render_success()` / `render_error()` for API responses
-  - [ ] `# frozen_string_literal: true` on new `.rb` files
-  - [ ] No `console.log` in production code — use `logger` from `@/shared/utils/logger`
-  - [ ] No `any` in TypeScript
-- [ ] Migrations: `t.references` automatically creates the index — no separate `add_index` for FK columns
-- [ ] Commit messages follow `type(scope): subject` format
-- [ ] No AI-assistant attribution in commits (no `Co-Authored-By: Claude`, etc.)
-- [ ] Documentation updated where applicable (`docs/`, `CLAUDE.md`, `README.md`)
-- [ ] No secrets, credentials, fixtures with real customer data, or internal hostnames committed
+- [ ] Tests pass (`./scripts/validate.sh`, or `--skip-tests` for incremental work) and TypeScript is clean (`cd frontend && npx tsc --noEmit`)
+- [ ] Access control uses the **permission system**, not roles (`currentUser?.permissions?.includes()` on the frontend, `current_user.has_permission?('name')` on the backend)
+- [ ] Frontend uses **theme classes** (`bg-theme-*`, `text-theme-*`) — no hardcoded colors
+- [ ] Backend uses `render_success()` / `render_error()`; new `.rb` files have `# frozen_string_literal: true`; no `console.log` or `any` in TypeScript
+- [ ] Migrations rely on `t.references` for FK indexes (no separate `add_index`)
+- [ ] Commit messages follow `type(scope): subject`, with no AI-assistant attribution
+- [ ] Documentation updated where applicable (`docs/`, `README.md`)
+- [ ] No secrets, credentials, real customer data, or internal hostnames committed
+- [ ] I have read and agree to the **Contributor License Agreement (CLA)** and the contribution terms in [`CONTRIBUTING.md`](../CONTRIBUTING.md)
 
 ## Screenshots / Demos (if UI change)
 

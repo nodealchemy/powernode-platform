@@ -8,7 +8,8 @@ labels: enhancement
 <!--
 Before filing:
 - Search existing issues and discussions to avoid duplicates.
-- For large changes, consider opening a Discussion first to align on approach.
+- For large changes, consider opening a Discussion first to align on approach:
+  https://github.com/nodealchemy/powernode-platform/discussions
 - See CONTRIBUTING.md for the kinds of features we are and aren't actively pursuing.
 -->
 
@@ -31,10 +32,21 @@ Which parts of the platform would this touch?
 - [ ] Backend (`server/`)
 - [ ] Frontend (`frontend/`)
 - [ ] Worker (`worker/`)
-- [ ] Extension — which one? `business` / `marketing` / `system` / `trading` / `supply-chain`
+- [ ] Extension — which one? `business` / `marketing` / `system` / `supply-chain`
 - [ ] Documentation (`docs/`)
 - [ ] Tests
 - [ ] Migrations / schema
+
+## Stability Tier
+
+Which tier does this land in? See [`docs/STABILITY.md`](../docs/STABILITY.md). New
+work in Experimental areas is especially welcome — those subsystems explicitly invite
+community maintainers.
+
+- [ ] `tier:stable`
+- [ ] `tier:beta`
+- [ ] `tier:experimental`
+- [ ] New subsystem / not yet tiered
 
 ## Additional Context
 
