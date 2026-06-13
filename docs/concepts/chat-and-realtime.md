@@ -358,7 +358,7 @@ Multiple components can subscribe to the same channel; each receives the same me
 
 ## ActionCable channel layout
 
-The platform defines 19 concrete ActionCable channels (plus the two `ApplicationCable` base classes that every channel inherits from). The summary table below covers subscription params and purpose; full per-channel detail (every event name, every payload shape, every authorization rule) is in [`reference/api/websocket.md`](../reference/api/websocket.md).
+The platform defines 17 concrete ActionCable channels (plus the two `ApplicationCable` base classes that every channel inherits from). The summary table below covers subscription params and purpose; full per-channel detail (every event name, every payload shape, every authorization rule) is in [`reference/api/websocket.md`](../reference/api/websocket.md).
 
 | Channel | Subscription Params | Purpose |
 |---------|---------------------|---------|
@@ -377,12 +377,10 @@ The platform defines 19 concrete ActionCable channels (plus the two `Application
 | `SupplyChainChannel` | `account_id` | Supply-chain extension events |
 | `TeamChannelChannel` | `channel_id` | Team messaging |
 | `TeamExecutionChannel` | `team_id` | Team execution monitoring |
-| `TradingChannel` | `account_id` | Trading extension events |
-| `TradingTrainingChannel` | `account_id` | Trading training events |
 | `WorkerDataChannel` | — | Worker → server data transport |
 | `WorkerToolDispatchChannel` | — | Worker tool-dispatch transport |
 
-`SupplyChainChannel`, `TradingChannel`, and `TradingTrainingChannel` are present in core but only carry traffic when the corresponding extension is loaded (trading is private remote-only; supply-chain is a public extension).
+`SupplyChainChannel` is present in core but only carries traffic when the supply-chain extension (a public extension) is loaded.
 
 ## AiOrchestrationChannel deep dive
 

@@ -1609,7 +1609,7 @@ The aggregate fetch surfaces the walk in provenance — `provenance.pagination =
 
 ## Sync & Health Jobs
 
-Provider model sync and health monitoring for data sources run in the worker. Jobs tag logs with `data_source_id` and post health transitions via the audit log, so operators see state flips in both `Monitoring` dashboards and `Trading::AuditLog` (where applicable). The Phase-3 monitor + health crons are documented above in [Monitoring a source for changes](#monitoring-a-source-for-changes-phase-3); the Phase-4 nightly schema-sync cron is in [Nightly schema sync (Phase 4)](#nightly-schema-sync-phase-4).
+Provider model sync and health monitoring for data sources run in the worker. Jobs tag logs with `data_source_id` and post health transitions via the audit log, so operators see state flips in both `Monitoring` dashboards and the audit log (where applicable). The Phase-3 monitor + health crons are documented above in [Monitoring a source for changes](#monitoring-a-source-for-changes-phase-3); the Phase-4 nightly schema-sync cron is in [Nightly schema sync (Phase 4)](#nightly-schema-sync-phase-4).
 
 ## Verification
 

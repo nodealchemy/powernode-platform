@@ -24,11 +24,10 @@
 - [Infrastructure](#infrastructure)
 - [Extensions](#extensions)
 - [Marketing](#marketing)
-- [Trading (extension)](#trading-extension)
 
 ## Overview
 
-Repository scripts live under `scripts/` at the project root. Subdirectories group related scripts by lifecycle stage (deployment, backup, docker, systemd, monitoring, trading). This reference catalogues every script available in the platform repo; extension-specific scripts that live under `extensions/*/scripts/` are documented inside the relevant extension.
+Repository scripts live under `scripts/` at the project root. Subdirectories group related scripts by lifecycle stage (deployment, backup, docker, systemd, monitoring). This reference catalogues every script available in the platform repo; extension-specific scripts that live under `extensions/*/scripts/` are documented inside the relevant extension.
 
 ## Code Quality
 
@@ -187,14 +186,6 @@ Inside `scripts/monitoring/`:
 | Script | Description |
 |--------|-------------|
 | `capture-marketing-screenshots.js` | Capture marketing-site screenshots via Playwright (Node.js, not shell) |
-
-## Trading (extension)
-
-Inside `scripts/trading/` (only meaningful when the trading extension is enabled):
-
-| Script | Description |
-|--------|-------------|
-| `setup_dual_overseers.rb` | One-shot Ruby runner to configure dual Trading Overseers for an account |
 
 ---
 

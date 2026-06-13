@@ -76,7 +76,7 @@ These rules are absolute. They apply equally to humans and AI agents.
 | No keys in code | Never store keys, secrets, or credentials in source files, scripts, configs, env files, or docs |
 | No CLI key generation | Never generate private keys via `rails runner`, `rake`, or `irb` where they could appear in shell history |
 | Vault-only storage | All key generation happens inside Vault or the `WalletKeyService` (which stores directly to Vault) |
-| Audit all key operations | Log every generate/import/revoke/sign to `Trading::AuditLog` |
+| Audit all key operations | Log every generate/import/revoke/sign to the audit log |
 | No keys as arguments in logs | Never pass private keys as function arguments that could surface in stack traces |
 | Guide, don't handle | When helping a user set up a wallet, walk them through the UI/API — never handle the key material directly |
 

@@ -2,7 +2,7 @@
 
 > Status: active
 
-How to add a new `platform.*` MCP tool action that external AI sessions (Claude Code, custom agents, the chat concierge) can invoke. Every entry in the platform's tool catalogue — from `system_list_nodes` to `docker_create_service` to `trading_advance_phase` — is one action on one tool class registered in `platform_api_tool_registry.rb`. This guide walks the full add path: define the class, declare actions, register them, regenerate the catalogue, write a spec.
+How to add a new `platform.*` MCP tool action that external AI sessions (Claude Code, custom agents, the chat concierge) can invoke. Every entry in the platform's tool catalogue — from `system_list_nodes` to `docker_create_service` to `system_update_module_assignment` — is one action on one tool class registered in `platform_api_tool_registry.rb`. This guide walks the full add path: define the class, declare actions, register them, regenerate the catalogue, write a spec.
 
 ## Table of Contents
 
@@ -212,7 +212,7 @@ Defaults belong in the action handler, not the schema — `params[:limit] || 25`
 
 `REQUIRED_PERMISSION` is the only declarative gate; richer checks belong inside the handler. Three conventions:
 
-- **Subsystem prefix** — `ai.`, `docker.`, `system.`, `kb.`, `trading.`, `pages.`, etc. Group by where the tool's data lives, not by the agent that calls it.
+- **Subsystem prefix** — `ai.`, `docker.`, `system.`, `kb.`, `pages.`, etc. Group by where the tool's data lives, not by the agent that calls it.
 - **Resource segment** — `agents`, `containers`, `nodes`, `articles`, `strategies`, etc. Use the model's table-name singular (`agent`, `container`) or plural depending on the resource family already in the registry.
 - **Verb suffix** — `read`, `manage`, `execute`. Read-only tools use `read`; mutations use `manage`. Reserve `execute` for actions that *cause an agent to run* (the existing `ai.agents.execute` convention).
 

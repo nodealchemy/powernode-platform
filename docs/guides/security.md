@@ -181,7 +181,7 @@ These rules are **absolute** — they override convenience, they override speed,
 | **No keys in code** | NEVER store keys, secrets, or credentials in source code files, scripts, configs, env files, or documentation |
 | **No CLI key generation** | NEVER generate private keys via CLI commands (`rails runner`, `rake`, `irb`) where they could appear in shell history |
 | **Vault-only storage** | ALL key generation MUST happen inside Vault or `WalletKeyService` (which stores directly to Vault) |
-| **Audit all key ops** | ALL key operations (generate, import, revoke, sign) MUST be logged to `Trading::AuditLog` |
+| **Audit all key ops** | ALL key operations (generate, import, revoke, sign) MUST be logged to the audit log |
 | **No key arguments in logs** | NEVER pass private keys as function arguments that could appear in logs, error messages, or exception traces |
 | **Guide, don't handle** | When assisting with wallet setup, guide the user through the UI/API — never handle key material directly |
 
@@ -304,9 +304,8 @@ Returning a 500 to a webhook provider triggers exponential-backoff retries — t
 
 The platform maintains structured audit logs across multiple subsystems:
 
-- `AuditLog` — application-wide audit events (CRUD operations, admin actions)
+- `AuditLog` — application-wide audit events, including key material handling and sensitive operations (CRUD operations, admin actions)
 - `Ai::SecurityAuditTrail` — agent execution security decisions
-- `Trading::AuditLog` — financial operations and key material handling
 - `Devops::*Activity` — Docker/Swarm/pipeline operations
 
 Each entry captures: timestamp, user_id, account_id, ip_address, request_id, action, resource, before/after diff (for mutations), and outcome.

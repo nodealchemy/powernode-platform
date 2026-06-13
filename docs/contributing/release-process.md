@@ -102,7 +102,7 @@ The platform parent contains submodules. A release that includes submodule chang
 
 If a submodule does not have changes, it does not need a release — leave the pointer alone.
 
-The system extension is the most likely to be co-released because its work cadence is closely coupled with the parent platform. Marketing, supply-chain, business, and trading typically release independently.
+The system extension is the most likely to be co-released because its work cadence is closely coupled with the parent platform. Marketing, supply-chain, and business typically release independently.
 
 ## Dual-remote push
 
@@ -120,7 +120,7 @@ git push ipnode master --tags
 
 `git push --all` is dangerous on these repos because it can push unintended branches; always be explicit.
 
-The marketing and supply-chain extensions are also dual-remoted. The business and trading extensions are private only and push to `ipnode` exclusively.
+The marketing and supply-chain extensions are also dual-remoted. The business extension is private only and pushes to `ipnode` exclusively.
 
 ## Hotfixes
 

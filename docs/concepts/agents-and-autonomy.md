@@ -557,7 +557,7 @@ For provider pricing and cost portions of routing, see [`concepts/cost-and-finop
 
 ## Intervention Policies & Approval Gates
 
-Intervention policies bind action categories to one of five outcomes, letting operators tune how aggressively the platform pauses for human review without rewiring service code. Every autonomous action — agent execution, proposal creation, escalation, deferred trading move, infrastructure adaptation — passes through `Ai::InterventionPolicyService#resolve` before it fires, and the resolver's verdict determines whether the work proceeds, queues for approval, blocks outright, or runs silently. Categories are open-ended: core ships the `STATIC_CATEGORIES` set in `Ai::InterventionPolicy`, and extensions append more at boot via `Ai::InterventionPolicy.register_category!`.
+Intervention policies bind action categories to one of five outcomes, letting operators tune how aggressively the platform pauses for human review without rewiring service code. Every autonomous action — agent execution, proposal creation, escalation, fleet module assignment, infrastructure adaptation — passes through `Ai::InterventionPolicyService#resolve` before it fires, and the resolver's verdict determines whether the work proceeds, queues for approval, blocks outright, or runs silently. Categories are open-ended: core ships the `STATIC_CATEGORIES` set in `Ai::InterventionPolicy`, and extensions append more at boot via `Ai::InterventionPolicy.register_category!`.
 
 ### Policy outcomes
 
@@ -576,7 +576,7 @@ The five values are validated by `Ai::InterventionPolicy::POLICIES`.
 
 resolver = Ai::InterventionPolicyService.new(account: account)
 verdict = resolver.resolve(
-  action_category: "trading.advance_phase",
+  action_category: "system.module_assign",
   agent: agent,
   user: user,
   severity: "warning"
@@ -610,7 +610,7 @@ For authoring policies, see [`guides/intervention-policies-guide.md`](../guides/
 
 ## Concierge routing and meta-skills
 
-Powernode's chat surface — the Powernode Assistant — acts as a front-door router that delegates platform-aware questions to domain specialists (System Concierge, Trading Overseer, SDWAN Manager, etc.) rather than answering from general training data. The router is deterministic Ruby that consults skill metadata; the meta-skill creator lets operators compose new skills from existing tool surfaces at runtime.
+Powernode's chat surface — the Powernode Assistant — acts as a front-door router that delegates platform-aware questions to domain specialists (System Concierge, Fleet Autonomy, SDWAN Manager, etc.) rather than answering from general training data. The router is deterministic Ruby that consults skill metadata; the meta-skill creator lets operators compose new skills from existing tool surfaces at runtime.
 
 ### Routing tiers
 
@@ -620,17 +620,15 @@ flowchart TB
     Router[Ai::ConciergeRouter<br/>deterministic class<br/>no LLM call]
     Assistant[Powernode Assistant<br/>front-door + general Q&A<br/>+ meta-skill creation]
     SysConcierge[System Concierge<br/>system extension domain]
-    TradingOverseer[Trading Overseer<br/>trading extension domain]
     OtherSpec[Other specialists<br/>per-extension]
     Monitors[Background monitors<br/>Fleet Autonomy, CVE Responder,<br/>SDWAN Manager, ...]
 
     User --> Router
     Router -- "passthrough" --> Assistant
     Router -- "delegate" --> SysConcierge
-    Router -- "delegate" --> TradingOverseer
     Router -- "delegate" --> OtherSpec
     SysConcierge -.uses.-> Monitors
-    TradingOverseer -.uses.-> Monitors
+    OtherSpec -.uses.-> Monitors
 ```
 
 ### Skill routing metadata
@@ -639,7 +637,7 @@ Every `Ai::Skill` carries two routing-relevant fields:
 
 ```ruby
 metadata: {
-  "domain" => "system" | "trading" | "marketing" | "supply_chain" | "business" | "platform",
+  "domain" => "system" | "marketing" | "supply_chain" | "business" | "platform",
   "invocation_mode" => "one_shot" | "workflow_step"
 }
 ```

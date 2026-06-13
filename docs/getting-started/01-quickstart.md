@@ -152,7 +152,7 @@ powernode-platform/
 ├── server/           Rails 8 API
 ├── frontend/         React + TypeScript + Tailwind
 ├── worker/           Standalone Sidekiq
-├── extensions/       Submodules (system, supply-chain, marketing public; business, trading private)
+├── extensions/       Submodules (system, supply-chain, marketing public; business private)
 ├── docs/             You are here
 ├── scripts/          Dev + ops scripts
 └── docker/           Container assets

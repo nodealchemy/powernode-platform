@@ -235,8 +235,8 @@ This section zooms in on the **shared memory** tier — the `Ai::MemoryPool` mod
 # frozen_string_literal: true
 
 platform.create_memory_pool(
-  pool_id: "trading_ops",
-  name: "Trading Operations Shared State",
+  pool_id: "fleet_ops",
+  name: "Fleet Operations Shared State",
   pool_type: "shared",
   scope: "persistent",
   retention_policy: { ttl_seconds: 604_800, max_size_bytes: 5_000_000 }
@@ -251,19 +251,19 @@ The tool is registered as `create_memory_pool` in `Ai::Tools::PlatformApiToolReg
 # frozen_string_literal: true
 
 platform.write_shared_memory(
-  pool_id: "trading_ops",
-  key: "agent_bulletin.market_regime",
-  value: { regime: "risk_off", confidence: 0.82 }
+  pool_id: "fleet_ops",
+  key: "agent_bulletin.capacity_pressure",
+  value: { level: "elevated", confidence: 0.82 }
 )
 
 platform.read_shared_memory(
-  pool_id: "trading_ops",
-  key: "agent_bulletin.market_regime"
+  pool_id: "fleet_ops",
+  key: "agent_bulletin.capacity_pressure"
 )
-# => { success: true, key: "agent_bulletin.market_regime", value: { ... } }
+# => { success: true, key: "agent_bulletin.capacity_pressure", value: { ... } }
 ```
 
-Dot-separated keys index nested JSON, so `agent_bulletin.market_regime` writes into `data["agent_bulletin"]["market_regime"]`. Writes to `agent_bulletin.*` keys broadcast a `memory_pool_key_write` event with `is_bulletin: true` over `McpChannel` — that is the stigmergic-coordination signal subscribers listen for.
+Dot-separated keys index nested JSON, so `agent_bulletin.capacity_pressure` writes into `data["agent_bulletin"]["capacity_pressure"]`. Writes to `agent_bulletin.*` keys broadcast a `memory_pool_key_write` event with `is_bulletin: true` over `McpChannel` — that is the stigmergic-coordination signal subscribers listen for.
 
 ### Access control note
 

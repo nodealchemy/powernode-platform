@@ -236,11 +236,11 @@ The largest category — covers the entire AI platform. Selected examples:
 
 | Priority | Queues |
 |----------|--------|
-| **3 (Critical)** | `critical`, `high`, `subscription_lifecycle` _(business ext)_, `ai_cancellations`, `devops_high`, `system` _(system ext)_, `trading_critical` _(trading ext)_ |
-| **2 (Standard)** | `ai_agents`, `ai_conversations`, `ai_execution`, `ai_orchestration`, `ai_testing`, `devops_default`, `devops_webhooks`, `file_processing`, `services`, `compliance`, `email`, `reports`, `integrations`, `mcp`, `billing` _(business ext)_, `billing_scheduler` _(business ext)_, `trading_training` _(trading ext)_ |
-| **1 (Low)** | `notifications`, `analytics`, `schedules`, `webhooks`, `maintenance`, `default`, `trading_batch` _(trading ext)_ |
+| **3 (Critical)** | `critical`, `high`, `subscription_lifecycle` _(business ext)_, `ai_cancellations`, `devops_high`, `system` _(system ext)_ |
+| **2 (Standard)** | `ai_agents`, `ai_conversations`, `ai_execution`, `ai_orchestration`, `ai_testing`, `devops_default`, `devops_webhooks`, `file_processing`, `services`, `compliance`, `email`, `reports`, `integrations`, `mcp`, `billing` _(business ext)_, `billing_scheduler` _(business ext)_ |
+| **1 (Low)** | `notifications`, `analytics`, `schedules`, `webhooks`, `maintenance`, `default` |
 
-> **Extension queues:** `compliance` (GDPR jobs) ships with core. `system` carries System-extension fleet jobs (`WorkerDispatch`'s default queue). `billing` / `billing_scheduler` belong to the **business** extension — the business worker also contributes its own cron block via `extensions/business/worker/config/sidekiq_billing.yml`, which loads only when the business worker is enabled. `trading_*` belong to the **trading** extension.
+> **Extension queues:** `compliance` (GDPR jobs) ships with core. `system` carries System-extension fleet jobs (`WorkerDispatch`'s default queue). `billing` / `billing_scheduler` belong to the **business** extension — the business worker also contributes its own cron block via `extensions/business/worker/config/sidekiq_billing.yml`, which loads only when the business worker is enabled.
 
 > **`code_intel` capsule:** the long-running codebase-intelligence jobs (`AiCodebaseIndexJob`, `AiCodeAnalysisJob`) run on a **dedicated Sidekiq capsule** defined in `worker/config/application.rb`, **not** in the 31-queue list above. The capsule has its own isolated, low-concurrency thread pool (`CODE_INTEL_CONCURRENCY`, default `1`) so multi-minute, embedding-heavy index/prune scans never head-of-line-block the main queues or contend on the pgvector HNSW index.
 

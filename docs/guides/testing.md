@@ -289,7 +289,7 @@ For specs touching the AI subsystem:
 |---|---|
 | `be_a_valid_ai_response` | Asserts response shape (data, citations, finish_reason) |
 | `have_execution_status(:status)` | Asserts agent execution status |
-| `create_audit_log(:action)` | Asserts `Trading::AuditLog` or `Ai::AuditLog` entry created |
+| `create_audit_log(:action)` | Asserts an `AuditLog` entry was created (optionally matching `action`) |
 | `ProviderHelpers`, `AgentHelpers`, `WorkflowHelpers`, `SecurityHelpers` | Setup helpers — see `spec/support/ai_test_helpers.rb` |
 
 ## Worker job specs

@@ -353,9 +353,10 @@ server/scripts/trigger_*.sh
 
 # Per-host extension enable/disable state (written by admin "Toggle Extension")
 config/extensions_state.json
-# Private extensions (added manually by maintainers with access to the private repository)
+# Private extensions added manually by maintainers with access to the private upstream
 /extensions/business/
-/extensions/trading/
+# Maintainer-local notes (never committed to the public repo)
+/CLAUDE.local.md
 # Full-mode bundle lock (declares private-extension PATH gems — never commit; see server/Gemfile.full)
 /server/Gemfile.full.lock
 

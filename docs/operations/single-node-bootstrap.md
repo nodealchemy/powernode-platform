@@ -112,7 +112,7 @@ rsync -az --info=stats2 \
   /path/to/powernode-platform/  target-host:/home/$USER/powernode-platform/
 ```
 
-> **Gotcha #16**: `config/extensions_state.json` and `frontend/.proxy-config-cache.json` are deployment-specific state, not source code. The dev tree typically only disables `trading`; ops/prod also need `business` disabled (gotcha #5). Likewise the proxy-cache file holds host allowlists specific to each environment. Always exclude both from rsync so deployment-local choices survive sync runs.
+> **Gotcha #16**: `config/extensions_state.json` and `frontend/.proxy-config-cache.json` are deployment-specific state, not source code. The dev tree typically leaves all extensions enabled; ops/prod also need `business` disabled (gotcha #5). Likewise the proxy-cache file holds host allowlists specific to each environment. Always exclude both from rsync so deployment-local choices survive sync runs.
 
 ### Step 6 — Install Ruby gems
 
@@ -279,7 +279,7 @@ bundle exec rails db:create db:migrate db:seed
 
 > **Gotcha #5**: The business extension's `Ai::Marketplace::InstallationService` references an `InstallWorkflow` concern that doesn't exist in the repo (only 2 of 3 expected concern files are present: `rating_and_serialization.rb` and `update_and_uninstall.rb` — but NOT `install_workflow.rb`). Dev mode doesn't notice because Zeitwerk lazy-loads; production hits `eager_load_all` at boot which surfaces the missing constant. **Fix**: for ops/core-mode single-node deploys that don't need SaaS billing features, add `"business"` to `config/extensions_state.json`'s `disabled` list. The platform falls back to core mode automatically via `Shared::FeatureGateService`.
 
-> **Gotcha #6**: Every extension engine adds `app/decorators/` to autoload_paths AND uses `config.to_prepare` to `load` the files explicitly. The decorator files use `Account.class_eval do ... end` and don't define their own constant — but Zeitwerk's `eager_load_all` in production still scans the dir and raises `Zeitwerk::NameError`. **Fix** (already in master after the ops bootstrap): each engine.rb has an `initializer "*.ignore_decorators"` block calling `Rails.autoloaders.main.ignore(decorators_path)` to tell Zeitwerk to skip the dir. The to_prepare load still runs decorators via path-based `load`. Five engines patched: system, business, marketing, supply-chain, trading.
+> **Gotcha #6**: Every extension engine adds `app/decorators/` to autoload_paths AND uses `config.to_prepare` to `load` the files explicitly. The decorator files use `Account.class_eval do ... end` and don't define their own constant — but Zeitwerk's `eager_load_all` in production still scans the dir and raises `Zeitwerk::NameError`. **Fix** (already in master after the ops bootstrap): each engine.rb has an `initializer "*.ignore_decorators"` block calling `Rails.autoloaders.main.ignore(decorators_path)` to tell Zeitwerk to skip the dir. The to_prepare load still runs decorators via path-based `load`. Engines patched: system, business, marketing, supply-chain.
 
 > **Gotcha #7**: `Ai::CodeReview` was BOTH an ActiveRecord model class (`app/models/ai/code_review.rb` → `class CodeReview`) AND a services namespace (`app/services/ai/code_review/*.rb` → `module Ai; module CodeReview`). A Ruby constant can't be both. **Fix**: rename services dir to plural `code_reviews/` and update module declarations inside to `module CodeReviews`. Matches the platform's existing convention of singular-model-class + plural-services-namespace (e.g. `Ai::Agent` model + `app/services/ai/agents/`).
 

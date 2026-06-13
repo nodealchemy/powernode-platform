@@ -9,7 +9,7 @@ Powernode separates the open-source core from optional capability bundles called
 ## Table of Contents
 
 - [The extension model](#the-extension-model)
-- [The five extensions](#the-five-extensions)
+- [The four extensions](#the-four-extensions)
 - [Core mode vs extension mode](#core-mode-vs-extension-mode)
 - [Working with submodules](#working-with-submodules)
 - [Feature gating](#feature-gating)
@@ -27,7 +27,7 @@ The core platform is everything outside `extensions/`. It ships:
 
 Each extension under `extensions/<name>/` is a self-contained git submodule with its own backend code, frontend code, seeds, and docs. Extensions are loaded by the platform's autoloader when they are present. When an extension's directory is missing or empty, the platform skips it. `config/extensions_state.json` records the on-disk state per extension (`enabled` vs `disabled`).
 
-## The five extensions
+## The four extensions
 
 | Extension | Submodule path | Visibility | Purpose |
 |-----------|----------------|------------|---------|
@@ -35,9 +35,8 @@ Each extension under `extensions/<name>/` is a self-contained git submodule with
 | `marketing` | `extensions/marketing` | **Public** (GitHub mirror, MIT) | Marketing site assets |
 | `supply-chain` | `extensions/supply-chain` | **Public** (GitHub mirror, MIT) | Supply-chain extension scaffolding |
 | `business` | `extensions/business` | **Private** (Gitea only) | Billing, BaaS, reseller, AI publisher — the commercial features |
-| `trading` | `extensions/trading` | **Private** (Gitea only) | Trading + financial-strategy extension |
 
-External clones from the public GitHub mirror will receive the three public extensions plus an empty parent pointer for the two private ones; the platform will boot in "core mode minus business + trading" by default.
+External clones from the public GitHub mirror will receive the three public extensions plus an empty parent pointer for the private `business` extension; the platform will boot in "core mode minus business" by default.
 
 The public submodules are dual-remoted: `origin` points at the public GitHub mirror, and `ipnode` points at the private Gitea upstream (used for releases). Maintainers push to both; external contributors only ever see the GitHub side.
 
@@ -86,7 +85,7 @@ Three rules matter when committing:
 
 Three mechanisms gate features:
 
-- **Backend:** `Shared::FeatureGateService.business_loaded?` (or the equivalent for `trading`, etc.) controls model instantiation, controller availability, and skill registration.
+- **Backend:** `Shared::FeatureGateService.business_loaded?` (or the equivalent for another private extension) controls model instantiation, controller availability, and skill registration.
 - **Frontend:** Vite injects the `__EXTENSIONS__` constant (an array of enabled extension slugs) at build time; UI surfaces gate on `__EXTENSIONS__.includes('business')` and hide when the extension is absent.
 - **Navigation:** the nav config checks extension-slug presence via `__EXTENSIONS__.includes(slug)` so disabled extensions disappear cleanly from the sidebar.
 

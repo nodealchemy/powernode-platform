@@ -138,7 +138,6 @@ paths = [
     # restructure from the parent repo; entries below cover known false
     # positives, not blanket-disabling extensions/).
     '''extensions/system/agent/cmd/powernode-agent/internal/cli/commit_cmd\.go$''',
-    '''extensions/trading/frontend/src/features/portfolio/components/VenueCredentialsSection\.tsx$''',
 ]
 
 # Ignore specific regex patterns in content

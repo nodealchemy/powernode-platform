@@ -251,18 +251,6 @@ Multi-agent team execution monitoring.
 
 Supply chain extension events scoped to an account.
 
-### TradingChannel
-
-**File:** `server/app/channels/trading_channel.rb`
-
-Trading extension events (strategy lifecycle, position updates, risk alerts) scoped to an account.
-
-### TradingTrainingChannel
-
-**File:** `server/app/channels/trading_training_channel.rb`
-
-Trading training session events scoped to a session ID (live tick execution, learning extraction, phase transitions).
-
 ### WorkerDataChannel
 
 **File:** `server/app/channels/worker_data_channel.rb`

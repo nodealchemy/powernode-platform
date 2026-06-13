@@ -2,7 +2,7 @@
 
 > Status: active
 
-When to use this runbook: monitoring, pausing, recovering, and decommissioning Ralph Loops - the repeating goal-driven loops that drive autonomous agent duty cycles (Fleet Autonomy, SDWAN Manager, CVE Responder, Trading Overseer, etc.).
+When to use this runbook: monitoring, pausing, recovering, and decommissioning Ralph Loops - the repeating goal-driven loops that drive autonomous agent duty cycles (Fleet Autonomy, SDWAN Manager, CVE Responder, etc.).
 
 ## Table of Contents
 

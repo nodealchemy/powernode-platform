@@ -24,7 +24,7 @@
 
 ## What this guide covers
 
-Powernode's core platform stays small. Domain functionality — fleet ops, marketing automation, supply chain, billing, trading — lives in **extensions**: self-contained submodules that mount into the core Rails app, frontend, and worker. This guide is for **extension authors**: developers building a new vertical on top of the platform.
+Powernode's core platform stays small. Domain functionality — fleet ops, marketing automation, supply chain, billing — lives in **extensions**: self-contained submodules that mount into the core Rails app, frontend, and worker. This guide is for **extension authors**: developers building a new vertical on top of the platform.
 
 You will learn the manifest contract, the feature-gate predicate, the directory layout extensions follow, the submodule workflow, and the gotchas that bite first-timers.
 
@@ -180,7 +180,7 @@ end
 
 ## Dependency loading (public-only lockfile)
 
-Extensions are Ruby path gems: `server/Gemfile` discovers each `extensions/<slug>/server` and declares `powernode_<slug>` (see `extensions_loader_helper.rb`). Discovery is **visibility-aware** — public extensions (those listed in `.gitmodules`) are always declared, while **private** extensions (present on disk but not in `.gitmodules`, e.g. `business`/`trading`) are **excluded by default**.
+Extensions are Ruby path gems: `server/Gemfile` discovers each `extensions/<slug>/server` and declares `powernode_<slug>` (see `extensions_loader_helper.rb`). Discovery is **visibility-aware** — public extensions (those listed in `.gitmodules`) are always declared, while **private** extensions (present on disk but not in `.gitmodules`, e.g. `business`) are **excluded by default**.
 
 That keeps the committed `server/Gemfile.lock` public-only: a maintainer with the private submodules on disk still produces a lock that CI and public clones resolve cleanly. Full-mode dev uses a *separate, gitignored* bundle instead of mutating the committed lock — `server/Gemfile.full` re-uses the base `Gemfile` with private discovery turned on, and locks to `server/Gemfile.full.lock`:
 
@@ -257,7 +257,6 @@ Each extension defines its own path alias to avoid colliding with the core's `@/
 | Extension | Alias |
 |---|---|
 | business | `@business/` |
-| trading | `@trading/` |
 | marketing | `@marketing/` |
 | supply-chain | `@supply-chain/` |
 | system | `@system/` |
@@ -334,7 +333,7 @@ sequenceDiagram
 1. Always run `git rev-parse --show-toplevel` before `git add`/`commit` to verify which repo you're in.
 2. Commit inside the submodule FIRST, then bump the parent pointer.
 3. Never run `git add extensions/myext/some/file` from the parent — it only stages a pointer change.
-4. `extensions/business` and `extensions/trading` are NOT committed to the public parent — their upstream is private. Maintainers add them manually via `git submodule add`.
+4. `extensions/business` is NOT committed to the public parent — its upstream is private. Maintainers add it manually via `git submodule add`.
 5. `extensions/system`, `extensions/marketing`, `extensions/supply-chain` are dual-remoted (private Gitea origin + public GitHub mirror). Push to both on release.
 6. Do NOT run `git submodule sync` on dual-remoted extensions — it overwrites local config and drops the private upstream.
 
@@ -348,7 +347,6 @@ The platform ships with five extensions; you can study any of them as exemplars.
 | `marketing` | Public (MIT, GitHub) | Campaigns, content calendar, email lists, social media |
 | `supply-chain` | Public (MIT, GitHub) | SBOM management, vulnerability scanning, attestations, container/license compliance |
 | `business` | Private | Billing, BaaS, reseller, AI publisher |
-| `trading` | Private (currently disabled) | Trading strategies, market data |
 
 The `system` extension is the most heavily-developed exemplar — see its [`CONTRIBUTING.md`](https://github.com/nodealchemy/powernode-system/blob/master/CONTRIBUTING.md) for production-grade extension scaffolding.
 

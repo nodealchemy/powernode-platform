@@ -15,8 +15,8 @@
 ## Governing principle
 
 **Core is the minimal, open-source control plane that runs fully in *core mode*** — with the
-public extensions (`system`, `supply-chain`, `marketing`) loaded but the **private** extensions
-(`business`, `trading`) absent.
+public extensions (`system`, `supply-chain`, `marketing`) loaded but the **private** commercial
+extension (`business`) absent.
 
 The dividing line is **strictly commercial monetization**, not "advanced feature." The `business`
 extension owns *only* billing/subscription/revenue machinery. **Everything else stays core** —
@@ -64,7 +64,7 @@ entitlements, no-op billing, empty aggregates — via the `Powernode::BillingBri
   Isolation). This is why marketplace *traits* stay core — the public `supply-chain` extension
   consumes them.
 - **Namespaces stay domain-top-level** (`Billing::`, `BaaS::`, `Marketplace::`), never
-  `Business::`-prefixed — matching `System::` / `Sdwan::` / `Trading::`. The `business` extension
+  `Business::`-prefixed — matching `System::` / `Sdwan::`. The `business` extension
   augments core `Ai::` / `Mcp::` rather than introducing a `Business::` namespace.
 
 ## Related concepts

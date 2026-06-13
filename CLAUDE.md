@@ -98,7 +98,7 @@ user.role === 'manager'
 | No keys in code | **NEVER** store keys, secrets, or credentials in source code files, scripts, configs, environment files, or documentation |
 | No CLI key generation | **NEVER** generate private keys via CLI commands (rails runner, rake, irb) where they could appear in shell history |
 | Vault-only storage | ALL key generation MUST happen inside Vault or WalletKeyService (which stores directly to Vault) |
-| Audit all key ops | ALL key operations (generate, import, revoke, sign) MUST be logged to Trading::AuditLog |
+| Audit all key ops | ALL key operations (generate, import, revoke, sign) MUST be logged to the audit log. TODO(verify: confirm core audit-log sink) |
 | No key arguments in logs | **NEVER** pass private keys as function arguments that could appear in logs, error messages, or exception traces |
 | Guide, don't handle | When assisting with wallet setup, guide the user through the UI/API — never handle key material directly |
 
@@ -137,12 +137,12 @@ user.role === 'manager'
 | Never batch-approve | Training decisions, permission grants, and financial operations MUST be reviewed individually |
 
 ### Submodule Safety (CRITICAL)
-- **5 submodules** (all git submodules): `extensions/business`, `extensions/trading` (private remote-only), `extensions/supply-chain`, `extensions/system`, `extensions/marketing` (public on GitHub)
+- **Submodules** (all git submodules): `extensions/business` (private remote-only) plus the public-on-GitHub `extensions/system`, `extensions/supply-chain`, and `extensions/marketing`. Maintainers may add further private extensions locally (see CLAUDE.local.md).
 - **System and supply-chain extensions** are publicly mirrored on GitHub — `.gitmodules` advertises `https://github.com/nodealchemy/powernode-system.git` and `https://github.com/nodealchemy/powernode-supply-chain.git`. Maintainer's local checkout has `origin` = the public GitHub mirror and `ipnode` = the private upstream (added manually). Push to **both** remotes on every push to a shared branch (e.g. `develop`) — keep the public mirror continuously in sync, not only at release time. **Do NOT run `git submodule sync`** on these submodules — it would overwrite local config and drop the private upstream remote.
-- **Business and trading extensions** are not committed to the public repo (gitignored in the parent's tree; not present in `.gitmodules`). Maintainers with access add them locally via `git submodule add <private-url> extensions/business` (and similar for trading); their commits go to the private upstream only and never appear in public clones.
+- **The business extension** (and any other private extension) is not committed to the public repo (gitignored in the parent's tree; not present in `.gitmodules`). Maintainers with access add it locally via `git submodule add <private-url> extensions/business`; its commits go to the private upstream only and never appear in public clones.
 - **CWD verification**: Before EVERY `git add`/`git commit`, run `git rev-parse --show-toplevel` and verify it matches the intended repo
 - **Survey both git statuses**: When checking state, run `git status` in root AND `git -C extensions/<name> status` for each submodule — changes inside a submodule are invisible to the parent repo's `git status`
-- **Never commit extension files from parent**: Files under `extensions/*/` MUST be committed from within the submodule. Running `git add extensions/trading/...` from parent only stages a pointer change
+- **Never commit extension files from parent**: Files under `extensions/*/` MUST be committed from within the submodule. Running `git add extensions/business/...` from parent only stages a pointer change
 - **Commit order**: Commit inside each submodule FIRST, then update pointers in parent
 
 ### Terminology

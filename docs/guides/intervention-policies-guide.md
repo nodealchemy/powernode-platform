@@ -31,7 +31,7 @@ A working knowledge of [trust tiers](../concepts/agents-and-autonomy.md#trust-ti
 
 ## What are intervention policies?
 
-`Ai::InterventionPolicy` binds an **action category** (e.g. `system.module_assign`, `trading.advance_phase`, `*`) to one of five **policies** that determine what happens when an autonomous agent attempts the action:
+`Ai::InterventionPolicy` binds an **action category** (e.g. `system.module_assign`, `system.cert_rotate`, `*`) to one of five **policies** that determine what happens when an autonomous agent attempts the action:
 
 | Policy | Behavior |
 |--------|----------|
@@ -51,7 +51,7 @@ Policies have a `scope` (one of `global`, `agent`, `action_type`) and bind to ei
 
 1. **Proposal creation** - when an agent calls `platform.create_proposal` or `platform.propose_feature`, the policy for `proposal` decides whether the proposal queues up for review or auto-approves.
 2. **Escalations** - `platform.escalate` resolves against the `escalation` category; combined with the escalation's severity to route notifications.
-3. **Autonomous actions** - the system, trading, and SDWAN reconcilers gate every action through their respective categories before dispatching. The Fleet Autonomy seed at `extensions/system/server/db/seeds/fleet_autonomy_agent.rb` shows the canonical pattern.
+3. **Autonomous actions** - the system and SDWAN reconcilers gate every action through their respective categories before dispatching. The Fleet Autonomy seed at `extensions/system/server/db/seeds/fleet_autonomy_agent.rb` shows the canonical pattern.
 
 The service signature:
 
@@ -187,13 +187,13 @@ The `trust_tier_minimum` condition means: this policy only matches when the agen
 
 ### Example 3: agent-specific override
 
-Narrow a global policy. Suppose `trading.advance_phase` is `require_approval` globally, but the trading overseer has earned `autonomous` tier and you want it to advance phases without asking - except during quiet hours when notifications would be missed.
+Narrow a global policy. Suppose `system.module_assign` is `require_approval` globally, but the Fleet Autonomy agent has earned `autonomous` tier and you want it to assign modules without asking - except during quiet hours when notifications would be missed.
 
 ```
 platform.create_intervention_policy(
   scope: "agent",
-  ai_agent_id: "<trading_overseer_uuid>",
-  action_category: "trading.advance_phase",
+  ai_agent_id: "<fleet_autonomy_uuid>",
+  action_category: "system.module_assign",
   policy: "notify_and_proceed",
   preferred_channels: ["notification"],
   priority: 200,
@@ -358,7 +358,7 @@ This section is for backend developers extending the policy system to gate a new
 
 ### Steps to register a new category
 
-1. **Pick a namespaced category name.** Use a domain prefix: `system.<action>`, `trading.<action>`, `sdwan.<action>`. The wildcard `*` is reserved.
+1. **Pick a namespaced category name.** Use a domain prefix: `system.<action>`, `sdwan.<action>`. The wildcard `*` is reserved.
 
 2. **Register the category from the extension engine.** Example for a hypothetical SDWAN action:
 
