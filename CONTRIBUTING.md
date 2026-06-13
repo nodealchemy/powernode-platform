@@ -28,7 +28,7 @@ This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDU
 - `server/` — Rails 8 API backend
 - `frontend/` — React 19 / TypeScript frontend
 - `worker/` — Standalone Sidekiq worker (HTTP-only API to server, never imports server code)
-- `extensions/` — Optional feature extensions: `business` (billing/SaaS), `marketing` (campaigns/landing pages), `system` (fleet/edge), `trading`, `supply-chain`
+- `extensions/` — Optional feature extensions: `business` (billing/SaaS), `marketing` (campaigns/landing pages), `system` (fleet/edge), `supply-chain` (SBOM/attestations)
 - `docs/` — Architecture, feature, and platform documentation
 - `scripts/` — Build, validation, and utility scripts
 
@@ -38,7 +38,10 @@ Use the appropriate template:
 
 - **Bug reports** — for things that are broken (use the bug report template)
 - **Feature requests** — for proposals (new capability, integration, or workflow)
-- **Security issues** — **DO NOT file as public issues.** Open a [private GitHub Security Advisory](https://github.com/nodealchemy/powernode-platform/security/advisories/new) with details. We'll respond within 72 hours and coordinate disclosure.
+- **Deployment / self-hosting help** — for setup and core-mode questions (use the deployment help template)
+- **Security issues** — **DO NOT file as public issues.** Open a [private GitHub Security Advisory](https://github.com/nodealchemy/powernode-platform/security/advisories/new) with details; see [SECURITY.md](SECURITY.md) for our response targets and coordinated-disclosure process.
+
+When filing a bug or feature request, identify the affected **stability tier** (see [docs/STABILITY.md](docs/STABILITY.md)) — it helps us route and prioritize.
 
 Please search existing issues first to avoid duplicates.
 
@@ -73,7 +76,7 @@ Please search existing issues first to avoid duplicates.
 
 - Bug fixes (especially with regression tests)
 - Documentation improvements
-- New extensions (see `extensions/` for shape — `system`, `marketing`, `business`, `trading`)
+- New extensions (see `extensions/` for shape — `system`, `marketing`, `business`)
 - Integration adapters: Claude Agent SDK, LangGraph, Mastra, OpenAI Agents SDK, AutoGen, Vercel AI SDK
 - Performance improvements with measurements
 - Test coverage in under-tested areas (the `extensions/business/spec/` directory in particular)
@@ -123,8 +126,8 @@ Powernode's docs follow a few clear rules. See [docs/contributing/doc-convention
 - **Links** are relative and resolve on disk (see `docs/.verify/check-links.sh` once wired in Wave 4).
 - **Counts** (number of tools, tables, etc.) link to the live source (`docs/reference/auto/mcp-tools.md`) — never inline.
 
-## License
+## Contributor License Agreement
 
-By contributing, you agree that your contributions will be licensed under the MIT License (see [LICENSE](LICENSE)).
+Powernode follows an open-core model: the platform and its public extensions (`system`, `supply-chain`, `marketing`) are MIT-licensed and always will be, while a separate commercial `business` extension is offered under a commercial license. Because the same code is offered under more than one license, contributors sign a Contributor License Agreement ([CLA.md](CLA.md)) granting Node Alchemy LLC the right to relicense their contributions. You keep full ownership of your work; the CLA only grants the licensing rights needed to support both the open-source project and a commercial edition. Contributions to the public repositories remain available under the [MIT License](LICENSE).
 
 Thanks for being part of Powernode!
