@@ -2,130 +2,23 @@
 
 > **Open-source mission control for AI agent fleets — chat to provision, agents to operate, humans to approve.**
 
-Powernode turns AI agents into accountable operators of real infrastructure. Describe what you need in plain English, an agent fleet provisions it, and an autonomous control loop keeps it healthy — with every consequential action gated through an approval workflow you configure.
+You run real infrastructure — bare metal, VMs, containers, networks — and you want agent leverage without handing over the keys. Most agent tooling either stays in chat or acts without a paper trail. Powernode puts AI agents to work as accountable operators: describe what you need in plain English, an agent fleet plans and provisions it, and an autonomous control loop keeps it healthy — with every consequential action gated through an approval workflow you configure. The agents own the substrate underneath (bare-metal provisioning, signed module supply chain, fleet lifecycle, overlay networking), so this is operating your infrastructure, not just advising on it.
 
-It's the full operational substrate underneath: authentication, permissions, multi-provider LLM routing, knowledge graph reasoning, real-time communication, DevOps pipelines, container orchestration, and a fleet sensor + intervention policy framework that lets agents observe, propose, and act within safety guardrails you define. Every component is designed to work together: agents share memory, learn from execution history, and operate within boundaries that keep them auditable.
+## Demo
 
-### Why Powernode
+<!-- TODO(WS2-T1): replace this placeholder with the 60–90s demo GIF/video produced by the demo-script task (chat → approval queue → PXE boot → live Fleet Dashboard → drift remediation → compliance snapshot). -->
 
-- **AI Agent Orchestration** — Deploy agents with trust scoring, autonomy tiers, and 5 team strategies. Kill switch, goal tracking, proposals, escalations, and behavioral fingerprinting keep agents operating within defined boundaries.
-- **Multi-Provider LLM Routing** — 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere), cost-optimized selection with per-agent budgets and ROI tracking.
-- **Knowledge Infrastructure** — GraphRAG over a hybrid knowledge graph (live node/edge counts via `platform.graph_statistics`), 4-tier memory system (working → STM → LTM → shared), compound learning with decay and reinforcement, RAG pipeline with pgvector embeddings and 3-round agentic retrieval.
-- **MCP-Native Platform** — 546 tool actions across 62 tool classes spanning knowledge, memory, skills, autonomy, DevOps, Docker, codebase intelligence, and content management (full catalog: [docs/reference/auto/mcp-tools.md](docs/reference/auto/mcp-tools.md)). Full A2A protocol support for agent-to-agent communication.
-- **Fleet Substrate** — Bare-metal, VM, and container lifecycle via the System extension. Multi-arch initramfs (amd64 + arm64), composefs + fs-verity rootfs, Cosign + SLSA L3+ signed module supply chain, instance pools, SDWAN overlay with iBGP/FRR + virtual IPs + federation peering.
-- **DevOps Automation** — CI/CD pipelines with 13 step types (including AI-powered), Docker Swarm orchestration, multi-provider Git integration (GitHub, GitLab, Gitea), supply chain security with SBOM generation.
-- **Production Foundation** — 367 granular base permissions (extension-inclusive count is higher at runtime), 19 WebSocket channels, JWT + OAuth 2.0 authentication, and a deep test suite (713 backend spec files, 230 frontend test files).
+> **Demo video coming soon.** A short walkthrough — chat to provision a K3s cluster, approve the plan, watch nodes boot, then remediate injected drift — is in production. Until then, the **[Quick Start](docs/getting-started/01-quickstart.md)** gets the platform running locally in about 10 minutes.
+
+## Why Powernode
+
+- **Approval-gated autonomy** — Agents observe, propose, and act inside guardrails you define. Intervention policies, consent budgets, approval chains, kill switch, behavioral fingerprinting, and compliance snapshots mean every consequential action is reviewable and auditable — autonomy you can actually sign off on.
+- **Full-substrate provisioning** — Bare metal → VMs → containers → K3s clusters, driven from chat through the [system extension](https://github.com/nodealchemy/powernode-system). PXE/initramfs boot, instance pools, and SDWAN overlay networking are part of the platform — not a layer bolted on top of infrastructure someone else provisioned.
+- **Signed module supply chain** — On-node agents enforce keyless Cosign signature verification (Sigstore/Fulcio identity pins) and fs-verity root-hash checks before mounting any module; a failed check refuses the mount. Modules are signed in CI via OIDC-bound ephemeral certificates. _(Transparency-log/Rekor integration is not yet wired — see [docs/STABILITY.md](./docs/STABILITY.md).)_
+- **Multi-provider LLM routing with FinOps** — Route across multiple LLM providers (Anthropic, OpenAI, Google, Azure, Groq, Mistral, Cohere, Ollama, and more) with cost-optimized selection, per-agent budgets, cost attribution, and ROI tracking — so agent operations stay inside spend limits you set.
+- **MCP- and A2A-native** — A first-class MCP server exposes the platform's capabilities to any MCP client; agents coordinate over the A2A protocol with agent cards. The full action catalog lives in [docs/reference/auto/mcp-tools.md](docs/reference/auto/mcp-tools.md).
 
 *Built with Rails 8, React 19 + TypeScript, Sidekiq 8, and PostgreSQL + pgvector.*
-
-## Key Features
-
-### Core Platform
-- **Authentication & Security** - JWT + OAuth 2.0, 2FA, account lockout, rate limiting, CORS, CSP
-- **Permission-Based Access** - 367 granular base permissions across 30+ categories, role-to-permission mapping
-- **Real-time Communication** - 19 ActionCable WebSocket channels for live updates, cross-tab sync
-- **Modern UI** - React 19 with Tailwind CSS 4, theme system, 15 feature modules
-- **Content Management** - Knowledge base articles, content pages, CMS
-- **Analytics** - Customer health scoring, usage tracking, platform telemetry
-
-### AI & Automation (546 MCP tool actions across 62 tool classes)
-- **AI Agents** - Create, deploy, and manage agents with trust scoring and autonomy tiers
-- **Agent Teams** - Multi-agent orchestration (5 strategies: manager_led, consensus, auction, round_robin, priority_based)
-- **AI Workflows** - Visual builder with 35+ node types and circuit breakers
-- **AI Autonomy** - Kill switch, goals, proposals, escalations, feedback, intervention policies, observations, duty cycle
-- **Code Factory** - PRD generation, automated code review, remediation loops
-- **Ralph Loops** - Recursive agent learning with 15-round tool calling
-- **Model Router** - Cost-optimized provider selection across 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere)
-- **MCP Integration** - 546 tool actions for knowledge, memory, skills, RAG, autonomy, Docker, and DevOps
-- **A2A Protocol** - Agent-to-Agent communication with agent cards
-- **Memory System** - 4-tier architecture (working, STM, LTM, shared) with consolidation
-- **Knowledge Graph** - hybrid search + GraphRAG (live node/edge counts via `platform.graph_statistics`)
-- **RAG Pipeline** - Document chunking, pgvector embeddings, agentic retrieval (3-round reformulation)
-- **Security Guardrails** - Behavioral fingerprinting, 5 input rails, 7 output rails, quarantine
-- **FinOps** - Agent budgets, cost attribution, ROI metrics, optimization logging
-- **AI Monitoring** - Execution traces, telemetry events, circuit breakers, performance benchmarks
-
-### DevOps & Infrastructure
-- **Git Integration** - GitHub, GitLab, Gitea, Jenkins provider support
-- **CI/CD Pipelines** - 13 step types including AI-powered steps, approval gates
-- **Container Orchestration** - Docker host management, container templates, sandboxed execution
-- **Docker Swarm** - Cluster, node, service, and stack management with deployment tracking
-- **Integration Framework** - 5 integration types (GitHub Actions, webhooks, MCP servers, REST API, custom)
-- **Supply Chain Security** - SBOM generation, attestations, license compliance
-- **Secrets Management** - Vault-backed secrets with rotation tracking
-
-### Multi-Platform Chat
-- **5 Platforms** - WhatsApp, Telegram, Discord, Slack, Mattermost
-- **AI-Powered Routing** - Automatic agent assignment with escalation
-- **Prompt Injection Protection** - Content sanitization with delimiter wrapping
-
-### Worker System (238 jobs, 31 queues)
-- **Standalone Sidekiq 8** - Fully isolated, API-only communication with backend
-- **3 Priority Tiers** - Critical (weight 3), standard (weight 2), background (weight 1)
-- **Circuit Breakers** - 600s AI workflows, 120s backend API timeouts
-- **53 Scheduled Jobs** - Maintenance, decay, consolidation, health checks, autonomy (the code-intel pipeline runs in a dedicated isolated capsule, excluded from the 31 queues)
-
-### Extensions (4 modules)
-
-Extensions are loaded dynamically via `FeatureGateService`. When no extensions are present, Powernode runs in core mode — single-user self-hosted with all platform features unlocked.
-
-- **Business** (`extensions/business/`) - Billing engine (Stripe/PayPal), BaaS multi-tenancy, reseller system, AI publisher marketplace, predictive analytics
-- **Trading** (`extensions/trading/`) - Algorithmic trading with strategies, portfolios, risk monitoring, and evolution
-- **Supply Chain** (`extensions/supply-chain/`) - Supply chain management and logistics
-- **Marketing** (`extensions/marketing/`) - Campaign management and marketing automation
-
-### Distribution & Cloning
-
-Powernode is **MIT-licensed throughout**. Publicly available components:
-
-- **`powernode-platform`** (this repo) — core platform
-- **`powernode-system`** ([github.com/nodealchemy/powernode-system](https://github.com/nodealchemy/powernode-system)) — fleet, mesh, signed module supply chain, on-node Go agent. Mounted at `extensions/system/`.
-- **`powernode-supply-chain`** ([github.com/nodealchemy/powernode-supply-chain](https://github.com/nodealchemy/powernode-supply-chain)) — supply-chain security extension (SBOM workflows, attestations). Mounted at `extensions/supply-chain/`.
-- **`powernode-marketing`** ([github.com/nodealchemy/powernode-marketing](https://github.com/nodealchemy/powernode-marketing)) — marketing extension (campaigns, calendar, email lists, social, public landing pages). Mounted at `extensions/marketing/`.
-
-The `business` and `trading` extensions are MIT-licensed but currently maintained in private repositories. Public clones run in **core mode** — single-user self-hosted, all platform features unlocked — without those extensions.
-
-```bash
-# Public clone with all public submodules initialized
-git clone <repo-url>
-cd powernode-platform
-git submodule update --init extensions/system extensions/supply-chain extensions/marketing
-```
-
-Running `git submodule update --init` without the path arguments will additionally attempt to clone the private extensions (`business`, `trading`) and produce permission-denied errors. These are safe to ignore if you only need core mode.
-
-## Architecture Overview
-
-```
-powernode-platform/
-├── server/              - Rails 8 API (352 models, 336 controllers, 590 services)
-│   ├── app/models/      - 13 model namespaces (Ai, Devops, Chat, KnowledgeBase, ...)
-│   ├── app/services/    - 23 service namespaces (590 files)
-│   └── app/channels/    - 19 ActionCable channels
-├── frontend/            - React 19 + TypeScript (15 feature modules)
-│   └── src/features/    - account, admin, ai, app, business, content, delegations,
-│                          developer, devops, governance, missions, onboarding,
-│                          privacy, supply-chain, system
-├── worker/              - Sidekiq 8 (238 jobs, 31 queues)
-├── extensions/          - 5 extensions (system, supply-chain, marketing; business, trading)
-├── docs/                - Documentation (see docs/README.md)
-└── scripts/             - 48 automation scripts
-```
-
-### Technology Stack
-
-- **Backend**: Rails 8 | PostgreSQL | UUIDv7 | JWT + OAuth 2.0 | Redis
-- **Frontend**: React 19 | TypeScript 6 | Vite 7 | Tailwind CSS 4 | Redux Toolkit + React Query
-- **Worker**: Sidekiq 8 | Redis | Faraday | Circuit breakers
-- **AI/ML**: 10+ providers | MCP Protocol | A2A Protocol | pgvector (HNSW)
-- **Testing**: RSpec | Jest 30 | Cypress 15 | 713 backend spec files, 230 frontend test files
-- **Database**: PostgreSQL + pgvector | 13 model namespaces | UUIDv7 primary keys
-
-### Prerequisites
-- Ruby 3.2.8
-- Node.js 18+
-- PostgreSQL with pgvector extension
-- Redis 7+
 
 ## Quick Start
 
@@ -139,7 +32,7 @@ cd ../worker && bundle install
 cd ..
 
 # 2. Setup database
-cd server && rails db:create db:migrate db:seed
+cd server && bundle exec rails db:create db:migrate db:seed
 cd ..
 
 # 3. Install systemd services (one-time)
@@ -157,6 +50,109 @@ Services:
 - **API**: http://localhost:3000
 - **Worker Web UI**: http://localhost:4567
 
+### Prerequisites
+- Ruby 3.2.8
+- Node.js 24+ (LTS; >=24.9 required)
+- PostgreSQL with pgvector extension
+- Redis 7+
+
+## Open core boundary
+
+Powernode is **open core**. The platform and its public extensions — **platform, system, supply-chain, and marketing** — are MIT-licensed. The **business** extension is a commercial extension available to customers; it is not part of the open-source release.
+
+- **Always free** — Core mode: single-user, self-hosted, with all platform features unlocked. A public clone runs this way out of the box.
+- **Commercial** — Multi-tenant SaaS operation, billing, reseller, enterprise compliance packs, and SLAs, delivered via the business extension.
+
+The extension system ships with public examples (system, supply-chain, marketing) plus the commercial business extension. Extensions load dynamically via `FeatureGateService`; when none are present, the platform runs in core mode.
+
+<details>
+<summary><strong>Platform breadth</strong> — the full feature surface (click to expand)</summary>
+
+> Powernode is a broad platform. The capabilities below are real and shipped, but they are intentionally not the headline — the wedge above is. This list is for evaluators who want the full surface area. For maturity expectations per subsystem, see [docs/STABILITY.md](./docs/STABILITY.md).
+
+### Core Platform
+- **Authentication & Security** — JWT + OAuth 2.0, 2FA, account lockout, rate limiting, CORS, CSP
+- **Permission-Based Access** — granular base permissions across many categories, role-to-permission mapping
+- **Real-time Communication** — ActionCable WebSocket channels for live updates, cross-tab sync
+- **Modern UI** — React 19 with Tailwind CSS 4, theme system, feature-module architecture
+- **Content Management** — Knowledge base articles, content pages, CMS
+- **Analytics** — Customer health scoring, usage tracking, platform telemetry
+
+### AI & Automation
+- **AI Agents** — Create, deploy, and manage agents with trust scoring and autonomy tiers
+- **Agent Teams** — Multi-agent orchestration (manager-led, consensus, auction, round-robin, priority-based strategies)
+- **AI Workflows** — Visual builder with many node types and circuit breakers
+- **AI Autonomy** — Kill switch, goals, proposals, escalations, feedback, intervention policies, observations, duty cycle
+- **Code Factory** — PRD generation, automated code review, remediation loops
+- **Ralph Loops** — Recursive agent learning with multi-round tool calling
+- **Model Router** — Cost-optimized provider selection across multiple LLM providers
+- **MCP Integration** — A first-class MCP server spanning knowledge, memory, skills, RAG, autonomy, Docker, and DevOps (full catalog: [docs/reference/auto/mcp-tools.md](docs/reference/auto/mcp-tools.md))
+- **A2A Protocol** — Agent-to-Agent communication with agent cards
+- **Memory System** — 4-tier architecture (working, STM, LTM, shared) with consolidation
+- **Knowledge Graph** — hybrid search + GraphRAG (live node/edge counts via `platform.graph_statistics`)
+- **RAG Pipeline** — Document chunking, pgvector embeddings, agentic retrieval (multi-round reformulation)
+- **Security Guardrails** — Behavioral fingerprinting, input/output rails, quarantine
+- **FinOps** — Agent budgets, cost attribution, ROI metrics, optimization logging
+- **AI Monitoring** — Execution traces, telemetry events, circuit breakers, performance benchmarks
+
+### DevOps & Infrastructure
+- **Git Integration** — GitHub, GitLab, Gitea, Jenkins provider support
+- **CI/CD Pipelines** — Multiple step types including AI-powered steps, approval gates
+- **Container Orchestration** — Docker host management, container templates, sandboxed execution
+- **Docker Swarm** — Cluster, node, service, and stack management with deployment tracking
+- **Integration Framework** — GitHub Actions, webhooks, MCP servers, REST API, and custom integrations
+- **Supply Chain Security** — SBOM generation, attestations, license compliance
+- **Secrets Management** — Vault-backed secrets with rotation tracking
+
+### Fleet Substrate (system extension)
+- **Node lifecycle** — Bare-metal, VM, and container provisioning from PXE/initramfs through to running clusters
+- **Multi-arch images** — amd64 + arm64 initramfs, erofs + fs-verity rootfs
+- **Signed module supply chain** — keyless Cosign signature **verification** + fs-verity digest checks enforced on-node before mount
+- **Container runtimes** — Phase 1 Docker daemon provisioning, Phase 2 K3s clusters
+- **Instance pools** — pre-warmed instances for bursty workloads
+- **SDWAN overlay** — iBGP/FRR, virtual IPs, federation peering
+- **Fleet autonomy** — sensor-driven drift detection, CVE response, rolling upgrades within intervention policies
+
+### Multi-Platform Chat
+- **Multiple platforms** — WhatsApp, Telegram, Discord, Slack, Mattermost
+- **AI-Powered Routing** — Automatic agent assignment with escalation
+- **Prompt Injection Protection** — Content sanitization with delimiter wrapping
+
+### Worker System
+- **Standalone Sidekiq 8** — Fully isolated, API-only communication with backend
+- **Priority tiers** — critical, standard, and background work separated by weight
+- **Circuit Breakers** — long timeouts for AI workflows, shorter ones for backend API calls
+- **Scheduled jobs** — maintenance, decay, consolidation, health checks, autonomy
+
+### Architecture Overview
+
+```
+powernode-platform/
+├── server/              - Rails 8 API
+│   ├── app/models/      - model namespaces (Ai, Devops, Chat, KnowledgeBase, ...)
+│   ├── app/services/    - service namespaces
+│   └── app/channels/    - ActionCable channels
+├── frontend/            - React 19 + TypeScript (feature modules)
+│   └── src/features/    - account, admin, ai, app, business, content, delegations,
+│                          developer, devops, governance, missions, onboarding,
+│                          privacy, supply-chain, system
+├── worker/              - Sidekiq 8 (standalone, API-only)
+├── extensions/          - public examples (system, supply-chain, marketing) + commercial business extension
+├── docs/                - Documentation (see docs/README.md)
+└── scripts/             - automation scripts
+```
+
+### Technology Stack
+
+- **Backend**: Rails 8 | PostgreSQL | UUIDv7 | JWT + OAuth 2.0 | Redis
+- **Frontend**: React 19 | TypeScript | Vite | Tailwind CSS 4 | Redux Toolkit + React Query
+- **Worker**: Sidekiq 8 | Redis | Faraday | Circuit breakers
+- **AI/ML**: Multiple LLM providers | MCP Protocol | A2A Protocol | pgvector (HNSW)
+- **Testing**: RSpec | Jest | Playwright
+- **Database**: PostgreSQL + pgvector | UUIDv7 primary keys
+
+</details>
+
 ## Documentation
 
 The full documentation lives in **[docs/](docs/)** — start with [docs/README.md](docs/README.md) for the visitor map.
@@ -169,17 +165,18 @@ The full documentation lives in **[docs/](docs/)** — start with [docs/README.m
 - **[Agents & autonomy](docs/concepts/agents-and-autonomy.md)** — agent orchestration, missions, model routing, autonomy tiers
 - **[MCP & tools](docs/concepts/mcp-and-tools.md)** — MCP protocol, OAuth, tool catalog conventions
 - **[Knowledge & memory](docs/concepts/knowledge-and-memory.md)** — knowledge graph, RAG, 4-tier memory, skills
-- **[Permissions](docs/concepts/permissions.md)** — 367 base permissions, role mapping, frontend rules
+- **[Permissions](docs/concepts/permissions.md)** — base permissions, role mapping, frontend rules
 - **[Data model](docs/concepts/data-model.md)** — UUIDv7 + namespaces + schema conventions
-- **[Chat & realtime](docs/concepts/chat-and-realtime.md)** — 19 ActionCable channels, multi-platform chat
+- **[Chat & realtime](docs/concepts/chat-and-realtime.md)** — ActionCable channels, multi-platform chat
 - **[Cost & FinOps](docs/concepts/cost-and-finops.md)** — provider pricing, budgets, ROI
+- **[Stability tiers](./docs/STABILITY.md)** — what is stable vs. beta vs. experimental, and support expectations
 
 ### By task
 
 - **Backend / Frontend / Worker** → [docs/guides/backend.md](docs/guides/backend.md), [docs/guides/frontend.md](docs/guides/frontend.md), [docs/operations/worker-operations.md](docs/operations/worker-operations.md)
 - **DevOps + Docker Swarm + CI/CD** → [docs/guides/devops.md](docs/guides/devops.md), [docs/operations/docker-swarm.md](docs/operations/docker-swarm.md)
 - **Security + supply chain** → [docs/guides/security.md](docs/guides/security.md)
-- **Extensions (business, trading, supply-chain, marketing)** → [docs/guides/extensions.md](docs/guides/extensions.md)
+- **Extensions** → [docs/guides/extensions.md](docs/guides/extensions.md)
 - **Testing (Backend + Frontend + E2E)** → [docs/guides/testing.md](docs/guides/testing.md), [docs/guides/e2e-testing.md](docs/guides/e2e-testing.md)
 - **Production operations** → [docs/operations/production-deployment.md](docs/operations/production-deployment.md), [docs/operations/ai-operations.md](docs/operations/ai-operations.md), [docs/operations/performance-tuning.md](docs/operations/performance-tuning.md)
 - **Contributing** → [docs/contributing/development-setup.md](docs/contributing/development-setup.md), [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -197,6 +194,14 @@ The full documentation lives in **[docs/](docs/)** — start with [docs/README.m
 ### Development guide for AI assistants
 
 - **[CLAUDE.md](CLAUDE.md)** — development patterns, MCP-first workflow, conventions
+
+## Project governance
+
+- **[STABILITY.md](./docs/STABILITY.md)** — stable / beta / experimental tiers and support expectations
+- **[ROADMAP.md](./ROADMAP.md)** — what's planned, by quarter
+- **[GOVERNANCE.md](./GOVERNANCE.md)** — how decisions are made and the path to maintainership
+- **[SECURITY.md](./SECURITY.md)** — security posture and vulnerability disclosure
+- **[CLA.md](./CLA.md)** — Contributor License Agreement (required before a first contribution is merged)
 
 ## Contributing
 
@@ -228,20 +233,21 @@ cd frontend && npx tsc --noEmit
 ./scripts/validate.sh
 ```
 
-All tests must pass. Permissions must use the permission system (never role-based checks). Frontend must use theme classes (`bg-theme-*`, `text-theme-*`) — no hardcoded colors.
+All tests must pass. Permissions must use the permission system (never role-based checks). Frontend must use theme classes (`bg-theme-*`, `text-theme-*`) — no hardcoded colors. New contributions require signing the **[CLA](./CLA.md)**.
 
 ## License
 
-MIT License — see **[LICENSE](LICENSE)** for full text.
+The platform and its public extensions — **platform, system, supply-chain, and marketing** — are released under the **MIT License**; see **[LICENSE](LICENSE)**. The commercial **business** extension is licensed separately and is not part of this repository. See [Open core boundary](#open-core-boundary) for what is free versus commercial.
 
 ---
 
 ## Community
 
-**Text channels**
+**Discussion**
 
-- **GitHub issues** — [nodealchemy/powernode-platform/issues](https://github.com/nodealchemy/powernode-platform/issues) for bugs + feature requests
-- **X / Twitter** — [@nodealchemy](https://x.com/nodealchemy) for general updates and informal questions
+- **GitHub Discussions** — [nodealchemy/powernode-platform/discussions](https://github.com/nodealchemy/powernode-platform/discussions) for questions, ideas, and show-and-tell
+- **GitHub Issues** — [nodealchemy/powernode-platform/issues](https://github.com/nodealchemy/powernode-platform/issues) for bugs + feature requests
+- **X (@nodealchemy)** — [@nodealchemy](https://x.com/nodealchemy) for updates and informal questions
 
 **Email**
 
@@ -250,6 +256,8 @@ MIT License — see **[LICENSE](LICENSE)** for full text.
 - [sales@nodealchemy.com](mailto:sales@nodealchemy.com) — commercial + enterprise-tier inquiries
 - [security@nodealchemy.com](mailto:security@nodealchemy.com) — security vulnerabilities; see [SECURITY.md](./SECURITY.md)
 
+Open source lives at **[github.com/nodealchemy](https://github.com/nodealchemy)**; commercial offerings at **[nodealchemy.com](https://nodealchemy.com)**.
+
 ---
 
-_Last verified: 2026-06-03_
+_Last verified: 2026-06-12_
