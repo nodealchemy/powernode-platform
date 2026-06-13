@@ -274,4 +274,28 @@ RSpec.describe Ai::Mission, type: :model do
       expect(Ai::Mission.draft).to include(draft_mission)
     end
   end
+
+  # ai_missions.ralph_loop_id and ai_ralph_loops.mission_id form a circular
+  # FK (the two-way link is written by Missions::SkillCompositionService).
+  # Both constraints are ON DELETE SET NULL so a linked pair is destroyable
+  # from either side — without it, both destroy endpoints 500'd with
+  # PG::ForeignKeyViolation and the account-termination dependent: :destroy
+  # chain (loops before missions) failed for any account with a linked pair.
+  describe "destroying linked mission <-> ralph loop pairs" do
+    let(:account) { create(:account) }
+    let(:mission) { create(:ai_mission, account: account) }
+    let(:ralph_loop) { create(:ai_ralph_loop, account: account, mission: mission) }
+
+    before { mission.update!(ralph_loop_id: ralph_loop.id) }
+
+    it "destroys the mission and nullifies the loop's back-reference" do
+      expect { mission.destroy! }.not_to raise_error
+      expect(ralph_loop.reload.mission_id).to be_nil
+    end
+
+    it "destroys the loop and nullifies the mission's forward reference" do
+      expect { ralph_loop.destroy! }.not_to raise_error
+      expect(mission.reload.ralph_loop_id).to be_nil
+    end
+  end
 end
