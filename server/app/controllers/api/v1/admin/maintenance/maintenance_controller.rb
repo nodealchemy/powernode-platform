@@ -44,14 +44,14 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   # Data Cleanup endpoints
   def cleanup_stats
-    stats = DataCleanupService.get_cleanup_stats
+    stats = DataManagement::CleanupService.get_cleanup_stats
 
     render_success(stats)
   end
 
   def cleanup_audit_logs
     days_old = params[:days_old] || 90
-    result = DataCleanupService.cleanup_audit_logs(days_old.to_i)
+    result = DataManagement::CleanupService.cleanup_audit_logs(days_old.to_i)
 
     render_success(
       data: result,
@@ -60,7 +60,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def cleanup_sessions
-    result = DataCleanupService.cleanup_expired_sessions
+    result = DataManagement::CleanupService.cleanup_expired_sessions
 
     render_success(
       data: result,
@@ -69,7 +69,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def cleanup_temp_files
-    result = DataCleanupService.cleanup_temp_files
+    result = DataManagement::CleanupService.cleanup_temp_files
 
     render_success(
       data: result,
@@ -78,7 +78,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def clear_cache
-    result = DataCleanupService.clear_application_cache
+    result = DataManagement::CleanupService.clear_application_cache
 
     render_success(
       data: result,

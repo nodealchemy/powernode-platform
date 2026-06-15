@@ -167,18 +167,15 @@ RSpec.describe 'Api::V1::Admin::Maintenance', type: :request do
   describe 'GET /api/v1/admin/maintenance/cleanup/stats' do
     let(:headers) { auth_headers_for(user_with_maintenance_permission) }
 
-    before do
-      stub_const('DataCleanupService', Class.new do
-        def self.get_cleanup_stats
-          { total_records: 1000, cleanable_records: 100 }
-        end
-      end)
-    end
-
+    # Hits the real DataManagement::CleanupService (read-only). The controller
+    # previously referenced a non-existent `DataCleanupService` constant, which
+    # this spec masked by stub_const-ing it into existence — so production 500'd
+    # with NameError while the spec stayed green.
     it 'returns cleanup statistics' do
       get '/api/v1/admin/maintenance/cleanup/stats', headers: headers, as: :json
 
       expect_success_response
+      expect(json_response_data).to include('audit_logs', 'sessions', 'database')
     end
   end
 

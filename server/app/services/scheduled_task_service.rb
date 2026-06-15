@@ -425,22 +425,22 @@ class ScheduledTaskService
       # Parse command for specific cleanup operations
       if task.command&.include?("audit_logs")
         days = extract_days_from_command(task.command) || 90
-        result = DataCleanupService.cleanup_audit_logs(days)
+        result = DataManagement::CleanupService.cleanup_audit_logs(days)
         results << "Audit logs: #{result[:cleaned_count]} records cleaned"
       end
 
       if task.command&.include?("sessions")
-        result = DataCleanupService.cleanup_expired_sessions
+        result = DataManagement::CleanupService.cleanup_expired_sessions
         results << "Sessions: #{result[:cleaned_count]} expired sessions cleaned"
       end
 
       if task.command&.include?("temp_files")
-        result = DataCleanupService.cleanup_temp_files
+        result = DataManagement::CleanupService.cleanup_temp_files
         results << "Temp files: #{result[:cleaned_count]} files cleaned"
       end
 
       if task.command&.include?("cache")
-        result = DataCleanupService.clear_application_cache
+        result = DataManagement::CleanupService.clear_application_cache
         results << "Cache: #{result[:cleared_entries]} entries cleared"
       end
 

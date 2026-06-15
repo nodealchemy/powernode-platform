@@ -13,17 +13,7 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
     # Reset maintenance mode before each test
     Rails.application.config.maintenance_mode = false
 
-    # Stub non-existent classes that the controller references
-    unless defined?(DataCleanupService)
-      stub_const('DataCleanupService', Class.new do
-        def self.get_cleanup_stats = { total_records: 0, cleanable_records: 0 }
-        def self.cleanup_audit_logs(_days) = { deleted: 0 }
-        def self.cleanup_expired_sessions = { deleted: 0 }
-        def self.cleanup_temp_files = { deleted: 0 }
-        def self.clear_application_cache = { cleared: true }
-      end)
-    end
-
+    # Stub Database::Backup which the backups-list action references.
     unless defined?(Database::Backup)
       stub_const('Database::Backup', Class.new do
         def self.order(*) = self
