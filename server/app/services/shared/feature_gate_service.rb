@@ -17,22 +17,12 @@ module Shared
       Powernode::ExtensionRegistry.feature_available?(feature, account: account)
     end
 
+    # A feature is "core" when no loaded extension declares ownership of it.
+    # Resolved through the registry so core never names a specific extension.
     # @param feature [String]
     # @return [Boolean]
     def self.core_feature?(feature)
-      !business_feature?(feature)
-    end
-
-    # @param feature [String]
-    # @return [Boolean]
-    def self.business_feature?(feature)
-      return false unless extension_loaded?("business")
-
-      engine = Powernode::ExtensionRegistry.engine_for("business")
-      features_mod = "PowernodeBusiness::Features".safe_constantize
-      return false unless features_mod&.const_defined?(:FEATURE_TIERS)
-
-      features_mod::FEATURE_TIERS.key?(feature.to_s)
+      !Powernode::ExtensionRegistry.feature_owned?(feature)
     end
 
     # Check if a specific extension is loaded
@@ -110,20 +100,25 @@ module Shared
       end
     end
 
-    # Toggle the business_mode Flipper flag
+    # Toggle an extension's "<slug>_mode" Flipper flag (generic).
+    # @param slug [String]
     # @param enabled [Boolean]
-    # @return [Boolean] new state
-    def self.set_business_enabled!(enabled)
-      return false unless business_loaded?
+    # @return [Boolean] new enabled state
+    def self.set_extension_enabled!(slug, enabled)
+      return false unless extension_loaded?(slug)
       return false unless defined?(Flipper)
 
-      if enabled
-        Flipper.enable(:business_mode)
-      else
-        Flipper.disable(:business_mode)
-      end
+      flag = :"#{slug.tr('-', '_')}_mode"
+      enabled ? Flipper.enable(flag) : Flipper.disable(flag)
+      extension_enabled?(slug)
+    end
 
-      business_enabled?
+    # @deprecated Interim shim. The business-specific gate methods below are slated
+    # for removal in Phase 3 of the core/extension decoupling, once the admin
+    # toggle and presence-gate call sites move to generic, capability-based checks
+    # (see docs/contributing/core-extension-decoupling.md). Do not add new callers.
+    def self.set_business_enabled!(enabled)
+      set_extension_enabled!("business", enabled)
     end
 
     # Development info payload for admin UI

@@ -38,6 +38,19 @@ module Powernode
         false
       end
 
+      # True if any loaded extension declares (owns) this feature, regardless of
+      # whether it is currently available. Lets core distinguish a core feature
+      # from an extension feature without naming any specific extension.
+      def feature_owned?(feature)
+        extensions.each_value do |ext|
+          mod = ext[:features_module]
+          next unless mod&.respond_to?(:available?)
+
+          return true unless mod.available?(feature, account: nil).nil?
+        end
+        false
+      end
+
       private
 
       def extensions
