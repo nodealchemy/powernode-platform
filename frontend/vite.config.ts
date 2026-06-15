@@ -44,15 +44,29 @@ export default defineConfig(({ mode }: { mode: string }) => {
   const extensionAliases: Record<string, string> = {};
   const discoveredSlugs: string[] = [];
 
+  // Extensions live flat under extensions/<slug>; private/custom ones under
+  // extensions/private/<slug> (gitignored). "private" is a grouping dir, never
+  // a slug — the slug is always the leaf directory name.
+  const extensionDirs: { slug: string; dir: string }[] = [];
   if (fs.existsSync(extensionsDir)) {
-    for (const slug of fs.readdirSync(extensionsDir)) {
-      const manifestPath = path.resolve(extensionsDir, slug, 'extension.json');
-      const frontendSrc = path.resolve(extensionsDir, slug, 'frontend/src');
-      if (fs.existsSync(manifestPath) && fs.existsSync(frontendSrc)) {
-        extensionAliases[`@ext/${slug}`] = frontendSrc;
-        extensionAliases[`@${slug}`] = frontendSrc; // intra-extension imports (e.g. @business/)
-        discoveredSlugs.push(slug);
+    for (const name of fs.readdirSync(extensionsDir)) {
+      if (name === 'private') continue;
+      extensionDirs.push({ slug: name, dir: path.resolve(extensionsDir, name) });
+    }
+    const privateDir = path.resolve(extensionsDir, 'private');
+    if (fs.existsSync(privateDir)) {
+      for (const name of fs.readdirSync(privateDir)) {
+        extensionDirs.push({ slug: name, dir: path.resolve(privateDir, name) });
       }
+    }
+  }
+  for (const { slug, dir } of extensionDirs) {
+    const manifestPath = path.resolve(dir, 'extension.json');
+    const frontendSrc = path.resolve(dir, 'frontend/src');
+    if (fs.existsSync(manifestPath) && fs.existsSync(frontendSrc)) {
+      extensionAliases[`@ext/${slug}`] = frontendSrc;
+      extensionAliases[`@${slug}`] = frontendSrc; // intra-extension imports (e.g. @business/)
+      discoveredSlugs.push(slug);
     }
   }
 
@@ -112,7 +126,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
               return '\0disabled-ext-stub';
             }
             // Post-resolution absolute or relative path inside the disabled dir
-            if (id.includes(`/extensions/${slug}/`)) {
+            if (id.includes(`/extensions/${slug}/`) || id.includes(`/extensions/private/${slug}/`)) {
               return '\0disabled-ext-stub';
             }
           }
