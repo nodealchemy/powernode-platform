@@ -23,7 +23,7 @@ module Ai
     belongs_to :review_state, class_name: "Ai::CodeFactory::ReviewState", foreign_key: "review_state_id", optional: true
     belongs_to :mission_template, class_name: "Ai::MissionTemplate", foreign_key: "mission_template_id", optional: true
     # Self-Serve Hardening M4 Slice A — optional per-team isolation pointer.
-    # Backed by `Account::TeamDelegation` (extensions/business). Leading `::` keeps
+    # Backed by `Account::TeamDelegation` (extensions/private/business). Leading `::` keeps
     # the constant resolved at the top level when business is loaded; when business
     # is disabled, this column stays NULL on every row.
     belongs_to :delegation,

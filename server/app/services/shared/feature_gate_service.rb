@@ -83,7 +83,7 @@ module Shared
     # @param slug [String]
     # @return [Boolean]
     def self.extension_manifest_present?(slug)
-      File.exist?(Rails.root.join("..", "extensions", slug, "extension.json"))
+      Shared::ExtensionPaths.manifest_present?(slug)
     end
 
     # Check if running in core (self-hosted) mode

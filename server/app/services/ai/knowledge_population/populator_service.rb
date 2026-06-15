@@ -243,7 +243,7 @@ module Ai
              "fact", %w[architecture worker sidekiq], "architecture"),
 
           sk("Business submodule pattern",
-             "Business features at extensions/business/ (git submodule). When absent, app runs " \
+             "Business features at extensions/private/business/ (git submodule). When absent, app runs " \
              "single-user self-hosted, all features unlocked. Gate: " \
              "Shared::FeatureGateService.business_loaded? (backend), __BUSINESS__ (frontend).",
              "fact", %w[architecture business], "architecture"),

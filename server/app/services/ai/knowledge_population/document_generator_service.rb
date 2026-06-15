@@ -94,7 +94,7 @@ module Ai
                   "React TypeScript frontend (frontend/), and a standalone Sidekiq worker (worker/). It uses " \
                   "PostgreSQL with UUIDv7 primary keys, JWT authentication, and pgvector for AI vector search.\n\n" \
                   "Services run via systemd: backend on port 3000, frontend on 3001, worker-web on 4567. " \
-                  "Business features ship as a git submodule at extensions/business/; when absent the app " \
+                  "Business features ship as a git submodule at extensions/private/business/; when absent the app " \
                   "runs in single-user self-hosted mode with all features unlocked.",
             model_prefixes: ["Root"],
             route_prefixes: ["root"],
@@ -497,7 +497,7 @@ module Ai
           ## Service Architecture
           - Worker communicates with server via HTTP API only — jobs in `worker/app/jobs/`
           - Systemd service management — never manual commands
-          - Business features via git submodule at `extensions/business/`
+          - Business features via git submodule at `extensions/private/business/`
           - Ports: backend=3000, frontend=3001, worker-web=4567
         MD
       end

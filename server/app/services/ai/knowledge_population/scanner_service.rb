@@ -44,7 +44,7 @@ module Ai
         # Fallback: resolve each model file via constantize (triggers Zeitwerk per-file)
         model_dirs = [
           @server_root.join("app/models"),
-          @project_root.join("extensions/business/server/app/models")
+          @project_root.join("extensions/private/business/server/app/models")
         ]
 
         model_dirs.each do |dir|

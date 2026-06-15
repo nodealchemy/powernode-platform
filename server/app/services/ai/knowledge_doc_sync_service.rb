@@ -199,7 +199,7 @@ module Ai
       if scope == "platform"
         PLATFORM_OUTPUT_DIR
       else
-        EXTENSIONS_ROOT.join(scope, "docs", "knowledge")
+        (Shared::ExtensionPaths.dir_for(scope) || EXTENSIONS_ROOT.join(scope)).join("docs", "knowledge")
       end
     end
 

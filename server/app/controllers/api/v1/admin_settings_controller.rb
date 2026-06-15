@@ -137,11 +137,11 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   # GET /api/v1/admin_settings/extensions
   def extensions
-    extensions_dir = Rails.root.join("..", "extensions")
+    extension_dirs = Shared::ExtensionPaths.extension_dirs
     extensions = []
 
-    if extensions_dir.directory?
-      extensions_dir.children.select(&:directory?).each do |ext_dir|
+    unless extension_dirs.empty?
+      extension_dirs.each do |ext_dir|
         meta_file = ext_dir.join("extension.json")
         next unless meta_file.exist?
 
@@ -172,10 +172,9 @@ class Api::V1::AdminSettingsController < ApplicationController
   # PUT /api/v1/admin_settings/extensions/:slug/toggle
   def toggle_extension
     slug = params[:slug]
-    extensions_dir = Rails.root.join("..", "extensions", slug)
-    meta_file = extensions_dir.join("extension.json")
+    meta_file = Shared::ExtensionPaths.manifest_for(slug)
 
-    unless meta_file.exist?
+    unless meta_file&.exist?
       return render_error("Extension '#{slug}' not found", :not_found)
     end
 

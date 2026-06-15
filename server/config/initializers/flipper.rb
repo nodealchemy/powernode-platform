@@ -45,8 +45,18 @@ Rails.application.config.after_initialize do
   # offers a toggle for an absent extension.
   extensions_dir = Rails.root.join("..", "extensions")
   extension_flag_names = Set.new
+  # Extensions live flat under extensions/<slug>; private ones under
+  # extensions/private/<slug>. "private" is a grouping dir, never a slug.
+  ext_dirs = []
   if File.directory?(extensions_dir)
-    extensions_dir.children.select(&:directory?).each do |ext_dir|
+    extensions_dir.children.select(&:directory?).each do |d|
+      ext_dirs << d unless d.basename.to_s == "private"
+    end
+    private_dir = extensions_dir.join("private")
+    ext_dirs.concat(private_dir.children.select(&:directory?)) if private_dir.directory?
+  end
+  unless ext_dirs.empty?
+    ext_dirs.each do |ext_dir|
       manifest = ext_dir.join("extension.json")
       next unless manifest.exist?
 

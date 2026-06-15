@@ -49,25 +49,45 @@ def discover_extension_gems_by_visibility(base_dir = __dir__)
   public_slugs = public_extension_slugs(base_dir)
 
   result = { public: [], private: [] }
-  Dir.children(dir).sort.each do |slug|
+  extension_candidate_dirs(dir).each do |slug, rel_path, private_by_location|
     next if disabled.include?(slug)
 
-    manifest = File.join(dir, slug, "extension.json")
+    manifest = File.join(base_dir, rel_path, "extension.json")
     next unless File.exist?(manifest)
 
     parsed = JSON.parse(File.read(manifest))
     next unless parsed.dig("components", "server")
 
-    server_path = File.join(dir, slug, "server")
+    server_path = File.join(base_dir, rel_path, "server")
     next unless Dir.exist?(server_path)
 
-    is_public = public_slugs.include?(slug)
+    is_public = !private_by_location && public_slugs.include?(slug)
     next if !is_public && !include_private
 
     bucket = is_public ? :public : :private
-    result[bucket] << [slug, "../extensions/#{slug}/server"]
+    result[bucket] << [slug, "../#{rel_path}/server"]
   end
   result
+end
+
+# Yields [slug, path-relative-to-base_dir, private_by_location] for every
+# extension directory. Extensions live flat under extensions/<slug>; private/
+# custom ones under extensions/private/<slug> (the whole extensions/private/
+# tree is gitignored). "private" is a grouping directory, never an extension
+# slug — anything under it is private by location regardless of .gitmodules.
+def extension_candidate_dirs(extensions_dir)
+  candidates = []
+  Dir.children(extensions_dir).sort.each do |name|
+    next if name == "private"
+    candidates << [name, "extensions/#{name}", false]
+  end
+  private_dir = File.join(extensions_dir, "private")
+  if Dir.exist?(private_dir)
+    Dir.children(private_dir).sort.each do |name|
+      candidates << [name, "extensions/private/#{name}", true]
+    end
+  end
+  candidates
 end
 
 # Set of extension slugs declared in .gitmodules — the canonical

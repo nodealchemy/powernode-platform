@@ -39,7 +39,7 @@ RSpec.describe "discover_extension_gems" do
       # Business and supply-chain are present in this checkout; only trading is filtered
       slugs = discover_extension_gems.map(&:first)
 
-      expect(slugs).to include("business") if File.exist?(File.join(project_root, "extensions/business/extension.json"))
+      expect(slugs).to include("business") if File.exist?(File.join(project_root, "extensions/private/business/extension.json"))
       expect(slugs).to include("supply-chain") if File.exist?(File.join(project_root, "extensions/supply-chain/extension.json"))
     end
 
@@ -48,7 +48,7 @@ RSpec.describe "discover_extension_gems" do
 
       slugs = discover_extension_gems.map(&:first)
 
-      expect(slugs).to include("business") if File.exist?(File.join(project_root, "extensions/business/extension.json"))
+      expect(slugs).to include("business") if File.exist?(File.join(project_root, "extensions/private/business/extension.json"))
     end
 
     it "treats malformed state file as empty disabled list" do
