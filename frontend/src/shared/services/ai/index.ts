@@ -33,7 +33,6 @@ import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { providersApi } from '@/shared/services/ai/ProvidersApiService';
 import { monitoringApi } from '@/shared/services/ai/MonitoringApiService';
 import { analyticsApi } from '@/shared/services/ai/AnalyticsApiService';
-import { pluginsApi } from '@/shared/services/ai/PluginsApiService';
 import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
 import { modelRouterApi } from '@/shared/services/ai/ModelRouterApiService';
 import { aiOpsApi } from '@/shared/services/ai/AiOpsApiService';
@@ -137,22 +136,6 @@ export type {
   ScheduleReportRequest,
   ExportRequest,
 } from '@/shared/services/ai/AnalyticsApiService';
-
-// Re-export Plugins service
-export { pluginsApi };
-export type {
-  PluginMarketplace,
-  Plugin,
-  PluginInstallation,
-  PluginType,
-  PluginManifest,
-  AiProviderConfig,
-  WorkflowNodeConfig,
-  CreatePluginMarketplaceRequest,
-  CreatePluginRequest,
-  InstallPluginRequest,
-} from '@/shared/types/plugin';
-
 
 // Re-export Model Router service (Phase 1 - Intelligent Routing)
 export { modelRouterApi };
@@ -515,7 +498,6 @@ export const aiApi = {
   providers: providersApi,
   monitoring: monitoringApi,
   analytics: analyticsApi,
-  plugins: pluginsApi,
   // Phase 1 - New services
   modelRouter: modelRouterApi,
   aiOps: aiOpsApi,

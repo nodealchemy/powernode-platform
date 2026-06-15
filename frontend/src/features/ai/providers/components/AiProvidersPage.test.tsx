@@ -18,8 +18,7 @@ jest.mock('@/shared/services/ai', () => ({
     setupDefaultProviders: jest.fn()
   },
   agentsApi: {},
-  conversationsApi: {},
-  pluginsApi: {}
+  conversationsApi: {}
 }));
 
 // Mock hooks

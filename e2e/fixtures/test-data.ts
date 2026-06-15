@@ -213,7 +213,6 @@ export const ROUTES = {
   debug: '/app/ai/debug',
   devops: '/app/ai/devops-templates',
   devopsTemplates: '/app/ai/devops-templates',
-  plugins: '/app/ai/plugins',
   parallelExecution: '/app/ai/parallel-execution',
   selfHealing: '/app/ai/self-healing',
   learningRecommendations: '/app/ai/learning/recommendations',

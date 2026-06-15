@@ -26,8 +26,7 @@ jest.mock('@/shared/services/ai', () => ({
     deleteProvider: jest.fn(),
     testConnection: jest.fn()
   },
-  conversationsApi: {},
-  pluginsApi: {}
+  conversationsApi: {}
 }));
 
 // Mock useNotifications to avoid Redux dependency
