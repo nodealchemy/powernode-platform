@@ -16,9 +16,7 @@
 - [Version Management](#version-management)
 - [Testing](#testing)
 - [MCP Testing](#mcp-testing)
-- [Deployment](#deployment)
 - [Backup](#backup)
-- [Docker](#docker)
 - [Systemd](#systemd)
 - [Monitoring](#monitoring)
 - [Infrastructure](#infrastructure)
@@ -27,7 +25,7 @@
 
 ## Overview
 
-Repository scripts live under `scripts/` at the project root. Subdirectories group related scripts by lifecycle stage (deployment, backup, docker, systemd, monitoring). This reference catalogues every script available in the platform repo; extension-specific scripts that live under `extensions/*/scripts/` are documented inside the relevant extension.
+Repository scripts live under `scripts/` at the project root. Subdirectories group related scripts by lifecycle stage (backup, systemd, monitoring). This reference catalogues every script available in the platform repo; extension-specific scripts that live under `extensions/*/scripts/` are documented inside the relevant extension.
 
 ## Code Quality
 
@@ -100,28 +98,6 @@ Repository scripts live under `scripts/` at the project root. Subdirectories gro
 |--------|-------------|
 | `mcp-smoke-test.sh` | MCP tool execution smoke test |
 
-## Deployment
-
-Top-level deployment helpers:
-
-| Script | Description |
-|--------|-------------|
-| `deploy-remote.sh` | Remote Docker Swarm deployment (`[environment] [version]`) |
-| `setup-remote-deployment.sh` | One-shot setup script for remote Docker Swarm deployment |
-
-Inside `scripts/deployment/`:
-
-| Script | Description |
-|--------|-------------|
-| `deploy.sh` | Main deployment script |
-| `backup.sh` | Pre-deployment backup |
-| `environment-setup.sh` | Environment configuration setup |
-| `health-check.sh` | Local health check after deployment |
-| `health-check-remote.sh` | Remote server health check |
-| `rollback.sh` | Deployment rollback |
-| `setup-secrets.sh` | Configure production secrets |
-| `smoke-tests.sh` | Post-deployment smoke tests |
-
 ## Backup
 
 Inside `scripts/backup/`:
@@ -130,16 +106,6 @@ Inside `scripts/backup/`:
 |--------|-------------|
 | `backup-database.sh` | PostgreSQL database backup (supports S3 upload) |
 | `restore-database.sh` | Database restore from backup |
-
-## Docker
-
-Inside `scripts/docker/`:
-
-| Script | Description |
-|--------|-------------|
-| `powernode-build.sh` | Build Docker images for all services |
-| `powernode-deploy.sh` | Deploy via Docker Compose |
-| `powernode-package.sh` | Package Docker images for distribution |
 
 ## Systemd
 
@@ -191,7 +157,7 @@ Inside `scripts/monitoring/`:
 
 ## Related docs
 
-- [../operations/production-deployment.md](../operations/production-deployment.md) — How deployment scripts are used
+- [../operations/production-deployment.md](../operations/production-deployment.md) — Production deployment runbook
 - [../operations/docker-swarm.md](../operations/docker-swarm.md) — Docker Swarm operational procedures
 - [../contributing/development-setup.md](../contributing/development-setup.md) — Local development scripts
 

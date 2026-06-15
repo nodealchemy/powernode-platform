@@ -4,7 +4,7 @@
 >
 > When to use this runbook: deploying Powernode to a fresh Linux host as the **systemd-managed installation** — backend, worker, worker-web, frontend, and reverse-proxy as native services with apt-installed PostgreSQL + Redis underneath. This is the path used by `dev.ipnode.net`, the `ops` control plane, and (with `--production`) the first Vultr cutover before the modular self-host migration.
 >
-> If you want the Docker Compose path instead (legacy, deprecated by 2026-08-01), see [`production-deployment.md`](production-deployment.md). If you want the long-term modular self-host path via the Go agent + System modules, that's a separate runbook (see [Golden Eclipse M3+](../../extensions/system/docs/CONTAINER_RUNTIMES.md)).
+> This runbook covers the base install. For production operations around it (storage, backups, monitoring, scaling, rollback, readiness), see [`production-deployment.md`](production-deployment.md). If you want the long-term modular self-host path via the Go agent + System modules, that's a separate runbook (see [Golden Eclipse M3+](../../extensions/system/docs/CONTAINER_RUNTIMES.md)).
 
 ## Why this path exists
 

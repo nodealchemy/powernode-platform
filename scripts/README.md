@@ -211,7 +211,6 @@ scripts/
 │   └── nginx/
 │       └── powernode-frontend.conf.template
 ├── backup/                           # Database backup/restore
-├── deployment/                       # Deployment utilities
 └── [code quality scripts]            # Linting, patterns, cleanup
 ```
 

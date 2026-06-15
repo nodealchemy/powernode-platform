@@ -27,7 +27,7 @@
 
 ## What this guide covers
 
-This is the operator's guide for running Powernode in development and production. It covers systemd-managed service deployment, Docker / Docker Compose, Swarm orchestration, the built-in CI/CD subsystem (Pipelines, Container Instances, Git providers, Runners), secrets management, and the operational health surfaces.
+This is the operator's guide for running Powernode in development and production. It covers systemd-managed service deployment, Docker image builds, Swarm orchestration, the built-in CI/CD subsystem (Pipelines, Container Instances, Git providers, Runners), secrets management, and the operational health surfaces.
 
 The platform's distinguishing feature in this space is its **integrated DevOps subsystem** — pipelines, container instances, runners, deployment strategies, and git provider abstractions all live as first-class platform models, not external tools.
 
@@ -195,10 +195,11 @@ Each instance is a fully independent systemd unit with its own log stream, resta
 ### Production
 
 ```bash
-# Set up production secrets
-scripts/deployment/setup-secrets.sh
+# Production service env + secrets live in /etc/powernode/*.conf (created by the installer)
+sudo scripts/systemd/powernode-installer.sh install --production
+sudoedit /etc/powernode/backend-default.conf
 
-# Edit production credentials
+# Edit Rails encrypted credentials
 EDITOR=vim rails credentials:edit --environment production
 ```
 
@@ -245,41 +246,12 @@ flowchart TB
 
 All production Dockerfiles are multi-stage for minimal final image size. The worker image additionally bundles `ffmpeg` and `imagemagick` for media processing.
 
-### Compose files
+### Single-host deployment
 
-| File | Purpose |
-|---|---|
-| `docker/docker-compose.yml` | Local development with bind-mounted source for live reload |
-| `docker/docker-compose.prod.yml` | Production with Traefik + health checks + resource limits |
-| `docker/docker-compose.mcp.yml` | MCP server development |
-
-```bash
-# Dev
-cd docker && docker compose up -d
-
-# Production
-cd docker && docker compose -f docker-compose.prod.yml up -d
-```
-
-Production compose includes:
-
-- Traefik reverse proxy with automatic SSL/TLS via ACME
-- Health checks on all services
-- Resource limits (CPU + memory)
-- Log rotation
-
-### Build scripts
-
-```bash
-# Build all images
-./scripts/docker/powernode-build.sh
-
-# Deploy via compose
-./scripts/docker/powernode-deploy.sh
-
-# Package images for distribution
-./scripts/docker/powernode-package.sh
-```
+Single-host installs run as **systemd-managed services** — there is no docker-compose
+path. See [`../operations/single-node-bootstrap.md`](../operations/single-node-bootstrap.md)
+for the install procedure and [`../operations/production-deployment.md`](../operations/production-deployment.md)
+for production operations (storage, backups, monitoring, scaling, rollback).
 
 ### Docker build policy
 

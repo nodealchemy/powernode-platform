@@ -4,7 +4,7 @@
 >
 > When to use this runbook: deploying Powernode to a production server for the first time, or performing a release deployment to an existing production environment.
 >
-> **Docker Compose path note:** this runbook documents the Docker Compose deployment, which is **deprecated by 2026-08-01** in favour of the systemd installer path. For new single-node installs prefer [`single-node-bootstrap.md`](single-node-bootstrap.md).
+> **Deployment model:** Powernode runs as **systemd-managed services** (backend, worker, worker-web, frontend, reverse-proxy) over apt-installed PostgreSQL + Redis. For the base install procedure see [`single-node-bootstrap.md`](single-node-bootstrap.md); this runbook covers the production operations around it (storage, backups, monitoring, scaling, rollback, readiness, troubleshooting).
 
 ## Table of Contents
 
@@ -33,9 +33,9 @@
 
 ### Required Software
 
-- Docker Engine 24.0+
-- Docker Compose v2.20+
-- Git
+- Ubuntu 22.04 LTS or newer (systemd)
+- Git; Ruby (via RVM) and Node (via nvm) — sourced by the service wrappers
+- PostgreSQL + Redis (apt-installed; see [`single-node-bootstrap.md`](single-node-bootstrap.md))
 - AWS CLI (for S3 backups, optional)
 
 ### Domain Configuration
@@ -65,16 +65,12 @@
 # Update system
 sudo apt update && sudo apt upgrade -y
 
-# Install Docker
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-
-# Install Docker Compose
-sudo apt install docker-compose-plugin
+# Base host setup (PostgreSQL, Redis, Ruby/Node toolchains) follows the
+# systemd installer runbook — see single-node-bootstrap.md.
 
 # Create deployment directory
-mkdir -p ~/powernode
-cd ~/powernode
+sudo mkdir -p /opt/powernode
+cd /opt/powernode
 ```
 
 ### 2. Clone Repository
@@ -129,14 +125,18 @@ SENTRY_DSN=https://...@sentry.io/...
 ### 4. Deploy
 
 ```bash
-# Pull images and start services
-docker compose -f docker/docker-compose.prod.yml up -d
+# Install + start all services as systemd units
+sudo scripts/systemd/powernode-installer.sh install --production
+sudo systemctl start powernode.target
 
 # Run database migrations
-docker compose -f docker/docker-compose.prod.yml exec backend bundle exec rails db:migrate
+cd server && RAILS_ENV=production bundle exec rails db:migrate
 
 # Seed initial data (first deployment only)
-docker compose -f docker/docker-compose.prod.yml exec backend bundle exec rails db:seed
+cd server && RAILS_ENV=production bundle exec rails db:seed
+
+# Verify all services are up
+sudo scripts/systemd/powernode-installer.sh status
 ```
 
 ### 5. CI / CD Deployment (Optional)
@@ -260,10 +260,10 @@ Errors are automatically reported to Sentry when `SENTRY_DSN` is configured.
 ### Log Access
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml logs                # all
-docker compose -f docker/docker-compose.prod.yml logs backend        # one service
-docker compose -f docker/docker-compose.prod.yml logs -f backend     # tail
-docker compose -f docker/docker-compose.prod.yml logs --tail=100 backend
+journalctl -u 'powernode-*' --since "10 min ago"     # all services
+journalctl -u powernode-backend@default              # one service
+journalctl -u powernode-backend@default -f           # tail
+journalctl -u powernode-backend@default -n 100       # last 100 lines
 ```
 
 ## Scaling
@@ -271,26 +271,30 @@ docker compose -f docker/docker-compose.prod.yml logs --tail=100 backend
 ### Horizontal
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml up -d --scale backend=3
-docker compose -f docker/docker-compose.prod.yml up -d --scale worker=5
+# Add extra backend/worker instances as independent systemd units
+sudo scripts/systemd/powernode-installer.sh add-instance backend api2
+sudo systemctl enable --now powernode-backend@api2
+
+sudo scripts/systemd/powernode-installer.sh add-instance worker ai-heavy
+sudo systemctl enable --now powernode-worker@ai-heavy
 ```
 
 ### Resource Limits
 
-Edit `docker/docker-compose.prod.yml`:
+Apply CPU/memory limits per service via a systemd drop-in:
 
-```yaml
-services:
-  backend:
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
+```bash
+sudo systemctl edit powernode-backend@default
 ```
+
+```ini
+[Service]
+CPUQuota=200%
+MemoryMax=2G
+MemoryHigh=1536M
+```
+
+Then `sudo systemctl daemon-reload && sudo systemctl restart powernode-backend@default`.
 
 ## Verification
 
@@ -326,8 +330,8 @@ To rollback a deployment, redeploy a known-good Git ref:
 3. Apply the matching DB migration state if the rollback crosses a migration boundary:
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml exec backend bundle exec rails db:migrate:status
-docker compose -f docker/docker-compose.prod.yml exec backend bundle exec rails db:rollback STEP=N
+cd server && RAILS_ENV=production bundle exec rails db:migrate:status
+cd server && RAILS_ENV=production bundle exec rails db:rollback STEP=N
 ```
 
 4. Confirm via `/api/v1/health/detailed`
@@ -411,31 +415,31 @@ docker compose -f docker/docker-compose.prod.yml exec backend bundle exec rails 
 ### Service Won't Start
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml logs <service>
-docker compose -f docker/docker-compose.prod.yml ps
-docker compose -f docker/docker-compose.prod.yml restart <service>
+journalctl -u powernode-backend@default --since "5 min ago" --no-pager
+sudo scripts/systemd/powernode-installer.sh status
+sudo systemctl restart powernode-backend@default
 ```
 
 ### Database Connection Issues
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml exec backend \
+cd server && RAILS_ENV=production \
   bundle exec rails runner "puts ActiveRecord::Base.connection.execute('SELECT 1')"
 ```
 
 ### Redis Connection Issues
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml exec backend \
+cd server && RAILS_ENV=production \
   bundle exec rails runner "puts Redis.new(url: ENV['REDIS_URL']).ping"
 ```
 
 ### Out of Disk
 
 ```bash
-docker system prune -af
-docker volume prune -f
-du -sh /backups/*
+sudo journalctl --vacuum-size=500M    # trim systemd journal
+du -sh /backups/*                     # check backup disk usage
+sudo apt-get clean                    # clear apt cache
 ```
 
 ### Storage Provider Issues
