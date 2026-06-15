@@ -182,13 +182,13 @@ end
 
 Extensions are Ruby path gems: `server/Gemfile` discovers each `extensions/<slug>/server` and declares `powernode_<slug>` (see `extensions_loader_helper.rb`). Discovery is **visibility-aware** — public extensions (those listed in `.gitmodules`) are always declared, while **private** extensions (present on disk but not in `.gitmodules`, e.g. `business`) are **excluded by default**.
 
-That keeps the committed `server/Gemfile.lock` public-only: a maintainer with the private submodules on disk still produces a lock that CI and public clones resolve cleanly. Full-mode dev uses a *separate, gitignored* bundle instead of mutating the committed lock — `server/Gemfile.full` re-uses the base `Gemfile` with private discovery turned on, and locks to `server/Gemfile.full.lock`:
+That keeps the committed `server/Gemfile.lock` public-only: a maintainer with the private submodules on disk still produces a lock that CI and public clones resolve cleanly. Private-mode dev uses a *separate, gitignored* bundle instead of mutating the committed lock — `server/Gemfile.private` re-uses the base `Gemfile` with private discovery turned on, and locks to `server/Gemfile.private.lock`:
 
 ```bash
-BUNDLE_GEMFILE=Gemfile.full bundle install   # in server/ → writes Gemfile.full.lock (gitignored)
+BUNDLE_GEMFILE=Gemfile.private bundle install   # in server/ → writes Gemfile.private.lock (gitignored)
 ```
 
-To load the private engines at boot, run the server against that bundle: set `BUNDLE_GEMFILE=<server>/Gemfile.full` and `POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1` in its runtime environment. The committed `server/Gemfile.lock` never drifts, so the `check-lockfile-public-only` pre-commit hook stays green; `scripts/regen-public-lockfile.sh` remains available to rebuild the public lock after editing the base `Gemfile`.
+To load the private engines at boot, run the server against that bundle: set `BUNDLE_GEMFILE=<server>/Gemfile.private` and `POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1` in its runtime environment. The committed `server/Gemfile.lock` never drifts, so the `check-lockfile-public-only` pre-commit hook stays green; `scripts/regen-public-lockfile.sh` remains available to rebuild the public lock after editing the base `Gemfile`.
 
 ## Backend integration
 

@@ -1,6 +1,6 @@
 name: Extensions bundle
 
-# Guards the public-extension bundle mechanism (the Gemfile.full full-mode
+# Guards the public-extension bundle mechanism (the Gemfile.private private-mode
 # bundle + the public-only Gemfile.lock + the repo-root extensions_loader_helper
 # discovery). Two invariants:
 #
@@ -27,7 +27,7 @@ on:
     paths:
       - 'server/Gemfile'
       - 'server/Gemfile.lock'
-      - 'server/Gemfile.full'
+      - 'server/Gemfile.private'
       - 'extensions_loader_helper.rb'
       - '.gitmodules'
       - 'config/extensions_state.json'

@@ -358,8 +358,14 @@ config/extensions_state.json
 /extensions/private/
 # Maintainer-local notes (never committed to the public repo)
 /CLAUDE.local.md
-# Full-mode bundle lock (declares private-extension PATH gems — never commit; see server/Gemfile.full)
-/server/Gemfile.full.lock
+# Private-mode bundle lock (declares private-extension PATH gems — never commit; see server/Gemfile.private)
+/server/Gemfile.private.lock
+# The private-mode Gemfile itself IS committed (tiny; just flips the discovery
+# flag). Un-ignore it — the broad `*private*` rule above would otherwise drop it.
+!/server/Gemfile.private
+# Runtime-generated maintenance page: MaintenanceController writes it when
+# maintenance mode is enabled and deletes it when disabled. Not a source file.
+/server/public/maintenance.html
 
 # Worker-generated report artifacts (regenerable; may contain PII in real deployments)
 worker/storage/

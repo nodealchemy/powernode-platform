@@ -43,13 +43,13 @@ git submodule update --init --recursive
 
 The `extensions/private/business` submodule is private; it will be absent for external contributors and the platform falls back to single-user core mode automatically. See [getting-started/03-extensions.md](../getting-started/03-extensions.md).
 
-**Maintainers with the private submodules** run **full mode** — private extensions declared and loaded into the Rails bundle. The committed `server/Gemfile.lock` stays public-only; full mode uses a *separate* bundle, `server/Gemfile.full`, whose lock (`server/Gemfile.full.lock`) is gitignored:
+**Maintainers with the private submodules** run **private mode** — private extensions declared and loaded into the Rails bundle. The committed `server/Gemfile.lock` stays public-only; private mode uses a *separate* bundle, `server/Gemfile.private`, whose lock (`server/Gemfile.private.lock`) is gitignored:
 
 ```bash
-BUNDLE_GEMFILE=Gemfile.full bundle install   # in server/
+BUNDLE_GEMFILE=Gemfile.private bundle install   # in server/
 ```
 
-This writes `server/Gemfile.full.lock` (gitignored) and leaves the committed `server/Gemfile.lock` untouched — no working-tree drift to remember not to stage. To run the server against the full bundle, set `BUNDLE_GEMFILE=<server>/Gemfile.full` and `POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1` in its runtime environment. See [dependency loading](../guides/extensions.md#dependency-loading-public-only-lockfile).
+This writes `server/Gemfile.private.lock` (gitignored) and leaves the committed `server/Gemfile.lock` untouched — no working-tree drift to remember not to stage. To run the server against the full bundle, set `BUNDLE_GEMFILE=<server>/Gemfile.private` and `POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1` in its runtime environment. See [dependency loading](../guides/extensions.md#dependency-loading-public-only-lockfile).
 
 ## Install dependencies
 

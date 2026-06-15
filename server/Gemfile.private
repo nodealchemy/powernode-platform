@@ -1,0 +1,13 @@
+# frozen_string_literal: true
+
+# Private-mode bundle: core + public + PRIVATE extensions (business, trading).
+# Maintainer/private-mode counterpart to the committed, public-only Gemfile/Gemfile.lock.
+#
+# Select it explicitly — never the default:
+#   cd server && BUNDLE_GEMFILE=Gemfile.private bundle install
+#
+# Its lock, Gemfile.private.lock, is GITIGNORED: it declares private-extension PATH
+# gems that must never reach the public mirror and that public/core-mode clones
+# can't resolve. The committed Gemfile.lock stays public-only and clean.
+ENV["POWERNODE_INCLUDE_PRIVATE_EXTENSIONS"] ||= "1"
+eval_gemfile "Gemfile"

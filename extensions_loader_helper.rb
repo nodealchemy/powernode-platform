@@ -35,9 +35,9 @@ end
 # public-only Gemfile.lock automatically — no manual regen step, and the
 # committed lock never declares `powernode_business!` etc. that CI's frozen
 # install can't resolve. Opt IN to declaring + loading private extensions
-# for full-mode dev via the separate, gitignored bundle:
-#   BUNDLE_GEMFILE=Gemfile.full bundle install   # writes Gemfile.full.lock
-# (server/Gemfile.full just flips this flag and re-uses the base Gemfile.)
+# for private-mode dev via the separate, gitignored bundle:
+#   BUNDLE_GEMFILE=Gemfile.private bundle install   # writes Gemfile.private.lock
+# (server/Gemfile.private just flips this flag and re-uses the base Gemfile.)
 # The committed lock is plain `bundle lock` (no env / no BUNDLE_GEMFILE);
 # scripts/regen-public-lockfile.sh remains as a convenience wrapper.
 def discover_extension_gems_by_visibility(base_dir = __dir__)
