@@ -49,7 +49,7 @@ Paste relevant test output or manual verification steps here.
 - [ ] Commit messages follow `type(scope): subject`, with no AI-assistant attribution
 - [ ] Documentation updated where applicable (`docs/`, `README.md`)
 - [ ] No secrets, credentials, real customer data, or internal hostnames committed
-- [ ] I have read and agree to the **Contributor License Agreement (CLA)** and the contribution terms in [`CONTRIBUTING.md`](../CONTRIBUTING.md)
+- [ ] I have read the contribution terms in [`CONTRIBUTING.md`](../CONTRIBUTING.md)
 
 ## Screenshots / Demos (if UI change)
 

@@ -126,8 +126,8 @@ Powernode's docs follow a few clear rules. See [docs/contributing/doc-convention
 - **Links** are relative and resolve on disk (see `docs/.verify/check-links.sh` once wired in Wave 4).
 - **Counts** (number of tools, tables, etc.) link to the live source (`docs/reference/auto/mcp-tools.md`) — never inline.
 
-## Contributor License Agreement
+## Licensing
 
-Powernode follows an open-core model: the platform and its public extensions (`system`, `supply-chain`, `marketing`) are MIT-licensed and always will be, while a separate commercial `business` extension is offered under a commercial license. Because the same code is offered under more than one license, contributors sign a Contributor License Agreement ([CLA.md](CLA.md)) granting Node Alchemy LLC the right to relicense their contributions. You keep full ownership of your work; the CLA only grants the licensing rights needed to support both the open-source project and a commercial edition. Contributions to the public repositories remain available under the [MIT License](LICENSE).
+Contributions to the public repositories are made under the [MIT License](LICENSE) — inbound = outbound, the GitHub default. You keep full ownership of your work, and no separate contributor agreement is required. Powernode follows an open-core model: the platform and its public extensions (`system`, `supply-chain`, `marketing`) are MIT-licensed and always will be, while the separate commercial `business` extension is maintained privately by Node Alchemy LLC and does not accept external contributions.
 
 Thanks for being part of Powernode!

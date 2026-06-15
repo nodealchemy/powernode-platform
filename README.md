@@ -201,7 +201,6 @@ The full documentation lives in **[docs/](docs/)** — start with [docs/README.m
 - **[ROADMAP.md](./ROADMAP.md)** — what's planned, by quarter
 - **[GOVERNANCE.md](./GOVERNANCE.md)** — how decisions are made and the path to maintainership
 - **[SECURITY.md](./SECURITY.md)** — security posture and vulnerability disclosure
-- **[CLA.md](./CLA.md)** — Contributor License Agreement (required before a first contribution is merged)
 
 ## Contributing
 
@@ -233,7 +232,7 @@ cd frontend && npx tsc --noEmit
 ./scripts/validate.sh
 ```
 
-All tests must pass. Permissions must use the permission system (never role-based checks). Frontend must use theme classes (`bg-theme-*`, `text-theme-*`) — no hardcoded colors. New contributions require signing the **[CLA](./CLA.md)**.
+All tests must pass. Permissions must use the permission system (never role-based checks). Frontend must use theme classes (`bg-theme-*`, `text-theme-*`) — no hardcoded colors.
 
 ## License
 

@@ -30,8 +30,6 @@ There is a real path here, not just "be trusted." Maintainership is earned throu
 
 New maintainers start with commit access to the open-source repositories. Administrative control of the GitHub organization and the commercial extension stays with Node Alchemy LLC (see below).
 
-A first code contribution also requires signing the **[Contributor License Agreement](CLA.md)** before it can be merged — this is separate from maintainership and applies to everyone.
-
 ## Code of conduct
 
 Participation is governed by our **[Code of Conduct](CODE_OF_CONDUCT.md)** (Contributor Covenant). Report unacceptable behavior to **conduct@nodealchemy.com**, or for non-sensitive matters raise it in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions). Maintainers are responsible for enforcing it fairly.
@@ -52,4 +50,4 @@ This split is intentional: the open source is genuinely open and meant to be gov
 - **[GitHub Issues](https://github.com/nodealchemy/powernode-platform/issues)** — bugs and concrete feature requests
 - **X ([@nodealchemy](https://x.com/nodealchemy))** — updates and informal questions
 
-Related: [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) · [`ROADMAP.md`](ROADMAP.md) · [`CLA.md`](CLA.md) · [`SECURITY.md`](SECURITY.md)
+Related: [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) · [`ROADMAP.md`](ROADMAP.md) · [`SECURITY.md`](SECURITY.md)
