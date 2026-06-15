@@ -32,11 +32,25 @@ rescue JSON::ParserError, IOError, SystemCallError
   []
 end
 
+# Extensions live flat under extensions/<slug>; private ones under
+# extensions/private/<slug>. "private" is a grouping dir, never a slug.
+extension_specs = []
 if Dir.exist?(extensions_dir)
-  Dir.children(extensions_dir).sort.each do |slug|
+  Dir.children(extensions_dir).sort.each do |s|
+    next if s == 'private'
+    extension_specs << [extensions_dir, s]
+  end
+  private_dir = File.join(extensions_dir, 'private')
+  if Dir.exist?(private_dir)
+    Dir.children(private_dir).sort.each { |s| extension_specs << [private_dir, s] }
+  end
+end
+
+unless extension_specs.empty?
+  extension_specs.each do |ext_root, slug|
     next if disabled_extensions_for_cron.include?(slug)
 
-    Dir[File.join(extensions_dir, slug, 'worker', 'config', 'sidekiq_*.yml')].each do |yml|
+    Dir[File.join(ext_root, slug, 'worker', 'config', 'sidekiq_*.yml')].each do |yml|
       Sidekiq.configure_server do |config|
         ext_yaml = YAML.safe_load(ERB.new(File.read(yml)).result, permitted_classes: [Symbol])
         if ext_yaml&.dig(:schedule)

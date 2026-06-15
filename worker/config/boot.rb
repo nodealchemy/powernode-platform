@@ -82,11 +82,25 @@ rescue JSON::ParserError, IOError, SystemCallError => e
   []
 end
 
+# Extensions live flat under extensions/<slug>; private ones under
+# extensions/private/<slug>. "private" is a grouping dir, never a slug.
+extension_specs = []
 if Dir.exist?(extensions_dir)
-  Dir.children(extensions_dir).sort.each do |slug|
+  Dir.children(extensions_dir).sort.each do |s|
+    next if s == 'private'
+    extension_specs << [extensions_dir, s]
+  end
+  private_dir = File.join(extensions_dir, 'private')
+  if Dir.exist?(private_dir)
+    Dir.children(private_dir).sort.each { |s| extension_specs << [private_dir, s] }
+  end
+end
+
+unless extension_specs.empty?
+  extension_specs.each do |ext_root, slug|
     next if disabled_extensions.include?(slug)
 
-    manifest_path = File.join(extensions_dir, slug, 'extension.json')
+    manifest_path = File.join(ext_root, slug, 'extension.json')
     next unless File.exist?(manifest_path)
 
     begin
@@ -98,11 +112,11 @@ if Dir.exist?(extensions_dir)
 
     next unless manifest.dig('components', 'worker')
 
-    ext_worker = File.join(extensions_dir, slug, 'worker')
+    ext_worker = File.join(ext_root, slug, 'worker')
     next unless Dir.exist?(ext_worker)
 
     # Load shared lib (math kernel, markov classes, etc.)
-    ext_lib = File.join(extensions_dir, slug, 'lib')
+    ext_lib = File.join(ext_root, slug, 'lib')
     if Dir.exist?(ext_lib)
       Dir[File.join(ext_lib, '**', '*.rb')].sort.each { |f| require f }
     end

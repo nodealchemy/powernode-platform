@@ -170,7 +170,7 @@
 
     # NOTE: Billing scheduled jobs (billing_scheduler, daily_payment_reconciliation,
     # billing_cleanup) live in the business extension and load only when its worker
-    # component is enabled: extensions/business/worker/config/sidekiq_billing.yml
+    # component is enabled: extensions/private/business/worker/config/sidekiq_billing.yml
 
     # Account termination processing - every 6 hours
     account_termination_processing:
@@ -625,4 +625,4 @@
     # (codebase-index-marker.sh + codebase-index-apply.sh), not cron.
 
     # NOTE: Trading scheduled jobs have been moved to the trading extension:
-    # extensions/trading/worker/config/sidekiq_trading.yml
+    # extensions/private/trading/worker/config/sidekiq_trading.yml
