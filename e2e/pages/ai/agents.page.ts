@@ -30,7 +30,12 @@ export class AgentsPage {
     this.page = page;
     this.pageTitle = page.locator('h1, [class*="title"]').first();
     this.agentCards = page.locator('[class*="card"], [class*="Card"], [data-testid*="agent"]');
-    this.createAgentButton = page.getByRole('button', { name: /create agent|create|new agent/i });
+    // Prefer the stable test id; the broad /create/i name also matched a
+    // "Created" button (strict-mode violation), so scope the name fallback.
+    this.createAgentButton = page
+      .getByTestId('action-create-agent')
+      .or(page.getByRole('button', { name: /create agent|new agent/i }))
+      .first();
     this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
     this.statusFilter = page.locator('select, [role="combobox"]').first();
     this.refreshButton = page.getByRole('button', { name: /refresh/i });

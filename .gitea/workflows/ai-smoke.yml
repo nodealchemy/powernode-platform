@@ -1,0 +1,119 @@
+name: AI smoke
+
+# Runs the AI frontend-actions smoke harness (scripts/ai-smoke) against a freshly
+# seeded test stack: it replays the requests the React frontend makes to every
+# core AI domain and fails the build on any 5xx / contract regression. The browser
+# layer (e2e/ai/ai-smoke.spec.ts) is run locally — see scripts/ai-smoke/README.md;
+# it needs Chromium + the frontend dev server and isn't part of this gate.
+#
+# Runner facts mirror the proven core-mode-seed job in extensions-bundle.yml:
+# this act-runner runs jobs in a bridge-network container, so service sidecars are
+# reached via the docker bridge gateway 172.17.0.1 (NOT localhost, NOT service DNS),
+# and ports must bind 0.0.0.0:PORT:PORT.
+#
+# NOTE (validate on first PR): the harness mints a JWT for AI_SMOKE_USER
+# (default admin@powernode.org) — confirm `rails db:seed` creates that user with
+# AI permissions under RAILS_ENV=test, or override AI_SMOKE_USER below.
+
+on:
+  pull_request:
+    paths:
+      - 'server/app/controllers/api/v1/ai/**'
+      - 'server/app/models/ai/**'
+      - 'server/app/services/ai/**'
+      - 'server/config/routes.rb'
+      - 'scripts/ai-smoke/**'
+      - '.gitea/workflows/ai-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ai-smoke-api:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: powernode_test
+        ports:
+          - 0.0.0.0:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7
+        ports:
+          - 0.0.0.0:6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      RAILS_ENV: test
+      BUNDLE_FROZEN: "true"
+      DATABASE_URL: postgres://postgres:postgres@172.17.0.1:5432/powernode_test
+      DATABASE_HOST: 172.17.0.1
+      DATABASE_USER: postgres
+      POWERNODE_DATABASE_PASSWORD: postgres
+      REDIS_URL: redis://172.17.0.1:6379/0
+      AI_SMOKE_BASE_URL: http://localhost:3000/api/v1
+      AI_SMOKE_USER: admin@powernode.org
+    steps:
+      - name: Reap stale CI sidecars (ports 5432/6379)
+        run: |
+          set +e
+          for port in 6379 5432; do
+            stale=$(docker ps --format '{{.ID}} {{.Ports}}' | awk -v p=":$port->" 'index($0, p) {print $1}')
+            [ -n "$stale" ] && echo "$stale" | xargs -r docker rm -f
+          done
+          exit 0
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2.8
+          bundler-cache: true
+          working-directory: server
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Create database, load schema, seed
+        working-directory: server
+        run: bundle exec rails db:create db:schema:load db:seed
+
+      - name: Boot Rails API (test) for the harness
+        working-directory: server
+        run: |
+          bundle exec rails server -e test -p 3000 -b 0.0.0.0 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3000/api/v1/health >/dev/null && break
+            sleep 2
+          done
+          curl -sf http://localhost:3000/api/v1/health || { echo "Rails API never became healthy"; exit 1; }
+
+      - name: AI frontend-actions smoke (API replay — fails on findings)
+        run: node scripts/ai-smoke/run.mjs --phase read
+
+      - name: Show findings report on failure
+        if: failure()
+        run: cat docs/operations/ai-smoke-findings.md || true
+
+      - name: Reap own sidecars
+        if: always()
+        run: |
+          set +e
+          for port in 6379 5432; do
+            docker ps --format '{{.ID}} {{.Ports}}' | awk -v p=":$port->" 'index($0, p) {print $1}' | xargs -r docker rm -f
+          done
+          exit 0

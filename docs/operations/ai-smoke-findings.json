@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "runId": "mqfe5frb18w",
+    "baseUrl": "http://localhost:3000/api/v1",
+    "phase": "read",
+    "domains": [
+      "providers"
+    ],
+    "generatedAt": "2026-06-15T15:51:55.773Z"
+  },
+  "summary": {
+    "total": 8,
+    "passed": 8,
+    "skipped": 0,
+    "findings": 0,
+    "bySeverity": {},
+    "byDomain": {
+      "providers": {
+        "total": 8,
+        "ok": 8,
+        "findings": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "findings": []
+}
