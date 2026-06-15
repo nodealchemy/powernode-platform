@@ -4,7 +4,7 @@
 # clones that don't have access to private submodules (CI, contributors).
 #
 # Background: server/Gemfile dynamically declares extension gems based on
-# what's present in extensions/. A maintainer with extensions/business
+# what's present in extensions/. A maintainer with extensions/private/business
 # on disk will have that gem declared and locked. CI sees only the
 # public submodules, so frozen-mode `bundle install` fails with "You
 # have deleted from the Gemfile" (the lockfile names a gem the Gemfile

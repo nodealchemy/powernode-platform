@@ -583,7 +583,7 @@ test.describe('M1 Self-Serve — Discord Bot Activation Funnel', () => {
   //   - server/spec/services/ai/provisioning/* (Slice A+D)
   //   - extensions/system/server/spec/services/system/account_bootstrap_service_spec.rb (Slice A)
   //   - extensions/system/server/spec/services/system/providers/pro_cloud_provider_spec.rb (Slice B)
-  //   - extensions/business/server/spec/services/billing/* (Slice C)
+  //   - extensions/private/business/server/spec/services/billing/* (Slice C)
   //
   // They are tagged fixme so the assertion intent is visible in the e2e
   // suite even though the live-DB infra isn't wired into Playwright yet.
@@ -595,7 +595,7 @@ test.describe('M1 Self-Serve — Discord Bot Activation Funnel', () => {
   });
 
   test.fixme('NodeInstance reaches running and Billing::ProvisioningUsageRecord(event=running) is created', async () => {
-    // Asserted in: extensions/business/server/spec/services/billing/provisioning_meter_service_spec.rb
+    // Asserted in: extensions/private/business/server/spec/services/billing/provisioning_meter_service_spec.rb
     // (status_running event on instance.update).
   });
 

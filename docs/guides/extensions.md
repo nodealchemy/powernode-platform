@@ -333,7 +333,7 @@ sequenceDiagram
 1. Always run `git rev-parse --show-toplevel` before `git add`/`commit` to verify which repo you're in.
 2. Commit inside the submodule FIRST, then bump the parent pointer.
 3. Never run `git add extensions/myext/some/file` from the parent — it only stages a pointer change.
-4. `extensions/business` is NOT committed to the public parent — its upstream is private. Maintainers add it manually via `git submodule add`.
+4. `extensions/private/business` is NOT committed to the public parent — its upstream is private. Maintainers add it manually via `git submodule add`.
 5. `extensions/system`, `extensions/marketing`, `extensions/supply-chain` are dual-remoted (private Gitea origin + public GitHub mirror). Push to both on release.
 6. Do NOT run `git submodule sync` on dual-remoted extensions — it overwrites local config and drops the private upstream.
 
@@ -352,7 +352,7 @@ The `system` extension is the most heavily-developed exemplar — see its [`CONT
 
 ## Billing and payment specialists
 
-The platform's **billing engine and payment provider integrations** (Stripe, PayPal, dunning, invoicing) live in the `extensions/business` **private submodule**. They are **not** part of the open-source core.
+The platform's **billing engine and payment provider integrations** (Stripe, PayPal, dunning, invoicing) live in the `extensions/private/business` **private submodule**. They are **not** part of the open-source core.
 
 If you have access to the business submodule, see its docs for the historical specialist guides:
 
@@ -467,7 +467,7 @@ Usage event POSTs accept an `idempotency_key` — re-sending the same key return
 This guide consolidates content from these legacy paths (preserved in git history for one release cycle):
 
 - `docs/backend/BAAS_API_REFERENCE.md`
-- `docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md` — content not merged here; lives in `extensions/business`
-- `docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md` — content not merged here; lives in `extensions/business`
+- `docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md` — content not merged here; lives in `extensions/private/business`
+- `docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md` — content not merged here; lives in `extensions/private/business`
 
 _Last verified: 2026-06-04_

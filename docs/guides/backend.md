@@ -18,7 +18,7 @@
 - [Realtime via ActionCable](#realtime-via-actioncable)
 - [Analytics and reporting](#analytics-and-reporting)
 - [Webhooks (inbound)](#webhooks-inbound)
-- [Billing pointer (extensions/business)](#billing-pointer)
+- [Billing pointer (extensions/private/business)](#billing-pointer)
 - [Related guides](#related-guides)
 - [Materials previously at](#materials-previously-at)
 
@@ -692,7 +692,7 @@ end
 
 When the business extension exposes A/B framework features, the backend records `Experiment`, `ExperimentVariant`, and `ExperimentAssignment` rows. The variant assignment is deterministic by `user_id` + `experiment_id` (hashed to keep splits stable). Results are computed offline via scheduled aggregation jobs and surfaced through a dashboard endpoint.
 
-For business-intelligence and revenue analytics (MRR, ARR, churn), the implementation lives in the `extensions/business` private submodule; this guide covers only the operational analytics that ship with core.
+For business-intelligence and revenue analytics (MRR, ARR, churn), the implementation lives in the `extensions/private/business` private submodule; this guide covers only the operational analytics that ship with core.
 
 ## Webhooks (inbound)
 
@@ -727,7 +727,7 @@ end
 
 ## Billing pointer
 
-The platform's billing engine and payment provider integrations (Stripe, PayPal, dunning, invoicing) live in the **`extensions/business` private submodule**. Core-mode contributors should not need to touch them. If the business extension is absent, the platform runs as single-user self-hosted with all features unlocked and no billing surface.
+The platform's billing engine and payment provider integrations (Stripe, PayPal, dunning, invoicing) live in the **`extensions/private/business` private submodule**. Core-mode contributors should not need to touch them. If the business extension is absent, the platform runs as single-user self-hosted with all features unlocked and no billing surface.
 
 If you do have access to the business submodule, see its `docs/` for `BillingEngineDeveloperSpecialist` and `PaymentIntegrationSpecialist` material. Backend extension hooks live in `app/services/shared/feature_gate_service.rb` (the `business_loaded?` predicate and friends).
 

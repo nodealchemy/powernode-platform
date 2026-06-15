@@ -34,11 +34,13 @@ Each extension under `extensions/<name>/` is a self-contained git submodule with
 | `system` | `extensions/system` | **Public** (GitHub mirror, MIT) | Node lifecycle, modules, SDWAN, fleet autonomy, container runtimes, on-node Go agent |
 | `marketing` | `extensions/marketing` | **Public** (GitHub mirror, MIT) | Marketing site assets |
 | `supply-chain` | `extensions/supply-chain` | **Public** (GitHub mirror, MIT) | Supply-chain extension scaffolding |
-| `business` | `extensions/business` | **Private** (Gitea only) | Billing, BaaS, reseller, AI publisher — the commercial features |
+| `business` | `extensions/private/business` | **Private** (Gitea only) | Billing, BaaS, reseller, AI publisher — the commercial features |
 
 External clones from the public GitHub mirror will receive the three public extensions plus an empty parent pointer for the private `business` extension; the platform will boot in "core mode minus business" by default.
 
 The public submodules are dual-remoted: `origin` points at the public GitHub mirror, and `ipnode` points at the private Gitea upstream (used for releases). Maintainers push to both; external contributors only ever see the GitHub side.
+
+**Private and custom extensions** live under `extensions/private/<slug>/`. The entire `extensions/private/` directory is gitignored (it also matches the `*private*` rule in `.gitignore`), so anything placed there is never committed to the parent repo and never appears in public clones — no per-extension `.gitignore` entry, and no private name advertised in tracked files. The commercial `business` extension lives at `extensions/private/business`; maintainers drop additional private or local extensions alongside it. Discovery (Vite, the worker boot scanners, and the Rails feature gate) scans **both** `extensions/<slug>/` and `extensions/private/<slug>/`, so a private extension loads identically to a public one — the only difference is that its files stay out of git. The slug is always the leaf directory name (`business`), never `private`.
 
 ## Core mode vs extension mode
 
@@ -47,7 +49,7 @@ The public submodules are dual-remoted: `origin` points at the public GitHub mir
 | **Core mode** | Single-user, self-hosted, all features unlocked, no billing/SaaS workflows | External contributors who clone from GitHub; anyone running Powernode privately |
 | **Business mode** | Multi-tenant, billing, plans, subscriptions, BaaS, reseller — gated behind the `business` extension | Powernode-hosted SaaS deployments |
 
-Core mode is the default. When the platform boots with no `extensions/business/` directory:
+Core mode is the default. When the platform boots with no `extensions/private/business/` directory:
 
 - The `Shared::FeatureGateService.business_loaded?` check returns `false`.
 - All paywalls and plan-limits short-circuit (everything is "allowed").

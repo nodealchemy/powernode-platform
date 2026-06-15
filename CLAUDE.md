@@ -45,7 +45,7 @@ Use `platform.discover_skills` with a task description to find the right special
 - Release branches: `release/0.2.0` (no "v" prefix)
 - **Staged commits**: Group changes into logical commits by concern (models, services, controllers, frontend, tests, config) — never one monolithic commit
 
-### Business Submodule (`./extensions/business`)
+### Business Submodule (`./extensions/private/business`)
 Private remote-only (not committed to public repo). **Path aliases**: `@business/` for intra-business imports, `@/` for core shared imports. **Core mode** when absent: single-user self-hosted, all features unlocked, no billing/SaaS. **Feature gating**: `Shared::FeatureGateService.business_loaded?` (backend), `__EXTENSIONS__.includes('business')` build-time gate (frontend, also drives nav visibility). For git/commit rules see [Submodule Safety](#submodule-safety-critical).
 
 ### Permission-Based Access Control (CRITICAL)
@@ -137,12 +137,12 @@ user.role === 'manager'
 | Never batch-approve | Training decisions, permission grants, and financial operations MUST be reviewed individually |
 
 ### Submodule Safety (CRITICAL)
-- **Submodules** (all git submodules): `extensions/business` (private remote-only) plus the public-on-GitHub `extensions/system`, `extensions/supply-chain`, and `extensions/marketing`. Maintainers may add further private extensions locally (see CLAUDE.local.md).
+- **Submodules** (all git submodules): `extensions/private/business` (private remote-only) plus the public-on-GitHub `extensions/system`, `extensions/supply-chain`, and `extensions/marketing`. Maintainers may add further private extensions locally (see CLAUDE.local.md).
 - **System and supply-chain extensions** are publicly mirrored on GitHub — `.gitmodules` advertises `https://github.com/nodealchemy/powernode-system.git` and `https://github.com/nodealchemy/powernode-supply-chain.git`. Maintainer's local checkout has `origin` = the public GitHub mirror and `ipnode` = the private upstream (added manually). Push to **both** remotes on every push to a shared branch (e.g. `develop`) — keep the public mirror continuously in sync, not only at release time. **Do NOT run `git submodule sync`** on these submodules — it would overwrite local config and drop the private upstream remote.
-- **The business extension** (and any other private extension) is not committed to the public repo (gitignored in the parent's tree; not present in `.gitmodules`). Maintainers with access add it locally via `git submodule add <private-url> extensions/business`; its commits go to the private upstream only and never appear in public clones.
+- **The business extension** (and any other private extension) is not committed to the public repo (gitignored in the parent's tree; not present in `.gitmodules`). Maintainers with access add it locally via `git submodule add <private-url> extensions/private/business`; its commits go to the private upstream only and never appear in public clones.
 - **CWD verification**: Before EVERY `git add`/`git commit`, run `git rev-parse --show-toplevel` and verify it matches the intended repo
 - **Survey both git statuses**: When checking state, run `git status` in root AND `git -C extensions/<name> status` for each submodule — changes inside a submodule are invisible to the parent repo's `git status`
-- **Never commit extension files from parent**: Files under `extensions/*/` MUST be committed from within the submodule. Running `git add extensions/business/...` from parent only stages a pointer change
+- **Never commit extension files from parent**: Files under `extensions/*/` MUST be committed from within the submodule. Running `git add extensions/private/business/...` from parent only stages a pointer change
 - **Commit order**: Commit inside each submodule FIRST, then update pointers in parent
 
 ### Terminology

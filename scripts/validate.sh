@@ -84,7 +84,7 @@ if [[ "$SKIP_TS" == "false" ]]; then
   # it walks up from the file location, so the platform's node_modules has
   # to be reachable from extensions/<slug>/frontend/. We ensure this by
   # symlinking; never commit the symlink (extension .gitignore handles that).
-  for ext_tsconfig in "$PROJECT_ROOT"/extensions/*/frontend/tsconfig.check.json; do
+  for ext_tsconfig in "$PROJECT_ROOT"/extensions/*/frontend/tsconfig.check.json "$PROJECT_ROOT"/extensions/private/*/frontend/tsconfig.check.json; do
     [[ -f "$ext_tsconfig" ]] || continue
     ext_dir="$(dirname "$ext_tsconfig")"
     ext_slug="$(basename "$(dirname "$ext_dir")")"

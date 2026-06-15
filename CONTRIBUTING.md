@@ -79,7 +79,7 @@ Please search existing issues first to avoid duplicates.
 - New extensions (see `extensions/` for shape — `system`, `marketing`, `business`)
 - Integration adapters: Claude Agent SDK, LangGraph, Mastra, OpenAI Agents SDK, AutoGen, Vercel AI SDK
 - Performance improvements with measurements
-- Test coverage in under-tested areas (the `extensions/business/spec/` directory in particular)
+- Test coverage in under-tested areas (the `extensions/private/business/spec/` directory in particular)
 - Accessibility improvements with `data-testid` and ARIA labels
 
 ## What We're Not Looking For (right now)

@@ -41,7 +41,7 @@ cd powernode-platform
 git submodule update --init --recursive
 ```
 
-The `extensions/business` submodule is private; it will be absent for external contributors and the platform falls back to single-user core mode automatically. See [getting-started/03-extensions.md](../getting-started/03-extensions.md).
+The `extensions/private/business` submodule is private; it will be absent for external contributors and the platform falls back to single-user core mode automatically. See [getting-started/03-extensions.md](../getting-started/03-extensions.md).
 
 **Maintainers with the private submodules** run **full mode** — private extensions declared and loaded into the Rails bundle. The committed `server/Gemfile.lock` stays public-only; full mode uses a *separate* bundle, `server/Gemfile.full`, whose lock (`server/Gemfile.full.lock`) is gitignored:
 

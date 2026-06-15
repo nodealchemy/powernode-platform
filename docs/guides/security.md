@@ -30,7 +30,7 @@
 
 This is the working security reference for engineers and operators of the Powernode platform. It covers application security (JWT, sessions, permissions), data protection (encryption, key management, PII), AI-specific security (guardrails, anomaly detection, quarantine, security gates), and supply chain security (dependency scanning, SBOM, license compliance).
 
-PCI-relevant material (payment processing, cardholder data) lives in the `extensions/business` private submodule — this guide covers only the core platform's security posture.
+PCI-relevant material (payment processing, cardholder data) lives in the `extensions/private/business` private submodule — this guide covers only the core platform's security posture.
 
 ## Prerequisites
 
@@ -604,7 +604,7 @@ The core platform's compliance posture covers:
 - **SOC 2 Type II** — Audit logging, access control, incident response procedures
 - **Supply chain (SLSA)** — Build provenance, signed releases, SBOM generation
 
-PCI DSS compliance (for payment processing) lives in `extensions/business` — when that extension is loaded, additional PCI-specific guardrails activate (tokenized PAN storage, HMAC-signed payment requests, restricted audit log access). See the business submodule's docs for the PCI matrix.
+PCI DSS compliance (for payment processing) lives in `extensions/private/business` — when that extension is loaded, additional PCI-specific guardrails activate (tokenized PAN storage, HMAC-signed payment requests, restricted audit log access). See the business submodule's docs for the PCI matrix.
 
 ## Related guides
 
