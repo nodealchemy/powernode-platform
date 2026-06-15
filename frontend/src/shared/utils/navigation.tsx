@@ -167,7 +167,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Users,
           description: 'Manage your team members',
           permissions: ['team.read'],
-          order: 1
+          order: 2
         },
         {
           id: 'notifications',
@@ -176,7 +176,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Bell,
           description: 'View and manage your notifications',
           permissions: [],
-          order: 2
+          order: 3
         },
         {
           id: 'profile',
@@ -185,7 +185,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: User,
           description: 'Personal information and preferences',
           permissions: [],
-          order: 3
+          order: 1
         },
         {
           id: 'billing',
