@@ -20,7 +20,7 @@ interface PlatformSettings {
 export const PlatformConfiguration: React.FC = () => {
   const [settings, setSettings] = useState<PlatformSettings>({
     system_name: 'Powernode Platform',
-    copyright_text: '© {year} Everett C. Haimes III. All rights reserved.',
+    copyright_text: '© {year} Everett C. Haimes III',
     system_email: '',
     support_email: '',
     maintenance_mode: false,
@@ -46,7 +46,7 @@ export const PlatformConfiguration: React.FC = () => {
       const settingsSummary = response.data?.settings_summary;
       const platformSettings: PlatformSettings = {
         system_name: settingsSummary?.system_name || 'Powernode Platform',
-        copyright_text: settingsSummary?.copyright_text || '© {year} Everett C. Haimes III. All rights reserved.',
+        copyright_text: settingsSummary?.copyright_text || '© {year} Everett C. Haimes III',
         system_email: settingsSummary?.system_email || '',
         support_email: settingsSummary?.support_email || '',
         maintenance_mode: settingsSummary?.maintenance_mode || false,
@@ -195,7 +195,7 @@ export const PlatformConfiguration: React.FC = () => {
                 value={settings.copyright_text}
                 onChange={(e) => handleChange('copyright_text', e.target.value)}
                 className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                placeholder="© {year} Your Company Name. All rights reserved."
+                placeholder="© {year} Your Company Name"
               />
               <div className="mt-2">
                 <div className="flex items-start gap-2 text-xs text-theme-secondary">

@@ -1068,7 +1068,7 @@ SiteSetting.set('site_name', 'Powernode', description: 'Name of the site', setti
 SiteSetting.set('footer_description', 'Powerful subscription management platform designed to help businesses grow. Trusted by thousands of companies worldwide.', description: 'Footer description text', setting_type: 'text', is_public: true)
 
 # Copyright information
-SiteSetting.set('copyright_text', 'Everett C. Haimes III. All rights reserved.', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
+SiteSetting.set('copyright_text', 'Everett C. Haimes III', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
 SiteSetting.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
 
 # Contact information

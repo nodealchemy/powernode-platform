@@ -177,7 +177,7 @@ export const settingsApi = {
         localStorage.removeItem('powernode_copyright');
       }
     }
-    return `© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`;
+    return `© ${new Date().getFullYear()} Everett C. Haimes III`;
   },
 
   // Cache copyright text

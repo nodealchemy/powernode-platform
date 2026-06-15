@@ -63,7 +63,7 @@ export const LoginPage: React.FC = () => {
         setCopyrightText(formattedCopyright);
       } catch (_error) {
         // Fallback to default copyright text
-        setCopyrightText(`© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`);
+        setCopyrightText(`© ${new Date().getFullYear()} Everett C. Haimes III`);
       }
     };
 
@@ -391,7 +391,7 @@ export const LoginPage: React.FC = () => {
             </Link>
           </div>
           <p className="text-xs text-theme-tertiary">
-            {copyrightText || `© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`}
+            {copyrightText || `© ${new Date().getFullYear()} Everett C. Haimes III`}
           </p>
         </div>
       </div>
