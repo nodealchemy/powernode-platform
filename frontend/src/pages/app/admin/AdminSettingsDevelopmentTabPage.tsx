@@ -1,10 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { adminSettingsApi, DevelopmentInfo } from '@/features/admin/services/adminSettingsApi';
 
+/**
+ * Generic extensions development panel — lists every loaded extension and lets an
+ * admin enable/disable each for development testing. Extension-agnostic: core
+ * names no specific extension; per-extension detail comes from the registry.
+ */
 export const AdminSettingsDevelopmentTabPage: React.FC = () => {
   const [info, setInfo] = useState<DevelopmentInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [toggling, setToggling] = useState(false);
+  const [togglingSlug, setTogglingSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchInfo = useCallback(async () => {
@@ -27,18 +32,22 @@ export const AdminSettingsDevelopmentTabPage: React.FC = () => {
     fetchInfo();
   }, [fetchInfo]);
 
-  const handleToggle = async () => {
-    if (!info) return;
-    setToggling(true);
+  const handleToggle = async (slug: string, current: boolean) => {
+    setTogglingSlug(slug);
     try {
-      const response = await adminSettingsApi.updateDevelopmentSettings(!info.business_enabled);
+      const response = await adminSettingsApi.updateExtensionEnabled(slug, !current);
       if (response.success && response.data) {
-        setInfo(prev => prev ? { ...prev, business_enabled: response.data.business_enabled } : prev);
+        const newEnabled = response.data.enabled;
+        setInfo(prev =>
+          prev
+            ? { extensions: prev.extensions.map(e => (e.slug === slug ? { ...e, enabled: newEnabled } : e)) }
+            : prev,
+        );
       }
     } catch {
-      setError('Failed to toggle business mode');
+      setError(`Failed to toggle ${slug}`);
     } finally {
-      setToggling(false);
+      setTogglingSlug(null);
     }
   };
 
@@ -67,124 +76,68 @@ export const AdminSettingsDevelopmentTabPage: React.FC = () => {
     );
   }
 
-  if (!info) {
-    return (
-      <div className="rounded-lg border border-theme bg-theme-surface p-6">
-        <p className="text-sm text-theme-secondary">
-          Unable to load business development settings. Ensure the backend is running and business engine is loaded.
-        </p>
-      </div>
-    );
-  }
-
-  if (!info.business_installed) {
-    return (
-      <div className="rounded-lg border border-theme bg-theme-surface p-6">
-        <h3 className="text-lg font-medium text-theme-primary">Business Not Loaded</h3>
-        <p className="mt-2 text-sm text-theme-secondary">
-          The business submodule is present but the engine is not loaded on the backend.
-          Restart the backend service to load the business engine.
-        </p>
-      </div>
-    );
-  }
+  const extensions = info?.extensions ?? [];
 
   return (
     <div className="space-y-6">
-      {/* Business Mode Toggle */}
       <div className="rounded-lg border border-theme bg-theme-surface p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-medium text-theme-primary">Business Mode</h3>
-            <p className="mt-1 text-sm text-theme-secondary">
-              Toggle business features on or off for development testing.
-              When disabled, the platform behaves as the open-core edition.
-            </p>
-          </div>
-          <button
-            onClick={handleToggle}
-            disabled={toggling}
-            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:ring-offset-2 ${
-              info.business_enabled
-                ? 'bg-theme-interactive-primary'
-                : 'bg-theme-background-secondary'
-            } ${toggling ? 'opacity-50 cursor-wait' : ''}`}
-            role="switch"
-            aria-checked={info.business_enabled}
-            data-testid="business-mode-toggle"
-          >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                info.business_enabled ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
-        </div>
+        <h3 className="text-lg font-medium text-theme-primary">Extensions</h3>
+        <p className="mt-1 text-sm text-theme-secondary">
+          Enable or disable loaded extensions for development testing. When an extension
+          is disabled, the platform behaves as if it were not installed.
+        </p>
 
-        <div className="mt-4 flex items-center gap-2">
-          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            info.business_enabled
-              ? 'bg-theme-success/10 text-theme-success'
-              : 'bg-theme-background-secondary/30 text-theme-secondary'
-          }`}>
-            {info.business_enabled ? 'Enabled' : 'Disabled'}
-          </span>
-        </div>
-      </div>
-
-      {/* Business Info */}
-      <div className="rounded-lg border border-theme bg-theme-surface p-6">
-        <h3 className="text-lg font-medium text-theme-primary mb-4">Business Details</h3>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {info.engine_version && (
-            <div>
-              <dt className="text-sm font-medium text-theme-secondary">Engine Version</dt>
-              <dd className="mt-1 text-sm text-theme-primary">{info.engine_version}</dd>
-            </div>
-          )}
-          <div>
-            <dt className="text-sm font-medium text-theme-secondary">License Status</dt>
-            <dd className="mt-1">
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                info.license_valid
-                  ? 'bg-theme-success/10 text-theme-success'
-                  : 'bg-theme-warning/10 text-theme-warning'
-              }`}>
-                {info.license_valid ? 'Valid' : 'Not configured'}
-              </span>
-            </dd>
-          </div>
-          {info.license_edition && (
-            <div>
-              <dt className="text-sm font-medium text-theme-secondary">License Edition</dt>
-              <dd className="mt-1 text-sm text-theme-primary capitalize">{info.license_edition}</dd>
-            </div>
-          )}
-        </dl>
-      </div>
-
-      {/* Feature Flags */}
-      {info.feature_flags && info.feature_flags.length > 0 && (
-        <div className="rounded-lg border border-theme bg-theme-surface p-6">
-          <h3 className="text-lg font-medium text-theme-primary mb-4">Business Feature Flags</h3>
-          <div className="space-y-3">
-            {info.feature_flags.map((flag) => (
-              <div key={flag.name} className="flex items-center justify-between py-2 border-b border-theme last:border-0">
-                <span className="text-sm text-theme-primary font-mono">
-                  {flag.name.replace(/^business_/, '').replace(/_/g, ' ')}
-                </span>
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                  flag.enabled
-                    ? 'bg-theme-success/10 text-theme-success'
-                    : 'bg-theme-background-secondary/30 text-theme-secondary'
-                }`}>
-                  {flag.enabled ? 'on' : 'off'}
-                </span>
+        {extensions.length === 0 ? (
+          <p className="mt-4 text-sm text-theme-secondary">
+            No extensions loaded — running in core mode.
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {extensions.map(ext => (
+              <div
+                key={ext.slug}
+                className="flex items-center justify-between py-2 border-b border-theme last:border-0"
+              >
+                <div>
+                  <span className="text-sm font-medium text-theme-primary capitalize">
+                    {ext.slug.replace(/-/g, ' ')}
+                  </span>
+                  {ext.version && (
+                    <span className="ml-2 text-xs text-theme-tertiary">v{ext.version}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      ext.enabled
+                        ? 'bg-theme-success/10 text-theme-success'
+                        : 'bg-theme-background-secondary/30 text-theme-secondary'
+                    }`}
+                  >
+                    {ext.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                  <button
+                    onClick={() => handleToggle(ext.slug, ext.enabled)}
+                    disabled={togglingSlug === ext.slug}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:ring-offset-2 ${
+                      ext.enabled ? 'bg-theme-interactive-primary' : 'bg-theme-background-secondary'
+                    } ${togglingSlug === ext.slug ? 'opacity-50 cursor-wait' : ''}`}
+                    role="switch"
+                    aria-checked={ext.enabled}
+                    data-testid={`extension-toggle-${ext.slug}`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-theme-surface shadow ring-0 transition duration-200 ease-in-out ${
+                        ext.enabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

@@ -13,18 +13,14 @@ export interface ExtensionInfo {
   enabled: boolean;
 }
 
-export interface DevelopmentFeatureFlag {
-  name: string;
+export interface DevelopmentExtension {
+  slug: string;
+  version?: string;
   enabled: boolean;
 }
 
 export interface DevelopmentInfo {
-  business_installed: boolean;
-  business_enabled: boolean;
-  engine_version?: string;
-  license_valid?: boolean;
-  license_edition?: string;
-  feature_flags?: DevelopmentFeatureFlag[];
+  extensions: DevelopmentExtension[];
 }
 
 export interface SystemMetrics {
@@ -690,8 +686,8 @@ class AdminSettingsApi {
     }
   }
 
-  async updateDevelopmentSettings(businessEnabled: boolean): Promise<{ success: boolean; data: { business_enabled: boolean; message: string } }> {
-    const response = await api.put('/admin_settings/development', { business_enabled: businessEnabled });
+  async updateExtensionEnabled(slug: string, enabled: boolean): Promise<{ success: boolean; data: { slug: string; enabled: boolean; message: string } }> {
+    const response = await api.put('/admin_settings/development', { slug, enabled });
     const responseData = response.data;
     if (responseData.success !== undefined) {
       return responseData;

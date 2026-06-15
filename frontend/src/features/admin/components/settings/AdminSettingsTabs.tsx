@@ -10,8 +10,6 @@ import {
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 
-declare const __EXTENSIONS__: string[];
-
 interface AdminSettingsTab {
   id: string;
   label: string;
@@ -19,8 +17,9 @@ interface AdminSettingsTab {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   description: string;
   requiredPermissions?: string[];
+  // Hide this tab unless the named extension is loaded (filtered generically
+  // against the config store's loadedExtensions — core names no extension here).
   extensionSlug?: string;
-  extensionInstalledOnly?: boolean;
 }
 
 const adminSettingsTabs: AdminSettingsTab[] = [
@@ -102,7 +101,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     label: 'Development',
     href: '/app/admin/settings/development',
     icon: Wrench,
-    description: 'Development tools and business mode toggle',
+    description: 'Manage extensions and development tools',
     requiredPermissions: ['admin.settings.read']
   }
 ];
@@ -115,18 +114,12 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { loadedExtensions, coreMode } = useSelector((state: RootState) => state.config);
-  const businessBuild = typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('business');
-  const businessInstalled = businessBuild && !coreMode;
+  const { loadedExtensions } = useSelector((state: RootState) => state.config);
 
   // Filter tabs based on user permissions and extension availability
   const availableTabs = adminSettingsTabs.filter(tab => {
-    // Hide extension-specific tabs when the required extension is not available
+    // Hide extension-specific tabs when the required extension is not loaded
     if (tab.extensionSlug && !loadedExtensions.includes(tab.extensionSlug)) {
-      return false;
-    }
-    // Hide tabs requiring an extension to be installed (build-time)
-    if (tab.extensionInstalledOnly && !businessInstalled) {
       return false;
     }
     if (!tab.requiredPermissions || tab.requiredPermissions.length === 0) {

@@ -113,14 +113,6 @@ module Shared
       extension_enabled?(slug)
     end
 
-    # @deprecated Interim shim. The business-specific gate methods below are slated
-    # for removal in Phase 3 of the core/extension decoupling, once the admin
-    # toggle and presence-gate call sites move to generic, capability-based checks
-    # (see docs/contributing/core-extension-decoupling.md). Do not add new callers.
-    def self.set_business_enabled!(enabled)
-      set_extension_enabled!("business", enabled)
-    end
-
     # Development info payload for admin UI
     # @return [Hash]
     def self.development_info

@@ -232,19 +232,21 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   # PUT /api/v1/admin_settings/development
   def update_development
-    unless Shared::FeatureGateService.business_loaded?
-      return render_error("Business engine is not installed", :unprocessable_content)
+    slug = params[:slug].to_s
+    unless Shared::FeatureGateService.extension_loaded?(slug)
+      return render_error("Extension '#{slug}' is not loaded", :unprocessable_content)
     end
 
-    enabled = ActiveModel::Type::Boolean.new.cast(params[:business_enabled])
-    new_state = Shared::FeatureGateService.set_business_enabled!(enabled)
+    enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
+    new_state = Shared::FeatureGateService.set_extension_enabled!(slug, enabled)
 
-    log_audit_event("business_mode_toggle", "SystemSettings",
-                    metadata: { business_enabled: new_state })
+    log_audit_event("admin.extension.toggle", "SystemSettings",
+                    metadata: { slug: slug, enabled: new_state })
 
     render_success(
-      business_enabled: new_state,
-      message: "Business mode #{new_state ? 'enabled' : 'disabled'}"
+      slug: slug,
+      enabled: new_state,
+      message: "Extension '#{slug}' #{new_state ? 'enabled' : 'disabled'}"
     )
   end
 
