@@ -101,4 +101,49 @@ domain scopes like `for_domain("trading")`. The CI grep gate must allowlist thes
 - `extensions/private/trading` is referenced only in maintainer-local docs; keep
   its name out of public-facing core per the existing trading code-scrub.
 - Phases 3–4 touch the private submodules — follow submodule commit discipline
-  (commit inside the submodule first, then bump the pointer).
+  (commit inside the submodule first; note `extensions/private/*` is gitignored in
+  the parent, so there is NO parent pointer to bump for business/trading).
+
+## Phase 3 execution findings (IMPORTANT — affects how to finish)
+
+Done so far:
+- **Phase 1** (committed): registry `feature_owned?`, generic `core_feature?`,
+  `set_extension_enabled!`; deleted `business_feature?`/`PowernodeBusiness::Features`
+  hardcode.
+- **Phase 2** (committed): generic admin Extensions panel; the Development tab is
+  core, not business.
+- **business submodule** (committed `91ccbc0`): `Features.available?` now returns
+  `nil` for unowned features (registry contract); declared `public_registration` +
+  `subscriptions` capabilities + `business_public_registration` flag.
+
+Findings that change the finish plan:
+1. **`Shared::FeatureGateService.available?` has zero callers** — the
+   `available?`/`core_feature?`/`feature_owned?` chain is currently dead. The live
+   gates are `business_loaded?` / `loaded?("business")` / `billing_enabled?`.
+2. **Presence via `feature_owned?` is NOT robust** until every extension honors the
+   nil contract. The **`system`** extension's features_module returns `true` for
+   ALL features → `feature_owned?` is always true in full mode. Fixing this one by
+   one across submodules is fragile.
+3. **Recommended robust mechanism:** add explicit capability declaration to the
+   registry — `register(slug:, ..., capabilities: [..])` + `provides?(cap)` (any
+   loaded extension declares cap). Core gates then use
+   `FeatureGateService.capability_present?(cap) == registry.provides?(cap)` for
+   presence (model/code availability) and `available?(cap)` for licensed features.
+   This does NOT depend on features_module nil-contract compliance.
+
+Remaining gate migration (then delete `business_loaded?`/`business_enabled?`):
+| Call site | New check |
+|-----------|-----------|
+| registrations_controller, config_controller | `available?(:public_registration)` |
+| subscription_channel | `capability_present?(:subscriptions)` |
+| mcp_scanner_service | `capability_present?(:mcp_hosting)` |
+| ai/concerns/account_scoped | `capability_present?(:governance)` |
+| models/ai/agent_template | `capability_present?(:marketplace_monetization)` |
+| models/concerns/business_aware | migrate callers to `capability_present?`; remove concern |
+| autonomy/approval_workflow_service (own `business_loaded?`) | `capability_present?(:governance)` |
+| `billing_enabled?` (11 callers in entitlements/users) | keep the name; body → `available?(:billing)` (add `:billing` to business); callers unchanged |
+| config/initializers/flipper.rb | move business flag registration into the business engine initializer |
+
+Verify in BOTH modes: core (`Gemfile`) and full (`BUNDLE_GEMFILE=Gemfile.private`).
+Specs to update: usage_limit_service_spec, approval_workflow_service_spec,
+auth/registrations_spec, feature_gate_service_spec.
