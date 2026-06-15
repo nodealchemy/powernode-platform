@@ -22,7 +22,7 @@ Powernode ships configuration scaffolding for a Grafana-Loki-Promtail-Prometheus
 | Component | Repo config | Role |
 |-----------|-------------|------|
 | **Loki** | `configs/logging/loki-config.yml` | Log storage + query (port 3100) |
-| **Promtail** | `configs/logging/promtail-config.yml` | Log shipper, scrapes Docker container stdout (port 9080) |
+| **Promtail** | `configs/logging/promtail-config.yml` | Log shipper, reads the systemd journal + service log files (port 9080) |
 | **Grafana** | `configs/monitoring/grafana-datasources.yml`, `configs/monitoring/grafana-dashboards.yml` | UI + alerting |
 | **Prometheus** | (operator-deployed) | Metrics scrape + storage (port 9090, default Grafana datasource) |
 
@@ -30,9 +30,11 @@ The configs assume single-node defaults (`replication_factor: 1`, filesystem sto
 
 ## Loki + Promtail deployment
 
-### Single-host Docker Compose (recommended for first deploy)
+### Running the stack
 
-Create `docker-compose.observability.yml` adjacent to the existing Powernode compose:
+Loki, Promtail, and Grafana are third-party services, independent of Powernode's own
+systemd deployment — run them however you like (containers are simplest). A minimal
+single-host Compose file for just these tools:
 
 ```yaml
 services:
@@ -51,7 +53,8 @@ services:
     volumes:
       - ./configs/logging/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/log:/var/log:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log/journal:/var/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
@@ -68,33 +71,13 @@ docker compose -f docker-compose.observability.yml up -d
 docker compose -f docker-compose.observability.yml logs -f loki | head -30   # smoke
 ```
 
-### Container-tag opt-in
+### What Promtail collects
 
-Promtail only scrapes containers labeled `logging=promtail` (per the config's `docker_sd_configs.filters`). When deploying Powernode services, tag them:
-
-```yaml
-services:
-  backend:
-    image: powernode/backend
-    labels:
-      - logging=promtail
-```
-
-This avoids accidentally shipping infrastructure-component logs to Loki and ballooning storage.
-
-### Swarm deployment
-
-For Docker Swarm, deploy as a global service so Promtail runs on every node:
-
-```yaml
-deploy:
-  mode: global
-  placement:
-    constraints:
-      - node.platform.os == linux
-```
-
-See `docs/operations/docker-swarm.md` for the broader Swarm operations runbook.
+Promtail's `powernode-journal` job keeps only `powernode-*.service` units from the systemd
+journal (via a `relabel_configs` `keep`), so the platform's own logs flow in automatically —
+no per-service opt-in. Separate file/syslog jobs cover apt-installed dependencies (nginx,
+PostgreSQL, Redis). This scoping avoids shipping unrelated journal noise to Loki and
+ballooning storage.
 
 ## Grafana datasource wiring
 
@@ -125,32 +108,32 @@ For compliance regimes that require longer retention (PCI: 1 year minimum), incr
 
 ## Log labels and queries
 
-Promtail's relabel rules surface these labels for every scraped container log line:
+Promtail's relabel rules surface these labels for every Powernode journal line:
 
 | Label | Source | Example |
 |-------|--------|---------|
-| `container` | Docker container name | `powernode-backend-1` |
-| `logstream` | `stdout` / `stderr` | `stderr` |
-| `service_name` | Swarm service label | `powernode_backend` |
-| `stack` | Swarm stack label | `powernode-production` |
+| `unit` | systemd unit (`__journal__systemd_unit`) | `powernode-backend@default.service` |
+| `level` | journal priority (`__journal_priority_keyword`) | `err` |
+| `host` | journal hostname | `powernode-hub` |
+| `job` | static job label | `powernode` |
 
 Common LogQL queries (paste into Grafana → Explore → Loki):
 
 ```logql
 # All ERROR lines from backend in the last hour
-{service_name="powernode_backend"} |= "ERROR"
+{unit=~"powernode-backend.*"} |= "ERROR"
 
 # Worker job failures
-{service_name="powernode_worker"} |~ "Failed .* Job after"
+{unit=~"powernode-worker.*"} |~ "Failed .* Job after"
 
 # Backend 5xx
-{service_name="powernode_backend"} |~ "Completed 5\\d\\d"
+{unit=~"powernode-backend.*"} |~ "Completed 5\\d\\d"
 
 # Audit log writes from the model layer
-{service_name="powernode_backend"} |= "AuditLog" |= "created"
+{unit=~"powernode-backend.*"} |= "AuditLog" |= "created"
 
 # Report request lifecycle for a specific id
-{service_name=~"powernode_(backend|worker)"} |= "019e3c6c-9e1a"
+{unit=~"powernode-(backend|worker).*"} |= "019e3c6c-9e1a"
 ```
 
 ## Application logging conventions
@@ -163,7 +146,7 @@ Powernode services follow consistent log emission to make LogQL queries reliable
 - **Request IDs**: each HTTP request gets a `request.uuid` Rails sets. Include it when logging from a request path so cross-service traces correlate.
 
 If you add a new component that should ship logs to Loki:
-1. Add the `logging=promtail` label.
+1. If it runs as a `powernode-*` systemd unit, journald collects it automatically. Otherwise add a dedicated scrape job (journal `matches`, file `__path__`, or syslog) in `promtail-config.yml`.
 2. Ensure stdout/stderr is unbuffered (Ruby: `STDOUT.sync = true`; Node: `process.stdout.write` is line-buffered when TTY).
 3. Use a structured format (JSON or `key=value` pairs) so LogQL can `| logfmt`-parse fields.
 
@@ -193,16 +176,16 @@ The repo ships `configs/monitoring/grafana-dashboards.yml` and a `grafana-dashbo
    ```bash
    curl -s http://localhost:9080/targets | head -30
    ```
-   Expected: one entry per `logging=promtail`-labeled container.
-3. **Is the container actually labeled?**
+   Expected: the `powernode-journal` job plus the file/syslog jobs, all `up`.
+3. **Are the journal units flowing?**
    ```bash
-   docker ps --format '{{.Names}}\t{{.Labels}}' | grep -i logging
+   journalctl -u 'powernode-*' -n 5 --no-pager   # confirm units log to journald
    ```
 4. **Datasource configured in Grafana?** Grafana → Configuration → Data Sources → Loki should show "Data source is working".
 
 ### "Some lines have no labels"
 
-Promtail's `relabel_configs` only attach Swarm labels if Swarm metadata is present. For plain Docker Compose deploys, `service_name` and `stack` are empty — query by `container` instead.
+The `powernode-journal` job only keeps `powernode-*.service` units. Logs from the file/syslog jobs carry their own `job` label — query by `job` (e.g. `{job="nginx"}`) instead.
 
 ### "Disk filling up on Loki host"
 
@@ -214,7 +197,7 @@ The compactor needs time to free space (`retention_delete_delay: 2h`). If disk i
 ## See also
 
 - [production-deployment.md](./production-deployment.md) — overall production setup
-- [docker-swarm.md](./docker-swarm.md) — Swarm-specific deploys
+- [single-node-bootstrap.md](./single-node-bootstrap.md) — the systemd install these logs come from
 - [incident-response.md](./incident-response.md) — uses these logs during incidents
 - [performance-tuning.md](./performance-tuning.md) — metrics-driven tuning
 

@@ -10,59 +10,26 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  # Docker container logs
-  - job_name: containers
-    docker_sd_configs:
-      - host: unix:///var/run/docker.sock
-        refresh_interval: 5s
-        filters:
-          - name: label
-            values: ["logging=promtail"]
+  # Powernode systemd service logs (backend, worker, worker-web, frontend, reverse-proxy).
+  # Powernode runs as systemd units, so its logs come from journald — not Docker
+  # containers. Query these by unit, e.g. {unit=~"powernode-backend.*"}.
+  - job_name: powernode-journal
+    journal:
+      json: false
+      max_age: 12h
+      path: /var/log/journal
+      labels:
+        job: powernode
     relabel_configs:
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/(.*)'
-        target_label: 'container'
-      - source_labels: ['__meta_docker_container_log_stream']
-        target_label: 'logstream'
-      - source_labels: ['__meta_docker_container_label_com_docker_swarm_service_name']
-        target_label: 'service_name'
-      - source_labels: ['__meta_docker_container_label_com_docker_stack_namespace']
-        target_label: 'stack'
-
-  # Rails application logs
-  - job_name: rails-logs
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: rails
-          __path__: /var/log/rails/*.log
-    pipeline_stages:
-      - regex:
-          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(?P<level>\w+)\s+--\s+:\s+(?P<message>.*)'
-      - timestamp:
-          source: timestamp
-          format: RFC3339Nano
-      - labels:
-          level:
-
-  # Sidekiq worker logs
-  - job_name: sidekiq-logs
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: sidekiq
-          __path__: /var/log/sidekiq/*.log
-    pipeline_stages:
-      - regex:
-          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(?P<pid>\d+)\s+TID-(?P<tid>\w+)\s+(?P<level>\w+):\s+(?P<message>.*)'
-      - timestamp:
-          source: timestamp
-          format: RFC3339Nano
-      - labels:
-          level:
-          pid:
+      - source_labels: ['__journal__systemd_unit']
+        regex: 'powernode-.*\.service'
+        action: keep
+      - source_labels: ['__journal__systemd_unit']
+        target_label: 'unit'
+      - source_labels: ['__journal_priority_keyword']
+        target_label: 'level'
+      - source_labels: ['__journal__hostname']
+        target_label: 'host'
 
   # Nginx access logs
   - job_name: nginx-access
