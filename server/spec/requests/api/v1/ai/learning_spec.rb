@@ -10,6 +10,18 @@ RSpec.describe 'Api::V1::Ai::Learning', type: :request do
   let(:read_headers) { auth_headers_for(read_user) }
   let(:manage_headers) { auth_headers_for(manage_user) }
 
+  # Regression: evaluation_results does `.joins(:execution)`, but Ai::EvaluationResult
+  # never declared `belongs_to :execution`, so the join raised
+  # ActiveRecord::ConfigurationError (500) at query-build time — independent of data.
+  describe 'GET /api/v1/ai/learning/evaluation_results' do
+    it 'returns evaluation results (joining the :execution association)' do
+      get '/api/v1/ai/learning/evaluation_results?limit=100', headers: read_headers, as: :json
+
+      expect_success_response
+      expect(json_response_data['results']).to be_an(Array)
+    end
+  end
+
   describe 'GET /api/v1/ai/learning/recommendations' do
     let!(:rec1) { create(:ai_improvement_recommendation, :pending, account: account) }
     let!(:rec2) { create(:ai_improvement_recommendation, :applied, account: account) }

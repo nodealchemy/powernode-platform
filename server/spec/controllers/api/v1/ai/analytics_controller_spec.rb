@@ -217,10 +217,7 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       performance_trends: {}
     })
 
-    allow_any_instance_of(Ai::Analytics::PerformanceAnalysisService).to receive(:identify_bottlenecks).and_return({
-      bottlenecks: [],
-      recommendations: []
-    })
+    allow_any_instance_of(Ai::Analytics::PerformanceAnalysisService).to receive(:identify_bottlenecks).and_return([])
 
     allow_any_instance_of(Ai::Analytics::PerformanceAnalysisService).to receive(:analyze_error_rates).and_return({
       total_errors: 2,

@@ -86,7 +86,10 @@ module Api
         private
 
         def validate_permissions
-          authorize_permission!("ai.manage")
+          # require_permission is the canonical helper (Authentication concern);
+          # authorize_permission! does not exist and raised NoMethodError (500)
+          # on every coordination endpoint.
+          require_permission("ai.manage")
         end
 
         def serialize_signal(signal)

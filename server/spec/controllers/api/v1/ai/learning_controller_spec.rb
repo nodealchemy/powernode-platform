@@ -26,6 +26,9 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
       avg_importance: 0.65
     })
     allow(compound_service).to receive(:list_learnings).and_return([])
+    # #learnings also calls count_learnings for the meta.total_count; the double
+    # must answer it or the action raises an unexpected-message error.
+    allow(compound_service).to receive(:count_learnings).and_return(0)
     allow(compound_service).to receive(:reinforce_learning).and_return(nil)
     allow(compound_service).to receive(:promote_cross_team).and_return(0)
     allow(compound_service).to receive(:decay_and_consolidate).and_return({ decayed: 0, consolidated: 0 })

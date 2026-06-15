@@ -4,6 +4,12 @@ module Ai
   class EvaluationResult < ApplicationRecord
     belongs_to :account
     belongs_to :agent, class_name: "Ai::Agent", foreign_key: "agent_id"
+    # LearningController#evaluation_results joins(:execution); the column and FK
+    # existed but the association was never declared, so the join raised
+    # ActiveRecord::ConfigurationError (500). optional: true — execution_id
+    # presence is already validated below; we only need the reflection for the
+    # join, not a new write-time existence check.
+    belongs_to :execution, class_name: "Ai::AgentExecution", foreign_key: "execution_id", optional: true
 
     validates :execution_id, presence: true
     validates :evaluator_model, presence: true

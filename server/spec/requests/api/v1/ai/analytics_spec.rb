@@ -228,7 +228,7 @@ RSpec.describe 'Api::V1::Ai::Analytics', type: :request do
   describe 'GET /api/v1/ai/analytics/recommendations' do
     before do
       allow(cost_service).to receive(:estimate_cost_savings).and_return({ opportunities: [] })
-      allow(performance_service).to receive(:identify_bottlenecks).and_return({ bottlenecks: [] })
+      allow(performance_service).to receive(:identify_bottlenecks).and_return([])
       allow(performance_service).to receive(:analyze_error_rates).and_return({ error_rate: 2.0 })
     end
 
@@ -242,6 +242,130 @@ RSpec.describe 'Api::V1::Ai::Analytics', type: :request do
         data = json_response_data
         expect(data).to have_key('recommendations')
         expect(data).to have_key('generated_at')
+      end
+    end
+  end
+
+  # Previously-missing actions: routes declared performance/costs/usage/trends/
+  # formats but the controller never implemented them (ActionNotFound -> 500).
+  # Each now returns its frontend interface shape from the existing services.
+  describe 'GET /api/v1/ai/analytics/costs' do
+    before do
+      allow(cost_service).to receive(:calculate_total_cost).and_return({ total: 12.5 })
+      allow(cost_service).to receive(:cost_breakdown_by_provider).and_return([{ provider_name: 'openai', total_cost: 10.0, total_tokens: 1000 }])
+      allow(cost_service).to receive(:cost_breakdown_by_agent).and_return([{ agent_name: 'A1', total_cost: 5.0 }])
+      allow(cost_service).to receive(:daily_cost_breakdown).and_return({ '2026-06-01' => 5.0 })
+      allow(cost_service).to receive(:estimate_cost_savings).and_return({ total_potential_savings: 2.0, opportunities: [] })
+    end
+
+    it 'returns CostAnalytics-shaped data' do
+      get '/api/v1/ai/analytics/costs', headers: headers, as: :json
+
+      expect_success_response
+      data = json_response_data
+      expect(data).to include('total_cost_usd', 'cost_by_provider', 'cost_by_component', 'cost_trend', 'optimization_potential_usd')
+      expect(data['total_cost_usd']).to eq(12.5)
+      expect(data['cost_by_provider']).to eq({ 'openai' => 10.0 })
+      expect(data['cost_trend']).to eq([{ 'date' => '2026-06-01', 'cost_usd' => 5.0 }])
+    end
+  end
+
+  describe 'GET /api/v1/ai/analytics/performance' do
+    before do
+      allow(performance_service).to receive(:analyze_response_times).and_return({ avg_ms: 100.0, median_ms: 90.0, p95_ms: 200.0, p99_ms: 300.0 })
+      allow(performance_service).to receive(:analyze_throughput).and_return({ executions_per_hour: 5.0 })
+      allow(performance_service).to receive(:analyze_error_rates).and_return({ error_rate: 1.5 })
+    end
+
+    it 'returns PerformanceMetrics-shaped data' do
+      get '/api/v1/ai/analytics/performance', headers: headers, as: :json
+
+      expect_success_response
+      data = json_response_data
+      expect(data).to include('avg_execution_time_ms', 'p50_execution_time_ms', 'p95_execution_time_ms', 'p99_execution_time_ms', 'throughput_per_hour', 'error_rate', 'by_component')
+      expect(data['p50_execution_time_ms']).to eq(90.0)
+      expect(data['error_rate']).to eq(1.5)
+    end
+  end
+
+  describe 'GET /api/v1/ai/analytics/usage' do
+    before do
+      allow(dashboard_service).to receive(:generate_trend_data).and_return({ executions_by_day: { '2026-06-01' => 3 } })
+      allow(cost_service).to receive(:cost_breakdown_by_provider).and_return([{ provider_name: 'openai', total_tokens: 1000 }])
+      allow(metrics_service).to receive(:agent_metrics).and_return({ agents_by_type: { 'assistant' => 2 } })
+    end
+
+    it 'returns UsageMetrics-shaped data' do
+      get '/api/v1/ai/analytics/usage', headers: headers, as: :json
+
+      expect_success_response
+      data = json_response_data
+      expect(data).to include('total_executions', 'executions_by_day', 'executions_by_type', 'active_users', 'total_tokens_used', 'tokens_by_provider')
+      expect(data['total_executions']).to eq(3)
+      expect(data['total_tokens_used']).to eq(1000)
+      expect(data['tokens_by_provider']).to eq({ 'openai' => 1000 })
+    end
+  end
+
+  describe 'GET /api/v1/ai/analytics/trends' do
+    before do
+      allow(dashboard_service).to receive(:generate_trend_data).and_return({
+        executions_by_day: { '2026-06-01' => 2, '2026-06-02' => 4 },
+        cost_by_day: { '2026-06-01' => 1.0, '2026-06-02' => 2.0 }
+      })
+    end
+
+    it 'returns an array of Trend objects' do
+      get '/api/v1/ai/analytics/trends', headers: headers, as: :json
+
+      expect_success_response
+      data = json_response_data
+      expect(data).to be_an(Array)
+      expect(data.map { |t| t['metric'] }).to include('executions', 'cost_usd')
+      exec_trend = data.find { |t| t['metric'] == 'executions' }
+      expect(exec_trend).to include('direction', 'change_percentage', 'data_points')
+      expect(exec_trend['direction']).to eq('up')
+    end
+  end
+
+  describe 'GET /api/v1/ai/analytics/formats' do
+    it 'returns the export-format catalog' do
+      get '/api/v1/ai/analytics/formats', headers: headers, as: :json
+
+      expect_success_response
+      data = json_response_data
+      expect(data).to be_an(Array)
+      expect(data.map { |f| f['format'] }).to include('json', 'csv', 'xlsx')
+    end
+  end
+
+  # Regression: insights & recommendations must work against the REAL analytics
+  # services, not instance_doubles. The file-wide `before` stubs every service,
+  # and the per-endpoint specs further stubbed identify_bottlenecks to a Hash
+  # ({ bottlenecks: [] }). The real service returns an Array, so the controller's
+  # `bottlenecks[:bottlenecks]` raised TypeError in production (500) while every
+  # stubbed spec stayed green. These examples undo the doubling for the
+  # aggregation services so the real contract is exercised.
+  describe 'aggregation against real analytics services (no service doubles)' do
+    before do
+      allow(Ai::Analytics::CostAnalysisService).to receive(:new).and_call_original
+      allow(Ai::Analytics::PerformanceAnalysisService).to receive(:new).and_call_original
+      allow(Ai::Analytics::DashboardService).to receive(:new).and_call_original
+    end
+
+    context 'with ai.analytics.read permission' do
+      it 'GET /recommendations succeeds with the real services' do
+        get '/api/v1/ai/analytics/recommendations', headers: headers, as: :json
+
+        expect_success_response
+        expect(json_response_data).to have_key('recommendations')
+      end
+
+      it 'GET /insights succeeds with the real services' do
+        get '/api/v1/ai/analytics/insights', headers: headers, as: :json
+
+        expect_success_response
+        expect(json_response_data).to have_key('insights')
       end
     end
   end

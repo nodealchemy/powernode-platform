@@ -6,8 +6,16 @@ module Api
       class AnalyticsController < ApplicationController
         include AuditLogging
 
+        # Export formats the analytics export action accepts (see #export).
+        EXPORT_FORMATS = [
+          { format: "json", label: "JSON", mime_type: "application/json" },
+          { format: "csv", label: "CSV", mime_type: "text/csv" },
+          { format: "xlsx", label: "Excel",
+            mime_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }
+        ].freeze
+
         before_action :validate_permissions
-        before_action :set_time_range, only: %i[dashboard overview metrics cost_analysis performance_analysis insights recommendations agent_analytics export]
+        before_action :set_time_range, only: %i[dashboard overview metrics cost_analysis performance_analysis costs performance usage trends insights recommendations agent_analytics export]
         before_action :set_account_scope
 
         # GET /api/v1/ai/analytics/dashboard
@@ -87,6 +95,36 @@ module Api
             generated_at: Time.current.iso8601,
             time_range: time_range_info
           })
+        end
+
+        # The routes below were declared but never implemented, so every call
+        # raised ActionNotFound (500). The frontend AnalyticsApiService calls all
+        # of them. Each returns the shape its frontend interface expects, sourced
+        # from the existing analytics services.
+
+        # GET /api/v1/ai/analytics/costs  -> CostAnalytics
+        def costs
+          render_success(cost_analytics_payload)
+        end
+
+        # GET /api/v1/ai/analytics/performance  -> PerformanceMetrics
+        def performance
+          render_success(performance_metrics_payload)
+        end
+
+        # GET /api/v1/ai/analytics/usage  -> UsageMetrics
+        def usage
+          render_success(usage_metrics_payload)
+        end
+
+        # GET /api/v1/ai/analytics/trends  -> Trend[]
+        def trends
+          render_success(trends_payload)
+        end
+
+        # GET /api/v1/ai/analytics/formats  -> export-format catalog
+        def export_formats
+          render_success(EXPORT_FORMATS)
         end
 
         # GET /api/v1/ai/analytics/agents/:agent_id
@@ -172,6 +210,7 @@ module Api
           case action_name
           when "dashboard", "overview", "metrics", "real_time",
                "cost_analysis", "performance_analysis",
+               "costs", "performance", "usage", "trends", "export_formats",
                "insights", "recommendations",
                "agent_analytics"
             require_permission("ai.analytics.read")
@@ -216,6 +255,67 @@ module Api
           }
         end
 
+        # ---- Adapters: existing service output -> frontend interface shapes ----
+
+        # CostAnalytics (AnalyticsApiService getCosts)
+        def cost_analytics_payload
+          {
+            total_cost_usd: cost_service.calculate_total_cost[:total].to_f,
+            cost_by_provider: cost_service.cost_breakdown_by_provider.to_h { |p| [ p[:provider_name], p[:total_cost] ] },
+            cost_by_component: cost_service.cost_breakdown_by_agent.to_h { |a| [ a[:agent_name], a[:total_cost] ] },
+            cost_trend: cost_service.daily_cost_breakdown.map { |date, cost| { date: date.to_s, cost_usd: cost.to_f } },
+            optimization_potential_usd: cost_service.estimate_cost_savings[:total_potential_savings].to_f
+          }
+        end
+
+        # PerformanceMetrics (AnalyticsApiService getPerformance)
+        def performance_metrics_payload
+          rt = performance_service.analyze_response_times
+          tp = performance_service.analyze_throughput
+          er = performance_service.analyze_error_rates
+          {
+            avg_execution_time_ms: rt[:avg_ms].to_f,
+            p50_execution_time_ms: rt[:median_ms].to_f,
+            p95_execution_time_ms: rt[:p95_ms].to_f,
+            p99_execution_time_ms: rt[:p99_ms].to_f,
+            throughput_per_hour: tp[:executions_per_hour].to_f,
+            error_rate: er[:error_rate].to_f,
+            by_component: {}
+          }
+        end
+
+        # UsageMetrics (AnalyticsApiService getUsage)
+        def usage_metrics_payload
+          executions_by_day = dashboard_service.generate_trend_data[:executions_by_day] || {}
+          by_provider = cost_service.cost_breakdown_by_provider
+          {
+            total_executions: executions_by_day.values.sum,
+            executions_by_day: executions_by_day.map { |date, count| { date: date.to_s, count: count } },
+            executions_by_type: metrics_service.agent_metrics[:agents_by_type] || {},
+            active_users: 0,
+            total_tokens_used: by_provider.sum { |p| p[:total_tokens].to_i },
+            tokens_by_provider: by_provider.to_h { |p| [ p[:provider_name], p[:total_tokens].to_i ] }
+          }
+        end
+
+        # Trend[] (AnalyticsApiService getTrends)
+        def trends_payload
+          series = dashboard_service.generate_trend_data
+          [
+            build_trend("executions", series[:executions_by_day] || {}),
+            build_trend("cost_usd", series[:cost_by_day] || {})
+          ]
+        end
+
+        def build_trend(metric, series)
+          points = series.map { |date, value| { date: date.to_s, value: value.to_f } }
+          first = points.first ? points.first[:value] : 0.0
+          last = points.last ? points.last[:value] : 0.0
+          change = first.zero? ? 0.0 : (((last - first) / first) * 100).round(2)
+          direction = if change > 1 then "up" elsif change < -1 then "down" else "stable" end
+          { metric: metric, direction: direction, change_percentage: change, data_points: points }
+        end
+
         def generate_aggregated_insights
           cache_key = "ai:analytics:insights:#{account_for_analytics&.id}:#{@time_range.to_i}"
 
@@ -247,14 +347,20 @@ module Api
             end
           end
 
+          # identify_bottlenecks returns an Array of bottleneck hashes (see
+          # PerformanceAnalysisService::BottleneckIdentification and its unit
+          # spec, plus the array usage in PerformanceAnalysisService#full_analysis
+          # and ReportService) — NOT a Hash. Indexing it with a Symbol raised
+          # `TypeError: no implicit conversion of Symbol into Integer`, breaking
+          # both #recommendations and #insights.
           bottlenecks = performance_service.identify_bottlenecks
-          if bottlenecks[:bottlenecks].any?
+          if bottlenecks.any?
             recommendations << {
               type: "performance_optimization", priority: "medium",
               title: "Optimize Slow Workflows",
-              description: "#{bottlenecks[:bottlenecks].size} potential bottlenecks identified",
+              description: "#{bottlenecks.size} potential bottlenecks identified",
               action: "Review and optimize slow-running workflows",
-              affected_workflows: bottlenecks[:bottlenecks].first(3)
+              affected_workflows: bottlenecks.first(3)
             }
           end
 

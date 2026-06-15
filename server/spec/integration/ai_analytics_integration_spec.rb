@@ -95,9 +95,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
       resource_utilization: {}, bottlenecks: [], sla_compliance: {}, performance_trends: {}
     })
 
-    allow_any_instance_of(Ai::Analytics::PerformanceAnalysisService).to receive(:identify_bottlenecks).and_return({
-      bottlenecks: []
-    })
+    allow_any_instance_of(Ai::Analytics::PerformanceAnalysisService).to receive(:identify_bottlenecks).and_return([])
 
     allow_any_instance_of(Ai::Analytics::PerformanceAnalysisService).to receive(:analyze_error_rates).and_return({
       total_errors: 0, error_rate: 0.0

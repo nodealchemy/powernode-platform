@@ -37,7 +37,12 @@ module Ai
     validate :api_endpoint_must_be_valid_url
     validates :capabilities, presence: true
     validate :capabilities_must_be_meaningful
-    validates :supported_models, presence: true
+    # Only active providers must have synced models. Model sync is async/pull-
+    # based (see ProviderManagementService model_sync) and the failure path
+    # deliberately leaves a deactivated provider with zero models, so requiring
+    # presence unconditionally made every un-synced/inactive provider impossible
+    # to edit through the UI (the edit form never sends supported_models → 422).
+    validates :supported_models, presence: true, if: :is_active?
     validates :priority_order, numericality: { greater_than: 0 }
     validates :configuration_schema, presence: true, allow_blank: false
 

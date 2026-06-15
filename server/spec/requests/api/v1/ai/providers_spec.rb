@@ -252,6 +252,33 @@ RSpec.describe 'Api::V1::Ai::Providers', type: :request do
         expect(provider.name).to eq('Updated Name')
       end
     end
+
+    # Regression: providers whose async model sync has not yet populated
+    # supported_models (or whose sync failed, deactivating them) must remain
+    # editable. The frontend edit form (useEditProviderForm) never sends
+    # supported_models, so an unconditional presence validation made every
+    # zero-model provider un-editable via the UI (422 on an unrelated edit).
+    context 'when the provider has no synced models (deactivated by a failed sync)' do
+      let(:provider) { create(:ai_provider, account: account) }
+
+      before do
+        # Mirror ProviderManagementService#handle_sync_failure: 0 models +
+        # deactivated, written via update_all to bypass validations — the same
+        # state real providers land in after a failed upstream model fetch.
+        Ai::Provider.where(id: provider.id).update_all(supported_models: [], is_active: false)
+        provider.reload
+      end
+
+      it 'still allows editing fields unrelated to model sync' do
+        patch "/api/v1/ai/providers/#{provider.id}",
+              params: { provider: { description: 'Edited while models pending' } },
+              headers: headers,
+              as: :json
+
+        expect_success_response
+        expect(provider.reload.description).to eq('Edited while models pending')
+      end
+    end
   end
 
   describe 'DELETE /api/v1/ai/providers/:id' do
