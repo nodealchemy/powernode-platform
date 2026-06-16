@@ -133,6 +133,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     // Merge extension-registered nav items
     const extensionItems = featureRegistry.getNavItems();
     if (extensionItems.length > 0) {
+      // Clone the menu/quick-action arrays so extension contributions don't
+      // mutate the shared defaultNavigationConfig object across renders.
+      config.userMenuItems = [...config.userMenuItems];
+      config.quickActions = [...config.quickActions];
+
       for (const item of extensionItems) {
         const converted = {
           id: item.label.toLowerCase().replace(/\s+/g, '-'),
@@ -144,6 +149,18 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
           order: item.order,
           activeMatch: item.activeMatch,
         };
+
+        // Reserved section names route items into the user menu / quick actions
+        // instead of a sidebar section. UserMenu groups by link type (not by
+        // index), so appended items land in the Account group automatically.
+        if (item.section === 'userMenu') {
+          config.userMenuItems = [...config.userMenuItems, converted];
+          continue;
+        }
+        if (item.section === 'quickActions') {
+          config.quickActions = [...config.quickActions, converted];
+          continue;
+        }
 
         // Items with a section property get injected into matching sections
         if (item.section && config.sections) {
@@ -174,6 +191,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     if (config.sections) {
       config.sections.sort((a, b) => (a.order || 99) - (b.order || 99));
     }
+
+    // Sort quick actions by order (extension-contributed actions interleave
+    // with core ones deterministically). User-menu order is positional in
+    // UserMenu, so it is intentionally left in registration order.
+    config.quickActions.sort((a, b) => (a.order || 99) - (b.order || 99));
 
     return config;
   // eslint-disable-next-line react-hooks/exhaustive-deps

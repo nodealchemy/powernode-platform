@@ -41,8 +41,15 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
     dispatch(logout());
   };
 
-  // Filter user menu items 
+  // Group user-menu items by link type so the layout is independent of array
+  // position. This lets extensions contribute items (e.g. business 'Billing
+  // Center') without relying on a fixed index. Logout is the item whose id is
+  // 'logout'; Support holds external links (e.g. Help & Support); everything
+  // else is an internal Account link.
   const userMenuItems = config.userMenuItems;
+  const logoutItem = userMenuItems.find(item => item.id === 'logout');
+  const accountItems = userMenuItems.filter(item => item.id !== 'logout' && !item.isExternal);
+  const supportItems = userMenuItems.filter(item => item.id !== 'logout' && item.isExternal);
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
@@ -121,7 +128,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
               </p>
             </div>
             
-            {userMenuItems.slice(0, 3).map((item) => (
+            {accountItems.map((item) => (
               <Link
                 key={item.id}
                 to={item.href}
@@ -153,7 +160,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
               </p>
             </div>
             
-            {userMenuItems.slice(3, -1).map((item) => (
+            {supportItems.map((item) => (
               <a
                 key={item.id}
                 href={item.href}
@@ -173,24 +180,24 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
             ))}
 
             {/* Logout */}
-            <div className="border-t border-theme my-1"></div>
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error transition-colors duration-150"
-            >
-              <div className="mr-3 h-4 w-4 text-theme-error">
-                {(() => {
-                  const logoutItem = userMenuItems[userMenuItems.length - 1];
-                  if (typeof logoutItem.icon === 'string') {
-                    return <span>{logoutItem.icon}</span>;
-                  } else {
-                    const IconComponent = logoutItem.icon as React.ComponentType<any>;
-                    return <IconComponent className="w-4 h-4" />;
-                  }
-                })()}
-              </div>
-              {userMenuItems[userMenuItems.length - 1].name}
-            </button>
+            {logoutItem && (
+              <>
+                <div className="border-t border-theme my-1"></div>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error transition-colors duration-150"
+                >
+                  <div className="mr-3 h-4 w-4 text-theme-error">
+                    {typeof logoutItem.icon === 'string' ? (
+                      <span>{logoutItem.icon}</span>
+                    ) : (
+                      <logoutItem.icon className="w-4 h-4" />
+                    )}
+                  </div>
+                  {logoutItem.name}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

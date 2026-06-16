@@ -1,14 +1,17 @@
 // Admin Settings Tabbed Interface
 
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
-  CreditCard, Mail, Server,
+  Mail, Server,
   LayoutDashboard, ShieldAlert,
-  Network, Lock, Wrench, Puzzle, KeyRound
+  Network, Lock, Wrench, Puzzle, KeyRound,
+  icons as lucideIcons
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 
 interface AdminSettingsTab {
   id: string;
@@ -39,15 +42,8 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     description: 'Manage platform extensions and modules',
     requiredPermissions: ['admin.settings.read']
   },
-  {
-    id: 'payment-gateways',
-    label: 'Payment Gateways',
-    href: '/app/admin/settings/payment-gateways',
-    icon: CreditCard,
-    description: 'Configure Stripe, PayPal, and other payment providers',
-    requiredPermissions: ['admin.billing.manage_gateways'],
-    extensionSlug: 'business'
-  },
+  // 'Payment Gateways' is registered by the business extension via
+  // featureRegistry.registerSettingsTabs('business', [...]) and merged below.
   {
     id: 'email',
     label: 'Email Settings',
@@ -116,8 +112,29 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   const { user } = useSelector((state: RootState) => state.auth);
   const { loadedExtensions } = useSelector((state: RootState) => state.config);
 
+  // Re-render when an extension registers a settings tab.
+  const [, setRegistryVersion] = useState(() => featureRegistry.getVersion());
+  useEffect(() => {
+    return featureRegistry.subscribe(() => setRegistryVersion(featureRegistry.getVersion()));
+  }, []);
+
+  // Merge core tabs with extension-registered tabs. Registered tabs are only
+  // present when their owning extension is loaded (registration is gated by the
+  // extension's own register.ts), so no per-extension name is needed in core.
+  // String icon names resolve against the Lucide set, falling back to Puzzle.
+  const registeredTabs: AdminSettingsTab[] = featureRegistry.getSettingsTabs().map(tab => ({
+    id: tab.id,
+    label: tab.label,
+    href: tab.path,
+    icon: (tab.icon && lucideIcons[tab.icon as keyof typeof lucideIcons]) || Puzzle,
+    description: tab.description || '',
+    requiredPermissions: tab.permission ? [tab.permission] : undefined,
+  }));
+
+  const mergedTabs = [...adminSettingsTabs, ...registeredTabs];
+
   // Filter tabs based on user permissions and extension availability
-  const availableTabs = adminSettingsTabs.filter(tab => {
+  const availableTabs = mergedTabs.filter(tab => {
     // Hide extension-specific tabs when the required extension is not loaded
     if (tab.extensionSlug && !loadedExtensions.includes(tab.extensionSlug)) {
       return false;
@@ -186,7 +203,7 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
           name="admin-settings-tab"
           value={activeTabId}
           onChange={(e) => {
-            const selectedTab = adminSettingsTabs.find(tab => tab.id === e.target.value);
+            const selectedTab = availableTabs.find(tab => tab.id === e.target.value);
             if (selectedTab) handleTabClick(selectedTab);
           }}
           className="block w-full rounded-md border-theme bg-theme-surface text-theme-primary shadow-sm focus:border-theme-interactive-primary focus:ring-theme-interactive-primary"

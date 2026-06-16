@@ -7,13 +7,10 @@ import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { AdminSettingsTabs } from '@/features/admin/components/settings/AdminSettingsTabs';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 
 // Import all admin settings tab pages
 import { AdminSettingsOverviewTabPage } from './AdminSettingsOverviewTabPage';
-// Payment Gateways tab - business only, lazy-loaded when available
-const AdminSettingsPaymentGatewaysTabPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('business'))
-  ? React.lazy(() => import('@ext/business/pages/admin/AdminSettingsPaymentGatewaysTabPage'))
-  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Payment Gateways is available in Business edition.');
 import { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 import { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
 import AdminSettingsRateLimitingTabPage from './AdminSettingsRateLimitingTabPage';
@@ -23,11 +20,13 @@ import { AdminSettingsProxyTabPage } from './AdminSettingsProxyTabPage';
 import { AdminSettingsDevelopmentTabPage } from './AdminSettingsDevelopmentTabPage';
 import { AdminSettingsExtensionsTabPage } from './AdminSettingsExtensionsTabPage';
 
-// Tab definitions for breadcrumbs
+const SETTINGS_BASE = '/app/admin/settings';
+
+// Core tab definitions for breadcrumbs. Extension-owned tabs (e.g. Payment
+// Gateways) are merged in at render time from featureRegistry.getSettingsTabs().
 const settingsTabs = [
   { id: 'overview', label: 'Overview', path: '/app/admin/settings', icon: '📊' },
   { id: 'extensions', label: 'Extensions', path: '/app/admin/settings/extensions', icon: '🧩' },
-  { id: 'payment-gateways', label: 'Payment Gateways', path: '/app/admin/settings/payment-gateways', icon: '💳' },
   { id: 'email', label: 'Email Settings', path: '/app/admin/settings/email', icon: '📧' },
   { id: 'proxy', label: 'Reverse Proxy', path: '/app/admin/settings/proxy', icon: '🌐' },
   { id: 'security', label: 'Security', path: '/app/admin/settings/security', icon: '🔒' },
@@ -40,6 +39,17 @@ const settingsTabs = [
 export const AdminSettingsPage: React.FC = () => {
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
+
+  // Re-render when an extension registers a settings tab (registration happens
+  // at module import time, but subscribing keeps this robust to later changes).
+  const [, setRegistryVersion] = React.useState(() => featureRegistry.getVersion());
+  React.useEffect(() => {
+    return featureRegistry.subscribe(() => setRegistryVersion(featureRegistry.getVersion()));
+  }, []);
+
+  // Extension-contributed tabs (e.g. business Payment Gateways) rendered inside
+  // this tabbed shell. Keyed by namespace in the registry — core names none.
+  const extensionTabs = featureRegistry.getSettingsTabs();
 
   // WebSocket for real-time updates
   usePageWebSocket({
@@ -57,12 +67,18 @@ export const AdminSettingsPage: React.FC = () => {
     return <Navigate to="/app" replace />;
   }
 
+  // Core tabs plus extension-registered tabs, for active-tab/breadcrumb lookup.
+  const allTabs = [
+    ...settingsTabs,
+    ...extensionTabs.map(tab => ({ id: tab.id, label: tab.label, path: tab.path, icon: tab.icon })),
+  ];
+
   // Get active tab from current path
   const getActiveTab = () => {
     const currentPath = location.pathname;
-    return settingsTabs.find(tab =>
+    return allTabs.find(tab =>
       tab.path === currentPath || (currentPath.startsWith(tab.path) && tab.path !== '/app/admin/settings')
-    ) || settingsTabs[0];
+    ) || allTabs[0];
   };
 
   const getBreadcrumbs = () => {
@@ -99,7 +115,6 @@ export const AdminSettingsPage: React.FC = () => {
           
           {/* Admin Settings Tabs */}
           <Route path="/extensions" element={<AdminSettingsExtensionsTabPage />} />
-          <Route path="/payment-gateways" element={<AdminSettingsPaymentGatewaysTabPage />} />
           <Route path="/email" element={<AdminSettingsEmailTabPage />} />
           <Route path="/proxy" element={<AdminSettingsProxyTabPage />} />
           <Route path="/security" element={<AdminSettingsSecurityTabPage />} />
@@ -109,9 +124,26 @@ export const AdminSettingsPage: React.FC = () => {
           <Route path="/performance" element={<Navigate to="/app/admin/settings/infrastructure" replace />} />
           <Route path="/development" element={<AdminSettingsDevelopmentTabPage />} />
 
+          {/* Extension-registered tabs (e.g. business Payment Gateways),
+              rendered inside this tabbed shell. Path is full; strip the base
+              to get the route relative to /app/admin/settings. */}
+          {extensionTabs.map((tab) => {
+            const TabComponent = tab.component;
+            const relativePath = tab.path.startsWith(SETTINGS_BASE)
+              ? tab.path.slice(SETTINGS_BASE.length) || '/'
+              : tab.path;
+            return (
+              <Route
+                key={tab.id}
+                path={relativePath}
+                element={<TabComponent />}
+              />
+            );
+          })}
+
           {/* Legacy redirects */}
           <Route path="/admin/*" element={<Navigate to="/app/admin/settings" replace />} />
-          
+
           {/* Catch all - redirect to overview */}
           <Route path="*" element={<Navigate to="/app/admin/settings" replace />} />
         </Routes>

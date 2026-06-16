@@ -1,7 +1,7 @@
 // Navigation Configuration
 import {
-  Home, BarChart3, Users, User, Settings, CreditCard,
-  FileText, Package, UserCheck,
+  Home, Users, User, Settings, CreditCard,
+  FileText, UserCheck,
   HelpCircle, LogOut, Bot, Brain, Bell,
   HardDrive, Workflow, Server, GitBranch,
   Plug, BookOpen, UserCog, Activity, ShieldCheck,
@@ -186,17 +186,9 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Personal information and preferences',
           permissions: [],
           order: 1
-        },
-        {
-          id: 'billing',
-          name: 'Billing',
-          href: '/app/account/billing',
-          icon: CreditCard,
-          description: 'Invoices and payment processing',
-          permissions: ['admin.billing.read'],
-          extensionSlug: 'business',
-          order: 4
         }
+        // 'Billing' (order 4) is registered by the business extension via
+        // featureRegistry.registerNavItems('business', [{ section: 'account', ... }]).
       ],
       collapsible: true,
       defaultExpanded: true,
@@ -369,14 +361,8 @@ export const defaultNavigationConfig: NavigationConfig = {
       icon: Settings,
       description: 'Account configuration and security'
     },
-    {
-      id: 'billing-center',
-      name: 'Billing Center',
-      href: '/app/account/billing',
-      icon: CreditCard,
-      description: 'Subscription and payment details',
-      extensionSlug: 'business'
-    },
+    // 'Billing Center' is registered by the business extension via
+    // featureRegistry.registerNavItems('business', [{ section: 'userMenu', ... }]).
     {
       id: 'help-support',
       name: 'Help & Support',
@@ -395,37 +381,15 @@ export const defaultNavigationConfig: NavigationConfig = {
   ],
   
   quickActions: [
-    {
-      id: 'create-plan',
-      name: 'Create Plan',
-      href: '/app/business/plans/new',
-      icon: Package,
-      description: 'Set up a new subscription plan',
-      extensionSlug: 'business'
-    },
+    // 'Create Plan', 'View Analytics', and 'Configure Payments' are registered
+    // by the business extension via featureRegistry.registerNavItems('business',
+    // [{ section: 'quickActions', ... }]).
     {
       id: 'invite-team',
       name: 'Invite Team Member',
       href: '/app/profile/users',
       icon: UserCheck,
       description: 'Add someone to your team'
-    },
-    {
-      id: 'view-analytics',
-      name: 'View Analytics',
-      href: '/app/business/analytics',
-      icon: BarChart3,
-      description: 'Check your latest metrics',
-      extensionSlug: 'business'
-    },
-    {
-      id: 'configure-payments',
-      name: 'Configure Payments',
-      href: '/app/admin/settings/payment-gateways',
-      icon: CreditCard,
-      description: 'Set up payment processing',
-      permissions: ['admin.billing.manage_gateways'],
-      extensionSlug: 'business'
     },
     {
       id: 'create-ai-agent',

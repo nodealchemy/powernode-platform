@@ -23,10 +23,16 @@ import { NotificationContainer } from '@/shared/components/ui/NotificationContai
 
 // Pages
 import { LoginPage } from '@/pages/public/LoginPage';
-// Registration and plan selection are business features, lazy-loaded when available
-const RegisterPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('business'))
-  ? React.lazy(() => import('@ext/business/pages/public/RegisterPage'))
-  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Registration is available in Business edition.');
+// Registration is an extension feature. The owning extension registers a public
+// '/register' route via featureRegistry.registerPublicRoutes(...), which renders
+// first (see the public-routes block below) and wins by first-match. This core
+// fallback is used only when no extension provides registration.
+const RegisterPage: React.FC = () =>
+  React.createElement(
+    'div',
+    { className: 'p-8 text-center text-theme-secondary' },
+    'Registration is available in Business edition.'
+  );
 import { DashboardPage } from '@/pages/app/DashboardPage';
 import { ForgotPasswordPage } from '@/pages/public/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/public/ResetPasswordPage';

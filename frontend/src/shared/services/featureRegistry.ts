@@ -27,11 +27,45 @@ export interface FeatureNavSection {
   order?: number;
 }
 
+/**
+ * A tab contributed to a tabbed admin/settings surface (e.g. Admin Settings).
+ * `icon` is a Lucide icon name string (resolved by the host, falling back to
+ * Puzzle) so extensions don't import core icon components. `path` is the full
+ * app path of the tab (e.g. '/app/admin/settings/payment-gateways'); the host
+ * derives the nested route from it. `component` renders inside the host's
+ * tabbed shell. Rendered only when the registering extension is loaded — keyed
+ * by namespace, never by core.
+ */
+export interface FeatureSettingsTab {
+  id: string;
+  label: string;
+  path: string;
+  component: LazyExoticComponent<ComponentType<unknown>> | ComponentType<unknown>;
+  icon?: string;
+  description?: string;
+  permission?: string;
+  order?: number;
+}
+
+/**
+ * A widget injected into the global header slot (e.g. the trading portfolio
+ * switcher). `match` decides, from the current pathname, whether the widget
+ * should render — this keeps route-specific header chrome out of core. Keyed
+ * by namespace; core never names an extension here.
+ */
+export interface FeatureHeaderWidget {
+  component: LazyExoticComponent<ComponentType<unknown>> | ComponentType<unknown>;
+  match: (pathname: string) => boolean;
+  permission?: string;
+}
+
 interface FeatureRegistryState {
   routes: Map<string, FeatureRoute[]>;
   publicRoutes: Map<string, FeatureRoute[]>;
   navItems: Map<string, FeatureNavItem[]>;
   navSections: Map<string, FeatureNavSection[]>;
+  settingsTabs: Map<string, FeatureSettingsTab[]>;
+  headerWidgets: Map<string, FeatureHeaderWidget[]>;
   version: number;
   listeners: Set<() => void>;
 }
@@ -41,6 +75,8 @@ const state: FeatureRegistryState = {
   publicRoutes: new Map(),
   navItems: new Map(),
   navSections: new Map(),
+  settingsTabs: new Map(),
+  headerWidgets: new Map(),
   version: 0,
   listeners: new Set(),
 };
@@ -134,6 +170,48 @@ export const featureRegistry = {
   },
 
   /**
+   * Register settings tabs for a namespace (e.g. a 'business' Payment Gateways
+   * tab). Consumed by tabbed settings surfaces; rendered only when the owning
+   * extension is loaded.
+   */
+  registerSettingsTabs(namespace: string, tabs: FeatureSettingsTab[]): void {
+    const existing = state.settingsTabs.get(namespace) || [];
+    state.settingsTabs.set(namespace, [...existing, ...tabs]);
+    notifyListeners();
+  },
+
+  /**
+   * Get all registered settings tabs, optionally filtered by namespace
+   */
+  getSettingsTabs(namespace?: string): FeatureSettingsTab[] {
+    if (namespace) {
+      return state.settingsTabs.get(namespace) || [];
+    }
+    return Array.from(state.settingsTabs.values()).flat();
+  },
+
+  /**
+   * Register header widgets for a namespace (e.g. the trading portfolio
+   * switcher). Consumed by the global Header; each widget decides via its
+   * `match(pathname)` predicate whether it renders for the current route.
+   */
+  registerHeaderWidgets(namespace: string, widgets: FeatureHeaderWidget[]): void {
+    const existing = state.headerWidgets.get(namespace) || [];
+    state.headerWidgets.set(namespace, [...existing, ...widgets]);
+    notifyListeners();
+  },
+
+  /**
+   * Get all registered header widgets, optionally filtered by namespace
+   */
+  getHeaderWidgets(namespace?: string): FeatureHeaderWidget[] {
+    if (namespace) {
+      return state.headerWidgets.get(namespace) || [];
+    }
+    return Array.from(state.headerWidgets.values()).flat();
+  },
+
+  /**
    * Get all registered namespace identifiers
    */
   getRegisteredNamespaces(): string[] {
@@ -171,5 +249,7 @@ export const featureRegistry = {
     state.publicRoutes.clear();
     state.navItems.clear();
     state.navSections.clear();
+    state.settingsTabs.clear();
+    state.headerWidgets.clear();
   },
 };
