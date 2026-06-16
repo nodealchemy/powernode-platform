@@ -54,79 +54,46 @@ RSpec.configure do |config|
   # You can uncomment this line to turn off ActiveRecord support entirely.
   # config.use_active_record = false
 
-  # FactoryBot configuration — include business factories when the extension is present.
-  # Business factories are loaded individually to allow them to override core factories
-  # with the same name (e.g. :invoice_line_item exists in both core and business).
-  business_factories = Rails.root.join('..', 'extensions', 'business', 'server', 'spec', 'factories')
-  if business_factories.exist?
-    Dir[business_factories.join('**/*.rb')].sort.each do |factory_file|
-      begin
+  # FactoryBot configuration — load every ACTIVE extension's factories and
+  # spec-support helpers. Active extensions are resolved through the same
+  # discovery the Gemfile uses (extensions_loader_helper), so this honors the
+  # public/private split, the POWERNODE_INCLUDE_PRIVATE_EXTENSIONS flag, and the
+  # config/extensions_state.json disabled list — i.e. only extensions whose gems
+  # (and therefore models) are actually loaded contribute factories. Keeping the
+  # loader generic means a future extension needs zero edits here, and it avoids
+  # two hazards of hardcoding each extension by name: stale paths, and loading an
+  # on-disk-but-inactive extension's factories whose models aren't loaded.
+  #
+  # Factories are loaded individually with DuplicateDefinitionError recovery so
+  # an extension factory can override a core factory of the same name (e.g.
+  # :invoice_line_item exists in both core and the business extension).
+  require_relative "../../extensions_loader_helper"
+  discover_extension_gems.each do |_slug, rel_server_path|
+    ext_server = Rails.root.join(rel_server_path)
+
+    factories_dir = ext_server.join("spec", "factories")
+    if factories_dir.exist?
+      Dir[factories_dir.join("**/*.rb")].sort.each do |factory_file|
         load factory_file
       rescue FactoryBot::DuplicateDefinitionError => e
-        # Business factory overrides core — unregister core version and retry
+        # Extension factory overrides core — unregister core version and retry
         factory_name = e.message.sub("Factory already registered: ", "")
         FactoryBot::Internal.factories.instance_variable_get(:@items).delete(factory_name)
         load factory_file
       end
     end
-  end
 
-  # Trading extension factories — loaded the same way as business factories
-  trading_factories = Rails.root.join('..', 'extensions', 'trading', 'server', 'spec', 'factories')
-  if trading_factories.exist?
-    Dir[trading_factories.join('**/*.rb')].sort.each do |factory_file|
-      begin
-        load factory_file
-      rescue FactoryBot::DuplicateDefinitionError => e
-        factory_name = e.message.sub("Factory already registered: ", "")
-        FactoryBot::Internal.factories.instance_variable_get(:@items).delete(factory_name)
-        load factory_file
-      end
-    end
-  end
-
-  # System (Infrastructure) extension factories
-  system_factories = Rails.root.join('..', 'extensions', 'system', 'server', 'spec', 'factories')
-  if system_factories.exist?
-    Dir[system_factories.join('**/*.rb')].sort.each do |factory_file|
-      begin
-        load factory_file
-      rescue FactoryBot::DuplicateDefinitionError => e
-        factory_name = e.message.sub("Factory already registered: ", "")
-        FactoryBot::Internal.factories.instance_variable_get(:@items).delete(factory_name)
-        load factory_file
-      end
-    end
-  end
-
-  # Marketing extension factories
-  marketing_factories = Rails.root.join('..', 'extensions', 'marketing', 'server', 'spec', 'factories')
-  if marketing_factories.exist?
-    Dir[marketing_factories.join('**/*.rb')].sort.each do |factory_file|
-      begin
-        load factory_file
-      rescue FactoryBot::DuplicateDefinitionError => e
-        factory_name = e.message.sub("Factory already registered: ", "")
-        FactoryBot::Internal.factories.instance_variable_get(:@items).delete(factory_name)
-        load factory_file
-      end
+    # Extension spec-support helpers. Extension specs run mounted into the parent
+    # and `require "rails_helper"`, so their support helpers (e.g.
+    # WorkerMtlsAuthHelpers) need explicit loading here. Scoped to *_helpers.rb
+    # so we don't re-trigger an extension's simplecov/coverage bootstrap.
+    support_dir = ext_server.join("spec", "support")
+    if support_dir.exist?
+      Dir[support_dir.join("**/*_helpers.rb")].sort.each { |f| require f }
     end
   end
 
   config.include FactoryBot::Syntax::Methods
-
-  # Extension spec-support helpers. The parent's own support glob (above)
-  # only covers server/spec/support; extension specs run mounted into the
-  # parent and `require "rails_helper"`, so their support helpers
-  # (e.g. WorkerMtlsAuthHelpers) need explicit loading here — same
-  # precedent as the extension-factory loads above. Scoped to *_helpers.rb
-  # so we don't re-trigger an extension's simplecov/coverage bootstrap.
-  %w[business trading system marketing supply-chain].each do |ext|
-    support_dir = Rails.root.join('..', 'extensions', ext, 'server', 'spec', 'support')
-    next unless support_dir.exist?
-
-    Dir[support_dir.join('**/*_helpers.rb')].sort.each { |f| require f }
-  end
 
   # Time travel helpers (travel_to, freeze_time, etc.)
   config.include ActiveSupport::Testing::TimeHelpers
