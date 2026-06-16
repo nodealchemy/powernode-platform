@@ -190,6 +190,13 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       }
     end
 
+    # build_message above is a private helper. Everything below is the public
+    # broadcasting API: these methods are invoked with an explicit receiver
+    # (AiOrchestrationChannel.broadcast_*) from services and models, so they MUST
+    # be public — a stray `private` here silently broke ralph-loop and worktree
+    # real-time broadcasts (the call raised NoMethodError and was swallowed).
+    public
+
     # Broadcast event to appropriate streams
     #
     # @param event_type [String] Event type
