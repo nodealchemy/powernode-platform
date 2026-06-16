@@ -48,7 +48,7 @@ module Api
 
         # POST /api/v1/git/providers
         def create
-          @provider = ::Devops::GitProvider.new(provider_params)
+          @provider = current_user.account.git_providers.new(provider_params)
 
           if @provider.save
             render_success({ provider: serialize_provider_detail(@provider) }, status: :created)
