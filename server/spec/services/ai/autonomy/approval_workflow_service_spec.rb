@@ -6,12 +6,12 @@ RSpec.describe Ai::Autonomy::ApprovalWorkflowService do
   let(:account) { create(:account) }
   let(:service) { described_class.new(account: account) }
 
-  describe ".business_loaded?" do
-    it "returns true when both Ai::ApprovalChain and Ai::ApprovalRequest are defined" do
-      # In a default dev/test environment with business loaded both are present.
-      skip "business extension not loaded — covered by the inverse path below" unless described_class.business_loaded?
+  describe ".governance_enabled?" do
+    it "is true when a governance-providing extension is loaded" do
+      # True in a private-mode env where business declares the :governance capability.
+      skip "governance capability not present — covered by the inverse path below" unless described_class.governance_enabled?
 
-      expect(described_class.business_loaded?).to be true
+      expect(described_class.governance_enabled?).to be true
     end
   end
 
@@ -21,7 +21,7 @@ RSpec.describe Ai::Autonomy::ApprovalWorkflowService do
     # has to handle both cases identically, so the spec must exercise
     # the core-mode branch deterministically.
     before do
-      allow(described_class).to receive(:business_loaded?).and_return(false)
+      allow(described_class).to receive(:governance_enabled?).and_return(false)
     end
 
     let(:agent) { build_stubbed(:ai_agent, account: account) }

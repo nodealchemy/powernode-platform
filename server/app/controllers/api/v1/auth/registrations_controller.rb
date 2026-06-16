@@ -107,7 +107,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
   private
 
   def require_saas_mode
-    unless Shared::FeatureGateService.business_loaded?
+    unless Shared::FeatureGateService.capability_present?(:public_registration)
       render_error("Registration is disabled in self-hosted mode", :forbidden)
     end
   end

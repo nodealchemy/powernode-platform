@@ -11,11 +11,9 @@ module Ai
     has_many :reviews, class_name: "Ai::AgentReview", foreign_key: :agent_template_id, dependent: :destroy
     has_many :template_usage_metrics, class_name: "Ai::TemplateUsageMetric", foreign_key: "agent_template_id", dependent: :destroy
 
-    # Business associations - marketplace monetization & publishing
-    if Powernode::ExtensionRegistry.loaded?("business")
-      belongs_to :publisher, class_name: "Ai::PublisherAccount", foreign_key: "publisher_id", optional: true
-      has_many :marketplace_transactions, class_name: "Ai::MarketplaceTransaction", foreign_key: "agent_template_id"
-    end
+    # Marketplace monetization & publishing associations (publisher,
+    # marketplace_transactions) are injected by the business extension via a model
+    # decorator — core never references those business-owned models.
 
     # Validations
     validates :name, presence: true
@@ -85,7 +83,10 @@ module Ai
 
     def generate_slug
       base_slug = name.parameterize
-      self.slug = "#{publisher.publisher_slug}-#{base_slug}"
+      # `publisher` is added by the business extension's decorator; in core mode the
+      # association does not exist, so guard for it and fall back to the bare slug.
+      pub = publisher if respond_to?(:publisher)
+      self.slug = pub&.publisher_slug ? "#{pub.publisher_slug}-#{base_slug}" : base_slug
     end
   end
 end

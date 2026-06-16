@@ -46,7 +46,7 @@ class SubscriptionChannel < ApplicationCable::Channel
   # Treat that the same as "no subscription on this account".
   def fetch_subscription_safely
     return nil unless current_account
-    return nil unless ::Shared::FeatureGateService.business_loaded?
+    return nil unless ::Shared::FeatureGateService.capability_present?(:subscriptions)
     current_account.respond_to?(:subscription) ? current_account.subscription : nil
   end
 

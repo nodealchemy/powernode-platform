@@ -244,8 +244,9 @@ module Ai
 
           sk("Business submodule pattern",
              "Business features at extensions/private/business/ (git submodule). When absent, app runs " \
-             "single-user self-hosted, all features unlocked. Gate: " \
-             "Shared::FeatureGateService.business_loaded? (backend), __BUSINESS__ (frontend).",
+             "single-user self-hosted, all features unlocked. Gate generically: " \
+             "Shared::FeatureGateService.capability_present?(:capability) / extension_loaded?(slug) (backend), " \
+             "featureRegistry / __EXTENSIONS__.includes(slug) (frontend).",
              "fact", %w[architecture business], "architecture"),
 
           sk("Rails 8 API only mode",

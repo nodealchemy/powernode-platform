@@ -62,4 +62,28 @@ RSpec.describe Shared::FeatureGateService do
       expect(described_class.extension_enabled?("supply-chain")).to be true
     end
   end
+
+  describe ".capability_present?" do
+    it "is true when a loaded extension declares the capability" do
+      allow(Powernode::ExtensionRegistry).to receive(:provides?).with(:governance).and_return(true)
+      expect(described_class.capability_present?(:governance)).to be true
+    end
+
+    it "is false when no loaded extension declares the capability" do
+      allow(Powernode::ExtensionRegistry).to receive(:provides?).with(:governance).and_return(false)
+      expect(described_class.capability_present?(:governance)).to be false
+    end
+  end
+
+  describe ".core_feature?" do
+    it "is true when no extension declares the feature (core owns it)" do
+      allow(Powernode::ExtensionRegistry).to receive(:provides?).with(:billing).and_return(false)
+      expect(described_class.core_feature?(:billing)).to be true
+    end
+
+    it "is false when an extension declares the feature" do
+      allow(Powernode::ExtensionRegistry).to receive(:provides?).with(:billing).and_return(true)
+      expect(described_class.core_feature?(:billing)).to be false
+    end
+  end
 end

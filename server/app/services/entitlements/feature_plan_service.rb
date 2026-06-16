@@ -1,15 +1,23 @@
 # frozen_string_literal: true
 
 module Entitlements
-  # Service for managing feature plan-based role assignments and access control
+  # Service for managing feature plan-based role assignments and access control.
+  #
+  # Plan/subscription knowledge lives in an extension, injected as the
+  # `:entitlements` provider (Powernode::ExtensionRegistry.provider(:entitlements)).
+  # When no provider is registered the platform runs unmetered (core mode):
+  #   - provider absent          → unlimited / all-features-on
+  #   - provider present, no plan → restrictive defaults (unsubscribed account)
   class FeaturePlanService
     class << self
       # Check if a user can be assigned a specific role based on their account's plan
       def can_assign_role_to_user?(user, role_name)
-        return true unless Shared::FeatureGateService.billing_enabled?
-        return false unless user&.account&.subscription&.plan
+        provider = entitlements_provider
+        return true unless provider
 
-        plan = user.account.subscription.plan
+        plan = provider.plan_for(user&.account)
+        return false unless plan
+
         available_roles = plan.metadata&.dig("available_roles") || []
         available_roles.include?(role_name)
       end
@@ -35,10 +43,12 @@ module Entitlements
 
         # Check if user has the permission through their roles
         return true if user.has_permission?(feature_permission)
-        return true unless Shared::FeatureGateService.billing_enabled?
+
+        provider = entitlements_provider
+        return true unless provider
 
         # Check plan-level feature gates
-        plan = user.account&.subscription&.plan
+        plan = provider.plan_for(user.account)
         return false unless plan
 
         check_plan_feature_gate(plan, feature_permission)
@@ -46,8 +56,10 @@ module Entitlements
 
       # Get feature limits for a user's plan
       def get_plan_limits(user)
-        return unlimited_core_limits unless Shared::FeatureGateService.billing_enabled?
-        plan = user&.account&.subscription&.plan
+        provider = entitlements_provider
+        return unlimited_core_limits unless provider
+
+        plan = provider.plan_for(user&.account)
         return default_limits unless plan&.features
 
         plan.features.with_defaults(default_limits)
@@ -55,7 +67,8 @@ module Entitlements
 
       # Check if user is within their plan limits for a specific feature
       def within_plan_limit?(user, feature, current_count)
-        return true unless Shared::FeatureGateService.billing_enabled?
+        return true unless entitlements_provider
+
         limits = get_plan_limits(user)
         limit = limits["#{feature}_limit"]
 
@@ -127,11 +140,11 @@ module Entitlements
 
       # Get a summary of what features/roles each plan provides
       def plan_comparison_matrix
-        return [] unless Shared::FeatureGateService.billing_enabled?
-        # Plan catalog lives in the business extension; this matrix is business-only.
-        plan_class = nil
-        return [] unless plan_class
-        plans = plan_class.active.includes(:subscriptions)
+        provider = entitlements_provider
+        return [] unless provider
+
+        plans = provider.plan_catalog
+        return [] if plans.blank?
 
         plans.map do |plan|
           available_permissions = available_roles_for_plan(plan)
@@ -156,9 +169,11 @@ module Entitlements
       # Generate a user's feature access report
       def user_feature_report(user)
         return {} unless user&.account
-        return core_mode_feature_report(user) unless Shared::FeatureGateService.billing_enabled?
 
-        plan = user.account.subscription&.plan
+        provider = entitlements_provider
+        return core_mode_feature_report(user) unless provider
+
+        plan = provider.plan_for(user.account)
         user_roles = user.roles.includes(:permissions)
         user_permissions = user.permission_names
 
@@ -198,6 +213,11 @@ module Entitlements
       end
 
       private
+
+      # The injected entitlements policy (plan/limits/roles), or nil in core mode.
+      def entitlements_provider
+        Powernode::ExtensionRegistry.provider(:entitlements)
+      end
 
       def check_plan_feature_gate(plan, permission)
         # This could be extended to check plan.features for specific feature gates
@@ -245,4 +265,3 @@ module Entitlements
     end
   end
 end
-

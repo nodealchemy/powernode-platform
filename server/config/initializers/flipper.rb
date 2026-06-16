@@ -14,8 +14,8 @@ end
 Rails.application.config.after_initialize do
   next unless ActiveRecord::Base.connection.table_exists?(:flipper_features)
 
-  # Core platform flags — always present. Extension flags (e.g. business_mode,
-  # trading_mode) are registered separately below from extensions/*/extension.json
+  # Core platform flags — always present. Extension flags (the per-extension
+  # <slug>_mode flags) are registered separately below from extensions/*/extension.json
   # so they appear if and only if the extension exists on disk.
   flags = %w[
     self_healing_remediation
@@ -77,8 +77,8 @@ Rails.application.config.after_initialize do
 
   # Prune orphan extension flags: any *_mode feature whose extension manifest
   # is no longer on disk. We only touch flags that look like extension flags
-  # (suffix "_mode") to avoid removing core platform flags. The static list
-  # above (e.g. business_mode) is whitelisted via extension_flag_names when the
+  # (suffix "_mode") to avoid removing core platform flags. Each manifest-declared
+  # <slug>_mode flag is whitelisted via extension_flag_names when the
   # extension is present.
   Flipper.features.each do |feature|
     name = feature.name.to_s
@@ -97,19 +97,10 @@ Rails.application.config.after_initialize do
   Flipper.enable(:compound_learning_injection) unless Flipper.enabled?(:compound_learning_injection)
   Flipper.enable(:compound_learning_promotion) unless Flipper.enabled?(:compound_learning_promotion)
 
-  # Auto-enable business flags when business engine is loaded
-  if Powernode::ExtensionRegistry.loaded?("business")
-    # Master toggle
-    Flipper.enable(:business_mode) unless Flipper.enabled?(:business_mode)
-
-    # Register and enable individual business feature flags
-    if Powernode::ExtensionRegistry.loaded?("business") && defined?(PowernodeBusiness::Features::BUSINESS_FLAGS)
-      PowernodeBusiness::Features::BUSINESS_FLAGS.each do |flag|
-        Flipper.add(flag) unless Flipper.exist?(flag)
-        Flipper.enable(flag) unless Flipper.enabled?(flag)
-      end
-    end
-  end
+  # Extension feature flags (e.g. <slug>_mode + per-feature flags) are registered
+  # and enabled by each extension's OWN engine initializer — core only adds the
+  # manifest-declared <slug>_mode flags generically (above) and prunes orphans, so
+  # no extension is named here.
 rescue ActiveRecord::NoDatabaseError, ActiveRecord::StatementInvalid => e
   Rails.logger.warn "[Flipper] Skipping flag registration: #{e.message}"
 end

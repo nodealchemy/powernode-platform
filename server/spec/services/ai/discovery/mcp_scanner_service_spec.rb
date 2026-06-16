@@ -7,30 +7,19 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
 
   subject(:service) { described_class.new(account: account) }
 
-  # The service uses Mcp::HostedServer which resolves to Ai::Mcp::HostedServer
-  # inside the Ai module namespace. This model only exists in business.
-  # We create a stub class with required class methods.
-  # Defined as a module-level constant so stub_const can use it.
-  FakeHostedServer = Class.new do
-    def self.none
-      result = []
-      result.define_singleton_method(:find_each) { |&_block| }
-      result
-    end
-
-    def self.where(_opts = {})
-      none
-    end
-  end
-
-  before do
-    stub_const("Ai::Mcp::HostedServer", FakeHostedServer)
-  end
-
+  # The scanner no longer references the business-only Mcp::HostedServer constant.
+  # It resolves the server source via Powernode::ExtensionRegistry.provider(:mcp_hosted_servers),
+  # so these specs stub that seam (the registry lookup) rather than a model constant —
+  # which is exactly how the decoupling keeps core free of business model references.
   describe '#scan' do
-    context 'without business' do
-      it 'returns agents and empty tools/connections when no business' do
-        agent = create(:ai_agent, account: account)
+    context 'when no mcp_hosted_servers provider is registered (core mode)' do
+      before do
+        allow(Powernode::ExtensionRegistry).to receive(:provider).and_call_original
+        allow(Powernode::ExtensionRegistry).to receive(:provider).with(:mcp_hosted_servers).and_return(nil)
+      end
+
+      it 'returns agents and empty tools/connections' do
+        create(:ai_agent, account: account)
 
         result = service.scan
 
@@ -40,7 +29,7 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
       end
     end
 
-    context 'with MCP servers available' do
+    context 'with an mcp_hosted_servers provider supplying servers' do
       let(:agent) { create(:ai_agent, account: account) }
       let(:server) do
         double('hosted_server',
@@ -55,13 +44,14 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
         )
       end
       let(:servers_relation) { double('servers_relation') }
+      let(:source) { double('McpHostedServerSource') }
 
       before do
         allow(server).to receive(:respond_to?).with(:tool_manifest).and_return(true)
-        allow(servers_relation).to receive(:find_each).and_yield(server)
-
-        stub_const("PowernodeBusiness::Engine", Class.new)
-        allow(FakeHostedServer).to receive(:where).with(account: account).and_return(servers_relation)
+        allow(servers_relation).to receive(:each).and_yield(server)
+        allow(source).to receive(:for_account).with(account).and_return(servers_relation)
+        allow(Powernode::ExtensionRegistry).to receive(:provider).and_call_original
+        allow(Powernode::ExtensionRegistry).to receive(:provider).with(:mcp_hosted_servers).and_return(source)
       end
 
       it 'extracts tools from servers' do
@@ -112,7 +102,7 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
 
           skill_relation = double('skill_relation')
           allow(a).to receive(:agent_skills).and_return(skill_relation)
-          allow(skill_relation).to receive(:pluck).with(:name).and_return(["code", "search"])
+          allow(skill_relation).to receive(:pluck).with(:name).and_return([ "code", "search" ])
         end
       end
 
@@ -142,7 +132,7 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
 
           skill_relation = double('skill_relation')
           allow(a).to receive(:agent_skills).and_return(skill_relation)
-          allow(skill_relation).to receive(:pluck).with(:name).and_return(["unrelated_skill"])
+          allow(skill_relation).to receive(:pluck).with(:name).and_return([ "unrelated_skill" ])
         end
       end
 

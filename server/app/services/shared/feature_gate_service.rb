@@ -17,12 +17,25 @@ module Shared
       Powernode::ExtensionRegistry.feature_available?(feature, account: account)
     end
 
-    # A feature is "core" when no loaded extension declares ownership of it.
+    # A feature is "core" when no loaded extension declares it as a capability.
     # Resolved through the registry so core never names a specific extension.
     # @param feature [String]
     # @return [Boolean]
     def self.core_feature?(feature)
-      !Powernode::ExtensionRegistry.feature_owned?(feature)
+      !Powernode::ExtensionRegistry.provides?(feature)
+    end
+
+    # Generic presence gate: is some loaded extension declaring this capability?
+    #
+    # Use for guarding code paths / models / associations that only exist when an
+    # extension is loaded (e.g. capability_present?(:subscriptions) before touching
+    # Account#subscription). Pure presence — independent of license/flag — so a loaded
+    # but unlicensed extension still reports its capability as present. For a licensed,
+    # account-scoped check use #available? instead.
+    # @param capability [String, Symbol]
+    # @return [Boolean]
+    def self.capability_present?(capability)
+      Powernode::ExtensionRegistry.provides?(capability)
     end
 
     # Check if a specific extension is loaded
@@ -30,21 +43,6 @@ module Shared
     # @return [Boolean]
     def self.extension_loaded?(slug)
       Powernode::ExtensionRegistry.loaded?(slug)
-    end
-
-    # Check if the business engine is loaded
-    # @return [Boolean]
-    def self.business_loaded?
-      extension_loaded?("business")
-    end
-
-    # Check if business mode is enabled via Flipper
-    # Returns true if Flipper is unavailable (default enabled when loaded)
-    # @return [Boolean]
-    def self.business_enabled?
-      return false unless business_loaded?
-
-      flipper_enabled?(:business_mode)
     end
 
     # Check if a specific extension is enabled.
@@ -80,12 +78,6 @@ module Shared
     # @return [Boolean]
     def self.core_mode?
       Powernode::ExtensionRegistry.slugs.empty?
-    end
-
-    # Check if billing features are available
-    # @return [Boolean]
-    def self.billing_enabled?
-      business_enabled?
     end
 
     # Get list of loaded extensions with their status

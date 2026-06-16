@@ -72,7 +72,7 @@ class WorkerJobService
     def enqueue_workspace_response(conversation_id, message_id, agent_id, account_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiWorkspaceResponseJob",
-        "args" => [conversation_id, message_id, agent_id, account_id],
+        "args" => [ conversation_id, message_id, agent_id, account_id ],
         "queue" => "ai_conversations"
       })
     end
@@ -111,7 +111,7 @@ class WorkerJobService
     def enqueue_ai_team_execution(team_id:, user_id:, input: {}, context: {})
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiTeamExecutionJob",
-        "args" => [{ "team_id" => team_id, "user_id" => user_id, "input" => input, "context" => context }],
+        "args" => [ { "team_id" => team_id, "user_id" => user_id, "input" => input, "context" => context } ],
         "queue" => "ai_agents",
         "options" => { "retry" => 3 }
       })
@@ -200,7 +200,7 @@ class WorkerJobService
     def enqueue_ai_skill_seed
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiSkillSyncJob",
-        "args" => [{ "action" => "seed" }],
+        "args" => [ { "action" => "seed" } ],
         "queue" => "ai_orchestration"
       })
     end
@@ -209,7 +209,7 @@ class WorkerJobService
     def enqueue_ai_skill_refresh_connectors(skill_id, account_id: nil)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiSkillSyncJob",
-        "args" => [{ "action" => "refresh_connectors", "skill_id" => skill_id, "account_id" => account_id }],
+        "args" => [ { "action" => "refresh_connectors", "skill_id" => skill_id, "account_id" => account_id } ],
         "queue" => "ai_orchestration"
       })
     end
@@ -222,7 +222,7 @@ class WorkerJobService
     def enqueue_ai_promote_learning(learning_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiPromoteLearningJob",
-        "args" => [learning_id],
+        "args" => [ learning_id ],
         "queue" => "ai_orchestration"
       })
     end
@@ -231,7 +231,7 @@ class WorkerJobService
     def enqueue_ai_consolidate_memory_entry(entry_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiConsolidateMemoryEntryJob",
-        "args" => [entry_id],
+        "args" => [ entry_id ],
         "queue" => "ai_orchestration"
       })
     end
@@ -240,7 +240,7 @@ class WorkerJobService
     def enqueue_ai_dedup_learning(learning_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiDedupLearningJob",
-        "args" => [learning_id],
+        "args" => [ learning_id ],
         "queue" => "ai_orchestration"
       })
     end
@@ -249,7 +249,7 @@ class WorkerJobService
     def enqueue_ai_experience_replay_capture(execution_id, trajectory_id = nil)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiExperienceReplayCaptureJob",
-        "args" => [execution_id, trajectory_id].compact,
+        "args" => [ execution_id, trajectory_id ].compact,
         "queue" => "ai_orchestration"
       })
     end
@@ -258,7 +258,7 @@ class WorkerJobService
     def enqueue_ai_reflexion(execution_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiReflexionJob",
-        "args" => [execution_id],
+        "args" => [ execution_id ],
         "queue" => "ai_orchestration"
       })
     end
@@ -267,7 +267,7 @@ class WorkerJobService
     def enqueue_ai_update_graph_node(node_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiUpdateGraphNodeJob",
-        "args" => [node_id],
+        "args" => [ node_id ],
         "queue" => "ai_orchestration"
       })
     end
@@ -276,7 +276,7 @@ class WorkerJobService
     def enqueue_ai_conversation_response(conversation_id, message_id, user_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiConversationResponseJob",
-        "args" => [conversation_id, message_id, user_id],
+        "args" => [ conversation_id, message_id, user_id ],
         "queue" => "ai_conversations"
       })
     end
@@ -303,7 +303,7 @@ class WorkerJobService
     def enqueue_ai_ralph_loop_run_all(ralph_loop_id, stop_on_error: false)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiRalphLoopRunAllJob",
-        "args" => [ralph_loop_id, { "stop_on_error" => stop_on_error }],
+        "args" => [ ralph_loop_id, { "stop_on_error" => stop_on_error } ],
         "queue" => "ai_execution"
       })
     end
@@ -312,7 +312,7 @@ class WorkerJobService
     def enqueue_ai_monitoring_health_check(account_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiMonitoringHealthCheckJob",
-        "args" => [account_id],
+        "args" => [ account_id ],
         "queue" => "ai_orchestration"
       })
     end
@@ -321,7 +321,7 @@ class WorkerJobService
     def enqueue_ai_trajectory_build(account_id:, execution_id:)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiTrajectoryBuildJob",
-        "args" => [{ "account_id" => account_id, "execution_id" => execution_id }],
+        "args" => [ { "account_id" => account_id, "execution_id" => execution_id } ],
         "queue" => "ai_orchestration"
       })
     end
@@ -330,7 +330,7 @@ class WorkerJobService
     def enqueue_ai_skill_conflict_check(skill_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiSkillConflictCheckJob",
-        "args" => [skill_id],
+        "args" => [ skill_id ],
         "queue" => "ai_orchestration"
       })
     end
@@ -339,7 +339,7 @@ class WorkerJobService
     def enqueue_ai_goal_plan_step_execution(step_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiGoalPlanExecutionJob",
-        "args" => [step_id],
+        "args" => [ step_id ],
         "queue" => "ai_orchestration"
       })
     end
@@ -348,7 +348,7 @@ class WorkerJobService
     def enqueue_ai_skill_mutation(skill_id, strategy)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiSkillMutationJob",
-        "args" => [skill_id, strategy],
+        "args" => [ skill_id, strategy ],
         "queue" => "ai_orchestration"
       })
     end
@@ -357,7 +357,7 @@ class WorkerJobService
     def enqueue_ai_self_challenge(challenge_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiSelfChallengeJob",
-        "args" => [challenge_id],
+        "args" => [ challenge_id ],
         "queue" => "ai_orchestration"
       })
     end
@@ -366,7 +366,7 @@ class WorkerJobService
     def enqueue_ai_governance_scan(account_id, agent_id = nil)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiGovernanceScanJob",
-        "args" => [account_id, agent_id].compact,
+        "args" => [ account_id, agent_id ].compact,
         "queue" => "ai_orchestration"
       })
     end
@@ -467,7 +467,7 @@ class WorkerJobService
     def enqueue_ai_worktree_provisioning(session_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiWorktreeProvisioningJob",
-        "args" => [session_id],
+        "args" => [ session_id ],
         "queue" => "ai_execution"
       })
     end
@@ -476,7 +476,7 @@ class WorkerJobService
     def enqueue_ai_worktree_cleanup(session_id, delay: nil)
       payload = {
         "job_class" => "AiWorktreeCleanupJob",
-        "args" => [session_id],
+        "args" => [ session_id ],
         "queue" => "ai_execution"
       }
       payload["delay"] = delay if delay
@@ -487,7 +487,7 @@ class WorkerJobService
     def enqueue_ai_worktree_push_and_pr(session_id, options = {})
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiWorktreePushAndPrJob",
-        "args" => [session_id, options],
+        "args" => [ session_id, options ],
         "queue" => "ai_execution"
       })
     end
@@ -505,7 +505,7 @@ class WorkerJobService
     def enqueue_ai_merge_execution(session_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiMergeExecutionJob",
-        "args" => [session_id],
+        "args" => [ session_id ],
         "queue" => "ai_execution"
       })
     end
@@ -514,7 +514,7 @@ class WorkerJobService
     def enqueue_ai_conflict_detection(session_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiConflictDetectionJob",
-        "args" => [session_id],
+        "args" => [ session_id ],
         "queue" => "ai_execution"
       })
     end
@@ -523,7 +523,7 @@ class WorkerJobService
     def enqueue_ai_runner_dispatch_poll(session_id, poll_count: 0)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiRunnerDispatchPollJob",
-        "args" => [session_id, { "poll_count" => poll_count }],
+        "args" => [ session_id, { "poll_count" => poll_count } ],
         "queue" => "default"
       })
     end
@@ -536,7 +536,7 @@ class WorkerJobService
     def enqueue_trading_training_session(session_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "TradingTrainingSessionJob",
-        "args" => [session_id],
+        "args" => [ session_id ],
         "queue" => "trading_critical"
       })
     end
@@ -547,7 +547,7 @@ class WorkerJobService
     def enqueue_portfolio_manager_cycle(account_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "TradingPortfolioManagerCycleJob",
-        "args" => [{ "account_id" => account_id }],
+        "args" => [ { "account_id" => account_id } ],
         "queue" => "trading_critical"
       })
     end
@@ -558,7 +558,7 @@ class WorkerJobService
     def enqueue_proving_ground_manager_cycle(account_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "TradingProvingGroundManagerCycleJob",
-        "args" => [{ "account_id" => account_id }],
+        "args" => [ { "account_id" => account_id } ],
         "queue" => "trading_critical"
       })
     end
@@ -569,7 +569,7 @@ class WorkerJobService
     def enqueue_session_manager_cycle(account_id, event_triggered: false)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "TradingSessionManagerCycleJob",
-        "args" => [{ "account_id" => account_id, "event_triggered" => event_triggered }],
+        "args" => [ { "account_id" => account_id, "event_triggered" => event_triggered } ],
         "queue" => "trading_critical"
       })
     end
@@ -578,7 +578,7 @@ class WorkerJobService
     def enqueue_trading_evolution_epoch(portfolio_id, trigger_type: "scheduled")
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "TradingEvolutionEpochJob",
-        "args" => [portfolio_id, { "trigger_type" => trigger_type }],
+        "args" => [ portfolio_id, { "trigger_type" => trigger_type } ],
         "queue" => "trading_batch"
       })
     end
@@ -593,48 +593,20 @@ class WorkerJobService
       context["force_refresh"] = true if force
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "TradingMarketDiscoveryJob",
-        "args" => venue_slug ? [venue_slug, context] : [nil, context],
+        "args" => venue_slug ? [ venue_slug, context ] : [ nil, context ],
         "queue" => "trading_batch"
       })
     end
 
     private
 
-    def build_market_discovery_context(venue_slug = nil)
-      return {} unless defined?(::Trading)
-
-      account = Account.find_by(subdomain: "admin")
-      return {} unless account
-
-      pool = account.ai_memory_pools.find_by(pool_id: "default")
-      slugs = venue_slug ? [venue_slug] : %w[kalshi polymarket]
-
-      # Series registries from venue config (populated by discover_series!)
-      series_registries = {}
-      slugs.each do |slug|
-        venue = ::Trading::Venue.find_by(slug: slug)
-        next unless venue
-        series_registries[slug] = venue.config["series_registry"] || {}
-      end
-
-      # Market arms (Thompson Sampling) from shared memory
-      arms = {}
-      slugs.each do |slug|
-        arms[slug] = pool&.data&.dig("trading", "market_arms", slug) || {}
-      end
-
-      {
-        "series_registries" => series_registries,
-        "diversity" => pool&.data&.dig("trading", "market_diversity") || {},
-        "arms" => arms,
-        "excluded_markets" => pool&.data&.dig("trading", "intelligence", "market_excluded") || {},
-        "target_categories" => pool&.data&.dig("trading", "target_categories") || [],
-        "discovery_thresholds" => pool&.data&.dig("trading", "discovery_thresholds") || {},
-        "discovery_interval" => pool&.data&.dig("trading", "discovery_interval") || {},
-        "discovery_series" => pool&.data&.dig("trading", "discovery_series") || {}
-      }
-    rescue StandardError => e
-      Rails.logger.warn("[WorkerJobService] Failed to build discovery context: #{e.message}")
+    # Generic hook: assemble the context passed to the market-discovery worker job.
+    # Core returns an empty context (it knows nothing about venues/strategies/arms); an
+    # extension overrides this via a WorkerJobService decorator (see the trading
+    # extension) to supply venue series registries, Thompson-sampling arms, diversity
+    # caps, etc. Keeping the hook here lets enqueue_market_discovery stay a thin,
+    # extension-agnostic dispatcher.
+    def build_market_discovery_context(_venue_slug = nil)
       {}
     end
 

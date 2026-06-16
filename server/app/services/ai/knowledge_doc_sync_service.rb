@@ -45,22 +45,9 @@ module Ai
     # Generic failure titles that carry no actionable insight
     GENERIC_FAILURE_TITLES = /\A(General failure|Timeout failure|Unknown error)\z/i
 
-    # Tag values that route entries to extension doc directories.
-    # Keys are matched against each entry's tags array.
-    # Values are extension slugs (matching extensions/<slug>/).
-    EXTENSION_TAG_ROUTES = {
-      "trading"       => "trading",
-      "supply_chain"  => "supply-chain",
-      "billing"       => "business",
-      "baas"          => "business",
-      "reseller"      => "business"
-    }.freeze
-
-    # Tag prefixes that imply an extension (e.g., "venue:polymarket" → trading)
-    EXTENSION_TAG_PREFIX_ROUTES = {
-      "venue:"    => "trading",
-      "strategy:" => "trading"
-    }.freeze
+    # Doc-tag → extension routing is declared by each extension in its extension.json
+    # ("knowledge_doc_tags": { "tags": [...], "prefixes": [...] }) and resolved
+    # generically at runtime (see #tag_routes_pair) so core names no specific extension.
 
     # Ephemeral learnings — individual trade records, not durable knowledge
     EPHEMERAL_LEARNING_TITLE_PATTERNS = [
@@ -92,7 +79,7 @@ module Ai
       partitioned_knowledge = partition_by_extension(all_knowledge)
       partitioned_skills = partition_by_extension(all_skills)
 
-      scopes = (["platform"] + partitioned_learnings.keys + partitioned_knowledge.keys + partitioned_skills.keys).uniq
+      scopes = ([ "platform" ] + partitioned_learnings.keys + partitioned_knowledge.keys + partitioned_skills.keys).uniq
 
       results = {}
 
@@ -180,19 +167,56 @@ module Ai
     def detect_extension(tags)
       return "platform" if tags.blank?
 
-      tags.each do |tag|
-        # Direct tag match (e.g., "trading" → "trading")
-        if EXTENSION_TAG_ROUTES.key?(tag)
-          return EXTENSION_TAG_ROUTES[tag]
-        end
+      routes = extension_tag_routes
+      prefix_routes = extension_tag_prefix_routes
 
-        # Prefix match (e.g., "venue:polymarket" → "trading")
-        EXTENSION_TAG_PREFIX_ROUTES.each do |prefix, ext_slug|
+      tags.each do |tag|
+        return routes[tag] if routes.key?(tag)
+
+        prefix_routes.each do |prefix, ext_slug|
           return ext_slug if tag.start_with?(prefix)
         end
       end
 
       "platform"
+    end
+
+    # Exact-tag → slug routing, declared by extensions in extension.json.
+    def extension_tag_routes
+      tag_routes_pair.first
+    end
+
+    # Tag-prefix → slug routing (e.g. "venue:" → trading), declared by extensions.
+    def extension_tag_prefix_routes
+      tag_routes_pair.last
+    end
+
+    # Build [exact_tag_routes, prefix_routes] by scanning every extension's
+    # extension.json "knowledge_doc_tags" block. Memoized per service instance so
+    # core resolves doc ownership generically, naming no specific extension.
+    def tag_routes_pair
+      @tag_routes_pair ||= begin
+        tags = {}
+        prefixes = {}
+
+        Shared::ExtensionPaths.extension_dirs.each do |dir|
+          manifest = dir.join("extension.json")
+          next unless manifest.exist?
+
+          meta = begin
+            JSON.parse(manifest.read)
+          rescue JSON::ParserError
+            next
+          end
+
+          slug = meta["slug"].presence || dir.basename.to_s
+          doc_tags = meta["knowledge_doc_tags"] || {}
+          Array(doc_tags["tags"]).each { |t| tags[t.to_s] = slug }
+          Array(doc_tags["prefixes"]).each { |p| prefixes[p.to_s] = slug }
+        end
+
+        [ tags, prefixes ]
+      end
     end
 
     def output_dir_for(scope)
@@ -504,7 +528,7 @@ module Ai
     def deduplicate_by_title(entries)
       entries.group_by(&:title).map do |_title, group|
         # Keep the entry with highest effective score (verified > active, then by importance)
-        group.max_by { |l| [(l.status == "verified" ? 1 : 0), l.importance_score || 0, l.confidence_score || 0] }
+        group.max_by { |l| [ (l.status == "verified" ? 1 : 0), l.importance_score || 0, l.confidence_score || 0 ] }
       end
     end
 

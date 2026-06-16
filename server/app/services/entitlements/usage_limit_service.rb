@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 module Entitlements
+  # Enforces per-account usage limits against the plan surfaced by the injected
+  # `:entitlements` provider. When no provider is registered (core mode) the
+  # platform is unmetered; when a provider is present but the account has no plan
+  # (unsubscribed) limits are restrictive. Counting is plan-agnostic and stays here.
   class UsageLimitService
     # Main limit checking methods for each resource type
     def self.can_add_user?(account)
@@ -38,8 +42,10 @@ module Entitlements
 
     # Get usage summary for all limits
     def self.usage_summary(account)
-      return unlimited_usage_summary(account) unless Shared::FeatureGateService.billing_enabled?
-      plan = account.subscription&.plan
+      provider = entitlements_provider
+      return unlimited_usage_summary(account) unless provider
+
+      plan = provider.plan_for(account)
       return {} unless plan
 
       %w[max_users max_api_keys max_webhooks max_workers].each_with_object({}) do |limit_type, summary|
@@ -59,25 +65,35 @@ module Entitlements
 
     # Check if account has reached any limits
     def self.has_reached_limits?(account)
-      return false unless Shared::FeatureGateService.billing_enabled?
+      return false unless entitlements_provider
+
       summary = usage_summary(account)
       summary.any? { |_, data| !data[:unlimited] && data[:current] >= data[:limit] }
     end
 
     # Get the specific limit value for a resource type
     def self.get_limit(account, limit_type)
-      return 9999 unless Shared::FeatureGateService.billing_enabled?
-      plan = account.subscription&.plan
+      provider = entitlements_provider
+      return 9999 unless provider
+
+      plan = provider.plan_for(account)
       return 0 unless plan
 
       plan.limits[limit_type] || 0
     end
 
+    # The injected entitlements policy (plan/limits), or nil in core mode.
+    def self.entitlements_provider
+      Powernode::ExtensionRegistry.provider(:entitlements)
+    end
+
     private
 
     def self.check_limit(account, limit_key, current_count)
-      return true unless Shared::FeatureGateService.billing_enabled?
-      plan = account.subscription&.plan
+      provider = entitlements_provider
+      return true unless provider
+
+      plan = provider.plan_for(account)
       return false unless plan
 
       plan_limit = plan.limits[limit_key] || 0
@@ -85,6 +101,7 @@ module Entitlements
 
       current_count < plan_limit
     end
+
     def self.unlimited_usage_summary(account)
       %w[max_users max_api_keys max_webhooks max_workers].each_with_object({}) do |limit_type, summary|
         summary[limit_type] = {
@@ -98,4 +115,3 @@ module Entitlements
     end
   end
 end
-

@@ -213,11 +213,13 @@ class Api::V1::UsersController < ApplicationController
   # The concern's user_data method properly handles permissions
 
   def assign_default_roles(user)
-    return unless Shared::FeatureGateService.billing_enabled?
-    return unless current_account.subscription&.plan
+    provider = Powernode::ExtensionRegistry.provider(:entitlements)
+    return unless provider
 
-    # Assign all default roles from the plan using new permission-based system
-    plan = current_account.subscription.plan
+    plan = provider.plan_for(current_account)
+    return unless plan
+
+    # Assign all default roles from the plan using the permission-based system
     plan.default_roles.each do |role_name|
       role = Role.find_by(name: role_name)
       user.add_role(role.name) if role
@@ -234,7 +236,7 @@ class Api::V1::UsersController < ApplicationController
       ("0".."9").to_a.sample,
       specials.sample
     ]
-    pool = [*"A".."Z", *"a".."z", *"0".."9", *specials]
+    pool = [ *"A".."Z", *"a".."z", *"0".."9", *specials ]
     fill = Array.new(12) { pool.sample }
     (guaranteed + fill).shuffle.join
   end

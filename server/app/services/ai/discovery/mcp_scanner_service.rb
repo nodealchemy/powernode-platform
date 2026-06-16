@@ -11,14 +11,17 @@ module Ai
 
       # Scan all MCP servers for tools and agent mappings
       def scan
-        servers = Powernode::ExtensionRegistry.loaded?("business") ? Mcp::HostedServer.where(account: account) : Mcp::HostedServer.none
+        # Hosted MCP servers are a business capability; resolve the source via the
+        # registry so core never references the business-only Mcp::HostedServer model.
+        source = Powernode::ExtensionRegistry.provider(:mcp_hosted_servers)
+        servers = source ? source.for_account(account) : []
         agents = Ai::Agent.where(account: account)
 
         discovered_tools = []
         discovered_agents = []
         discovered_connections = []
 
-        servers.find_each do |server|
+        servers.each do |server|
           tools = extract_tools(server)
           discovered_tools.concat(tools)
 
@@ -62,7 +65,7 @@ module Ai
 
           next if matched_tools.empty?
 
-          confidence = [matched_tools.size.to_f / [tools.size, 1].max, 1.0].min
+          confidence = [ matched_tools.size.to_f / [ tools.size, 1 ].max, 1.0 ].min
           matches << {
             agent_id: agent.id,
             agent_name: agent.name,
