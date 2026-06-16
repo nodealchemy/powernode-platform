@@ -436,21 +436,19 @@ class Api::V1::AdminSettingsController < ApplicationController
     masked_role = vault_role_id.present? ? ("••••" + vault_role_id[-4..]) : ""
     masked_secret = vault_secret_id.present? ? ("••••" + vault_secret_id[-4..]) : ""
 
-    # Key management stats
-    wallet_key_count = begin
-      Trading::Wallet.where(key_status: "secured").count
-    rescue StandardError
-      0
+    # Key management stats — sourced from whichever extension manages
+    # cryptographic wallets/keys (e.g. trading) via the registry provider seam.
+    # Core has no wallet/key concept, so it defaults to empty when no extension
+    # registers a :vault_key_stats provider (core mode).
+    key_stats = begin
+      provider = Powernode::ExtensionRegistry.provider(:vault_key_stats)
+      provider ? provider.summary : { secured_count: 0, recent_operations: [] }
+    rescue StandardError => e
+      Rails.logger.warn("[AdminSettings] vault_key_stats provider failed: #{e.message}")
+      { secured_count: 0, recent_operations: [] }
     end
-    recent_key_ops = begin
-      Trading::AuditLog
-        .where(action: %w[keypair_generated key_imported key_deleted key_revoked])
-        .order(created_at: :desc)
-        .limit(10)
-        .map { |l| { action: l.action, wallet_type: l.metadata&.dig("wallet_type"), chain: l.metadata&.dig("chain"), created_at: l.created_at } }
-    rescue StandardError
-      []
-    end
+    wallet_key_count = key_stats[:secured_count]
+    recent_key_ops = key_stats[:recent_operations]
 
     render json: {
       success: true,
