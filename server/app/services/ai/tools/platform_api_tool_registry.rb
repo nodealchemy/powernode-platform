@@ -610,106 +610,6 @@ module Ai
         "docker_list_volumes" => "Ai::Tools::DockerNetworkVolumeTool",
         "docker_create_volume" => "Ai::Tools::DockerNetworkVolumeTool",
         "docker_delete_volume" => "Ai::Tools::DockerNetworkVolumeTool",
-        # Trading — portfolio & wallets
-        "trading_list_portfolios" => "Ai::Tools::TradingPortfolioTool",
-        "trading_get_portfolio" => "Ai::Tools::TradingPortfolioTool",
-        "trading_portfolio_summary" => "Ai::Tools::TradingPortfolioTool",
-        "trading_portfolio_performance" => "Ai::Tools::TradingPortfolioTool",
-        "trading_portfolio_allocations" => "Ai::Tools::TradingPortfolioTool",
-        "trading_create_portfolio" => "Ai::Tools::TradingPortfolioTool",
-        "trading_update_portfolio" => "Ai::Tools::TradingPortfolioTool",
-        "trading_list_wallets" => "Ai::Tools::TradingPortfolioTool",
-        "trading_compounding_summary" => "Ai::Tools::TradingPortfolioTool",
-        # Trading — strategies
-        "trading_list_strategies" => "Ai::Tools::TradingStrategyTool",
-        "trading_get_strategy" => "Ai::Tools::TradingStrategyTool",
-        "trading_create_strategy" => "Ai::Tools::TradingStrategyTool",
-        "trading_update_strategy" => "Ai::Tools::TradingStrategyTool",
-        "trading_activate_strategy" => "Ai::Tools::TradingStrategyTool",
-        "trading_pause_strategy" => "Ai::Tools::TradingStrategyTool",
-        "trading_decommission_strategy" => "Ai::Tools::TradingStrategyTool",
-        "trading_decline_strategy" => "Ai::Tools::TradingStrategyTool",
-        "trading_recover_strategy" => "Ai::Tools::TradingStrategyTool",
-        "trading_demote_strategy" => "Ai::Tools::TradingStrategyTool",
-        "trading_advance_phase" => "Ai::Tools::TradingStrategyTool",
-        "trading_strategy_performance" => "Ai::Tools::TradingStrategyTool",
-        "trading_strategy_versions" => "Ai::Tools::TradingStrategyTool",
-        "trading_lifecycle_summary" => "Ai::Tools::TradingStrategyTool",
-        # Trading — orders, positions, trades
-        "trading_list_positions" => "Ai::Tools::TradingOrderPositionTool",
-        "trading_get_position" => "Ai::Tools::TradingOrderPositionTool",
-        "trading_open_positions" => "Ai::Tools::TradingOrderPositionTool",
-        "trading_closed_positions" => "Ai::Tools::TradingOrderPositionTool",
-        "trading_close_position" => "Ai::Tools::TradingOrderPositionTool",
-        "trading_list_orders" => "Ai::Tools::TradingOrderPositionTool",
-        "trading_cancel_order" => "Ai::Tools::TradingOrderPositionTool",
-        "trading_list_trades" => "Ai::Tools::TradingOrderPositionTool",
-        # Trading — market data & venues
-        "trading_list_venues" => "Ai::Tools::TradingMarketDataTool",
-        "trading_get_venue" => "Ai::Tools::TradingMarketDataTool",
-        "trading_test_venue_connection" => "Ai::Tools::TradingMarketDataTool",
-        "trading_list_price_feeds" => "Ai::Tools::TradingMarketDataTool",
-        "trading_market_regime" => "Ai::Tools::TradingMarketDataTool",
-        "trading_list_signals" => "Ai::Tools::TradingMarketDataTool",
-        "trading_market_discovery" => "Ai::Tools::TradingMarketDataTool",
-        "trading_refresh_market_discovery" => "Ai::Tools::TradingMarketDataTool",
-        "trading_market_arms" => "Ai::Tools::TradingMarketDataTool",
-        # Trading — risk management
-        "trading_get_risk_profile" => "Ai::Tools::TradingRiskTool",
-        "trading_update_risk_profile" => "Ai::Tools::TradingRiskTool",
-        "trading_risk_events" => "Ai::Tools::TradingRiskTool",
-        "trading_reset_circuit_breaker" => "Ai::Tools::TradingRiskTool",
-        "trading_list_sweep_rules" => "Ai::Tools::TradingRiskTool",
-        "trading_list_sweep_proposals" => "Ai::Tools::TradingRiskTool",
-        # Trading — marketplace (publish, subscribe, follow, signals)
-        "trading_list_published_strategies" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_get_published_strategy" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_publish_strategy" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_unpublish_strategy" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_list_subscriptions" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_subscribe" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_unsubscribe" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_pause_subscription" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_resume_subscription" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_list_forwarded_signals" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_subscription_performance" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_follow_publisher" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_unfollow_publisher" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_list_publisher_follows" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_list_performance_fees" => "Ai::Tools::TradingMarketplaceTool",
-        "trading_fee_summary" => "Ai::Tools::TradingMarketplaceTool",
-        # Trading — simulations & training
-        "trading_list_simulations" => "Ai::Tools::TradingSimulationTool",
-        "trading_get_simulation" => "Ai::Tools::TradingSimulationTool",
-        "trading_create_simulation" => "Ai::Tools::TradingSimulationTool",
-        "trading_run_simulation" => "Ai::Tools::TradingSimulationTool",
-        "trading_pause_simulation" => "Ai::Tools::TradingSimulationTool",
-        "trading_simulation_report" => "Ai::Tools::TradingSimulationTool",
-        "trading_list_training_sessions" => "Ai::Tools::TradingSimulationTool",
-        "trading_get_training_session" => "Ai::Tools::TradingSimulationTool",
-        "trading_create_training_session" => "Ai::Tools::TradingSimulationTool",
-        "trading_cancel_training_session" => "Ai::Tools::TradingSimulationTool",
-        "trading_complete_training_session" => "Ai::Tools::TradingSimulationTool",
-        "trading_retry_training_session" => "Ai::Tools::TradingSimulationTool",
-        "trading_resume_training_session" => "Ai::Tools::TradingSimulationTool",
-        "trading_discover_venue_series" => "Ai::Tools::TradingSimulationTool",
-        "trading_delete_training_session" => "Ai::Tools::TradingSimulationTool",
-        "trading_training_session_report" => "Ai::Tools::TradingSimulationTool",
-        # Trading — strategy parameters
-        "trading_get_strategy_params" => "Ai::Tools::TradingSimulationTool",
-        "trading_update_strategy_params" => "Ai::Tools::TradingSimulationTool",
-        "trading_seed_strategy_defaults" => "Ai::Tools::TradingSimulationTool",
-        "trading_seed_profit_formula" => "Ai::Tools::TradingSimulationTool",
-        # Trading — backtesting & parameter sweep
-        "trading_import_historical_data" => "Ai::Tools::TradingSimulationTool",
-        "trading_run_backtest" => "Ai::Tools::TradingSimulationTool",
-        "trading_parameter_sweep" => "Ai::Tools::TradingSimulationTool",
-        # Trading — evolution & audit
-        "trading_list_evolution_epochs" => "Ai::Tools::TradingEvolutionTool",
-        "trading_get_evolution_epoch" => "Ai::Tools::TradingEvolutionTool",
-        "trading_evolution_leaderboard" => "Ai::Tools::TradingEvolutionTool",
-        "trading_trigger_evolution" => "Ai::Tools::TradingEvolutionTool",
-        "trading_list_audit_logs" => "Ai::Tools::TradingEvolutionTool",
         # Codebase Intelligence — Discovery
         "code_context_tree" => "Ai::Tools::CodeDiscoveryTool",
         "code_file_skeleton" => "Ai::Tools::CodeDiscoveryTool",
@@ -732,8 +632,37 @@ module Ai
         "code_bulk_index" => "Ai::Tools::CodeMemoryTool"
       }.freeze
 
+      # Tool maps contributed by extensions at boot. Extensions call
+      # .register_extension_tools from an engine `to_prepare` hook so core holds
+      # zero references to extension tool classes — a slug-agnostic seam any
+      # extension can plug its action->class map into with no core edit. The
+      # backing store is a class-level ivar; to_prepare re-runs on every reload,
+      # so the registration survives development code reloading.
+      @extension_tools = {}
+
+      # Merge an extension's MCP tool map (action name => handler class name
+      # string) into the registry. Idempotent; later registrations win on a key
+      # collision. Returns the merged extension map.
+      def self.register_extension_tools(tool_map)
+        return extension_tools if tool_map.blank?
+
+        extension_tools.merge!(tool_map.transform_keys(&:to_s))
+      end
+
+      # Extension-contributed tools registered so far (empty in core mode).
+      def self.extension_tools
+        @extension_tools ||= {}
+      end
+
+      # Full action => class map: static core TOOLS plus any extension-registered
+      # tools. All lookup/iteration paths use this so extension tools are
+      # first-class once their owning engine has registered them.
+      def self.all_tools
+        TOOLS.merge(extension_tools)
+      end
+
       def self.available_tools(agent: nil)
-        TOOLS.each_with_object({}) do |(name, class_name), hash|
+        all_tools.each_with_object({}) do |(name, class_name), hash|
           klass = class_name.constantize
           hash[name] = klass if klass.permitted?(agent: agent)
         rescue NameError => e
@@ -742,8 +671,8 @@ module Ai
       end
 
       def self.find_tool(name)
-        # Check static tools first
-        class_name = TOOLS[name]
+        # Check static + extension-registered tools first
+        class_name = all_tools[name]
         if class_name
           return class_name.constantize
         end

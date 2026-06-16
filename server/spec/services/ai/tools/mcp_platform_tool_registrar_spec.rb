@@ -19,7 +19,7 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
 
       described_class.register_all!(account: account)
 
-      unique_tools = Ai::Tools::PlatformApiToolRegistry::TOOLS.values.uniq
+      unique_tools = Ai::Tools::PlatformApiToolRegistry.all_tools.values.uniq
       expect(registry).to have_received(:register_tool).exactly(unique_tools.size).times
     end
 

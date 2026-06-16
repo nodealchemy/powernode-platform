@@ -81,7 +81,11 @@ RSpec.describe Ai::Tools::PlatformApiToolRegistry do
 
     it "handles NameError for unavailable tool classes" do
       allow(Rails.logger).to receive(:warn)
-      stub_const("Ai::Tools::PlatformApiToolRegistry::TOOLS", { "broken" => "Nonexistent::Tool" })
+      # Inject a broken entry at the seam available_tools actually iterates
+      # (all_tools = static TOOLS + extension-registered tools). Stubbing the
+      # frozen TOOLS constant alone no longer isolates the case in full mode,
+      # where extension tools are also present.
+      allow(described_class).to receive(:all_tools).and_return({ "broken" => "Nonexistent::Tool" })
 
       tools = described_class.available_tools
       expect(tools).to eq({})

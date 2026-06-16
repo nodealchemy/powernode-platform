@@ -4,7 +4,7 @@ require "rails_helper"
 
 RSpec.describe "Tool action_definitions coverage", type: :service do
   describe "every TOOLS registry entry has a matching action_definitions entry" do
-    Ai::Tools::PlatformApiToolRegistry::TOOLS.each do |tool_name, class_name|
+    Ai::Tools::PlatformApiToolRegistry.all_tools.each do |tool_name, class_name|
       context "#{tool_name} (#{class_name})" do
         let(:klass) { class_name.constantize }
         let(:action_defs) { klass.action_definitions }
@@ -51,7 +51,7 @@ RSpec.describe "Tool action_definitions coverage", type: :service do
 
   describe "action_definitions structure" do
     it "covers all unique tool classes" do
-      unique_classes = Ai::Tools::PlatformApiToolRegistry::TOOLS.values.uniq
+      unique_classes = Ai::Tools::PlatformApiToolRegistry.all_tools.values.uniq
       unique_classes.each do |class_name|
         klass = class_name.constantize
         expect(klass).to respond_to(:action_definitions),
@@ -61,7 +61,7 @@ RSpec.describe "Tool action_definitions coverage", type: :service do
 
     it "produces no duplicate tool names across all classes" do
       all_keys = []
-      Ai::Tools::PlatformApiToolRegistry::TOOLS.values.uniq.each do |class_name|
+      Ai::Tools::PlatformApiToolRegistry.all_tools.values.uniq.each do |class_name|
         klass = class_name.constantize
         all_keys.concat(klass.action_definitions.keys)
       end

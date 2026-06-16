@@ -199,7 +199,7 @@ module Ai
     def dispatch_tool(tool_name, params)
       raise RecipeError, "Step missing 'tool' name" if tool_name.blank?
 
-      tool_class_name = ::Ai::Tools::PlatformApiToolRegistry::TOOLS[tool_name]
+      tool_class_name = ::Ai::Tools::PlatformApiToolRegistry.all_tools[tool_name]
       raise RecipeError, "Unknown tool: #{tool_name}" if tool_class_name.blank?
 
       klass = tool_class_name.constantize

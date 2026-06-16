@@ -277,7 +277,7 @@ module Ai
           step_id = step["id"] || "step#{idx + 1}"
           errors << "step #{step_id} missing tool" if step["tool"].to_s.empty?
           if step["tool"].present? && !shortlist_names.include?(step["tool"]) &&
-             !::Ai::Tools::PlatformApiToolRegistry::TOOLS.key?(step["tool"])
+             !::Ai::Tools::PlatformApiToolRegistry.all_tools.key?(step["tool"])
             errors << "step #{step_id} references unknown tool #{step['tool'].inspect}"
           end
           # Capture names must be unique

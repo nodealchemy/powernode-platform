@@ -78,8 +78,8 @@ module Ai
       def collect_all_tools
         tools = []
 
-        # Platform tools (static registry)
-        PlatformApiToolRegistry::TOOLS.each do |name, class_name|
+        # Platform tools (static registry + extension-registered tools)
+        PlatformApiToolRegistry.all_tools.each do |name, class_name|
           klass = class_name.constantize
           defn = klass.definition
           tools << {

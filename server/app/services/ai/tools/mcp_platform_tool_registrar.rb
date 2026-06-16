@@ -68,8 +68,8 @@ module Ai
 
           synced_names = Set.new
 
-          # Sync platform tools from PlatformApiToolRegistry::TOOLS
-          PlatformApiToolRegistry::TOOLS.each do |action_name, class_name|
+          # Sync platform tools from PlatformApiToolRegistry.all_tools
+          PlatformApiToolRegistry.all_tools.each do |action_name, class_name|
             tool_class = class_name.constantize
             action_defs = tool_class.action_definitions
             action_def = action_defs[action_name] || {}
@@ -240,7 +240,7 @@ module Ai
         end
 
         def tool_classes
-          @tool_classes ||= PlatformApiToolRegistry::TOOLS.values.uniq.filter_map do |class_name|
+          @tool_classes ||= PlatformApiToolRegistry.all_tools.values.uniq.filter_map do |class_name|
             class_name.constantize
           rescue NameError => e
             Rails.logger.warn "[McpPlatformToolRegistrar] Tool class not found: #{class_name} - #{e.message}"
@@ -251,7 +251,7 @@ module Ai
         def find_tool_class(tool_name)
           # Look up via the registry hash first (handles multi-action tools
           # where multiple registry keys map to one tool class)
-          class_name = PlatformApiToolRegistry::TOOLS[tool_name]
+          class_name = PlatformApiToolRegistry.all_tools[tool_name]
           if class_name
             return class_name.constantize rescue nil
           end
