@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_11_080000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_15_000030) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9205,6 +9205,35 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_11_080000) do
     t.check_constraint "scope::text = ANY (ARRAY['account'::character varying, 'network'::character varying, 'peer'::character varying]::text[])", name: "sdwan_route_policies_scope_enum"
   end
 
+  create_table "sdwan_services", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "backend_host"
+    t.integer "backend_port", null: false
+    t.uuid "backend_vip_id"
+    t.datetime "created_at", null: false
+    t.string "local_auth_mode", default: "authenticated", null: false
+    t.uuid "local_certificate_id"
+    t.boolean "local_enabled", default: false, null: false
+    t.string "local_required_group"
+    t.string "local_required_permission"
+    t.boolean "local_strip_prefix", default: true, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 255, null: false
+    t.string "protocol", default: "https", null: false
+    t.string "slug", limit: 64, null: false
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "slug"], name: "idx_sdwan_services_unique_slug", unique: true
+    t.index ["account_id"], name: "index_sdwan_services_on_account_id"
+    t.index ["backend_vip_id"], name: "index_sdwan_services_on_backend_vip_id"
+    t.index ["local_certificate_id"], name: "index_sdwan_services_on_local_certificate_id"
+    t.check_constraint "backend_port >= 1 AND backend_port <= 65535", name: "sdwan_services_backend_port_range"
+    t.check_constraint "backend_vip_id IS NOT NULL OR backend_host IS NOT NULL", name: "sdwan_services_backend_present"
+    t.check_constraint "local_auth_mode::text = ANY (ARRAY['public'::character varying, 'authenticated'::character varying, 'scoped'::character varying]::text[])", name: "sdwan_services_local_auth_mode_enum"
+    t.check_constraint "protocol::text = ANY (ARRAY['https'::character varying, 'http'::character varying, 'tcp'::character varying, 'tls'::character varying]::text[])", name: "sdwan_services_protocol_enum"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'disabled'::character varying]::text[])", name: "sdwan_services_status_enum"
+  end
+
   create_table "sdwan_subnet_advertisements", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.text "as_path"
@@ -10526,9 +10555,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_11_080000) do
 
   create_table "system_federation_service_offerings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.string "backend_host", limit: 255
-    t.integer "backend_port", null: false
-    t.uuid "backend_vip_id"
     t.jsonb "capacity_metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.jsonb "default_grant_scopes", default: ["read"], null: false
@@ -10538,16 +10564,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_11_080000) do
     t.jsonb "latency_metadata", default: {}, null: false
     t.jsonb "metadata", default: {}, null: false
     t.string "name", limit: 255, null: false
-    t.string "protocol", limit: 16, null: false
     t.datetime "retired_at"
+    t.uuid "service_id", null: false
     t.string "slug", limit: 64, null: false
     t.string "status", limit: 16, default: "draft", null: false
     t.text "subscription_terms_markdown"
     t.datetime "updated_at", null: false
     t.index ["account_id", "slug"], name: "idx_fed_service_offerings_acct_slug_unique", unique: true
     t.index ["account_id"], name: "index_system_federation_service_offerings_on_account_id"
-    t.index ["backend_vip_id"], name: "index_system_federation_service_offerings_on_backend_vip_id"
-    t.index ["protocol"], name: "index_system_federation_service_offerings_on_protocol"
+    t.index ["service_id"], name: "index_system_federation_service_offerings_on_service_id"
     t.index ["status"], name: "index_system_federation_service_offerings_on_status"
   end
 
@@ -14210,6 +14235,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_11_080000) do
   add_foreign_key "sdwan_route_leaks", "sdwan_networks", column: "source_network_id"
   add_foreign_key "sdwan_route_leaks", "users", column: "approved_by_id"
   add_foreign_key "sdwan_route_policies", "accounts"
+  add_foreign_key "sdwan_services", "accounts"
+  add_foreign_key "sdwan_services", "sdwan_virtual_ips", column: "backend_vip_id"
+  add_foreign_key "sdwan_services", "system_acme_certificates", column: "local_certificate_id"
   add_foreign_key "sdwan_subnet_advertisements", "accounts"
   add_foreign_key "sdwan_subnet_advertisements", "sdwan_networks"
   add_foreign_key "sdwan_subnet_advertisements", "sdwan_peers"
@@ -14336,7 +14364,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_11_080000) do
   add_foreign_key "system_federation_peers", "system_node_certificates", column: "outbound_certificate_id"
   add_foreign_key "system_federation_schema_compatibility", "accounts"
   add_foreign_key "system_federation_service_offerings", "accounts", on_delete: :cascade
-  add_foreign_key "system_federation_service_offerings", "sdwan_virtual_ips", column: "backend_vip_id", on_delete: :nullify
+  add_foreign_key "system_federation_service_offerings", "sdwan_services", column: "service_id"
   add_foreign_key "system_federation_service_subscriptions", "accounts", on_delete: :cascade
   add_foreign_key "system_federation_service_subscriptions", "system_acme_certificates", column: "acme_certificate_id", on_delete: :nullify
   add_foreign_key "system_federation_service_subscriptions", "system_federation_grants", column: "federation_grant_id", on_delete: :restrict

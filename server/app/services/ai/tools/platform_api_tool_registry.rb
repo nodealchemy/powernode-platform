@@ -11,10 +11,18 @@ module Ai
         "system_storage_chown_status"               => "Ai::Tools::SystemStorageOwnerTool",
         "system_storage_chown_retry"                => "Ai::Tools::SystemStorageOwnerTool",
 
-        # === Ingress / public exposure / ACME provisioning ===
+        # === Ingress / service exposure (public + local /svc) / ACME provisioning ===
         "system_reverse_proxy_compose"      => "Ai::Tools::SystemIngressTool",
         "system_expose_service_publicly"    => "Ai::Tools::SystemIngressTool",
+        "system_expose_service_local"       => "Ai::Tools::SystemIngressTool",
         "system_acme_provision_certificate" => "Ai::Tools::SystemIngressTool",
+        # Sdwan::Service CRUD + local-exposure lifecycle (inline in the tool)
+        "system_create_service"             => "Ai::Tools::SystemIngressTool",
+        "system_list_services"              => "Ai::Tools::SystemIngressTool",
+        "system_get_service"                => "Ai::Tools::SystemIngressTool",
+        "system_update_service"             => "Ai::Tools::SystemIngressTool",
+        "system_delete_service"             => "Ai::Tools::SystemIngressTool",
+        "system_unexpose_service_local"     => "Ai::Tools::SystemIngressTool",
 
         # === ACME certificate lifecycle (DNS-01 issuance, renewal, revocation) ===
         "system_acme_get_certificate"       => "Ai::Tools::SystemAcmeTool",
