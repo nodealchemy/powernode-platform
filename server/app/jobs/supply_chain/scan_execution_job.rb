@@ -105,7 +105,7 @@ module SupplyChain
           findings_count: results[:vulnerabilities]&.count || 0,
           data: results
         }
-      elsif target.is_a?(::Devops::Repository)
+      elsif target.is_a?(::Devops::GitRepository)
         # Generate SBOM for repository
         service = ::SupplyChain::SbomGenerationService.new(
           account: execution.account,

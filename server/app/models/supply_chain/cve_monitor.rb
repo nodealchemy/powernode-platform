@@ -98,7 +98,7 @@ module SupplyChain
       when "image"
         SupplyChain::ContainerImage.where(id: scope_id, account_id: account_id)
       when "repository"
-        repo = Devops::Repository.find_by(id: scope_id, account_id: account_id)
+        repo = Devops::GitRepository.find_by(id: scope_id, account_id: account_id)
         return SupplyChain::ContainerImage.none unless repo
 
         # Find images associated with the repository
@@ -115,7 +115,7 @@ module SupplyChain
     def scoped_sboms
       case scope_type
       when "repository"
-        SupplyChain::Sbom.where(repository_id: scope_id, account_id: account_id)
+        SupplyChain::Sbom.where(git_repository_id: scope_id, account_id: account_id)
       when "account_wide"
         SupplyChain::Sbom.where(account_id: account_id)
       else

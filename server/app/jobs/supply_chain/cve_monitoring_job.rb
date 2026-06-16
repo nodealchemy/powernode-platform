@@ -115,7 +115,7 @@ module SupplyChain
       # Repository-scoped monitoring
       return unless monitor.scope_id.present?
 
-      sboms = monitor.account.supply_chain_sboms.where(repository_id: monitor.scope_id)
+      sboms = monitor.account.supply_chain_sboms.where(git_repository_id: monitor.scope_id)
       check_sboms_for_monitor(monitor, sboms)
     end
 

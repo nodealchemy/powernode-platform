@@ -16,7 +16,7 @@ module SupplyChain
     # Associations
     # ============================================
     belongs_to :account
-    belongs_to :repository, class_name: "Devops::Repository", optional: true
+    belongs_to :repository, class_name: "Devops::GitRepository", foreign_key: "git_repository_id", optional: true
     belongs_to :pipeline_run, class_name: "Devops::PipelineRun", optional: true
     belongs_to :created_by, class_name: "User", optional: true
 
@@ -59,7 +59,7 @@ module SupplyChain
     scope :draft, -> { where(status: "draft") }
     scope :failed, -> { where(status: "failed") }
     scope :recent, -> { order(created_at: :desc) }
-    scope :by_repository, ->(repo_id) { where(repository_id: repo_id) }
+    scope :by_repository, ->(repo_id) { where(git_repository_id: repo_id) }
     scope :by_format, ->(format) { where(format: format) }
     scope :ntia_compliant, -> { where(ntia_minimum_compliant: true) }
     scope :with_vulnerabilities, -> { where("vulnerability_count > 0") }
