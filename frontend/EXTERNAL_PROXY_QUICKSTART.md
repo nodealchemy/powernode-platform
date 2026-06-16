@@ -1,5 +1,12 @@
 # External Reverse Proxy Quick Start
 
+> **Scope: development only.** This covers running the Vite **dev** server behind *your own*
+> proxy (Vite HMR needs the public host/WSS to be known up front). In **production you do not
+> need an external proxy** — the bundled `powernode-reverse-proxy` (Traefik) already terminates
+> TLS and routes `/api`, `/agent`, `/cable`, and the frontend on :443, with WebSockets forwarded
+> transparently. See **[docs/operations/reverse-proxy.md](../docs/operations/reverse-proxy.md)**
+> for the bundled proxy's architecture, usage, and how to point a public hostname at it.
+
 ## Your Setup
 - **Frontend URL**: https://dev-1.ipnode.org/
 - **Backend API**: https://dev-1.ipnode.org/api/v1

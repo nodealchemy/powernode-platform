@@ -108,6 +108,40 @@ EOF
     fi
 }
 
+# Function to regenerate the bundled Traefik reverse-proxy routes so trusted
+# hosts are actually served by it. Acme::TraefikConfigWriter.extra_hosts merges
+# the trusted-hosts allowlist into every router's Host() matcher, and Traefik
+# file-watches the dynamic dir — so this applies with NO restart. No-op when the
+# system extension (which owns the writer) is absent (core-mode install).
+#
+# Also regenerates each account's local-services YAML (the Sdwan::Service
+# `/svc/<slug>` bridge plane) via Sdwan::ServiceExposureWriter, which ships in
+# the same extension — guarded independently so a partial extension still works.
+sync_traefik() {
+    print_info "Regenerating bundled reverse-proxy (Traefik) routes..."
+
+    local out
+    out=$(run_rails_command "
+        if defined?(::Acme::TraefikConfigWriter)
+          ::Account.find_each do |a|
+            ::Acme::TraefikConfigWriter.write!(account: a)
+            ::Sdwan::ServiceExposureWriter.write!(account: a) if defined?(::Sdwan::ServiceExposureWriter)
+          end
+          puts 'TRAEFIK_SYNC_OK'
+        else
+          puts 'TRAEFIK_SYNC_SKIP'
+        end
+    ")
+
+    if echo "$out" | grep -q "TRAEFIK_SYNC_OK"; then
+        print_success "Bundled Traefik routes regenerated (hot-reload, no restart)"
+    elif echo "$out" | grep -q "TRAEFIK_SYNC_SKIP"; then
+        print_info "Bundled Traefik not present (system extension absent) — skipped"
+    else
+        print_warning "Could not confirm Traefik regen; check the reverse-proxy service logs"
+    fi
+}
+
 # Function to show usage
 show_usage() {
     print_header "Powernode Proxy Host Management"
@@ -118,7 +152,8 @@ show_usage() {
     echo "  add <host>           Add a host to the trusted hosts list"
     echo "  remove <host>        Remove a host from the trusted hosts list"
     echo "  list                 List all trusted hosts"
-    echo "  sync                 Sync Vite cache with backend trusted hosts"
+    echo "  sync                 Sync Vite cache AND bundled Traefik routes with trusted hosts"
+    echo "  sync-traefik         Regenerate bundled Traefik (reverse proxy) routes only"
     echo "  validate <host>      Validate a host pattern"
     echo "  status               Show proxy configuration status"
     echo "  enable-proxy         Enable reverse proxy URL configuration"
@@ -192,6 +227,7 @@ add_host() {
         "success")
             print_success "Host '$host' added successfully"
             update_vite_cache
+            sync_traefik
             ;;
         "failed")
             print_error "Failed to add host '$host'"
@@ -234,6 +270,7 @@ remove_host() {
         "success")
             print_success "Host '$host' removed successfully"
             update_vite_cache
+            sync_traefik
             ;;
         "failed")
             print_error "Failed to remove host '$host'"
@@ -558,6 +595,10 @@ case "${1:-}" in
         ;;
     "sync")
         update_vite_cache
+        sync_traefik
+        ;;
+    "sync-traefik")
+        sync_traefik
         ;;
     "validate")
         validate_host "$2"

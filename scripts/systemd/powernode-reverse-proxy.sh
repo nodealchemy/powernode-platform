@@ -64,6 +64,10 @@ fi
 #     passTLSClientCert middleware referenced by per-account routers)
 #   - (re)writes the per-account dynamic YAML so a stale config from a
 #     previous environment doesn't survive into this start.
+#   - (re)writes the per-account local-services YAML (the Sdwan::Service
+#     `/svc/<slug>` bridge plane) for the same reason. Guarded by `rescue nil`
+#     so it safely no-ops in core mode where Sdwan::ServiceExposureWriter is
+#     undefined (NameError is a StandardError).
 # Order matters: shared mTLS YAML + CA bundle must exist before per-account
 # routers reference `mtls-required@file` / `pass-tls-client-cert@file`.
 cd "$PLATFORM_ROOT/server"
@@ -77,6 +81,7 @@ STATIC_CONFIG="$(bundle exec rails runner '
   Acme::TraefikConfigWriter.write_mtls_shared_dynamic! rescue nil
   Account.find_each do |acct|
     Acme::TraefikConfigWriter.write!(account: acct) rescue nil
+    Sdwan::ServiceExposureWriter.write!(account: acct) rescue nil
   end
   print Acme::TraefikConfigWriter.write_static_config!
 ' 2>&1 | tail -n 1)"

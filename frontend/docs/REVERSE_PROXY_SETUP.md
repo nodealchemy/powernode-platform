@@ -2,6 +2,11 @@
 
 This guide explains how to run the Powernode frontend behind a reverse proxy (nginx, Apache, etc.) for development.
 
+> **Development only.** For **production**, you do not need an external proxy: the bundled
+> `powernode-reverse-proxy` (Traefik) terminates TLS and routes `/api`, `/agent`, `/cable`, and the
+> frontend on :443 (WebSockets forwarded transparently). See
+> **[docs/operations/reverse-proxy.md](../../docs/operations/reverse-proxy.md)**.
+
 ## Quick Start
 
 1. **Using the proxy script** (Recommended):
