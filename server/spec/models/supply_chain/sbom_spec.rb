@@ -7,7 +7,7 @@ RSpec.describe SupplyChain::Sbom, type: :model do
 
   describe "associations" do
     it { is_expected.to belong_to(:account) }
-    it { is_expected.to belong_to(:repository).class_name("Devops::Repository").optional }
+    it { is_expected.to belong_to(:repository).class_name("Devops::GitRepository").optional }
     it { is_expected.to belong_to(:pipeline_run).class_name("Devops::PipelineRun").optional }
     it { is_expected.to belong_to(:created_by).class_name("User").optional }
     it { is_expected.to have_many(:components).class_name("SupplyChain::SbomComponent").dependent(:destroy) }

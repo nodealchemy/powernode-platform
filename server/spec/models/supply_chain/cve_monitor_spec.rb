@@ -17,7 +17,7 @@ RSpec.describe SupplyChain::CveMonitor, type: :model do
       is_default: true
     )
   end
-  let(:repository) { Devops::Repository.create!(account: account, provider: devops_provider, name: "test-repo", full_name: "org/test-repo", default_branch: "main") }
+  let(:repository) { create(:devops_repository, account: account, provider: devops_provider, name: "test-repo", full_name: "org/test-repo") }
   let(:container_image) { create(:supply_chain_container_image, account: account) }
 
   # Helper to create CVE monitor without triggering Schedulable validations
@@ -532,7 +532,7 @@ RSpec.describe SupplyChain::CveMonitor, type: :model do
       end
 
       context "with repository scope" do
-        let(:repo) { Devops::Repository.create!(account: account, provider: devops_provider, name: "test-repo", full_name: "org/test-repo", default_branch: "main") }
+        let(:repo) { create(:devops_repository, account: account, provider: devops_provider, name: "test-repo", full_name: "org/test-repo") }
         let(:monitor) { create_cve_monitor(scope_type: "repository", scope_id: repo.id) }
 
         it "returns images matching repository name pattern" do
@@ -569,18 +569,18 @@ RSpec.describe SupplyChain::CveMonitor, type: :model do
 
     describe "#scoped_sboms" do
       context "with repository scope" do
-        let(:repo) { Devops::Repository.create!(account: account, provider: devops_provider, name: "sbom-repo", full_name: "org/sbom-repo", default_branch: "main") }
+        let(:repo) { create(:devops_repository, account: account, provider: devops_provider, name: "sbom-repo", full_name: "org/sbom-repo") }
         let(:monitor) { create_cve_monitor(scope_type: "repository", scope_id: repo.id) }
 
         it "returns sboms for the repository" do
-          sbom = create(:supply_chain_sbom, account: account, repository_id: repo.id)
+          sbom = create(:supply_chain_sbom, account: account, repository: repo)
           result = monitor.scoped_sboms
           expect(result).to include(sbom)
         end
 
         it "does not return sboms from other repositories" do
-          other_repo = Devops::Repository.create!(account: account, provider: devops_provider, name: "other-repo", full_name: "org/other-repo", default_branch: "main")
-          other_sbom = create(:supply_chain_sbom, account: account, repository_id: other_repo.id)
+          other_repo = create(:devops_repository, account: account, provider: devops_provider, name: "other-repo", full_name: "org/other-repo")
+          other_sbom = create(:supply_chain_sbom, account: account, repository: other_repo)
           result = monitor.scoped_sboms
           expect(result).not_to include(other_sbom)
         end
