@@ -13,7 +13,9 @@ RSpec.describe 'Authentication Security', type: :request do
   end
 
   describe 'Password Security' do
-    it 'enforces minimum password length' do
+    # Hits the public register endpoint, which is an extension capability
+    # (`public_registration`) returning 403 in core mode.
+    it 'enforces minimum password length', requires_extension: :business do
       post '/api/v1/auth/register', params: {
         email: 'test@example.com',
         password: '123',
@@ -26,7 +28,7 @@ RSpec.describe 'Authentication Security', type: :request do
       expect(json_response['error']).to include('Password must be at least 12 characters long')
     end
 
-    it 'enforces password complexity requirements' do
+    it 'enforces password complexity requirements', requires_extension: :business do
       post '/api/v1/auth/register', params: {
         email: 'test@example.com',
         password: 'simplepAssword',
@@ -39,7 +41,7 @@ RSpec.describe 'Authentication Security', type: :request do
       expect(json_response['error']).to include('Password must contain')
     end
 
-    it 'accepts strong passwords' do
+    it 'accepts strong passwords', requires_extension: :business do
       post '/api/v1/auth/register', params: {
         email: 'test@example.com',
         password: TestUsers::PASSWORD,
@@ -51,7 +53,7 @@ RSpec.describe 'Authentication Security', type: :request do
       expect(response).to have_http_status(201)
     end
 
-    it 'rejects common passwords' do
+    it 'rejects common passwords', requires_extension: :business do
       post '/api/v1/auth/register', params: {
         email: 'test@example.com',
         password: 'Password123!',
@@ -328,7 +330,9 @@ RSpec.describe 'Authentication Security', type: :request do
       end
     end
 
-    it 'validates email format strictly' do
+    # Hits the public register endpoint (extension `public_registration`
+    # capability), which returns 403 in core mode instead of a 422 validation error.
+    it 'validates email format strictly', requires_extension: :business do
       post '/api/v1/auth/register', params: {
         email: 'not_an_email',
         password: TestUsers::PASSWORD,

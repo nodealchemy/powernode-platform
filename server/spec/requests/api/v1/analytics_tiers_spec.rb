@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe 'Api::V1::AnalyticsTiers', type: :request do
+RSpec.describe 'Api::V1::AnalyticsTiers', type: :request, requires_extension: :business do
   let(:account) { create(:account) }
 
   let(:billing_reader) do

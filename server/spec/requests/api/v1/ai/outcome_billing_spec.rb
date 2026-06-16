@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe 'Api::V1::Ai::OutcomeBilling', type: :request do
+RSpec.describe 'Api::V1::Ai::OutcomeBilling', type: :request, requires_extension: :business do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, permissions: [ 'ai.billing.read', 'ai.billing.manage' ]) }
   let(:limited_user) { create(:user, account: account, permissions: [ 'ai.billing.read' ]) }

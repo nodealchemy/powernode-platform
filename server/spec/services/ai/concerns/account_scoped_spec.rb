@@ -42,7 +42,10 @@ RSpec.describe Ai::Concerns::AccountScoped do
     end
   end
 
-  describe "#audit_action" do
+  # audit_action writes a compliance audit entry only when the governance
+  # capability is present (provided by the business extension); in core mode it
+  # is a no-op, so this is gated to the extension that supplies governance.
+  describe "#audit_action", requires_extension: :business do
     it "creates a compliance audit entry" do
       expect {
         instance.send(:audit_action,

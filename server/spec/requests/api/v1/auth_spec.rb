@@ -12,7 +12,9 @@ RSpec.describe 'Api::V1::Auth', type: :request do
     Rails.cache.clear
   end
 
-  describe 'POST /api/v1/auth/register' do
+  # Public self-registration is an extension capability (`public_registration`); in
+  # core mode the register endpoint returns 403, so these examples skip there.
+  describe 'POST /api/v1/auth/register', requires_extension: :business do
     let(:valid_params) do
       {
         email: 'newuser@example.com',
