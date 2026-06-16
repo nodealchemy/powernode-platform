@@ -248,6 +248,36 @@ The core router mounts each enabled extension's routes automatically.
 
 **Hard rule:** core never depends on extensions; extensions depend on core, never on each other directly. If two extensions need to coordinate, the integration goes through a core service interface or an event bus.
 
+### Generic integration seams
+
+Core never names your extension. When core needs to know your extension is present, or to call into it, it goes through one of these generic, slug-agnostic seams — so adding a new extension requires **zero core edits**: you register, core asks generically.
+
+Declare **capabilities** (presence) and **providers** (behavior) in your engine's `register` call:
+
+```ruby
+Powernode::ExtensionRegistry.register(
+  slug: 'myext',
+  engine: Myext::Engine,
+  version: Myext::VERSION,
+  features_module: Myext::Features,        # optional: licensed/account-scoped availability
+  capabilities: %i[campaigns analytics],   # presence: core asks capability_present?(:campaigns)
+  providers: {                             # behavior: core resolves provider(:key); nil ⇒ core default
+    campaign_source: 'Myext::CampaignSource'
+  }
+)
+```
+
+| Need in core | Generic API | Notes |
+|---|---|---|
+| "Is capability X present?" | `Shared::FeatureGateService.capability_present?(:x)` | pure presence; ignores license/flag |
+| "Is licensed feature X available?" | `Shared::FeatureGateService.available?(:x, account:)` | consults only extensions that *declare* `:x` |
+| Call into extension behavior | `Powernode::ExtensionRegistry.provider(:key)` | returns your impl or `nil` (core mode) — core falls back to a permissive/no-op default |
+| Add fields to a core model | `app/decorators/models/<model>_decorator.rb` (`class_eval`, loaded via `config.to_prepare`) | the core model carries no extension association |
+| React to a core event | `ActiveSupport::Notifications.subscribe('powernode.<event>')` | core emits; you subscribe in an engine initializer |
+| Own knowledge doc-tags | `extension.json` → `"knowledge_doc_tags": { "tags": [...], "prefixes": [...] }` | doc sync routes your tagged entries to you |
+
+`features_module` (when provided) must implement `available?(feature, account:)`, returning `nil` for features it does **not** own and `true`/`false` for those it does. Because core resolves availability only against extensions that *declare* the capability, a permissive `features_module` in one extension can never affect another.
+
 ## Frontend integration
 
 ### Path aliases
@@ -265,30 +295,28 @@ Core imports always use `@/`. Intra-extension imports use the extension's alias.
 
 ### Build flags
 
-Vite injects build-time flags for each loaded extension. Use them to dead-code-eliminate extension-only sections:
+`__EXTENSIONS__` is the build-time array of active slugs (`__DISABLED_EXTENSIONS__` lists removed ones). Use it **inside your own extension code** to dead-code-eliminate optional sections. **Core code must not** gate on `__EXTENSIONS__.includes('<slug>')` — core stays slug-agnostic and discovers your UI through the feature registry (below), so a new extension needs no core frontend edit.
+
+### Routes and nav (featureRegistry)
+
+Extensions inject their routes, nav, settings tabs, and header widgets into core through `featureRegistry`, called from `frontend/src/register.ts` (Vite discovers and runs `register()` at boot). Core's router and nav render whatever is registered and filter by which extensions are loaded — core never lists your routes or nav items by hand:
 
 ```typescript
-if (__EXTENSIONS__.includes('business')) {
-  // billing UI only rendered when business loaded
+// extensions/myext/frontend/src/register.ts
+import { featureRegistry } from '@/shared/services/featureRegistry';
+
+export function register(): void {
+  featureRegistry.registerRoutes('myext', [
+    { path: '/myext/campaigns', component: CampaignsPage, permission: 'campaigns.view' },
+  ]);
+  featureRegistry.registerNavItems('myext', [
+    { label: 'Campaigns', path: '/app/myext/campaigns', icon: 'Megaphone', section: 'myext', order: 5 },
+  ]);
+  // also available: registerPublicRoutes, registerNavSections, registerSettingsTabs, registerHeaderWidgets
 }
 ```
 
-`__EXTENSIONS__` is the build-time array of active slugs (and `__DISABLED_EXTENSIONS__` lists removed ones); gate any extension section with `__EXTENSIONS__.includes('<slug>')`.
-
-### Nav entries
-
-Nav items declared in extension code carry a feature marker:
-
-```typescript
-export const marketingNavItems: NavItem[] = [
-  {
-    label: 'Campaigns',
-    href: '/marketing/campaigns',
-    icon: MegaphoneIcon,
-    extensionOnly: 'marketing', // hidden when extension not loaded
-  },
-];
-```
+Reserved `section` values (`account`, `userMenu`, `quickActions`) route a nav item into the corresponding core menu region. Nav visibility is driven by the loaded-extensions set, so registered items appear only when your extension is active.
 
 ## Worker integration
 

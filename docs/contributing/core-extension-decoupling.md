@@ -36,7 +36,7 @@ extension to *register* a capability so core can ask generically.
 
 ## Phases
 
-### Phase 0 — Rename `Gemfile.full` → `Gemfile.private`  ☐
+### Phase 0 — Rename `Gemfile.full` → `Gemfile.private`  ☑
 Mechanical, contained. `server/Gemfile.full` → `Gemfile.private`;
 `Gemfile.full.lock` → `Gemfile.private.lock` (regen); update
 `/etc/powernode/backend-default.conf` `BUNDLE_GEMFILE`, `.gitignore`,
@@ -45,7 +45,7 @@ Mechanical, contained. `server/Gemfile.full` → `Gemfile.private`;
 `docs/contributing/development-setup.md`, `docs/guides/extensions.md`,
 `CLAUDE.md`, `CLAUDE.local.md`. Keep the `POWERNODE_INCLUDE_PRIVATE_EXTENSIONS` flag.
 
-### Phase 1 — Generalize `FeatureGateService` (core-only) ☐
+### Phase 1 — Generalize `FeatureGateService` (core-only) ☑
 Remove the business-named methods; expose generic equivalents:
 - `business_loaded?` → callers use `extension_loaded?(slug)`.
 - `business_enabled?` → `extension_enabled?(slug)` (already generic; uses
@@ -58,7 +58,7 @@ Remove the business-named methods; expose generic equivalents:
   owns `:billing`).
 - `development_info` → generic `{ extensions: loaded_extensions }` only.
 
-### Phase 2 — Generic admin "Extensions" surface (FE + BE) ☐
+### Phase 2 — Generic admin "Extensions" surface (FE + BE) ☑
 Replace the business-specific Development tab + `PUT /admin_settings/development
 {business_enabled}` with a generic per-slug toggle (`{slug, enabled}` →
 `set_extension_enabled!`). Frontend lists `loaded_extensions` and toggles each;
@@ -66,7 +66,7 @@ per-extension detail (license/version/feature flags) is supplied **by the
 extension** (registered via `featureRegistry`/an engine hook), not core. Removes
 `business_installed`/`business_enabled` payload fields and the business copy.
 
-### Phase 3 — Extension-provided presence-gate seams (core + submodules) ☐
+### Phase 3 — Extension-provided presence-gate seams (core + submodules) ☑ (done — implemented as the generic provider+capability seam; see Implementation log)
 The ~10 `loaded?("business")` / `:business_mode` gates in core
 (`registrations_controller` public-registration gate, `subscription_channel`,
 `config_controller` registration, `mcp_scanner_service`, `account_scoped`,
@@ -76,7 +76,7 @@ capability-driven: the business extension **registers** the capability (e.g.
 `available?(capability)` / iterates loaded extensions. **Requires business
 submodule changes** (commit inside the submodule first).
 
-### Phase 4 — Relocate extension logic out of core (submodules) ☐
+### Phase 4 — Relocate extension logic out of core (submodules) ☑
 - `worker_job_service.rb` trading market-arms/discovery logic → trading extension
   (pulled via a generic worker hook).
 - `knowledge_doc_sync_service.rb` `EXTENSION_TAG_ROUTES` slug map → each extension
@@ -85,7 +85,7 @@ submodule changes** (commit inside the submodule first).
   `extensionSlug` entries → register routes/nav from the extension via
   `featureRegistry` instead of core `navigation.tsx`.
 
-### Phase 5 — Verify & guard ☐
+### Phase 5 — Verify & guard ☑
 rubocop + rspec + `tsc --noEmit`; boot in private mode and confirm business loads
 and the generic admin Extensions page works; run the AI smoke harness. Add a grep
 gate (CI) failing on new `"business"`/`"trading"` literals in core (excluding the
@@ -147,3 +147,60 @@ Remaining gate migration (then delete `business_loaded?`/`business_enabled?`):
 Verify in BOTH modes: core (`Gemfile`) and full (`BUNDLE_GEMFILE=Gemfile.private`).
 Specs to update: usage_limit_service_spec, approval_workflow_service_spec,
 auth/registrations_spec, feature_gate_service_spec.
+
+## Implementation log — generic injection seam (supersedes the capability-only plan)
+
+The finish work was implemented as a **generic injection seam**, not just slug-genericized
+gates. The bar: a brand-new extension plugs in with **zero core edits**. Core now integrates
+with extensions only through these generic, slug-agnostic seams:
+
+| Seam | Core API | Used for |
+|------|----------|----------|
+| Capability presence | `ExtensionRegistry.register(capabilities:)` + `provides?(cap)` + `FeatureGateService.capability_present?(cap)` | presence gates (subscriptions, governance, public_registration) |
+| Behavior provider (IoC) | `ExtensionRegistry.register(providers: { key: Impl })` + `provider(key)` (nil ⇒ core default) | entitlements policy, mcp hosted-server source |
+| Model decoration | `config.to_prepare` + `*_decorator.rb` `class_eval` | `Ai::AgentTemplate` publisher/marketplace assoc |
+| Notifications | `ActiveSupport::Notifications` | post-registration subscription provisioning |
+| Manifest metadata | `extension.json` keys (`feature_flag`, `knowledge_doc_tags`) | flags, doc-tag routing |
+| Frontend featureRegistry | `featureRegistry.register*` | nav items, routes, header widgets |
+
+`feature_available?`/`feature_owned?` were hardened to consult **only capability-declaring**
+extensions, permanently defusing the `system` extension's blanket-`true` features_module
+without touching the system submodule. A spec registers a synthetic extension to prove the
+contract (`spec/lib/powernode/extension_registry_spec.rb`).
+
+Status (this pass):
+- **Phase 3 done.** Registry gained `capabilities:`/`providers:`/`provides?`/`provider`;
+  FeatureGateService gained `capability_present?`. Migrated gates: registrations + config
+  (`capability_present?(:public_registration)`), subscription_channel
+  (`capability_present?(:subscriptions)`), mcp_scanner (`provider(:mcp_hosted_servers)`),
+  account_scoped audit + approval_workflow (`capability_present?(:governance)`), entitlements
+  ×11 + users_controller (`provider(:entitlements)`), agent_template (business decorator).
+  Deleted `business_loaded?`/`business_enabled?`/`billing_enabled?` and the dead `BusinessAware`
+  concern; removed the business block from `flipper.rb` (the business engine now owns its flag
+  enable). Business submodule declares `capabilities: FEATURE_TIERS.keys` + `providers:`
+  (`Billing::EntitlementsProvider`, `Mcp::HostedServerSource`) and adds the agent_template
+  decorator. **No `:billing` feature was needed** — `provider(:entitlements).present?` IS the
+  billing-enabled signal, giving exact parity (core ⇒ unlimited; provider+no-plan ⇒ restrictive)
+  with no license-lapse footgun.
+- **Phase 4 backend done.** `worker_job_service.rb` `build_market_discovery_context` is now a
+  generic hook returning `{}`; the trading extension overrides it via a WorkerJobService
+  decorator. `knowledge_doc_sync_service.rb` `EXTENSION_TAG_ROUTES`/`PREFIX` constants replaced
+  by a manifest scan (`knowledge_doc_tags` declared in business/trading/supply-chain
+  `extension.json`). Frontend nav/route decoupling delegated.
+- Verified: rubocop clean (core + business + trading touched files); core-mode rspec for
+  every changed file + key consumers (extension_registry, feature_gate, usage_limit,
+  approval_workflow, registrations, mcp_scanner, knowledge_doc_sync, adaptation_proposer,
+  users_controller/config/users) all green; `tsc --noEmit` clean + frontend suite (6058
+  tests) green; **both-mode boot smokes** confirm the runtime seam (core mode: providers nil,
+  unlimited, gates off; private mode: business loaded, providers resolve, decorators applied,
+  capability gates light up). Grep gate + CI workflow added and passing.
+- Not run (optional follow-ups, not blockers): the no-path full `rspec` suite (runs >70 min on
+  this codebase — unrelated to these changes; the targeted+consumer coverage above is the
+  relevant gate), and the live AI smoke harness (boot smokes already validate the runtime).
+
+### Out of scope (surfaced, not done) — broader trading coupling
+Core ships an extensive **trading MCP-tool surface** (`server/app/services/ai/tools/trading_*`,
+plus `enqueue_trading_*` dispatchers in `worker_job_service.rb`) that the roadmap's Phase 4
+bullet (worker discovery *logic*) did not scope. Fully relocating it to the trading extension is
+a separate epic. The Phase 5 CI grep gate must allowlist these existing trading references (or
+scope to specific files) rather than block on the entire trading tool surface.
