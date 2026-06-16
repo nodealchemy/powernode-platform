@@ -40,7 +40,7 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
     end
 
     context 'with various agent types' do
-      %w[assistant code_assistant data_analyst content_generator monitor workflow_operations].each do |type|
+      %w[assistant code_assistant data_analyst content_generator monitor image_generator].each do |type|
         it "returns true for #{type} agents" do
           agent.update!(agent_type: type)
           bridge = described_class.new(agent: agent)

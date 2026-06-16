@@ -226,16 +226,18 @@ RSpec.describe Ai::Memory::EmbeddingService, type: :service do
   describe "#clear_all_cache" do
     it "deletes all cache entries for the account" do
       keys = ["key1", "key2"]
-      expect(mock_redis).to receive(:keys)
-        .with("#{described_class::CACHE_PREFIX}:#{account.id}:*")
-        .and_return(keys)
-      expect(mock_redis).to receive(:del).with(*keys)
+      expect(mock_redis).to receive(:scan_each)
+        .with(match: "#{described_class::CACHE_PREFIX}:#{account.id}:*")
+        .and_yield(keys[0]).and_yield(keys[1])
+      expect(mock_redis).to receive(:del).with("key1")
+      expect(mock_redis).to receive(:del).with("key2")
 
       service.clear_all_cache
     end
 
     it "does nothing when no keys exist" do
-      expect(mock_redis).to receive(:keys).and_return([])
+      expect(mock_redis).to receive(:scan_each)
+        .with(match: "#{described_class::CACHE_PREFIX}:#{account.id}:*")
       expect(mock_redis).not_to receive(:del)
 
       service.clear_all_cache

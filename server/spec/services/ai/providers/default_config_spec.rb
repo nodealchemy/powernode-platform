@@ -8,8 +8,8 @@ RSpec.describe Ai::Providers::DefaultConfig do
       types = described_class.types
 
       expect(types).to be_an(Array)
-      expect(types).to include("openai", "anthropic", "google", "azure_openai", "groq", "mistral", "cohere")
-      expect(types.size).to eq(7)
+      expect(types).to include("openai", "anthropic", "google", "azure_openai", "groq", "mistral", "cohere", "grok")
+      expect(types.size).to eq(8)
     end
   end
 
@@ -19,7 +19,7 @@ RSpec.describe Ai::Providers::DefaultConfig do
 
       expect(config[:name]).to eq("OpenAI")
       expect(config[:configuration][:api_base_url]).to eq("https://api.openai.com/v1")
-      expect(config[:configuration][:default_model]).to eq("gpt-4o")
+      expect(config[:configuration][:default_model]).to eq("gpt-4.1-mini")
       expect(config[:configuration][:supported_models]).to include("gpt-4o", "gpt-4o-mini")
       expect(config[:configuration][:capabilities]).to include("chat", "completions")
     end

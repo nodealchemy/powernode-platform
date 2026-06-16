@@ -321,7 +321,8 @@ RSpec.describe Api::V1::Ai::TieredMemoryController, type: :controller do
       get :shared_knowledge
       expect(response).to have_http_status(:ok)
       expect(json_response['success']).to be true
-      expect(json_response['data']).to be_an(Array)
+      # Response is paginated: { entries: [...], pagination: {...} }
+      expect(json_response['data']['entries']).to be_an(Array)
     end
   end
 end

@@ -63,7 +63,7 @@ module AiOrchestrationTestHelpers
   # @return [Double] Redis mock instance
   def stub_redis_connection
     redis_mock = instance_double(Redis)
-    allow(Redis).to receive(:new).and_return(redis_mock)
+    allow(Powernode::Redis).to receive(:client).and_return(redis_mock)
     allow(redis_mock).to receive(:hgetall).and_return({})
     allow(redis_mock).to receive(:hget).and_return(nil)
     allow(redis_mock).to receive(:hset)

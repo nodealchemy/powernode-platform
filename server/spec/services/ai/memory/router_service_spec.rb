@@ -8,17 +8,17 @@ RSpec.describe Ai::Memory::RouterService, type: :service do
   let(:provider) { create(:ai_provider, account: account) }
   let(:agent) { create(:ai_agent, account: account, creator: user, provider: provider) }
   let(:session_id) { SecureRandom.uuid }
-  let(:redis_double) { double("Redis", get: nil, setex: true, del: 1, keys: []) }
+  # hset/hdel are exercised by MCP tool-health registration when the :ai_agent
+  # factory builds an agent (Mcp::RegistryService#persist_health_status) — the
+  # stubbed client must tolerate them so agent creation doesn't raise.
+  let(:redis_double) { double("Redis", get: nil, setex: true, del: 1, scan_each: nil, hset: true, hdel: 1) }
 
   subject(:service) { described_class.new(account: account, agent: agent) }
 
   before do
-    # Redis.current is used by the service but may not be defined in all Redis gem versions.
-    # Define it as a class method so stubs work.
-    unless Redis.respond_to?(:current)
-      Redis.define_singleton_method(:current) { Redis.new }
-    end
-    allow(Redis).to receive(:current).and_return(redis_double)
+    # The service obtains its Redis client via Powernode::Redis.client (memoized
+    # at boot in config/initializers/redis.rb), so stub that accessor.
+    allow(Powernode::Redis).to receive(:client).and_return(redis_double)
   end
 
   describe '#read' do
@@ -118,7 +118,7 @@ RSpec.describe Ai::Memory::RouterService, type: :service do
 
         expect(result[:success]).to be true
         expect(result[:tier]).to eq("working")
-        expect(redis_double).to have_received(:setex)
+        expect(redis_double).to have_received(:setex).at_least(:once)
       end
 
       it 'requires session_id for working memory' do

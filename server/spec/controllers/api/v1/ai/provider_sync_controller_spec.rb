@@ -95,11 +95,11 @@ RSpec.describe "Api::V1::Ai::ProviderSyncController", type: :request do
       expect(json_response['data']['message']).to include('synced')
     end
 
-    it 'returns error when provider is inactive' do
+    it 'allows syncing an inactive provider (populates supported_models before activation)' do
       provider.update!(is_active: false)
       post path, headers: auth_headers_for(update_user)
-      expect(response).to have_http_status(:unprocessable_content)
-      expect(json_response['error']).to include('not active')
+      expect(response).to have_http_status(:ok)
+      expect(json_response['data']['message']).to include('synced')
     end
 
     it 'returns error when sync fails' do

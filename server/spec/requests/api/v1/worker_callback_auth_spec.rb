@@ -61,11 +61,11 @@ RSpec.describe "Worker-callback auth carve-outs", type: :request do
   end
 
   describe "Api::V1::AnalyticsController" do
-    it "lets a worker GET /analytics/export (callback to fetch report data)" do
-      get "/api/v1/analytics/export",
-          params: { report_type: "revenue_analytics", parameters: { date_range: { start_date: "2026-01-01", end_date: "2026-03-31" } } },
-          headers: worker_headers,
-          as: :json
+    it "lets a worker POST /analytics/export (callback to fetch report data)" do
+      post "/api/v1/ai/analytics/export",
+           params: { report_type: "revenue_analytics", parameters: { date_range: { start_date: "2026-01-01", end_date: "2026-03-31" } } },
+           headers: worker_headers,
+           as: :json
       # Either renders the CSV body or returns a graceful error — either way it
       # MUST NOT 500 with `undefined method has_permission? for nil:NilClass`
       expect([200, 422, 400]).to include(response.status), "got #{response.status}: #{response.body[0..200]}"

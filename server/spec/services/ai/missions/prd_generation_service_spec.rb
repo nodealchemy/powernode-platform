@@ -82,7 +82,7 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
     let(:client) { instance_double(WorkerLlmClient) }
 
     before do
-      allow(WorkerLlmClient).to receive(:new).with(agent_id: agent.id).and_return(client)
+      allow(WorkerLlmClient).to receive(:new).with(hash_including(agent_id: agent.id)).and_return(client)
       allow(provider).to receive(:default_model).and_return("gpt-4")
     end
 
@@ -154,7 +154,7 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
 
     context 'when AI provider returns error' do
       before do
-        allow(WorkerLlmClient).to receive(:new).with(agent_id: agent.id).and_return(client)
+        allow(WorkerLlmClient).to receive(:new).with(hash_including(agent_id: agent.id)).and_return(client)
         allow(client).to receive(:complete).and_return(
           Ai::Llm::Response.new(content: nil, finish_reason: "error", raw_response: { error: "Rate limit exceeded" })
         )

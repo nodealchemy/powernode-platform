@@ -148,10 +148,12 @@ RSpec.describe Ai::Providers::Sync::Openai do
     context "with no credentials" do
       let(:provider_without_creds) { create(:ai_provider, :openai, account: account, name: "OpenAI No Creds", slug: "openai-no-creds") }
 
-      it "calls handle_sync_failure" do
+      it "skips the sync and returns false (defers until credentials exist)" do
+        result = nil
         expect {
-          Ai::ProviderManagementService.send(:sync_openai_models, provider_without_creds)
-        }.to raise_error(StandardError, /Failed to sync OpenAI models/)
+          result = Ai::ProviderManagementService.send(:sync_openai_models, provider_without_creds)
+        }.not_to raise_error
+        expect(result).to be false
       end
     end
 

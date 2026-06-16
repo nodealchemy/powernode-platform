@@ -18,7 +18,7 @@ RSpec.describe Ai::Agent, type: :model do
     it { should validate_presence_of(:agent_type) }
     it { should validate_length_of(:name).is_at_most(255) }
     it { should validate_length_of(:description).is_at_most(1000) }
-    it { should validate_inclusion_of(:agent_type).in_array(%w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor]) }
+    it { should validate_inclusion_of(:agent_type).in_array(%w[assistant code_assistant data_analyst content_generator image_generator monitor mcp_client]) }
     it { should validate_inclusion_of(:status).in_array(%w[active inactive paused error archived]) }
 
     context 'name uniqueness' do

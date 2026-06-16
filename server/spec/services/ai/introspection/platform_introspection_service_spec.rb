@@ -8,11 +8,14 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
   let(:service) { described_class.new(account: account) }
 
   before do
-    allow(Redis).to receive(:new).and_return(mock_redis)
+    allow(Powernode::Redis).to receive(:client).and_return(mock_redis)
     # Allow common Redis operations used by embedding/knowledge graph callbacks
     allow(mock_redis).to receive(:get).and_return(nil)
     allow(mock_redis).to receive(:set)
     allow(mock_redis).to receive(:setex)
+    # MCP tool-health registration during :ai_agent factory creation persists to a Redis hash
+    allow(mock_redis).to receive(:hset)
+    allow(mock_redis).to receive(:hdel)
   end
 
   describe "#initialize" do
@@ -101,7 +104,7 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
   describe "#capability_inventory" do
     context "when cached" do
       it "returns cached result" do
-        cached_data = { mcp_tools: [], workflow_node_types: [], providers: [] }.to_json
+        cached_data = { mcp_tools: [], providers: [] }.to_json
         cache_key = "platform_introspection:#{account.id}:capabilities"
 
         allow(mock_redis).to receive(:get).with(cache_key).and_return(cached_data)

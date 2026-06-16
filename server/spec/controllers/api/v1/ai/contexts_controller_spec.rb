@@ -29,6 +29,9 @@ RSpec.describe "Api::V1::Ai::ContextsController", type: :request do
       total_count: 0,
       limit_value: 20
     )
+    # Controller calls `.includes(:agent)` on the paginated result before
+    # iterating — return self so the chain keeps working on the double.
+    allow(paginated_result).to receive(:includes).and_return(paginated_result)
     allow(Ai::ContextPersistenceService).to receive(:list_contexts).and_return(paginated_result)
 
     # Stub find_context to return our test context

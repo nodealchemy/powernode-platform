@@ -116,10 +116,12 @@ RSpec.describe Ai::Providers::Sync::Mistral do
                api_base_url: "https://api.mistral.ai/v1")
       end
 
-      it "calls handle_sync_failure" do
+      it "skips the sync and returns false (defers until credentials exist)" do
+        result = nil
         expect {
-          Ai::ProviderManagementService.send(:sync_mistral_models, provider_without_creds)
-        }.to raise_error(StandardError, /Failed to sync Mistral models/)
+          result = Ai::ProviderManagementService.send(:sync_mistral_models, provider_without_creds)
+        }.not_to raise_error
+        expect(result).to be false
       end
     end
 

@@ -17,7 +17,15 @@ RSpec.describe Ai::Missions::AppLaunchService do
     end
 
     it "avoids ports already in use" do
-      create(:ai_mission, :with_deployment, account: account, created_by: user, deployed_port: 6000)
+      # Occupy 6000 the way the allocator actually tracks it — a PortAllocation row
+      # on the same host (resolve_deploy_cluster => "localhost" with no cluster).
+      # Setting another mission's deployed_port directly (without a PortAllocation)
+      # is an unreachable state in the real flow and collides on the unique index.
+      other = create(:ai_mission, :active, account: account, created_by: user, repository: repository)
+      Devops::PortAllocation.create!(
+        account: account, allocatable: other, host_identifier: "localhost",
+        port: 6000, protocol: "tcp", purpose: "app_server", status: "active"
+      )
       port = service.allocate_port!
       expect(port).not_to eq(6000)
     end

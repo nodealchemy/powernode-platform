@@ -7,7 +7,7 @@ RSpec.describe Ai::Introspection::RateLimiter do
   let(:agent_id) { SecureRandom.uuid }
 
   before do
-    allow(Redis).to receive(:new).and_return(mock_redis)
+    allow(Powernode::Redis).to receive(:client).and_return(mock_redis)
     # Reset memoized redis instance between tests
     described_class.instance_variable_set(:@redis, nil)
   end
@@ -22,7 +22,7 @@ RSpec.describe Ai::Introspection::RateLimiter do
     end
 
     it "has a redis namespace" do
-      expect(described_class::REDIS_NAMESPACE).to eq("introspection_rate_limit")
+      expect(described_class::REDIS_NAMESPACE).to eq("ai:introspection:rate_limit")
     end
   end
 
@@ -136,7 +136,7 @@ RSpec.describe Ai::Introspection::RateLimiter do
 
     it "uses the correct redis key" do
       pipeline = mock_redis
-      expected_key = "introspection_rate_limit:#{agent_id}"
+      expected_key = "ai:introspection:rate_limit:#{agent_id}"
 
       allow(mock_redis).to receive(:multi).and_yield(pipeline).and_return([nil, nil, 1, nil])
       expect(pipeline).to receive(:zremrangebyscore).with(expected_key, anything, anything)
@@ -186,7 +186,7 @@ RSpec.describe Ai::Introspection::RateLimiter do
 
   describe ".reset!" do
     it "deletes the rate limit key" do
-      expected_key = "introspection_rate_limit:#{agent_id}"
+      expected_key = "ai:introspection:rate_limit:#{agent_id}"
 
       expect(mock_redis).to receive(:del).with(expected_key)
 

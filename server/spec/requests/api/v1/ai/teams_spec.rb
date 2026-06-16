@@ -314,7 +314,15 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         can_escalate: true,
         max_concurrent_tasks: 3,
         ai_agent_id: 'a123',
-        ai_agent: double(name: 'Test Agent', agent_type: 'assistant'),
+        ai_agent: double(
+          name: 'Test Agent',
+          agent_type: 'assistant',
+          slug: 'test-agent',
+          model: nil,
+          provider: nil,
+          mcp_metadata: nil,
+          ai_provider_id: nil
+        ),
         agent_team: double(members: members_relation)
       )
     end

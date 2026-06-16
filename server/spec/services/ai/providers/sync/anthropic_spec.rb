@@ -108,10 +108,12 @@ RSpec.describe Ai::Providers::Sync::Anthropic do
     context "with no credentials" do
       let(:provider_without_creds) { create(:ai_provider, :anthropic, account: account, name: "Anthropic No Creds", slug: "anthropic-no-creds") }
 
-      it "calls handle_sync_failure" do
+      it "skips the sync and returns false (defers until credentials exist)" do
+        result = nil
         expect {
-          Ai::ProviderManagementService.send(:sync_anthropic_models, provider_without_creds)
-        }.to raise_error(StandardError, /Failed to sync Anthropic models/)
+          result = Ai::ProviderManagementService.send(:sync_anthropic_models, provider_without_creds)
+        }.not_to raise_error
+        expect(result).to be false
       end
     end
 

@@ -32,7 +32,7 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
 
       before do
         judge_agent # ensure created
-        allow(WorkerLlmClient).to receive(:new).with(agent_id: judge_agent.id).and_return(client)
+        allow(WorkerLlmClient).to receive(:new).with(hash_including(agent_id: judge_agent.id)).and_return(client)
       end
 
       it "parses valid JSON evaluation response" do
@@ -135,7 +135,7 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       before do
         judge_agent
         client = instance_double(WorkerLlmClient)
-        allow(WorkerLlmClient).to receive(:new).with(agent_id: judge_agent.id).and_return(client)
+        allow(WorkerLlmClient).to receive(:new).with(hash_including(agent_id: judge_agent.id)).and_return(client)
         allow(client).to receive(:complete).and_return(
           Ai::Llm::Response.new(content: "This is not JSON at all", usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )

@@ -278,9 +278,13 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
       expect(regions).to eq(["region-a", "region-b"])
     end
 
-    it "leaves a non-linear DAG with parallel branches alone" do
-      # step 2 and step 3 both depend on step 1 — that's a fan-out, not a
-      # linear chain, so no collapse should happen.
+    it "collapses a same-fingerprint parallel-branch fan-out for a 1-instance brief" do
+      # step 2 and step 3 both depend on step 1 (a fan-out, not a linear
+      # chain). collapse_redundant_provisioning_clusters! groups by fingerprint
+      # (template_id + provider_region_id + provider_instance_type_id) and folds
+      # any group >1 regardless of DAG shape — here all three share the same
+      # nil/nil/nil fingerprint and the brief's scale.initial is 1, so a
+      # 1-instance brief must produce a single provision step.
       stub_decomposition_with([
         { description: "Root provision",      config: { "action" => "provision new stack" }, dependencies: [] },
         { description: "Branch A provision",  config: { "action" => "provision new stack" }, dependencies: [1] },
@@ -290,7 +294,8 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
       svc = described_class.new(account: account, mission: single_instance_mission)
       plan = svc.compose!
 
-      expect(plan.steps.count).to eq(3)
+      expect(plan.steps.count).to eq(1)
+      expect(plan.steps.first.execution_config["inputs"]["count"]).to eq(1)
     end
   end
 

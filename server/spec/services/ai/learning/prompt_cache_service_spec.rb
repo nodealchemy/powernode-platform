@@ -14,7 +14,7 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
   before do
     # Reset class-level redis instance variable between tests
     described_class.instance_variable_set(:@redis, nil)
-    allow(Redis).to receive(:new).and_return(mock_redis)
+    allow(Powernode::Redis).to receive(:client).and_return(mock_redis)
 
     allow(Rails.logger).to receive(:info)
     allow(Rails.logger).to receive(:warn)
@@ -50,6 +50,8 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
         before do
           allow(mock_redis).to receive(:get).and_return(cached_response.to_json)
           allow(mock_redis).to receive(:incr)
+          allow(mock_redis).to receive(:expire)
+          allow(mock_redis).to receive(:ttl).and_return(-1)
         end
 
         it 'returns the parsed cached response' do
@@ -64,8 +66,8 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
         end
 
         it 'records a cache hit metric' do
-          expect(mock_redis).to receive(:incr).with('prompt_cache_metrics:hits')
-          expect(mock_redis).to receive(:incr).with("prompt_cache_metrics:hits:#{model_name}")
+          expect(mock_redis).to receive(:incr).with('prompt_cache:metrics:hits')
+          expect(mock_redis).to receive(:incr).with("prompt_cache:metrics:hits:#{model_name}")
 
           described_class.lookup(
             system_prompt: system_prompt,
@@ -80,6 +82,8 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
         before do
           allow(mock_redis).to receive(:get).and_return(nil)
           allow(mock_redis).to receive(:incr)
+          allow(mock_redis).to receive(:expire)
+          allow(mock_redis).to receive(:ttl).and_return(-1)
         end
 
         it 'returns nil' do
@@ -94,8 +98,8 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
         end
 
         it 'records a cache miss metric' do
-          expect(mock_redis).to receive(:incr).with('prompt_cache_metrics:misses')
-          expect(mock_redis).to receive(:incr).with("prompt_cache_metrics:misses:#{model_name}")
+          expect(mock_redis).to receive(:incr).with('prompt_cache:metrics:misses')
+          expect(mock_redis).to receive(:incr).with("prompt_cache:metrics:misses:#{model_name}")
 
           described_class.lookup(
             system_prompt: system_prompt,
@@ -295,8 +299,8 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
 
   describe '.metrics' do
     before do
-      allow(mock_redis).to receive(:get).with('prompt_cache_metrics:hits').and_return('150')
-      allow(mock_redis).to receive(:get).with('prompt_cache_metrics:misses').and_return('50')
+      allow(mock_redis).to receive(:get).with('prompt_cache:metrics:hits').and_return('150')
+      allow(mock_redis).to receive(:get).with('prompt_cache:metrics:misses').and_return('50')
     end
 
     it 'returns hits count' do
@@ -323,8 +327,8 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
 
     context 'when no metrics exist' do
       before do
-        allow(mock_redis).to receive(:get).with('prompt_cache_metrics:hits').and_return(nil)
-        allow(mock_redis).to receive(:get).with('prompt_cache_metrics:misses').and_return(nil)
+        allow(mock_redis).to receive(:get).with('prompt_cache:metrics:hits').and_return(nil)
+        allow(mock_redis).to receive(:get).with('prompt_cache:metrics:misses').and_return(nil)
       end
 
       it 'returns zeros for all metrics' do
@@ -339,8 +343,8 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
 
     context 'when only hits exist (no misses)' do
       before do
-        allow(mock_redis).to receive(:get).with('prompt_cache_metrics:hits').and_return('10')
-        allow(mock_redis).to receive(:get).with('prompt_cache_metrics:misses').and_return(nil)
+        allow(mock_redis).to receive(:get).with('prompt_cache:metrics:hits').and_return('10')
+        allow(mock_redis).to receive(:get).with('prompt_cache:metrics:misses').and_return(nil)
       end
 
       it 'calculates hit rate as 100%' do
@@ -351,8 +355,8 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
 
   describe '.reset_metrics!' do
     it 'deletes both hits and misses keys from Redis' do
-      expect(mock_redis).to receive(:del).with('prompt_cache_metrics:hits')
-      expect(mock_redis).to receive(:del).with('prompt_cache_metrics:misses')
+      expect(mock_redis).to receive(:del).with('prompt_cache:metrics:hits')
+      expect(mock_redis).to receive(:del).with('prompt_cache:metrics:misses')
 
       described_class.reset_metrics!
     end
@@ -405,8 +409,8 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
   end
 
   describe 'METRICS_NAMESPACE' do
-    it 'is set to prompt_cache_metrics' do
-      expect(described_class::METRICS_NAMESPACE).to eq('prompt_cache_metrics')
+    it 'is set to prompt_cache:metrics' do
+      expect(described_class::METRICS_NAMESPACE).to eq('prompt_cache:metrics')
     end
   end
 end

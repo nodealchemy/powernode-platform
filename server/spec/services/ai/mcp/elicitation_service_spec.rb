@@ -9,7 +9,7 @@ RSpec.describe Ai::Mcp::ElicitationService do
   let(:service) { described_class.new(account: account, user: user) }
 
   before do
-    allow(Redis).to receive(:new).and_return(mock_redis)
+    allow(Powernode::Redis).to receive(:client).and_return(mock_redis)
     allow(ActionCable.server).to receive(:broadcast)
   end
 
@@ -80,7 +80,7 @@ RSpec.describe Ai::Mcp::ElicitationService do
 
     it "stores request in Redis with TTL" do
       expect(mock_redis).to receive(:setex).with(
-        /^mcp_elicitation:#{account.id}:#{tool_execution_id}:/,
+        %r{^mcp:elicitation:#{account.id}:#{tool_execution_id}:},
         described_class::PENDING_TTL,
         anything
       )
@@ -130,9 +130,14 @@ RSpec.describe Ai::Mcp::ElicitationService do
       }
     end
 
+    let(:idx_key) { "mcp:elicitation:idx:#{account.id}:#{request_id}" }
+    let(:request_key) { "mcp:elicitation:#{account.id}:#{tool_execution_id}:#{request_id}" }
+
     before do
-      allow(mock_redis).to receive(:keys).and_return(["mcp_elicitation:#{account.id}:#{tool_execution_id}:#{request_id}"])
-      allow(mock_redis).to receive(:get).and_return(stored_request.to_json)
+      # fetch_request now does a direct lookup via a secondary index:
+      #   get(idx_key) -> tool_execution_id, then get(request_key) -> stored JSON
+      allow(mock_redis).to receive(:get).with(idx_key).and_return(tool_execution_id)
+      allow(mock_redis).to receive(:get).with(request_key).and_return(stored_request.to_json)
       allow(mock_redis).to receive(:setex)
     end
 
@@ -189,8 +194,10 @@ RSpec.describe Ai::Mcp::ElicitationService do
 
     context "when request not found" do
       it "raises ElicitationError" do
-        allow(mock_redis).to receive(:keys).and_return([])
-        allow(mock_redis).to receive(:get).and_return(nil)
+        # No secondary-index entry => fetch_request returns nil
+        allow(mock_redis).to receive(:get)
+          .with("mcp:elicitation:idx:#{account.id}:nonexistent")
+          .and_return(nil)
 
         expect {
           service.respond(request_id: "nonexistent", response: {})
@@ -201,7 +208,7 @@ RSpec.describe Ai::Mcp::ElicitationService do
     context "when request already responded" do
       it "raises ElicitationError" do
         responded_request = stored_request.merge("status" => "responded")
-        allow(mock_redis).to receive(:get).and_return(responded_request.to_json)
+        allow(mock_redis).to receive(:get).with(request_key).and_return(responded_request.to_json)
 
         expect {
           service.respond(request_id: request_id, response: {})
@@ -224,7 +231,7 @@ RSpec.describe Ai::Mcp::ElicitationService do
 
       before do
         request_with_schema = stored_request.merge("schema" => schema)
-        allow(mock_redis).to receive(:get).and_return(request_with_schema.to_json)
+        allow(mock_redis).to receive(:get).with(request_key).and_return(request_with_schema.to_json)
       end
 
       it "validates required fields" do
@@ -263,9 +270,10 @@ RSpec.describe Ai::Mcp::ElicitationService do
         "created_at" => 1.minute.ago.iso8601
       }
 
-      allow(mock_redis).to receive(:keys)
-        .with("mcp_elicitation:#{account.id}:*")
-        .and_return(["key1", "key2"])
+      # pending_requests now scans keys via scan_each and skips secondary-index keys
+      allow(mock_redis).to receive(:scan_each)
+        .with(match: "mcp:elicitation:#{account.id}:*")
+        .and_yield("key1").and_yield("mcp:elicitation:idx:#{account.id}:abc").and_yield("key2")
       allow(mock_redis).to receive(:get).with("key1").and_return(pending_request.to_json)
       allow(mock_redis).to receive(:get).with("key2").and_return(responded_request.to_json)
 
@@ -278,15 +286,14 @@ RSpec.describe Ai::Mcp::ElicitationService do
     it "filters by tool_execution_id when provided" do
       tool_execution_id = SecureRandom.uuid
 
-      expect(mock_redis).to receive(:keys)
-        .with("mcp_elicitation:#{account.id}:#{tool_execution_id}:*")
-        .and_return([])
+      expect(mock_redis).to receive(:scan_each)
+        .with(match: "mcp:elicitation:#{account.id}:#{tool_execution_id}:*")
 
       service.pending_requests(tool_execution_id: tool_execution_id)
     end
 
     it "returns empty array on error" do
-      allow(mock_redis).to receive(:keys).and_raise(StandardError, "Redis down")
+      allow(mock_redis).to receive(:scan_each).and_raise(StandardError, "Redis down")
 
       result = service.pending_requests
 
@@ -305,7 +312,7 @@ RSpec.describe Ai::Mcp::ElicitationService do
         "created_at" => 1.minute.ago.iso8601
       }
 
-      allow(mock_redis).to receive(:keys).and_return(["key1", "key2"])
+      allow(mock_redis).to receive(:scan_each).and_yield("key1").and_yield("key2")
       allow(mock_redis).to receive(:get).with("key1").and_return(newer_request.to_json)
       allow(mock_redis).to receive(:get).with("key2").and_return(older_request.to_json)
 

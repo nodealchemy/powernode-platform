@@ -47,14 +47,6 @@ RSpec.describe Ai::Tools::SemanticToolDiscoveryService do
       expect(agent_results).not_to be_empty
     end
 
-    it "excludes workflow_optimizer agents from agent-as-tool" do
-      create(:ai_agent, account: account, name: "Optimizer", description: "Optimizes workflows", status: "active", agent_type: "workflow_optimizer")
-
-      results = service.discover(query: "optimizer")
-      agent_results = results.select { |t| t[:source] == "agent" && t[:name]&.include?("optimizer") }
-      expect(agent_results).to be_empty
-    end
-
     it "respects limit parameter" do
       results = service.discover(query: "agent", limit: 2)
       expect(results.size).to be <= 2
