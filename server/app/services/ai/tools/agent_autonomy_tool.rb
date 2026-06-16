@@ -165,8 +165,8 @@ module Ai
               policy_id: { type: "string", required: true, description: "Intervention policy UUID" },
               policy: { type: "string", required: false, description: "auto_approve | notify_and_proceed | require_approval | silent | block" },
               conditions: { type: "object", required: false, description: "Merged into existing conditions" },
-              priority: { type: "integer", required: false },
-              is_active: { type: "boolean", required: false }
+              priority: { type: "integer", required: false, description: "Higher priority wins on conflict" },
+              is_active: { type: "boolean", required: false, description: "Enable or disable this policy" }
             }
           },
           "delete_intervention_policy" => {

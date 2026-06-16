@@ -72,8 +72,8 @@ module Ai
           "set_gitea_action_secret" => {
             description: "Create or update a per-repo Actions secret. Plaintext value never echoed back; subsequent list_gitea_action_secrets returns names only.",
             parameters: {
-              owner:        { type: "string",  required: true },
-              repo:         { type: "string",  required: true },
+              owner:        { type: "string",  required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:         { type: "string",  required: true, description: "Repository name (without the owner/ prefix)" },
               secret_name:  { type: "string",  required: true, description: "Secret key (e.g. POWERNODE_DISK_IMAGE_WEBHOOK_SECRET)" },
               secret_value: { type: "string",  required: true, description: "Secret plaintext to store" }
             }
@@ -81,23 +81,23 @@ module Ai
           "list_gitea_action_secrets" => {
             description: "List secret names for a repo (values not returned by Gitea API)",
             parameters: {
-              owner: { type: "string", required: true },
-              repo:  { type: "string", required: true }
+              owner: { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:  { type: "string", required: true, description: "Repository name (without the owner/ prefix)" }
             }
           },
           "delete_gitea_action_secret" => {
             description: "Delete a per-repo Actions secret",
             parameters: {
-              owner:       { type: "string", required: true },
-              repo:        { type: "string", required: true },
-              secret_name: { type: "string", required: true }
+              owner:       { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:        { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
+              secret_name: { type: "string", required: true, description: "Name of the secret to delete (from list_gitea_action_secrets)" }
             }
           },
           "dispatch_gitea_workflow" => {
             description: "Trigger a workflow_dispatch event for a Gitea Actions workflow",
             parameters: {
-              owner:         { type: "string", required: true },
-              repo:          { type: "string", required: true },
+              owner:         { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:          { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
               workflow_file: { type: "string", required: true, description: "Workflow filename (e.g. 'build-disk-image.yaml')" },
               ref:           { type: "string", required: true, description: "Branch/tag ref (e.g. 'master')" },
               inputs:        { type: "object", required: false, description: "Workflow input values as a hash" }
@@ -106,8 +106,8 @@ module Ai
           "list_gitea_workflow_runs" => {
             description: "List recent workflow runs for a repo (optionally filtered by workflow_file)",
             parameters: {
-              owner:         { type: "string", required: true },
-              repo:          { type: "string", required: true },
+              owner:         { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:          { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
               workflow_file: { type: "string", required: false, description: "Filter to a specific workflow filename" },
               limit:         { type: "integer", required: false, description: "Max results (default 20)" }
             }
@@ -115,31 +115,31 @@ module Ai
           "get_gitea_workflow_run" => {
             description: "Get a specific workflow run including its jobs",
             parameters: {
-              owner:  { type: "string", required: true },
-              repo:   { type: "string", required: true },
-              run_id: { type: "string", required: true }
+              owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
+              run_id: { type: "string", required: true, description: "Gitea Actions workflow run ID (from list_gitea_workflow_runs)" }
             }
           },
           "set_gitea_action_secrets_bulk" => {
             description: "Set multiple per-repo Actions secrets in one call (efficiency wrapper). Replaces existing values; missing keys are unchanged.",
             parameters: {
-              owner:   { type: "string", required: true },
-              repo:    { type: "string", required: true },
+              owner:   { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:    { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
               secrets: { type: "object", required: true, description: "Hash of {SECRET_NAME: 'plaintext value', ...}. Names beginning with GITEA_ or GITHUB_ are reserved by Gitea — use a different prefix (e.g. PLATFORM_READ_TOKEN)." }
             }
           },
           "list_gitea_workflows" => {
             description: "List all workflows defined in a repo (returns name + state for each .gitea/workflows/*.yaml file)",
             parameters: {
-              owner: { type: "string", required: true },
-              repo:  { type: "string", required: true }
+              owner: { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:  { type: "string", required: true, description: "Repository name (without the owner/ prefix)" }
             }
           },
           "get_gitea_job_logs" => {
             description: "Fetch the raw log text for a workflow job. Useful for diagnosing failed runs without leaving the chat.",
             parameters: {
-              owner:  { type: "string", required: true },
-              repo:   { type: "string", required: true },
+              owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
               job_id: { type: "string", required: true, description: "Job ID from get_gitea_workflow_run.jobs[].id" },
               tail:   { type: "integer", required: false, description: "Return only the last N lines (default: full log)" },
               grep:   { type: "string", required: false, description: "Filter to lines matching this regex (case-insensitive)" }
@@ -148,17 +148,17 @@ module Ai
           "cancel_gitea_workflow_run" => {
             description: "Cancel a queued or in-progress workflow run",
             parameters: {
-              owner:  { type: "string", required: true },
-              repo:   { type: "string", required: true },
-              run_id: { type: "string", required: true }
+              owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
+              run_id: { type: "string", required: true, description: "Gitea Actions workflow run ID (from list_gitea_workflow_runs)" }
             }
           },
           "rerun_gitea_workflow" => {
             description: "Re-run a completed workflow run (useful for retrying transient failures)",
             parameters: {
-              owner:  { type: "string", required: true },
-              repo:   { type: "string", required: true },
-              run_id: { type: "string", required: true }
+              owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
+              run_id: { type: "string", required: true, description: "Gitea Actions workflow run ID (from list_gitea_workflow_runs)" }
             }
           },
           "create_gitea_user_token" => {
