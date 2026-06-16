@@ -14,8 +14,14 @@ RSpec.describe 'Api::V1::Internal::Devops::ApprovalTokens', type: :request do
            pipeline_step: pipeline_step)
   end
 
-  # Internal API requires worker service token authentication
-  let(:headers) { { 'Authorization' => "Bearer #{service_token}" } }
+  # Internal API authenticates via mTLS: InternalBaseController includes
+  # MtlsClientAuthentication and resolves the worker from the client-cert
+  # subject CN forwarded by the reverse proxy. Specs simulate that by
+  # setting the X-Forwarded-Tls-Client-Cert-Info header directly.
+  let(:internal_worker) { create(:worker, account: account) }
+  let(:headers) do
+    { 'X-Forwarded-Tls-Client-Cert-Info' => CGI.escape(%(Subject="CN=#{internal_worker.node_instance_id}")) }
+  end
 
   describe 'POST /api/v1/internal/devops/approval_tokens/expire_stale' do
     context 'with no expired tokens' do

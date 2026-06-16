@@ -12,7 +12,7 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
 
     before do
-      create_list(:devops_provider, 3, account: account)
+      create_list(:git_provider, 3, account: account)
     end
 
     context 'with devops.providers.read permission' do
@@ -34,7 +34,7 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
       end
 
       it 'filters by provider_type' do
-        create(:devops_provider, account: account, provider_type: 'gitlab')
+        create(:git_provider, account: account, provider_type: 'gitlab')
 
         get '/api/v1/devops/providers',
             params: { provider_type: 'gitlab' },
@@ -48,7 +48,7 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
       end
 
       it 'filters by is_active' do
-        create(:devops_provider, account: account, is_active: false)
+        create(:git_provider, account: account, is_active: false)
 
         get '/api/v1/devops/providers',
             params: { is_active: false },
@@ -79,7 +79,7 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
 
   describe 'GET /api/v1/devops/providers/:id' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
-    let(:provider) { create(:devops_provider, account: account) }
+    let(:provider) { create(:git_provider, account: account) }
 
     context 'with devops.providers.read permission' do
       it 'returns provider details' do
@@ -92,7 +92,11 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
       end
 
       it 'includes repositories when requested' do
-        create_list(:devops_repository, 2, provider: provider, account: account)
+        # serialize_provider(include_repositories:) pulls repositories via the
+        # provider's account credentials (git_provider_credential_id), so attach
+        # the repos to a credential of this provider.
+        credential = create(:git_provider_credential, provider: provider, account: account)
+        create_list(:git_repository, 2, credential: credential, account: account)
 
         get "/api/v1/devops/providers/#{provider.id}",
             params: { include_repositories: true },
@@ -115,7 +119,7 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
 
     context 'when accessing other account provider' do
       let(:other_account) { create(:account) }
-      let(:other_provider) { create(:devops_provider, account: other_account) }
+      let(:other_provider) { create(:git_provider, account: other_account) }
 
       it 'returns not found error' do
         get "/api/v1/devops/providers/#{other_provider.id}", headers: headers, as: :json
@@ -134,20 +138,25 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
           provider: {
             name: 'Test Provider',
             provider_type: 'github',
-            base_url: 'https://api.github.com',
-            api_token: 'test_token',
+            api_base_url: 'https://api.github.com',
+            web_base_url: 'https://github.com',
             is_active: true,
-            settings: { key: 'value' }
+            capabilities: %w[repos branches]
           }
         }
       end
 
       it 'creates a new provider' do
-        # Controller's provider_params permits :api_token, but the model/DB does not have
-        # that column. The create raises "unknown attribute" caught by rescue StandardError.
-        post '/api/v1/devops/providers', params: valid_params, headers: headers, as: :json
+        # provider_params permits name/provider_type/api_base_url/web_base_url/
+        # is_active/capabilities and the controller builds account.git_providers.
+        expect {
+          post '/api/v1/devops/providers', params: valid_params, headers: headers, as: :json
+        }.to change(Devops::GitProvider, :count).by(1)
 
-        expect(response).to have_http_status(:internal_server_error)
+        expect(response).to have_http_status(:created)
+        response_data = json_response
+        expect(response_data['data']['provider']['name']).to eq('Test Provider')
+        expect(response_data['data']['provider']['provider_type']).to eq('github')
       end
     end
 
@@ -183,7 +192,7 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
 
   describe 'PATCH /api/v1/devops/providers/:id' do
     let(:headers) { auth_headers_for(user_with_write_permission) }
-    let(:provider) { create(:devops_provider, account: account) }
+    let(:provider) { create(:git_provider, account: account) }
 
     context 'with devops.providers.write permission' do
       it 'updates provider successfully' do
@@ -214,7 +223,7 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
 
   describe 'DELETE /api/v1/devops/providers/:id' do
     let(:headers) { auth_headers_for(user_with_write_permission) }
-    let(:provider) { create(:devops_provider, account: account) }
+    let(:provider) { create(:git_provider, account: account) }
 
     context 'with devops.providers.write permission' do
       it 'deletes provider successfully' do
@@ -223,22 +232,26 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
         delete "/api/v1/devops/providers/#{provider_id}", headers: headers, as: :json
 
         expect_success_response
-        expect(Devops::Provider.find_by(id: provider_id)).to be_nil
+        expect(Devops::GitProvider.find_by(id: provider_id)).to be_nil
       end
     end
   end
 
   describe 'POST /api/v1/devops/providers/:id/test_connection' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
-    let(:provider) { create(:devops_provider, account: account) }
+    let(:provider) { create(:git_provider, account: account) }
+    # The controller resolves the account's default credential and tests it via
+    # Devops::Git::ProviderTestService (NOT provider.test_connection), mirroring
+    # the git/providers_controller_spec #test_credential pattern.
+    let!(:credential) do
+      create(:git_provider_credential, :default, provider: provider, account: account)
+    end
 
     context 'with devops.providers.read permission' do
       it 'tests connection successfully' do
-        without_partial_double_verification do
-          allow_any_instance_of(Devops::Provider).to receive(:test_connection).and_return(
-            { success: true, message: 'Connection successful', details: {} }
-          )
-        end
+        allow_any_instance_of(::Devops::Git::ProviderTestService).to receive(:test_connection).and_return(
+          { success: true, message: 'Connection successful' }
+        )
 
         post "/api/v1/devops/providers/#{provider.id}/test_connection", headers: headers, as: :json
 
@@ -249,11 +262,9 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
       end
 
       it 'handles connection failures' do
-        without_partial_double_verification do
-          allow_any_instance_of(Devops::Provider).to receive(:test_connection).and_return(
-            { success: false, message: 'Connection failed', details: {} }
-          )
-        end
+        allow_any_instance_of(::Devops::Git::ProviderTestService).to receive(:test_connection).and_return(
+          { success: false, error: 'Connection failed' }
+        )
 
         post "/api/v1/devops/providers/#{provider.id}/test_connection", headers: headers, as: :json
 
@@ -263,19 +274,23 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
         expect(response_data['data']['connected']).to be false
       end
 
-      it 'handles connection errors' do
-        # Devops::Provider does not implement #test_connection, so calling it raises
-        # NoMethodError, which is caught by rescue StandardError in the controller.
+      it 'returns an error when no credentials are configured' do
+        # Unset the default flag so default_credential_for_account returns nil and
+        # the controller's guard clause fires. (destroy! is blocked by the
+        # prevent_destroy_if_default_and_only guard when it's the only credential.)
+        credential.update_columns(is_default: false)
+
         post "/api/v1/devops/providers/#{provider.id}/test_connection", headers: headers, as: :json
 
         expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['error']).to eq('No credentials configured for this provider')
       end
     end
   end
 
   describe 'POST /api/v1/devops/providers/:id/sync_repositories' do
     let(:headers) { auth_headers_for(user_with_write_permission) }
-    let(:provider) { create(:devops_provider, account: account) }
+    let(:provider) { create(:git_provider, account: account) }
 
     context 'with devops.providers.write permission' do
       it 'initiates repository sync successfully' do

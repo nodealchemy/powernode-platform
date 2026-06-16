@@ -82,14 +82,34 @@ RSpec.describe "Api::V1::Devops::Kubernetes::Clusters", type: :request do
              name: "k8s-bootstrap")
     }
 
-    it "destroys the cluster + cascades to member nodes" do
+    it "defers cluster decommission through the autonomy gate (pending, not destroyed)" do
+      # Cluster decommission is autonomy-gated (Ai::AutonomyGate). The controller
+      # no longer destroys synchronously — it returns 202 with a pending payload
+      # and only cascades after the deferred operation is approved. Stub the gate
+      # so the spec is deterministic regardless of intervention-policy/core mode.
+      deferred = instance_double(
+        ::Ai::DeferredOperation,
+        id: "deferred-op-1",
+        action_category: "system.runtime_k8s_cluster_decommission",
+        approval_request: nil
+      )
+      pending_result = ::Ai::AutonomyGate::Result.new(
+        decision: :pending,
+        deferred_operation: deferred
+      )
+      allow(::Ai::AutonomyGate).to receive(:evaluate).and_return(pending_result)
+
       delete "/api/v1/devops/kubernetes/clusters/#{cluster.id}", headers: headers, as: :json
 
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(:accepted)
       body = JSON.parse(response.body).dig("data")
-      expect(body["freed_node_count"]).to eq(1)
-      expect(Devops::KubernetesCluster.where(id: cluster.id)).to be_empty
-      expect(Devops::KubernetesNode.where(id: k8s_node.id)).to be_empty
+      expect(body["pending"]).to be true
+      expect(body["action_category"]).to eq("system.runtime_k8s_cluster_decommission")
+      expect(body["deferred_operation_id"]).to eq("deferred-op-1")
+
+      # Nothing is destroyed until the deferred operation is approved/executed.
+      expect(Devops::KubernetesCluster.where(id: cluster.id)).to exist
+      expect(Devops::KubernetesNode.where(id: k8s_node.id)).to exist
     end
 
     it "returns 404 when destroying a foreign cluster" do
