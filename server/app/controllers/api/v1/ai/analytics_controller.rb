@@ -201,7 +201,7 @@ module Api
         end
 
         def account_for_analytics
-          @account_scope || current_user&.account
+          @account_scope || current_user&.account || current_worker&.account
         end
 
         def validate_permissions

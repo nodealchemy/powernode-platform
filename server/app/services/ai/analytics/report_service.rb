@@ -50,7 +50,7 @@ module Ai
         {
           report_type: type.to_s,
           generated_at: Time.current.iso8601,
-          generated_by: user.email,
+          generated_by: user&.email,
           account_id: account.id,
           time_range: {
             start: time_range.ago.iso8601,

@@ -71,7 +71,7 @@ module Admin
     # @param limit [Integer] Number of accounts to return
     # @return [Array<Hash>] Recent accounts
     def recent_accounts_data(limit: 10)
-      Account.includes(:users, subscription: :plan)
+      Account.includes(account_includes)
              .order(created_at: :desc)
              .limit(limit)
              .map { |account| serialize_account(account) }
@@ -500,6 +500,32 @@ module Admin
 
     def payment_class
       Powernode::BillingBridge.payment_model
+    end
+
+    # Eager-load list for the accounts query. The `subscription` association
+    # only exists when a billing extension is loaded (it is added by the
+    # business extension's Account decorator). In core mode the association is
+    # absent, so eager-loading `subscription: :plan` would raise. Include it
+    # only when the model actually reflects the association — this is the exact
+    # condition under which the eager-load can succeed, and it avoids naming any
+    # specific extension.
+    # @return [Array, Hash] argument(s) for Account.includes(...)
+    def account_includes
+      if subscription_association?
+        [ :users, { subscription: :plan } ]
+      else
+        [ :users ]
+      end
+    end
+
+    # Whether Account carries the optional `subscription` association (added by
+    # the business billing extension). Pairs the billing-capability bridge with
+    # an actual ActiveRecord reflection check so we never eager-load a missing
+    # association even if the bridge/model wiring is partial.
+    # @return [Boolean]
+    def subscription_association?
+      Powernode::BillingBridge.subscription_model.present? &&
+        Account.reflect_on_association(:subscription).present?
     end
 
     def log_admin_action(action, resource, metadata = {})
