@@ -1,0 +1,30 @@
+name: Core extension coupling
+
+# Guards the core↔extension decoupling invariant: core must integrate with
+# extensions only through generic, slug-agnostic seams (Powernode::ExtensionRegistry
+# capabilities/providers, model decorators, ActiveSupport::Notifications, the frontend
+# featureRegistry, and extension.json metadata) — never by naming a specific extension
+# slug. Fails on the exact coupling patterns the decoupling sweep removed so they
+# can't silently regress. Pure bash, no DB/submodules → cheap to run on every PR that
+# touches core source. See docs/contributing/core-extension-decoupling.md.
+
+on:
+  pull_request:
+    paths:
+      - 'server/app/**'
+      - 'server/lib/**'
+      - 'server/config/**'
+      - 'frontend/src/**'
+      - 'scripts/check-no-extension-coupling.sh'
+      - '.gitea/workflows/core-extension-coupling.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  no-extension-coupling:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core names no private extension (generic seams only)
+        run: bash scripts/check-no-extension-coupling.sh
