@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_15_000030) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_17_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1338,6 +1338,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_000030) do
     t.vector "embedding", limit: 1536
     t.datetime "expires_at"
     t.string "extraction_method"
+    t.uuid "git_repository_id"
     t.decimal "importance_score", precision: 5, scale: 4, default: "0.5", null: false
     t.integer "injection_count", default: 0, null: false
     t.datetime "last_event_processed_at"
@@ -1366,6 +1367,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_000030) do
     t.index ["applicable_domains"], name: "index_ai_compound_learnings_on_applicable_domains", using: :gin
     t.index ["effectiveness_score"], name: "index_ai_compound_learnings_on_effectiveness_score"
     t.index ["embedding"], name: "idx_compound_learnings_embedding", opclass: :vector_cosine_ops, using: :hnsw
+    t.index ["git_repository_id"], name: "index_ai_compound_learnings_on_git_repository_id"
     t.index ["importance_score"], name: "index_ai_compound_learnings_on_importance_score"
     t.index ["last_event_processed_at"], name: "index_ai_compound_learnings_on_last_event_processed_at"
     t.index ["source_agent_id"], name: "index_ai_compound_learnings_on_source_agent_id"
@@ -3686,6 +3688,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_000030) do
     t.uuid "ralph_loop_id", null: false
     t.boolean "repeating", default: false, null: false
     t.jsonb "required_capabilities", default: []
+    t.string "revert_reason"
+    t.datetime "reverted_at"
     t.string "status", default: "pending", null: false
     t.string "task_key", null: false
     t.datetime "updated_at", null: false
@@ -3698,6 +3702,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_000030) do
     t.index ["ralph_loop_id", "task_key"], name: "index_ai_ralph_tasks_on_ralph_loop_id_and_task_key", unique: true
     t.index ["ralph_loop_id"], name: "index_ai_ralph_tasks_on_ralph_loop_id"
     t.index ["required_capabilities"], name: "index_ai_ralph_tasks_on_required_capabilities", using: :gin
+    t.index ["reverted_at"], name: "index_ai_ralph_tasks_on_reverted_at"
     t.index ["status"], name: "index_ai_ralph_tasks_on_status"
     t.check_constraint "capability_match_strategy::text = ANY (ARRAY['all'::character varying, 'any'::character varying, 'weighted'::character varying]::text[])", name: "ai_ralph_tasks_capability_match_strategy_check"
     t.check_constraint "execution_type::text = ANY (ARRAY['agent'::character varying, 'workflow'::character varying, 'pipeline'::character varying, 'a2a_task'::character varying, 'container'::character varying, 'human'::character varying, 'community'::character varying]::text[])", name: "ai_ralph_tasks_execution_type_check"
@@ -4010,6 +4015,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_000030) do
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.vector "embedding", limit: 1536
+    t.uuid "git_repository_id"
     t.string "integrity_hash"
     t.datetime "last_event_processed_at"
     t.datetime "last_quality_recalc_at"
@@ -4028,6 +4034,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_000030) do
     t.index ["account_id"], name: "index_ai_shared_knowledges_on_account_id"
     t.index ["created_by_id"], name: "index_ai_shared_knowledges_on_created_by_id"
     t.index ["embedding"], name: "index_ai_shared_knowledges_on_embedding", opclass: :vector_cosine_ops, using: :hnsw
+    t.index ["git_repository_id"], name: "index_ai_shared_knowledges_on_git_repository_id"
     t.index ["last_event_processed_at"], name: "index_ai_shared_knowledges_on_last_event_processed_at"
     t.index ["source_type", "source_id"], name: "index_ai_shared_knowledges_on_source_type_and_source_id"
     t.index ["tags"], name: "index_ai_shared_knowledges_on_tags", using: :gin
@@ -13601,6 +13608,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_000030) do
   add_foreign_key "ai_compound_learnings", "ai_agents", column: "source_agent_id"
   add_foreign_key "ai_compound_learnings", "ai_compound_learnings", column: "superseded_by_id"
   add_foreign_key "ai_compound_learnings", "ai_team_executions", column: "source_execution_id"
+  add_foreign_key "ai_compound_learnings", "git_repositories", on_delete: :nullify
   add_foreign_key "ai_context_access_logs", "accounts"
   add_foreign_key "ai_context_access_logs", "ai_agents"
   add_foreign_key "ai_context_access_logs", "ai_context_entries"
@@ -13826,6 +13834,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_000030) do
   add_foreign_key "ai_shadow_executions", "accounts"
   add_foreign_key "ai_shadow_executions", "ai_agents", column: "agent_id"
   add_foreign_key "ai_shared_knowledges", "accounts"
+  add_foreign_key "ai_shared_knowledges", "git_repositories", on_delete: :nullify
   add_foreign_key "ai_shared_knowledges", "users", column: "created_by_id"
   add_foreign_key "ai_skill_compositions", "ai_skills", column: "component_skill_id"
   add_foreign_key "ai_skill_compositions", "ai_skills", column: "composite_skill_id"
