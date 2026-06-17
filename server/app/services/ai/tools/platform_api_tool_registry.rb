@@ -338,6 +338,13 @@ module Ai
         # Dev-loop executor bridge (pull-based task queue for Claude Code / platform executors)
         "dev_next_task" => "Ai::Tools::DevLoopTool",
         "dev_complete_task" => "Ai::Tools::DevLoopTool",
+        "delegate_ralph_task" => "Ai::Tools::DevLoopTool",
+        # Improvement-discovery loop (Tier-1): offer -> approve -> dev-improve task
+        "discover_improvements" => "Ai::Tools::ImprovementTool",
+        "create_improvement" => "Ai::Tools::ImprovementTool",
+        "list_improvements" => "Ai::Tools::ImprovementTool",
+        "approve_improvement" => "Ai::Tools::ImprovementTool",
+        "dismiss_improvement" => "Ai::Tools::ImprovementTool",
         # Agent management
         "create_agent" => "Ai::Tools::AgentManagementTool",
         "list_agents" => "Ai::Tools::AgentManagementTool",

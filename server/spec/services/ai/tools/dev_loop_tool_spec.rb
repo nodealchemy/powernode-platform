@@ -15,9 +15,9 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(defn[:parameters][:action][:required]).to be true
     end
 
-    it "exposes both bridge actions" do
+    it "exposes the bridge actions" do
       expect(described_class.action_definitions.keys)
-        .to contain_exactly("dev_next_task", "dev_complete_task")
+        .to contain_exactly("dev_next_task", "dev_complete_task", "delegate_ralph_task")
     end
   end
 

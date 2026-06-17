@@ -25,7 +25,11 @@ module Ai
             learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
             git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
             commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
-            files_changed: { type: "array", required: false, description: "Paths touched by this task" }
+            files_changed: { type: "array", required: false, description: "Paths touched by this task" },
+            agent_id: { type: "string", required: false, description: "Platform agent to delegate a task to" },
+            await: { type: "boolean", required: false, description: "Block until the delegated agent finishes" },
+            timeout: { type: "integer", required: false, description: "Await timeout seconds (max 300)" },
+            budget_cents: { type: "integer", required: false, description: "Budget for the delegated task" }
           }
         }
       end
@@ -55,6 +59,19 @@ module Ai
               commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
               files_changed: { type: "array", required: false, description: "Paths touched by this task" }
             }
+          },
+          "delegate_ralph_task" => {
+            description: "Hand a pending/in-progress Ralph task to a platform agent (A2A) instead of executing it " \
+                         "yourself. Reuses spawn_task's capability-matrix + delegation-authority checks. With await, " \
+                         "blocks until the agent finishes and records the outcome on the loop. No-op when halted.",
+            parameters: {
+              loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
+              task_key: { type: "string", required: true, description: "Task to delegate" },
+              agent_id: { type: "string", required: true, description: "Platform agent to delegate to" },
+              await: { type: "boolean", required: false, description: "Block until the agent finishes (default false)" },
+              timeout: { type: "integer", required: false, description: "Await timeout seconds (max 300)" },
+              budget_cents: { type: "integer", required: false, description: "Budget for the delegated task" }
+            }
           }
         }
       end
@@ -68,6 +85,7 @@ module Ai
         case params[:action]
         when "dev_next_task" then next_task(params)
         when "dev_complete_task" then complete_task(params)
+        when "delegate_ralph_task" then delegate_ralph_task(params)
         else
           error_result("Unknown action: #{params[:action]}")
         end
@@ -192,6 +210,96 @@ module Ai
           iteration: iteration.iteration_number, task_key: task.task_key
         })
         iteration.update!(learning_extracted: learning)
+      end
+
+      # --- Delegation: hand a Ralph task to a platform agent (Claude -> agent) ---
+
+      def delegate_ralph_task(params)
+        loop_record = find_loop(params[:loop_id])
+        return error_result("Ralph loop not found") unless loop_record
+
+        if (reason = halt_reason(loop_record))
+          return { success: true, halted: true, reason: reason }
+        end
+
+        task = loop_record.ralph_tasks.find_by(task_key: params[:task_key])
+        return error_result("Task not found: #{params[:task_key]}") unless task
+        unless task.status.in?(%w[pending in_progress])
+          return error_result("Task is #{task.status} — only pending/in_progress tasks can be delegated")
+        end
+        return error_result("agent_id is required (the platform agent to delegate to)") if params[:agent_id].blank?
+        if task.status == "pending" && !task.dependencies_satisfied?
+          return error_result("Task dependencies are not satisfied yet")
+        end
+
+        loop_record.start! if loop_record.can_start?
+        task.start! if task.status == "pending"
+        task.record_execution_attempt!
+
+        spawn = delegate_tool.execute(params: {
+          action: "spawn_task", agent_id: params[:agent_id],
+          task: delegation_brief(loop_record, task), budget_cents: params[:budget_cents]
+        })
+        unless spawn[:success]
+          task.update!(metadata: (task.metadata || {}).merge("delegation_error" => spawn[:error]))
+          return error_result("Delegation failed: #{spawn[:error]}")
+        end
+
+        task.update!(metadata: (task.metadata || {}).merge(
+          "delegated_to" => spawn[:agent_id], "delegated_agent_name" => spawn[:agent_name],
+          "a2a_task_id" => spawn[:task_id], "delegated_at" => Time.current.iso8601,
+          "claimed_by" => "agent:#{spawn[:agent_id]}"
+        ))
+
+        return delegation_submitted(task, spawn) unless params[:await]
+
+        waited = delegate_tool.execute(params: {
+          action: "wait_for_task", task_id: spawn[:task_id], timeout_seconds: params[:timeout]
+        })
+        record_delegated_outcome(loop_record, task, spawn, waited)
+      rescue Ai::RalphTask::InvalidTransitionError, ActiveRecord::RecordInvalid => e
+        error_result(e.message)
+      end
+
+      def delegation_submitted(task, spawn)
+        {
+          success: true, delegated: true, awaited: false, task_key: task.task_key,
+          a2a_task_id: spawn[:task_id], agent: spawn[:agent_name], status: "submitted",
+          note: "Track via check_task_status(#{spawn[:task_id]}); task stays in_progress until reported."
+        }
+      end
+
+      def record_delegated_outcome(loop_record, task, spawn, waited)
+        unless waited[:success]
+          return { success: true, delegated: true, awaited: true, task_key: task.task_key,
+                   a2a_task_id: spawn[:task_id], outcome: "pending", detail: waited[:error] }
+        end
+
+        outcome = waited[:status] == "completed" ? "passed" : "failed"
+        summary = (waited[:output].presence || waited[:error_message].presence ||
+                   "Delegated agent #{waited[:status]}").to_s
+        iteration = prepare_iteration(loop_record, task,
+                                      { check_results: { "delegated_a2a_task" => spawn[:task_id], "agent" => spawn[:agent_name] } })
+        record_outcome(loop_record, task, iteration, outcome, summary, {})
+
+        { success: true, delegated: true, awaited: true, task_key: task.task_key,
+          a2a_task_id: spawn[:task_id], outcome: outcome, task_status: task.reload.status, agent: spawn[:agent_name] }
+      end
+
+      def delegate_tool
+        @delegate_tool ||= Ai::Tools::AgentManagementTool.new(account: account, user: user, agent: agent)
+      end
+
+      def delegation_brief(loop_record, task)
+        config = loop_record.configuration || {}
+        meta = task.metadata.is_a?(Hash) ? task.metadata : {}
+        [
+          "You are executing a delegated dev-loop task. Loop: #{loop_record.name} (branch #{loop_record.branch}).",
+          "Task #{task.task_key}: #{task.description}",
+          "Acceptance criteria: #{task.acceptance_criteria}",
+          (meta["files"].present? ? "Files: #{Array(meta['files']).join(', ')}" : nil),
+          (config["guardrails"].present? ? "Guardrails: #{Array(config['guardrails']).join(' | ')}" : nil)
+        ].compact.join("\n")
       end
 
       # Halt checks — executors must stop pulling when any of these hold.
