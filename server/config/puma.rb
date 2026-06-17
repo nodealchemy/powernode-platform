@@ -69,7 +69,7 @@ if web_concurrency > 0
 
     # Worker recycler: restart this worker after MAX_WORKER_AGE or when RSS exceeds
     # MAX_WORKER_RSS. Puma phased-restart replaces workers one at a time, so there's
-    # no downtime. This prevents memory bloat from long-running trading context assembly.
+    # no downtime. This prevents memory bloat from long-running context assembly.
     max_age = ENV.fetch("MAX_WORKER_AGE", 3600).to_i     # 1 hour default
     max_rss_mb = ENV.fetch("MAX_WORKER_RSS_MB", 800).to_i # 800MB default
     worker_booted_at = Time.now

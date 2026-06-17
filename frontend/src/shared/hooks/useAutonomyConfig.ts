@@ -13,7 +13,7 @@ import { logger } from '@/shared/utils/logger';
  * policies and how to map agent names → role strings; the hook handles the
  * dirty-tracking + optimistic state management.
  *
- * Trading and System each construct their own source — this hook is generic
+ * Each extension constructs its own source — this hook is generic
  * enough that future extensions plug in identically.
  */
 export function useAutonomyConfig(source: AutonomyConfigSource) {
@@ -37,7 +37,7 @@ export function useAutonomyConfig(source: AutonomyConfigSource) {
               byAgent[agentName][p.action_category] = p.policy ?? 'require_approval';
             });
           } else if (actions && typeof actions === 'object') {
-            // Trading API shape: { action_category: { policy: ... } }
+            // Nested-object API shape: { action_category: { policy: ... } }
             Object.entries(actions as Record<string, { policy: AutonomyLevel }>).forEach(
               ([action, info]) => {
                 byAgent[agentName][action] = info?.policy ?? 'require_approval';

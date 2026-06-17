@@ -29,7 +29,7 @@ const ADMIN_EMAIL = process.env.POWERNODE_ADMIN_EMAIL || 'admin@powernode.org';
 const ADMIN_PASSWORD = process.env.POWERNODE_ADMIN_PASSWORD || 'Fwhf7j-v5z92HL0OZqPRVq_1';
 
 // Demo Company user — used for KG + AI Agents captures because the dev
-// admin account has trading-extension data that would leak into the
+// admin account has private-extension data that would leak into the
 // public marketing site per feedback_no_private_extension_names_in_public_docs.
 // Demo Company is a clean account seeded by
 // extensions/marketing/server/db/seeds/marketing_demo_data_seed.rb.
@@ -54,8 +54,8 @@ const CAPTURES = [
   { slug: 'fleet-dashboard', url: '/app/system/fleet', auth: 'admin', settle: 3000 },
   { slug: 'template-composer', url: '/app/system/templates/compose', auth: 'admin', settle: 3000 },
   { slug: 'sdwan-overview', url: '/app/system/sdwan', auth: 'admin', settle: 3000 },
-  // Demo Company captures (clean account, no trading leak) for the AI
-  // operator UX surfaces. Captured AFTER admin captures since each
+  // Demo Company captures (clean account, no private-extension leak) for
+  // the AI operator UX surfaces. Captured AFTER admin captures since each
   // login uses the current page context.
   { slug: 'ai-agents', url: '/app/ai/agents', auth: 'demo', settle: 3000 },
   { slug: 'ai-knowledge', url: '/app/ai/knowledge', auth: 'demo', settle: 3000 },

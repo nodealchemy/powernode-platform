@@ -18,11 +18,11 @@ interface AutonomyPolicyGroupProps {
 /**
  * Per-domain autonomy policy editor — renders an action list with per-row
  * dropdowns plus a "Set all" bulk-set control. Used inside System Settings
- * Modal (one instance per domain tab) and Trading Settings Panel (one instance
- * per agent role).
+ * Modal (one instance per domain tab) and per-extension settings panels (one
+ * instance per agent role).
  *
- * Promoted to shared from Trading 2026-05-10 — autonomy is a platform-wide
- * feature, every extension that grows agents will need this UI.
+ * Promoted to shared 2026-05-10 — autonomy is a platform-wide feature, every
+ * extension that grows agents will need this UI.
  */
 export function AutonomyPolicyGroup({
   label,

@@ -31,7 +31,7 @@ end
 # [slug, relative-path] pairs in the same shape as discover_extension_gems.
 #
 # Private extensions are EXCLUDED from the :private bucket BY DEFAULT, so a
-# maintainer's machine (which has business + trading on disk) produces a
+# maintainer's machine (which has private extensions on disk) produces a
 # public-only Gemfile.lock automatically — no manual regen step, and the
 # committed lock never declares `powernode_business!` etc. that CI's frozen
 # install can't resolve. Opt IN to declaring + loading private extensions

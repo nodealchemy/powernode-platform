@@ -1,15 +1,15 @@
 /**
  * Shared autonomy types — used by every extension's autonomy settings UI
- * (Trading, System, future). Lives in core because autonomy is a platform-wide
- * feature, not a Trading-specific one.
+ * (System and future extensions). Lives in core because autonomy is a
+ * platform-wide feature, not an extension-specific one.
  */
 
 export type AutonomyLevel = 'block' | 'require_approval' | 'notify_and_proceed' | 'auto_approve';
 
 /**
  * Configuration for the parameterized useAutonomyConfig hook so any extension
- * can wire up a Settings UI against its own API endpoints. Trading and System
- * each provide their own AutonomyConfigSource; the hook itself is generic.
+ * can wire up a Settings UI against its own API endpoints. Each extension
+ * provides its own AutonomyConfigSource; the hook itself is generic.
  */
 export interface AutonomyConfigSource {
   /** GET endpoint that returns { policies: { [agentName]: { [action]: { policy, ... } } } } */

@@ -189,7 +189,7 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
               type="text"
               value={roleId}
               onChange={(e) => setRoleId(e.target.value)}
-              placeholder="Role ID from vault read auth/approle/role/powernode-trading/role-id"
+              placeholder="Role ID from vault read auth/approle/role/powernode-app/role-id"
               autoComplete="off"
               className="w-full px-3 py-2 text-sm border border-theme rounded bg-theme-surface text-theme-primary"
             />

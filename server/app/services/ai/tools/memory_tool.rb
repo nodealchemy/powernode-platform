@@ -71,7 +71,7 @@ module Ai
             parameters: {}
           },
           "create_memory_pool" => {
-            description: "Create a new memory pool. pool_id should be a unique slug (e.g. 'trading_ops'). Pools are account-scoped.",
+            description: "Create a new memory pool. pool_id should be a unique slug (e.g. 'research_ops'). Pools are account-scoped.",
             parameters: {
               pool_id: { type: "string", required: true, description: "Unique slug for the pool (lowercase, underscores)" },
               name: { type: "string", required: true, description: "Human-readable display name" },
