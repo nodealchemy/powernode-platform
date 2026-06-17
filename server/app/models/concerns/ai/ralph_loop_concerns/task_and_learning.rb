@@ -30,15 +30,18 @@ module Ai
       # Learning management
 
       def add_learning(learning_text, context: {})
-        learning_entry = {
-          "text" => learning_text,
-          "iteration" => current_iteration,
-          "timestamp" => Time.current.iso8601,
-          "context" => context
-        }
-
-        self.learnings = (learnings || []) + [ learning_entry ]
-        save!
+        # Tier-2(c) §5: atomic read-append-write under a row lock — concurrent
+        # appends previously clobbered each other (last save! wins, entries lost).
+        with_lock do
+          learning_entry = {
+            "text" => learning_text,
+            "iteration" => current_iteration,
+            "timestamp" => Time.current.iso8601,
+            "context" => context
+          }
+          self.learnings = (learnings || []) + [ learning_entry ]
+          save!
+        end
       end
 
       def recent_learnings(limit: 10)
@@ -48,10 +51,14 @@ module Ai
       # Iteration management
 
       def increment_iteration!
-        # Sync with actual max iteration from DB to recover from any counter drift
-        max_completed = ralph_iterations.maximum(:iteration_number) || current_iteration
-        new_iteration = [current_iteration + 1, max_completed].max
-        update!(current_iteration: new_iteration)
+        # Tier-2(c) §5: serialize concurrent increments with a row lock so two
+        # iterations completing at once can't both read N and write N+1 (silent
+        # counter drift). The max_completed sync still recovers from crash/replay.
+        with_lock do
+          max_completed = ralph_iterations.maximum(:iteration_number) || current_iteration
+          new_iteration = [current_iteration + 1, max_completed].max
+          update!(current_iteration: new_iteration)
+        end
       end
 
       def create_iteration(task: nil)

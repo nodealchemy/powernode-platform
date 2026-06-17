@@ -15,6 +15,12 @@ module Ai
     # Capability match strategies for executor selection
     CAPABILITY_STRATEGIES = %w[all any weighted].freeze
 
+    # Tier-2(c): improvement-metric tuning
+    DURABILITY_WINDOW = 7.days     # a pass must survive this long to count as durable
+    BLAST_RADIUS_CAP = 10          # cap a single task's blast-radius weight
+    KIND_VELOCITY_CAP = 20         # cap one kind's positive velocity contribution
+    REVERT_THROTTLE_RATE = 0.3     # kinds reverting >= this fraction are flagged throttled
+
     # ==================== Associations ====================
     belongs_to :ralph_loop, class_name: "Ai::RalphLoop", foreign_key: "ralph_loop_id"
 
@@ -46,6 +52,11 @@ module Ai
     scope :active, -> { where(status: %w[pending in_progress blocked]) }
     scope :by_priority, -> { order(priority: :desc, position: :asc) }
     scope :ordered, -> { order(position: :asc, priority: :desc) }
+    # Tier-2(c): revert tracking for the ungameable improvement metric
+    scope :reverted, -> { where.not(reverted_at: nil) }
+    scope :not_reverted, -> { where(reverted_at: nil) }
+    # A durable improvement = passed, never reverted, matured past the window.
+    scope :durable, ->(window = DURABILITY_WINDOW) { passed.not_reverted.where("iteration_completed_at <= ?", window.ago) }
 
     # ==================== Callbacks ====================
     before_validation :set_position, on: :create
@@ -120,6 +131,85 @@ module Ai
         error_message: nil,
         error_code: nil
       )
+    end
+
+    # ==================== Revert Tracking (Tier-2c) ====================
+
+    # Mark a previously-committed task as reverted. Orthogonal to the pass/fail
+    # state machine: the task keeps its terminal status but stops counting as a
+    # durable improvement and raises its kind's revert_rate. Ground-truth signal
+    # behind net_improvement_velocity — explicit (operator- or rollback-driven),
+    # never inferred from self-reported checks.
+    def revert!(reason: nil)
+      update!(reverted_at: Time.current, revert_reason: reason)
+    end
+
+    def unrevert!
+      update!(reverted_at: nil, revert_reason: nil)
+    end
+
+    def reverted?
+      reverted_at.present?
+    end
+
+    # A durable improvement: passed, never reverted, and old enough to have
+    # survived the observation window (default 7 days).
+    def durable?(window: DURABILITY_WINDOW)
+      status == "passed" && !reverted? && iteration_completed_at.present? && iteration_completed_at <= window.ago
+    end
+
+    # Blast-radius weight for the improvement metric: how many files the change
+    # touched (seeded at promotion from the recommendation's evidence), floored at
+    # 1 and capped so one sprawling change can't dominate the velocity score.
+    def blast_radius
+      raw = metadata.is_a?(Hash) ? metadata["blast_radius"].to_i : 0
+      raw.clamp(1, BLAST_RADIUS_CAP)
+    end
+
+    # ==================== Improvement Metric (Tier-2c) ====================
+
+    # Ungameable improvement scoreboard for an account, computed from ground truth
+    # (reverted_at / status / metadata.kind) — never from self-reported checks.
+    # Revert-adjusted, per-kind revert_rate + throttle flag, blast-radius weighted,
+    # and per-kind capped so spamming one easy kind can't inflate it. Reused by
+    # get_ralph_loop_statistics and /improve status (one source of truth).
+    def self.improvement_scoreboard(account:, window_days: 30)
+      since = window_days.days.ago
+      tasks = joins(:ralph_loop)
+              .where(ai_ralph_loops: { account_id: account.id })
+              .where("ai_ralph_tasks.metadata->>'kind' IS NOT NULL")
+              .where("ai_ralph_tasks.updated_at >= ?", since)
+              .to_a
+
+      per_kind = {}
+      net = 0.0
+
+      tasks.group_by { |t| t.metadata["kind"] }.each do |kind, group|
+        completed = group.count { |t| t.status == "passed" }
+        reverted  = group.count(&:reverted?)
+        durable   = group.select(&:durable?)
+        revert_rate = completed.positive? ? (reverted.to_f / completed).round(3) : 0.0
+
+        per_kind[kind] = {
+          completed: completed,
+          reverted: reverted,
+          durable: durable.size,
+          revert_rate: revert_rate,
+          throttled: revert_rate >= REVERT_THROTTLE_RATE
+        }
+
+        weighted = durable.sum(&:blast_radius)
+        net += [weighted, KIND_VELOCITY_CAP].min - reverted
+      end
+
+      weeks = [window_days / 7.0, 1.0].max
+      {
+        window_days: window_days,
+        net_improvement_velocity: (net / weeks).round(2),
+        total_durable: per_kind.values.sum { |k| k[:durable] },
+        total_reverted: per_kind.values.sum { |k| k[:reverted] },
+        per_kind: per_kind
+      }
     end
 
     # ==================== State Checks ====================
@@ -268,7 +358,8 @@ module Ai
         execution_type: execution_type,
         executor_type: executor_type,
         executor_id: executor_id,
-        execution_attempts: execution_attempts
+        execution_attempts: execution_attempts,
+        reverted: reverted?
       }
     end
 

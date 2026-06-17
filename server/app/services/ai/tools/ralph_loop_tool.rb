@@ -173,13 +173,15 @@ module Ai
       end
 
       def get_statistics
-        loops = account.ai_ralph_loops
+        loops = account.ai_ralph_loops.includes(:default_agent)
         {
           success: true,
           total_loops: loops.count,
           active: loops.where(status: "running").count,
           paused: loops.where(schedule_paused: true).count,
           total_iterations_today: loops.sum(:daily_iteration_count),
+          # Tier-2(c): ungameable improvement metric (revert-adjusted velocity + per-kind revert_rate)
+          improvement: Ai::RalphTask.improvement_scoreboard(account: account),
           loops: loops.map { |l|
             { name: l.name, status: l.status, paused: l.schedule_paused,
               iterations_today: l.daily_iteration_count, agent: l.default_agent&.name }

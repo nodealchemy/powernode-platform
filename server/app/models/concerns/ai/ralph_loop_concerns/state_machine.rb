@@ -43,6 +43,23 @@ module Ai
           completed_at: Time.current,
           configuration: configuration.merge("final_result" => result)
         )
+
+        # Tier-2(c): harvest the loop's accumulated learnings into durable
+        # CompoundLearning records (idempotent, rescue-safe). Batch at completion —
+        # off the per-iteration hot path.
+        extract_compound_learnings
+      end
+
+      # Promote ralph-loop learnings to CompoundLearning so effective_importance /
+      # decay can measure durable knowledge. No-op when there's nothing to harvest;
+      # never raises (extraction is best-effort and must not block completion).
+      def extract_compound_learnings
+        return if account.nil? || Array(learnings).empty?
+
+        Ai::Learning::RalphLearningExtractor.new(account: account).extract(self)
+      rescue StandardError => e
+        Rails.logger.warn("[RalphLoop] CompoundLearning extraction failed for loop #{id}: #{e.message}")
+        nil
       end
 
       def fail!(error_message:, error_code: nil, error_details: {})

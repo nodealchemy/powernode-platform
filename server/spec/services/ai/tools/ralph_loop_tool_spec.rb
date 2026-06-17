@@ -28,6 +28,15 @@ RSpec.describe Ai::Tools::RalphLoopTool do
     end
   end
 
+  describe "get_ralph_loop_statistics" do
+    it "includes the Tier-2(c) improvement scoreboard" do
+      result = tool.execute(params: { action: "get_ralph_loop_statistics" })
+
+      expect(result[:success]).to be true
+      expect(result[:improvement]).to include(:net_improvement_velocity, :per_kind)
+    end
+  end
+
   describe "list_ralph_loops" do
     it "lists loops for the account" do
       ralph_loop
