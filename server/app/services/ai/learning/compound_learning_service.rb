@@ -491,6 +491,7 @@ module Ai
           ai_agent_team: team,
           source_agent_id: learning_data[:source_agent_id] || learning_data[:agent_id],
           source_execution: execution,
+          git_repository_id: learning_data[:git_repository_id], # Tier-2(d): portable repo scoping
           category: learning_data[:category],
           content: content,
           title: learning_data[:title],

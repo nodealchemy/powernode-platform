@@ -19,6 +19,7 @@ RSpec.describe Ai::CompoundLearning, type: :model do
     it { should belong_to(:superseded_by).class_name("Ai::CompoundLearning").optional }
     it { should belong_to(:verified_by).class_name("User").optional }
     it { should belong_to(:disproven_by).class_name("User").optional }
+    it { should belong_to(:git_repository).class_name("Devops::GitRepository").optional }
     it { should have_many(:superseding).class_name("Ai::CompoundLearning") }
   end
 
@@ -331,6 +332,49 @@ RSpec.describe Ai::CompoundLearning, type: :model do
         expect(described_class.high_importance).to include(high)
         expect(described_class.high_importance).not_to include(low)
       end
+    end
+  end
+
+  # ============================================================================
+  # PORTABILITY (Tier-2): repository scoping
+  # ============================================================================
+
+  describe ".for_account_and_repo" do
+    let(:repo) { create(:git_repository, account: account) }
+    let(:other_repo) { create(:git_repository, account: account) }
+    let!(:in_repo) { create(:ai_compound_learning, account: account, ai_agent_team: team, git_repository: repo) }
+    let!(:other_repo_learning) { create(:ai_compound_learning, account: account, ai_agent_team: team, git_repository: other_repo) }
+    let!(:no_repo) { create(:ai_compound_learning, account: account, ai_agent_team: team) }
+
+    it "returns only learnings for the given account + repository" do
+      results = described_class.for_account_and_repo(account.id, repo.id)
+      expect(results).to include(in_repo)
+      expect(results).not_to include(other_repo_learning, no_repo)
+    end
+  end
+
+  describe ".semantic_search repository scoping" do
+    let(:repo) { create(:git_repository, account: account) }
+    let(:other_repo) { create(:git_repository, account: account) }
+    let(:embedding) { Array.new(1536, 0.1) }
+    let!(:in_repo) do
+      create(:ai_compound_learning, account: account, ai_agent_team: team, status: "active",
+             git_repository: repo, embedding: embedding)
+    end
+    let!(:other) do
+      create(:ai_compound_learning, account: account, ai_agent_team: team, status: "active",
+             git_repository: other_repo, embedding: embedding)
+    end
+
+    it "filters to the given repository when repository_id is present" do
+      results = described_class.semantic_search(embedding, account_id: account.id, repository_id: repo.id)
+      expect(results).to include(in_repo)
+      expect(results).not_to include(other)
+    end
+
+    it "returns all matching learnings when repository_id is nil (back-compat)" do
+      results = described_class.semantic_search(embedding, account_id: account.id)
+      expect(results).to include(in_repo, other)
     end
   end
 end

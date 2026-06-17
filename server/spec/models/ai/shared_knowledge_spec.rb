@@ -8,6 +8,7 @@ RSpec.describe Ai::SharedKnowledge, type: :model do
   describe 'associations' do
     it { should belong_to(:account) }
     it { should belong_to(:created_by).class_name('User').optional }
+    it { should belong_to(:git_repository).class_name('Devops::GitRepository').optional }
   end
 
   describe 'validations' do
@@ -198,6 +199,44 @@ RSpec.describe Ai::SharedKnowledge, type: :model do
   describe '.semantic_search' do
     it 'responds to semantic_search class method' do
       expect(described_class).to respond_to(:semantic_search)
+    end
+  end
+
+  # ==========================================================================
+  # PORTABILITY (Tier-2): repository scoping
+  # ==========================================================================
+
+  describe 'repository scoping' do
+    let(:repo) { create(:git_repository, account: account) }
+    let(:other_repo) { create(:git_repository, account: account) }
+
+    describe '.for_account_and_repo' do
+      let!(:in_repo) { create(:ai_shared_knowledge, account: account, git_repository: repo) }
+      let!(:other_repo_knowledge) { create(:ai_shared_knowledge, account: account, git_repository: other_repo) }
+      let!(:no_repo) { create(:ai_shared_knowledge, account: account) }
+
+      it 'returns only knowledge for the given account + repository' do
+        results = described_class.for_account_and_repo(account.id, repo.id)
+        expect(results).to include(in_repo)
+        expect(results).not_to include(other_repo_knowledge, no_repo)
+      end
+    end
+
+    describe '.semantic_search with repository_id' do
+      let(:embedding) { Array.new(1536, 0.1) }
+      let!(:in_repo) { create(:ai_shared_knowledge, account: account, git_repository: repo, embedding: embedding) }
+      let!(:other) { create(:ai_shared_knowledge, account: account, git_repository: other_repo, embedding: embedding) }
+
+      it 'filters to the given repository when repository_id is present' do
+        results = described_class.semantic_search(embedding, repository_id: repo.id)
+        expect(results).to include(in_repo)
+        expect(results).not_to include(other)
+      end
+
+      it 'returns all matching entries when repository_id is nil (back-compat)' do
+        results = described_class.semantic_search(embedding)
+        expect(results).to include(in_repo, other)
+      end
     end
   end
 end

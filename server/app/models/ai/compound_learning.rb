@@ -12,7 +12,7 @@ module Ai
     CATEGORIES = %w[pattern anti_pattern best_practice discovery fact failure_mode review_finding performance_insight reflexion].freeze
     SCOPES = %w[team global].freeze
     STATUSES = %w[active deprecated superseded verified disproven].freeze
-    EXTRACTION_METHODS = %w[marker auto_success auto_failure review evaluation reflexion].freeze
+    EXTRACTION_METHODS = %w[marker auto_success auto_failure review evaluation reflexion ralph_loop].freeze
 
     # ==========================================
     # Associations
@@ -24,6 +24,8 @@ module Ai
     belongs_to :superseded_by, class_name: "Ai::CompoundLearning", foreign_key: "superseded_by_id", optional: true
     belongs_to :verified_by, class_name: "User", foreign_key: "verified_by_id", optional: true
     belongs_to :disproven_by, class_name: "User", foreign_key: "disproven_by_id", optional: true
+    # Portability (Tier-2): optional repo scoping for uncontaminated per-project recall
+    belongs_to :git_repository, class_name: "Devops::GitRepository", foreign_key: "git_repository_id", optional: true
 
     has_many :superseding, class_name: "Ai::CompoundLearning", foreign_key: :superseded_by_id
 
@@ -49,6 +51,8 @@ module Ai
     scope :active, -> { where(status: "active") }
     scope :for_team, ->(team_id) { where(ai_agent_team_id: team_id) }
     scope :for_account, ->(account_id) { where(account_id: account_id) }
+    # Portability (Tier-2): account + repository scoped recall
+    scope :for_account_and_repo, ->(account_id, repository_id) { where(account_id: account_id, git_repository_id: repository_id) }
     scope :global_scope, -> { where(scope: "global") }
     scope :team_scope, -> { where(scope: "team") }
     scope :by_category, ->(cat) { where(category: cat) }
@@ -65,10 +69,12 @@ module Ai
     # ==========================================
 
     # Semantic search using neighbor gem's nearest_neighbors scope (cosine distance)
-    def self.semantic_search(query_embedding, account_id:, threshold: 0.6, limit: 20)
+    def self.semantic_search(query_embedding, account_id:, threshold: 0.6, limit: 20, repository_id: nil)
       return [] if query_embedding.blank?
 
-      where(account_id: account_id, status: %w[active verified])
+      scope = where(account_id: account_id, status: %w[active verified])
+      scope = scope.where(git_repository_id: repository_id) if repository_id.present?
+      scope
         .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
         .limit(limit)
         .to_a

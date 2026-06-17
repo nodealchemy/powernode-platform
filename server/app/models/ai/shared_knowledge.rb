@@ -18,6 +18,8 @@ module Ai
     # ==========================================
     belongs_to :account
     belongs_to :created_by, class_name: "User", foreign_key: "created_by_id", optional: true
+    # Portability (Tier-2): optional repo scoping for uncontaminated per-project recall
+    belongs_to :git_repository, class_name: "Devops::GitRepository", foreign_key: "git_repository_id", optional: true
 
     # ==========================================
     # Validations
@@ -47,6 +49,8 @@ module Ai
     scope :recent, -> { order(created_at: :desc) }
     scope :frequently_used, -> { order(usage_count: :desc) }
     scope :by_source, ->(type) { where(source_type: type) }
+    # Portability (Tier-2): account + repository scoped recall
+    scope :for_account_and_repo, ->(account_id, repository_id) { where(account_id: account_id, git_repository_id: repository_id) }
 
     # ==========================================
     # Methods
@@ -79,9 +83,10 @@ module Ai
     end
 
     # Search by semantic similarity
-    def self.semantic_search(query_embedding, limit: 10, threshold: 0.7)
+    def self.semantic_search(query_embedding, limit: 10, threshold: 0.7, repository_id: nil)
       distance_threshold = 1.0 - threshold
-      nearest_neighbors(:embedding, query_embedding, distance: "cosine")
+      scope = repository_id.present? ? where(git_repository_id: repository_id) : all
+      scope.nearest_neighbors(:embedding, query_embedding, distance: "cosine")
         .limit(limit)
         .to_a
         .select { |e| e.neighbor_distance <= distance_threshold }
