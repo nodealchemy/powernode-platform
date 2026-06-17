@@ -17,6 +17,8 @@ module Ai
         analyses.concat(analyze_team_compositions)
         analyses.concat(analyze_cost_efficiency)
         analyses.concat(analyze_failure_modes)
+        analyses.concat(analyze_skill_health)
+        analyses.concat(analyze_learning_health)
         analyses
       end
 
@@ -197,6 +199,85 @@ module Ai
         recommendations
       rescue => e
         Rails.logger.error "[TrajectoryAnalyzer] Failure mode analysis failed: #{e.message}"
+        []
+      end
+
+      # Tier-2(a): data-only skill-health signal — no repo checkout needed, so it
+      # runs in the nightly server-side trajectory pass. Flags account-owned skills
+      # (account_id = this account; system skills with nil account are excluded as
+      # they are shared) that fail more often than a meaningful sample warrants.
+      def analyze_skill_health
+        recommendations = []
+
+        ::Ai::Skill.where(account_id: @account.id).enabled.find_each do |skill|
+          total = skill.positive_usage_count.to_i + skill.negative_usage_count.to_i
+          next if total < MIN_SAMPLE_SIZE
+
+          success_rate = skill.usage_success_rate
+          next unless success_rate < 0.4
+
+          recommendations << {
+            recommendation_type: "skill_health",
+            target_type: "Ai::Skill",
+            target_id: skill.id,
+            current_config: { skill_name: skill.name, success_rate: success_rate, usage_count: skill.usage_count },
+            recommended_config: {},
+            evidence: {
+              skill_name: skill.name,
+              success_rate: (success_rate * 100).round(1),
+              sample_size: total,
+              suggestion: "Skill '#{skill.name}' succeeds only #{(success_rate * 100).round(1)}% of the time " \
+                          "over #{total} uses. Review, refine, or retire it."
+            },
+            confidence_score: [0.5 + (0.4 - success_rate), 0.9].min.round(4)
+          }
+        end
+
+        recommendations
+      rescue => e
+        Rails.logger.error "[TrajectoryAnalyzer] Skill health analysis failed: #{e.message}"
+        []
+      end
+
+      # Tier-2(a): data-only learning-corpus health signal. Flags an account whose
+      # CompoundLearning corpus is accumulating disproven / contradicted / stale
+      # entries that pollute recall, so an operator can prune or resolve them.
+      def analyze_learning_health
+        learnings = ::Ai::CompoundLearning.for_account(@account.id)
+        total = learnings.count
+        return [] if total < MIN_SAMPLE_SIZE
+
+        disproven = learnings.where(status: "disproven").count
+        unresolved_contradictions = learnings.where.not(contradiction_note: nil)
+                                             .where(contradiction_resolved_at: nil).count
+        stale = learnings.active
+                         .where("updated_at < ?", 90.days.ago)
+                         .where("importance_score <= ?", 0.2).count
+
+        issues = disproven + unresolved_contradictions + stale
+        return [] if issues.zero?
+
+        ratio = issues.to_f / total
+        return [] if ratio < 0.2
+
+        [{
+          recommendation_type: "learning_health",
+          target_type: "Account",
+          target_id: @account.id,
+          current_config: { total_learnings: total, disproven: disproven,
+                            unresolved_contradictions: unresolved_contradictions, stale: stale },
+          recommended_config: {},
+          evidence: {
+            issue_ratio: ratio.round(2),
+            total_learnings: total,
+            suggestion: "#{issues} of #{total} learnings need attention (#{disproven} disproven, " \
+                        "#{unresolved_contradictions} unresolved contradictions, #{stale} stale low-importance). " \
+                        "Prune or resolve to keep recall clean."
+          },
+          confidence_score: [0.5 + ratio, 0.9].min.round(4)
+        }]
+      rescue => e
+        Rails.logger.error "[TrajectoryAnalyzer] Learning health analysis failed: #{e.message}"
         []
       end
 

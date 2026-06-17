@@ -52,9 +52,11 @@ RSpec.describe Ai::Learning::TrajectoryAnalyzer, type: :service do
         allow(service).to receive(:analyze_team_compositions).and_return([{ type: 'team' }])
         allow(service).to receive(:analyze_cost_efficiency).and_return([{ type: 'cost' }])
         allow(service).to receive(:analyze_failure_modes).and_return([{ type: 'failure' }])
+        allow(service).to receive(:analyze_skill_health).and_return([{ type: 'skill' }])
+        allow(service).to receive(:analyze_learning_health).and_return([{ type: 'learning' }])
 
         results = service.analyze
-        expect(results.length).to eq(4)
+        expect(results.length).to eq(6)
       end
 
       it 'returns empty array when no recommendations are generated' do
@@ -62,6 +64,8 @@ RSpec.describe Ai::Learning::TrajectoryAnalyzer, type: :service do
         allow(service).to receive(:analyze_team_compositions).and_return([])
         allow(service).to receive(:analyze_cost_efficiency).and_return([])
         allow(service).to receive(:analyze_failure_modes).and_return([])
+        allow(service).to receive(:analyze_skill_health).and_return([])
+        allow(service).to receive(:analyze_learning_health).and_return([])
 
         expect(service.analyze).to eq([])
       end
@@ -221,6 +225,87 @@ RSpec.describe Ai::Learning::TrajectoryAnalyzer, type: :service do
         results = service.send(:analyze_failure_modes)
         expect(results).to be_empty
       end
+    end
+  end
+
+  # Tier-2(a): data-only analyzers that run server-side in the nightly pass
+  describe 'analyze_skill_health (private)' do
+    before do
+      allow(Shared::FeatureFlagService).to receive(:enabled?).with(:trajectory_analysis).and_return(true)
+    end
+
+    it 'flags an enabled account skill with low success over a meaningful sample' do
+      skill = create(:ai_skill, account: account, is_enabled: true,
+                     positive_usage_count: 3, negative_usage_count: 12)
+
+      results = service.send(:analyze_skill_health)
+
+      expect(results.size).to eq(1)
+      rec = results.first
+      expect(rec[:recommendation_type]).to eq('skill_health')
+      expect(rec[:target_type]).to eq('Ai::Skill')
+      expect(rec[:target_id]).to eq(skill.id)
+      expect(rec[:evidence][:success_rate]).to eq(20.0)
+    end
+
+    it 'ignores skills with a healthy success rate' do
+      create(:ai_skill, account: account, is_enabled: true,
+             positive_usage_count: 14, negative_usage_count: 1)
+      expect(service.send(:analyze_skill_health)).to be_empty
+    end
+
+    it 'ignores skills below the minimum sample size' do
+      create(:ai_skill, account: account, is_enabled: true,
+             positive_usage_count: 1, negative_usage_count: 2)
+      expect(service.send(:analyze_skill_health)).to be_empty
+    end
+
+    it 'ignores shared system skills (nil account)' do
+      create(:ai_skill, account: nil, is_enabled: true,
+             positive_usage_count: 1, negative_usage_count: 20)
+      expect(service.send(:analyze_skill_health)).to be_empty
+    end
+
+    it 'handles exceptions gracefully' do
+      allow(Ai::Skill).to receive(:where).and_raise(StandardError, 'boom')
+      expect(Rails.logger).to receive(:error).with(/Skill health analysis failed/)
+      expect(service.send(:analyze_skill_health)).to eq([])
+    end
+  end
+
+  describe 'analyze_learning_health (private)' do
+    before do
+      allow(Shared::FeatureFlagService).to receive(:enabled?).with(:trajectory_analysis).and_return(true)
+    end
+
+    it 'flags an account whose learning corpus has too many problem entries' do
+      create_list(:ai_compound_learning, 7, account: account, status: 'active', importance_score: 0.8)
+      create_list(:ai_compound_learning, 3, account: account, status: 'disproven')
+
+      results = service.send(:analyze_learning_health)
+
+      expect(results.size).to eq(1)
+      rec = results.first
+      expect(rec[:recommendation_type]).to eq('learning_health')
+      expect(rec[:target_type]).to eq('Account')
+      expect(rec[:target_id]).to eq(account.id)
+      expect(rec[:current_config][:disproven]).to eq(3)
+    end
+
+    it 'stays quiet for a healthy corpus' do
+      create_list(:ai_compound_learning, 12, account: account, status: 'active', importance_score: 0.8)
+      expect(service.send(:analyze_learning_health)).to be_empty
+    end
+
+    it 'ignores accounts below the minimum corpus size' do
+      create_list(:ai_compound_learning, 3, account: account, status: 'disproven')
+      expect(service.send(:analyze_learning_health)).to be_empty
+    end
+
+    it 'handles exceptions gracefully' do
+      allow(Ai::CompoundLearning).to receive(:for_account).and_raise(StandardError, 'boom')
+      expect(Rails.logger).to receive(:error).with(/Learning health analysis failed/)
+      expect(service.send(:analyze_learning_health)).to eq([])
     end
   end
 

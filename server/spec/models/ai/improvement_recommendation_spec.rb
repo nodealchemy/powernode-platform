@@ -66,8 +66,18 @@ RSpec.describe Ai::ImprovementRecommendation, type: :model do
 
     it 'defines valid RECOMMENDATION_TYPES' do
       expect(Ai::ImprovementRecommendation::RECOMMENDATION_TYPES).to eq(
-        %w[provider_switch team_composition timeout_adjustment model_upgrade cost_optimization skill_consolidation skill_connection prompt_refinement skill_creation]
+        %w[provider_switch team_composition timeout_adjustment model_upgrade cost_optimization
+           skill_consolidation skill_connection prompt_refinement skill_creation
+           code_lint dead_code code_duplication convention_adherence test_gap
+           agent_reliability skill_health learning_health]
       )
+    end
+
+    it 'defines CODE_QUALITY_TYPES as a subset of RECOMMENDATION_TYPES' do
+      expect(Ai::ImprovementRecommendation::CODE_QUALITY_TYPES).to eq(
+        %w[code_lint dead_code code_duplication convention_adherence test_gap]
+      )
+      expect(Ai::ImprovementRecommendation::RECOMMENDATION_TYPES).to include(*Ai::ImprovementRecommendation::CODE_QUALITY_TYPES)
     end
   end
 
@@ -135,6 +145,46 @@ RSpec.describe Ai::ImprovementRecommendation, type: :model do
       it 'returns recommendations of the specified type' do
         expect(described_class.by_type('provider_switch')).to include(provider_rec)
         expect(described_class.by_type('provider_switch')).not_to include(cost_rec)
+      end
+    end
+
+    # Tier-2(b): first-class repository scoping via the polymorphic target
+    describe '.by_repository' do
+      let(:repo) { create(:git_repository, account: account) }
+      let(:other_repo) { create(:git_repository, account: account) }
+      let!(:repo_rec) do
+        create(:ai_improvement_recommendation, account: account,
+               target_type: 'Devops::GitRepository', target_id: repo.id)
+      end
+      let!(:other_rec) do
+        create(:ai_improvement_recommendation, account: account,
+               target_type: 'Devops::GitRepository', target_id: other_repo.id)
+      end
+      let!(:account_rec) do
+        create(:ai_improvement_recommendation, account: account,
+               target_type: 'Account', target_id: account.id)
+      end
+
+      it 'returns only recommendations targeting the given repository' do
+        expect(described_class.by_repository(repo.id)).to include(repo_rec)
+        expect(described_class.by_repository(repo.id)).not_to include(other_rec, account_rec)
+      end
+    end
+
+    describe '.for_target' do
+      let(:agent) { create(:ai_agent, account: account) }
+      let!(:agent_rec) do
+        create(:ai_improvement_recommendation, account: account,
+               target_type: 'Ai::Agent', target_id: agent.id)
+      end
+      let!(:account_rec) do
+        create(:ai_improvement_recommendation, account: account,
+               target_type: 'Account', target_id: account.id)
+      end
+
+      it 'returns recommendations matching the polymorphic target' do
+        expect(described_class.for_target('Ai::Agent', agent.id)).to include(agent_rec)
+        expect(described_class.for_target('Ai::Agent', agent.id)).not_to include(account_rec)
       end
     end
 

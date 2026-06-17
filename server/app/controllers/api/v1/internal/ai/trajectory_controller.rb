@@ -11,6 +11,7 @@ module Api
 
             Account.find_each do |account|
               next unless account.feature_enabled?(:trajectory_analysis)
+              next if account.respond_to?(:ai_suspended?) && account.ai_suspended? # kill-switch (gate #3)
 
               begin
                 recommender = ::Ai::Learning::ImprovementRecommender.new(account: account)

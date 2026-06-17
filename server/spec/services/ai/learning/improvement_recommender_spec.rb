@@ -103,6 +103,41 @@ RSpec.describe Ai::Learning::ImprovementRecommender, type: :service do
           expect(results.compact).to be_empty
         end
       end
+
+      context "with an agent_reliability analysis (previously a phantom type)" do
+        let(:agent) { create(:ai_agent, account: account) }
+
+        before do
+          allow(analyzer).to receive(:analyze).and_return([{
+            recommendation_type: "agent_reliability",
+            target_type: "Ai::Agent",
+            target_id: agent.id,
+            current_config: { failure_rate: 40.0 },
+            recommended_config: {},
+            evidence: { suggestion: "review" },
+            confidence_score: 0.7
+          }])
+        end
+
+        it "now persists the recommendation instead of silently dropping it" do
+          expect { service.generate_recommendations }
+            .to change(Ai::ImprovementRecommendation, :count).by(1)
+          expect(Ai::ImprovementRecommendation.last.recommendation_type).to eq("agent_reliability")
+        end
+      end
+    end
+
+    context "when the account kill switch is active (gate #3)" do
+      before do
+        allow(Shared::FeatureFlagService).to receive(:enabled?)
+          .with(:trajectory_analysis).and_return(true)
+        allow(account).to receive(:ai_suspended?).and_return(true)
+      end
+
+      it "writes no recommendations and skips analysis entirely" do
+        expect(Ai::Learning::TrajectoryAnalyzer).not_to receive(:new)
+        expect(service.generate_recommendations).to eq([])
+      end
     end
   end
 

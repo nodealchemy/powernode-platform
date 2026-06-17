@@ -9,6 +9,9 @@ module Ai
 
       def generate_recommendations
         return [] unless Shared::FeatureFlagService.enabled?(:trajectory_analysis)
+        # Tier-2(a) gate #3: kill-switch every write path — no recommendation
+        # writes while the account's AI is emergency-halted.
+        return [] if @account.respond_to?(:ai_suspended?) && @account.ai_suspended?
 
         analyzer = Ai::Learning::TrajectoryAnalyzer.new(account: @account)
         analyses = analyzer.analyze
