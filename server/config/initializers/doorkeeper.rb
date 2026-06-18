@@ -81,15 +81,19 @@ Doorkeeper.configure do
   # Token Configuration
   # ===================================================================
 
-  # Access token expiration (24h in dev for long Claude Code sessions, 2h otherwise)
-  access_token_expires_in Rails.env.development? ? 24.hours : 2.hours
+  # Default access-token TTL: 24h in development for long Claude Code / MCP sessions, 8h otherwise.
+  # The MCP flow (authorization_code + refresh_token) refreshes silently, so active sessions
+  # outlive this regardless. Idle re-auth is governed by refresh-token retention in the cleanup
+  # job (MaintenanceController::REFRESH_TOKEN_RETENTION), not by this value.
+  access_token_expires_in Rails.env.development? ? 24.hours : 8.hours
 
-  # Refresh token expiration (30 days)
+  # Per-grant TTL override. Client-credentials (machine) tokens stay short-lived; every other
+  # grant (the Claude Code / MCP auth-code + refresh flow) returns nil here and falls back to
+  # access_token_expires_in above. NOTE: this branch previously hardcoded 2.hours, which silently
+  # overrode the env-aware default and capped MCP sessions at 2h even in development.
   custom_access_token_expires_in do |context|
     if context.grant_type == Doorkeeper::OAuth::CLIENT_CREDENTIALS
       Rails.env.development? ? 24.hours : 1.hour
-    else
-      2.hours
     end
   end
 
