@@ -75,7 +75,10 @@ module Api
         end
 
         def validate_permissions
-          authorize_permission!("ai.manage")
+          # require_permission is the canonical helper (Authentication concern);
+          # authorize_permission! does not exist and raised NoMethodError (500)
+          # on every agent_intelligence endpoint.
+          require_permission("ai.manage")
         end
 
         def calculate_pass_rate(challenges)
