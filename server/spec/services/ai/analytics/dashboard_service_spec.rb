@@ -609,23 +609,38 @@ RSpec.describe Ai::Analytics::DashboardService do
   # #aiops_real_time_metrics
   # =========================================================================
   describe "#aiops_real_time_metrics" do
-    it "returns real-time AIOps metric keys" do
+    it "returns the real-time AIOps metric keys consumed by the dashboard" do
       result = service.aiops_real_time_metrics
 
       expect(result).to include(
-        :timestamp, :requests_per_minute,
-        :success_rate, :avg_latency_ms, :errors_last_minute,
-        :cost_last_minute
+        :timestamp, :current_requests_per_second, :current_avg_latency_ms,
+        :current_error_rate, :active_connections, :queue_depth
       )
     end
 
     context "with no recent activity" do
-      it "returns zero values and 100% success rate" do
+      it "returns zero values and a zero error rate" do
         result = service.aiops_real_time_metrics
 
-        expect(result[:requests_per_minute]).to eq(0)
-        expect(result[:success_rate]).to eq(100.0)
-        expect(result[:errors_last_minute]).to eq(0)
+        expect(result[:current_requests_per_second]).to eq(0.0)
+        expect(result[:current_error_rate]).to eq(0.0)
+        expect(result[:active_connections]).to eq(0)
+        expect(result[:queue_depth]).to eq(0)
+      end
+    end
+
+    context "with executions in flight" do
+      let(:agent) { create(:ai_agent, account: account) }
+
+      it "counts running executions as connections and pending as queue depth" do
+        create(:ai_agent_execution, account: account, agent: agent, status: "running")
+        create(:ai_agent_execution, account: account, agent: agent, status: "pending")
+        create(:ai_agent_execution, account: account, agent: agent, status: "pending")
+
+        result = service.aiops_real_time_metrics
+
+        expect(result[:active_connections]).to eq(1)
+        expect(result[:queue_depth]).to eq(2)
       end
     end
   end

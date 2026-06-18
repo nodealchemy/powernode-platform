@@ -239,14 +239,19 @@ module Ai
           start_time = 1.minute.ago
 
           ag_execs = agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
+          requests_last_minute = ag_execs.count
+          errors_last_minute = ag_execs.where(status: "failed").count
 
           {
             timestamp: Time.current.iso8601,
-            requests_per_minute: ag_execs.count,
-            success_rate: ops_calculate_combined_success_rate(ag_execs),
-            avg_latency_ms: ops_calculate_combined_avg_latency(ag_execs),
-            errors_last_minute: ag_execs.where(status: "failed").count,
-            cost_last_minute: ag_execs.sum(:cost_usd).to_f.round(4)
+            # Windowed rates over the trailing minute.
+            current_requests_per_second: (requests_last_minute / 60.0).round(2),
+            current_avg_latency_ms: ops_calculate_combined_avg_latency(ag_execs),
+            # 0.0–1.0 fraction (frontend multiplies by 100 for display).
+            current_error_rate: requests_last_minute.positive? ? (errors_last_minute.to_f / requests_last_minute).round(4) : 0.0,
+            # Point-in-time gauges: executions running / waiting right now.
+            active_connections: agent_executions.running.count,
+            queue_depth: agent_executions.pending.count
           }
         end
 

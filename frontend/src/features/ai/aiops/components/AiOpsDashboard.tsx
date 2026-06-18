@@ -172,25 +172,25 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-theme-surface rounded-lg border border-theme">
         <div className="text-center">
           <p className="text-xs text-theme-tertiary uppercase">Requests/sec</p>
-          <p className="text-xl font-bold text-theme-primary">{realTimeData.current_requests_per_second.toFixed(1)}</p>
+          <p className="text-xl font-bold text-theme-primary">{(realTimeData.current_requests_per_second ?? 0).toFixed(1)}</p>
         </div>
         <div className="text-center">
           <p className="text-xs text-theme-tertiary uppercase">Avg Latency</p>
-          <p className="text-xl font-bold text-theme-primary">{realTimeData.current_avg_latency_ms.toFixed(0)}ms</p>
+          <p className="text-xl font-bold text-theme-primary">{(realTimeData.current_avg_latency_ms ?? 0).toFixed(0)}ms</p>
         </div>
         <div className="text-center">
           <p className="text-xs text-theme-tertiary uppercase">Error Rate</p>
-          <p className={`text-xl font-bold ${realTimeData.current_error_rate > 0.05 ? 'text-theme-error-fg' : 'text-theme-success-fg'}`}>
-            {(realTimeData.current_error_rate * 100).toFixed(1)}%
+          <p className={`text-xl font-bold ${(realTimeData.current_error_rate ?? 0) > 0.05 ? 'text-theme-error-fg' : 'text-theme-success-fg'}`}>
+            {((realTimeData.current_error_rate ?? 0) * 100).toFixed(1)}%
           </p>
         </div>
         <div className="text-center">
           <p className="text-xs text-theme-tertiary uppercase">Queue Depth</p>
-          <p className="text-xl font-bold text-theme-primary">{realTimeData.queue_depth}</p>
+          <p className="text-xl font-bold text-theme-primary">{realTimeData.queue_depth ?? 0}</p>
         </div>
         <div className="text-center">
           <p className="text-xs text-theme-tertiary uppercase">Connections</p>
-          <p className="text-xl font-bold text-theme-primary">{realTimeData.active_connections}</p>
+          <p className="text-xl font-bold text-theme-primary">{realTimeData.active_connections ?? 0}</p>
         </div>
       </div>
     )}
