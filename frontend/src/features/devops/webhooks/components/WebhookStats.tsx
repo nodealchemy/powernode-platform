@@ -62,8 +62,8 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <div className="bg-theme-surface rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-interactive-primary bg-opacity-10">
-              <Globe className="w-5 h-5 text-theme-interactive-primary" />
+            <div className="p-2 rounded-lg bg-theme-info bg-opacity-10">
+              <Globe className="w-5 h-5 text-theme-info" />
             </div>
             <div>
               <p className="text-2xl font-bold text-theme-primary">{stats.total_endpoints}</p>
@@ -98,8 +98,8 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
 
         <div className="bg-theme-surface rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-interactive-primary bg-opacity-10">
-              <Activity className="w-5 h-5 text-theme-interactive-primary" />
+            <div className="p-2 rounded-lg bg-theme-info bg-opacity-10">
+              <Activity className="w-5 h-5 text-theme-info" />
             </div>
             <div>
               <p className="text-2xl font-bold text-theme-primary">{stats.total_deliveries_today}</p>

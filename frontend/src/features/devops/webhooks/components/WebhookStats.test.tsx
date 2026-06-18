@@ -236,4 +236,24 @@ describe('WebhookStats', () => {
       expect(screen.getByText('No delivery trend data available')).toBeInTheDocument();
     });
   });
+
+  describe('semantic theme tokens (IMP-83f7ba10c0b3)', () => {
+    it.each([['Total Endpoints'], ['Deliveries Today']])(
+      'renders the "%s" stat icon chip with a semantic status token, not the interactive-primary affordance token',
+      (label) => {
+        render(<WebhookStats stats={mockStats} detailedStats={null} loading={false} />);
+
+        const row = screen.getByText(label).closest('div.flex');
+        expect(row).toBeTruthy();
+
+        const iconChip = row!.querySelector('div.rounded-lg');
+        expect(iconChip).toBeTruthy();
+
+        // Siblings (Active/Successful=success, Failed=error) use semantic status tokens;
+        // these neutral-count chips must not be the interactive-primary odd-one-out.
+        expect(iconChip!.className).not.toMatch(/theme-interactive-primary/);
+        expect(iconChip!.className).toMatch(/bg-theme-info/);
+      }
+    );
+  });
 });
