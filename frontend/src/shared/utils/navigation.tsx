@@ -1,12 +1,12 @@
 // Navigation Configuration
 import {
-  Home, Users, User, Settings, CreditCard,
+  Home, Users, User, Settings,
   FileText, UserCheck,
   HelpCircle, LogOut, Bot, Brain, Bell,
   HardDrive, Workflow, Server, GitBranch,
   Plug, BookOpen, UserCog, Activity, ShieldCheck,
   Container, Boxes,
-  Play, Rocket, DollarSign, TrendingUp, Code2
+  Play, Rocket, DollarSign, Code2, Gauge
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -97,9 +97,27 @@ export const defaultNavigationConfig: NavigationConfig = {
           name: 'Observability',
           href: '/app/ai/observability',
           icon: Activity,
-          description: 'Real-time monitoring, evaluation, and cost tracking',
+          description: 'Health, systems, conversations, and evaluation',
           permissions: ['ai.analytics.read'],
           order: 10
+        },
+        {
+          id: 'ai-operations',
+          name: 'Operations',
+          href: '/app/ai/operations',
+          icon: Gauge,
+          description: 'Real-time AiOps, alerts, and execution traces',
+          permissions: ['ai.aiops.read', 'ai_monitoring.read'],
+          order: 11
+        },
+        {
+          id: 'ai-cost',
+          name: 'Cost',
+          href: '/app/ai/cost',
+          icon: DollarSign,
+          description: 'Credits, FinOps, ROI, and outcome billing',
+          permissions: ['ai.finops.view', 'ai.roi.read', 'ai.analytics.read'],
+          order: 12
         },
         {
           id: 'ai-governance',
@@ -108,10 +126,10 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: ShieldCheck,
           description: 'AI governance policies and compliance',
           permissions: ['ai.governance.read'],
-          order: 11
+          order: 13
         },
       ],
-      permissions: ['ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read'],
+      permissions: ['ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai_monitoring.read', 'ai.governance.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10
@@ -270,56 +288,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'K3s and kubeadm clusters, nodes, and workloads',
           permissions: ['kubernetes.clusters.read'],
           order: 8
-        }
-      ],
-      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'swarm.clusters.read', 'docker.hosts.read', 'kubernetes.clusters.read'],
-      collapsible: true,
-      defaultExpanded: true,
-      order: 11
-    },
-    // Cost section - AI FinOps, ROI, and credit usage (wired-up orphan features)
-    {
-      id: 'cost',
-      name: 'Cost',
-      items: [
-        {
-          id: 'cost-finops',
-          name: 'FinOps',
-          href: '/app/ai/cost/finops',
-          icon: DollarSign,
-          description: 'AI cost management, budgets, and optimization',
-          permissions: ['ai.finops.view'],
-          order: 1
         },
-        {
-          id: 'cost-roi',
-          name: 'ROI',
-          href: '/app/ai/cost/roi',
-          icon: TrendingUp,
-          description: 'AI return-on-investment analytics',
-          permissions: ['ai.roi.read'],
-          order: 2
-        },
-        {
-          id: 'cost-credits',
-          name: 'Credits',
-          href: '/app/ai/observability/credits',
-          icon: CreditCard,
-          description: 'AI credit usage and balance',
-          permissions: ['ai.analytics.read'],
-          order: 3
-        }
-      ],
-      permissions: ['ai.finops.view', 'ai.roi.read', 'ai.analytics.read'],
-      collapsible: true,
-      defaultExpanded: true,
-      order: 12
-    },
-    // Developer section - API portal, docs, and execution traces (wired-up orphan features)
-    {
-      id: 'developer',
-      name: 'Developer',
-      items: [
         {
           id: 'developer-portal',
           name: 'Developer Portal',
@@ -327,23 +296,18 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Code2,
           description: 'API documentation, code samples, and API keys',
           permissions: ['api.manage_keys'],
-          order: 1
-        },
-        {
-          id: 'developer-traces',
-          name: 'Execution Traces',
-          href: '/app/developer/traces',
-          icon: Activity,
-          description: 'Distributed traces for AI agent and tool execution',
-          permissions: ['ai_monitoring.read'],
-          order: 2
+          order: 9
         }
       ],
-      permissions: ['api.manage_keys', 'ai_monitoring.read'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'swarm.clusters.read', 'docker.hosts.read', 'kubernetes.clusters.read'],
       collapsible: true,
       defaultExpanded: true,
-      order: 13
+      order: 11
     },
+    // NOTE: the former orphan "Cost" and "Developer" sections were consolidated:
+    // FinOps/ROI/Credits/Outcome-Billing now live in the AI section's Cost hub
+    // (/app/ai/cost); Execution Traces moved under the AI "Operations" item; and
+    // the Developer Portal moved into the DevOps section above.
   ],
   
   userMenuItems: [

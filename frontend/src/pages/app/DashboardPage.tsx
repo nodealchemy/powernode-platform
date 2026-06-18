@@ -45,7 +45,9 @@ const GitProvidersPage = React.lazy(() => import('./devops/GitProvidersPage').th
 // AI Primary navigation
 const AIOverviewPage = React.lazy(() => import('./ai/AIOverviewPage').then(m => ({ default: m.AIOverviewPage })));
 const AIAgentsPage = React.lazy(() => import('./ai/AIAgentsPage').then(m => ({ default: m.AIAgentsPage })));
-const AIMonitoringPage = React.lazy(() => import('./ai/AIMonitoringPage').then(m => ({ default: m.AIMonitoringPage })));
+const ObservabilityPage = React.lazy(() => import('./ai/ObservabilityPage').then(m => ({ default: m.ObservabilityPage })));
+const OperationsPage = React.lazy(() => import('./ai/OperationsPage').then(m => ({ default: m.OperationsPage })));
+const CostPage = React.lazy(() => import('./ai/CostPage').then(m => ({ default: m.CostPage })));
 const GovernancePage = React.lazy(() => import('./ai/GovernancePage'));
 // SandboxPage absorbed into Execution tabs
 
@@ -53,14 +55,9 @@ const GovernancePage = React.lazy(() => import('./ai/GovernancePage'));
 const ExecutionPage = React.lazy(() => import('./ai/ExecutionPage').then(m => ({ default: m.ExecutionPage })));
 const KnowledgePage = React.lazy(() => import('./ai/KnowledgePage').then(m => ({ default: m.KnowledgePage })));
 const InfrastructurePage = React.lazy(() => import('./ai/InfrastructurePage').then(m => ({ default: m.InfrastructurePage })));
-// AiBillingPage absorbed into Observability (Credits & FinOps tabs)
-
-// Cost section (wired-up orphans: FinOps + ROI dashboards)
-const FinOpsPage = React.lazy(() => import('@/features/ai/finops/pages/FinOpsPage').then(m => ({ default: m.FinOpsPage })));
-const RoiDashboard = React.lazy(() => import('@/features/ai/roi/components/RoiDashboard'));
-// Developer section (wired-up orphans: Developer Portal + Execution Traces)
+// Credits, FinOps, ROI, and Outcome Billing are consolidated into CostPage
+// (above); Execution Traces is rendered inside OperationsPage.
 const DeveloperPortal = React.lazy(() => import('@/features/developer/pages/DeveloperPortal').then(m => ({ default: m.DeveloperPortal })));
-const ExecutionTracesPage = React.lazy(() => import('./ai/ExecutionTracesPage').then(m => ({ default: m.ExecutionTracesPage })));
 
 // AI Sub-pages
 const AIDebugPage = React.lazy(() => import('./ai').then(m => ({ default: m.AIDebugPage })));
@@ -388,8 +385,14 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/infrastructure/providers/new" element={<AIProvidersPage />} />
         <Route path="/ai/infrastructure/providers/:id" element={<AIProvidersPage />} />
         <Route path="/ai/infrastructure/*" element={<InfrastructurePage />} />
-        <Route path="/ai/billing/*" element={<Navigate to="/app/ai/observability/credits" replace />} />
-        <Route path="/ai/observability/*" element={<AIMonitoringPage />} />
+        {/* Observability = monitoring only; Operations = AiOps/alerts/traces; Cost = billing/finops/roi.
+            More-specific redirects win over the /ai/observability/* splat via router ranking. */}
+        <Route path="/ai/observability/credits/*" element={<Navigate to="/app/ai/cost/credits" replace />} />
+        <Route path="/ai/observability/operations" element={<Navigate to="/app/ai/operations" replace />} />
+        <Route path="/ai/observability/alerts" element={<Navigate to="/app/ai/operations/alerts" replace />} />
+        <Route path="/ai/observability/*" element={<ObservabilityPage />} />
+        <Route path="/ai/operations/*" element={<OperationsPage />} />
+        <Route path="/ai/billing/*" element={<Navigate to="/app/ai/cost/credits" replace />} />
         <Route path="/ai/monitoring/*" element={<Navigate to="/app/ai/observability" replace />} />
 
         {/* AI Pages - Agent Orchestration */}
@@ -416,12 +419,11 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/devops/templates" element={<DevOpsTemplatesPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
 
-        {/* Cost Pages — FinOps + ROI (Cost nav section) */}
-        <Route path="/ai/cost/finops/*" element={<FinOpsPage />} />
-        <Route path="/ai/cost/roi" element={<RoiDashboard />} />
+        {/* Cost hub — Overview / Credits / FinOps / ROI / Outcome Billing (sub-sidebar) */}
+        <Route path="/ai/cost/*" element={<CostPage />} />
 
-        {/* Developer Pages — Portal + Execution Traces (Developer nav section) */}
-        <Route path="/developer/traces" element={<ExecutionTracesPage />} />
+        {/* Developer Portal (now under DevOps nav); Execution Traces moved to Operations */}
+        <Route path="/developer/traces" element={<Navigate to="/app/ai/operations/traces" replace />} />
         <Route path="/developer" element={<DeveloperPortal />} />
 
         {/* Core Pages */}
