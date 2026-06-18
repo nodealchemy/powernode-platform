@@ -10,7 +10,8 @@ export {
   formatLastUpdate,
   getMonitoringBreadcrumbs,
   MONITORING_TABS,
+  OPERATIONS_TABS,
   VALID_TAB_IDS
 } from './monitoringFormatters';
 
-export type { MonitoringTabId } from './monitoringFormatters';
+export type { MonitoringTabId, OperationsTabId } from './monitoringFormatters';
