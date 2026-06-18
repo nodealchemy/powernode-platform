@@ -593,4 +593,63 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
       end
     end
   end
+
+  describe 'POST /api/v1/internal/maintenance/cleanup_auth_artifacts' do
+    # Doorkeeper stores the refresh_token as a column on the oauth_access_tokens row, so purging
+    # an expired-but-recent access token also destroys a still-usable refresh token and forces MCP
+    # clients to re-authenticate. Cleanup must only purge tokens idle (no refresh) beyond the
+    # REFRESH_TOKEN_RETENTION window; active sessions keep minting fresh rows and must survive.
+    let(:retention) { Api::V1::Internal::MaintenanceController::REFRESH_TOKEN_RETENTION }
+
+    # Backdate created_at directly (bypasses Rails timestamp machinery) so Doorkeeper's
+    # `expired?` (created_at + expires_in) reflects the intended age.
+    def backdate!(token, created_at:)
+      token.update_columns(created_at: created_at)
+      token
+    end
+
+    context 'with service token authentication' do
+      it 'preserves an expired but recently-issued token (refresh still possible)' do
+        token = backdate!(create(:oauth_access_token, :expired), created_at: 2.hours.ago)
+
+        post '/api/v1/internal/maintenance/cleanup_auth_artifacts',
+             headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(Doorkeeper::AccessToken.exists?(token.id)).to be(true)
+        expect(json_response['data']['results']['expired_tokens_purged']).to eq(0)
+      end
+
+      it 'purges an expired token idle beyond the retention window' do
+        token = backdate!(create(:oauth_access_token, :expired), created_at: retention.ago - 1.day)
+
+        post '/api/v1/internal/maintenance/cleanup_auth_artifacts',
+             headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(Doorkeeper::AccessToken.exists?(token.id)).to be(false)
+        expect(json_response['data']['results']['expired_tokens_purged']).to eq(1)
+      end
+
+      it 'purges revoked tokens older than 7 days but keeps recent revocations' do
+        old_revoked = create(:oauth_access_token, revoked_at: 10.days.ago)
+        recent_revoked = create(:oauth_access_token, revoked_at: 1.day.ago)
+
+        post '/api/v1/internal/maintenance/cleanup_auth_artifacts',
+             headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(Doorkeeper::AccessToken.exists?(old_revoked.id)).to be(false)
+        expect(Doorkeeper::AccessToken.exists?(recent_revoked.id)).to be(true)
+      end
+    end
+
+    context 'without authentication' do
+      it 'returns unauthorized error' do
+        post '/api/v1/internal/maintenance/cleanup_auth_artifacts', as: :json
+
+        expect_error_response('mTLS client certificate required', 401)
+      end
+    end
+  end
 end

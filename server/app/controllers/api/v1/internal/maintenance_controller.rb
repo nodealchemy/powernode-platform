@@ -4,6 +4,17 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
   # Internal API endpoints for maintenance operations
   # These endpoints are called by background workers only
 
+  # How long an idle (expired, never-refreshed) OAuth access token is retained before purge.
+  # Doorkeeper stores the refresh_token as a column on the same oauth_access_tokens row, so purging
+  # a token the moment its access token expires also destroys a still-usable refresh token and
+  # forces MCP clients to re-authenticate. Tokens refreshed within this window keep minting fresh
+  # rows and are never affected; only genuinely idle sessions (no refresh activity) expire here.
+  # Override with MCP_REFRESH_TOKEN_RETENTION_DAYS; defaults to 30 days.
+  REFRESH_TOKEN_RETENTION = begin
+    days = ENV.fetch("MCP_REFRESH_TOKEN_RETENTION_DAYS", "30").to_i
+    (days.positive? ? days : 30).days
+  end
+
   # GET /api/v1/internal/maintenance/backups
   # Lists backups with optional `status` and `created_before` filters.
   # Worker uses this to scan for expired rows during BackupCleanupJob.
@@ -275,9 +286,16 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
       results[:agents_archived] += 1
     end
 
-    # 4. Purge expired Doorkeeper tokens
-    expired_token_ids = Doorkeeper::AccessToken.where(revoked_at: nil).select(&:expired?).map(&:id)
-    results[:expired_tokens_purged] = Doorkeeper::AccessToken.where(id: expired_token_ids).delete_all
+    # 4. Purge Doorkeeper access tokens.
+    #    The refresh_token lives on the same row, so deleting an expired-but-recent token destroys
+    #    a still-usable refresh token and forces clients to re-authenticate. Keep expired tokens
+    #    for REFRESH_TOKEN_RETENTION so silent renewal keeps working; only purge genuinely idle
+    #    ones (no refresh within the window — each refresh mints a fresh row). The created_at SQL
+    #    pre-filter also shrinks the set before the in-Ruby expired? scan.
+    stale_token_ids = Doorkeeper::AccessToken.where(revoked_at: nil)
+      .where("created_at < ?", REFRESH_TOKEN_RETENTION.ago)
+      .select(&:expired?).map(&:id)
+    results[:expired_tokens_purged] = Doorkeeper::AccessToken.where(id: stale_token_ids).delete_all
     results[:old_revoked_tokens_purged] = Doorkeeper::AccessToken.where.not(revoked_at: nil)
       .where("revoked_at < ?", 7.days.ago).delete_all
 
