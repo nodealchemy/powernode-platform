@@ -434,7 +434,7 @@ export const webhooksApi = {
   // Helper methods
   getStatusColor(status: string): string {
     switch (status) {
-      case 'active': return 'bg-theme-success bg-opacity-10 text-theme-success';
+      case 'active': return 'bg-theme-success-bg text-theme-success-fg';
       case 'inactive': return 'bg-theme-surface text-theme-tertiary';
       default: return 'bg-theme-surface text-theme-secondary';
     }
@@ -442,10 +442,10 @@ export const webhooksApi = {
 
   getDeliveryStatusColor(status: string): string {
     switch (status) {
-      case 'successful': return 'bg-theme-success bg-opacity-10 text-theme-success';
-      case 'pending': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'failed': return 'bg-theme-error bg-opacity-10 text-theme-error';
-      case 'max_retries_reached': return 'bg-theme-error bg-opacity-20 text-theme-error';
+      case 'successful': return 'bg-theme-success-bg text-theme-success-fg';
+      case 'pending': return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'failed': return 'bg-theme-error-bg text-theme-error-fg';
+      case 'max_retries_reached': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   },

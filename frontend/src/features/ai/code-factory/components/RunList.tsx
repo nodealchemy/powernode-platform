@@ -12,17 +12,17 @@ interface Props {
 
 const statusColors: Record<string, string> = {
   pending: 'bg-theme-surface-bg text-theme-secondary',
-  reviewing: 'bg-theme-info text-theme-info',
-  clean: 'bg-theme-success text-theme-success',
-  dirty: 'bg-theme-error text-theme-error',
-  stale: 'bg-theme-warning text-theme-warning',
+  reviewing: 'bg-theme-info-bg text-theme-info-fg',
+  clean: 'bg-theme-success-bg text-theme-success-fg',
+  dirty: 'bg-theme-error-bg text-theme-error-fg',
+  stale: 'bg-theme-warning-bg text-theme-warning-fg',
 };
 
 const tierColors: Record<string, string> = {
   low: 'text-theme-secondary',
-  standard: 'text-theme-info',
-  high: 'text-theme-warning',
-  critical: 'text-theme-error',
+  standard: 'text-theme-info-fg',
+  high: 'text-theme-warning-fg',
+  critical: 'text-theme-error-fg',
 };
 
 const STEPS = [
@@ -70,11 +70,11 @@ const RunCardExpanded: React.FC<{
                 <div
                   className={`h-2 rounded-full transition-colors ${
                     isComplete
-                      ? 'bg-theme-success'
+                      ? 'bg-theme-success-bg'
                       : isCurrent
                       ? isFailed
-                        ? 'bg-theme-error'
-                        : 'bg-theme-info animate-pulse'
+                        ? 'bg-theme-error-bg'
+                        : 'bg-theme-info-bg animate-pulse'
                       : 'bg-theme-background-secondary'
                   }`}
                 />
@@ -94,7 +94,7 @@ const RunCardExpanded: React.FC<{
           <div className="text-[10px] text-theme-secondary">Findings</div>
         </div>
         <div className="bg-theme-surface-bg rounded-lg p-2 text-center">
-          <div className="text-lg font-semibold text-theme-error">{state.critical_findings_count}</div>
+          <div className="text-lg font-semibold text-theme-error-fg">{state.critical_findings_count}</div>
           <div className="text-[10px] text-theme-secondary">Critical</div>
         </div>
         <div className="bg-theme-surface-bg rounded-lg p-2 text-center">
@@ -119,7 +119,7 @@ const RunCardExpanded: React.FC<{
                   key={check}
                   className={`px-2 py-0.5 rounded text-xs ${
                     passed
-                      ? 'bg-theme-success text-theme-success'
+                      ? 'bg-theme-success-bg text-theme-success-fg'
                       : 'bg-theme-surface-bg text-theme-secondary'
                   }`}
                 >
@@ -139,7 +139,7 @@ const RunCardExpanded: React.FC<{
             {state.evidence_manifests.map((m) => (
               <span key={m.id} className="text-xs bg-theme-surface-bg rounded px-2 py-1">
                 <span className="text-theme-primary capitalize">{m.manifest_type.replace(/_/g, ' ')}</span>
-                <span className={`ml-2 ${m.status === 'verified' ? 'text-theme-success' : 'text-theme-secondary'}`}>
+                <span className={`ml-2 ${m.status === 'verified' ? 'text-theme-success-fg' : 'text-theme-secondary'}`}>
                   {m.status}
                 </span>
               </span>
@@ -155,7 +155,7 @@ const RunCardExpanded: React.FC<{
           {onNavigateToContract ? (
             <button
               onClick={() => onNavigateToContract(state.risk_contract_id)}
-              className="text-xs text-theme-info hover:underline"
+              className="text-xs text-theme-info-fg hover:underline"
             >
               {state.risk_contract.name}
             </button>
@@ -245,25 +245,25 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
                     <span className="font-mono">{state.head_sha?.substring(0, 8)}</span>
                     <span>{state.review_findings_count} findings</span>
                     <span>{state.remediation_attempts} remediations</span>
-                    {state.risk_contract && <span className="text-theme-info">{state.risk_contract.name}</span>}
+                    {state.risk_contract && <span className="text-theme-info-fg">{state.risk_contract.name}</span>}
                   </div>
                 )}
                 {compact && (
                   <div className="flex items-center gap-3 mt-1 ml-5 text-xs text-theme-secondary">
                     <span>{state.review_findings_count} findings</span>
                     {state.critical_findings_count > 0 && (
-                      <span className="text-theme-error">{state.critical_findings_count} critical</span>
+                      <span className="text-theme-error-fg">{state.critical_findings_count} critical</span>
                     )}
-                    {state.risk_contract && <span className="text-theme-info">{state.risk_contract.name}</span>}
+                    {state.risk_contract && <span className="text-theme-info-fg">{state.risk_contract.name}</span>}
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 {state.all_checks_passed && (
-                  <span className="text-theme-success text-xs">{'\u2713'} Checks</span>
+                  <span className="text-theme-success-fg text-xs">{'\u2713'} Checks</span>
                 )}
                 {state.evidence_verified && (
-                  <span className="text-theme-success text-xs">{'\u2713'} Evidence</span>
+                  <span className="text-theme-success-fg text-xs">{'\u2713'} Evidence</span>
                 )}
               </div>
             </div>
@@ -276,7 +276,7 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
                     <span className="text-theme-secondary">Findings: </span>
                     <span className="text-theme-primary">{state.review_findings_count}</span>
                     {state.critical_findings_count > 0 && (
-                      <span className="text-theme-error ml-1">({state.critical_findings_count} critical)</span>
+                      <span className="text-theme-error-fg ml-1">({state.critical_findings_count} critical)</span>
                     )}
                   </div>
                   <div>
@@ -297,7 +297,7 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
                     <span className="text-xs text-theme-secondary">Contract:</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); onNavigateToContract(state.risk_contract_id); }}
-                      className="text-xs text-theme-info hover:underline"
+                      className="text-xs text-theme-info-fg hover:underline"
                     >
                       {state.risk_contract.name} →
                     </button>
@@ -306,7 +306,7 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
                 {onSelectRun && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onSelectRun(state.id); }}
-                    className="text-xs text-theme-info hover:underline"
+                    className="text-xs text-theme-info-fg hover:underline"
                   >
                     View Full Run →
                   </button>

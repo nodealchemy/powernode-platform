@@ -177,7 +177,7 @@ describe('PasswordField', () => {
       );
 
       const input = screen.getByLabelText('Password');
-      expect(input).toHaveClass('border-theme-error');
+      expect(input).toHaveClass('border-theme-error-border');
     });
 
     it('has aria-invalid when error present', () => {

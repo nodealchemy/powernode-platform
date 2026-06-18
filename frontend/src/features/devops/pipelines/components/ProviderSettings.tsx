@@ -52,7 +52,7 @@ const ProviderCard: React.FC<{
         <span
           className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
             provider.is_active
-              ? 'bg-theme-success/10 text-theme-success'
+              ? 'bg-theme-success-fg/10 text-theme-success-fg'
               : 'bg-theme-surface/10 text-theme-secondary'
           }`}
         >
@@ -100,7 +100,7 @@ const ProviderCard: React.FC<{
             <Edit className="w-4 h-4" />
           </Button>
           <Button onClick={onDelete} variant="ghost" size="sm">
-            <Trash2 className="w-4 h-4 text-theme-error" />
+            <Trash2 className="w-4 h-4 text-theme-error-fg" />
           </Button>
         </div>
       </div>

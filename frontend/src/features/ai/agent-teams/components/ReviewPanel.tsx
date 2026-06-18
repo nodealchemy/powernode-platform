@@ -18,27 +18,27 @@ interface ReviewPanelProps {
 const SEVERITY_CONFIG: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
   error: {
     icon: <XCircle size={14} />,
-    color: 'border-theme-danger/30 bg-theme-error/5 text-theme-danger',
+    color: 'border-theme-danger-border/30 bg-theme-error-fg/5 text-theme-danger-fg',
     label: 'ERROR',
   },
   warning: {
     icon: <AlertTriangle size={14} />,
-    color: 'border-theme-warning/30 bg-theme-warning/5 text-theme-warning',
+    color: 'border-theme-warning-border/30 bg-theme-warning-fg/5 text-theme-warning-fg',
     label: 'WARN',
   },
   info: {
     icon: <Info size={14} />,
-    color: 'border-theme-info/30 bg-theme-info/5 text-theme-info',
+    color: 'border-theme-info-border/30 bg-theme-info-fg/5 text-theme-info-fg',
     label: 'INFO',
   },
 };
 
 const STATUS_BADGES: Record<string, { color: string; label: string }> = {
-  pending: { color: 'bg-theme-info text-theme-secondary', label: 'Pending' },
-  in_progress: { color: 'bg-theme-info/10 text-theme-info', label: 'In Review' },
-  approved: { color: 'bg-theme-success/10 text-theme-success', label: 'Approved' },
-  rejected: { color: 'bg-theme-error/10 text-theme-danger', label: 'Rejected' },
-  revision_requested: { color: 'bg-theme-warning/10 text-theme-warning', label: 'Revision Requested' },
+  pending: { color: 'bg-theme-info-bg text-theme-secondary', label: 'Pending' },
+  in_progress: { color: 'bg-theme-info-fg/10 text-theme-info-fg', label: 'In Review' },
+  approved: { color: 'bg-theme-success-fg/10 text-theme-success-fg', label: 'Approved' },
+  rejected: { color: 'bg-theme-error-fg/10 text-theme-danger-fg', label: 'Rejected' },
+  revision_requested: { color: 'bg-theme-warning-fg/10 text-theme-warning-fg', label: 'Revision Requested' },
 };
 
 export const ReviewPanel: React.FC<ReviewPanelProps> = ({
@@ -92,8 +92,8 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
         <div className="flex items-center gap-4 text-xs text-theme-secondary">
           <span className={`px-1.5 py-0.5 rounded ${
             review.review_mode === 'blocking'
-              ? 'bg-theme-danger/10 text-theme-danger'
-              : 'bg-theme-info/10 text-theme-info'
+              ? 'bg-theme-danger-fg/10 text-theme-danger-fg'
+              : 'bg-theme-info-fg/10 text-theme-info-fg'
           }`}>
             {review.review_mode === 'blocking' ? 'Blocking' : 'Shadow'}
           </span>
@@ -121,14 +121,14 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
             <BarChart3 size={12} />
             Quality Score
           </span>
-          <span className={qualityPercent >= qualityThreshold * 100 ? 'text-theme-success' : 'text-theme-danger'}>
+          <span className={qualityPercent >= qualityThreshold * 100 ? 'text-theme-success-fg' : 'text-theme-danger-fg'}>
             {review.quality_score !== null && review.quality_score !== undefined
               ? review.quality_score.toFixed(2)
               : 'N/A'}
           </span>
         </div>
         {review.quality_score !== null && review.quality_score !== undefined && (
-          <div className="w-full bg-theme-info rounded-full h-2 relative">
+          <div className="w-full bg-theme-info-bg rounded-full h-2 relative">
             {/* Threshold marker */}
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-theme-surface"
@@ -136,7 +136,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
             />
             <div
               className={`h-2 rounded-full transition-all ${
-                qualityPercent >= qualityThreshold * 100 ? 'bg-theme-success' : 'bg-theme-danger'
+                qualityPercent >= qualityThreshold * 100 ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'
               }`}
               style={{ width: `${Math.min(qualityPercent, 100)}%` }}
             />
@@ -156,11 +156,11 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
               return (
                 <div key={key} className="flex items-center gap-2 text-xs">
                   {passed ? (
-                    <CheckCircle size={14} className="text-theme-success" />
+                    <CheckCircle size={14} className="text-theme-success-fg" />
                   ) : (
-                    <XCircle size={14} className="text-theme-danger" />
+                    <XCircle size={14} className="text-theme-danger-fg" />
                   )}
-                  <span className={passed ? 'text-theme-secondary' : 'text-theme-danger'}>
+                  <span className={passed ? 'text-theme-secondary' : 'text-theme-danger-fg'}>
                     {passed ? `No ${label}` : `${label.charAt(0).toUpperCase() + label.slice(1)} found`}
                   </span>
                 </div>
@@ -214,7 +214,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
               type="button"
               onClick={() => handleAction('approve')}
               disabled={processing}
-              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-success bg-theme-success/10 rounded-md hover:bg-theme-success/20 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-success-fg bg-theme-success-fg/10 rounded-md hover:bg-theme-success-fg/20 transition-colors disabled:opacity-50"
             >
               <CheckCircle size={14} />
               Approve
@@ -224,7 +224,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
               type="button"
               onClick={() => handleAction('revision')}
               disabled={processing}
-              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-warning bg-theme-warning/10 rounded-md hover:bg-theme-warning/20 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-warning-fg bg-theme-warning-fg/10 rounded-md hover:bg-theme-warning-fg/20 transition-colors disabled:opacity-50"
             >
               <RefreshCw size={14} />
               Request Revision
@@ -234,7 +234,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
               type="button"
               onClick={() => handleAction('reject')}
               disabled={processing}
-              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-danger bg-theme-error/10 rounded-md hover:bg-theme-error/20 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-danger-fg bg-theme-error-fg/10 rounded-md hover:bg-theme-error-fg/20 transition-colors disabled:opacity-50"
             >
               <XCircle size={14} />
               Reject
@@ -257,12 +257,12 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
       {/* Approval/Rejection Notes */}
       {review.approval_notes && review.status === 'approved' && (
         <div className="px-4 pb-4">
-          <p className="text-xs text-theme-success italic">Notes: {review.approval_notes}</p>
+          <p className="text-xs text-theme-success-fg italic">Notes: {review.approval_notes}</p>
         </div>
       )}
       {review.rejection_reason && (review.status === 'rejected' || review.status === 'revision_requested') && (
         <div className="px-4 pb-4">
-          <p className="text-xs text-theme-danger italic">Reason: {review.rejection_reason}</p>
+          <p className="text-xs text-theme-danger-fg italic">Reason: {review.rejection_reason}</p>
         </div>
       )}
     </div>

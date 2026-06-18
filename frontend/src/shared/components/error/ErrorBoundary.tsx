@@ -158,7 +158,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <div className="mt-3 space-y-3">
           <div>
             <h4 className="text-sm font-medium text-theme-primary">Error Message:</h4>
-            <p className="text-sm text-theme-error font-mono bg-theme-surface p-2 rounded mt-1">
+            <p className="text-sm text-theme-error-fg font-mono bg-theme-surface p-2 rounded mt-1">
               {error.message || error.toString() || 'Unknown error'}
             </p>
           </div>
@@ -219,7 +219,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         {severity === 'critical' && (
           <button
             onClick={this.handleReload}
-            className="inline-flex items-center px-4 py-2 bg-theme-warning text-white rounded-lg hover:bg-theme-warning transition-colors duration-200"
+            className="inline-flex items-center px-4 py-2 bg-theme-warning-bg text-white rounded-lg hover:bg-theme-warning-bg transition-colors duration-200"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Reload Page
@@ -245,15 +245,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center min-h-[400px] bg-theme-background rounded-lg border border-theme">
           <div className={`p-4 rounded-full mb-6 ${
-            severity === 'critical' ? 'bg-theme-error bg-opacity-20' :
-            severity === 'high' ? 'bg-theme-warning bg-opacity-20' :
-            'bg-theme-info bg-opacity-20'
+            severity === 'critical' ? 'bg-theme-error-bg' :
+            severity === 'high' ? 'bg-theme-warning-bg' :
+            'bg-theme-info-bg'
           }`}>
             {severity === 'critical' ? (
-              <Bug className="w-12 h-12 text-theme-error" />
+              <Bug className="w-12 h-12 text-theme-error-fg" />
             ) : (
               <AlertTriangle className={`w-12 h-12 ${
-                severity === 'high' ? 'text-theme-warning' : 'text-theme-info'
+                severity === 'high' ? 'text-theme-warning-fg' : 'text-theme-info-fg'
               }`} />
             )}
           </div>

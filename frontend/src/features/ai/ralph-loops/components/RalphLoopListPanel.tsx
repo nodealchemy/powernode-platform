@@ -25,10 +25,10 @@ const TAB_STATUS_MAP: Record<TabId, RalphLoopStatus[] | null> = {
 
 const STATUS_DOT: Record<RalphLoopStatus, string> = {
   pending: 'bg-theme-surface',
-  running: 'bg-theme-info',
-  paused: 'bg-theme-warning',
-  completed: 'bg-theme-success',
-  failed: 'bg-theme-error',
+  running: 'bg-theme-info-bg',
+  paused: 'bg-theme-warning-bg',
+  completed: 'bg-theme-success-bg',
+  failed: 'bg-theme-error-bg',
   cancelled: 'bg-theme-background-secondary',
 };
 
@@ -151,7 +151,7 @@ export const RalphLoopListPanel: React.FC<RalphLoopListPanelProps> = ({
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-theme-interactive-primary/10 text-theme-info'
+                  ? 'bg-theme-interactive-primary/10 text-theme-info-fg'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >
@@ -179,7 +179,7 @@ export const RalphLoopListPanel: React.FC<RalphLoopListPanelProps> = ({
           <div className="px-3 py-2 border-t border-theme text-[10px] text-theme-tertiary flex gap-3">
             <span>{runningCount} running</span>
             <span>{completedCount} completed</span>
-            {failedCount > 0 && <span className="text-theme-error">{failedCount} failed</span>}
+            {failedCount > 0 && <span className="text-theme-error-fg">{failedCount} failed</span>}
           </div>
         ) : undefined
       }
@@ -187,7 +187,7 @@ export const RalphLoopListPanel: React.FC<RalphLoopListPanelProps> = ({
         <>
           <button
             onClick={onCreateLoop}
-            className="w-8 h-8 rounded-md flex items-center justify-center text-theme-info hover:bg-theme-surface-hover transition-colors"
+            className="w-8 h-8 rounded-md flex items-center justify-center text-theme-info-fg hover:bg-theme-surface-hover transition-colors"
             title="New Loop"
           >
             <Plus className="h-4 w-4" />

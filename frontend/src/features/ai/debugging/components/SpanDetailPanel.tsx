@@ -66,12 +66,12 @@ export const SpanDetailPanel: React.FC<SpanDetailPanelProps> = ({ selectedSpan }
       </div>
 
       {selectedSpan.error && (
-        <div className="p-3 bg-theme-danger/10 border border-theme-danger/30 rounded">
-          <div className="flex items-center gap-2 text-theme-danger mb-1">
+        <div className="p-3 bg-theme-danger-fg/10 border border-theme-danger-border/30 rounded">
+          <div className="flex items-center gap-2 text-theme-danger-fg mb-1">
             <AlertCircle className="h-4 w-4" />
             <span className="font-medium">Error</span>
           </div>
-          <pre className="text-xs text-theme-danger whitespace-pre-wrap">{selectedSpan.error}</pre>
+          <pre className="text-xs text-theme-danger-fg whitespace-pre-wrap">{selectedSpan.error}</pre>
         </div>
       )}
 

@@ -167,7 +167,7 @@ export const QuarantineList: React.FC = () => {
                 loading={escalateQuarantine.isPending}
                 title="Escalate"
               >
-                <ArrowUpCircle className="h-3.5 w-3.5 text-theme-warning" />
+                <ArrowUpCircle className="h-3.5 w-3.5 text-theme-warning-fg" />
               </Button>
             )}
             <Button
@@ -177,7 +177,7 @@ export const QuarantineList: React.FC = () => {
               loading={restoreQuarantine.isPending}
               title="Restore"
             >
-              <RotateCcw className="h-3.5 w-3.5 text-theme-success" />
+              <RotateCcw className="h-3.5 w-3.5 text-theme-success-fg" />
             </Button>
           </div>
         );

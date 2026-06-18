@@ -57,7 +57,7 @@ const ProviderCard: React.FC<{
           <div className="flex items-center gap-2">
             <h3 className="font-medium text-theme-primary">{provider.name}</h3>
             {isDefault && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-theme-warning/10 text-theme-warning">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-theme-warning-fg/10 text-theme-warning-fg">
                 <Star className="w-3 h-3" />
                 DevOps Default
               </span>
@@ -69,7 +69,7 @@ const ProviderCard: React.FC<{
       <span
         className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
           provider.is_active
-            ? 'bg-theme-success/10 text-theme-success'
+            ? 'bg-theme-success-fg/10 text-theme-success-fg'
             : 'bg-theme-surface/10 text-theme-secondary'
         }`}
       >
@@ -92,7 +92,7 @@ const ProviderCard: React.FC<{
           </Button>
         )}
         {provider.credential_count === 0 && (
-          <span className="text-xs text-theme-warning">No credentials configured</span>
+          <span className="text-xs text-theme-warning-fg">No credentials configured</span>
         )}
       </div>
 
@@ -124,9 +124,9 @@ export const AiConfigSettings: React.FC<AiConfigSettingsProps> = ({
   return (
     <div className="space-y-4">
       {/* Info banner about provider management */}
-      <div className="bg-theme-info/10 border border-theme-info/20 rounded-lg p-4">
+      <div className="bg-theme-info-fg/10 border border-theme-info-border/20 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <Bot className="w-5 h-5 text-theme-info mt-0.5" />
+          <Bot className="w-5 h-5 text-theme-info-fg mt-0.5" />
           <div>
             <h4 className="font-medium text-theme-primary">AI Provider Management</h4>
             <p className="text-sm text-theme-secondary mt-1">

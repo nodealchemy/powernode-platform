@@ -66,7 +66,7 @@ describe('RemediationStatusSelect', () => {
         <RemediationStatusSelect {...defaultProps} value="open" />
       );
       const selectElement = container.querySelector('select');
-      expect(selectElement).toHaveClass('bg-theme-error/10', 'text-theme-error', 'border-theme-error/30');
+      expect(selectElement).toHaveClass('bg-theme-error-fg/10', 'text-theme-error-fg', 'border-theme-error-border/30');
     });
 
     it('applies in_progress status styles', () => {
@@ -74,7 +74,7 @@ describe('RemediationStatusSelect', () => {
         <RemediationStatusSelect {...defaultProps} value="in_progress" />
       );
       const selectElement = container.querySelector('select');
-      expect(selectElement).toHaveClass('bg-theme-warning/10', 'text-theme-warning', 'border-theme-warning/30');
+      expect(selectElement).toHaveClass('bg-theme-warning-fg/10', 'text-theme-warning-fg', 'border-theme-warning-border/30');
     });
 
     it('applies fixed status styles', () => {
@@ -82,7 +82,7 @@ describe('RemediationStatusSelect', () => {
         <RemediationStatusSelect {...defaultProps} value="fixed" />
       );
       const selectElement = container.querySelector('select');
-      expect(selectElement).toHaveClass('bg-theme-success/10', 'text-theme-success', 'border-theme-success/30');
+      expect(selectElement).toHaveClass('bg-theme-success-fg/10', 'text-theme-success-fg', 'border-theme-success-border/30');
     });
 
     it('applies wont_fix status styles', () => {
@@ -244,11 +244,11 @@ describe('RemediationStatusSelect', () => {
       );
 
       let selectElement = container.querySelector('select');
-      expect(selectElement).toHaveClass('bg-theme-error/10');
+      expect(selectElement).toHaveClass('bg-theme-error-fg/10');
 
       rerender(<RemediationStatusSelect {...defaultProps} value="fixed" />);
       selectElement = container.querySelector('select');
-      expect(selectElement).toHaveClass('bg-theme-success/10');
+      expect(selectElement).toHaveClass('bg-theme-success-fg/10');
     });
   });
 });

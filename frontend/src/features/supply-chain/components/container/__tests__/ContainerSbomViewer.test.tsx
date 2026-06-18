@@ -111,7 +111,7 @@ describe('ContainerSbomViewer', () => {
       );
 
       const errorElement = screen.getByText('Test error');
-      expect(errorElement).toHaveClass('text-theme-error');
+      expect(errorElement).toHaveClass('text-theme-error-fg');
     });
 
     it('hides SBOM content when error occurs', () => {

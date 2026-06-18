@@ -100,8 +100,8 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
 
   if (error) {
     return (
-      <div className="rounded-lg border border-theme-error/30 bg-theme-error/5 p-4">
-        <p className="text-sm text-theme-error">{error}</p>
+      <div className="rounded-lg border border-theme-error-border/30 bg-theme-error-fg/5 p-4">
+        <p className="text-sm text-theme-error-fg">{error}</p>
         <button
           onClick={loadMemories}
           className="mt-2 text-sm text-theme-primary hover:underline"

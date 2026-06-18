@@ -88,7 +88,7 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
               {/* Health Score */}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-theme-tertiary">Health Score</span>
-                <span className={`font-medium ${agent.health_score >= 90 ? 'text-theme-success' : agent.health_score >= 70 ? 'text-theme-warning' : 'text-theme-error'}`}>
+                <span className={`font-medium ${agent.health_score >= 90 ? 'text-theme-success-fg' : agent.health_score >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
                   {agent.health_score.toFixed(1)}%
                 </span>
               </div>
@@ -97,7 +97,7 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-theme-tertiary">Success Rate</span>
-                  <span className={agent.performance.success_rate >= 95 ? 'text-theme-success' : agent.performance.success_rate >= 90 ? 'text-theme-warning' : 'text-theme-error'}>
+                  <span className={agent.performance.success_rate >= 95 ? 'text-theme-success-fg' : agent.performance.success_rate >= 90 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}>
                     {agent.performance.success_rate.toFixed(1)}%
                   </span>
                 </div>
@@ -109,13 +109,13 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">Running</span>
-                    <span className="font-medium text-theme-info">
+                    <span className="font-medium text-theme-info-fg">
                       {agent.executions.running}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">Completed</span>
-                    <span className="font-medium text-theme-success">
+                    <span className="font-medium text-theme-success-fg">
                       {agent.executions.completed}
                     </span>
                   </div>
@@ -123,7 +123,7 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">Failed</span>
-                    <span className="font-medium text-theme-error">
+                    <span className="font-medium text-theme-error-fg">
                       {agent.executions.failed}
                     </span>
                   </div>

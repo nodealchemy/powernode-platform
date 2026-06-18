@@ -187,7 +187,7 @@ describe('QuestionnaireDetailPage', () => {
 
     it('shows green progress bar for completed sections', () => {
       renderPage();
-      // Completed sections use bg-theme-success
+      // Completed sections use bg-theme-success-bg
       expect(screen.getAllByText('Access Control').length).toBeGreaterThan(0);
     });
 
@@ -363,13 +363,13 @@ describe('QuestionnaireDetailPage', () => {
 
     it('applies success background to compliant responses', () => {
       renderPage();
-      // Compliant responses have bg-theme-success/10 class
+      // Compliant responses have bg-theme-success-fg/10 class
       expect(screen.getByText('Yes, MFA is mandatory for all user accounts.')).toBeInTheDocument();
     });
 
     it('applies success border to compliant responses', () => {
       renderPage();
-      // Compliant responses have border-theme-success/30 class
+      // Compliant responses have border-theme-success-border/30 class
       expect(screen.getByText('Yes, MFA is mandatory for all user accounts.')).toBeInTheDocument();
     });
   });

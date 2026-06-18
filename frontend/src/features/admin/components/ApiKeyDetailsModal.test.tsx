@@ -7,9 +7,9 @@ jest.mock('@/features/devops/api-keys/services/apiKeysApi', () => ({
   apiKeysApi: {
     getStatusColor: (status: string) => {
       switch (status) {
-        case 'active': return 'bg-theme-success text-theme-success';
-        case 'revoked': return 'bg-theme-error text-theme-error';
-        case 'expired': return 'bg-theme-warning text-theme-warning';
+        case 'active': return 'bg-theme-success-bg text-theme-success-fg';
+        case 'revoked': return 'bg-theme-error-bg text-theme-error-fg';
+        case 'expired': return 'bg-theme-warning-bg text-theme-warning-fg';
         default: return 'bg-theme-surface text-theme-secondary';
       }
     },
@@ -24,7 +24,7 @@ jest.mock('@/features/devops/api-keys/services/apiKeysApi', () => ({
     formatScope: (scope: string) => scope.split(':').map((part: string) =>
       part.charAt(0).toUpperCase() + part.slice(1)
     ).join(' → '),
-    getScopeCategoryColor: () => 'bg-theme-info text-theme-info',
+    getScopeCategoryColor: () => 'bg-theme-info-bg text-theme-info-fg',
     formatUsageCount: (count: number) => {
       if (count === 0) return '0';
       if (count < 1000) return count.toString();
@@ -398,7 +398,7 @@ describe('ApiKeyDetailsModal', () => {
       render(<ApiKeyDetailsModal {...defaultProps} />);
 
       const errorBadge = screen.getByText('404');
-      expect(errorBadge).toHaveClass('bg-theme-error');
+      expect(errorBadge).toHaveClass('bg-theme-error-bg');
     });
   });
 });

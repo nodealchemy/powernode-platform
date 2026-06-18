@@ -23,28 +23,28 @@ export const SchemasTab: React.FC<SchemasTabProps> = ({
       <div>
         <label className={labelClass}>
           Input Schema
-          {jsonErrors.input_schema && <span className="text-theme-danger ml-2 font-normal">{jsonErrors.input_schema}</span>}
+          {jsonErrors.input_schema && <span className="text-theme-danger-fg ml-2 font-normal">{jsonErrors.input_schema}</span>}
         </label>
         <p className="text-xs text-theme-secondary mb-2">Define the expected input parameters for this template.</p>
         <textarea
           value={inputSchemaText}
           onChange={(e) => onInputSchemaChange(e.target.value)}
           rows={10}
-          className={`${inputClass} font-mono text-xs ${jsonErrors.input_schema ? 'border-theme-danger' : ''}`}
+          className={`${inputClass} font-mono text-xs ${jsonErrors.input_schema ? 'border-theme-danger-border' : ''}`}
           placeholder='{"param_name": {"type": "string", "required": true, "description": "..."}}'
         />
       </div>
       <div>
         <label className={labelClass}>
           Output Schema
-          {jsonErrors.output_schema && <span className="text-theme-danger ml-2 font-normal">{jsonErrors.output_schema}</span>}
+          {jsonErrors.output_schema && <span className="text-theme-danger-fg ml-2 font-normal">{jsonErrors.output_schema}</span>}
         </label>
         <p className="text-xs text-theme-secondary mb-2">Define the expected output structure from this template.</p>
         <textarea
           value={outputSchemaText}
           onChange={(e) => onOutputSchemaChange(e.target.value)}
           rows={10}
-          className={`${inputClass} font-mono text-xs ${jsonErrors.output_schema ? 'border-theme-danger' : ''}`}
+          className={`${inputClass} font-mono text-xs ${jsonErrors.output_schema ? 'border-theme-danger-border' : ''}`}
           placeholder='{"result": {"type": "string"}, "findings": {"type": "array"}}'
         />
       </div>

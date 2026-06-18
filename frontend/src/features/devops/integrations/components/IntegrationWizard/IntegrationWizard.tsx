@@ -128,7 +128,7 @@ export function IntegrationWizard() {
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                     index < currentStepIndex
-                      ? 'bg-theme-success text-white'
+                      ? 'bg-theme-success-bg text-white'
                       : index === currentStepIndex
                         ? 'bg-theme-primary text-white'
                         : 'bg-theme-surface text-theme-tertiary'
@@ -149,7 +149,7 @@ export function IntegrationWizard() {
               {index < STEPS.length - 1 && (
                 <div
                   className={`flex-1 h-0.5 mx-4 ${
-                    index < currentStepIndex ? 'bg-theme-success' : 'bg-theme-background-secondary'
+                    index < currentStepIndex ? 'bg-theme-success-bg' : 'bg-theme-background-secondary'
                   }`}
                 />
               )}

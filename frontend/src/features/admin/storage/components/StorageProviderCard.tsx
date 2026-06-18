@@ -36,13 +36,13 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
   const getProviderIcon = () => {
     switch (provider.provider_type) {
       case 'local':
-        return <HardDrive className="h-6 w-6 text-theme-info" />;
+        return <HardDrive className="h-6 w-6 text-theme-info-fg" />;
       case 's3':
-        return <Cloud className="h-6 w-6 text-theme-warning" />;
+        return <Cloud className="h-6 w-6 text-theme-warning-fg" />;
       case 'azure_blob':
-        return <Cloud className="h-6 w-6 text-theme-info" />;
+        return <Cloud className="h-6 w-6 text-theme-info-fg" />;
       case 'gcs':
-        return <Database className="h-6 w-6 text-theme-success" />;
+        return <Database className="h-6 w-6 text-theme-success-fg" />;
       default:
         return <HardDrive className="h-6 w-6 text-theme-secondary" />;
     }
@@ -66,11 +66,11 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
   const getStatusIcon = () => {
     switch (provider.status) {
       case 'active':
-        return <CheckCircle className="h-5 w-5 text-theme-success" />;
+        return <CheckCircle className="h-5 w-5 text-theme-success-fg" />;
       case 'inactive':
-        return <AlertCircle className="h-5 w-5 text-theme-warning" />;
+        return <AlertCircle className="h-5 w-5 text-theme-warning-fg" />;
       case 'error':
-        return <XCircle className="h-5 w-5 text-theme-danger" />;
+        return <XCircle className="h-5 w-5 text-theme-danger-fg" />;
       default:
         return <AlertCircle className="h-5 w-5 text-theme-secondary" />;
     }
@@ -85,7 +85,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
   };
 
   return (
-    <div data-testid="storage-provider-card" className="bg-theme-surface border border-theme rounded-lg p-6 hover:border-theme-info transition-colors relative">
+    <div data-testid="storage-provider-card" className="bg-theme-surface border border-theme rounded-lg p-6 hover:border-theme-info-border transition-colors relative">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -94,7 +94,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold text-theme-primary">{provider.name}</h3>
               {provider.is_default && (
-                <span className="flex items-center gap-1 px-2 py-0.5 bg-theme-warning/20 dark:bg-theme-warning/30 text-theme-warning dark:text-theme-warning text-xs rounded-full">
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-theme-warning-fg/20 dark:bg-theme-warning-fg/30 text-theme-warning-fg dark:text-theme-warning-fg text-xs rounded-full">
                   <Star className="h-3 w-3 fill-current" />
                   Default
                 </span>
@@ -162,7 +162,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
                       setShowMenu(false);
                       onDelete(provider);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-theme-danger dark:text-theme-danger hover:bg-theme-danger/10 dark:hover:bg-theme-danger/20 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm text-theme-danger-fg dark:text-theme-danger-fg hover:bg-theme-danger-fg/10 dark:hover:bg-theme-danger-fg/20 flex items-center gap-2"
                   >
                     <Trash2 className="h-4 w-4" />
                     Delete

@@ -13,25 +13,25 @@ export interface SystemStatusCardProps {
 
 const statusConfig = {
   healthy: {
-    color: 'text-theme-success',
+    color: 'text-theme-success-fg',
     bgColor: 'bg-theme-success-background',
     borderColor: 'border-theme-success-border',
     icon: '+'
   },
   warning: {
-    color: 'text-theme-warning',
+    color: 'text-theme-warning-fg',
     bgColor: 'bg-theme-warning-background',
     borderColor: 'border-theme-warning-border',
     icon: '!'
   },
   error: {
-    color: 'text-theme-error',
-    bgColor: 'bg-theme-error',
+    color: 'text-theme-error-fg',
+    bgColor: 'bg-theme-error-bg',
     borderColor: 'border-theme-error-border',
     icon: 'X'
   },
   maintenance: {
-    color: 'text-theme-warning',
+    color: 'text-theme-warning-fg',
     bgColor: 'bg-theme-warning-background',
     borderColor: 'border-theme-warning-border',
     icon: 'M'
@@ -57,10 +57,10 @@ export const SystemStatusCard: React.FC<SystemStatusCardProps> = ({
           <h3 className="font-semibold text-theme-primary">{title}</h3>
         </div>
         <div className={`w-3 h-3 rounded-full ${
-          status === 'healthy' ? 'bg-theme-success' :
-          status === 'warning' ? 'bg-theme-warning' :
-          status === 'error' ? 'bg-theme-error' :
-          'bg-theme-warning'
+          status === 'healthy' ? 'bg-theme-success-bg' :
+          status === 'warning' ? 'bg-theme-warning-bg' :
+          status === 'error' ? 'bg-theme-error-bg' :
+          'bg-theme-warning-bg'
         } shadow-sm`} />
       </div>
       <div className={`text-2xl font-bold ${config.color} mb-2`}>

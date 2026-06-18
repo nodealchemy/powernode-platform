@@ -62,12 +62,12 @@ export const WorkerEditForm: React.FC<WorkerEditFormProps> = ({ worker, onUpdate
           <input
             {...form.getFieldProps('name')}
             type="text"
-            className={`input-theme ${form.errors.name ? 'border-theme-error' : ''}`}
+            className={`input-theme ${form.errors.name ? 'border-theme-error-border' : ''}`}
             disabled={form.isSubmitting}
             required
           />
           {form.errors.name && (
-            <p className="text-theme-error text-sm mt-1">{form.errors.name}</p>
+            <p className="text-theme-error-fg text-sm mt-1">{form.errors.name}</p>
           )}
         </div>
 
@@ -77,12 +77,12 @@ export const WorkerEditForm: React.FC<WorkerEditFormProps> = ({ worker, onUpdate
           </label>
           <textarea
             {...form.getFieldProps('description')}
-            className={`input-theme ${form.errors.description ? 'border-theme-error' : ''}`}
+            className={`input-theme ${form.errors.description ? 'border-theme-error-border' : ''}`}
             rows={3}
             disabled={form.isSubmitting}
           />
           {form.errors.description && (
-            <p className="text-theme-error text-sm mt-1">{form.errors.description}</p>
+            <p className="text-theme-error-fg text-sm mt-1">{form.errors.description}</p>
           )}
         </div>
 
@@ -122,7 +122,7 @@ export const WorkerEditForm: React.FC<WorkerEditFormProps> = ({ worker, onUpdate
             </div>
           </div>
           {form.errors.roles && (
-            <p className="text-theme-error text-sm mt-1">{form.errors.roles}</p>
+            <p className="text-theme-error-fg text-sm mt-1">{form.errors.roles}</p>
           )}
         </div>
 

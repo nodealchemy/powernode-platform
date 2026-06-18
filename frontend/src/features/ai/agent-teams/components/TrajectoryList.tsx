@@ -113,7 +113,7 @@ export const TrajectoryList: React.FC<TrajectoryListProps> = ({
               key={trajectory.id}
               type="button"
               onClick={() => onSelectTrajectory(trajectory.id)}
-              className="w-full text-left bg-theme-surface border border-theme rounded-lg p-4 hover:shadow-md hover:border-theme-info/30 transition-all"
+              className="w-full text-left bg-theme-surface border border-theme rounded-lg p-4 hover:shadow-md hover:border-theme-info-border/30 transition-all"
               data-testid={`trajectory-card-${trajectory.trajectory_id}`}
             >
               <div className="flex items-start justify-between mb-2">
@@ -123,7 +123,7 @@ export const TrajectoryList: React.FC<TrajectoryListProps> = ({
 
                 <div className="flex items-center gap-2 shrink-0 ml-3">
                   {trajectory.quality_score !== null && trajectory.quality_score !== undefined && (
-                    <span className="flex items-center gap-1 text-xs text-theme-warning">
+                    <span className="flex items-center gap-1 text-xs text-theme-warning-fg">
                       <Star size={12} />
                       {trajectory.quality_score.toFixed(2)}
                     </span>
@@ -135,7 +135,7 @@ export const TrajectoryList: React.FC<TrajectoryListProps> = ({
               </div>
 
               <div className="flex items-center gap-3 text-xs text-theme-secondary">
-                <span className="px-1.5 py-0.5 rounded bg-theme-info">
+                <span className="px-1.5 py-0.5 rounded bg-theme-info-bg">
                   {TRAJECTORY_TYPE_LABELS[trajectory.trajectory_type] || trajectory.trajectory_type}
                 </span>
                 <span className="flex items-center gap-1">
@@ -152,7 +152,7 @@ export const TrajectoryList: React.FC<TrajectoryListProps> = ({
               {trajectory.tags && trajectory.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {trajectory.tags.map((tag: string, idx: number) => (
-                    <span key={idx} className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded bg-theme-info text-theme-secondary">
+                    <span key={idx} className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded bg-theme-info-bg text-theme-secondary">
                       <Tag size={8} />
                       {tag}
                     </span>

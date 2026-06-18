@@ -29,7 +29,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
       {insights.length > 0 && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-            <Lightbulb className="h-5 w-5 text-theme-warning" />
+            <Lightbulb className="h-5 w-5 text-theme-warning-fg" />
             Insights
           </h3>
           <div className="space-y-3">
@@ -38,15 +38,15 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
                 key={index}
                 className={`p-3 rounded-lg border ${
                   insight.severity === 'critical'
-                    ? 'bg-theme-error border-theme-error'
+                    ? 'bg-theme-error-bg border-theme-error-border'
                     : insight.severity === 'warning'
-                    ? 'bg-theme-warning-background border-theme-warning'
+                    ? 'bg-theme-warning-background border-theme-warning-border'
                     : 'bg-theme-surface border-theme'
                 }`}
               >
                 <div className="flex items-start gap-2">
-                  {insight.severity === 'critical' && <AlertTriangle className="h-4 w-4 text-theme-error mt-0.5" />}
-                  {insight.severity === 'warning' && <AlertTriangle className="h-4 w-4 text-theme-warning mt-0.5" />}
+                  {insight.severity === 'critical' && <AlertTriangle className="h-4 w-4 text-theme-error-fg mt-0.5" />}
+                  {insight.severity === 'warning' && <AlertTriangle className="h-4 w-4 text-theme-warning-fg mt-0.5" />}
                   <div>
                     <p className="font-medium text-theme-primary">{insight.title}</p>
                     <p className="text-sm text-theme-tertiary mt-1">{insight.description}</p>
@@ -65,7 +65,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
       {recommendations.length > 0 && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-            <Zap className="h-5 w-5 text-theme-success" />
+            <Zap className="h-5 w-5 text-theme-success-fg" />
             Recommendations
           </h3>
           <div className="space-y-3">
@@ -86,13 +86,13 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
                     {(rec.potential_savings_usd || rec.potential_improvement_percentage) && (
                       <div className="flex items-center gap-3 mt-2">
                         {rec.potential_savings_usd && (
-                          <span className="text-xs text-theme-success flex items-center gap-1">
+                          <span className="text-xs text-theme-success-fg flex items-center gap-1">
                             <TrendingDown className="h-3 w-3" />
                             Save ${rec.potential_savings_usd.toFixed(2)}
                           </span>
                         )}
                         {rec.potential_improvement_percentage && (
-                          <span className="text-xs text-theme-success flex items-center gap-1">
+                          <span className="text-xs text-theme-success-fg flex items-center gap-1">
                             <TrendingUp className="h-3 w-3" />
                             +{rec.potential_improvement_percentage}% improvement
                           </span>

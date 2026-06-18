@@ -114,11 +114,11 @@ export const LicenseViolationDetailPage: React.FC = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'resolved':
-        return <CheckCircle className="w-5 h-5 text-theme-success" />;
+        return <CheckCircle className="w-5 h-5 text-theme-success-fg" />;
       case 'exception_granted':
-        return <CheckCircle className="w-5 h-5 text-theme-info" />;
+        return <CheckCircle className="w-5 h-5 text-theme-info-fg" />;
       default:
-        return <XCircle className="w-5 h-5 text-theme-error" />;
+        return <XCircle className="w-5 h-5 text-theme-error-fg" />;
     }
   };
 
@@ -206,10 +206,10 @@ export const LicenseViolationDetailPage: React.FC = () => {
           </div>
 
           {violation.resolution_note && (
-            <div className="mt-4 p-4 bg-theme-success/10 rounded-lg">
+            <div className="mt-4 p-4 bg-theme-success-fg/10 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <FileText className="w-4 h-4 text-theme-success" />
-                <span className="font-medium text-theme-success">Resolution Note</span>
+                <FileText className="w-4 h-4 text-theme-success-fg" />
+                <span className="font-medium text-theme-success-fg">Resolution Note</span>
               </div>
               <p className="text-sm text-theme-primary">{violation.resolution_note}</p>
             </div>
@@ -251,7 +251,7 @@ export const LicenseViolationDetailPage: React.FC = () => {
           </h3>
           <div className="space-y-4">
             <div className="flex items-start gap-3 p-3 bg-theme-background-secondary rounded-lg">
-              <AlertTriangle className="w-5 h-5 text-theme-warning flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="w-5 h-5 text-theme-warning-fg flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium text-theme-primary">Violation Detected</p>
                 <p className="text-sm text-theme-secondary">
@@ -261,7 +261,7 @@ export const LicenseViolationDetailPage: React.FC = () => {
             </div>
             {violation.resolved_at && (
               <div className="flex items-start gap-3 p-3 bg-theme-background-secondary rounded-lg">
-                <CheckCircle className="w-5 h-5 text-theme-success flex-shrink-0 mt-0.5" />
+                <CheckCircle className="w-5 h-5 text-theme-success-fg flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-theme-primary">
                     {violation.status === 'exception_granted' ? 'Exception Granted' : 'Resolved'}

@@ -114,7 +114,7 @@ export function ExecutionHistoryTable({
                           e.stopPropagation();
                           onRetry(execution.id);
                         }}
-                        className="px-2 py-1 text-xs text-theme-primary hover:bg-theme-primary hover:bg-opacity-10 rounded transition-colors"
+                        className="px-2 py-1 text-xs text-theme-primary hover:bg-theme-primary hover:bg-theme-primary/10 rounded transition-colors"
                       >
                         Retry
                       </button>
@@ -126,7 +126,7 @@ export function ExecutionHistoryTable({
                             e.stopPropagation();
                             onCancel(execution.id);
                           }}
-                          className="px-2 py-1 text-xs text-theme-error hover:bg-theme-error hover:bg-opacity-10 rounded transition-colors"
+                          className="px-2 py-1 text-xs text-theme-error-fg hover:bg-theme-error-bg hover:bg-theme-error-bg/10 rounded transition-colors"
                         >
                           Cancel
                         </button>
@@ -207,11 +207,11 @@ function ExecutionDetails({ execution, onViewDetails }: ExecutionDetailsProps) {
       </div>
 
       {execution.error_message && (
-        <div className="p-3 bg-theme-error bg-opacity-10 rounded-lg">
-          <p className="text-xs text-theme-error font-medium">
+        <div className="p-3 bg-theme-error-bg rounded-lg">
+          <p className="text-xs text-theme-error-fg font-medium">
             {execution.error_class || 'Error'}
           </p>
-          <p className="text-sm text-theme-error mt-1">{execution.error_message}</p>
+          <p className="text-sm text-theme-error-fg mt-1">{execution.error_message}</p>
         </div>
       )}
 

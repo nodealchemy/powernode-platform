@@ -97,7 +97,7 @@ export const SwarmServiceDetailPage: React.FC = () => {
     return (
       <PageContainer title="Service Detail" breadcrumbs={getBreadcrumbs()}>
         <div className="text-center py-20">
-          <p className="text-theme-error mb-4">{error || 'Service not found'}</p>
+          <p className="text-theme-error-fg mb-4">{error || 'Service not found'}</p>
           <Button onClick={() => navigate('/app/devops/swarm/services')} variant="secondary" size="sm">Back to Services</Button>
         </div>
       </PageContainer>

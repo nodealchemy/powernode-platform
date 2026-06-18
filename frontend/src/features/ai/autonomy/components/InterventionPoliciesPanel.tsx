@@ -18,10 +18,10 @@ import type { InterventionPolicy, InterventionPolicyAction, PolicyResolutionResu
 
 function getPolicyColor(policy: InterventionPolicyAction): string {
   switch (policy) {
-    case 'auto_approve': return 'text-theme-success bg-theme-success/10';
-    case 'notify_and_proceed': return 'text-theme-info bg-theme-info/10';
-    case 'require_approval': return 'text-theme-warning bg-theme-warning/10';
-    case 'block': return 'text-theme-error bg-theme-error/10';
+    case 'auto_approve': return 'text-theme-success-fg bg-theme-success-fg/10';
+    case 'notify_and_proceed': return 'text-theme-info-fg bg-theme-info-fg/10';
+    case 'require_approval': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+    case 'block': return 'text-theme-error-fg bg-theme-error-fg/10';
     case 'silent': return 'text-theme-tertiary bg-theme-surface';
     default: return 'text-theme-secondary bg-theme-surface';
   }
@@ -154,7 +154,7 @@ const PolicyForm: React.FC<{
           <div className="flex flex-wrap gap-1 mt-2">
             {Object.entries(form.conditions).map(([k, v]) => (
               <span key={k} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-theme-surface border border-theme text-theme-secondary">
-                {k}: {v} <button onClick={() => removeCondition(k)} className="text-theme-error">&times;</button>
+                {k}: {v} <button onClick={() => removeCondition(k)} className="text-theme-error-fg">&times;</button>
               </span>
             ))}
           </div>
@@ -229,7 +229,7 @@ const PolicyCard: React.FC<{
         onClick={onToggle}
         className="flex items-center gap-3 p-4 cursor-pointer hover:bg-theme-background/50 transition-colors"
       >
-        <Shield className="h-4 w-4 text-theme-info shrink-0" />
+        <Shield className="h-4 w-4 text-theme-info-fg shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={`px-2 py-0.5 text-xs rounded font-medium ${getPolicyColor(policy.policy)}`}>
@@ -252,7 +252,7 @@ const PolicyCard: React.FC<{
           className="shrink-0"
           title={policy.is_active ? 'Disable' : 'Enable'}
         >
-          {policy.is_active ? <ToggleRight className="h-5 w-5 text-theme-success" /> : <ToggleLeft className="h-5 w-5 text-theme-tertiary" />}
+          {policy.is_active ? <ToggleRight className="h-5 w-5 text-theme-success-fg" /> : <ToggleLeft className="h-5 w-5 text-theme-tertiary" />}
         </button>
         <ChevronDown className={`h-4 w-4 text-theme-tertiary shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
       </div>
@@ -300,7 +300,7 @@ const PolicyCard: React.FC<{
                   <h4 className="text-sm font-medium text-theme-primary mb-1">Preferred Channels</h4>
                   <div className="flex gap-1">
                     {policy.preferred_channels.map(ch => (
-                      <span key={ch} className="text-xs px-2 py-0.5 bg-theme-info/10 text-theme-info rounded">{ch}</span>
+                      <span key={ch} className="text-xs px-2 py-0.5 bg-theme-info-fg/10 text-theme-info-fg rounded">{ch}</span>
                     ))}
                   </div>
                 </div>

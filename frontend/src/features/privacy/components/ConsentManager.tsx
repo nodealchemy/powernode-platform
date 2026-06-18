@@ -114,7 +114,7 @@ export const ConsentManager: React.FC<ConsentManagerProps> = ({
                 onClick={() => handleToggle(type, !consent.granted)}
                 disabled={consent.required || loading}
                 className={`${
-                  consent.granted ? 'bg-theme-success' : 'bg-theme-background-secondary/50'
+                  consent.granted ? 'bg-theme-success-bg' : 'bg-theme-background-secondary/50'
                 } relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   consent.required ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
@@ -130,10 +130,10 @@ export const ConsentManager: React.FC<ConsentManagerProps> = ({
         })}
       </div>
 
-      <div className="mt-6 p-4 bg-theme-info/10 dark:bg-theme-info/20 rounded-lg">
+      <div className="mt-6 p-4 bg-theme-info-fg/10 dark:bg-theme-info-fg/20 rounded-lg">
         <div className="flex items-start space-x-3">
-          <InformationCircleIcon className="h-5 w-5 text-theme-info mt-0.5" />
-          <div className="text-sm text-theme-info">
+          <InformationCircleIcon className="h-5 w-5 text-theme-info-fg mt-0.5" />
+          <div className="text-sm text-theme-info-fg">
             <p className="font-medium">Your Privacy Rights</p>
             <p className="mt-1">
               You can withdraw consent at any time. Required consents are necessary for core service

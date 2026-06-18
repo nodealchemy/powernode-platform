@@ -35,16 +35,16 @@ const StatCard: React.FC<{
   onClick?: () => void;
 }> = ({ title, value, subtitle, icon: Icon, status = 'neutral', onClick }) => {
   const statusColors = {
-    success: 'text-theme-success',
-    warning: 'text-theme-warning',
-    error: 'text-theme-error',
+    success: 'text-theme-success-fg',
+    warning: 'text-theme-warning-fg',
+    error: 'text-theme-error-fg',
     neutral: 'text-theme-primary'
   };
 
   const statusBgColors = {
-    success: 'bg-theme-success/10',
-    warning: 'bg-theme-warning/10',
-    error: 'bg-theme-error/10',
+    success: 'bg-theme-success-fg/10',
+    warning: 'bg-theme-warning-fg/10',
+    error: 'bg-theme-error-fg/10',
     neutral: 'bg-theme-primary/10'
   };
 
@@ -74,9 +74,9 @@ const StatusIndicator: React.FC<{
   type: 'success' | 'warning' | 'error';
 }> = ({ label, value, total, type }) => {
   const colors = {
-    success: 'bg-theme-success',
-    warning: 'bg-theme-warning',
-    error: 'bg-theme-error'
+    success: 'bg-theme-success-bg',
+    warning: 'bg-theme-warning-bg',
+    error: 'bg-theme-error-bg'
   };
 
   const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
@@ -92,12 +92,12 @@ const StatusIndicator: React.FC<{
 };
 
 const runStatusConfig: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
-  completed: { icon: CheckCircle, color: 'text-theme-success' },
-  success: { icon: CheckCircle, color: 'text-theme-success' },
-  running: { icon: Activity, color: 'text-theme-info' },
-  pending: { icon: Clock, color: 'text-theme-warning' },
-  queued: { icon: Clock, color: 'text-theme-warning' },
-  failed: { icon: XCircle, color: 'text-theme-error' },
+  completed: { icon: CheckCircle, color: 'text-theme-success-fg' },
+  success: { icon: CheckCircle, color: 'text-theme-success-fg' },
+  running: { icon: Activity, color: 'text-theme-info-fg' },
+  pending: { icon: Clock, color: 'text-theme-warning-fg' },
+  queued: { icon: Clock, color: 'text-theme-warning-fg' },
+  failed: { icon: XCircle, color: 'text-theme-error-fg' },
   cancelled: { icon: XCircle, color: 'text-theme-tertiary' },
 };
 
@@ -240,15 +240,15 @@ export function CiCdOverviewTab() {
               </div>
               <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
                 <div
-                  className="bg-theme-success transition-all"
+                  className="bg-theme-success-bg transition-all"
                   style={{ width: `${(stats.runners.online / totalRunners) * 100}%` }}
                 />
                 <div
-                  className="bg-theme-warning transition-all"
+                  className="bg-theme-warning-bg transition-all"
                   style={{ width: `${(stats.runners.busy / totalRunners) * 100}%` }}
                 />
                 <div
-                  className="bg-theme-error transition-all"
+                  className="bg-theme-error-bg transition-all"
                   style={{ width: `${(stats.runners.offline / totalRunners) * 100}%` }}
                 />
               </div>
@@ -331,11 +331,11 @@ export function CiCdOverviewTab() {
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-theme-success">{successCount}</p>
+                  <p className="text-2xl font-bold text-theme-success-fg">{successCount}</p>
                   <p className="text-xs text-theme-tertiary">Successful</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-theme-error">{failedCount}</p>
+                  <p className="text-2xl font-bold text-theme-error-fg">{failedCount}</p>
                   <p className="text-xs text-theme-tertiary">Failed</p>
                 </div>
                 <div>
@@ -345,11 +345,11 @@ export function CiCdOverviewTab() {
               </div>
               <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
                 <div
-                  className="bg-theme-success transition-all"
+                  className="bg-theme-success-bg transition-all"
                   style={{ width: `${(successCount / totalStatusRuns) * 100}%` }}
                 />
                 <div
-                  className="bg-theme-error transition-all"
+                  className="bg-theme-error-bg transition-all"
                   style={{ width: `${(failedCount / totalStatusRuns) * 100}%` }}
                 />
                 <div
@@ -394,8 +394,8 @@ export function CiCdOverviewTab() {
 
       {/* Alerts */}
       {stats.runners && stats.runners.offline > 0 && (
-        <div className="bg-theme-warning/10 border border-theme-warning/30 rounded-lg p-4">
-          <h3 className="font-semibold text-theme-warning flex items-center gap-2 mb-3">
+        <div className="bg-theme-warning-fg/10 border border-theme-warning-border/30 rounded-lg p-4">
+          <h3 className="font-semibold text-theme-warning-fg flex items-center gap-2 mb-3">
             <AlertTriangle className="w-5 h-5" />
             Attention Required
           </h3>

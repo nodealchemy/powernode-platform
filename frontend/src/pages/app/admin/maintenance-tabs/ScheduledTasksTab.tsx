@@ -53,7 +53,7 @@ const CreateScheduleModal: React.FC<{
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-semibold text-theme-primary mb-2">
-              Description<span className="text-theme-error ml-1">*</span>
+              Description<span className="text-theme-error-fg ml-1">*</span>
             </label>
             <input
               type="text"
@@ -67,7 +67,7 @@ const CreateScheduleModal: React.FC<{
 
           <div>
             <label className="block text-sm font-semibold text-theme-primary mb-2">
-              Task Type<span className="text-theme-error ml-1">*</span>
+              Task Type<span className="text-theme-error-fg ml-1">*</span>
             </label>
             <select
               value={formData.type}
@@ -83,7 +83,7 @@ const CreateScheduleModal: React.FC<{
 
           <div>
             <label className="block text-sm font-semibold text-theme-primary mb-2">
-              Scheduled Time<span className="text-theme-error ml-1">*</span>
+              Scheduled Time<span className="text-theme-error-fg ml-1">*</span>
             </label>
             <input
               type="datetime-local"
@@ -96,7 +96,7 @@ const CreateScheduleModal: React.FC<{
 
           <div>
             <label className="block text-sm font-semibold text-theme-primary mb-2">
-              Frequency<span className="text-theme-error ml-1">*</span>
+              Frequency<span className="text-theme-error-fg ml-1">*</span>
             </label>
             <select
               value={formData.frequency}

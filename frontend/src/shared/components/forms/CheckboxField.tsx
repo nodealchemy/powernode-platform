@@ -43,7 +43,7 @@ export const CheckboxField: React.FC<CheckboxFieldProps> = ({
               ? 'opacity-60 cursor-not-allowed' 
               : ''
           } ${
-            hasError ? 'border-theme-error' : ''
+            hasError ? 'border-theme-error-border' : ''
           }`}
         >
           <input
@@ -56,7 +56,7 @@ export const CheckboxField: React.FC<CheckboxFieldProps> = ({
           <div className="flex-1">
             <div className="text-sm font-medium text-theme-primary">
               {label}
-              {required && <span className="text-theme-error ml-1">*</span>}
+              {required && <span className="text-theme-error-fg ml-1">*</span>}
             </div>
             {helpText && (
               <div className="mt-1 text-sm text-theme-secondary">
@@ -69,7 +69,7 @@ export const CheckboxField: React.FC<CheckboxFieldProps> = ({
         {hasError && (
           <p 
             id={`${name}-error`} 
-            className="mt-1 text-sm text-theme-error flex items-center space-x-1"
+            className="mt-1 text-sm text-theme-error-fg flex items-center space-x-1"
             role="alert"
           >
             <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -105,7 +105,7 @@ export const CheckboxField: React.FC<CheckboxFieldProps> = ({
           }`}
         >
           {label}
-          {required && <span className="text-theme-error ml-1">*</span>}
+          {required && <span className="text-theme-error-fg ml-1">*</span>}
         </label>
       </div>
       
@@ -118,7 +118,7 @@ export const CheckboxField: React.FC<CheckboxFieldProps> = ({
       {hasError && (
         <p 
           id={`${name}-error`} 
-          className="mt-1 ml-7 text-sm text-theme-error flex items-center space-x-1"
+          className="mt-1 ml-7 text-sm text-theme-error-fg flex items-center space-x-1"
           role="alert"
         >
           <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">

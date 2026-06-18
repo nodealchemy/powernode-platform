@@ -66,9 +66,9 @@ export function TestConnectionStep({
 
   const statusColor = {
     idle: 'text-theme-secondary',
-    testing: 'text-theme-warning',
-    success: 'text-theme-success',
-    error: 'text-theme-error',
+    testing: 'text-theme-warning-fg',
+    success: 'text-theme-success-fg',
+    error: 'text-theme-error-fg',
   };
 
   return (
@@ -167,7 +167,7 @@ export function TestConnectionStep({
 
       {/* Warning for untested */}
       {testStatus !== 'success' && (
-        <div className="p-3 bg-theme-warning bg-opacity-10 text-theme-warning rounded-lg text-sm">
+        <div className="p-3 bg-theme-warning-bg text-theme-warning-fg rounded-lg text-sm">
           We recommend testing your connection before creating the integration.
         </div>
       )}

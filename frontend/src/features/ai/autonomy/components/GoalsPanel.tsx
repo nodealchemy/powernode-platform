@@ -11,20 +11,20 @@ import type { AgentGoal, GoalStatus, GoalType } from '../types/autonomy';
 
 function getStatusIcon(status: GoalStatus) {
   switch (status) {
-    case 'achieved': return <CheckCircle className="h-4 w-4 text-theme-success" />;
-    case 'failed': case 'abandoned': return <XCircle className="h-4 w-4 text-theme-error" />;
-    case 'paused': return <Pause className="h-4 w-4 text-theme-warning" />;
-    case 'active': return <Target className="h-4 w-4 text-theme-info" />;
+    case 'achieved': return <CheckCircle className="h-4 w-4 text-theme-success-fg" />;
+    case 'failed': case 'abandoned': return <XCircle className="h-4 w-4 text-theme-error-fg" />;
+    case 'paused': return <Pause className="h-4 w-4 text-theme-warning-fg" />;
+    case 'active': return <Target className="h-4 w-4 text-theme-info-fg" />;
     default: return <Clock className="h-4 w-4 text-theme-tertiary" />;
   }
 }
 
 function getStatusBadgeClass(status: GoalStatus): string {
   switch (status) {
-    case 'achieved': return 'text-theme-success bg-theme-success/10';
-    case 'failed': case 'abandoned': return 'text-theme-error bg-theme-error/10';
-    case 'paused': return 'text-theme-warning bg-theme-warning/10';
-    case 'active': return 'text-theme-info bg-theme-info/10';
+    case 'achieved': return 'text-theme-success-fg bg-theme-success-fg/10';
+    case 'failed': case 'abandoned': return 'text-theme-error-fg bg-theme-error-fg/10';
+    case 'paused': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+    case 'active': return 'text-theme-info-fg bg-theme-info-fg/10';
     default: return 'text-theme-secondary bg-theme-surface';
   }
 }
@@ -211,7 +211,7 @@ const GoalCard: React.FC<{
         {goal.status === 'active' && (
           <div className="w-20 flex items-center gap-1.5 shrink-0">
             <div className="flex-1 h-1.5 bg-theme-surface/20 rounded-full overflow-hidden">
-              <div className="h-full bg-theme-info rounded-full" style={{ width: `${Math.round(goal.progress * 100)}%` }} />
+              <div className="h-full bg-theme-info-bg rounded-full" style={{ width: `${Math.round(goal.progress * 100)}%` }} />
             </div>
             <span className="text-xs text-theme-tertiary">{Math.round(goal.progress * 100)}%</span>
           </div>
@@ -249,7 +249,7 @@ const GoalCard: React.FC<{
                   <span>{Math.round(goal.progress * 100)}%</span>
                 </div>
                 <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden">
-                  <div className="h-full bg-theme-info rounded-full" style={{ width: `${Math.round(goal.progress * 100)}%` }} />
+                  <div className="h-full bg-theme-info-bg rounded-full" style={{ width: `${Math.round(goal.progress * 100)}%` }} />
                 </div>
               </div>
 

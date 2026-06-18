@@ -42,15 +42,15 @@ export const ProxyDetectionStatus: React.FC<ProxyDetectionStatusProps> = ({ dete
     if (hasApiPath) {
       return {
         label: 'API Proxy Detected',
-        color: 'text-theme-success',
-        bgColor: 'bg-theme-success',
+        color: 'text-theme-success-fg',
+        bgColor: 'bg-theme-success-bg',
         description: 'Reverse proxy detected with /api/v1/* path mapping'
       };
     } else if (hasFrontendMapping) {
       return {
         label: 'Frontend Proxy Detected',
-        color: 'text-theme-info',
-        bgColor: 'bg-theme-info',
+        color: 'text-theme-info-fg',
+        bgColor: 'bg-theme-info-bg',
         description: 'Reverse proxy detected with /* frontend mapping'
       };
     } else {
@@ -129,17 +129,17 @@ export const ProxyDetectionStatus: React.FC<ProxyDetectionStatusProps> = ({ dete
       </div>
 
       {/* URL Path Mapping Info */}
-      <div className="mt-6 p-4 bg-theme-info/10 border border-theme-info rounded-md">
-        <h4 className="text-sm font-medium text-theme-info mb-2">
+      <div className="mt-6 p-4 bg-theme-info-fg/10 border border-theme-info-border rounded-md">
+        <h4 className="text-sm font-medium text-theme-info-fg mb-2">
           Typical Reverse Proxy URL Mapping
         </h4>
-        <ul className="text-sm text-theme-info space-y-1">
+        <ul className="text-sm text-theme-info-fg space-y-1">
           <li>• <code className="font-mono">{'/*'}</code> → Frontend application (React)</li>
           <li>• <code className="font-mono">{'/api/v1/*'}</code> → Backend API (Rails)</li>
           <li>• <code className="font-mono">/cable</code> → WebSocket connection (ActionCable)</li>
           <li>• <code className="font-mono">{'/webhooks/*'}</code> → Webhook endpoints</li>
         </ul>
-        <p className="text-xs text-theme-info mt-2">
+        <p className="text-xs text-theme-info-fg mt-2">
           The same reverse proxy handles both frontend and backend routing based on URL paths.
         </p>
       </div>

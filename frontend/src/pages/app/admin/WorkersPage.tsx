@@ -424,26 +424,26 @@ export const WorkersPage: React.FC = () => {
 
             <div className="p-3 bg-theme-surface rounded-lg">
               <FlexItemsCenter className="mb-2">
-                <CheckCircle className="w-4 h-4 text-theme-success mr-2" />
+                <CheckCircle className="w-4 h-4 text-theme-success-fg mr-2" />
                 <span className="text-sm text-theme-secondary">Active</span>
               </FlexItemsCenter>
-              <div className="text-2xl font-bold text-theme-success">{stats.active}</div>
+              <div className="text-2xl font-bold text-theme-success-fg">{stats.active}</div>
             </div>
 
             <div className="p-3 bg-theme-surface rounded-lg">
               <FlexItemsCenter className="mb-2">
-                <Settings className="w-4 h-4 text-theme-info mr-2" />
+                <Settings className="w-4 h-4 text-theme-info-fg mr-2" />
                 <span className="text-sm text-theme-secondary">System Workers</span>
               </FlexItemsCenter>
-              <div className="text-2xl font-bold text-theme-info">{stats.systemWorkers}</div>
+              <div className="text-2xl font-bold text-theme-info-fg">{stats.systemWorkers}</div>
             </div>
 
             <div className="p-3 bg-theme-surface rounded-lg">
               <FlexItemsCenter className="mb-2">
-                <UserCheck className="w-4 h-4 text-theme-warning mr-2" />
+                <UserCheck className="w-4 h-4 text-theme-warning-fg mr-2" />
                 <span className="text-sm text-theme-secondary">Account Workers</span>
               </FlexItemsCenter>
-              <div className="text-2xl font-bold text-theme-warning">{stats.accountWorkers}</div>
+              <div className="text-2xl font-bold text-theme-warning-fg">{stats.accountWorkers}</div>
             </div>
           </div>
         </Card>

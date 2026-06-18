@@ -24,22 +24,22 @@ export const PerformanceMetricsCard: React.FC<PerformanceMetricsCardProps> = ({
 }) => {
   const statusConfig = {
     good: {
-      border: 'border-theme-success',
+      border: 'border-theme-success-border',
       background: 'bg-theme-success-background',
-      text: 'text-theme-success',
-      iconBg: 'bg-theme-success bg-opacity-20'
+      text: 'text-theme-success-fg',
+      iconBg: 'bg-theme-success-bg'
     },
     warning: {
-      border: 'border-theme-warning',
+      border: 'border-theme-warning-border',
       background: 'bg-theme-warning-background', 
-      text: 'text-theme-warning',
-      iconBg: 'bg-theme-warning bg-opacity-20'
+      text: 'text-theme-warning-fg',
+      iconBg: 'bg-theme-warning-bg'
     },
     critical: {
-      border: 'border-theme-error',
-      background: 'bg-theme-error',
-      text: 'text-theme-error',
-      iconBg: 'bg-theme-error bg-opacity-20'
+      border: 'border-theme-error-border',
+      background: 'bg-theme-error-bg',
+      text: 'text-theme-error-fg',
+      iconBg: 'bg-theme-error-bg'
     }
   } as const;
 
@@ -67,8 +67,8 @@ export const PerformanceMetricsCard: React.FC<PerformanceMetricsCardProps> = ({
         {trend !== undefined && (
           <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
             trend >= 0 
-              ? 'bg-theme-success bg-opacity-10 text-theme-success'
-              : 'bg-theme-error bg-opacity-10 text-theme-error'
+              ? 'bg-theme-success-bg text-theme-success-fg'
+              : 'bg-theme-error-bg text-theme-error-fg'
           }`}>
             {trend >= 0 ? (
               <TrendingUp className="w-4 h-4" />

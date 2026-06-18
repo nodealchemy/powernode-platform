@@ -48,10 +48,10 @@ const getTrendIcon = (direction: string) => {
   switch (direction) {
     case 'improving':
     case 'increasing':
-      return <TrendingUp className="h-4 w-4 text-theme-success" />;
+      return <TrendingUp className="h-4 w-4 text-theme-success-fg" />;
     case 'declining':
     case 'decreasing':
-      return <TrendingDown className="h-4 w-4 text-theme-error" />;
+      return <TrendingDown className="h-4 w-4 text-theme-error-fg" />;
     default:
       return <BarChart3 className="h-4 w-4 text-theme-tertiary" />;
   }
@@ -149,7 +149,7 @@ export const RoiDashboard: React.FC = () => {
         breadcrumbs={breadcrumbs}
       >
         <div className="text-center py-12">
-          <Target className="h-12 w-12 text-theme-warning mx-auto mb-4" />
+          <Target className="h-12 w-12 text-theme-warning-fg mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
           <p className="text-theme-tertiary">Start using AI features to see ROI analytics.</p>
         </div>

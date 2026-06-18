@@ -49,24 +49,24 @@ export const WorkerSecurityTab: React.FC<WorkerSecurityTabProps> = ({
           </div>
           <div className="p-4 bg-theme-surface rounded-lg">
             <FlexItemsCenter className="mb-2">
-              <UserCheck className="w-4 h-4 text-theme-info mr-2" />
+              <UserCheck className="w-4 h-4 text-theme-info-fg mr-2" />
               <span className="text-sm text-theme-secondary">Permissions</span>
             </FlexItemsCenter>
-            <div className="text-2xl font-bold text-theme-info">{securityStats.totalPermissions}</div>
+            <div className="text-2xl font-bold text-theme-info-fg">{securityStats.totalPermissions}</div>
           </div>
           <div className="p-4 bg-theme-surface rounded-lg">
             <FlexItemsCenter className="mb-2">
-              <AlertTriangle className="w-4 h-4 text-theme-warning mr-2" />
+              <AlertTriangle className="w-4 h-4 text-theme-warning-fg mr-2" />
               <span className="text-sm text-theme-secondary">Expired Tokens</span>
             </FlexItemsCenter>
-            <div className="text-2xl font-bold text-theme-warning">{securityStats.expiredTokens}</div>
+            <div className="text-2xl font-bold text-theme-warning-fg">{securityStats.expiredTokens}</div>
           </div>
           <div className="p-4 bg-theme-surface rounded-lg">
             <FlexItemsCenter className="mb-2">
-              <Activity className="w-4 h-4 text-theme-success mr-2" />
+              <Activity className="w-4 h-4 text-theme-success-fg mr-2" />
               <span className="text-sm text-theme-secondary">Security Events</span>
             </FlexItemsCenter>
-            <div className="text-2xl font-bold text-theme-success">{securityStats.securityEvents}</div>
+            <div className="text-2xl font-bold text-theme-success-fg">{securityStats.securityEvents}</div>
           </div>
         </div>
       </Card>
@@ -119,7 +119,7 @@ export const WorkerSecurityTab: React.FC<WorkerSecurityTabProps> = ({
                 <div
                   key={worker.id}
                   className={`p-4 border border-theme rounded-lg ${
-                    isSystemWorker ? 'bg-gradient-to-r from-theme-info/5 to-transparent border-theme-info/30' : ''
+                    isSystemWorker ? 'bg-gradient-to-r from-theme-info/5 to-transparent border-theme-info-border/30' : ''
                   }`}
                 >
                   <FlexBetween>
@@ -127,7 +127,7 @@ export const WorkerSecurityTab: React.FC<WorkerSecurityTabProps> = ({
                       <div className="font-medium text-theme-primary">
                         {worker.name}
                         {isSystemWorker && (
-                          <span className="ml-2 px-2 py-0.5 text-xs bg-theme-info/10 text-theme-info rounded-full">
+                          <span className="ml-2 px-2 py-0.5 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded-full">
                             SYSTEM
                           </span>
                         )}

@@ -183,11 +183,11 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'assigned':
-        return <UserCheck className="w-4 h-4 text-theme-success" />;
+        return <UserCheck className="w-4 h-4 text-theme-success-fg" />;
       case 'adding':
         return <Plus className="w-4 h-4 text-theme-interactive-primary" />;
       case 'removing':
-        return <Minus className="w-4 h-4 text-theme-error" />;
+        return <Minus className="w-4 h-4 text-theme-error-fg" />;
       default:
         return <UserX className="w-4 h-4 text-theme-tertiary" />;
     }
@@ -196,11 +196,11 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
   const getStatusStyles = (status: string) => {
     switch (status) {
       case 'assigned':
-        return 'bg-theme-success bg-opacity-10 border-theme-success border-opacity-40';
+        return 'bg-theme-success-bg border-theme-success-border';
       case 'adding':
-        return 'bg-theme-surface-hover border-theme-interactive-primary border-opacity-50';
+        return 'bg-theme-surface-hover border-theme-interactive-primary/50';
       case 'removing':
-        return 'bg-theme-error bg-opacity-10 border-theme-error border-opacity-40';
+        return 'bg-theme-error-bg border-theme-error-border';
       default:
         return 'border-theme hover:bg-theme-surface-hover';
     }
@@ -210,8 +210,8 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
     switch (status) {
       case 'assigned':
         return {
-          label: 'font-medium text-sm text-theme-success',
-          description: 'text-xs text-theme-success opacity-75 leading-relaxed'
+          label: 'font-medium text-sm text-theme-success-fg',
+          description: 'text-xs text-theme-success-fg opacity-75 leading-relaxed'
         };
       case 'adding':
         return {
@@ -220,8 +220,8 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
         };
       case 'removing':
         return {
-          label: 'font-medium text-sm text-theme-error',
-          description: 'text-xs text-theme-error opacity-75 leading-relaxed'
+          label: 'font-medium text-sm text-theme-error-fg',
+          description: 'text-xs text-theme-error-fg opacity-75 leading-relaxed'
         };
       default:
         return {
@@ -249,7 +249,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
         {/* User Info Header */}
         <div className="bg-theme-surface-selected border border-theme rounded-xl p-4">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-theme-interactive-primary bg-opacity-10 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-theme-interactive-primary/10 rounded-full flex items-center justify-center">
               <Users className="w-6 h-6 text-theme-interactive-primary" />
             </div>
             <div className="flex-1">
@@ -301,7 +301,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
                         ).join(' ')}
                       </span>
                     </div>
-                    {isPendingRemove && <span className="ml-1 text-theme-error">→ Remove</span>}
+                    {isPendingRemove && <span className="ml-1 text-theme-error-fg">→ Remove</span>}
                     {isRestricted && !isPendingRemove && (
                       <span className="ml-1 text-xs opacity-75">(Restricted)</span>
                     )}
@@ -319,10 +319,10 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
             <div className="mt-4 pt-3 border-t border-theme">
               <div className="bg-theme-warning-background border border-theme-warning-border rounded-lg p-3">
                 <div className="flex items-start space-x-2">
-                  <Lock className="w-4 h-4 text-theme-warning mt-0.5 flex-shrink-0" />
+                  <Lock className="w-4 h-4 text-theme-warning-fg mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-theme-warning">Restricted Roles</p>
-                    <p className="text-xs text-theme-warning mt-1 opacity-90">
+                    <p className="text-sm font-medium text-theme-warning-fg">Restricted Roles</p>
+                    <p className="text-xs text-theme-warning-fg mt-1 opacity-90">
                       Some assigned roles are marked as restricted because you don't have permission to manage them. 
                       You can only remove these roles, not reassign them.
                     </p>
@@ -339,7 +339,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
                 {pendingChanges.toAdd.map((roleValue, index) => {
                   const role = availableRoles.find(r => r.value === roleValue);
                   return (
-                    <Badge key={index} className="bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary border border-theme-interactive-primary border-opacity-20">
+                    <Badge key={index} className="bg-theme-interactive-primary/10 text-theme-interactive-primary border border-theme-interactive-primary/20">
                       + {role?.label || roleValue.split('.').map(part => 
                         part.charAt(0).toUpperCase() + part.slice(1)
                       ).join(' ')}
@@ -390,7 +390,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
                             {role.label}
                           </span>
                           {isRestricted && (
-                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-theme-warning bg-opacity-10 text-theme-warning border border-theme-warning border-opacity-20">
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-theme-warning-bg text-theme-warning-fg border border-theme-warning-border">
                               Restricted
                             </span>
                           )}

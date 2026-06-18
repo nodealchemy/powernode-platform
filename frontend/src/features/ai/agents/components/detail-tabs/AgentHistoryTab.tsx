@@ -197,8 +197,8 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
 
                 {exec.result?.error_message && (
                   <div className="mt-2">
-                    <span className="text-xs font-semibold text-theme-error">Error</span>
-                    <pre className="mt-1 p-3 bg-theme-status-error/5 rounded text-xs text-theme-error whitespace-pre-wrap break-words max-h-40 overflow-y-auto font-mono">
+                    <span className="text-xs font-semibold text-theme-error-fg">Error</span>
+                    <pre className="mt-1 p-3 bg-theme-status-error/5 rounded text-xs text-theme-error-fg whitespace-pre-wrap break-words max-h-40 overflow-y-auto font-mono">
                       {exec.result.error_message}
                     </pre>
                   </div>

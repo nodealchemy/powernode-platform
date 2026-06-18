@@ -28,29 +28,29 @@ describe('RiskTierBadge', () => {
     it('applies error colors for critical tier', () => {
       const { container } = render(<RiskTierBadge tier="critical" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-error/10');
-      expect(badge).toHaveClass('text-theme-error');
+      expect(badge).toHaveClass('bg-theme-error-fg/10');
+      expect(badge).toHaveClass('text-theme-error-fg');
     });
 
     it('applies warning colors for high tier', () => {
       const { container } = render(<RiskTierBadge tier="high" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-warning/10');
-      expect(badge).toHaveClass('text-theme-warning');
+      expect(badge).toHaveClass('bg-theme-warning-fg/10');
+      expect(badge).toHaveClass('text-theme-warning-fg');
     });
 
     it('applies info colors for medium tier', () => {
       const { container } = render(<RiskTierBadge tier="medium" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-info/10');
-      expect(badge).toHaveClass('text-theme-info');
+      expect(badge).toHaveClass('bg-theme-info-fg/10');
+      expect(badge).toHaveClass('text-theme-info-fg');
     });
 
     it('applies success colors for low tier', () => {
       const { container } = render(<RiskTierBadge tier="low" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-success/10');
-      expect(badge).toHaveClass('text-theme-success');
+      expect(badge).toHaveClass('bg-theme-success-fg/10');
+      expect(badge).toHaveClass('text-theme-success-fg');
     });
   });
 
@@ -158,8 +158,8 @@ describe('RiskTierBadge', () => {
       const badge = container.querySelector('span');
       expect(badge).toHaveClass('px-1.5');
       expect(badge).toHaveClass('py-0.5');
-      expect(badge).toHaveClass('bg-theme-error/10');
-      expect(badge).toHaveClass('text-theme-error');
+      expect(badge).toHaveClass('bg-theme-error-fg/10');
+      expect(badge).toHaveClass('text-theme-error-fg');
     });
 
     it('renders medium high risk badge', () => {
@@ -167,8 +167,8 @@ describe('RiskTierBadge', () => {
       const badge = container.querySelector('span');
       expect(badge).toHaveClass('px-2');
       expect(badge).toHaveClass('py-1');
-      expect(badge).toHaveClass('bg-theme-warning/10');
-      expect(badge).toHaveClass('text-theme-warning');
+      expect(badge).toHaveClass('bg-theme-warning-fg/10');
+      expect(badge).toHaveClass('text-theme-warning-fg');
     });
 
     it('renders small low risk badge', () => {
@@ -176,8 +176,8 @@ describe('RiskTierBadge', () => {
       const badge = container.querySelector('span');
       expect(badge).toHaveClass('px-1.5');
       expect(badge).toHaveClass('py-0.5');
-      expect(badge).toHaveClass('bg-theme-success/10');
-      expect(badge).toHaveClass('text-theme-success');
+      expect(badge).toHaveClass('bg-theme-success-fg/10');
+      expect(badge).toHaveClass('text-theme-success-fg');
     });
   });
 
@@ -208,12 +208,12 @@ describe('RiskTierBadge', () => {
       const { container, rerender } = render(<RiskTierBadge tier="critical" />);
       expect(screen.getByText('Critical Risk')).toBeInTheDocument();
       let badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-error/10');
+      expect(badge).toHaveClass('bg-theme-error-fg/10');
 
       rerender(<RiskTierBadge tier="low" />);
       expect(screen.getByText('Low Risk')).toBeInTheDocument();
       badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-success/10');
+      expect(badge).toHaveClass('bg-theme-success-fg/10');
     });
   });
 

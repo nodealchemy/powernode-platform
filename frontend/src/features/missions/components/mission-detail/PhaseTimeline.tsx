@@ -51,8 +51,8 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
               {i > 0 && (
                 <div
                   className={`h-0.5 flex-shrink-0 w-6 ${
-                    state === 'completed' ? 'bg-theme-success' :
-                    state === 'active' ? 'bg-theme-info' :
+                    state === 'completed' ? 'bg-theme-success-bg' :
+                    state === 'active' ? 'bg-theme-info-bg' :
                     'bg-theme-background-secondary'
                   }`}
                 />
@@ -66,13 +66,13 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
               >
                 <div className={`mb-1 ${selectedPhase === phase ? 'ring-2 ring-theme-accent ring-offset-1 ring-offset-theme-bg-surface rounded-full' : ''}`}>
                   {state === 'completed' && (
-                    <CheckCircle2 className="w-5 h-5 text-theme-success" />
+                    <CheckCircle2 className="w-5 h-5 text-theme-success-fg" />
                   )}
                   {state === 'active' && (
-                    <Loader2 className="w-5 h-5 text-theme-info animate-spin" />
+                    <Loader2 className="w-5 h-5 text-theme-info-fg animate-spin" />
                   )}
                   {state === 'failed' && (
-                    <AlertCircle className="w-5 h-5 text-theme-error" />
+                    <AlertCircle className="w-5 h-5 text-theme-error-fg" />
                   )}
                   {state === 'pending' && (
                     <Circle className="w-5 h-5 text-theme-tertiary" />
@@ -80,9 +80,9 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
                 </div>
                 <span
                   className={`text-[10px] text-center leading-tight ${
-                    state === 'active' ? 'text-theme-info font-medium' :
-                    state === 'completed' ? 'text-theme-success' :
-                    state === 'failed' ? 'text-theme-error' :
+                    state === 'active' ? 'text-theme-info-fg font-medium' :
+                    state === 'completed' ? 'text-theme-success-fg' :
+                    state === 'failed' ? 'text-theme-error-fg' :
                     'text-theme-tertiary'
                   }`}
                 >

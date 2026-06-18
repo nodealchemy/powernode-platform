@@ -68,7 +68,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
                 type="text"
                 value={agentId}
                 onChange={(e) => setAgentId(e.target.value)}
-                className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+                className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
                 placeholder="Enter agent UUID"
                 required
               />
@@ -83,7 +83,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
               min="0.01"
               value={totalDollars}
               onChange={(e) => setTotalDollars(e.target.value)}
-              className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+              className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
               placeholder="10.00"
               required
             />
@@ -95,7 +95,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+                className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
               >
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
@@ -107,7 +107,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
               <select
                 value={periodType}
                 onChange={(e) => setPeriodType(e.target.value)}
-                className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+                className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -118,7 +118,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
           </div>
 
           {error && (
-            <p className="text-sm text-theme-error">{error}</p>
+            <p className="text-sm text-theme-error-fg">{error}</p>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
@@ -132,7 +132,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
             <button
               type="submit"
               disabled={isPending}
-              className="px-4 py-2 text-sm rounded-md bg-theme-info text-white hover:opacity-90 disabled:opacity-50"
+              className="px-4 py-2 text-sm rounded-md bg-theme-info-bg text-white hover:opacity-90 disabled:opacity-50"
             >
               {isPending ? 'Saving...' : isEdit ? 'Update' : 'Create'}
             </button>

@@ -50,7 +50,7 @@ export function SharedMemoryDetail({ resource }: ResourceDetailProps) {
       {/* Metadata */}
       <div className="flex flex-wrap gap-3 text-sm">
         {resource.persist_across_executions && (
-          <span className="px-2 py-0.5 rounded text-xs bg-theme-info/10 text-theme-info">Persistent</span>
+          <span className="px-2 py-0.5 rounded text-xs bg-theme-info-fg/10 text-theme-info-fg">Persistent</span>
         )}
         {resource.owner_agent_name && (
           <div className="flex items-center gap-1.5">

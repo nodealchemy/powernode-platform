@@ -258,7 +258,7 @@ function SearchResultItem({ result, onClick, showContext }: SearchResultItemProp
                     __html: DOMPurify.sanitize(
                       highlight.replace(
                         /<mark>/g,
-                        '<mark class="bg-theme-warning bg-opacity-30 text-theme-primary px-0.5 rounded">'
+                        '<mark class="bg-theme-warning-bg text-theme-primary px-0.5 rounded">'
                       ),
                       { ALLOWED_TAGS: ['mark'], ALLOWED_ATTR: ['class'] }
                     ),
@@ -291,9 +291,9 @@ function SearchResultItem({ result, onClick, showContext }: SearchResultItemProp
           <div
             className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium ${
               score >= 0.8
-                ? 'bg-theme-success bg-opacity-10 text-theme-success'
+                ? 'bg-theme-success-bg text-theme-success-fg'
                 : score >= 0.5
-                  ? 'bg-theme-warning bg-opacity-10 text-theme-warning'
+                  ? 'bg-theme-warning-bg text-theme-warning-fg'
                   : 'bg-theme-surface text-theme-tertiary'
             }`}
           >

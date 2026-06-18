@@ -307,10 +307,10 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
                   <div
                     className={`h-full transition-all ${
                       usage.available === 0
-                        ? 'bg-theme-error'
+                        ? 'bg-theme-error-bg'
                         : usage.available <= 3
-                        ? 'bg-theme-warning'
-                        : 'bg-theme-success'
+                        ? 'bg-theme-warning-bg'
+                        : 'bg-theme-success-bg'
                     }`}
                     style={{ width: `${(usage.current / usage.limit) * 100}%` }}
                   />
@@ -436,7 +436,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
                         {/* Checkbox */}
                         <div className="mt-0.5">
                           {repo.already_imported ? (
-                            <CheckCircle2 className="w-5 h-5 text-theme-success" />
+                            <CheckCircle2 className="w-5 h-5 text-theme-success-fg" />
                           ) : (
                             <input
                               type="checkbox"
@@ -455,9 +455,9 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
                               {repo.name}
                             </span>
                             {repo.is_private ? (
-                              <Lock className="w-3.5 h-3.5 text-theme-warning flex-shrink-0" />
+                              <Lock className="w-3.5 h-3.5 text-theme-warning-fg flex-shrink-0" />
                             ) : (
-                              <Unlock className="w-3.5 h-3.5 text-theme-success flex-shrink-0" />
+                              <Unlock className="w-3.5 h-3.5 text-theme-success-fg flex-shrink-0" />
                             )}
                             {repo.is_fork && (
                               <GitFork className="w-3.5 h-3.5 text-theme-secondary flex-shrink-0" />
@@ -476,7 +476,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
                           <div className="flex items-center gap-3 text-xs text-theme-tertiary">
                             {repo.primary_language && (
                               <span className="flex items-center gap-1">
-                                <span className="w-2 h-2 rounded-full bg-theme-info" />
+                                <span className="w-2 h-2 rounded-full bg-theme-info-bg" />
                                 {repo.primary_language}
                               </span>
                             )}
@@ -485,7 +485,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
                               {repo.stars_count}
                             </span>
                             {repo.already_imported && (
-                              <span className="text-theme-success">Already imported</span>
+                              <span className="text-theme-success-fg">Already imported</span>
                             )}
                           </div>
                         </div>
@@ -502,19 +502,19 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
             <div
               className={`mx-6 mb-4 p-4 rounded-lg flex items-start gap-3 ${
                 importResult.success
-                  ? 'bg-theme-success/10 border border-theme-success/30'
-                  : 'bg-theme-error/10 border border-theme-error/30'
+                  ? 'bg-theme-success-fg/10 border border-theme-success-border/30'
+                  : 'bg-theme-error-fg/10 border border-theme-error-border/30'
               }`}
             >
               {importResult.success ? (
-                <CheckCircle2 className="w-5 h-5 text-theme-success flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-theme-success-fg flex-shrink-0 mt-0.5" />
               ) : (
-                <AlertCircle className="w-5 h-5 text-theme-error flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-theme-error-fg flex-shrink-0 mt-0.5" />
               )}
               <div className="flex-1">
                 <p
                   className={`font-medium ${
-                    importResult.success ? 'text-theme-success' : 'text-theme-error'
+                    importResult.success ? 'text-theme-success-fg' : 'text-theme-error-fg'
                   }`}
                 >
                   {importResult.message}
@@ -534,7 +534,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
           <div className="px-6 py-4 border-t border-theme bg-theme-background/50 flex items-center justify-between">
             <div className="text-sm text-theme-secondary">
               {selectedIds.size > 0 && usage && selectedIds.size > usage.available && (
-                <span className="text-theme-error">
+                <span className="text-theme-error-fg">
                   Selected {selectedIds.size} but only {usage.available} slots available
                 </span>
               )}

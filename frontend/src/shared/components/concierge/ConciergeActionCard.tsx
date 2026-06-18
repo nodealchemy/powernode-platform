@@ -83,7 +83,7 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
     return (
       <div className="mt-3 flex items-center gap-2">
         {isConfirmed && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-theme-success/10 text-theme-success">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-theme-success-fg/10 text-theme-success-fg">
             <Check className="h-3.5 w-3.5" />
             Action Confirmed
             {actionContext.resolved_at && (
@@ -94,7 +94,7 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
           </span>
         )}
         {isRejected && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-theme-danger/10 text-theme-danger">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-theme-danger-fg/10 text-theme-danger-fg">
             <X className="h-3.5 w-3.5" />
             Action Rejected
             {actionContext.resolved_at && (
@@ -128,7 +128,7 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
                 action.style === 'primary'
                   ? 'bg-theme-interactive-primary text-white hover:opacity-90'
                   : action.style === 'danger'
-                    ? 'bg-theme-danger/10 border border-theme-danger/30 text-theme-danger hover:bg-theme-danger/20'
+                    ? 'bg-theme-danger-fg/10 border border-theme-danger-border/30 text-theme-danger-fg hover:bg-theme-danger-fg/20'
                     : 'bg-theme-surface border border-theme text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >

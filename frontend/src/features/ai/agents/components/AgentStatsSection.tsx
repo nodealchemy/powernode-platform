@@ -26,8 +26,8 @@ export const AgentStatsSection: React.FC<AgentStatsSectionProps> = ({ agent, age
   return (
     <div className="bg-theme-surface border border-theme rounded-lg p-4">
       <div className="flex items-center gap-3 mb-4">
-        <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-          <BarChart3 className="h-5 w-5 text-theme-info" />
+        <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+          <BarChart3 className="h-5 w-5 text-theme-info-fg" />
         </div>
         <div>
           <h5 className="font-semibold text-theme-primary">Performance Stats</h5>
@@ -46,7 +46,7 @@ export const AgentStatsSection: React.FC<AgentStatsSectionProps> = ({ agent, age
           <div className="text-xs text-theme-tertiary">Total Executions</div>
         </div>
         <div className="text-center">
-          <div className="text-lg font-semibold text-theme-success">{agentStats.success_rate || 0}%</div>
+          <div className="text-lg font-semibold text-theme-success-fg">{agentStats.success_rate || 0}%</div>
           <div className="text-xs text-theme-tertiary">Success Rate</div>
         </div>
         <div className="text-center">
@@ -54,7 +54,7 @@ export const AgentStatsSection: React.FC<AgentStatsSectionProps> = ({ agent, age
           <div className="text-xs text-theme-tertiary">Avg Time</div>
         </div>
         <div className="text-center">
-          <div className="text-lg font-semibold text-theme-warning">${agentStats.estimated_total_cost || '0.00'}</div>
+          <div className="text-lg font-semibold text-theme-warning-fg">${agentStats.estimated_total_cost || '0.00'}</div>
           <div className="text-xs text-theme-tertiary">Total Cost</div>
         </div>
       </div>

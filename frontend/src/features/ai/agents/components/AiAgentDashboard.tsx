@@ -208,8 +208,8 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
               <p className="text-sm text-theme-tertiary">Total Agents</p>
               <p className="text-2xl font-semibold text-theme-primary">{stats.total_agents}</p>
             </div>
-            <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-              <Brain className="h-5 w-5 text-theme-info" />
+            <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+              <Brain className="h-5 w-5 text-theme-info-fg" />
             </div>
           </div>
         </Card>
@@ -220,8 +220,8 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
               <p className="text-sm text-theme-tertiary">Active Agents</p>
               <p className="text-2xl font-semibold text-theme-primary">{stats.active_agents}</p>
             </div>
-            <div className="h-10 w-10 bg-theme-success bg-opacity-10 rounded-lg flex items-center justify-center">
-              <Play className="h-5 w-5 text-theme-success" />
+            <div className="h-10 w-10 bg-theme-success-bg rounded-lg flex items-center justify-center">
+              <Play className="h-5 w-5 text-theme-success-fg" />
             </div>
           </div>
         </Card>
@@ -232,8 +232,8 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
               <p className="text-sm text-theme-tertiary">Total Executions</p>
               <p className="text-2xl font-semibold text-theme-primary">{stats.total_executions}</p>
             </div>
-            <div className="h-10 w-10 bg-theme-warning bg-opacity-10 rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-5 w-5 text-theme-warning" />
+            <div className="h-10 w-10 bg-theme-warning-bg rounded-lg flex items-center justify-center">
+              <BarChart3 className="h-5 w-5 text-theme-warning-fg" />
             </div>
           </div>
         </Card>
@@ -244,8 +244,8 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
               <p className="text-sm text-theme-tertiary">Success Rate</p>
               <p className="text-2xl font-semibold text-theme-primary">{stats.success_rate}%</p>
             </div>
-            <div className="h-10 w-10 bg-theme-success bg-opacity-10 rounded-lg flex items-center justify-center">
-              <Users className="h-5 w-5 text-theme-success" />
+            <div className="h-10 w-10 bg-theme-success-bg rounded-lg flex items-center justify-center">
+              <Users className="h-5 w-5 text-theme-success-fg" />
             </div>
           </div>
         </Card>
@@ -279,13 +279,13 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
             {agents.map((agent) => (
               <Card
                 key={agent.id}
-                className="p-6 cursor-pointer hover:border-theme-info transition-colors"
+                className="p-6 cursor-pointer hover:border-theme-info-border transition-colors"
                 onClick={() => navigate(`/app/ai/agents/${agent.id}`)}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-                      <Brain className="h-5 w-5 text-theme-info" />
+                    <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+                      <Brain className="h-5 w-5 text-theme-info-fg" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-theme-primary">{agent.name}</h3>

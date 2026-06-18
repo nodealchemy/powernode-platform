@@ -101,7 +101,7 @@ export const DockerContainersPage: React.FC<DockerContainersPageProps> = ({ onAc
           </div>
         ) : error ? (
           <div className="text-center py-20">
-            <p className="text-theme-error mb-4">{error}</p>
+            <p className="text-theme-error-fg mb-4">{error}</p>
             <Button onClick={refresh} variant="secondary" size="sm">Retry</Button>
           </div>
         ) : containers.length === 0 ? (

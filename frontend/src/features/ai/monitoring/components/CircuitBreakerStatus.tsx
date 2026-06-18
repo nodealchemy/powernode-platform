@@ -9,9 +9,9 @@ interface CircuitBreakerStatusProps {
 
 const getCircuitBreakerIcon = (state: string) => {
   switch (state) {
-    case 'closed': return <CheckCircle className="h-4 w-4 text-theme-success" />;
-    case 'half_open': return <Clock className="h-4 w-4 text-theme-warning" />;
-    case 'open': return <XCircle className="h-4 w-4 text-theme-danger" />;
+    case 'closed': return <CheckCircle className="h-4 w-4 text-theme-success-fg" />;
+    case 'half_open': return <Clock className="h-4 w-4 text-theme-warning-fg" />;
+    case 'open': return <XCircle className="h-4 w-4 text-theme-danger-fg" />;
     default: return <AlertCircle className="h-4 w-4 text-theme-tertiary" />;
   }
 };
@@ -64,11 +64,11 @@ export const CircuitBreakerStatus: React.FC<CircuitBreakerStatusProps> = ({ prov
         </div>
         <div>
           <p className="text-xs text-theme-tertiary">Successful</p>
-          <p className="font-semibold text-theme-success">{provider.circuit_breaker.stats.successful_requests}</p>
+          <p className="font-semibold text-theme-success-fg">{provider.circuit_breaker.stats.successful_requests}</p>
         </div>
         <div>
           <p className="text-xs text-theme-tertiary">Failed</p>
-          <p className="font-semibold text-theme-danger">{provider.circuit_breaker.stats.failed_requests}</p>
+          <p className="font-semibold text-theme-danger-fg">{provider.circuit_breaker.stats.failed_requests}</p>
         </div>
         <div>
           <p className="text-xs text-theme-tertiary">Avg Response</p>

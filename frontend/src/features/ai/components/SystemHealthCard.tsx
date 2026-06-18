@@ -99,7 +99,7 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({
                 {systemHealth.active_executions}
               </p>
             </div>
-            <Activity className="h-5 w-5 text-theme-info" />
+            <Activity className="h-5 w-5 text-theme-info-fg" />
           </div>
         </Card>
 
@@ -111,7 +111,7 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({
                 {accountMetrics.executions_today}
               </p>
             </div>
-            <BarChart3 className="h-5 w-5 text-theme-info" />
+            <BarChart3 className="h-5 w-5 text-theme-info-fg" />
           </div>
         </Card>
 
@@ -126,7 +126,7 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({
                 )}%
               </p>
             </div>
-            <CheckCircle2 className="h-5 w-5 text-theme-success" />
+            <CheckCircle2 className="h-5 w-5 text-theme-success-fg" />
           </div>
         </Card>
 
@@ -138,7 +138,7 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({
                 ${accountMetrics.estimated_cost.toFixed(2)}
               </p>
             </div>
-            <DollarSign className="h-5 w-5 text-theme-success" />
+            <DollarSign className="h-5 w-5 text-theme-success-fg" />
           </div>
         </Card>
       </div>

@@ -12,9 +12,9 @@ interface CostProfilerProps {
 
 const getCostTier = (cost: number): { color: string; label: string } => {
   if (cost <= 0) return { color: 'text-theme-secondary', label: 'Free' };
-  if (cost < 0.01) return { color: 'text-theme-success', label: 'Low' };
-  if (cost < 0.10) return { color: 'text-theme-warning', label: 'Medium' };
-  return { color: 'text-theme-danger', label: 'High' };
+  if (cost < 0.01) return { color: 'text-theme-success-fg', label: 'Low' };
+  if (cost < 0.10) return { color: 'text-theme-warning-fg', label: 'Medium' };
+  return { color: 'text-theme-danger-fg', label: 'High' };
 };
 
 const formatCost = (cost: number): string => {
@@ -50,8 +50,8 @@ export const CostProfiler: React.FC<CostProfilerProps> = ({
       {/* Summary row */}
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-theme-info/10 flex items-center justify-center">
-            <DollarSign className="h-4 w-4 text-theme-info" />
+          <div className="h-8 w-8 rounded-lg bg-theme-info-fg/10 flex items-center justify-center">
+            <DollarSign className="h-4 w-4 text-theme-info-fg" />
           </div>
           <div>
             <p className="text-xs text-theme-secondary">Execution Cost</p>
@@ -67,10 +67,10 @@ export const CostProfiler: React.FC<CostProfilerProps> = ({
             </p>
           </div>
           <div className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-            costTier.label === 'Low' ? 'bg-theme-success/10 text-theme-success' :
-            costTier.label === 'Medium' ? 'bg-theme-warning/10 text-theme-warning' :
-            costTier.label === 'High' ? 'bg-theme-error/10 text-theme-danger' :
-            'bg-theme-info text-theme-secondary'
+            costTier.label === 'Low' ? 'bg-theme-success-fg/10 text-theme-success-fg' :
+            costTier.label === 'Medium' ? 'bg-theme-warning-fg/10 text-theme-warning-fg' :
+            costTier.label === 'High' ? 'bg-theme-error-fg/10 text-theme-danger-fg' :
+            'bg-theme-info-bg text-theme-secondary'
           }`}>
             {costTier.label}
           </div>
@@ -92,8 +92,8 @@ export const CostProfiler: React.FC<CostProfilerProps> = ({
                 <div key={member.agent_id} className="px-4 py-2 flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                      member.status === 'completed' ? 'bg-theme-success' :
-                      member.status === 'failed' ? 'bg-theme-danger' :
+                      member.status === 'completed' ? 'bg-theme-success-bg' :
+                      member.status === 'failed' ? 'bg-theme-danger-bg' :
                       'bg-theme-background-secondary'
                     }`} />
                     <EntityLink
@@ -119,7 +119,7 @@ export const CostProfiler: React.FC<CostProfilerProps> = ({
                     </div>
                     {totalCost > 0 && (
                       <div className="w-12">
-                        <div className="w-full bg-theme-info rounded-full h-1">
+                        <div className="w-full bg-theme-info-bg rounded-full h-1">
                           <div
                             className="h-1 rounded-full bg-theme-interactive-primary transition-all"
                             style={{ width: `${Math.min(costPct, 100)}%` }}

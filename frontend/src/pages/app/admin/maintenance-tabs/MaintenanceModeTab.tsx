@@ -75,7 +75,7 @@ export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, 
 
           {status.mode && status.message && (
             <div className="p-4 rounded-lg bg-theme-warning-background border border-theme-warning-border">
-              <p className="text-sm text-theme-warning font-medium">Current Message:</p>
+              <p className="text-sm text-theme-warning-fg font-medium">Current Message:</p>
               <p className="text-sm text-theme-primary mt-1">{status.message}</p>
             </div>
           )}

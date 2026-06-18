@@ -172,9 +172,9 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-theme-secondary">Active</p>
-                <p className="text-2xl font-semibold text-theme-success">{stats.active_keys}</p>
+                <p className="text-2xl font-semibold text-theme-success-fg">{stats.active_keys}</p>
               </div>
-              <Shield className="w-8 h-8 text-theme-success" />
+              <Shield className="w-8 h-8 text-theme-success-fg" />
             </div>
           </div>
 
@@ -186,7 +186,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
                   {apiKeysApi.formatUsageCount(stats.requests_today)}
                 </p>
               </div>
-              <Activity className="w-8 h-8 text-theme-info" />
+              <Activity className="w-8 h-8 text-theme-info-fg" />
             </div>
           </div>
 
@@ -194,9 +194,9 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-theme-secondary">Revoked</p>
-                <p className="text-2xl font-semibold text-theme-error">{stats.revoked_keys}</p>
+                <p className="text-2xl font-semibold text-theme-error-fg">{stats.revoked_keys}</p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-theme-error" />
+              <AlertTriangle className="w-8 h-8 text-theme-error-fg" />
             </div>
           </div>
         </div>
@@ -333,7 +333,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
                           {apiKeysApi.getStatusText(apiKey.status)}
                         </span>
                         {apiKeysApi.isKeyExpiringSoon(apiKey) && (
-                          <div className="flex items-center gap-1 text-xs text-theme-warning">
+                          <div className="flex items-center gap-1 text-xs text-theme-warning-fg">
                             <Clock className="w-3 h-3" />
                             Expires soon
                           </div>
@@ -391,7 +391,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
                           variant="outline"
                           onClick={() => handleAction('delete', apiKey.id)}
                           disabled={actionLoading[apiKey.id]}
-                          className="p-2 text-theme-error hover:text-theme-error-hover transition-colors disabled:opacity-50"
+                          className="p-2 text-theme-error-fg hover:text-theme-error-hover transition-colors disabled:opacity-50"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -457,7 +457,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
 
       {/* Secret API Key Modal */}
       {showSecretApiKey && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-theme-surface rounded-lg shadow-xl max-w-md w-full">
             <div className="px-6 py-4 border-b border-theme">
               <h3 className="text-lg font-semibold text-theme-primary">API Key Created</h3>
@@ -465,12 +465,12 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
 
             <div className="px-6 py-4">
               <div className="mb-4">
-                <div className="bg-theme-warning-background border border-theme-warning rounded-lg p-4 mb-4">
+                <div className="bg-theme-warning-background border border-theme-warning-border rounded-lg p-4 mb-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="w-5 h-5 text-theme-warning" />
-                    <span className="font-medium text-theme-warning">Important!</span>
+                    <AlertTriangle className="w-5 h-5 text-theme-warning-fg" />
+                    <span className="font-medium text-theme-warning-fg">Important!</span>
                   </div>
-                  <p className="text-sm text-theme-warning">
+                  <p className="text-sm text-theme-warning-fg">
                     This is the only time you'll be able to see this API key. Make sure to copy it now.
                   </p>
                 </div>

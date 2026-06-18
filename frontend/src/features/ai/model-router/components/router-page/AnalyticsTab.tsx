@@ -43,7 +43,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ costAnalysis, rankin
             {rankings.map((ranking, idx) => (
               <div key={ranking.provider_id || idx} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
                 <div className="flex items-center gap-3">
-                  <span className="text-lg font-bold text-theme-info">#{idx + 1}</span>
+                  <span className="text-lg font-bold text-theme-info-fg">#{idx + 1}</span>
                   <EntityLink
                     type="ai_provider"
                     id={ranking.provider_id}
@@ -69,12 +69,12 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ costAnalysis, rankin
           <div className="space-y-3">
             {recommendations.map((rec, idx) => (
               <div key={idx} className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg">
-                <Lightbulb size={16} className="text-theme-warning mt-0.5 flex-shrink-0" />
+                <Lightbulb size={16} className="text-theme-warning-fg mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-theme-primary">{rec.title}</p>
                   {rec.description && <p className="text-xs text-theme-secondary mt-1">{rec.description}</p>}
                   {rec.potential_savings_usd && (
-                    <span className="inline-block mt-1 text-xs text-theme-success">
+                    <span className="inline-block mt-1 text-xs text-theme-success-fg">
                       Est. savings: ${rec.potential_savings_usd.toFixed(2)}
                     </span>
                   )}

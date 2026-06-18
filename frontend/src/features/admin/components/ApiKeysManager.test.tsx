@@ -41,9 +41,9 @@ jest.mock('@/features/devops/api-keys/services/apiKeysApi', () => ({
     getApiKey: (...args: any[]) => mockGetApiKey(...args),
     copyToClipboard: (...args: any[]) => mockCopyToClipboard(...args),
     formatUsageCount: (count: number) => count.toLocaleString(),
-    getStatusColor: (status: string) => status === 'active' ? 'bg-theme-success' : 'bg-theme-error',
+    getStatusColor: (status: string) => status === 'active' ? 'bg-theme-success-bg' : 'bg-theme-error-bg',
     getStatusText: (status: string) => status === 'active' ? 'Active' : 'Revoked',
-    getScopeCategoryColor: () => 'bg-theme-info',
+    getScopeCategoryColor: () => 'bg-theme-info-bg',
     isKeyExpiringSoon: () => false
   }
 }));

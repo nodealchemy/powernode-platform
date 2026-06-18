@@ -49,11 +49,11 @@ const LineageNode: React.FC<LineageNodeProps> = ({ node, depth = 0 }) => {
           <span className="w-4 shrink-0" />
         )}
 
-        <div className="h-7 w-7 rounded-md bg-theme-info/10 flex items-center justify-center shrink-0">
+        <div className="h-7 w-7 rounded-md bg-theme-info-fg/10 flex items-center justify-center shrink-0">
           {depth === 0 ? (
-            <GitBranch className="h-4 w-4 text-theme-info" />
+            <GitBranch className="h-4 w-4 text-theme-info-fg" />
           ) : (
-            <User className="h-4 w-4 text-theme-info" />
+            <User className="h-4 w-4 text-theme-info-fg" />
           )}
         </div>
 

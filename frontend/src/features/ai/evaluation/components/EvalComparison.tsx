@@ -117,7 +117,7 @@ export const EvalComparison: React.FC = () => {
                           return (
                             <td key={agent.agent_id} className="text-center py-2 px-3">
                               {score !== null ? (
-                                <span className={`font-medium ${isBest ? 'text-theme-success' : 'text-theme-primary'}`}>
+                                <span className={`font-medium ${isBest ? 'text-theme-success-fg' : 'text-theme-primary'}`}>
                                   {score.toFixed(1)}/5
                                   {isBest && <span className="text-xs ml-1">★</span>}
                                 </span>

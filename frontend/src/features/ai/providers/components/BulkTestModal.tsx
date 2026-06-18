@@ -107,11 +107,11 @@ export const BulkTestModal: React.FC<BulkTestModalProps> = ({
       case 'pending':
         return <div className="h-4 w-4 rounded-full bg-theme-background-secondary opacity-30" />;
       case 'testing':
-        return <Clock className="h-4 w-4 text-theme-warning animate-spin" />;
+        return <Clock className="h-4 w-4 text-theme-warning-fg animate-spin" />;
       case 'success':
-        return <CheckCircle2 className="h-4 w-4 text-theme-success" />;
+        return <CheckCircle2 className="h-4 w-4 text-theme-success-fg" />;
       case 'error':
-        return <XCircle className="h-4 w-4 text-theme-error" />;
+        return <XCircle className="h-4 w-4 text-theme-error-fg" />;
     }
   };
 
@@ -136,8 +136,8 @@ export const BulkTestModal: React.FC<BulkTestModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <div className="flex items-center justify-between p-6 border-b border-theme">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-theme-warning bg-opacity-10 rounded-lg flex items-center justify-center">
-            <Zap className="h-5 w-5 text-theme-warning" />
+          <div className="h-10 w-10 bg-theme-warning-bg rounded-lg flex items-center justify-center">
+            <Zap className="h-5 w-5 text-theme-warning-fg" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-theme-primary">Test All Credentials</h2>
@@ -160,10 +160,10 @@ export const BulkTestModal: React.FC<BulkTestModalProps> = ({
       <div className="p-6">
         {results.length === 0 ? (
           <div>
-            <div className="flex items-start gap-3 p-4 bg-theme-info bg-opacity-10 border border-theme-info border-opacity-20 rounded-lg mb-6">
-              <AlertTriangle className="h-5 w-5 text-theme-info mt-0.5 flex-shrink-0" />
+            <div className="flex items-start gap-3 p-4 bg-theme-info-bg border border-theme-info-border rounded-lg mb-6">
+              <AlertTriangle className="h-5 w-5 text-theme-info-fg mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium text-theme-info">Connection Testing</p>
+                <p className="text-sm font-medium text-theme-info-fg">Connection Testing</p>
                 <p className="text-sm text-theme-secondary mt-1">
                   This will test the connection to all configured AI providers using their stored credentials. 
                   The test will verify that each provider is reachable and properly authenticated.
@@ -203,8 +203,8 @@ export const BulkTestModal: React.FC<BulkTestModalProps> = ({
                     </span>
                   </div>
                   <span className={`text-sm ${
-                    result.status === 'success' ? 'text-theme-success' :
-                    result.status === 'error' ? 'text-theme-error' :
+                    result.status === 'success' ? 'text-theme-success-fg' :
+                    result.status === 'error' ? 'text-theme-error-fg' :
                     'text-theme-tertiary'
                   }`}>
                     {getStatusText(result)}
@@ -218,12 +218,12 @@ export const BulkTestModal: React.FC<BulkTestModalProps> = ({
                 <h4 className="text-sm font-medium text-theme-primary mb-2">Test Summary</h4>
                 <div className="flex items-center gap-4 text-sm">
                   <div className="flex items-center gap-1">
-                    <CheckCircle2 className="h-4 w-4 text-theme-success" />
-                    <span className="text-theme-success">{successCount} successful</span>
+                    <CheckCircle2 className="h-4 w-4 text-theme-success-fg" />
+                    <span className="text-theme-success-fg">{successCount} successful</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <XCircle className="h-4 w-4 text-theme-error" />
-                    <span className="text-theme-error">{errorCount} failed</span>
+                    <XCircle className="h-4 w-4 text-theme-error-fg" />
+                    <span className="text-theme-error-fg">{errorCount} failed</span>
                   </div>
                 </div>
               </div>

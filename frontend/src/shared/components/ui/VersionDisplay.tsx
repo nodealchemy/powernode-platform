@@ -80,7 +80,7 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
 
   if (error && showBackend) {
     return (
-      <div className={`text-xs text-theme-error ${className}`}>
+      <div className={`text-xs text-theme-error-fg ${className}`}>
         Version unavailable
       </div>
     );
@@ -217,7 +217,7 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="flex justify-between">
                 <span className="text-theme-secondary">Status:</span>
-                <span className={`${health.status === 'healthy' ? 'text-theme-success' : 'text-theme-error'}`}>
+                <span className={`${health.status === 'healthy' ? 'text-theme-success-fg' : 'text-theme-error-fg'}`}>
                   {health.status}
                 </span>
               </div>

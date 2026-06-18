@@ -22,7 +22,7 @@ export const RoiRecommendations: React.FC<RoiRecommendationsProps> = ({
   return (
     <Card className="p-6">
       <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-        <Lightbulb className="h-5 w-5 text-theme-warning" />
+        <Lightbulb className="h-5 w-5 text-theme-warning-fg" />
         Optimization Recommendations
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -45,13 +45,13 @@ export const RoiRecommendations: React.FC<RoiRecommendationsProps> = ({
             {(rec.potential_savings_usd || rec.potential_roi_improvement) && (
               <div className="flex items-center gap-4 mt-3">
                 {rec.potential_savings_usd && (
-                  <span className="text-xs text-theme-success flex items-center gap-1">
+                  <span className="text-xs text-theme-success-fg flex items-center gap-1">
                     <DollarSign className="h-3 w-3" />
                     Save {formatCurrency(rec.potential_savings_usd)}
                   </span>
                 )}
                 {rec.potential_roi_improvement && (
-                  <span className="text-xs text-theme-success flex items-center gap-1">
+                  <span className="text-xs text-theme-success-fg flex items-center gap-1">
                     <TrendingUp className="h-3 w-3" />
                     +{rec.potential_roi_improvement}% ROI
                   </span>

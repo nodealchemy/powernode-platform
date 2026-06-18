@@ -339,7 +339,7 @@ const UserActionsDropdown: React.FC<UserActionsDropdownProps> = ({
     </Button>
 
     {isOpen && (
-      <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-theme-surface ring-1 ring-black ring-opacity-5 z-50">
+      <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-theme-surface ring-1 ring-black/5 z-50">
         <div className="py-1" role="menu">
           {/* Status Actions */}
           {user.status === 'active' && user.id !== currentUserId && (
@@ -349,7 +349,7 @@ const UserActionsDropdown: React.FC<UserActionsDropdownProps> = ({
               role="menuitem"
               disabled={actionLoading}
             >
-              <Ban className="h-4 w-4 mr-2 text-theme-error" />
+              <Ban className="h-4 w-4 mr-2 text-theme-error-fg" />
               Suspend User
             </button>
           )}
@@ -361,7 +361,7 @@ const UserActionsDropdown: React.FC<UserActionsDropdownProps> = ({
               role="menuitem"
               disabled={actionLoading}
             >
-              <CheckCircle className="h-4 w-4 mr-2 text-theme-success" />
+              <CheckCircle className="h-4 w-4 mr-2 text-theme-success-fg" />
               Activate User
             </button>
           )}
@@ -374,7 +374,7 @@ const UserActionsDropdown: React.FC<UserActionsDropdownProps> = ({
               role="menuitem"
               disabled={actionLoading}
             >
-              <Unlock className="h-4 w-4 mr-2 text-theme-warning" />
+              <Unlock className="h-4 w-4 mr-2 text-theme-warning-fg" />
               Unlock Account
             </button>
           )}
@@ -387,7 +387,7 @@ const UserActionsDropdown: React.FC<UserActionsDropdownProps> = ({
               role="menuitem"
               disabled={actionLoading}
             >
-              <Mail className="h-4 w-4 mr-2 text-theme-info" />
+              <Mail className="h-4 w-4 mr-2 text-theme-info-fg" />
               Resend Verification
             </button>
           )}

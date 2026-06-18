@@ -235,13 +235,13 @@ export function getStatusText(status: string, domain?: 'invoice' | 'customer' | 
  */
 export function getStatusBgClass(color: StatusColor): string {
   const bgClasses: Record<StatusColor, string> = {
-    green: 'bg-theme-success/10',
-    yellow: 'bg-theme-warning/10',
-    red: 'bg-theme-danger/10',
-    blue: 'bg-theme-info/10',
+    green: 'bg-theme-success-fg/10',
+    yellow: 'bg-theme-warning-fg/10',
+    red: 'bg-theme-danger-fg/10',
+    blue: 'bg-theme-info-fg/10',
     gray: 'bg-theme-surface',
-    purple: 'bg-theme-info/10',
-    orange: 'bg-theme-warning/10',
+    purple: 'bg-theme-info-fg/10',
+    orange: 'bg-theme-warning-fg/10',
   };
   return bgClasses[color];
 }
@@ -251,13 +251,13 @@ export function getStatusBgClass(color: StatusColor): string {
  */
 export function getStatusTextClass(color: StatusColor): string {
   const textClasses: Record<StatusColor, string> = {
-    green: 'text-theme-success',
-    yellow: 'text-theme-warning',
-    red: 'text-theme-danger',
-    blue: 'text-theme-info',
+    green: 'text-theme-success-fg',
+    yellow: 'text-theme-warning-fg',
+    red: 'text-theme-danger-fg',
+    blue: 'text-theme-info-fg',
     gray: 'text-theme-secondary',
-    purple: 'text-theme-info',
-    orange: 'text-theme-warning',
+    purple: 'text-theme-info-fg',
+    orange: 'text-theme-warning-fg',
   };
   return textClasses[color];
 }
@@ -267,13 +267,13 @@ export function getStatusTextClass(color: StatusColor): string {
  */
 export function getStatusBorderClass(color: StatusColor): string {
   const borderClasses: Record<StatusColor, string> = {
-    green: 'border-theme-success/30',
-    yellow: 'border-theme-warning/30',
-    red: 'border-theme-danger/30',
-    blue: 'border-theme-info/30',
+    green: 'border-theme-success-border/30',
+    yellow: 'border-theme-warning-border/30',
+    red: 'border-theme-danger-border/30',
+    blue: 'border-theme-info-border/30',
     gray: 'border-theme',
-    purple: 'border-theme-info/30',
-    orange: 'border-theme-warning/30',
+    purple: 'border-theme-info-border/30',
+    orange: 'border-theme-warning-border/30',
   };
   return borderClasses[color];
 }

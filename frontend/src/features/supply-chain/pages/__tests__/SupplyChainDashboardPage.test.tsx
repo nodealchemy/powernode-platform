@@ -166,7 +166,7 @@ describe('SupplyChainDashboardPage', () => {
 
       const span = screen.getByText('Failed to load dashboard');
       const errorContainer = span.parentElement?.parentElement;
-      expect(errorContainer).toHaveClass('bg-theme-error/10');
+      expect(errorContainer).toHaveClass('bg-theme-error-fg/10');
     });
   });
 
@@ -530,7 +530,7 @@ describe('SupplyChainDashboardPage', () => {
       renderPage();
 
       const severityBadge = screen.getByText('critical');
-      expect(severityBadge).toHaveClass('text-theme-error');
+      expect(severityBadge).toHaveClass('text-theme-error-fg');
     });
 
     it('applies correct severity colors for high alerts', () => {
@@ -555,7 +555,7 @@ describe('SupplyChainDashboardPage', () => {
       renderPage();
 
       const severityBadge = screen.getByText('high');
-      expect(severityBadge).toHaveClass('text-theme-warning');
+      expect(severityBadge).toHaveClass('text-theme-warning-fg');
     });
   });
 

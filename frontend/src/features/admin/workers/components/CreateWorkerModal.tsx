@@ -128,14 +128,14 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
             {...form.getFieldProps('name')}
             type="text"
             className={`w-full px-3 py-2 border rounded-md bg-theme-background text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent ${
-              form.errors.name ? 'border-theme-error' : 'border-theme'
+              form.errors.name ? 'border-theme-error-border' : 'border-theme'
             }`}
             placeholder="Enter worker name"
             required
             disabled={form.isSubmitting}
           />
           {form.errors.name && (
-            <p className="text-theme-error text-sm mt-1">{form.errors.name}</p>
+            <p className="text-theme-error-fg text-sm mt-1">{form.errors.name}</p>
           )}
         </div>
 
@@ -146,14 +146,14 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
           <textarea
             {...form.getFieldProps('description')}
             className={`w-full px-3 py-2 border rounded-md bg-theme-background text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent ${
-              form.errors.description ? 'border-theme-error' : 'border-theme'
+              form.errors.description ? 'border-theme-error-border' : 'border-theme'
             }`}
             placeholder="Enter description (optional)"
             rows={3}
             disabled={form.isSubmitting}
           />
           {form.errors.description && (
-            <p className="text-theme-error text-sm mt-1">{form.errors.description}</p>
+            <p className="text-theme-error-fg text-sm mt-1">{form.errors.description}</p>
           )}
         </div>
 
@@ -166,8 +166,8 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
               <span className="text-theme-secondary">Loading roles...</span>
             </div>
           ) : rolesError ? (
-            <div className="flex items-center justify-center p-4 border border-theme-error rounded bg-theme-error/10">
-              <span className="text-theme-error text-sm">{rolesError}</span>
+            <div className="flex items-center justify-center p-4 border border-theme-error-border rounded bg-theme-error-fg/10">
+              <span className="text-theme-error-fg text-sm">{rolesError}</span>
             </div>
           ) : (
             <div className="space-y-2 max-h-32 overflow-y-auto border border-theme rounded p-3 bg-theme-background">
@@ -202,7 +202,7 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
             Account workers can only be assigned user roles. Permissions are inherited from roles.
           </p>
           {form.errors.roles && (
-            <p className="text-theme-error text-sm mt-1">{form.errors.roles}</p>
+            <p className="text-theme-error-fg text-sm mt-1">{form.errors.roles}</p>
           )}
         </div>
       </form>

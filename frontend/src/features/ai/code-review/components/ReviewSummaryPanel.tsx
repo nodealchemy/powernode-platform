@@ -30,8 +30,8 @@ export const ReviewSummaryPanel: React.FC<ReviewSummaryPanelProps> = ({ review, 
     fileMap.set(c.file_path, existing);
   });
 
-  const scoreColor = qualityPercent >= 80 ? 'text-theme-success' : qualityPercent >= 50 ? 'text-theme-warning' : 'text-theme-danger';
-  const scoreBg = qualityPercent >= 80 ? 'bg-theme-success/10' : qualityPercent >= 50 ? 'bg-theme-warning/10' : 'bg-theme-error/10';
+  const scoreColor = qualityPercent >= 80 ? 'text-theme-success-fg' : qualityPercent >= 50 ? 'text-theme-warning-fg' : 'text-theme-danger-fg';
+  const scoreBg = qualityPercent >= 80 ? 'bg-theme-success-fg/10' : qualityPercent >= 50 ? 'bg-theme-warning-fg/10' : 'bg-theme-error-fg/10';
 
   return (
     <div className="bg-theme-surface border border-theme rounded-lg p-4 space-y-4">
@@ -53,16 +53,16 @@ export const ReviewSummaryPanel: React.FC<ReviewSummaryPanelProps> = ({ review, 
 
       {/* Issue Breakdown */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="text-center p-2 rounded-md bg-theme-error/5 border border-theme-danger/20">
-          <div className="text-lg font-bold text-theme-danger">{criticalCount}</div>
+        <div className="text-center p-2 rounded-md bg-theme-error-fg/5 border border-theme-danger-border/20">
+          <div className="text-lg font-bold text-theme-danger-fg">{criticalCount}</div>
           <div className="text-xs text-theme-secondary">Critical</div>
         </div>
-        <div className="text-center p-2 rounded-md bg-theme-warning/5 border border-theme-warning/20">
-          <div className="text-lg font-bold text-theme-warning">{warningCount}</div>
+        <div className="text-center p-2 rounded-md bg-theme-warning-fg/5 border border-theme-warning-border/20">
+          <div className="text-lg font-bold text-theme-warning-fg">{warningCount}</div>
           <div className="text-xs text-theme-secondary">Warning</div>
         </div>
-        <div className="text-center p-2 rounded-md bg-theme-info/5 border border-theme-info/20">
-          <div className="text-lg font-bold text-theme-info">{infoCount}</div>
+        <div className="text-center p-2 rounded-md bg-theme-info-fg/5 border border-theme-info-border/20">
+          <div className="text-lg font-bold text-theme-info-fg">{infoCount}</div>
           <div className="text-xs text-theme-secondary">Info</div>
         </div>
       </div>
@@ -70,7 +70,7 @@ export const ReviewSummaryPanel: React.FC<ReviewSummaryPanelProps> = ({ review, 
       {/* Suggestions */}
       {suggestionCount > 0 && (
         <div className="flex items-center gap-2 text-xs text-theme-secondary">
-          <Lightbulb className="h-3 w-3 text-theme-warning" />
+          <Lightbulb className="h-3 w-3 text-theme-warning-fg" />
           {suggestionCount} suggestion{suggestionCount !== 1 ? 's' : ''} available
         </div>
       )}
@@ -88,11 +88,11 @@ export const ReviewSummaryPanel: React.FC<ReviewSummaryPanelProps> = ({ review, 
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                   {fileComments.some(c => c.severity === 'critical') && (
-                    <AlertTriangle className="h-3 w-3 text-theme-danger" />
+                    <AlertTriangle className="h-3 w-3 text-theme-danger-fg" />
                   )}
                   <span className="text-theme-secondary">{fileComments.length}</span>
                   {fileComments.every(c => c.resolved) && (
-                    <CheckCircle className="h-3 w-3 text-theme-success" />
+                    <CheckCircle className="h-3 w-3 text-theme-success-fg" />
                   )}
                 </div>
               </div>

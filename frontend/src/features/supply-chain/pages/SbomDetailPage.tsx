@@ -382,9 +382,9 @@ const SbomDetailPageContent: React.FC = () => {
       render: (item: SbomComponent) => (
         <div className="flex items-center gap-1">
           {item.has_known_vulnerabilities ? (
-            <AlertTriangle className="w-4 h-4 text-theme-error" />
+            <AlertTriangle className="w-4 h-4 text-theme-error-fg" />
           ) : (
-            <CheckCircle className="w-4 h-4 text-theme-success" />
+            <CheckCircle className="w-4 h-4 text-theme-success-fg" />
           )}
         </div>
       ),
@@ -519,17 +519,17 @@ const SbomDetailPageContent: React.FC = () => {
               <p className="text-2xl font-bold text-theme-primary">{sbom.component_count}</p>
             </div>
             <div className="bg-theme-surface rounded-lg p-4 border border-theme">
-              <div className="flex items-center gap-2 text-theme-error mb-1">
+              <div className="flex items-center gap-2 text-theme-error-fg mb-1">
                 <AlertTriangle className="w-4 h-4" />
                 <span className="text-sm">Vulnerabilities</span>
               </div>
-              <p className="text-2xl font-bold text-theme-error">{sbom.vulnerability_count}</p>
+              <p className="text-2xl font-bold text-theme-error-fg">{sbom.vulnerability_count}</p>
             </div>
             <div className="bg-theme-surface rounded-lg p-4 border border-theme">
-              <div className="flex items-center gap-2 text-theme-warning mb-1">
+              <div className="flex items-center gap-2 text-theme-warning-fg mb-1">
                 <span className="text-sm">Risk Score</span>
               </div>
-              <p className="text-2xl font-bold text-theme-warning">{sbom.risk_score.toFixed(1)}</p>
+              <p className="text-2xl font-bold text-theme-warning-fg">{sbom.risk_score.toFixed(1)}</p>
             </div>
             <div className="bg-theme-surface rounded-lg p-4 border border-theme">
               <div className="flex items-center gap-2 text-theme-secondary mb-1">
@@ -538,13 +538,13 @@ const SbomDetailPageContent: React.FC = () => {
               <div className="flex items-center gap-2">
                 {sbom.ntia_minimum_compliant ? (
                   <>
-                    <CheckCircle className="w-6 h-6 text-theme-success" />
-                    <span className="text-lg font-medium text-theme-success">Yes</span>
+                    <CheckCircle className="w-6 h-6 text-theme-success-fg" />
+                    <span className="text-lg font-medium text-theme-success-fg">Yes</span>
                   </>
                 ) : (
                   <>
-                    <XCircle className="w-6 h-6 text-theme-error" />
-                    <span className="text-lg font-medium text-theme-error">No</span>
+                    <XCircle className="w-6 h-6 text-theme-error-fg" />
+                    <span className="text-lg font-medium text-theme-error-fg">No</span>
                   </>
                 )}
               </div>
@@ -737,9 +737,9 @@ const SbomDetailPageContent: React.FC = () => {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <span className="text-theme-success">+{diff.added_count}</span>
-                      <span className="text-theme-error">-{diff.removed_count}</span>
-                      <span className="text-theme-warning">~{diff.changed_count}</span>
+                      <span className="text-theme-success-fg">+{diff.added_count}</span>
+                      <span className="text-theme-error-fg">-{diff.removed_count}</span>
+                      <span className="text-theme-warning-fg">~{diff.changed_count}</span>
                     </div>
                     <span className="text-sm text-theme-secondary">
                       {new Date(diff.created_at).toLocaleDateString()}

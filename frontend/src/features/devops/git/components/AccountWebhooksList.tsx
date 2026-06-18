@@ -11,15 +11,15 @@ interface AccountWebhooksListProps {
 }
 
 const statusColors: Record<string, string> = {
-  active: 'bg-theme-success/10 text-theme-success',
+  active: 'bg-theme-success-fg/10 text-theme-success-fg',
   inactive: 'bg-theme-background-secondary text-theme-secondary',
 };
 
 const healthColors: Record<string, string> = {
-  excellent: 'text-theme-success',
-  good: 'text-theme-info',
-  warning: 'text-theme-warning',
-  critical: 'text-theme-danger',
+  excellent: 'text-theme-success-fg',
+  good: 'text-theme-info-fg',
+  warning: 'text-theme-warning-fg',
+  critical: 'text-theme-danger-fg',
   unknown: 'text-theme-text-tertiary',
 };
 
@@ -353,7 +353,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
                         onClick={() => handleDelete(webhook)}
                         disabled={actionLoading === webhook.id}
                         title="Delete"
-                        className="p-1.5 text-theme-secondary hover:text-theme-danger hover:bg-theme-danger/10 rounded transition-colors disabled:opacity-50"
+                        className="p-1.5 text-theme-secondary hover:text-theme-danger-fg hover:bg-theme-danger-fg/10 rounded transition-colors disabled:opacity-50"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path

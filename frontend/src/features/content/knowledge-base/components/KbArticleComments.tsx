@@ -244,7 +244,7 @@ function CommentItem({
               {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
             </span>
             {comment.status === 'pending' && (
-              <div className="flex items-center gap-1 text-xs text-theme-warning">
+              <div className="flex items-center gap-1 text-xs text-theme-warning-fg">
                 <ExclamationTriangleIcon className="h-3 w-3" />
                 <span>Pending approval</span>
               </div>
@@ -331,7 +331,7 @@ function CommentItem({
                           {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
                         </span>
                         {reply.status === 'pending' && (
-                          <div className="flex items-center gap-1 text-xs text-theme-warning">
+                          <div className="flex items-center gap-1 text-xs text-theme-warning-fg">
                             <ExclamationTriangleIcon className="h-3 w-3" />
                             <span>Pending</span>
                           </div>

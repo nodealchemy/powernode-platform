@@ -158,7 +158,7 @@ describe('ChatWindowHeader', () => {
   it('renders online indicator dot', () => {
     setupMock();
     const { container } = render(<ChatWindowHeader />);
-    const dot = container.querySelector('.bg-theme-success');
+    const dot = container.querySelector('.bg-theme-success-bg');
     expect(dot).toBeInTheDocument();
   });
 });

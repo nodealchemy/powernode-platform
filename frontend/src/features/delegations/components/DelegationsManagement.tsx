@@ -95,9 +95,9 @@ export const DelegationsManagement: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const statusClasses = {
-      active: 'bg-theme-success bg-opacity-10 text-theme-success',
-      pending: 'bg-theme-warning bg-opacity-10 text-theme-warning',
-      expired: 'bg-theme-error bg-opacity-10 text-theme-error',
+      active: 'bg-theme-success-bg text-theme-success-fg',
+      pending: 'bg-theme-warning-bg text-theme-warning-fg',
+      expired: 'bg-theme-error-bg text-theme-error-fg',
       revoked: 'bg-theme-surface text-theme-tertiary',
     };
 
@@ -168,12 +168,12 @@ export const DelegationsManagement: React.FC = () => {
 
         {/* Pending Requests Alert */}
         {pendingRequests.length > 0 && (
-          <div className="mb-6 bg-theme-warning bg-opacity-10 border border-theme-warning border-opacity-30 rounded-lg p-4">
+          <div className="mb-6 bg-theme-warning-bg border border-theme-warning-border rounded-lg p-4">
             <div className="flex items-start space-x-3">
-              <span className="text-theme-warning text-xl">⚠️</span>
+              <span className="text-theme-warning-fg text-xl">⚠️</span>
               <div className="flex-1">
-                <h3 className="font-medium text-theme-warning">Pending Delegation Requests</h3>
-                <p className="text-sm text-theme-warning opacity-80 mt-1">
+                <h3 className="font-medium text-theme-warning-fg">Pending Delegation Requests</h3>
+                <p className="text-sm text-theme-warning-fg opacity-80 mt-1">
                   You have {pendingRequests.length} pending delegation request{pendingRequests.length > 1 ? 's' : ''} awaiting your review.
                 </p>
                 <div className="mt-3 space-y-2">

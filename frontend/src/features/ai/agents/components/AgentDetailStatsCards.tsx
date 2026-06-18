@@ -13,9 +13,9 @@ function formatDuration(ms: number): string {
 }
 
 function successRateColor(rate: number): string {
-  if (rate >= 80) return 'text-theme-success';
-  if (rate >= 50) return 'text-theme-warning';
-  return 'text-theme-error';
+  if (rate >= 80) return 'text-theme-success-fg';
+  if (rate >= 50) return 'text-theme-warning-fg';
+  return 'text-theme-error-fg';
 }
 
 export const AgentDetailStatsCards: React.FC<AgentDetailStatsCardsProps> = ({ stats }) => {
@@ -47,7 +47,7 @@ export const AgentDetailStatsCards: React.FC<AgentDetailStatsCardsProps> = ({ st
       </Card>
       <Card>
         <CardContent className="p-4">
-          <div className="text-2xl font-bold text-theme-warning">
+          <div className="text-2xl font-bold text-theme-warning-fg">
             ${stats.estimated_total_cost || '0.00'}
           </div>
           <div className="text-sm text-theme-secondary">Est. Cost</div>

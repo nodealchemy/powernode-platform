@@ -138,13 +138,13 @@ export function IntegrationsPage() {
           </div>
           <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Active</p>
-            <p className="text-2xl font-semibold text-theme-success mt-1">
+            <p className="text-2xl font-semibold text-theme-success-fg mt-1">
               {activeCount}
             </p>
           </div>
           <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Errors</p>
-            <p className="text-2xl font-semibold text-theme-danger mt-1">
+            <p className="text-2xl font-semibold text-theme-danger-fg mt-1">
               {errorCount}
             </p>
           </div>

@@ -43,13 +43,13 @@ describe('SuccessAlert', () => {
     it('has success background styling', () => {
       const { container } = render(<SuccessAlert message="Success" />);
 
-      expect(container.firstChild).toHaveClass('bg-theme-success', 'bg-opacity-10');
+      expect(container.firstChild).toHaveClass('bg-theme-success-bg');
     });
 
     it('has border styling', () => {
       const { container } = render(<SuccessAlert message="Success" />);
 
-      expect(container.firstChild).toHaveClass('border', 'border-theme-success', 'rounded-lg');
+      expect(container.firstChild).toHaveClass('border', 'border-theme-success-border', 'rounded-lg');
     });
 
     it('has flex layout', () => {
@@ -63,7 +63,7 @@ describe('SuccessAlert', () => {
       render(<SuccessAlert message="Success message" />);
 
       const message = screen.getByText('Success message');
-      expect(message).toHaveClass('text-sm', 'text-theme-success');
+      expect(message).toHaveClass('text-sm', 'text-theme-success-fg');
     });
   });
 });

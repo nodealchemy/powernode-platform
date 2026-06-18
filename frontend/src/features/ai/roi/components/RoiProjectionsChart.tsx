@@ -51,11 +51,11 @@ export const RoiProjectionsChart: React.FC<RoiProjectionsChartProps> = ({
               <p className="text-sm text-center">{comparison.current_period.roi_percentage.toFixed(0)}%</p>
               <div className="flex items-center justify-center gap-1">
                 {comparison.changes.roi_change_points >= 0 ? (
-                  <TrendingUp className="h-3 w-3 text-theme-success" />
+                  <TrendingUp className="h-3 w-3 text-theme-success-fg" />
                 ) : (
-                  <TrendingDown className="h-3 w-3 text-theme-error" />
+                  <TrendingDown className="h-3 w-3 text-theme-error-fg" />
                 )}
-                <span className={comparison.changes.roi_change_points >= 0 ? 'text-theme-success' : 'text-theme-error'}>
+                <span className={comparison.changes.roi_change_points >= 0 ? 'text-theme-success-fg' : 'text-theme-error-fg'}>
                   {comparison.changes.roi_change_points >= 0 ? '+' : ''}{comparison.changes.roi_change_points.toFixed(1)} pts
                 </span>
               </div>
@@ -66,11 +66,11 @@ export const RoiProjectionsChart: React.FC<RoiProjectionsChartProps> = ({
               <p className="text-sm text-center">{formatCurrency(comparison.current_period.value_usd)}</p>
               <div className="flex items-center justify-center gap-1">
                 {comparison.changes.value_change_percentage >= 0 ? (
-                  <TrendingUp className="h-3 w-3 text-theme-success" />
+                  <TrendingUp className="h-3 w-3 text-theme-success-fg" />
                 ) : (
-                  <TrendingDown className="h-3 w-3 text-theme-error" />
+                  <TrendingDown className="h-3 w-3 text-theme-error-fg" />
                 )}
-                <span className={comparison.changes.value_change_percentage >= 0 ? 'text-theme-success' : 'text-theme-error'}>
+                <span className={comparison.changes.value_change_percentage >= 0 ? 'text-theme-success-fg' : 'text-theme-error-fg'}>
                   {comparison.changes.value_change_percentage >= 0 ? '+' : ''}{comparison.changes.value_change_percentage.toFixed(1)}%
                 </span>
               </div>
@@ -81,11 +81,11 @@ export const RoiProjectionsChart: React.FC<RoiProjectionsChartProps> = ({
               <p className="text-sm text-center">{formatCurrency(comparison.current_period.cost_usd)}</p>
               <div className="flex items-center justify-center gap-1">
                 {comparison.changes.cost_change_percentage <= 0 ? (
-                  <TrendingDown className="h-3 w-3 text-theme-success" />
+                  <TrendingDown className="h-3 w-3 text-theme-success-fg" />
                 ) : (
-                  <TrendingUp className="h-3 w-3 text-theme-error" />
+                  <TrendingUp className="h-3 w-3 text-theme-error-fg" />
                 )}
-                <span className={comparison.changes.cost_change_percentage <= 0 ? 'text-theme-success' : 'text-theme-error'}>
+                <span className={comparison.changes.cost_change_percentage <= 0 ? 'text-theme-success-fg' : 'text-theme-error-fg'}>
                   {comparison.changes.cost_change_percentage >= 0 ? '+' : ''}{comparison.changes.cost_change_percentage.toFixed(1)}%
                 </span>
               </div>
@@ -96,11 +96,11 @@ export const RoiProjectionsChart: React.FC<RoiProjectionsChartProps> = ({
               <p className="text-sm text-center">{formatHours(comparison.current_period.time_saved_hours)}</p>
               <div className="flex items-center justify-center gap-1">
                 {comparison.changes.time_saved_change_percentage >= 0 ? (
-                  <TrendingUp className="h-3 w-3 text-theme-success" />
+                  <TrendingUp className="h-3 w-3 text-theme-success-fg" />
                 ) : (
-                  <TrendingDown className="h-3 w-3 text-theme-error" />
+                  <TrendingDown className="h-3 w-3 text-theme-error-fg" />
                 )}
-                <span className={comparison.changes.time_saved_change_percentage >= 0 ? 'text-theme-success' : 'text-theme-error'}>
+                <span className={comparison.changes.time_saved_change_percentage >= 0 ? 'text-theme-success-fg' : 'text-theme-error-fg'}>
                   {comparison.changes.time_saved_change_percentage >= 0 ? '+' : ''}{comparison.changes.time_saved_change_percentage.toFixed(1)}%
                 </span>
               </div>
@@ -127,7 +127,7 @@ export const RoiProjectionsChart: React.FC<RoiProjectionsChartProps> = ({
                 </div>
                 <div>
                   <p className="text-xs text-theme-tertiary">Value</p>
-                  <p className="font-semibold text-theme-success">{formatCurrency(projections.monthly_projection.projected_value_usd)}</p>
+                  <p className="font-semibold text-theme-success-fg">{formatCurrency(projections.monthly_projection.projected_value_usd)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-theme-tertiary">ROI</p>
@@ -150,7 +150,7 @@ export const RoiProjectionsChart: React.FC<RoiProjectionsChartProps> = ({
                 </div>
                 <div>
                   <p className="text-xs text-theme-tertiary">Value</p>
-                  <p className="font-semibold text-theme-success">{formatCurrency(projections.quarterly_projection.projected_value_usd)}</p>
+                  <p className="font-semibold text-theme-success-fg">{formatCurrency(projections.quarterly_projection.projected_value_usd)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-theme-tertiary">ROI</p>

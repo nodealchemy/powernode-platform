@@ -450,8 +450,8 @@ export function ContextDetailPage() {
             </div>
 
             {/* Danger Zone */}
-            <div className="bg-theme-surface border border-theme-error rounded-lg p-6">
-              <h3 className="text-lg font-medium text-theme-error mb-4">Danger Zone</h3>
+            <div className="bg-theme-surface border border-theme-error-border rounded-lg p-6">
+              <h3 className="text-lg font-medium text-theme-error-fg mb-4">Danger Zone</h3>
               <div className="space-y-4">
                 {context.is_archived ? (
                   <div className="flex items-center justify-between">
@@ -486,7 +486,7 @@ export function ContextDetailPage() {
                 )}
                 <div className="flex items-center justify-between pt-4 border-t border-theme">
                   <div>
-                    <p className="font-medium text-theme-error">Delete Context</p>
+                    <p className="font-medium text-theme-error-fg">Delete Context</p>
                     <p className="text-sm text-theme-secondary">
                       Permanently delete this context and all entries
                     </p>

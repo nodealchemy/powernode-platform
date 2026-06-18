@@ -8,19 +8,19 @@ export const TeamStatsCards: React.FC<TeamStatsCardsProps> = ({ userStats }) => 
       <div className="text-theme-secondary text-sm">Total Users</div>
     </div>
     <div className="bg-theme-surface rounded-lg p-4 shadow-sm">
-      <div className="text-2xl font-semibold text-theme-success">{userStats.active_users}</div>
+      <div className="text-2xl font-semibold text-theme-success-fg">{userStats.active_users}</div>
       <div className="text-theme-secondary text-sm">Active Users</div>
     </div>
     <div className="bg-theme-surface rounded-lg p-4 shadow-sm">
-      <div className="text-2xl font-semibold text-theme-error">{userStats.suspended_users}</div>
+      <div className="text-2xl font-semibold text-theme-error-fg">{userStats.suspended_users}</div>
       <div className="text-theme-secondary text-sm">Suspended Users</div>
     </div>
     <div className="bg-theme-surface rounded-lg p-4 shadow-sm">
-      <div className="text-2xl font-semibold text-theme-warning">{userStats.unverified_users}</div>
+      <div className="text-2xl font-semibold text-theme-warning-fg">{userStats.unverified_users}</div>
       <div className="text-theme-secondary text-sm">Unverified Users</div>
     </div>
     <div className="bg-theme-surface rounded-lg p-4 shadow-sm">
-      <div className="text-2xl font-semibold text-theme-info">{userStats.recent_logins}</div>
+      <div className="text-2xl font-semibold text-theme-info-fg">{userStats.recent_logins}</div>
       <div className="text-theme-secondary text-sm">Recent Logins</div>
     </div>
   </div>

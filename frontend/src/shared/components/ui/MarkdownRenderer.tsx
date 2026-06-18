@@ -169,7 +169,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           mb-6 transition-all duration-300 ease-out
           ${lineHeight === 'tight' ? 'leading-snug' : lineHeight === 'relaxed' ? 'leading-relaxed' : 'leading-normal'}
           ${enableReadingMode ? 'max-w-prose' : ''}
-          ${variant === 'public' ? 'text-opacity-90' : ''}
         `}>
           {children}
         </p>
@@ -210,7 +209,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       // Glassmorphism blockquotes
       blockquote: ({ children }) => (
         <blockquote className={`
-          relative border-l-4 ${isPublic ? 'border-theme-info' : 'border-theme-link'}
+          relative border-l-4 ${isPublic ? 'border-theme-info-border' : 'border-theme-link'}
           pl-6 pr-6 py-4 my-6 italic
           backdrop-blur-lg rounded-r-xl
           ${isPublic ? 'bg-theme-surface/10' : 'bg-theme-surface/80'}
@@ -252,9 +251,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         <div className="relative group mb-6">
           {/* Terminal-style dots */}
           <div className="flex items-center space-x-2 px-4 py-2 bg-theme-background-secondary rounded-t-xl border-b border-theme">
-            <div className="w-3 h-3 bg-theme-danger rounded-full opacity-80"></div>
-            <div className="w-3 h-3 bg-theme-warning rounded-full opacity-80"></div>
-            <div className="w-3 h-3 bg-theme-success rounded-full opacity-80"></div>
+            <div className="w-3 h-3 bg-theme-danger-bg rounded-full opacity-80"></div>
+            <div className="w-3 h-3 bg-theme-warning-bg rounded-full opacity-80"></div>
+            <div className="w-3 h-3 bg-theme-success-bg rounded-full opacity-80"></div>
           </div>
           <pre className={`
             p-4 rounded-b-xl overflow-x-auto
@@ -275,13 +274,13 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           href={href}
           className={`
             ${isPublic
-              ? 'text-theme-info hover:opacity-80'
+              ? 'text-theme-info-fg hover:opacity-80'
               : 'text-theme-link hover:text-theme-link-hover'
             }
             underline decoration-2 underline-offset-2
             transition-all duration-200 ease-out
             hover:decoration-4 hover:underline-offset-4
-            focus:outline-none focus:ring-2 ${isPublic ? 'focus:ring-theme-info/50' : 'focus:ring-theme-link/50'} focus:rounded
+            focus:outline-none focus:ring-2 ${isPublic ? 'focus:ring-theme-info-fg/50' : 'focus:ring-theme-link/50'} focus:rounded
           `}
           target={href?.startsWith('http') ? '_blank' : undefined}
           rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
@@ -307,7 +306,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       hr: () => (
         <div className="my-8 flex items-center">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-theme-tertiary to-transparent"></div>
-          <div className="mx-4 w-2 h-2 bg-theme-info rounded-full"></div>
+          <div className="mx-4 w-2 h-2 bg-theme-info-bg rounded-full"></div>
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-theme-tertiary to-transparent"></div>
         </div>
       ),
@@ -340,7 +339,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           px-5 py-4 text-left font-semibold text-sm
           bg-gradient-to-br from-theme-info/10 to-theme-info/20
           dark:from-theme-info/20 dark:to-theme-info/30
-          text-theme-primary border-b-2 border-theme-info/20
+          text-theme-primary border-b-2 border-theme-info-border/20
           border-r border-theme/30 last:border-r-0
           uppercase tracking-wide letter-spacing-wide
           transition-all duration-200 ease-out
@@ -359,7 +358,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           px-5 py-4 text-theme-primary text-sm leading-relaxed
           border-b border-theme/30 border-r border-theme/20 last:border-r-0
           transition-all duration-200 ease-out
-          hover:bg-theme-info/10 dark:hover:bg-theme-info/10
+          hover:bg-theme-info-fg/10 dark:hover:bg-theme-info-fg/10
           relative
         `}>
           {children}

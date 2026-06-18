@@ -44,9 +44,9 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-theme-success-background text-theme-success';
-      case 'suspended': return 'bg-theme-warning-background text-theme-warning';
-      case 'revoked': return 'bg-theme-error text-theme-error';
+      case 'active': return 'bg-theme-success-background text-theme-success-fg';
+      case 'suspended': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'revoked': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -103,7 +103,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
     <div className={`
       relative bg-theme-surface rounded-xl border-2 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer h-full flex flex-col
       ${isSelected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-secondary'}
-      ${isSystemWorker ? 'bg-gradient-to-br from-theme-surface to-theme-info/5 border-theme-info/30 shadow-md' : ''}
+      ${isSystemWorker ? 'bg-gradient-to-br from-theme-surface to-theme-info/5 border-theme-info-border/30 shadow-md' : ''}
     `}>
       {/* Selection Checkbox */}
       <div className="absolute top-3 left-3 z-10">
@@ -164,7 +164,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                     onDelete();
                     setShowActions(false);
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-error hover:bg-theme-error transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-error-fg hover:bg-theme-error-bg transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete Worker
@@ -206,7 +206,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
               {getStatusIcon(worker.status)} {worker.status.charAt(0).toUpperCase() + worker.status.slice(1)}
             </span>
             {worker.active_recently ? (
-              <span className="px-2 py-1 bg-theme-success-background text-theme-success text-xs rounded-full font-medium">
+              <span className="px-2 py-1 bg-theme-success-background text-theme-success-fg text-xs rounded-full font-medium">
                 🟢 Online
               </span>
             ) : (
@@ -231,13 +231,13 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                 {worker.roles.slice(0, 3).map((role, index) => (
                   <span
                     key={index}
-                    className="px-2 py-1 bg-theme-warning-background text-theme-warning text-xs rounded-full"
+                    className="px-2 py-1 bg-theme-warning-background text-theme-warning-fg text-xs rounded-full"
                   >
                     {role}
                   </span>
                 ))}
                 {worker.roles.length > 3 && (
-                  <span className="px-2 py-1 bg-theme-info text-theme-info text-xs rounded-full">
+                  <span className="px-2 py-1 bg-theme-info-bg text-theme-info-fg text-xs rounded-full">
                     +{worker.roles.length - 3} more
                   </span>
                 )}
@@ -261,7 +261,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                   </span>
                 ))}
                 {worker.permissions.length > 2 && (
-                  <span className="px-2 py-1 bg-theme-info text-theme-info text-xs rounded-full">
+                  <span className="px-2 py-1 bg-theme-info-bg text-theme-info-fg text-xs rounded-full">
                     +{worker.permissions.length - 2} more
                   </span>
                 )}
@@ -286,7 +286,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                   className="p-1 text-theme-secondary hover:text-theme-primary transition-colors"
                   title="Copy full hash"
                 >
-                  {copied ? <Check className="w-3 h-3 text-theme-success" /> : <Copy className="w-3 h-3" />}
+                  {copied ? <Check className="w-3 h-3 text-theme-success-fg" /> : <Copy className="w-3 h-3" />}
                 </button>
               </div>
             </div>
@@ -326,7 +326,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
       {/* System Worker Badge */}
       {isSystemWorker && (
         <div className="absolute -top-2 -right-2">
-          <div className="bg-theme-error text-white px-2 py-1 rounded-full text-xs font-medium shadow-lg">
+          <div className="bg-theme-error-bg text-white px-2 py-1 rounded-full text-xs font-medium shadow-lg">
             ⚙️ SYSTEM
           </div>
         </div>

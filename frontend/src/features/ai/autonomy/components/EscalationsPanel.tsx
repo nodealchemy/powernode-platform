@@ -20,20 +20,20 @@ function getSeverityBorderClass(severity: string): string {
 
 function getSeverityBadgeClass(severity: string): string {
   switch (severity) {
-    case 'critical': return 'text-theme-error bg-theme-error/10';
-    case 'high': return 'text-theme-warning bg-theme-warning/10';
-    case 'medium': return 'text-theme-info bg-theme-info/10';
+    case 'critical': return 'text-theme-error-fg bg-theme-error-fg/10';
+    case 'high': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+    case 'medium': return 'text-theme-info-fg bg-theme-info-fg/10';
     default: return 'text-theme-tertiary bg-theme-surface';
   }
 }
 
 function getStatusBadge(status: EscalationStatus): { class: string; label: string } {
   switch (status) {
-    case 'open': return { class: 'text-theme-error bg-theme-error/10', label: 'Open' };
-    case 'acknowledged': return { class: 'text-theme-warning bg-theme-warning/10', label: 'Acknowledged' };
-    case 'in_progress': return { class: 'text-theme-info bg-theme-info/10', label: 'In Progress' };
-    case 'resolved': return { class: 'text-theme-success bg-theme-success/10', label: 'Resolved' };
-    case 'auto_resolved': return { class: 'text-theme-success bg-theme-success/10', label: 'Auto-resolved' };
+    case 'open': return { class: 'text-theme-error-fg bg-theme-error-fg/10', label: 'Open' };
+    case 'acknowledged': return { class: 'text-theme-warning-fg bg-theme-warning-fg/10', label: 'Acknowledged' };
+    case 'in_progress': return { class: 'text-theme-info-fg bg-theme-info-fg/10', label: 'In Progress' };
+    case 'resolved': return { class: 'text-theme-success-fg bg-theme-success-fg/10', label: 'Resolved' };
+    case 'auto_resolved': return { class: 'text-theme-success-fg bg-theme-success-fg/10', label: 'Auto-resolved' };
     default: return { class: 'text-theme-secondary bg-theme-surface', label: status };
   }
 }
@@ -82,7 +82,7 @@ const EscalationCard: React.FC<{
             )}
             <span>Level {escalation.current_level}</span>
             {escalation.next_escalation_at && isActive && (
-              <span className="flex items-center gap-1 text-theme-warning">
+              <span className="flex items-center gap-1 text-theme-warning-fg">
                 <ArrowUp className="h-3 w-3" /> {getCountdownText(escalation.next_escalation_at)}
               </span>
             )}
@@ -113,7 +113,7 @@ const EscalationCard: React.FC<{
           <div className="flex items-center gap-2 text-xs text-theme-tertiary">
             <span className="font-medium text-theme-primary">Escalation Chain:</span>
             {Array.from({ length: escalation.current_level }, (_, i) => (
-              <span key={i} className={`px-1.5 py-0.5 rounded ${i + 1 === escalation.current_level ? 'bg-theme-warning/20 text-theme-warning font-medium' : 'bg-theme-surface'}`}>
+              <span key={i} className={`px-1.5 py-0.5 rounded ${i + 1 === escalation.current_level ? 'bg-theme-warning-fg/20 text-theme-warning-fg font-medium' : 'bg-theme-surface'}`}>
                 L{i + 1}
               </span>
             ))}
@@ -231,7 +231,7 @@ export const EscalationsPanel: React.FC = () => {
           <option value="auto_resolved">Auto-resolved</option>
         </select>
         {openCount > 0 && (
-          <span className="px-2 py-1 text-xs rounded bg-theme-error/10 text-theme-error">
+          <span className="px-2 py-1 text-xs rounded bg-theme-error-fg/10 text-theme-error-fg">
             {openCount} active
           </span>
         )}

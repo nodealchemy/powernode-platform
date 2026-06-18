@@ -7,32 +7,32 @@ describe('SeverityBadge', () => {
       const { container } = render(<SeverityBadge severity="critical" />);
       expect(screen.getByText('Critical')).toBeInTheDocument();
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-error/10');
-      expect(badge).toHaveClass('text-theme-error');
+      expect(badge).toHaveClass('bg-theme-error-fg/10');
+      expect(badge).toHaveClass('text-theme-error-fg');
     });
 
     it('renders high severity with correct styles', () => {
       const { container } = render(<SeverityBadge severity="high" />);
       expect(screen.getByText('High')).toBeInTheDocument();
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-warning/10');
-      expect(badge).toHaveClass('text-theme-warning');
+      expect(badge).toHaveClass('bg-theme-warning-fg/10');
+      expect(badge).toHaveClass('text-theme-warning-fg');
     });
 
     it('renders medium severity with correct styles', () => {
       const { container } = render(<SeverityBadge severity="medium" />);
       expect(screen.getByText('Medium')).toBeInTheDocument();
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-info/10');
-      expect(badge).toHaveClass('text-theme-info');
+      expect(badge).toHaveClass('bg-theme-info-fg/10');
+      expect(badge).toHaveClass('text-theme-info-fg');
     });
 
     it('renders low severity with correct styles', () => {
       const { container } = render(<SeverityBadge severity="low" />);
       expect(screen.getByText('Low')).toBeInTheDocument();
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-success/10');
-      expect(badge).toHaveClass('text-theme-success');
+      expect(badge).toHaveClass('bg-theme-success-fg/10');
+      expect(badge).toHaveClass('text-theme-success-fg');
     });
 
     it('renders severity indicator dot', () => {
@@ -41,7 +41,7 @@ describe('SeverityBadge', () => {
       expect(dot).toHaveClass('w-1.5');
       expect(dot).toHaveClass('h-1.5');
       expect(dot).toHaveClass('rounded-full');
-      expect(dot).toHaveClass('bg-theme-error');
+      expect(dot).toHaveClass('bg-theme-error-bg');
     });
 
     it('renders dot with correct color for each severity', () => {
@@ -52,10 +52,10 @@ describe('SeverityBadge', () => {
         'low',
       ];
       const expectedColors = [
-        'bg-theme-error',
-        'bg-theme-warning',
-        'bg-theme-info',
-        'bg-theme-success',
+        'bg-theme-error-bg',
+        'bg-theme-warning-bg',
+        'bg-theme-info-bg',
+        'bg-theme-success-bg',
       ];
 
       severities.forEach((severity, index) => {

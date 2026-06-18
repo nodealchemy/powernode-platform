@@ -171,7 +171,7 @@ export const SecuritySettings: React.FC = () => {
           />
 
           {config.csrf.enabled && (
-            <div className="space-y-4 pl-4 border-l-2 border-theme-interactive-primary border-opacity-30">
+            <div className="space-y-4 pl-4 border-l-2 border-theme-interactive-primary/30">
               <FormField label="CSRF Token Header Name">
                 <Input
                   value={config.csrf.token_name}
@@ -334,7 +334,7 @@ export const SecuritySettings: React.FC = () => {
           />
 
           {config.api_security.cors_enabled && (
-            <div className="pl-4 border-l-2 border-theme-success border-opacity-30">
+            <div className="pl-4 border-l-2 border-theme-success-border">
               <SectionHeader
                 title="Allowed Origins"
                 description="Domains permitted to access the API"
@@ -354,7 +354,7 @@ export const SecuritySettings: React.FC = () => {
                     <span className="text-sm font-mono text-theme-primary">{origin}</span>
                     <button
                       onClick={() => removeAllowedOrigin(index)}
-                      className="text-theme-error hover:text-theme-error/80 transition-colors"
+                      className="text-theme-error-fg hover:text-theme-error-fg/80 transition-colors"
                     >
                       <XCircle className="w-4 h-4" />
                     </button>
@@ -423,9 +423,9 @@ export const SecuritySettings: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="text-sm text-theme-secondary">CSRF Protection</span>
               {config.csrf.enabled ? (
-                <CheckCircle className="w-5 h-5 text-theme-success" />
+                <CheckCircle className="w-5 h-5 text-theme-success-fg" />
               ) : (
-                <AlertTriangle className="w-5 h-5 text-theme-warning" />
+                <AlertTriangle className="w-5 h-5 text-theme-warning-fg" />
               )}
             </div>
             <p className="text-lg font-semibold text-theme-primary mt-1">
@@ -436,7 +436,7 @@ export const SecuritySettings: React.FC = () => {
           <div className="p-4 rounded-lg border border-theme bg-theme-background">
             <div className="flex items-center justify-between">
               <span className="text-sm text-theme-secondary">Token Expiry</span>
-              <Clock className="w-5 h-5 text-theme-info" />
+              <Clock className="w-5 h-5 text-theme-info-fg" />
             </div>
             <p className="text-lg font-semibold text-theme-primary mt-1">
               {config.jwt.access_token_ttl}m
@@ -447,9 +447,9 @@ export const SecuritySettings: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="text-sm text-theme-secondary">Rate Limiting</span>
               {config.api_security.rate_limiting_enabled ? (
-                <CheckCircle className="w-5 h-5 text-theme-success" />
+                <CheckCircle className="w-5 h-5 text-theme-success-fg" />
               ) : (
-                <XCircle className="w-5 h-5 text-theme-error" />
+                <XCircle className="w-5 h-5 text-theme-error-fg" />
               )}
             </div>
             <p className="text-lg font-semibold text-theme-primary mt-1">

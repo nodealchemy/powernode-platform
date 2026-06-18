@@ -233,7 +233,7 @@ describe('VendorDetailPage', () => {
     it('applies correct color class to risk score based on value', () => {
       renderPage();
       const scoreElement = screen.getByText('75/100');
-      expect(scoreElement).toHaveClass('text-theme-warning');
+      expect(scoreElement).toHaveClass('text-theme-warning-fg');
     });
   });
 

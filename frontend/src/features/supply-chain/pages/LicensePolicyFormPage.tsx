@@ -39,9 +39,9 @@ const POLICY_TYPES: { value: LicensePolicyType; label: string; description: stri
 ];
 
 const ENFORCEMENT_LEVELS: { value: EnforcementLevel; label: string; description: string; color: string }[] = [
-  { value: 'log', label: 'Log Only', description: 'Log violations without blocking', color: 'text-theme-info' },
-  { value: 'warn', label: 'Warn', description: 'Show warnings but allow builds to proceed', color: 'text-theme-warning' },
-  { value: 'block', label: 'Block', description: 'Block builds with license violations', color: 'text-theme-error' },
+  { value: 'log', label: 'Log Only', description: 'Log violations without blocking', color: 'text-theme-info-fg' },
+  { value: 'warn', label: 'Warn', description: 'Show warnings but allow builds to proceed', color: 'text-theme-warning-fg' },
+  { value: 'block', label: 'Block', description: 'Block builds with license violations', color: 'text-theme-error-fg' },
 ];
 
 interface FormData {
@@ -247,18 +247,18 @@ export const LicensePolicyFormPage: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-theme-secondary mb-1">
-                Policy Name <span className="text-theme-error">*</span>
+                Policy Name <span className="text-theme-error-fg">*</span>
               </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 className={`w-full px-3 py-2 border rounded-lg bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
-                  errors.name ? 'border-theme-error' : 'border-theme'
+                  errors.name ? 'border-theme-error-border' : 'border-theme'
                 }`}
                 placeholder="e.g., Production Strict Policy"
               />
-              {errors.name && <p className="text-sm text-theme-error mt-1">{errors.name}</p>}
+              {errors.name && <p className="text-sm text-theme-error-fg mt-1">{errors.name}</p>}
             </div>
 
             <div>
@@ -446,7 +446,7 @@ export const LicensePolicyFormPage: React.FC = () => {
             </p>
 
             {errors.allowed_licenses && (
-              <div className="flex items-center gap-2 text-theme-error mb-4">
+              <div className="flex items-center gap-2 text-theme-error-fg mb-4">
                 <AlertTriangle className="w-4 h-4" />
                 <span className="text-sm">{errors.allowed_licenses}</span>
               </div>
@@ -480,7 +480,7 @@ export const LicensePolicyFormPage: React.FC = () => {
                     type="button"
                     onClick={() => handleQuickAddLicense('allowed', license.id)}
                     disabled={formData.allowed_licenses.includes(license.id)}
-                    className="px-2 py-1 text-xs rounded bg-theme-success/10 text-theme-success hover:bg-theme-success/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 py-1 text-xs rounded bg-theme-success-fg/10 text-theme-success-fg hover:bg-theme-success-fg/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {license.id}
                   </button>
@@ -493,13 +493,13 @@ export const LicensePolicyFormPage: React.FC = () => {
                 {formData.allowed_licenses.map((license) => (
                   <span
                     key={license}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-theme-success/10 text-theme-success text-sm"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-theme-success-fg/10 text-theme-success-fg text-sm"
                   >
                     {license}
                     <button
                       type="button"
                       onClick={() => handleRemoveLicense('allowed', license)}
-                      className="hover:text-theme-error"
+                      className="hover:text-theme-error-fg"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -548,7 +548,7 @@ export const LicensePolicyFormPage: React.FC = () => {
                     type="button"
                     onClick={() => handleQuickAddLicense('denied', license.id)}
                     disabled={formData.denied_licenses.includes(license.id)}
-                    className="px-2 py-1 text-xs rounded bg-theme-error/10 text-theme-error hover:bg-theme-error/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 py-1 text-xs rounded bg-theme-error-fg/10 text-theme-error-fg hover:bg-theme-error-fg/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {license.id}
                   </button>
@@ -561,7 +561,7 @@ export const LicensePolicyFormPage: React.FC = () => {
                 {formData.denied_licenses.map((license) => (
                   <span
                     key={license}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-theme-error/10 text-theme-error text-sm"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-theme-error-fg/10 text-theme-error-fg text-sm"
                   >
                     {license}
                     <button
@@ -581,8 +581,8 @@ export const LicensePolicyFormPage: React.FC = () => {
         )}
 
         {/* Info Box */}
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-theme-info/10 border border-theme-info/30">
-          <Info className="w-5 h-5 text-theme-info flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-theme-info-fg/10 border border-theme-info-border/30">
+          <Info className="w-5 h-5 text-theme-info-fg flex-shrink-0 mt-0.5" />
           <div className="text-sm text-theme-secondary">
             <p className="font-medium text-theme-primary mb-1">About License Policies</p>
             <p>

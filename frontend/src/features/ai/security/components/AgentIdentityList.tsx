@@ -162,7 +162,7 @@ export const AgentIdentityList: React.FC<AgentIdentityListProps> = ({ onProvisio
                 loading={revokeIdentity.isPending}
                 title="Revoke"
               >
-                <ShieldOff className="h-3.5 w-3.5 text-theme-error" />
+                <ShieldOff className="h-3.5 w-3.5 text-theme-error-fg" />
               </Button>
             )}
           </div>

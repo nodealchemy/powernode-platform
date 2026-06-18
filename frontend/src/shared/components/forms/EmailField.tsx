@@ -44,7 +44,7 @@ export const EmailField: React.FC<EmailFieldProps> = ({
           className="block text-sm font-medium text-theme-primary mb-1"
         >
           {label}
-          {required && <span className="text-theme-error ml-1">*</span>}
+          {required && <span className="text-theme-error-fg ml-1">*</span>}
         </label>
       )}
       
@@ -74,7 +74,7 @@ export const EmailField: React.FC<EmailFieldProps> = ({
             transition-all duration-200
             focus:outline-none focus:ring-2 focus:ring-offset-0
             ${hasError 
-              ? 'border-theme-error focus:ring-theme-error focus:border-theme-error' 
+              ? 'border-theme-error-border focus:ring-theme-error-fg focus:border-theme-error-border' 
               : 'border-theme focus:ring-theme-focus focus:border-theme-focus'
             }
             ${disabled ? 'opacity-60 cursor-not-allowed' : ''}
@@ -85,7 +85,7 @@ export const EmailField: React.FC<EmailFieldProps> = ({
       {hasError && (
         <p 
           id={`${name}-error`}
-          className="mt-1 text-sm text-theme-error"
+          className="mt-1 text-sm text-theme-error-fg"
           role="alert"
         >
           {error}

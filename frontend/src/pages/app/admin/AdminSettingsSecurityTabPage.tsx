@@ -151,15 +151,15 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
   }
 
   const getScoreColor = (score: number) => {
-    if (score >= 90) return 'text-theme-success';
-    if (score >= 70) return 'text-theme-warning';
-    return 'text-theme-error';
+    if (score >= 90) return 'text-theme-success-fg';
+    if (score >= 70) return 'text-theme-warning-fg';
+    return 'text-theme-error-fg';
   };
 
   const getScoreBgColor = (score: number) => {
     if (score >= 90) return 'bg-theme-success-background';
     if (score >= 70) return 'bg-theme-warning-background';
-    return 'bg-theme-error';
+    return 'bg-theme-error-bg';
   };
 
   return (
@@ -223,12 +223,12 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
           </div>
 
           {/* Quick Security Recommendations */}
-          <div className="p-4 bg-theme-info border border-theme-info rounded-lg">
-            <h4 className="flex items-center gap-2 font-medium text-theme-info mb-2">
+          <div className="p-4 bg-theme-info-bg border border-theme-info-border rounded-lg">
+            <h4 className="flex items-center gap-2 font-medium text-theme-info-fg mb-2">
               <AlertTriangle className="w-5 h-5" />
               Security Recommendations
             </h4>
-            <ul className="space-y-1 text-sm text-theme-info">
+            <ul className="space-y-1 text-sm text-theme-info-fg">
               {!systemSettings.rate_limiting?.enabled && (
                 <li>• Enable rate limiting to protect against abuse</li>
               )}
@@ -239,7 +239,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
                 <li>• Enable email verification for new accounts</li>
               )}
               {securityScores.overall >= 90 && (
-                <li className="text-theme-success">• Your security configuration looks excellent!</li>
+                <li className="text-theme-success-fg">• Your security configuration looks excellent!</li>
               )}
             </ul>
           </div>
@@ -583,26 +583,26 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
               <h4 className="font-medium text-theme-primary mb-4">Security Status</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="flex items-center space-x-3 p-3 bg-theme-background rounded-lg">
-                  <Shield className="h-5 w-5 text-theme-success" />
+                  <Shield className="h-5 w-5 text-theme-success-fg" />
                   <div>
                     <div className="text-sm font-medium text-theme-primary">Authentication</div>
-                    <div className="text-xs text-theme-success">Secured</div>
+                    <div className="text-xs text-theme-success-fg">Secured</div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3 p-3 bg-theme-background rounded-lg">
-                  <Lock className="h-5 w-5 text-theme-success" />
+                  <Lock className="h-5 w-5 text-theme-success-fg" />
                   <div>
                     <div className="text-sm font-medium text-theme-primary">Rate Limiting</div>
-                    <div className="text-xs text-theme-success">
+                    <div className="text-xs text-theme-success-fg">
                       {systemSettings.rate_limiting?.enabled ? 'Enabled' : 'Disabled'}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3 p-3 bg-theme-background rounded-lg">
-                  <Users className="h-5 w-5 text-theme-success" />
+                  <Users className="h-5 w-5 text-theme-success-fg" />
                   <div>
                     <div className="text-sm font-medium text-theme-primary">Access Control</div>
-                    <div className="text-xs text-theme-success">Configured</div>
+                    <div className="text-xs text-theme-success-fg">Configured</div>
                   </div>
                 </div>
               </div>

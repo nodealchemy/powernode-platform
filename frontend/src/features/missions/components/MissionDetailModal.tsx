@@ -112,7 +112,7 @@ export const MissionDetailModal: React.FC = () => {
     if (error && !mission) {
       return (
         <div className="flex items-center justify-center py-24">
-          <p className="text-sm text-theme-error">{error}</p>
+          <p className="text-sm text-theme-error-fg">{error}</p>
         </div>
       );
     }
@@ -127,8 +127,8 @@ export const MissionDetailModal: React.FC = () => {
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-              <Rocket className="h-5 w-5 text-theme-info" />
+            <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+              <Rocket className="h-5 w-5 text-theme-info-fg" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-theme-primary">{mission.name}</h2>

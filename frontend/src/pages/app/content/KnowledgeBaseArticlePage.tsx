@@ -165,7 +165,7 @@ export default function KnowledgeBaseArticlePage() {
         ]}
       >
         <div className="text-center py-12">
-          <div className="text-theme-danger mb-4">
+          <div className="text-theme-danger-fg mb-4">
             <BookOpenIcon className="h-12 w-12 mx-auto" />
           </div>
           <h3 className="text-lg font-medium text-theme-primary mb-2">
@@ -203,7 +203,7 @@ export default function KnowledgeBaseArticlePage() {
             
             {article.published_at && (
               <div className="flex items-center gap-2 text-theme-secondary">
-                <div className="w-8 h-8 bg-theme-success rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-theme-success-bg rounded-full flex items-center justify-center">
                   <CalendarIcon className="h-4 w-4 text-white" />
                 </div>
                 <div>
@@ -216,7 +216,7 @@ export default function KnowledgeBaseArticlePage() {
             )}
 
             <div className="flex items-center gap-2 text-theme-secondary">
-              <div className="w-8 h-8 bg-theme-info rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-theme-info-bg rounded-full flex items-center justify-center">
                 <ClockIcon className="h-4 w-4 text-white" />
               </div>
               <div>
@@ -226,7 +226,7 @@ export default function KnowledgeBaseArticlePage() {
             </div>
 
             <div className="flex items-center gap-2 text-theme-secondary">
-              <div className="w-8 h-8 bg-theme-warning rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-theme-warning-bg rounded-full flex items-center justify-center">
                 <EyeIcon className="h-4 w-4 text-white" />
               </div>
               <div>

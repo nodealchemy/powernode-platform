@@ -24,9 +24,9 @@ const fieldLabels: Record<string, string> = {
 
 export const ComplianceStatusCard: React.FC<ComplianceStatusCardProps> = ({ compliance }) => {
   const scoreColor =
-    compliance.completeness_score >= 80 ? 'text-theme-success' :
-    compliance.completeness_score >= 60 ? 'text-theme-warning' :
-    'text-theme-error';
+    compliance.completeness_score >= 80 ? 'text-theme-success-fg' :
+    compliance.completeness_score >= 60 ? 'text-theme-warning-fg' :
+    'text-theme-error-fg';
 
   return (
     <div className="space-y-6">
@@ -46,15 +46,15 @@ export const ComplianceStatusCard: React.FC<ComplianceStatusCardProps> = ({ comp
             <div
               key={field}
               className={`flex items-center gap-3 p-3 rounded-lg ${
-                present ? 'bg-theme-success/10' : 'bg-theme-error/10'
+                present ? 'bg-theme-success-fg/10' : 'bg-theme-error-fg/10'
               }`}
             >
               {present ? (
-                <CheckCircle className="w-5 h-5 text-theme-success flex-shrink-0" />
+                <CheckCircle className="w-5 h-5 text-theme-success-fg flex-shrink-0" />
               ) : (
-                <XCircle className="w-5 h-5 text-theme-error flex-shrink-0" />
+                <XCircle className="w-5 h-5 text-theme-error-fg flex-shrink-0" />
               )}
-              <span className={`text-sm ${present ? 'text-theme-success' : 'text-theme-error'}`}>
+              <span className={`text-sm ${present ? 'text-theme-success-fg' : 'text-theme-error-fg'}`}>
                 {fieldLabels[field] || field}
               </span>
             </div>
@@ -73,9 +73,9 @@ export const ComplianceStatusCard: React.FC<ComplianceStatusCardProps> = ({ comp
         <div className="w-full bg-theme-background-secondary rounded-full h-3 mb-4">
           <div
             className={`h-3 rounded-full transition-all ${
-              compliance.completeness_score >= 80 ? 'bg-theme-success' :
-              compliance.completeness_score >= 60 ? 'bg-theme-warning' :
-              'bg-theme-error'
+              compliance.completeness_score >= 80 ? 'bg-theme-success-bg' :
+              compliance.completeness_score >= 60 ? 'bg-theme-warning-bg' :
+              'bg-theme-error-bg'
             }`}
             style={{ width: `${compliance.completeness_score}%` }}
           />
@@ -84,7 +84,7 @@ export const ComplianceStatusCard: React.FC<ComplianceStatusCardProps> = ({ comp
         {compliance.missing_fields.length > 0 && (
           <div className="mt-4">
             <div className="flex items-center gap-2 mb-2">
-              <AlertCircle className="w-4 h-4 text-theme-warning" />
+              <AlertCircle className="w-4 h-4 text-theme-warning-fg" />
               <span className="text-sm font-medium text-theme-secondary">Missing Fields</span>
             </div>
             <div className="flex flex-wrap gap-2">

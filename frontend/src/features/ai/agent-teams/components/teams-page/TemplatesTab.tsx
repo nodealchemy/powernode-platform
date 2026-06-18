@@ -25,8 +25,8 @@ export const TemplatesTab: React.FC<TemplatesTabProps> = ({ templates, onPublish
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
               <h3 className="font-medium text-theme-primary">{template.name}</h3>
-              {template.is_public && <span className="px-2 py-1 text-xs rounded text-theme-success bg-theme-success/10">Published</span>}
-              {template.is_system && <span className="px-2 py-1 text-xs rounded text-theme-info bg-theme-info/10">System</span>}
+              {template.is_public && <span className="px-2 py-1 text-xs rounded text-theme-success-fg bg-theme-success-fg/10">Published</span>}
+              {template.is_system && <span className="px-2 py-1 text-xs rounded text-theme-info-fg bg-theme-info-fg/10">System</span>}
             </div>
             {!template.published_at && (
               <button

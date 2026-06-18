@@ -21,16 +21,16 @@ const statusIcons: Record<string, string> = {
 
 const statusColors: Record<string, string> = {
   pending: 'text-theme-secondary',
-  in_progress: 'text-theme-info',
-  completed: 'text-theme-success',
-  failed: 'text-theme-error',
+  in_progress: 'text-theme-info-fg',
+  completed: 'text-theme-success-fg',
+  failed: 'text-theme-error-fg',
 };
 
 const tierColors: Record<string, string> = {
   low: 'bg-theme-surface-bg text-theme-secondary',
-  standard: 'bg-theme-info text-theme-info',
-  high: 'bg-theme-warning text-theme-warning',
-  critical: 'bg-theme-error text-theme-error',
+  standard: 'bg-theme-info-bg text-theme-info-fg',
+  high: 'bg-theme-warning-bg text-theme-warning-fg',
+  critical: 'bg-theme-error-bg text-theme-error-fg',
 };
 
 export const TaskListManager: React.FC<Props> = ({ tasks = [] }) => {
@@ -61,7 +61,7 @@ export const TaskListManager: React.FC<Props> = ({ tasks = [] }) => {
         </div>
         <div className="h-2 bg-theme-surface-bg rounded-full overflow-hidden">
           <div
-            className="h-full bg-theme-success rounded-full transition-all"
+            className="h-full bg-theme-success-bg rounded-full transition-all"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -75,7 +75,7 @@ export const TaskListManager: React.FC<Props> = ({ tasks = [] }) => {
             onClick={() => setFilter(f)}
             className={`px-3 py-1 text-xs rounded-full transition-colors ${
               filter === f
-                ? 'bg-theme-info text-theme-on-primary'
+                ? 'bg-theme-info-bg text-theme-on-primary'
                 : 'bg-theme-surface-bg text-theme-secondary hover:text-theme-primary'
             }`}
           >

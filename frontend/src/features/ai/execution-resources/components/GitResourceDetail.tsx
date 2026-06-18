@@ -61,14 +61,14 @@ function BranchDetail({ resource }: ResourceDetailProps) {
           )}
           {resource.lines_added !== null && (
             <div className="flex items-center gap-1">
-              <Plus className="w-3.5 h-3.5 text-theme-success" />
-              <span className="text-sm text-theme-success">{resource.lines_added}</span>
+              <Plus className="w-3.5 h-3.5 text-theme-success-fg" />
+              <span className="text-sm text-theme-success-fg">{resource.lines_added}</span>
             </div>
           )}
           {resource.lines_removed !== null && (
             <div className="flex items-center gap-1">
-              <Minus className="w-3.5 h-3.5 text-theme-error" />
-              <span className="text-sm text-theme-error">{resource.lines_removed}</span>
+              <Minus className="w-3.5 h-3.5 text-theme-error-fg" />
+              <span className="text-sm text-theme-error-fg">{resource.lines_removed}</span>
             </div>
           )}
         </div>
@@ -79,19 +79,19 @@ function BranchDetail({ resource }: ResourceDetailProps) {
         {resource.healthy !== undefined && (
           <div className="flex items-center gap-1.5">
             {resource.healthy ? (
-              <><CheckCircle className="w-4 h-4 text-theme-success" /><span className="text-theme-success">Healthy</span></>
+              <><CheckCircle className="w-4 h-4 text-theme-success-fg" /><span className="text-theme-success-fg">Healthy</span></>
             ) : (
-              <><XCircle className="w-4 h-4 text-theme-error" /><span className="text-theme-error">Unhealthy</span></>
+              <><XCircle className="w-4 h-4 text-theme-error-fg" /><span className="text-theme-error-fg">Unhealthy</span></>
             )}
           </div>
         )}
         {resource.health_message && !resource.healthy && (
-          <span className="text-xs text-theme-error">{resource.health_message}</span>
+          <span className="text-xs text-theme-error-fg">{resource.health_message}</span>
         )}
         {resource.locked && (
           <div className="flex items-center gap-1.5">
-            <Lock className="w-4 h-4 text-theme-warning" />
-            <span className="text-theme-warning">Locked{resource.lock_reason ? `: ${resource.lock_reason}` : ''}</span>
+            <Lock className="w-4 h-4 text-theme-warning-fg" />
+            <span className="text-theme-warning-fg">Locked{resource.lock_reason ? `: ${resource.lock_reason}` : ''}</span>
           </div>
         )}
         {resource.test_status && (
@@ -144,10 +144,10 @@ function BranchDetail({ resource }: ResourceDetailProps) {
         <DetailSection title="Error" icon={<AlertTriangle className="w-4 h-4" />} defaultOpen>
           <div className="space-y-1">
             {resource.error_code && (
-              <span className="text-xs px-2 py-0.5 rounded bg-theme-error/10 text-theme-error font-mono">{resource.error_code}</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-theme-error-fg/10 text-theme-error-fg font-mono">{resource.error_code}</span>
             )}
             {resource.error_message && (
-              <p className="text-sm text-theme-error">{resource.error_message}</p>
+              <p className="text-sm text-theme-error-fg">{resource.error_message}</p>
             )}
           </div>
         </DetailSection>
@@ -214,7 +214,7 @@ function MergeDetail({ resource }: ResourceDetailProps) {
               <div className="space-y-1">
                 <div className="text-xs text-theme-tertiary">Conflicting files:</div>
                 {resource.conflict_files.map((file) => (
-                  <div key={file} className="text-xs font-mono text-theme-error px-2 py-1 rounded bg-theme-error/5">
+                  <div key={file} className="text-xs font-mono text-theme-error-fg px-2 py-1 rounded bg-theme-error-fg/5">
                     {file}
                   </div>
                 ))}
@@ -240,7 +240,7 @@ function MergeDetail({ resource }: ResourceDetailProps) {
       {resource.rolled_back && (
         <DetailSection title="Rollback" icon={<Shield className="w-4 h-4" />} defaultOpen>
           <div className="space-y-1 text-sm">
-            <div className="text-theme-warning">This merge was rolled back</div>
+            <div className="text-theme-warning-fg">This merge was rolled back</div>
             {resource.rollback_commit_sha && (
               <div className="text-theme-secondary">
                 Rollback commit: <span className="font-mono">{resource.rollback_commit_sha.slice(0, 8)}</span>
@@ -284,10 +284,10 @@ function MergeDetail({ resource }: ResourceDetailProps) {
         <DetailSection title="Error" icon={<AlertTriangle className="w-4 h-4" />} defaultOpen>
           <div className="space-y-1">
             {resource.error_code && (
-              <span className="text-xs px-2 py-0.5 rounded bg-theme-error/10 text-theme-error font-mono">{resource.error_code}</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-theme-error-fg/10 text-theme-error-fg font-mono">{resource.error_code}</span>
             )}
             {resource.error_message && (
-              <p className="text-sm text-theme-error">{resource.error_message}</p>
+              <p className="text-sm text-theme-error-fg">{resource.error_message}</p>
             )}
           </div>
         </DetailSection>

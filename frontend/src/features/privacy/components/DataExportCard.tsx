@@ -16,10 +16,10 @@ interface DataExportCardProps {
 }
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; icon: React.ElementType }> = {
-  pending: { bg: 'bg-theme-warning/20', text: 'text-theme-warning', icon: ClockIcon },
-  processing: { bg: 'bg-theme-info/20', text: 'text-theme-info', icon: ClockIcon },
-  completed: { bg: 'bg-theme-success/20', text: 'text-theme-success', icon: CheckCircleIcon },
-  failed: { bg: 'bg-theme-danger/20', text: 'text-theme-danger', icon: ExclamationCircleIcon },
+  pending: { bg: 'bg-theme-warning-fg/20', text: 'text-theme-warning-fg', icon: ClockIcon },
+  processing: { bg: 'bg-theme-info-fg/20', text: 'text-theme-info-fg', icon: ClockIcon },
+  completed: { bg: 'bg-theme-success-fg/20', text: 'text-theme-success-fg', icon: CheckCircleIcon },
+  failed: { bg: 'bg-theme-danger-fg/20', text: 'text-theme-danger-fg', icon: ExclamationCircleIcon },
   expired: { bg: 'bg-theme-surface', text: 'text-theme-primary', icon: ExclamationCircleIcon },
 };
 
@@ -124,7 +124,7 @@ export const DataExportCard: React.FC<DataExportCardProps> = ({
                   {request.downloadable && request.download_token && (
                     <button
                       onClick={() => onDownload(request.id, request.download_token!)}
-                      className="px-3 py-1.5 bg-theme-success text-white text-sm rounded hover:opacity-90 transition-colors flex items-center space-x-1"
+                      className="px-3 py-1.5 bg-theme-success-bg text-white text-sm rounded hover:opacity-90 transition-colors flex items-center space-x-1"
                     >
                       <ArrowDownTrayIcon className="h-4 w-4" />
                       <span>Download</span>

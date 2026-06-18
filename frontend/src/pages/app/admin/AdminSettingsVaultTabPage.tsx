@@ -126,7 +126,7 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-theme-success' : status?.sealed ? 'bg-theme-warning' : 'bg-theme-danger'}`} />
+              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-theme-success-bg' : status?.sealed ? 'bg-theme-warning-bg' : 'bg-theme-danger-bg'}`} />
               <span className="text-sm font-medium text-theme-primary">
                 {isConnected ? 'Connected' : status?.sealed ? 'Sealed' : 'Disconnected'}
               </span>
@@ -146,7 +146,7 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
 
           {testResult && (
             <div className={`flex items-center gap-2 px-3 py-2 rounded text-xs ${
-              testResult.connected ? 'bg-theme-success/10 text-theme-success' : 'bg-theme-danger/10 text-theme-danger'
+              testResult.connected ? 'bg-theme-success-fg/10 text-theme-success-fg' : 'bg-theme-danger-fg/10 text-theme-danger-fg'
             }`}>
               {testResult.connected ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
               {testResult.connected
@@ -161,7 +161,7 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
           )}
 
           {!data?.config?.configured && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-theme-warning/10 text-theme-warning rounded text-xs">
+            <div className="flex items-center gap-2 px-3 py-2 bg-theme-warning-fg/10 text-theme-warning-fg rounded text-xs">
               <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
               Vault is not configured. Set VAULT_ADDR, VAULT_ROLE_ID, and VAULT_SECRET_ID below or in environment variables.
             </div>

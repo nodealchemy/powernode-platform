@@ -53,11 +53,11 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-theme-success text-theme-success border border-theme';
+        return 'bg-theme-success-bg text-theme-success-fg border border-theme';
       case 'suspended':
-        return 'bg-theme-warning text-theme-warning border border-theme';
+        return 'bg-theme-warning-bg text-theme-warning-fg border border-theme';
       case 'revoked':
-        return 'bg-theme-error text-theme-error border border-theme';
+        return 'bg-theme-error-bg text-theme-error-fg border border-theme';
       default:
         return 'bg-theme-background-secondary text-theme-secondary border border-theme';
     }
@@ -66,13 +66,13 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
   const getPermissionColor = (permission: string) => {
     switch (permission) {
       case 'readonly':
-        return 'bg-theme-info text-theme-info border border-theme';
+        return 'bg-theme-info-bg text-theme-info-fg border border-theme';
       case 'standard':
-        return 'bg-theme-success text-theme-success border border-theme';
+        return 'bg-theme-success-bg text-theme-success-fg border border-theme';
       case 'admin':
-        return 'bg-theme-warning text-theme-warning border border-theme';
+        return 'bg-theme-warning-bg text-theme-warning-fg border border-theme';
       case 'super_admin':
-        return 'bg-theme-error text-theme-error border border-theme';
+        return 'bg-theme-error-bg text-theme-error-fg border border-theme';
       default:
         return 'bg-theme-background-secondary text-theme-secondary border border-theme';
     }
@@ -126,8 +126,8 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
           <div className="flex items-center gap-4 text-xs text-theme-secondary">
             <span>Requests: {service.request_count}</span>
             {service.active_recently ? (
-              <span className="flex items-center gap-1 text-theme-success">
-                <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+              <span className="flex items-center gap-1 text-theme-success-fg">
+                <div className="w-2 h-2 bg-theme-success-bg rounded-full"></div>
                 Active
               </span>
             ) : (
@@ -169,7 +169,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                       handleAction(() => onStatusChange('suspend'), 'suspend');
                     }}
                     disabled={loading === 'suspend'}
-                    className="block w-full text-left px-4 py-2 text-sm text-theme-warning hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
+                    className="block w-full text-left px-4 py-2 text-sm text-theme-warning-fg hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
                   >
                     {loading === 'suspend' ? 'Suspending...' : 'Suspend'}
                   </button>
@@ -182,7 +182,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                       handleAction(() => onStatusChange('activate'), 'activate');
                     }}
                     disabled={loading === 'activate'}
-                    className="block w-full text-left px-4 py-2 text-sm text-theme-success hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
+                    className="block w-full text-left px-4 py-2 text-sm text-theme-success-fg hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
                   >
                     {loading === 'activate' ? 'Activating...' : 'Activate'}
                   </button>
@@ -203,7 +203,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                       });
                     }}
                     disabled={loading === 'revoke'}
-                    className="block w-full text-left px-4 py-2 text-sm text-theme-error hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
+                    className="block w-full text-left px-4 py-2 text-sm text-theme-error-fg hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
                   >
                     {loading === 'revoke' ? 'Revoking...' : 'Revoke'}
                   </button>
@@ -225,7 +225,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                     });
                   }}
                   disabled={loading === 'delete'}
-                  className="block w-full text-left px-4 py-2 text-sm text-theme-error hover:bg-theme-surface-hover disabled:opacity-50"
+                  className="block w-full text-left px-4 py-2 text-sm text-theme-error-fg hover:bg-theme-surface-hover disabled:opacity-50"
                 >
                   {loading === 'delete' ? 'Deleting...' : 'Delete'}
                 </button>
@@ -236,7 +236,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
       </div>
       
       {loading && (
-        <div className="absolute inset-0 bg-theme-surface bg-opacity-75 flex items-center justify-center">
+        <div className="absolute inset-0 bg-theme-surface/75 flex items-center justify-center">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-theme-interactive-primary"></div>
         </div>
       )}

@@ -15,7 +15,7 @@ interface EvalResultsViewerProps {
 const ScoreBar: React.FC<{ score: number | null; label: string }> = ({ score, label }) => {
   if (score === null || score === undefined) return null;
   const width = (score / 5) * 100;
-  const color = score >= 4 ? 'bg-theme-success' : score >= 3 ? 'bg-theme-warning' : 'bg-theme-error';
+  const color = score >= 4 ? 'bg-theme-success-bg' : score >= 3 ? 'bg-theme-warning-bg' : 'bg-theme-error-bg';
 
   return (
     <div className="flex items-center gap-2">

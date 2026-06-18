@@ -149,10 +149,10 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
 
   const getHealthStatusColor = (status: string) => {
     switch (status) {
-      case 'healthy': return 'text-theme-success';
-      case 'unhealthy': return 'text-theme-danger';
+      case 'healthy': return 'text-theme-success-fg';
+      case 'unhealthy': return 'text-theme-danger-fg';
       case 'inactive': return 'text-theme-tertiary';
-      default: return 'text-theme-warning';
+      default: return 'text-theme-warning-fg';
     }
   };
 
@@ -233,7 +233,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-theme-text-primary">{provider.name}</h3>
               {provider.priority_order <= 3 && (
-                <Star className="h-4 w-4 text-theme-warning fill-current" />
+                <Star className="h-4 w-4 text-theme-warning-fg fill-current" />
               )}
             </div>
             
@@ -373,10 +373,10 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       )}
 
       {(provider.credential_count ?? 0) === 0 && (
-        <div className="mt-4 p-3 bg-theme-warning/10 rounded-lg border border-theme-warning/30">
+        <div className="mt-4 p-3 bg-theme-warning-fg/10 rounded-lg border border-theme-warning-border/30">
           <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-theme-warning" />
-            <span className="text-sm text-theme-warning">
+            <AlertCircle className="h-4 w-4 text-theme-warning-fg" />
+            <span className="text-sm text-theme-warning-fg">
               No credentials configured. Add credentials to start using this provider.
             </span>
           </div>

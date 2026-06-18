@@ -26,28 +26,28 @@ const STATUSES = [
 const getTeamTypeColor = (type: string) => {
   switch (type) {
     case 'hierarchical':
-      return 'bg-theme-info/10 text-theme-info';
+      return 'bg-theme-info-fg/10 text-theme-info-fg';
     case 'mesh':
       return 'bg-theme-interactive-primary/10 text-theme-interactive-primary';
     case 'sequential':
-      return 'bg-theme-success/10 text-theme-success';
+      return 'bg-theme-success-fg/10 text-theme-success-fg';
     case 'parallel':
-      return 'bg-theme-warning/10 text-theme-warning';
+      return 'bg-theme-warning-fg/10 text-theme-warning-fg';
     default:
-      return 'bg-theme-info text-theme-secondary';
+      return 'bg-theme-info-bg text-theme-secondary';
   }
 };
 
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'active':
-      return 'bg-theme-success/10 text-theme-success';
+      return 'bg-theme-success-fg/10 text-theme-success-fg';
     case 'inactive':
-      return 'bg-theme-info text-theme-secondary';
+      return 'bg-theme-info-bg text-theme-secondary';
     case 'archived':
-      return 'bg-theme-error/10 text-theme-error';
+      return 'bg-theme-error-fg/10 text-theme-error-fg';
     default:
-      return 'bg-theme-info text-theme-secondary';
+      return 'bg-theme-info-bg text-theme-secondary';
   }
 };
 
@@ -67,7 +67,7 @@ export const TeamSettingsForm: React.FC<TeamSettingsFormProps> = ({
   return (
     <div className={cn(
       'bg-theme-background border rounded-lg p-4 space-y-3',
-      isEditing ? 'border-theme-info/30' : 'border-theme'
+      isEditing ? 'border-theme-info-border/30' : 'border-theme'
     )}>
       <h4 className="text-sm font-semibold text-theme-primary flex items-center gap-2">
         <Settings size={16} />
@@ -83,7 +83,7 @@ export const TeamSettingsForm: React.FC<TeamSettingsFormProps> = ({
               type="text"
               value={editData.name || ''}
               onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
+              className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
             />
           </div>
           <div>
@@ -92,7 +92,7 @@ export const TeamSettingsForm: React.FC<TeamSettingsFormProps> = ({
               id="edit-status"
               value={editData.status || 'active'}
               onChange={(e) => setEditData(prev => ({ ...prev, status: e.target.value as 'active' | 'inactive' | 'archived' }))}
-              className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
+              className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
             >
               {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
@@ -103,7 +103,7 @@ export const TeamSettingsForm: React.FC<TeamSettingsFormProps> = ({
               id="edit-type"
               value={editData.team_type || 'hierarchical'}
               onChange={(e) => setEditData(prev => ({ ...prev, team_type: e.target.value as 'hierarchical' | 'mesh' | 'sequential' | 'parallel' }))}
-              className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
+              className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
             >
               {TEAM_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
@@ -114,7 +114,7 @@ export const TeamSettingsForm: React.FC<TeamSettingsFormProps> = ({
               id="edit-strategy"
               value={editData.coordination_strategy || 'manager_worker'}
               onChange={(e) => setEditData(prev => ({ ...prev, coordination_strategy: e.target.value as 'manager_worker' | 'peer_to_peer' | 'hybrid' }))}
-              className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
+              className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
             >
               {STRATEGIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
@@ -126,7 +126,7 @@ export const TeamSettingsForm: React.FC<TeamSettingsFormProps> = ({
               value={editData.description || ''}
               onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
               rows={2}
-              className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
+              className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
             />
           </div>
         </div>

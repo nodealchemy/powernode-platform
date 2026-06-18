@@ -213,7 +213,7 @@ describe('ImpersonationBanner', () => {
       const { container } = renderWithStore(store);
 
       const banner = container.firstChild;
-      expect(banner).toHaveClass('bg-theme-warning');
+      expect(banner).toHaveClass('bg-theme-warning-bg');
     });
   });
 });

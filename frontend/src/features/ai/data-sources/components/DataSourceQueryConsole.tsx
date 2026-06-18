@@ -223,10 +223,10 @@ export const DataSourceQueryConsole: React.FC<DataSourceQueryConsoleProps> = ({
   const renderRecords = (envelope: DataSourceFetchEnvelope) => {
     if (!envelope.success) {
       return (
-        <div className="p-4 bg-theme-error/10 border border-theme-error/20 rounded-lg">
+        <div className="p-4 bg-theme-error-fg/10 border border-theme-error-border/20 rounded-lg">
           <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-theme-error" />
-            <span className="text-sm text-theme-error">
+            <AlertCircle className="h-4 w-4 text-theme-error-fg" />
+            <span className="text-sm text-theme-error-fg">
               {envelope.error || `Query ${envelope.status}`}
               {envelope.retry_after != null ? ` — retry after ${envelope.retry_after}s` : ''}
             </span>

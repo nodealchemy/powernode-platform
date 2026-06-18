@@ -9,10 +9,10 @@ export const STATUS_CONFIG: Record<MissionStatus, {
   pulse?: boolean;
 }> = {
   draft: { variant: 'outline', label: 'Draft', dot: 'bg-theme-surface' },
-  active: { variant: 'success', label: 'Active', dot: 'bg-theme-success', pulse: true },
-  paused: { variant: 'warning', label: 'Paused', dot: 'bg-theme-warning' },
-  completed: { variant: 'primary', label: 'Completed', dot: 'bg-theme-info' },
-  failed: { variant: 'danger', label: 'Failed', dot: 'bg-theme-error' },
+  active: { variant: 'success', label: 'Active', dot: 'bg-theme-success-bg', pulse: true },
+  paused: { variant: 'warning', label: 'Paused', dot: 'bg-theme-warning-bg' },
+  completed: { variant: 'primary', label: 'Completed', dot: 'bg-theme-info-bg' },
+  failed: { variant: 'danger', label: 'Failed', dot: 'bg-theme-error-bg' },
   cancelled: { variant: 'outline', label: 'Cancelled', dot: 'bg-theme-surface' },
 };
 

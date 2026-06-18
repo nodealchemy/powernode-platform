@@ -62,12 +62,12 @@ export const AdminSettingsOverviewPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="bg-theme-error border border-theme-error-border rounded-xl p-6">
+      <div className="bg-theme-error-bg border border-theme-error-border rounded-xl p-6">
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-theme-error text-2xl">⚠️</span>
+          <span className="text-theme-error-fg text-2xl">⚠️</span>
           <div>
-            <h3 className="text-lg font-semibold text-theme-error">Unable to Load System Data</h3>
-            <p className="text-theme-error">{error}</p>
+            <h3 className="text-lg font-semibold text-theme-error-fg">Unable to Load System Data</h3>
+            <p className="text-theme-error-fg">{error}</p>
           </div>
         </div>
         <button
@@ -124,16 +124,16 @@ export const AdminSettingsOverviewPage: React.FC = () => {
         <span className="text-theme-secondary">System Status:</span>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${
-            systemStatus.status === 'healthy' ? 'bg-theme-success' :
-            systemStatus.status === 'warning' ? 'bg-theme-warning' :
-            systemStatus.status === 'error' ? 'bg-theme-error' :
-            'bg-theme-warning'
+            systemStatus.status === 'healthy' ? 'bg-theme-success-bg' :
+            systemStatus.status === 'warning' ? 'bg-theme-warning-bg' :
+            systemStatus.status === 'error' ? 'bg-theme-error-bg' :
+            'bg-theme-warning-bg'
           }`} />
           <span className={`text-sm font-medium ${
-            systemStatus.status === 'healthy' ? 'text-theme-success' :
-            systemStatus.status === 'warning' ? 'text-theme-warning' :
-            systemStatus.status === 'error' ? 'text-theme-error' :
-            'text-theme-warning'
+            systemStatus.status === 'healthy' ? 'text-theme-success-fg' :
+            systemStatus.status === 'warning' ? 'text-theme-warning-fg' :
+            systemStatus.status === 'error' ? 'text-theme-error-fg' :
+            'text-theme-warning-fg'
           }`}>
             {systemStatus.message}
           </span>
@@ -145,7 +145,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
         <div className={`p-4 rounded-xl border ${
           systemStatus.status === 'maintenance' ? 'bg-theme-warning-background border-theme-warning-border' :
           systemStatus.status === 'warning' ? 'bg-theme-warning-background border-theme-warning-border' :
-          'bg-theme-error border-theme-error-border'
+          'bg-theme-error-bg border-theme-error-border'
         }`}>
           <div className="flex items-center gap-3">
             <span className="text-2xl">
@@ -154,16 +154,16 @@ export const AdminSettingsOverviewPage: React.FC = () => {
             </span>
             <div>
               <h3 className={`font-semibold ${
-                systemStatus.status === 'maintenance' ? 'text-theme-warning' :
-                systemStatus.status === 'warning' ? 'text-theme-warning' :
-                'text-theme-error'
+                systemStatus.status === 'maintenance' ? 'text-theme-warning-fg' :
+                systemStatus.status === 'warning' ? 'text-theme-warning-fg' :
+                'text-theme-error-fg'
               }`}>
                 System Status Alert
               </h3>
               <p className={`text-sm ${
-                systemStatus.status === 'maintenance' ? 'text-theme-warning' :
-                systemStatus.status === 'warning' ? 'text-theme-warning' :
-                'text-theme-error'
+                systemStatus.status === 'maintenance' ? 'text-theme-warning-fg' :
+                systemStatus.status === 'warning' ? 'text-theme-warning-fg' :
+                'text-theme-error-fg'
               }`}>
                 {systemStatus.message}. Please review system settings and logs for details.
               </p>
@@ -327,18 +327,18 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-full ${
-                      serviceData.status === 'healthy' ? 'bg-theme-success' :
-                      serviceData.status === 'unhealthy' ? 'bg-theme-warning' :
-                      'bg-theme-error'
+                      serviceData.status === 'healthy' ? 'bg-theme-success-bg' :
+                      serviceData.status === 'unhealthy' ? 'bg-theme-warning-bg' :
+                      'bg-theme-error-bg'
                     } shadow-sm`} />
                     <h3 className="font-semibold text-theme-primary capitalize">{serviceName.replace('_', ' ')}</h3>
                   </div>
                   <span className={`px-2 py-1 rounded text-xs font-medium ${
                     serviceData.status === 'healthy' 
-                      ? 'bg-theme-success-background text-theme-success' 
+                      ? 'bg-theme-success-background text-theme-success-fg' 
                       : serviceData.status === 'unhealthy'
-                      ? 'bg-theme-warning-background text-theme-warning'
-                      : 'bg-theme-error text-theme-error'
+                      ? 'bg-theme-warning-background text-theme-warning-fg'
+                      : 'bg-theme-error-bg text-theme-error-fg'
                   }`}>
                     {serviceData.status}
                   </span>
@@ -362,14 +362,14 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-theme-secondary">Status Code</span>
                       <span className={`font-medium ${
-                        serviceData.response_code === '200' ? 'text-theme-success' : 'text-theme-warning'
+                        serviceData.response_code === '200' ? 'text-theme-success-fg' : 'text-theme-warning-fg'
                       }`}>
                         {serviceData.response_code}
                       </span>
                     </div>
                   )}
                   {serviceData.error && (
-                    <div className="mt-2 p-2 bg-theme-error rounded text-xs text-theme-error">
+                    <div className="mt-2 p-2 bg-theme-error-bg rounded text-xs text-theme-error-fg">
                       {serviceData.error}
                     </div>
                   )}
@@ -388,7 +388,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-theme-secondary">Overall status:</span>
                 <span className={`font-medium ${
-                  servicesHealth.overall_status === 'healthy' ? 'text-theme-success' : 'text-theme-warning'
+                  servicesHealth.overall_status === 'healthy' ? 'text-theme-success-fg' : 'text-theme-warning-fg'
                 }`}>
                   {servicesHealth.overall_status}
                 </span>
@@ -415,12 +415,12 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${
-                  payment_gateways.stripe.connected ? 'bg-theme-success' : 'bg-theme-error'
+                  payment_gateways.stripe.connected ? 'bg-theme-success-bg' : 'bg-theme-error-bg'
                 } shadow-sm`} />
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                   payment_gateways.stripe.connected 
-                    ? 'bg-theme-success-background text-theme-success' 
-                    : 'bg-theme-error text-theme-error'
+                    ? 'bg-theme-success-background text-theme-success-fg' 
+                    : 'bg-theme-error-bg text-theme-error-fg'
                 }`}>
                   {payment_gateways.stripe.connected ? '✓ Connected' : '✗ Disconnected'}
                 </span>
@@ -435,8 +435,8 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                 <span className="text-sm text-theme-secondary">Webhook Status</span>
                 <span className={`text-xs px-2 py-1 rounded font-medium ${
                   payment_gateways.stripe.webhook_status === 'healthy' 
-                    ? 'bg-theme-success-background text-theme-success' 
-                    : 'bg-theme-warning-background text-theme-warning'
+                    ? 'bg-theme-success-background text-theme-success-fg' 
+                    : 'bg-theme-warning-background text-theme-warning-fg'
                 }`}>
                   {payment_gateways.stripe.webhook_status}
                 </span>
@@ -462,12 +462,12 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${
-                  payment_gateways.paypal.connected ? 'bg-theme-success' : 'bg-theme-error'
+                  payment_gateways.paypal.connected ? 'bg-theme-success-bg' : 'bg-theme-error-bg'
                 } shadow-sm`} />
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                   payment_gateways.paypal.connected 
-                    ? 'bg-theme-success-background text-theme-success' 
-                    : 'bg-theme-error text-theme-error'
+                    ? 'bg-theme-success-background text-theme-success-fg' 
+                    : 'bg-theme-error-bg text-theme-error-fg'
                 }`}>
                   {payment_gateways.paypal.connected ? '✓ Connected' : '✗ Disconnected'}
                 </span>
@@ -482,8 +482,8 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                 <span className="text-sm text-theme-secondary">Webhook Status</span>
                 <span className={`text-xs px-2 py-1 rounded font-medium ${
                   payment_gateways.paypal.webhook_status === 'healthy' 
-                    ? 'bg-theme-success-background text-theme-success' 
-                    : 'bg-theme-warning-background text-theme-warning'
+                    ? 'bg-theme-success-background text-theme-success-fg' 
+                    : 'bg-theme-warning-background text-theme-warning-fg'
                 }`}>
                   {payment_gateways.paypal.webhook_status}
                 </span>
@@ -582,9 +582,9 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                           <p className="text-sm text-theme-secondary truncate">{account.owner?.email || 'No owner assigned'}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className={`text-xs px-2 py-1 rounded font-medium ${
-                              account.status === 'active' ? 'bg-theme-success-background text-theme-success' :
-                              account.status === 'suspended' ? 'bg-theme-warning-background text-theme-warning' :
-                              'bg-theme-error text-theme-error'
+                              account.status === 'active' ? 'bg-theme-success-background text-theme-success-fg' :
+                              account.status === 'suspended' ? 'bg-theme-warning-background text-theme-warning-fg' :
+                              'bg-theme-error-bg text-theme-error-fg'
                             }`}>
                               {account.status}
                             </span>
@@ -624,9 +624,9 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                     <div key={log.id} className="p-4">
                       <div className="flex items-start gap-3">
                         <span className={`text-xs px-2 py-1 rounded font-medium flex-shrink-0 ${
-                          log.level === 'error' ? 'bg-theme-error text-theme-error' :
-                          log.level === 'warning' ? 'bg-theme-warning-background text-theme-warning' :
-                          log.level === 'info' ? 'bg-theme-info text-theme-info' :
+                          log.level === 'error' ? 'bg-theme-error-bg text-theme-error-fg' :
+                          log.level === 'warning' ? 'bg-theme-warning-background text-theme-warning-fg' :
+                          log.level === 'info' ? 'bg-theme-info-bg text-theme-info-fg' :
                           'bg-theme-surface text-theme-secondary'
                         }`}>
                           {log.level.toUpperCase()}
@@ -659,7 +659,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
             <span>Data refreshed: {new Date().toLocaleTimeString()}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-theme-success rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-theme-success-bg rounded-full animate-pulse"></div>
             <span>Live Data</span>
           </div>
         </div>

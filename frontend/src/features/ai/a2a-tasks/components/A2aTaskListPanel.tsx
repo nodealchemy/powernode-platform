@@ -15,11 +15,11 @@ interface A2aTaskListPanelProps {
 
 const statusIconMap: Record<string, string> = {
   pending: 'text-theme-tertiary',
-  active: 'text-theme-info',
-  completed: 'text-theme-success',
-  failed: 'text-theme-danger',
-  cancelled: 'text-theme-warning',
-  input_required: 'text-theme-warning',
+  active: 'text-theme-info-fg',
+  completed: 'text-theme-success-fg',
+  failed: 'text-theme-danger-fg',
+  cancelled: 'text-theme-warning-fg',
+  input_required: 'text-theme-warning-fg',
 };
 
 type TabFilter = 'all' | A2aTaskStatus;
@@ -112,7 +112,7 @@ export const A2aTaskListPanel: React.FC<A2aTaskListPanelProps> = ({
           className={cn(
             'flex-1 px-2 py-1 text-xs font-medium rounded transition-colors',
             activeTab === tab.key
-              ? 'bg-theme-interactive-primary/10 text-theme-info'
+              ? 'bg-theme-interactive-primary/10 text-theme-info-fg'
               : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
           )}
         >

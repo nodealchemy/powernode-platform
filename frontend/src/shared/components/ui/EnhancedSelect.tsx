@@ -113,7 +113,7 @@ export const EnhancedSelect: React.FC<EnhancedSelectProps> = ({
     focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent
     disabled:bg-theme-background disabled:text-theme-secondary disabled:cursor-not-allowed
     ${fullWidth ? 'w-full' : ''}
-    ${error ? 'border-theme-error focus:ring-theme-error' : 'border-theme'}
+    ${error ? 'border-theme-error-border focus:ring-theme-error-fg' : 'border-theme'}
     ${isOpen ? 'ring-2 ring-theme-primary border-transparent' : ''}
     ${className}
   `.trim();
@@ -203,7 +203,7 @@ export const EnhancedSelect: React.FC<EnhancedSelectProps> = ({
       </div>
 
       {error && (
-        <p id={`${selectId}-error`} className="mt-1 text-sm text-theme-error" role="alert">
+        <p id={`${selectId}-error`} className="mt-1 text-sm text-theme-error-fg" role="alert">
           {error}
         </p>
       )}

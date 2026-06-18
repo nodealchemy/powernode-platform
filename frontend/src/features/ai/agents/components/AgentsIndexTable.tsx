@@ -185,7 +185,7 @@ export const AgentsIndexTable: React.FC = () => {
               className={cn(
                 'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                 statusFilter === tab.id
-                  ? 'bg-theme-interactive-primary/10 text-theme-info border border-theme-info/30'
+                  ? 'bg-theme-interactive-primary/10 text-theme-info-fg border border-theme-info-border/30'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover border border-transparent'
               )}
             >
@@ -212,7 +212,7 @@ export const AgentsIndexTable: React.FC = () => {
           className={cn(
             'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
             myAgentsOnly
-              ? 'bg-theme-interactive-primary/10 text-theme-info border border-theme-info/30'
+              ? 'bg-theme-interactive-primary/10 text-theme-info-fg border border-theme-info-border/30'
               : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover border border-transparent'
           )}
         >
@@ -228,7 +228,7 @@ export const AgentsIndexTable: React.FC = () => {
               className={cn(
                 'inline-flex items-center gap-0.5 px-2 py-1.5 text-xs font-medium rounded-md transition-colors',
                 sortBy === opt.key
-                  ? 'bg-theme-interactive-primary/10 text-theme-info border border-theme-info/30'
+                  ? 'bg-theme-interactive-primary/10 text-theme-info-fg border border-theme-info-border/30'
                   : 'text-theme-tertiary hover:text-theme-secondary hover:bg-theme-surface-hover border border-transparent'
               )}
             >
@@ -275,7 +275,7 @@ export const AgentsIndexTable: React.FC = () => {
                     )}>
                       <ChevronRight className={cn(
                         'h-4 w-4',
-                        expandedRows.has(agent.id) ? 'text-theme-info' : 'text-theme-tertiary'
+                        expandedRows.has(agent.id) ? 'text-theme-info-fg' : 'text-theme-tertiary'
                       )} />
                     </div>
                   </td>

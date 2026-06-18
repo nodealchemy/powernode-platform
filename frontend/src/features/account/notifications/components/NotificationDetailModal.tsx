@@ -27,10 +27,10 @@ const SEVERITY_ICONS: Record<string, React.ElementType> = {
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  info: 'text-theme-info',
-  success: 'text-theme-success',
-  warning: 'text-theme-warning',
-  error: 'text-theme-danger',
+  info: 'text-theme-info-fg',
+  success: 'text-theme-success-fg',
+  warning: 'text-theme-warning-fg',
+  error: 'text-theme-danger-fg',
 };
 
 interface NotificationDetailModalProps {
@@ -149,7 +149,7 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
           <div className="flex items-center gap-2">
             <button
               onClick={handleDismiss}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-theme-secondary hover:text-theme-error hover:bg-theme-surface-hover rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-theme-secondary hover:text-theme-error-fg hover:bg-theme-surface-hover rounded-lg transition-colors"
             >
               <XMarkIcon className="h-4 w-4" />
               Dismiss

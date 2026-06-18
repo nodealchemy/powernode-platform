@@ -306,7 +306,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
             value={formData.description}
             onChange={(e) => handleInputChange('description', e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-info focus:border-transparent"
+            className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-info-fg focus:border-transparent"
           />
         </div>
 
@@ -322,11 +322,11 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
 
         <div className="flex items-center gap-6">
           <label className="flex items-center space-x-2">
-            <input type="checkbox" checked={formData.requires_auth} onChange={(e) => handleInputChange('requires_auth', e.target.checked)} className="rounded border-theme-300 text-theme-info focus:ring-theme-info" />
+            <input type="checkbox" checked={formData.requires_auth} onChange={(e) => handleInputChange('requires_auth', e.target.checked)} className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg" />
             <span className="text-sm text-theme-secondary">Requires Authentication</span>
           </label>
           <label className="flex items-center space-x-2">
-            <input type="checkbox" checked={formData.is_active} onChange={(e) => handleInputChange('is_active', e.target.checked)} className="rounded border-theme-300 text-theme-info focus:ring-theme-info" />
+            <input type="checkbox" checked={formData.is_active} onChange={(e) => handleInputChange('is_active', e.target.checked)} className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg" />
             <span className="text-sm text-theme-secondary">Active</span>
           </label>
         </div>
@@ -338,7 +338,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
               type="checkbox"
               checked={formData.respect_robots}
               onChange={(e) => handleInputChange('respect_robots', e.target.checked)}
-              className="rounded border-theme-300 text-theme-info focus:ring-theme-info"
+              className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg"
             />
             <span className="text-sm text-theme-secondary">Respect robots.txt</span>
           </label>
@@ -399,15 +399,15 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
                   <div key={credential.id} className="flex items-center justify-between p-3 border border-theme rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className={`h-3 w-3 rounded-full ${
-                        credential.last_test_status === 'success' ? 'bg-theme-success' :
-                        credential.last_test_status === 'failed' ? 'bg-theme-error' :
+                        credential.last_test_status === 'success' ? 'bg-theme-success-bg' :
+                        credential.last_test_status === 'failed' ? 'bg-theme-error-bg' :
                         'bg-theme-background-secondary'
                       }`} />
                       <div>
                         <p className="text-sm font-medium text-theme-primary">
                           {credential.name}
                           {credential.is_default && (
-                            <span className="ml-2 px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">Default</span>
+                            <span className="ml-2 px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">Default</span>
                           )}
                         </p>
                         <div className="flex items-center gap-4 text-xs text-theme-tertiary">
@@ -420,7 +420,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
                             <span>Last used: {new Date(credential.last_used_at).toLocaleDateString()}</span>
                           )}
                           {credential.consecutive_failures > 0 && (
-                            <span className="text-theme-error">{credential.consecutive_failures} failures</span>
+                            <span className="text-theme-error-fg">{credential.consecutive_failures} failures</span>
                           )}
                         </div>
                       </div>
@@ -435,7 +435,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
                         <TestTube className="h-3 w-3" />
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleDeleteCredential(credential.id, credential.name)} disabled={credentialLoading} title="Delete">
-                        <Trash2 className="h-3 w-3 text-theme-error" />
+                        <Trash2 className="h-3 w-3 text-theme-error-fg" />
                       </Button>
                     </div>
                   </div>

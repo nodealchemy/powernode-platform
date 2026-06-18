@@ -92,7 +92,7 @@ export function ApprovalChainEditor({ isOpen, chain, onClose, onSave }: Approval
       footer={
         <div className="flex items-center justify-between w-full">
           <span className="text-xs text-theme-tertiary">
-            {error ? <span className="text-theme-danger">{error}</span> : `${steps.length} step${steps.length === 1 ? '' : 's'}`}
+            {error ? <span className="text-theme-danger-fg">{error}</span> : `${steps.length} step${steps.length === 1 ? '' : 's'}`}
           </span>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>

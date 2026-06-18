@@ -217,7 +217,7 @@ export const MemoryExplorerContent: React.FC<MemoryExplorerContentProps> = ({ on
 
           {/* Error state */}
           {entriesError && (
-            <div className="p-4 bg-theme-danger/10 border border-theme-danger/30 rounded-lg text-theme-danger">
+            <div className="p-4 bg-theme-danger-fg/10 border border-theme-danger-border/30 rounded-lg text-theme-danger-fg">
               {entriesError}
             </div>
           )}

@@ -66,7 +66,7 @@ export const HostDashboardPage: React.FC = () => {
     return (
       <PageContainer title="Host Dashboard" breadcrumbs={breadcrumbs}>
         <div className="text-center py-20">
-          <p className="text-theme-error mb-4">{error || 'Host not found'}</p>
+          <p className="text-theme-error-fg mb-4">{error || 'Host not found'}</p>
           <Button onClick={() => navigate('/app/devops/docker')} variant="secondary" size="sm">Back to Hosts</Button>
         </div>
       </PageContainer>
@@ -95,7 +95,7 @@ export const HostDashboardPage: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card variant="default" padding="md">
             <div className="flex items-center gap-3">
-              <Box className="w-8 h-8 text-theme-info" />
+              <Box className="w-8 h-8 text-theme-info-fg" />
               <div>
                 <p className="text-2xl font-bold text-theme-primary">
                   {healthLoading ? '...' : health?.container_health.total ?? 0}
@@ -112,7 +112,7 @@ export const HostDashboardPage: React.FC = () => {
 
           <Card variant="default" padding="md">
             <div className="flex items-center gap-3">
-              <HardDrive className="w-8 h-8 text-theme-warning" />
+              <HardDrive className="w-8 h-8 text-theme-warning-fg" />
               <div>
                 <p className="text-2xl font-bold text-theme-primary">
                   {healthLoading ? '...' : health?.image_stats.total ?? 0}
@@ -121,13 +121,13 @@ export const HostDashboardPage: React.FC = () => {
               </div>
             </div>
             {health && health.image_stats.dangling > 0 && (
-              <div className="mt-2 text-xs text-theme-warning">{health.image_stats.dangling} dangling</div>
+              <div className="mt-2 text-xs text-theme-warning-fg">{health.image_stats.dangling} dangling</div>
             )}
           </Card>
 
           <Card variant="default" padding="md">
             <div className="flex items-center gap-3">
-              <Cpu className="w-8 h-8 text-theme-success" />
+              <Cpu className="w-8 h-8 text-theme-success-fg" />
               <div>
                 <p className="text-2xl font-bold text-theme-primary">{host.cpu_count ?? '—'}</p>
                 <p className="text-xs text-theme-tertiary">CPUs</p>
@@ -140,7 +140,7 @@ export const HostDashboardPage: React.FC = () => {
 
           <Card variant="default" padding="md">
             <div className="flex items-center gap-3">
-              <Server className="w-8 h-8 text-theme-error" />
+              <Server className="w-8 h-8 text-theme-error-fg" />
               <div>
                 <p className="text-2xl font-bold text-theme-primary">
                   {healthLoading ? '...' : (health?.recent_events.critical ?? 0) + (health?.recent_events.warning ?? 0)}

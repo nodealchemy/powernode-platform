@@ -111,7 +111,7 @@ export const ContainerDetailPage: React.FC = () => {
     return (
       <PageContainer title="Container Detail" breadcrumbs={getBreadcrumbs()}>
         <div className="text-center py-20">
-          <p className="text-theme-error mb-4">{error || 'Container not found'}</p>
+          <p className="text-theme-error-fg mb-4">{error || 'Container not found'}</p>
           <Button onClick={() => navigate(`/app/devops/docker/${hostId}/containers`)} variant="secondary" size="sm">Back to Containers</Button>
         </div>
       </PageContainer>
@@ -199,7 +199,7 @@ export const ContainerDetailPage: React.FC = () => {
                   <p className="text-theme-tertiary">No logs available.</p>
                 ) : (
                   logs.map((entry, i) => (
-                    <div key={i} className={`py-0.5 ${entry.stream === 'stderr' ? 'text-theme-error' : 'text-theme-secondary'}`}>
+                    <div key={i} className={`py-0.5 ${entry.stream === 'stderr' ? 'text-theme-error-fg' : 'text-theme-secondary'}`}>
                       <span className="text-theme-tertiary mr-2">{new Date(entry.timestamp).toLocaleTimeString()}</span>
                       {entry.message}
                     </div>

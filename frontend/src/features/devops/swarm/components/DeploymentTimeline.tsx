@@ -26,11 +26,11 @@ export const DeploymentTimeline: React.FC<DeploymentTimelineProps> = ({ deployme
           return (
             <div key={deployment.id} className="relative flex items-start gap-4 pl-12">
               <div className={`absolute left-4 w-4 h-4 rounded-full border-2 border-theme-background ${
-                deployment.status === 'completed' ? 'bg-theme-success' :
-                deployment.status === 'failed' ? 'bg-theme-error' :
-                deployment.status === 'running' ? 'bg-theme-info' :
+                deployment.status === 'completed' ? 'bg-theme-success-bg' :
+                deployment.status === 'failed' ? 'bg-theme-error-bg' :
+                deployment.status === 'running' ? 'bg-theme-info-bg' :
                 deployment.status === 'cancelled' ? 'bg-theme-background-secondary' :
-                'bg-theme-warning'
+                'bg-theme-warning-bg'
               }`} />
 
               <div className="flex-1 p-3 rounded-lg bg-theme-surface border border-theme">

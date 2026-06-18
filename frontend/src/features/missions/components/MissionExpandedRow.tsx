@@ -17,7 +17,7 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
   return (
     <tr>
       <td colSpan={8} className="p-0">
-        <div className="border-l-2 border-theme-info mx-4 my-3 ml-6 pl-5 pr-2">
+        <div className="border-l-2 border-theme-info-border mx-4 my-3 ml-6 pl-5 pr-2">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Column 1: Mission Info */}
             <div className="space-y-3">
@@ -53,8 +53,8 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
                 )}
                 {mission.status === 'failed' && mission.error_message && (
                   <div className="flex items-start gap-2 text-xs">
-                    <AlertCircle className="h-3.5 w-3.5 text-theme-error flex-shrink-0 mt-0.5" />
-                    <span className="text-theme-error">{mission.error_message}</span>
+                    <AlertCircle className="h-3.5 w-3.5 text-theme-error-fg flex-shrink-0 mt-0.5" />
+                    <span className="text-theme-error-fg">{mission.error_message}</span>
                   </div>
                 )}
               </div>
@@ -91,7 +91,7 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
                       href={mission.pr_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-theme-info hover:underline font-medium truncate"
+                      className="text-theme-info-fg hover:underline font-medium truncate"
                     >
                       #{mission.pr_number}
                     </a>
@@ -105,7 +105,7 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
                       href={mission.deployed_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-theme-info hover:underline font-medium truncate"
+                      className="text-theme-info-fg hover:underline font-medium truncate"
                     >
                       {mission.deployed_url}
                     </a>
@@ -129,7 +129,7 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
                     <span className="text-theme-secondary">Approval:</span>
                     <span className={cn(
                       'font-medium',
-                      lastApproval.decision === 'approved' ? 'text-theme-success' : 'text-theme-error'
+                      lastApproval.decision === 'approved' ? 'text-theme-success-fg' : 'text-theme-error-fg'
                     )}>
                       {lastApproval.decision === 'approved' ? 'Approved' : 'Rejected'}
                     </span>

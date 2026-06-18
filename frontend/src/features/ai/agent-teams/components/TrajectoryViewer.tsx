@@ -24,11 +24,11 @@ const CHAPTER_ICONS: Record<string, React.ReactNode> = {
 };
 
 const CHAPTER_COLORS: Record<string, string> = {
-  understanding: 'bg-theme-info/10 text-theme-info border-theme-info/30',
+  understanding: 'bg-theme-info-fg/10 text-theme-info-fg border-theme-info-border/30',
   investigation: 'bg-theme-interactive-primary/10 text-theme-interactive-primary border-theme-interactive-primary/30',
-  planning: 'bg-theme-warning/10 text-theme-warning border-theme-warning/30',
-  implementation: 'bg-theme-success/10 text-theme-success border-theme-success/30',
-  testing: 'bg-theme-danger/10 text-theme-danger border-theme-danger/30',
+  planning: 'bg-theme-warning-fg/10 text-theme-warning-fg border-theme-warning-border/30',
+  implementation: 'bg-theme-success-fg/10 text-theme-success-fg border-theme-success-border/30',
+  testing: 'bg-theme-danger-fg/10 text-theme-danger-fg border-theme-danger-border/30',
   reflection: 'bg-theme-surface/10 text-theme-secondary border-theme-secondary/30',
   lessons_learned: 'bg-theme-interactive-primary/10 text-theme-interactive-primary border-theme-interactive-primary/30',
 };
@@ -131,14 +131,14 @@ export const TrajectoryViewer: React.FC<TrajectoryViewerProps> = ({
 
             <div className="flex flex-wrap gap-4 text-sm text-theme-secondary">
               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                CHAPTER_COLORS[trajectory.trajectory_type] || 'bg-theme-info text-theme-primary'
+                CHAPTER_COLORS[trajectory.trajectory_type] || 'bg-theme-info-bg text-theme-primary'
               }`}>
                 {trajectory.trajectory_type.replace(/_/g, ' ')}
               </span>
 
               {trajectory.quality_score !== null && trajectory.quality_score !== undefined && (
                 <span className="flex items-center gap-1">
-                  <Star size={14} className="text-theme-warning" />
+                  <Star size={14} className="text-theme-warning-fg" />
                   {trajectory.quality_score.toFixed(2)}
                 </span>
               )}
@@ -160,7 +160,7 @@ export const TrajectoryViewer: React.FC<TrajectoryViewerProps> = ({
             <button
               type="button"
               onClick={allExpanded ? collapseAll : expandAll}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-theme-secondary hover:text-theme-primary hover:bg-theme-info rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs text-theme-secondary hover:text-theme-primary hover:bg-theme-info-bg rounded transition-colors"
               title={allExpanded ? 'Collapse all' : 'Expand all'}
             >
               {allExpanded ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
@@ -173,7 +173,7 @@ export const TrajectoryViewer: React.FC<TrajectoryViewerProps> = ({
         {trajectory.tags && trajectory.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">
             {trajectory.tags.map((tag: string, idx: number) => (
-              <span key={idx} className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-info text-theme-secondary">
+              <span key={idx} className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-info-bg text-theme-secondary">
                 <Tag size={10} />
                 {tag}
               </span>
@@ -229,7 +229,7 @@ const ChapterTreeNode: React.FC<{
   isExpanded: boolean;
   onToggle: () => void;
 }> = ({ chapter, index, isExpanded, onToggle }) => {
-  const colorClass = CHAPTER_COLORS[chapter.chapter_type] || 'bg-theme-info text-theme-primary border-theme';
+  const colorClass = CHAPTER_COLORS[chapter.chapter_type] || 'bg-theme-info-bg text-theme-primary border-theme';
   const icon = CHAPTER_ICONS[chapter.chapter_type] || <BookOpen size={16} />;
 
   const hasDecisions = chapter.key_decisions && chapter.key_decisions.length > 0;
@@ -243,14 +243,14 @@ const ChapterTreeNode: React.FC<{
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-theme-info/50 transition-colors text-left group"
+        className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-theme-info-fg/50 transition-colors text-left group"
       >
         {/* Expand/collapse indicator */}
         <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-theme-secondary">
           {hasChildren ? (
             isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
           ) : (
-            <CircleDot size={10} className="text-theme-info" />
+            <CircleDot size={10} className="text-theme-info-fg" />
           )}
         </span>
 
@@ -294,11 +294,11 @@ const ChapterTreeNode: React.FC<{
 
       {/* Expanded children — nested tree with connecting lines */}
       {isExpanded && hasChildren && (
-        <div className="ml-4 pl-4 border-l-2 border-theme-info">
+        <div className="ml-4 pl-4 border-l-2 border-theme-info-border">
           {/* Content */}
           {chapter.content && (
             <div className="relative py-2 pl-4">
-              <div className="absolute left-0 top-4 w-4 h-0 border-t border-theme-info" />
+              <div className="absolute left-0 top-4 w-4 h-0 border-t border-theme-info-border" />
               <p className="text-sm text-theme-secondary whitespace-pre-wrap">{chapter.content}</p>
             </div>
           )}
@@ -306,8 +306,8 @@ const ChapterTreeNode: React.FC<{
           {/* Reasoning */}
           {chapter.reasoning && (
             <div className="relative py-2 pl-4">
-              <div className="absolute left-0 top-4 w-4 h-0 border-t border-theme-info" />
-              <div className="p-3 bg-theme-info/50 rounded-md">
+              <div className="absolute left-0 top-4 w-4 h-0 border-t border-theme-info-border" />
+              <div className="p-3 bg-theme-info-fg/50 rounded-md">
                 <h5 className="text-xs font-medium text-theme-secondary mb-1">Reasoning</h5>
                 <p className="text-xs text-theme-secondary">{chapter.reasoning}</p>
               </div>
@@ -331,19 +331,19 @@ const ChapterTreeNode: React.FC<{
           {hasArtifacts && (
             <div className="py-1">
               <div className="relative pl-4 py-1">
-                <div className="absolute left-0 top-3 w-4 h-0 border-t border-theme-info" />
+                <div className="absolute left-0 top-3 w-4 h-0 border-t border-theme-info-border" />
                 <h5 className="text-xs font-semibold text-theme-secondary uppercase tracking-wide">Artifacts</h5>
               </div>
               {chapter.artifacts.map((artifact, idx) => (
                 <div key={idx} className="relative pl-8 py-0.5">
-                  <div className="absolute left-4 top-2.5 w-4 h-0 border-t border-dashed border-theme-info" />
+                  <div className="absolute left-4 top-2.5 w-4 h-0 border-t border-dashed border-theme-info-border" />
                   <div className="flex items-center gap-2 text-xs text-theme-secondary">
                     <FileText size={12} className="flex-shrink-0" />
                     <span className="font-mono truncate">{artifact.path}</span>
                     <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-xs ${
-                      artifact.action === 'new' ? 'bg-theme-success/10 text-theme-success' :
-                      artifact.action === 'modified' ? 'bg-theme-info/10 text-theme-info' :
-                      'bg-theme-danger/10 text-theme-danger'
+                      artifact.action === 'new' ? 'bg-theme-success-fg/10 text-theme-success-fg' :
+                      artifact.action === 'modified' ? 'bg-theme-info-fg/10 text-theme-info-fg' :
+                      'bg-theme-danger-fg/10 text-theme-danger-fg'
                     }`}>
                       {artifact.action}
                     </span>
@@ -368,27 +368,27 @@ const DecisionNode: React.FC<{
 
   return (
     <div className="relative pl-4">
-      <div className="absolute left-0 top-3 w-4 h-0 border-t border-theme-info" />
+      <div className="absolute left-0 top-3 w-4 h-0 border-t border-theme-info-border" />
 
       <button
         type="button"
         onClick={() => hasDetails && setExpanded(!expanded)}
         className={`w-full text-left flex items-start gap-2 py-1.5 px-2 rounded-md ${
-          hasDetails ? 'hover:bg-theme-info/30 cursor-pointer' : 'cursor-default'
+          hasDetails ? 'hover:bg-theme-info-fg/30 cursor-pointer' : 'cursor-default'
         } transition-colors`}
       >
         <span className="flex-shrink-0 mt-0.5 w-3.5 h-3.5 flex items-center justify-center">
           {hasDetails ? (
             expanded ? <ChevronDown size={12} className="text-theme-secondary" /> : <ChevronRight size={12} className="text-theme-secondary" />
           ) : (
-            <GitBranch size={12} className="text-theme-info" />
+            <GitBranch size={12} className="text-theme-info-fg" />
           )}
         </span>
         <span className="text-xs font-medium text-theme-primary">{decision.decision}</span>
       </button>
 
       {expanded && hasDetails && (
-        <div className="ml-4 pl-4 border-l border-dashed border-theme-info/30 pb-1">
+        <div className="ml-4 pl-4 border-l border-dashed border-theme-info-border/30 pb-1">
           {decision.rationale && (
             <div className="py-1">
               <p className="text-xs text-theme-secondary">

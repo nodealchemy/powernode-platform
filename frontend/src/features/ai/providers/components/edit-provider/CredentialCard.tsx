@@ -34,9 +34,9 @@ const getTestStatusBadge = (credential: AiProviderCredential) => {
     return <span className="text-xs px-2 py-0.5 rounded bg-theme-surface/20 text-theme-tertiary">Not tested</span>;
   }
   if (lastTestStatus === 'success') {
-    return <span className="text-xs px-2 py-0.5 rounded bg-theme-success/20 text-theme-success flex items-center gap-1"><Check className="h-3 w-3" />Passed</span>;
+    return <span className="text-xs px-2 py-0.5 rounded bg-theme-success-fg/20 text-theme-success-fg flex items-center gap-1"><Check className="h-3 w-3" />Passed</span>;
   }
-  return <span className="text-xs px-2 py-0.5 rounded bg-theme-danger/20 text-theme-danger flex items-center gap-1"><XCircle className="h-3 w-3" />Failed</span>;
+  return <span className="text-xs px-2 py-0.5 rounded bg-theme-danger-fg/20 text-theme-danger-fg flex items-center gap-1"><XCircle className="h-3 w-3" />Failed</span>;
 };
 
 export const CredentialCard: React.FC<CredentialCardProps> = ({
@@ -135,7 +135,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium text-theme-primary">{credential.name}</p>
             {credential.is_default && (
-              <span className="text-xs px-2 py-0.5 rounded bg-theme-warning/20 text-theme-warning flex items-center gap-1">
+              <span className="text-xs px-2 py-0.5 rounded bg-theme-warning-fg/20 text-theme-warning-fg flex items-center gap-1">
                 <Star className="h-3 w-3" />Default
               </span>
             )}
@@ -190,7 +190,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
             onClick={onDelete}
             disabled={isLoading}
             title="Delete credential"
-            className="h-8 w-8 p-0 text-theme-danger hover:text-theme-danger/80"
+            className="h-8 w-8 p-0 text-theme-danger-fg hover:text-theme-danger-fg/80"
           >
             <Trash2 className="h-3 w-3" />
           </Button>

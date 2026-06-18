@@ -194,7 +194,7 @@ export function ContextBrowser({
               {context.is_archived ? (
                 <button
                   onClick={(e) => handleRestore(context.id, e)}
-                  className="p-1 text-theme-tertiary hover:text-theme-success transition-colors"
+                  className="p-1 text-theme-tertiary hover:text-theme-success-fg transition-colors"
                   title="Restore context"
                 >
                   <ArchiveRestore size={14} />
@@ -202,7 +202,7 @@ export function ContextBrowser({
               ) : (
                 <button
                   onClick={(e) => handleArchive(context.id, e)}
-                  className="p-1 text-theme-tertiary hover:text-theme-warning transition-colors"
+                  className="p-1 text-theme-tertiary hover:text-theme-warning-fg transition-colors"
                   title="Archive context"
                 >
                   <Archive size={14} />
@@ -263,7 +263,7 @@ export function ContextBrowser({
           onClick={() => setShowArchived(!showArchived)}
           className={`px-3 py-2 text-sm rounded-md border transition-colors ${
             showArchived
-              ? 'bg-theme-info/10 text-theme-info border-theme-info/30'
+              ? 'bg-theme-info-fg/10 text-theme-info-fg border-theme-info-border/30'
               : 'bg-theme-surface text-theme-secondary border-theme hover:text-theme-primary'
           }`}
         >

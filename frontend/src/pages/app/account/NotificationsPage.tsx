@@ -29,10 +29,10 @@ const SEVERITY_ICONS: Record<string, React.ElementType> = {
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  info: 'text-theme-info bg-theme-info/20',
-  success: 'text-theme-success bg-theme-success/20',
-  warning: 'text-theme-warning bg-theme-warning/20',
-  error: 'text-theme-danger bg-theme-danger/20',
+  info: 'text-theme-info-fg bg-theme-info-fg/20',
+  success: 'text-theme-success-fg bg-theme-success-fg/20',
+  warning: 'text-theme-warning-fg bg-theme-warning-fg/20',
+  error: 'text-theme-danger-fg bg-theme-danger-fg/20',
 };
 
 export const NotificationsPage: React.FC = () => {
@@ -270,7 +270,7 @@ export const NotificationsPage: React.FC = () => {
                     <span className={`px-1.5 py-0.5 text-xs rounded-full font-semibold ${
                       filter === 'unread'
                         ? 'bg-theme-on-primary/20 text-theme-on-primary'
-                        : 'bg-theme-danger text-theme-on-primary'
+                        : 'bg-theme-danger-bg text-theme-on-primary'
                     }`}>
                       {unreadCount}
                     </span>
@@ -303,7 +303,7 @@ export const NotificationsPage: React.FC = () => {
                   <div
                     key={notification.id}
                     className={`px-6 py-4 transition-colors ${
-                      !notification.read ? 'bg-theme-info/5' : ''
+                      !notification.read ? 'bg-theme-info-fg/5' : ''
                     }`}
                   >
                     <div className="flex items-start gap-4">
@@ -360,7 +360,7 @@ export const NotificationsPage: React.FC = () => {
                             )}
                             <button
                               onClick={(e) => { e.stopPropagation(); handleDismiss(notification.id); }}
-                              className="p-1.5 text-theme-tertiary hover:text-theme-error hover:bg-theme-surface rounded transition-colors"
+                              className="p-1.5 text-theme-tertiary hover:text-theme-error-fg hover:bg-theme-surface rounded transition-colors"
                               title="Dismiss"
                             >
                               <XMarkIcon className="h-4 w-4" />

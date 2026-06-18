@@ -7,9 +7,9 @@ export const STATUS_CONFIG: Record<AiAgent['status'], {
   label: string;
   dot: string;
 }> = {
-  active: { variant: 'success', label: 'Active', dot: 'bg-theme-success' },
+  active: { variant: 'success', label: 'Active', dot: 'bg-theme-success-bg' },
   inactive: { variant: 'outline', label: 'Inactive', dot: 'bg-theme-surface' },
-  error: { variant: 'danger', label: 'Error', dot: 'bg-theme-error' },
+  error: { variant: 'danger', label: 'Error', dot: 'bg-theme-error-bg' },
 };
 
 export type StatusTabId = 'all' | 'active' | 'inactive' | 'error';
@@ -87,9 +87,9 @@ export function formatCost(cost: number): string {
 }
 
 export function successRateColor(rate: number): string {
-  if (rate >= 80) return 'text-theme-success';
-  if (rate >= 50) return 'text-theme-warning';
-  return 'text-theme-error';
+  if (rate >= 80) return 'text-theme-success-fg';
+  if (rate >= 50) return 'text-theme-warning-fg';
+  return 'text-theme-error-fg';
 }
 
 export function formatDuration(ms: number): string {

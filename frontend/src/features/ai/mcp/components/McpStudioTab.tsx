@@ -24,7 +24,7 @@ export const McpStudioTab: React.FC = () => {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-4">
-        <AlertCircle className="w-8 h-8 text-theme-danger" />
+        <AlertCircle className="w-8 h-8 text-theme-danger-fg" />
         <p className="text-sm text-theme-secondary">
           Failed to load MCP topology: {error.message}
         </p>

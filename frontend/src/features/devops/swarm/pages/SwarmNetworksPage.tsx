@@ -106,7 +106,7 @@ export const SwarmNetworksPage: React.FC<{ onActionsReady?: (actions: PageAction
           </div>
         ) : error ? (
           <div className="text-center py-20">
-            <p className="text-theme-error mb-4">{error}</p>
+            <p className="text-theme-error-fg mb-4">{error}</p>
             <Button onClick={handleRefresh} variant="secondary" size="sm">Retry</Button>
           </div>
         ) : networks.length === 0 ? (

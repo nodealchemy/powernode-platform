@@ -18,7 +18,7 @@ const StatusBadge: React.FC<{ isActive: boolean }> = ({ isActive }) => (
   <span
     className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
       isActive
-        ? 'bg-theme-success/10 text-theme-success'
+        ? 'bg-theme-success-fg/10 text-theme-success-fg'
         : 'bg-theme-surface/10 text-theme-secondary'
     }`}
   >
@@ -152,7 +152,7 @@ const PipelineCard: React.FC<{
                     onDelete();
                     setShowMenu(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-sm text-theme-error hover:bg-theme-error/10 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-sm text-theme-error-fg hover:bg-theme-error-fg/10 flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete

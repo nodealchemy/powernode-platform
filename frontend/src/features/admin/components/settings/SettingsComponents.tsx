@@ -18,11 +18,11 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
 }) => {
   const getVariantClass = () => {
     switch (variant) {
-      case 'success': return 'bg-theme-success';
-      case 'warning': return 'bg-theme-warning';
-      case 'error': return 'bg-theme-error';
+      case 'success': return 'bg-theme-success-bg';
+      case 'warning': return 'bg-theme-warning-bg';
+      case 'error': return 'bg-theme-error-bg';
       case 'primary': return 'bg-theme-interactive-primary';
-      default: return 'bg-theme-success';
+      default: return 'bg-theme-success-bg';
     }
   };
 
@@ -45,7 +45,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
         checked 
           ? getVariantClass()
           : 'bg-theme-surface-secondary border border-theme'
-      } focus:ring-${variant === 'primary' ? 'theme-interactive-primary' : `theme-${variant}`}`}
+      } ${variant === 'success' ? 'focus:ring-theme-success-fg' : variant === 'warning' ? 'focus:ring-theme-warning-fg' : variant === 'error' ? 'focus:ring-theme-error-fg' : 'focus:ring-theme-interactive-primary'}`}
     >
       <span
         className={`inline-block ${sizeClasses.thumb} transform rounded-full bg-theme-background shadow-lg transition-transform duration-200 ease-in-out ${
@@ -146,7 +146,7 @@ export const FormField: React.FC<FormFieldProps> = ({
     <div className={className}>
       <label className="label-theme">
         {label}
-        {required && <span className="text-theme-error ml-1">*</span>}
+        {required && <span className="text-theme-error-fg ml-1">*</span>}
       </label>
       {children}
       {helpText && (
@@ -166,7 +166,7 @@ export const Input: React.FC<InputProps> = ({
   className = '',
   ...props
 }) => {
-  const errorClass = error ? 'border-theme-error focus:border-theme-error' : '';
+  const errorClass = error ? 'border-theme-error-border focus:border-theme-error-border' : '';
   return (
     <input
       className={`input-theme ${errorClass} ${className}`}
@@ -187,7 +187,7 @@ export const Select: React.FC<SelectProps> = ({
   children,
   ...props
 }) => {
-  const errorClass = error ? 'border-theme-error focus:border-theme-error' : '';
+  const errorClass = error ? 'border-theme-error-border focus:border-theme-error-border' : '';
   return (
     <select
       className={`select-theme ${errorClass} ${className}`}
@@ -214,10 +214,10 @@ export const StatsCard: React.FC<StatsCardProps> = ({
 }) => {
   const getValueColorClass = () => {
     switch (valueColor) {
-      case 'success': return 'text-theme-success';
-      case 'warning': return 'text-theme-warning';
-      case 'error': return 'text-theme-error';
-      case 'info': return 'text-theme-info';
+      case 'success': return 'text-theme-success-fg';
+      case 'warning': return 'text-theme-warning-fg';
+      case 'error': return 'text-theme-error-fg';
+      case 'info': return 'text-theme-info-fg';
       default: return 'text-theme-primary';
     }
   };

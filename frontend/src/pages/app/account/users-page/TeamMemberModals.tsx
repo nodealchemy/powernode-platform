@@ -22,7 +22,7 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
   >
     <div className="space-y-4">
       {formErrors.length > 0 && (
-        <div className="bg-theme-error border border-theme-error-border text-theme-error px-4 py-3 rounded">
+        <div className="bg-theme-error-bg border border-theme-error-border text-theme-error-fg px-4 py-3 rounded">
           <ul className="list-disc list-inside">
             {formErrors.map((error, index) => (
               <li key={index}>{error}</li>
@@ -55,12 +55,12 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
         onChange={(value: string) => onFormChange('phone', value)}
       />
 
-      <div className="bg-theme-info border border-theme-info-border rounded-lg p-4">
+      <div className="bg-theme-info-bg border border-theme-info-border rounded-lg p-4">
         <div className="flex items-center space-x-3">
-          <Settings className="h-5 w-5 text-theme-info flex-shrink-0" />
+          <Settings className="h-5 w-5 text-theme-info-fg flex-shrink-0" />
           <div>
-            <h4 className="font-medium text-theme-info">Default Role Assignment</h4>
-            <p className="text-sm text-theme-info mt-1">
+            <h4 className="font-medium text-theme-info-fg">Default Role Assignment</h4>
+            <p className="text-sm text-theme-info-fg mt-1">
               New users will be assigned the default "Account Member" role. You can manage additional roles after creation using the "Manage Roles" button.
             </p>
           </div>
@@ -112,7 +112,7 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
   >
     <div className="space-y-4">
       {formErrors.length > 0 && (
-        <div className="bg-theme-error border border-theme-error-border text-theme-error px-4 py-3 rounded">
+        <div className="bg-theme-error-bg border border-theme-error-border text-theme-error-fg px-4 py-3 rounded">
           <ul className="list-disc list-inside">
             {formErrors.map((error, index) => (
               <li key={index}>{error}</li>
@@ -147,10 +147,10 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
 
       <div className="bg-theme-warning-background border border-theme-warning-border rounded-lg p-4">
         <div className="flex items-center space-x-3">
-          <Settings className="h-5 w-5 text-theme-warning flex-shrink-0" />
+          <Settings className="h-5 w-5 text-theme-warning-fg flex-shrink-0" />
           <div>
-            <h4 className="font-medium text-theme-warning">Role Management</h4>
-            <p className="text-sm text-theme-warning mt-1">
+            <h4 className="font-medium text-theme-warning-fg">Role Management</h4>
+            <p className="text-sm text-theme-warning-fg mt-1">
               Use the "Manage Roles" button in the user table to modify role assignments for this user.
             </p>
           </div>

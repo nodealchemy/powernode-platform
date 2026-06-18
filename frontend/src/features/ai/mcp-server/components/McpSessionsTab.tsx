@@ -59,9 +59,9 @@ export const McpSessionsTab: React.FC<McpSessionsTabProps> = ({ onActionsReady }
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      active: 'bg-theme-success/10 text-theme-success',
+      active: 'bg-theme-success-fg/10 text-theme-success-fg',
       expired: 'bg-theme-background-secondary/20 text-theme-tertiary',
-      revoked: 'bg-theme-error/10 text-theme-error',
+      revoked: 'bg-theme-error-fg/10 text-theme-error-fg',
     };
     return styles[status] || styles.expired;
   };
@@ -140,7 +140,7 @@ export const McpSessionsTab: React.FC<McpSessionsTabProps> = ({ onActionsReady }
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleRevoke(session.id)}
-                                className="rounded px-2 py-1 text-xs bg-theme-error text-white hover:bg-theme-error"
+                                className="rounded px-2 py-1 text-xs bg-theme-error-bg text-white hover:bg-theme-error-bg"
                               >
                                 Confirm
                               </button>
@@ -154,7 +154,7 @@ export const McpSessionsTab: React.FC<McpSessionsTabProps> = ({ onActionsReady }
                           ) : (
                             <button
                               onClick={() => setRevokeConfirmId(session.id)}
-                              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-theme-error hover:bg-theme-error/10"
+                              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-theme-error-fg hover:bg-theme-error-fg/10"
                             >
                               <Trash2 size={12} />
                               Revoke

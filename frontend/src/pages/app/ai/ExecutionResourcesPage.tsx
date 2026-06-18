@@ -47,7 +47,7 @@ export const ExecutionResourcesContent: React.FC<ExecutionResourcesContentProps>
   return (
     <div className="flex flex-col h-[calc(100vh-280px)]">
       {error && (
-        <div className="p-3 mb-2 rounded-lg bg-theme-danger/10 text-theme-danger text-sm flex-shrink-0">
+        <div className="p-3 mb-2 rounded-lg bg-theme-danger-fg/10 text-theme-danger-fg text-sm flex-shrink-0">
           {error}
         </div>
       )}

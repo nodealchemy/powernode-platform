@@ -137,25 +137,25 @@ describe('AssessmentDetailPage', () => {
     it('applies correct color to overall score >= 80', () => {
       renderPage();
       const overallScore = screen.getByText('84');
-      expect(overallScore).toHaveClass('text-theme-success');
+      expect(overallScore).toHaveClass('text-theme-success-fg');
     });
 
     it('applies correct color to security score >= 80', () => {
       renderPage();
       const securityScore = screen.getByText('85');
-      expect(securityScore).toHaveClass('text-theme-success');
+      expect(securityScore).toHaveClass('text-theme-success-fg');
     });
 
     it('applies correct color to compliance score >= 80', () => {
       renderPage();
       const complianceScore = screen.getByText('90');
-      expect(complianceScore).toHaveClass('text-theme-success');
+      expect(complianceScore).toHaveClass('text-theme-success-fg');
     });
 
     it('applies warning color to operational score 60-79', () => {
       renderPage();
       const operationalScore = screen.getByText('78');
-      expect(operationalScore).toHaveClass('text-theme-warning');
+      expect(operationalScore).toHaveClass('text-theme-warning-fg');
     });
   });
 

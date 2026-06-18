@@ -181,7 +181,7 @@ export const AcceptInvitationPage: React.FC = () => {
           <div className="bg-theme-background rounded-lg p-4 mb-6">
             <div className="text-center">
               <p className="text-sm text-theme-secondary mb-1">You're being invited as:</p>
-              <span className="inline-block bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary px-3 py-1 rounded-full text-sm font-medium">
+              <span className="inline-block bg-theme-interactive-primary/10 text-theme-interactive-primary px-3 py-1 rounded-full text-sm font-medium">
                 {invitation.role.charAt(0).toUpperCase() + invitation.role.slice(1)}
               </span>
             </div>

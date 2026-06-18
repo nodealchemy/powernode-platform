@@ -23,7 +23,7 @@ export const AgentExpandedRow: React.FC<AgentExpandedRowProps> = ({ agent }) => 
   return (
     <tr>
       <td colSpan={7} className="p-0">
-        <div className="border-l-2 border-theme-info mx-4 my-3 ml-6 pl-5 pr-2">
+        <div className="border-l-2 border-theme-info-border mx-4 my-3 ml-6 pl-5 pr-2">
           {/* Description */}
           {agent.description && (
             <p className="text-sm text-theme-secondary mb-4 max-w-3xl">
@@ -69,8 +69,8 @@ export const AgentExpandedRow: React.FC<AgentExpandedRowProps> = ({ agent }) => 
                     <span className="text-theme-secondary shrink-0">Skills:</span>
                     <div className="flex flex-wrap gap-1">
                       {agent.skills.slice(0, 5).map(s => (
-                        <span key={s.id} className="px-1.5 py-0.5 rounded bg-theme-interactive-primary/10 text-theme-info text-[10px] font-medium">
-                          <EntityLink type="skill" id={s.id} label={s.name} className="text-theme-info" />
+                        <span key={s.id} className="px-1.5 py-0.5 rounded bg-theme-interactive-primary/10 text-theme-info-fg text-[10px] font-medium">
+                          <EntityLink type="skill" id={s.id} label={s.name} className="text-theme-info-fg" />
                         </span>
                       ))}
                       {agent.skills.length > 5 && (
@@ -144,7 +144,7 @@ export const AgentExpandedRow: React.FC<AgentExpandedRowProps> = ({ agent }) => 
                       <div className="text-[10px] text-theme-tertiary">Total Runs</div>
                     </div>
                     <div className="bg-theme-background rounded-md px-3 py-2">
-                      <div className="text-sm font-semibold text-theme-success">
+                      <div className="text-sm font-semibold text-theme-success-fg">
                         {execStats.successful_executions || 0}
                       </div>
                       <div className="text-[10px] text-theme-tertiary">Succeeded</div>
@@ -152,7 +152,7 @@ export const AgentExpandedRow: React.FC<AgentExpandedRowProps> = ({ agent }) => 
                     <div className="bg-theme-background rounded-md px-3 py-2">
                       <div className={cn(
                         'text-sm font-semibold',
-                        (execStats.failed_executions || 0) > 0 ? 'text-theme-error' : 'text-theme-primary'
+                        (execStats.failed_executions || 0) > 0 ? 'text-theme-error-fg' : 'text-theme-primary'
                       )}>
                         {execStats.failed_executions || 0}
                       </div>

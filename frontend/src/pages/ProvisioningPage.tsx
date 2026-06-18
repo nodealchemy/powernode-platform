@@ -301,7 +301,7 @@ export const ProvisioningPage: React.FC = () => {
   if (conversationError) {
     return (
       <div className="flex h-full w-full items-center justify-center p-8 text-center">
-        <div className="max-w-md rounded-md border border-theme-danger/30 bg-theme-danger/10 p-6 text-sm text-theme-danger">
+        <div className="max-w-md rounded-md border border-theme-danger-border/30 bg-theme-danger-fg/10 p-6 text-sm text-theme-danger-fg">
           {conversationError}
         </div>
       </div>
@@ -375,7 +375,7 @@ export const ProvisioningPage: React.FC = () => {
       {viewMode === 'plan' && planError && (
         <div
           role="alert"
-          className="fixed inset-x-4 bottom-4 z-50 rounded-md border border-theme-danger/30 bg-theme-danger/10 p-3 text-sm text-theme-danger shadow-lg"
+          className="fixed inset-x-4 bottom-4 z-50 rounded-md border border-theme-danger-border/30 bg-theme-danger-fg/10 p-3 text-sm text-theme-danger-fg shadow-lg"
           data-testid="provisioning-plan-error"
         >
           {planError}

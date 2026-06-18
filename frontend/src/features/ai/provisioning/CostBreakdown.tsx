@@ -184,9 +184,9 @@ export const CostBreakdown: React.FC<CostBreakdownProps> = ({
               <div
                 className={`flex items-center gap-1 text-xs mt-1 ${
                   monthlyDelta > 0
-                    ? 'text-theme-warning'
+                    ? 'text-theme-warning-fg'
                     : monthlyDelta < 0
-                      ? 'text-theme-success'
+                      ? 'text-theme-success-fg'
                       : 'text-theme-tertiary'
                 }`}
                 data-testid="cost-delta"

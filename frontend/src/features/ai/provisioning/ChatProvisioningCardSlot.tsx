@@ -186,7 +186,7 @@ function renderInner(card: ChatCard): React.ReactElement | null {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-sm font-semibold text-theme-primary">
                 {approved ? 'Plan approved' : 'Plan ready for review'}
-                {approved && <CheckCircle2 className="h-4 w-4 text-theme-success" />}
+                {approved && <CheckCircle2 className="h-4 w-4 text-theme-success-fg" />}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-theme-secondary">
                 <span>{stepCount} step{stepCount === 1 ? '' : 's'}</span>
@@ -261,7 +261,7 @@ function renderInner(card: ChatCard): React.ReactElement | null {
       return (
         <Card className="p-3">
           <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-theme-info/10 text-theme-info">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-theme-info-fg/10 text-theme-info-fg">
               <Layers className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
@@ -281,12 +281,12 @@ function renderInner(card: ChatCard): React.ReactElement | null {
       return (
         <Card className="p-3">
           <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-theme-warning/10 text-theme-warning">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-theme-warning-fg/10 text-theme-warning-fg">
               <Wrench className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-sm font-semibold text-theme-primary">
-                <TrendingUp className="h-4 w-4 text-theme-warning" />
+                <TrendingUp className="h-4 w-4 text-theme-warning-fg" />
                 {summary}
               </div>
               {factors.length > 0 && (

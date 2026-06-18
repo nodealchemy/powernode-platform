@@ -21,7 +21,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
   >
     <div className="space-y-8 p-2">
       {formErrors.length > 0 && (
-        <div className="bg-theme-error border border-theme-error-border text-theme-error px-4 py-3 rounded">
+        <div className="bg-theme-error-bg border border-theme-error-border text-theme-error-fg px-4 py-3 rounded">
           <ul className="list-disc list-inside">
             {formErrors.map((error, index) => (
               <li key={index}>{error}</li>
@@ -51,7 +51,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
           <div className="space-y-6">
             <div className="space-y-3">
               <label className="block text-sm font-semibold text-theme-primary">
-                Full Name <span className="text-theme-error">*</span>
+                Full Name <span className="text-theme-error-fg">*</span>
               </label>
               <input
                 type="text"
@@ -65,7 +65,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
 
             <div className="space-y-3">
               <label className="block text-sm font-semibold text-theme-primary">
-                Email Address <span className="text-theme-error">*</span>
+                Email Address <span className="text-theme-error-fg">*</span>
               </label>
               <div className="relative">
                 <input

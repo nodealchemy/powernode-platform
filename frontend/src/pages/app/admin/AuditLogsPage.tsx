@@ -254,8 +254,8 @@ export const AuditLogsPage: React.FC = () => {
       {/* Permission Check */}
       {!canReadAuditLogs ? (
         <div className="text-center py-16">
-          <div className="mx-auto w-24 h-24 bg-theme-warning/10 rounded-full flex items-center justify-center mb-6">
-            <Shield className="w-12 h-12 text-theme-warning" />
+          <div className="mx-auto w-24 h-24 bg-theme-warning-fg/10 rounded-full flex items-center justify-center mb-6">
+            <Shield className="w-12 h-12 text-theme-warning-fg" />
           </div>
           <h3 className="text-xl font-semibold text-theme-primary mb-2">Access Restricted</h3>
           <p className="text-theme-secondary mb-4 max-w-md mx-auto">

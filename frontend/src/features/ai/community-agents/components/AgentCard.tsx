@@ -68,7 +68,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
             )}
           </div>
           <div className="flex items-center gap-1 text-theme-secondary">
-            <Star className="w-4 h-4 text-theme-warning fill-current" />
+            <Star className="w-4 h-4 text-theme-warning-fg fill-current" />
             <span className="text-sm font-medium">{formatRating(agent.avg_rating)}</span>
             <span className="text-xs">({agent.rating_count})</span>
           </div>

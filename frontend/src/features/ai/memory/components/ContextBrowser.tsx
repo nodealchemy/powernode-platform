@@ -198,7 +198,7 @@ export function ContextBrowser({
               {context.is_archived ? (
                 <button
                   onClick={(e) => handleRestore(context.id, e)}
-                  className="p-1 text-theme-tertiary hover:text-theme-success transition-colors"
+                  className="p-1 text-theme-tertiary hover:text-theme-success-fg transition-colors"
                   title="Restore context"
                 >
                   <ArchiveRestore size={14} />
@@ -206,7 +206,7 @@ export function ContextBrowser({
               ) : (
                 <button
                   onClick={(e) => handleArchive(context.id, e)}
-                  className="p-1 text-theme-tertiary hover:text-theme-warning transition-colors"
+                  className="p-1 text-theme-tertiary hover:text-theme-warning-fg transition-colors"
                   title="Archive context"
                 >
                   <Archive size={14} />
@@ -267,7 +267,7 @@ export function ContextBrowser({
           onClick={() => setShowArchived(!showArchived)}
           className={`px-3 py-2 text-sm rounded-md border transition-colors ${
             showArchived
-              ? 'bg-theme-info/10 text-theme-info border-theme-info/30'
+              ? 'bg-theme-info-fg/10 text-theme-info-fg border-theme-info-border/30'
               : 'bg-theme-surface text-theme-secondary border-theme hover:text-theme-primary'
           }`}
         >
@@ -278,11 +278,11 @@ export function ContextBrowser({
 
       {/* Error State */}
       {error && (
-        <div className="flex items-center justify-between p-3 bg-theme-error/10 border border-theme-error/30 rounded-lg">
-          <span className="text-sm text-theme-error">{error}</span>
+        <div className="flex items-center justify-between p-3 bg-theme-error-fg/10 border border-theme-error-border/30 rounded-lg">
+          <span className="text-sm text-theme-error-fg">{error}</span>
           <button
             onClick={loadContexts}
-            className="text-sm text-theme-error hover:text-theme-error/80 font-medium"
+            className="text-sm text-theme-error-fg hover:text-theme-error-fg/80 font-medium"
           >
             Try Again
           </button>

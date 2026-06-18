@@ -129,8 +129,8 @@ const PrivacyDashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-theme-surface rounded-lg border border-theme p-6">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-theme-success/20 dark:bg-theme-success/30 rounded-lg">
-              <ShieldCheckIcon className="h-6 w-6 text-theme-success dark:text-theme-success" />
+            <div className="p-3 bg-theme-success-fg/20 dark:bg-theme-success-fg/30 rounded-lg">
+              <ShieldCheckIcon className="h-6 w-6 text-theme-success-fg dark:text-theme-success-fg" />
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Active Consents</p>
@@ -143,8 +143,8 @@ const PrivacyDashboardPage: React.FC = () => {
 
         <div className="bg-theme-surface rounded-lg border border-theme p-6">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-theme-info/20 dark:bg-theme-info/30 rounded-lg">
-              <DocumentTextIcon className="h-6 w-6 text-theme-info dark:text-theme-info" />
+            <div className="p-3 bg-theme-info-fg/20 dark:bg-theme-info-fg/30 rounded-lg">
+              <DocumentTextIcon className="h-6 w-6 text-theme-info-fg dark:text-theme-info-fg" />
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Data Exports</p>
@@ -157,8 +157,8 @@ const PrivacyDashboardPage: React.FC = () => {
 
         <div className="bg-theme-surface rounded-lg border border-theme p-6">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-theme-interactive-primary/20 dark:bg-theme-interactive-primary/30 rounded-lg">
-              <Cog6ToothIcon className="h-6 w-6 text-theme-interactive-primary dark:text-theme-interactive-primary" />
+            <div className="p-3 bg-theme-info-fg/20 dark:bg-theme-info-fg/30 rounded-lg">
+              <Cog6ToothIcon className="h-6 w-6 text-theme-info-fg dark:text-theme-info-fg" />
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Terms Status</p>
@@ -172,14 +172,14 @@ const PrivacyDashboardPage: React.FC = () => {
 
       {/* Terms Review Alert */}
       {dashboard?.terms_status.needs_review && (
-        <div className="mb-8 p-4 bg-theme-warning/10 dark:bg-theme-warning/20 border border-theme-warning/30 dark:border-theme-warning/50 rounded-lg">
+        <div className="mb-8 p-4 bg-theme-warning-fg/10 dark:bg-theme-warning-fg/20 border border-theme-warning-border/30 dark:border-theme-warning-border/50 rounded-lg">
           <div className="flex items-center space-x-3">
-            <DocumentTextIcon className="h-6 w-6 text-theme-warning" />
+            <DocumentTextIcon className="h-6 w-6 text-theme-warning-fg" />
             <div>
-              <p className="font-medium text-theme-warning dark:text-theme-warning">
+              <p className="font-medium text-theme-warning-fg dark:text-theme-warning-fg">
                 Terms and Policies Updated
               </p>
-              <p className="text-sm text-theme-warning dark:text-theme-warning">
+              <p className="text-sm text-theme-warning-fg dark:text-theme-warning-fg">
                 Please review and accept the updated:{' '}
                 {dashboard.terms_status.missing.join(', ').replace(/_/g, ' ')}
               </p>
@@ -243,10 +243,10 @@ const PrivacyDashboardPage: React.FC = () => {
                         <span
                           className={`px-2 py-1 text-xs rounded ${
                             policy.action === 'delete'
-                              ? 'bg-theme-danger/20 text-theme-danger dark:bg-theme-danger/30 dark:text-theme-danger'
+                              ? 'bg-theme-danger-fg/20 text-theme-danger-fg dark:bg-theme-danger-fg/30 dark:text-theme-danger-fg'
                               : policy.action === 'anonymize'
-                              ? 'bg-theme-warning/20 text-theme-warning dark:bg-theme-warning/30 dark:text-theme-warning'
-                              : 'bg-theme-info/20 text-theme-info dark:bg-theme-info/30 dark:text-theme-info'
+                              ? 'bg-theme-warning-fg/20 text-theme-warning-fg dark:bg-theme-warning-fg/30 dark:text-theme-warning-fg'
+                              : 'bg-theme-info-fg/20 text-theme-info-fg dark:bg-theme-info-fg/30 dark:text-theme-info-fg'
                           }`}
                         >
                           {policy.action}

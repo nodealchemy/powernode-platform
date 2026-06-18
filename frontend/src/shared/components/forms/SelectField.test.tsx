@@ -316,7 +316,7 @@ describe('SelectField', () => {
       );
 
       const select = screen.getByRole('combobox');
-      expect(select).toHaveClass('border-theme-error');
+      expect(select).toHaveClass('border-theme-error-border');
     });
 
     it('does not show help text when error is present', () => {

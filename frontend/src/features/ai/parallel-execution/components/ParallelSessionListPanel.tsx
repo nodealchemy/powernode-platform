@@ -102,7 +102,7 @@ export const ParallelSessionListPanel: React.FC<ParallelSessionListPanelProps> =
               onClick={() => { setActiveTab(tab.key); setFocusIndex(-1); }}
               className={`flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
                 activeTab === tab.key
-                  ? 'bg-theme-interactive-primary/10 text-theme-info'
+                  ? 'bg-theme-interactive-primary/10 text-theme-info-fg'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >
@@ -136,8 +136,8 @@ export const ParallelSessionListPanel: React.FC<ParallelSessionListPanelProps> =
         <>
           {activeSessions.map((s) => (
             <span key={s.id} className="relative">
-              <span className="block w-2 h-2 rounded-full bg-theme-info" />
-              <span className="absolute inset-0 w-2 h-2 rounded-full bg-theme-info animate-ping opacity-40" />
+              <span className="block w-2 h-2 rounded-full bg-theme-info-bg" />
+              <span className="absolute inset-0 w-2 h-2 rounded-full bg-theme-info-bg animate-ping opacity-40" />
             </span>
           ))}
         </>

@@ -567,7 +567,7 @@ describe('ContainerImagesPage', () => {
 
       const criticalCell = screen.getByTestId('cell-0-critical');
       const criticalSpan = criticalCell.querySelector('span');
-      expect(criticalSpan).toHaveClass('text-theme-error', 'font-semibold');
+      expect(criticalSpan).toHaveClass('text-theme-error-fg', 'font-semibold');
     });
 
     it('applies warning color to high count when non-zero', () => {
@@ -587,7 +587,7 @@ describe('ContainerImagesPage', () => {
 
       const highCell = screen.getByTestId('cell-0-high');
       const highSpan = highCell.querySelector('span');
-      expect(highSpan).toHaveClass('text-theme-warning', 'font-medium');
+      expect(highSpan).toHaveClass('text-theme-warning-fg', 'font-medium');
     });
 
     it('applies info color to medium count when non-zero', () => {
@@ -607,7 +607,7 @@ describe('ContainerImagesPage', () => {
 
       const mediumCell = screen.getByTestId('cell-0-medium');
       const mediumSpan = mediumCell.querySelector('span');
-      expect(mediumSpan).toHaveClass('text-theme-info');
+      expect(mediumSpan).toHaveClass('text-theme-info-fg');
     });
 
     it('applies success color to low count when non-zero', () => {
@@ -627,7 +627,7 @@ describe('ContainerImagesPage', () => {
 
       const lowCell = screen.getByTestId('cell-0-low');
       const lowSpan = lowCell.querySelector('span');
-      expect(lowSpan).toHaveClass('text-theme-success');
+      expect(lowSpan).toHaveClass('text-theme-success-fg');
     });
 
     it('applies muted color to zero counts', () => {

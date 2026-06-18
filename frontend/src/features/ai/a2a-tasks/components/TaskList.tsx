@@ -195,12 +195,12 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
                       <StatusIcon
                         className={cn(
                           'h-5 w-5',
-                          task.status === 'active' && 'animate-spin text-theme-info',
-                          task.status === 'completed' && 'text-theme-success',
-                          task.status === 'failed' && 'text-theme-danger',
-                          task.status === 'cancelled' && 'text-theme-warning',
+                          task.status === 'active' && 'animate-spin text-theme-info-fg',
+                          task.status === 'completed' && 'text-theme-success-fg',
+                          task.status === 'failed' && 'text-theme-danger-fg',
+                          task.status === 'cancelled' && 'text-theme-warning-fg',
                           task.status === 'pending' && 'text-theme-tertiary',
-                          task.status === 'input_required' && 'text-theme-warning'
+                          task.status === 'input_required' && 'text-theme-warning-fg'
                         )}
                       />
                       <span className="font-mono text-sm text-theme-primary">
@@ -230,7 +230,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
 
                     {/* Error message */}
                     {task.error_message && (
-                      <p className="text-sm text-theme-danger mb-2 line-clamp-1">
+                      <p className="text-sm text-theme-danger-fg mb-2 line-clamp-1">
                         {task.error_message}
                       </p>
                     )}

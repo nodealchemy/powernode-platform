@@ -80,7 +80,7 @@ const SortableHostItem: React.FC<SortableHostItemProps> = ({
       
       <button
         onClick={() => onRemove(host)}
-        className="text-theme-error hover:text-theme-error/80 transition-colors ml-3"
+        className="text-theme-error-fg hover:text-theme-error-fg/80 transition-colors ml-3"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -191,7 +191,7 @@ export const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHo
   const getHostBadge = (host: string) => {
     if (host.includes('*')) {
       return (
-        <span className="ml-2 px-2 py-1 text-xs bg-theme-info/20 text-theme-info rounded">
+        <span className="ml-2 px-2 py-1 text-xs bg-theme-info-fg/20 text-theme-info-fg rounded">
           Wildcard
         </span>
       );
@@ -205,7 +205,7 @@ export const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHo
     }
     if (host === 'localhost' || host === '127.0.0.1') {
       return (
-        <span className="ml-2 px-2 py-1 text-xs bg-theme-success/20 text-theme-success rounded">
+        <span className="ml-2 px-2 py-1 text-xs bg-theme-success-fg/20 text-theme-success-fg rounded">
           Local
         </span>
       );
@@ -240,8 +240,8 @@ export const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHo
 
       {/* Validation result */}
       {validationResult && !validationResult.validation.valid && (
-        <div className="mb-4 p-3 bg-theme-error/10 border border-theme-error rounded-md">
-          <p className="text-sm text-theme-error">
+        <div className="mb-4 p-3 bg-theme-error-fg/10 border border-theme-error-border rounded-md">
+          <p className="text-sm text-theme-error-fg">
             Validation failed: {validationResult.validation.errors.join(', ')}
           </p>
         </div>
@@ -291,17 +291,17 @@ export const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHo
       </div>
 
       {/* Help text */}
-      <div className="mt-4 p-3 bg-theme-info/10 border border-theme-info rounded-md">
-        <p className="text-sm text-theme-info mb-2">
+      <div className="mt-4 p-3 bg-theme-info-fg/10 border border-theme-info-border rounded-md">
+        <p className="text-sm text-theme-info-fg mb-2">
           <strong>Pattern Examples:</strong>
         </p>
-        <ul className="text-sm text-theme-info space-y-1">
+        <ul className="text-sm text-theme-info-fg space-y-1">
           <li>• <code className="font-mono">example.com</code> - Exact domain match</li>
           <li>• <code className="font-mono">*.example.com</code> - Wildcard subdomain (tenant1.example.com)</li>
           <li>• <code className="font-mono">192.168.1.100</code> - IP address</li>
           <li>• <code className="font-mono">localhost</code> - Local development</li>
         </ul>
-        <p className="text-sm text-theme-info mt-2">
+        <p className="text-sm text-theme-info-fg mt-2">
           💡 <strong>Tip:</strong> Drag and drop hosts using the ≡ icon to reorder their priority.
         </p>
       </div>

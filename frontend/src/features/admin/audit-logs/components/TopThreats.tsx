@@ -91,44 +91,44 @@ export const TopThreats: React.FC<TopThreatsProps> = ({ timeRange }) => {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'text-theme-error bg-theme-error border-theme-error';
-      case 'high': return 'text-theme-warning bg-theme-warning-background border-theme-warning';
-      case 'medium': return 'text-theme-warning bg-theme-warning-background border-theme-warning';
-      case 'low': return 'text-theme-success bg-theme-success-background border-theme-success';
+      case 'critical': return 'text-theme-error-fg bg-theme-error-bg border-theme-error-border';
+      case 'high': return 'text-theme-warning-fg bg-theme-warning-background border-theme-warning-border';
+      case 'medium': return 'text-theme-warning-fg bg-theme-warning-background border-theme-warning-border';
+      case 'low': return 'text-theme-success-fg bg-theme-success-background border-theme-success-border';
       default: return 'text-theme-secondary bg-theme-background-secondary border-theme';
     }
   };
 
   const getSeverityDotColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-theme-error';
-      case 'high': return 'bg-theme-warning';
-      case 'medium': return 'bg-theme-warning';
-      case 'low': return 'bg-theme-success';
+      case 'critical': return 'bg-theme-error-bg';
+      case 'high': return 'bg-theme-warning-bg';
+      case 'medium': return 'bg-theme-warning-bg';
+      case 'low': return 'bg-theme-success-bg';
       default: return 'bg-theme-background-secondary';
     }
   };
 
   const getTrendIcon = (change: number) => {
     if (change > 0) {
-      return <TrendingUp className="w-3 h-3 text-theme-error" />;
+      return <TrendingUp className="w-3 h-3 text-theme-error-fg" />;
     } else if (change < 0) {
-      return <TrendingDown className="w-3 h-3 text-theme-success" />;
+      return <TrendingDown className="w-3 h-3 text-theme-success-fg" />;
     }
     return null;
   };
 
   const getTrendColor = (change: number) => {
-    if (change > 0) return 'text-theme-error';
-    if (change < 0) return 'text-theme-success';
+    if (change > 0) return 'text-theme-error-fg';
+    if (change < 0) return 'text-theme-success-fg';
     return 'text-theme-tertiary';
   };
 
   return (
     <div className="bg-theme-background rounded-lg border border-theme p-6">
       <div className="flex items-center gap-2 mb-6">
-        <div className="p-1 bg-theme-error rounded">
-          <AlertTriangle className="w-4 h-4 text-theme-error" />
+        <div className="p-1 bg-theme-error-bg rounded">
+          <AlertTriangle className="w-4 h-4 text-theme-error-fg" />
         </div>
         <div>
           <h3 className="text-lg font-semibold text-theme-primary">Top Security Threats</h3>
@@ -216,7 +216,7 @@ export const TopThreats: React.FC<TopThreatsProps> = ({ timeRange }) => {
           </div>
           
           <div className="text-center">
-            <div className="text-2xl font-bold text-theme-error">
+            <div className="text-2xl font-bold text-theme-error-fg">
               {threatData.filter(t => t.severity === 'critical').length}
             </div>
             <div className="text-sm text-theme-secondary">Critical Threats</div>

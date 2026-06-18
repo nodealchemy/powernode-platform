@@ -228,8 +228,8 @@ export const WebhookList: React.FC<WebhookListProps> = ({
                         <div className="flex items-center gap-4">
                           <div className="text-center">
                             <div className={`text-sm font-medium ${
-                              successRate >= 95 ? 'text-theme-success' :
-                              successRate >= 80 ? 'text-theme-warning' : 'text-theme-error'
+                              successRate >= 95 ? 'text-theme-success-fg' :
+                              successRate >= 80 ? 'text-theme-warning-fg' : 'text-theme-error-fg'
                             }`}>
                               {successRate}%
                             </div>
@@ -282,8 +282,8 @@ export const WebhookList: React.FC<WebhookListProps> = ({
                             <Button variant="outline" onClick={() => onToggleStatus(webhook.id)}
                               className={`p-1 transition-colors duration-200 ${
                                 webhook.status === 'active'
-                                  ? 'text-theme-warning hover:text-theme-warning-hover'
-                                  : 'text-theme-success hover:text-theme-success-hover'
+                                  ? 'text-theme-warning-fg hover:text-theme-warning-hover'
+                                  : 'text-theme-success-fg hover:text-theme-success-hover'
                               }`}
                               title={`${webhook.status === 'active' ? 'Disable' : 'Enable'} Webhook`}
                             >
@@ -319,7 +319,7 @@ export const WebhookList: React.FC<WebhookListProps> = ({
                                 {webhook.event_types.map((eventType) => (
                                   <span
                                     key={eventType}
-                                    className="px-2 py-1 bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary rounded text-xs"
+                                    className="px-2 py-1 bg-theme-interactive-primary/10 text-theme-interactive-primary rounded text-xs"
                                   >
                                     {webhooksApi.formatEventType(eventType)}
                                   </span>
@@ -409,7 +409,7 @@ export const WebhookList: React.FC<WebhookListProps> = ({
                                 setDropdownOpen(null);
                               }}
               className={`w-full text-left px-4 py-2 text-sm hover:bg-theme-surface-hover flex items-center gap-2 ${
-                                webhook.status === 'active' ? 'text-theme-warning' : 'text-theme-success'
+                                webhook.status === 'active' ? 'text-theme-warning-fg' : 'text-theme-success-fg'
                               }`}
                             >
                               {webhook.status === 'active' ? (
@@ -429,7 +429,7 @@ export const WebhookList: React.FC<WebhookListProps> = ({
                             <Button variant="outline" onClick={() => {
                                 onDelete(webhook.id);
                                 setDropdownOpen(null);
-                              }}className="w-full text-left px-4 py-2 text-sm text-theme-error hover:bg-theme-surface-hover flex items-center gap-2"
+                              }}className="w-full text-left px-4 py-2 text-sm text-theme-error-fg hover:bg-theme-surface-hover flex items-center gap-2"
                             >
                               <Trash2 className="w-4 h-4" />
                               Delete Webhook
@@ -467,8 +467,8 @@ export const WebhookList: React.FC<WebhookListProps> = ({
 
                   <div className="text-center">
                     <div className={`text-sm font-medium ${
-                      successRate >= 95 ? 'text-theme-success' :
-                      successRate >= 80 ? 'text-theme-warning' : 'text-theme-error'
+                      successRate >= 95 ? 'text-theme-success-fg' :
+                      successRate >= 80 ? 'text-theme-warning-fg' : 'text-theme-error-fg'
                     }`}>
                       {successRate}%
                     </div>

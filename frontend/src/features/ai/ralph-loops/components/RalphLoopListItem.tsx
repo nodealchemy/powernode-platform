@@ -3,10 +3,10 @@ import type { RalphLoopSummary, RalphLoopStatus } from '@/shared/services/ai/typ
 
 const STATUS_STYLES: Record<RalphLoopStatus, { dot: string; pulse?: boolean }> = {
   pending: { dot: 'bg-theme-surface' },
-  running: { dot: 'bg-theme-info', pulse: true },
-  paused: { dot: 'bg-theme-warning' },
-  completed: { dot: 'bg-theme-success' },
-  failed: { dot: 'bg-theme-error' },
+  running: { dot: 'bg-theme-info-bg', pulse: true },
+  paused: { dot: 'bg-theme-warning-bg' },
+  completed: { dot: 'bg-theme-success-bg' },
+  failed: { dot: 'bg-theme-error-bg' },
   cancelled: { dot: 'bg-theme-background-secondary' },
 };
 
@@ -75,7 +75,7 @@ export const RalphLoopListItem: React.FC<RalphLoopListItemProps> = ({ loop, isSe
           )}
           <div className="flex-1 h-1 bg-theme-surface rounded-full overflow-hidden max-w-[80px]">
             <div
-              className="h-full bg-theme-info rounded-full transition-all"
+              className="h-full bg-theme-info-bg rounded-full transition-all"
               style={{ width: `${progressPct}%` }}
             />
           </div>

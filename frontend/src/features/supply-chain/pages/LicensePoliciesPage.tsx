@@ -160,7 +160,7 @@ export const LicensePoliciesPage: React.FC = () => {
               e.stopPropagation();
               handleDelete(policy.id, policy.name);
             }}
-            className="p-1.5 text-theme-secondary hover:text-theme-error hover:bg-theme-error/10 rounded"
+            className="p-1.5 text-theme-secondary hover:text-theme-error-fg hover:bg-theme-error-fg/10 rounded"
             title="Delete policy"
           >
             <Trash2 className="w-4 h-4" />

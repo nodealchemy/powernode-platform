@@ -34,7 +34,7 @@ describe('AlertsPanel', () => {
       const icon = screen.getByTestId('check-circle');
       expect(icon).toHaveClass('w-8');
       expect(icon).toHaveClass('h-8');
-      expect(icon).toHaveClass('text-theme-success');
+      expect(icon).toHaveClass('text-theme-success-fg');
     });
   });
 
@@ -146,7 +146,7 @@ describe('AlertsPanel', () => {
       };
       render(<AlertsPanel alerts={[alert]} />);
       const icon = screen.getByTestId('alert-circle');
-      expect(icon).toHaveClass('text-theme-error');
+      expect(icon).toHaveClass('text-theme-error-fg');
     });
 
     it('applies warning color for high severity', () => {
@@ -162,7 +162,7 @@ describe('AlertsPanel', () => {
       };
       render(<AlertsPanel alerts={[alert]} />);
       const icon = screen.getByTestId('alert-triangle');
-      expect(icon).toHaveClass('text-theme-warning');
+      expect(icon).toHaveClass('text-theme-warning-fg');
     });
 
     it('applies info color for medium severity', () => {
@@ -178,7 +178,7 @@ describe('AlertsPanel', () => {
       };
       render(<AlertsPanel alerts={[alert]} />);
       const icon = screen.getByTestId('info-icon');
-      expect(icon).toHaveClass('text-theme-info');
+      expect(icon).toHaveClass('text-theme-info-fg');
     });
 
     it('applies success color for low severity', () => {
@@ -194,8 +194,8 @@ describe('AlertsPanel', () => {
       };
       render(<AlertsPanel alerts={[alert]} />);
       const icons = screen.getAllByTestId('check-circle');
-      const lowSeverityIcon = icons.find((icon) => icon.className.includes('text-theme-success'));
-      expect(lowSeverityIcon).toHaveClass('text-theme-success');
+      const lowSeverityIcon = icons.find((icon) => icon.className.includes('text-theme-success-fg'));
+      expect(lowSeverityIcon).toHaveClass('text-theme-success-fg');
     });
   });
 

@@ -55,23 +55,23 @@ const ENTITY_ICONS: Record<EntityType, React.FC<{ className?: string }>> = {
 };
 
 const ENTITY_COLORS: Record<EntityType, string> = {
-  concept: 'text-theme-info',
-  entity: 'text-theme-success',
-  document: 'text-theme-warning',
+  concept: 'text-theme-info-fg',
+  entity: 'text-theme-success-fg',
+  document: 'text-theme-warning-fg',
   agent: 'text-theme-interactive-primary',
-  skill: 'text-theme-info',
-  context: 'text-theme-error',
-  learning: 'text-theme-success',
+  skill: 'text-theme-info-fg',
+  context: 'text-theme-error-fg',
+  learning: 'text-theme-success-fg',
 };
 
 const ENTITY_BORDER_COLORS: Record<EntityType, string> = {
-  concept: 'border-theme-info',
-  entity: 'border-theme-success',
-  document: 'border-theme-warning',
+  concept: 'border-theme-info-border',
+  entity: 'border-theme-success-border',
+  document: 'border-theme-warning-border',
   agent: 'border-theme-interactive-primary',
   skill: 'border-theme',
-  context: 'border-theme-error',
-  learning: 'border-theme-success',
+  context: 'border-theme-error-border',
+  learning: 'border-theme-success-border',
 };
 
 interface KGNodeData {

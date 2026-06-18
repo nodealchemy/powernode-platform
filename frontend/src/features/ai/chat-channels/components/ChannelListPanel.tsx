@@ -14,10 +14,10 @@ interface ChannelListPanelProps {
 }
 
 const statusConfig: Record<ChannelStatus, { variant: 'success' | 'danger' | 'warning' | 'outline'; label: string; dot: string }> = {
-  active: { variant: 'success', label: 'Connected', dot: 'bg-theme-success' },
+  active: { variant: 'success', label: 'Connected', dot: 'bg-theme-success-bg' },
   inactive: { variant: 'outline', label: 'Inactive', dot: 'bg-theme-background-secondary' },
-  error: { variant: 'danger', label: 'Error', dot: 'bg-theme-danger' },
-  disconnected: { variant: 'warning', label: 'Disconnected', dot: 'bg-theme-warning' },
+  error: { variant: 'danger', label: 'Error', dot: 'bg-theme-danger-bg' },
+  disconnected: { variant: 'warning', label: 'Disconnected', dot: 'bg-theme-warning-bg' },
 };
 
 type TabFilter = 'all' | ChannelStatus;

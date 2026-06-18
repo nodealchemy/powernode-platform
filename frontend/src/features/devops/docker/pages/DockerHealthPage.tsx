@@ -78,13 +78,13 @@ export const DockerHealthPage: React.FC<DockerHealthPageProps> = ({ onActionsRea
           </div>
         ) : error ? (
           <div className="text-center py-20">
-            <p className="text-theme-error mb-4">{error}</p>
+            <p className="text-theme-error-fg mb-4">{error}</p>
             <Button onClick={handleRefresh} variant="secondary" size="sm">Retry</Button>
           </div>
         ) : health ? (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <Heart className="w-5 h-5 text-theme-success" />
+              <Heart className="w-5 h-5 text-theme-success-fg" />
               <span className={`px-2 py-0.5 rounded text-xs font-medium ${dockerApi.getHostStatusColor(health.status)}`}>
                 {health.status}
               </span>
@@ -94,14 +94,14 @@ export const DockerHealthPage: React.FC<DockerHealthPageProps> = ({ onActionsRea
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card variant="default" padding="md">
                 <div className="flex items-center gap-3 mb-2">
-                  <Box className="w-6 h-6 text-theme-info" />
+                  <Box className="w-6 h-6 text-theme-info-fg" />
                   <span className="text-sm font-medium text-theme-primary">Containers</span>
                 </div>
                 <p className="text-2xl font-bold text-theme-primary">{health.container_health.total}</p>
                 <div className="mt-1 text-xs text-theme-secondary space-y-0.5">
                   <div className="flex justify-between">
                     <span>Running</span>
-                    <span className="text-theme-success font-medium">{health.container_health.running}</span>
+                    <span className="text-theme-success-fg font-medium">{health.container_health.running}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Stopped</span>
@@ -110,7 +110,7 @@ export const DockerHealthPage: React.FC<DockerHealthPageProps> = ({ onActionsRea
                   {health.container_health.paused > 0 && (
                     <div className="flex justify-between">
                       <span>Paused</span>
-                      <span className="text-theme-warning font-medium">{health.container_health.paused}</span>
+                      <span className="text-theme-warning-fg font-medium">{health.container_health.paused}</span>
                     </div>
                   )}
                 </div>
@@ -118,36 +118,36 @@ export const DockerHealthPage: React.FC<DockerHealthPageProps> = ({ onActionsRea
 
               <Card variant="default" padding="md">
                 <div className="flex items-center gap-3 mb-2">
-                  <HardDrive className="w-6 h-6 text-theme-warning" />
+                  <HardDrive className="w-6 h-6 text-theme-warning-fg" />
                   <span className="text-sm font-medium text-theme-primary">Images</span>
                 </div>
                 <p className="text-2xl font-bold text-theme-primary">{health.image_stats.total}</p>
                 {health.image_stats.dangling > 0 && (
-                  <div className="mt-1 text-xs text-theme-warning">{health.image_stats.dangling} dangling</div>
+                  <div className="mt-1 text-xs text-theme-warning-fg">{health.image_stats.dangling} dangling</div>
                 )}
               </Card>
 
               <Card variant="default" padding="md">
                 <div className="flex items-center gap-3 mb-2">
-                  <AlertTriangle className="w-6 h-6 text-theme-error" />
+                  <AlertTriangle className="w-6 h-6 text-theme-error-fg" />
                   <span className="text-sm font-medium text-theme-primary">Events</span>
                 </div>
                 <p className="text-2xl font-bold text-theme-primary">{health.recent_events.unacknowledged}</p>
                 <div className="mt-1 text-xs text-theme-secondary space-y-0.5">
                   <div className="flex justify-between">
                     <span>Critical</span>
-                    <span className="text-theme-error font-medium">{health.recent_events.critical}</span>
+                    <span className="text-theme-error-fg font-medium">{health.recent_events.critical}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Warning</span>
-                    <span className="text-theme-warning font-medium">{health.recent_events.warning}</span>
+                    <span className="text-theme-warning-fg font-medium">{health.recent_events.warning}</span>
                   </div>
                 </div>
               </Card>
 
               <Card variant="default" padding="md">
                 <div className="flex items-center gap-3 mb-2">
-                  <RefreshCw className="w-6 h-6 text-theme-success" />
+                  <RefreshCw className="w-6 h-6 text-theme-success-fg" />
                   <span className="text-sm font-medium text-theme-primary">Resources</span>
                 </div>
                 <div className="text-xs text-theme-secondary space-y-1">

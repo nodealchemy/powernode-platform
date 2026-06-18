@@ -36,11 +36,11 @@ function formatRelativeTime(dateStr: string | null): string {
 }
 
 const TAG_COLORS = [
-  'bg-theme-info/10 text-theme-info',
-  'bg-theme-success/10 text-theme-success',
+  'bg-theme-info-fg/10 text-theme-info-fg',
+  'bg-theme-success-fg/10 text-theme-success-fg',
   'bg-theme-interactive-primary/10 text-theme-interactive-primary',
-  'bg-theme-warning/10 text-theme-warning',
-  'bg-theme-error/10 text-theme-error',
+  'bg-theme-warning-fg/10 text-theme-warning-fg',
+  'bg-theme-error-fg/10 text-theme-error-fg',
 ];
 
 function getTagColor(tag: string): string {
@@ -317,7 +317,7 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
                     setConfirmDelete(false);
                     onDelete();
                   }}
-                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-white bg-theme-danger hover:bg-theme-danger/90"
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-white bg-theme-danger-bg hover:bg-theme-danger-fg/90"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Confirm Delete
@@ -328,7 +328,7 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
                     e.stopPropagation();
                     setConfirmDelete(true);
                   }}
-                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-theme-error hover:bg-theme-error"
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-theme-error-fg hover:bg-theme-error-bg"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Delete

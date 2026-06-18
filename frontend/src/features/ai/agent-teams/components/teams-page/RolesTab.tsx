@@ -34,12 +34,12 @@ export const RolesTab: React.FC<RolesTabProps> = ({ selectedTeam, roles }) => {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
               <h3 className="font-medium text-theme-primary">{role.role_name}</h3>
-              <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">{role.role_type}</span>
+              <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">{role.role_type}</span>
               <span className="text-xs text-theme-secondary">Priority: {role.priority_order}</span>
             </div>
             <div className="flex gap-2 text-xs">
-              {role.can_delegate && <span className="px-2 py-1 bg-theme-info/10 text-theme-info rounded">Can Delegate</span>}
-              {role.can_escalate && <span className="px-2 py-1 bg-theme-warning/10 text-theme-warning rounded">Can Escalate</span>}
+              {role.can_delegate && <span className="px-2 py-1 bg-theme-info-fg/10 text-theme-info-fg rounded">Can Delegate</span>}
+              {role.can_escalate && <span className="px-2 py-1 bg-theme-warning-fg/10 text-theme-warning-fg rounded">Can Escalate</span>}
             </div>
           </div>
           {role.role_description && <p className="text-sm text-theme-secondary mb-2">{role.role_description}</p>}

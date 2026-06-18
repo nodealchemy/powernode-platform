@@ -16,22 +16,22 @@ export const SecurityScoreCard: React.FC = () => {
       label: 'Active Quarantines',
       value: report?.active_quarantines ?? 0,
       icon: Shield,
-      colorClass: 'text-theme-error',
-      bgClass: 'bg-theme-error',
+      colorClass: 'text-theme-error-fg',
+      bgClass: 'bg-theme-error-bg',
     },
     {
       label: 'Total Events (30d)',
       value: report?.total_events ?? 0,
       icon: Activity,
-      colorClass: 'text-theme-warning',
-      bgClass: 'bg-theme-warning',
+      colorClass: 'text-theme-warning-fg',
+      bgClass: 'bg-theme-warning-bg',
     },
     {
       label: 'Restoration Rate',
       value: report?.restoration_rate != null ? `${Math.round(report.restoration_rate * 100)}%` : '--',
       icon: AlertTriangle,
-      colorClass: 'text-theme-success',
-      bgClass: 'bg-theme-success',
+      colorClass: 'text-theme-success-fg',
+      bgClass: 'bg-theme-success-bg',
     },
     {
       label: 'Avg Duration (hrs)',
@@ -39,8 +39,8 @@ export const SecurityScoreCard: React.FC = () => {
         ? report.avg_quarantine_duration_hours.toFixed(1)
         : '--',
       icon: Clock,
-      colorClass: 'text-theme-info',
-      bgClass: 'bg-theme-info',
+      colorClass: 'text-theme-info-fg',
+      bgClass: 'bg-theme-info-bg',
     },
   ];
 
@@ -57,7 +57,7 @@ export const SecurityScoreCard: React.FC = () => {
                   {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
                 </p>
               </div>
-              <div className={`h-10 w-10 ${stat.bgClass} bg-opacity-10 rounded-lg flex items-center justify-center`}>
+              <div className={`h-10 w-10 ${stat.bgClass} rounded-lg flex items-center justify-center`}>
                 <Icon className={`h-5 w-5 ${stat.colorClass}`} />
               </div>
             </div>

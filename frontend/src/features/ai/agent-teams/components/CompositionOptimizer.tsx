@@ -68,7 +68,7 @@ export const CompositionOptimizer: React.FC<CompositionOptimizerProps> = ({ team
 
   if (!data) return null;
 
-  const statusColor = data.status === 'healthy' ? 'text-theme-success' : data.status === 'warning' ? 'text-theme-warning' : 'text-theme-danger';
+  const statusColor = data.status === 'healthy' ? 'text-theme-success-fg' : data.status === 'warning' ? 'text-theme-warning-fg' : 'text-theme-danger-fg';
 
   return (
     <div className="bg-theme-surface border border-theme rounded-lg p-4 space-y-4">
@@ -112,7 +112,7 @@ export const CompositionOptimizer: React.FC<CompositionOptimizerProps> = ({ team
           <div className="space-y-1">
             {data.warnings.map((warning, idx) => (
               <div key={idx} className="flex items-center gap-2 text-xs">
-                <AlertTriangle className="h-3 w-3 text-theme-warning flex-shrink-0" />
+                <AlertTriangle className="h-3 w-3 text-theme-warning-fg flex-shrink-0" />
                 <span className="text-theme-primary">{warning}</span>
               </div>
             ))}
@@ -127,7 +127,7 @@ export const CompositionOptimizer: React.FC<CompositionOptimizerProps> = ({ team
           <div className="space-y-1">
             {data.recommendations.map((rec, idx) => (
               <div key={idx} className="flex items-center gap-2 text-xs">
-                <CheckCircle className="h-3 w-3 text-theme-success flex-shrink-0" />
+                <CheckCircle className="h-3 w-3 text-theme-success-fg flex-shrink-0" />
                 <span className="text-theme-primary">{rec}</span>
               </div>
             ))}

@@ -15,9 +15,9 @@ const ExecutionRow: React.FC<{ execution: ShadowExecution }> = ({ execution }) =
     <div className="flex items-center justify-between mb-2">
       <div className="flex items-center gap-2">
         {execution.agreed ? (
-          <CheckCircle className="h-4 w-4 text-theme-success" />
+          <CheckCircle className="h-4 w-4 text-theme-success-fg" />
         ) : (
-          <XCircle className="h-4 w-4 text-theme-error" />
+          <XCircle className="h-4 w-4 text-theme-error-fg" />
         )}
         <EntityLink type="agent" id={execution.agent_id} label={execution.agent_name} className="text-sm font-medium" />
         <span className="text-xs text-theme-tertiary">({execution.action_type})</span>

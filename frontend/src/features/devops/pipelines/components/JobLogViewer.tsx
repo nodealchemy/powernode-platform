@@ -20,20 +20,20 @@ const ansiToHtml = (text: string): string => {
     '0': '</span>',
     '1': '<span class="font-bold">',
     '30': '<span class="text-theme-primary">',
-    '31': '<span class="text-theme-error">',
-    '32': '<span class="text-theme-success">',
-    '33': '<span class="text-theme-warning">',
-    '34': '<span class="text-theme-info">',
-    '35': '<span class="text-theme-info">',
-    '36': '<span class="text-theme-info">',
+    '31': '<span class="text-theme-error-fg">',
+    '32': '<span class="text-theme-success-fg">',
+    '33': '<span class="text-theme-warning-fg">',
+    '34': '<span class="text-theme-info-fg">',
+    '35': '<span class="text-theme-info-fg">',
+    '36': '<span class="text-theme-info-fg">',
     '37': '<span class="text-theme-tertiary">',
     '90': '<span class="text-theme-secondary">',
-    '91': '<span class="text-theme-error">',
-    '92': '<span class="text-theme-success">',
-    '93': '<span class="text-theme-warning">',
-    '94': '<span class="text-theme-info">',
-    '95': '<span class="text-theme-info">',
-    '96': '<span class="text-theme-info">',
+    '91': '<span class="text-theme-error-fg">',
+    '92': '<span class="text-theme-success-fg">',
+    '93': '<span class="text-theme-warning-fg">',
+    '94': '<span class="text-theme-info-fg">',
+    '95': '<span class="text-theme-info-fg">',
+    '96': '<span class="text-theme-info-fg">',
   };
 
   // First, escape HTML entities to prevent XSS from raw log content
@@ -209,7 +209,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
     return (
       <div className="bg-theme-surface-inset rounded-lg p-4 h-96 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-theme-error mb-2">{error}</p>
+          <p className="text-theme-error-fg mb-2">{error}</p>
           <Button onClick={handleRefresh} variant="secondary" size="sm">
             Try Again
           </Button>
@@ -225,14 +225,14 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-sm text-theme-secondary">{jobName || 'Job Logs'}</span>
           {isStreaming && (
-            <span className="flex items-center gap-1 text-xs text-theme-success">
-              <span className="w-2 h-2 bg-theme-success rounded-full animate-pulse" />
+            <span className="flex items-center gap-1 text-xs text-theme-success-fg">
+              <span className="w-2 h-2 bg-theme-success-bg rounded-full animate-pulse" />
               Live
             </span>
           )}
           {isJobRunning && !isStreaming && usePolling && (
-            <span className="flex items-center gap-1 text-xs text-theme-warning">
-              <span className="w-2 h-2 bg-theme-warning rounded-full animate-pulse" />
+            <span className="flex items-center gap-1 text-xs text-theme-warning-fg">
+              <span className="w-2 h-2 bg-theme-warning-bg rounded-full animate-pulse" />
               Polling
             </span>
           )}
@@ -240,7 +240,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
         <div className="flex items-center gap-2">
           <div
             className={`flex items-center gap-1 text-xs ${
-              isConnected ? 'text-theme-success' : usePolling ? 'text-theme-warning' : 'text-theme-tertiary'
+              isConnected ? 'text-theme-success-fg' : usePolling ? 'text-theme-warning-fg' : 'text-theme-tertiary'
             }`}
             title={
               isConnected
@@ -260,7 +260,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
             onClick={() => setAutoScroll(!autoScroll)}
             variant="ghost"
             size="sm"
-            className={`text-theme-secondary hover:text-theme-primary ${autoScroll ? 'text-theme-success' : ''}`}
+            className={`text-theme-secondary hover:text-theme-primary ${autoScroll ? 'text-theme-success-fg' : ''}`}
             title={autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}
           >
             <ArrowDown className="w-4 h-4" />
@@ -332,7 +332,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
           </span>
         )}
         {isComplete && (
-          <span className="text-theme-success">Complete</span>
+          <span className="text-theme-success-fg">Complete</span>
         )}
       </div>
     </div>

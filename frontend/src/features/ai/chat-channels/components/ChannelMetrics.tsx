@@ -43,8 +43,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
         {trend && trendValue && (
           <span className={cn(
             'text-xs font-medium',
-            trend === 'up' && 'text-theme-success',
-            trend === 'down' && 'text-theme-danger',
+            trend === 'up' && 'text-theme-success-fg',
+            trend === 'down' && 'text-theme-danger-fg',
             trend === 'neutral' && 'text-theme-secondary'
           )}>
             {trend === 'up' && '↑'}
@@ -114,7 +114,7 @@ export const ChannelMetrics: React.FC<ChannelMetricsProps> = ({
     return (
       <Card className={className}>
         <CardContent className="py-4">
-          <div className="flex items-center gap-2 text-theme-danger">
+          <div className="flex items-center gap-2 text-theme-danger-fg">
             <AlertCircle className="w-4 h-4" />
             <span>{error}</span>
           </div>
@@ -178,7 +178,7 @@ export const ChannelMetrics: React.FC<ChannelMetricsProps> = ({
               <span className="text-theme-secondary">Error Rate:</span>
               <span className={cn(
                 'ml-2 font-medium',
-                (metrics.error_rate || 0) > 5 ? 'text-theme-danger' : 'text-theme-primary'
+                (metrics.error_rate || 0) > 5 ? 'text-theme-danger-fg' : 'text-theme-primary'
               )}>
                 {metrics.error_rate?.toFixed(1) || 0}%
               </span>

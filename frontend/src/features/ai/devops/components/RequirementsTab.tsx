@@ -36,9 +36,9 @@ export const RequirementsTab: React.FC<RequirementsTabProps> = ({
         <p className="text-xs text-theme-secondary mb-2">Secret keys that must be configured before using this template.</p>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {secretsRequired.map((secret, i) => (
-            <span key={i} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-theme-warning/10 text-theme-warning font-mono">
+            <span key={i} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-theme-warning-fg/10 text-theme-warning-fg font-mono">
               {secret}
-              <button onClick={() => onRemoveSecret(i)} className="hover:text-theme-danger">
+              <button onClick={() => onRemoveSecret(i)} className="hover:text-theme-danger-fg">
                 <X size={10} />
               </button>
             </span>
@@ -63,9 +63,9 @@ export const RequirementsTab: React.FC<RequirementsTabProps> = ({
         <p className="text-xs text-theme-secondary mb-2">Integration types that must be connected.</p>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {integrationsRequired.map((integration, i) => (
-            <span key={i} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-theme-info/10 text-theme-info">
+            <span key={i} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-theme-info-fg/10 text-theme-info-fg">
               {integration}
-              <button onClick={() => onRemoveIntegration(i)} className="hover:text-theme-danger">
+              <button onClick={() => onRemoveIntegration(i)} className="hover:text-theme-danger-fg">
                 <X size={10} />
               </button>
             </span>

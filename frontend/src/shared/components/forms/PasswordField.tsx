@@ -65,12 +65,12 @@ export const PasswordField: React.FC<PasswordFieldProps> = ({
     });
 
     const strengthLevels: PasswordStrength[] = [
-      { score: 0, label: 'Very Weak', color: 'bg-theme-error' },
-      { score: 1, label: 'Weak', color: 'bg-theme-error' },
-      { score: 2, label: 'Fair', color: 'bg-theme-warning' },
-      { score: 3, label: 'Good', color: 'bg-theme-info' },
-      { score: 4, label: 'Strong', color: 'bg-theme-success' },
-      { score: 5, label: 'Very Strong', color: 'bg-theme-success' }
+      { score: 0, label: 'Very Weak', color: 'bg-theme-error-bg' },
+      { score: 1, label: 'Weak', color: 'bg-theme-error-bg' },
+      { score: 2, label: 'Fair', color: 'bg-theme-warning-bg' },
+      { score: 3, label: 'Good', color: 'bg-theme-info-bg' },
+      { score: 4, label: 'Strong', color: 'bg-theme-success-bg' },
+      { score: 5, label: 'Very Strong', color: 'bg-theme-success-bg' }
     ];
 
     return strengthLevels[Math.min(score, strengthLevels.length - 1)];
@@ -84,7 +84,7 @@ export const PasswordField: React.FC<PasswordFieldProps> = ({
           className="block text-sm font-medium text-theme-primary mb-1"
         >
           {label}
-          {required && <span className="text-theme-error ml-1">*</span>}
+          {required && <span className="text-theme-error-fg ml-1">*</span>}
         </label>
       )}
       
@@ -114,7 +114,7 @@ export const PasswordField: React.FC<PasswordFieldProps> = ({
             transition-all duration-200
             focus:outline-none focus:ring-2 focus:ring-offset-0
             ${hasError 
-              ? 'border-theme-error focus:ring-theme-error focus:border-theme-error' 
+              ? 'border-theme-error-border focus:ring-theme-error-fg focus:border-theme-error-border' 
               : 'border-theme focus:ring-theme-focus focus:border-theme-focus'
             }
             ${disabled ? 'opacity-60 cursor-not-allowed' : ''}
@@ -156,7 +156,7 @@ export const PasswordField: React.FC<PasswordFieldProps> = ({
       {hasError && (
         <p 
           id={`${name}-error`}
-          className="mt-1 text-sm text-theme-error"
+          className="mt-1 text-sm text-theme-error-fg"
           role="alert"
         >
           {error}

@@ -9,11 +9,11 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
   // Instance statuses
   active: {
     label: 'Active',
-    classes: 'bg-theme-success bg-opacity-10 text-theme-success',
+    classes: 'bg-theme-success-bg text-theme-success-fg',
   },
   pending: {
     label: 'Pending',
-    classes: 'bg-theme-warning bg-opacity-10 text-theme-warning',
+    classes: 'bg-theme-warning-bg text-theme-warning-fg',
   },
   paused: {
     label: 'Paused',
@@ -21,24 +21,24 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
   },
   error: {
     label: 'Error',
-    classes: 'bg-theme-error bg-opacity-10 text-theme-error',
+    classes: 'bg-theme-error-bg text-theme-error-fg',
   },
   // Execution statuses
   queued: {
     label: 'Queued',
-    classes: 'bg-theme-warning bg-opacity-10 text-theme-warning',
+    classes: 'bg-theme-warning-bg text-theme-warning-fg',
   },
   running: {
     label: 'Running',
-    classes: 'bg-theme-info bg-opacity-10 text-theme-info',
+    classes: 'bg-theme-info-bg text-theme-info-fg',
   },
   completed: {
     label: 'Completed',
-    classes: 'bg-theme-success bg-opacity-10 text-theme-success',
+    classes: 'bg-theme-success-bg text-theme-success-fg',
   },
   failed: {
     label: 'Failed',
-    classes: 'bg-theme-error bg-opacity-10 text-theme-error',
+    classes: 'bg-theme-error-bg text-theme-error-fg',
   },
   cancelled: {
     label: 'Cancelled',

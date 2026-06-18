@@ -177,9 +177,9 @@ export const QuestionnaireDetailPage: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       {isComplete ? (
-                        <CheckCircle className="w-5 h-5 text-theme-success" />
+                        <CheckCircle className="w-5 h-5 text-theme-success-fg" />
                       ) : isStarted ? (
-                        <Clock className="w-5 h-5 text-theme-warning" />
+                        <Clock className="w-5 h-5 text-theme-warning-fg" />
                       ) : (
                         <AlertCircle className="w-5 h-5 text-theme-tertiary" />
                       )}
@@ -192,7 +192,7 @@ export const QuestionnaireDetailPage: React.FC = () => {
                   <div className="w-full bg-theme-surface rounded-full h-2">
                     <div
                       className={`h-2 rounded-full transition-all ${
-                        isComplete ? 'bg-theme-success' : 'bg-theme-interactive-primary'
+                        isComplete ? 'bg-theme-success-bg' : 'bg-theme-interactive-primary'
                       }`}
                       style={{ width: `${sectionProgress}%` }}
                     />
@@ -212,8 +212,8 @@ export const QuestionnaireDetailPage: React.FC = () => {
                   key={respIndex}
                   className={`p-4 rounded-lg border ${
                     response.compliant
-                      ? 'bg-theme-success/10 border-theme-success/30'
-                      : 'bg-theme-error/10 border-theme-error/30'
+                      ? 'bg-theme-success-fg/10 border-theme-success-border/30'
+                      : 'bg-theme-error-fg/10 border-theme-error-border/30'
                   }`}
                 >
                   <p className="font-medium text-theme-primary mb-2">{response.question}</p>

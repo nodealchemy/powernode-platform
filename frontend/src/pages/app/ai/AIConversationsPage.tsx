@@ -417,7 +417,7 @@ export const AIConversationsPage: React.FC = () => {
                 handleContinueConversation(conversation.id);
               }}
               title="Continue Conversation"
-              className="text-theme-success hover:text-theme-success/80"
+              className="text-theme-success-fg hover:text-theme-success-fg/80"
             >
               <MessageCircle className="h-4 w-4" />
             </Button>
@@ -465,7 +465,7 @@ export const AIConversationsPage: React.FC = () => {
                   handleDeleteConversation(conversation);
                 }}
                 title="Delete Conversation"
-                className="text-theme-danger hover:text-theme-danger/80"
+                className="text-theme-danger-fg hover:text-theme-danger-fg/80"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

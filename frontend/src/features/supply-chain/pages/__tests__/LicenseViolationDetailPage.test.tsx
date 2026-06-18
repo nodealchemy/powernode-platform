@@ -200,7 +200,7 @@ describe('LicenseViolationDetailPage', () => {
 
     it('shows error icon for open status', () => {
       const { container } = renderComponent();
-      expect(container.querySelector('svg.text-theme-error')).toBeInTheDocument();
+      expect(container.querySelector('svg.text-theme-error-fg')).toBeInTheDocument();
     });
 
     it('shows success icon for resolved status', () => {
@@ -209,7 +209,7 @@ describe('LicenseViolationDetailPage', () => {
         data: { ...mockViolation, status: 'resolved', resolved_at: '2025-01-20T10:00:00Z' },
       });
       const { container } = renderComponent();
-      expect(container.querySelector('svg.text-theme-success')).toBeInTheDocument();
+      expect(container.querySelector('svg.text-theme-success-fg')).toBeInTheDocument();
     });
   });
 
@@ -291,7 +291,7 @@ describe('LicenseViolationDetailPage', () => {
       });
       const { container } = renderComponent();
       // Find the resolution note container by looking for the specific background color
-      const noteContainer = container.querySelector('div[class*="bg-theme-success"]');
+      const noteContainer = container.querySelector('div[class*="bg-theme-success-bg"]');
       expect(noteContainer).toBeInTheDocument();
       expect(noteContainer).toHaveTextContent('Resolution Note');
     });

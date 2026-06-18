@@ -102,12 +102,12 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'read': return 'text-theme-info bg-theme-info';
-      case 'create': return 'text-theme-success bg-theme-success-background';
-      case 'update': return 'text-theme-warning bg-theme-warning-background';
-      case 'delete': return 'text-theme-error bg-theme-error';
-      case 'export': return 'text-theme-info bg-theme-info';
-      case 'global': return 'text-theme-warning bg-theme-warning-background';
+      case 'read': return 'text-theme-info-fg bg-theme-info-bg';
+      case 'create': return 'text-theme-success-fg bg-theme-success-background';
+      case 'update': return 'text-theme-warning-fg bg-theme-warning-background';
+      case 'delete': return 'text-theme-error-fg bg-theme-error-bg';
+      case 'export': return 'text-theme-info-fg bg-theme-info-bg';
+      case 'global': return 'text-theme-warning-fg bg-theme-warning-background';
       default: return 'text-theme-secondary bg-theme-background-secondary';
     }
   };
@@ -210,9 +210,9 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
                         {permissions.filter(p => selectedPermissionIds.includes(p.id)).length} selected
                       </span>
                       {permissions.every(p => selectedPermissionIds.includes(p.id)) ? (
-                        <Check className="w-4 h-4 text-theme-success" />
+                        <Check className="w-4 h-4 text-theme-success-fg" />
                       ) : permissions.some(p => selectedPermissionIds.includes(p.id)) ? (
-                        <div className="w-4 h-4 bg-theme-info rounded-sm"></div>
+                        <div className="w-4 h-4 bg-theme-info-bg rounded-sm"></div>
                       ) : (
                         <div className="w-4 h-4 border-2 border-theme rounded-sm"></div>
                       )}
@@ -225,7 +225,7 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
                       <div
                         key={permission.id}
                         className={`flex items-center justify-between p-3 pl-8 hover:bg-theme-surface-hover cursor-pointer transition-colors ${
-                          isSelected ? 'bg-theme-info' : ''
+                          isSelected ? 'bg-theme-info-bg' : ''
                         }`}
                         onClick={() => handlePermissionToggle(permission.id)}
                       >
@@ -244,7 +244,7 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
                         </div>
                         <div className="ml-4">
                           {isSelected ? (
-                            <div className="w-5 h-5 bg-theme-info rounded flex items-center justify-center">
+                            <div className="w-5 h-5 bg-theme-info-bg rounded flex items-center justify-center">
                               <Check className="w-3 h-3 text-white" />
                             </div>
                           ) : (
@@ -267,8 +267,8 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
           )}
 
           {mode === 'both' && selectedPermissionIds.length === 0 && !selectedRoleId && (
-            <div className="mt-4 p-3 bg-theme-warning-background border border-theme-warning rounded-lg">
-              <p className="text-sm text-theme-warning">
+            <div className="mt-4 p-3 bg-theme-warning-background border border-theme-warning-border rounded-lg">
+              <p className="text-sm text-theme-warning-fg">
                 <strong>Note:</strong> Please select either a role or specific permissions to create the delegation.
               </p>
             </div>

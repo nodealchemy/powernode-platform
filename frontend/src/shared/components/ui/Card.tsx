@@ -283,8 +283,8 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     if (typeof change !== 'number' || change === null || change === undefined) {
       return 'text-theme-secondary';
     }
-    if (change > 0) return 'text-theme-success';
-    if (change < 0) return 'text-theme-error';
+    if (change > 0) return 'text-theme-success-fg';
+    if (change < 0) return 'text-theme-error-fg';
     return 'text-theme-secondary';
   };
 
@@ -378,7 +378,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({
       case 'warning':
         return 'border-theme-warning-border bg-theme-warning-background';
       case 'error':
-        return 'border-theme-error-border bg-theme-error';
+        return 'border-theme-error-border bg-theme-error-bg';
       case 'success':
         return 'border-theme-success-border bg-theme-success-background';
       default:

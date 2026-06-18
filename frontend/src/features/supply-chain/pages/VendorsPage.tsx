@@ -69,10 +69,10 @@ export const VendorsPage: React.FC = () => {
   };
 
   const getRiskScoreColor = (score: number): string => {
-    if (score >= 80) return 'text-theme-error';
-    if (score >= 60) return 'text-theme-warning';
-    if (score >= 40) return 'text-theme-info';
-    return 'text-theme-success';
+    if (score >= 80) return 'text-theme-error-fg';
+    if (score >= 60) return 'text-theme-warning-fg';
+    if (score >= 40) return 'text-theme-info-fg';
+    return 'text-theme-success-fg';
   };
 
   const handleAddVendor = async (data: {
@@ -219,7 +219,7 @@ export const VendorsPage: React.FC = () => {
           </button>
           <button
             onClick={() => openAssessmentModal(vendor.id, vendor.name)}
-            className="text-theme-warning hover:text-theme-warning-hover"
+            className="text-theme-warning-fg hover:text-theme-warning-hover"
             title="Start Assessment"
           >
             <PlayCircle className="w-4 h-4" />
@@ -275,7 +275,7 @@ export const VendorsPage: React.FC = () => {
       >
         <div className="mt-6">
           {error && (
-            <div className="bg-theme-error bg-opacity-10 text-theme-error p-4 rounded-lg mb-4">
+            <div className="bg-theme-error-bg text-theme-error-fg p-4 rounded-lg mb-4">
               {error}
             </div>
           )}

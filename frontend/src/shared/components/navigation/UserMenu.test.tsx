@@ -91,7 +91,7 @@ describe('UserMenu', () => {
     it('shows online status indicator', () => {
       const { container } = renderComponent();
 
-      const statusIndicator = container.querySelector('.bg-theme-success');
+      const statusIndicator = container.querySelector('.bg-theme-success-bg');
       expect(statusIndicator).toBeInTheDocument();
     });
   });

@@ -53,11 +53,11 @@ export const RunMonitor: React.FC<Props> = ({ reviewState }) => {
               <div
                 className={`h-2 rounded-full transition-colors ${
                   isComplete
-                    ? 'bg-theme-success'
+                    ? 'bg-theme-success-bg'
                     : isCurrent
                     ? isFailed
-                      ? 'bg-theme-error'
-                      : 'bg-theme-info animate-pulse'
+                      ? 'bg-theme-error-bg'
+                      : 'bg-theme-info-bg animate-pulse'
                     : 'bg-theme-background-secondary'
                 }`}
               />
@@ -101,7 +101,7 @@ export const RunMonitor: React.FC<Props> = ({ reviewState }) => {
                   key={check}
                   className={`px-2 py-0.5 rounded text-xs ${
                     passed
-                      ? 'bg-theme-success text-theme-success'
+                      ? 'bg-theme-success-bg text-theme-success-fg'
                       : 'bg-theme-surface-bg text-theme-secondary'
                   }`}
                 >

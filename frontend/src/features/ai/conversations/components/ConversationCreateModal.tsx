@@ -322,7 +322,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
     <div className="flex items-center justify-between pt-4">
       <div className="text-xs text-theme-secondary">
         {formData.title?.trim() && formData.ai_agent_id ? (
-          <span className="text-theme-success">Ready to create conversation</span>
+          <span className="text-theme-success-fg">Ready to create conversation</span>
         ) : (
           <span>Please fill required fields</span>
         )}
@@ -448,10 +448,10 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
         </div>
 
         {/* Info Note */}
-        <div className="bg-theme-info/5 border border-theme-info/20 rounded-xl p-4">
+        <div className="bg-theme-info-fg/5 border border-theme-info-border/20 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-8 h-8 bg-theme-info/10 rounded-lg flex items-center justify-center">
-              <MessageSquare className="h-4 w-4 text-theme-info" />
+            <div className="flex-shrink-0 w-8 h-8 bg-theme-info-fg/10 rounded-lg flex items-center justify-center">
+              <MessageSquare className="h-4 w-4 text-theme-info-fg" />
             </div>
             <div className="text-sm">
               <p className="text-theme-primary font-medium">What happens next?</p>
@@ -465,10 +465,10 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
 
         {/* No Agents Warning */}
         {!agentsLoading && agents.length === 0 && (
-          <div className="bg-theme-warning/5 border border-theme-warning/20 rounded-xl p-4">
+          <div className="bg-theme-warning-fg/5 border border-theme-warning-border/20 rounded-xl p-4">
             <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-8 h-8 bg-theme-warning/10 rounded-lg flex items-center justify-center">
-                <Bot className="h-4 w-4 text-theme-warning" />
+              <div className="flex-shrink-0 w-8 h-8 bg-theme-warning-fg/10 rounded-lg flex items-center justify-center">
+                <Bot className="h-4 w-4 text-theme-warning-fg" />
               </div>
               <div className="text-sm">
                 <p className="text-theme-primary font-medium">No Active AI Agents Found</p>

@@ -236,9 +236,9 @@ interface MentionDropdownProps {
 
 function getRoleBadgeColor(role: string): string {
   switch (role) {
-    case 'manager': return 'bg-theme-warning/15 text-theme-warning';
-    case 'researcher': return 'bg-theme-info/15 text-theme-info';
-    case 'writer': return 'bg-theme-success/15 text-theme-success';
+    case 'manager': return 'bg-theme-warning-fg/15 text-theme-warning-fg';
+    case 'researcher': return 'bg-theme-info-fg/15 text-theme-info-fg';
+    case 'writer': return 'bg-theme-success-fg/15 text-theme-success-fg';
     case 'executor': return 'bg-theme-interactive-primary/15 text-theme-interactive-primary';
     default: return 'bg-theme-surface-hover text-theme-secondary';
   }

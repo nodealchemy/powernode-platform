@@ -32,12 +32,12 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       <div className={cn(
         'p-4 rounded-lg border',
         validationResult.valid
-          ? 'bg-theme-success/10 border-theme-success/30'
-          : 'bg-theme-danger/10 border-theme-danger/30'
+          ? 'bg-theme-success-fg/10 border-theme-success-border/30'
+          : 'bg-theme-danger-fg/10 border-theme-danger-border/30'
       )}>
         <div className={cn(
           'flex items-center gap-2',
-          validationResult.valid ? 'text-theme-success' : 'text-theme-danger'
+          validationResult.valid ? 'text-theme-success-fg' : 'text-theme-danger-fg'
         )}>
           {validationResult.valid ? (
             <>
@@ -52,7 +52,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
           )}
         </div>
         {validationResult.errors.length > 0 && (
-          <ul className="mt-2 ml-6 list-disc text-sm text-theme-danger">
+          <ul className="mt-2 ml-6 list-disc text-sm text-theme-danger-fg">
             {validationResult.errors.map((err, idx) => (
               <li key={idx}>{err}</li>
             ))}

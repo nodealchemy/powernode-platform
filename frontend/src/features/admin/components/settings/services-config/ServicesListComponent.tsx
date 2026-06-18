@@ -321,7 +321,7 @@ export const ServicesListComponent: React.FC<ServicesListComponentProps> = ({
               Healthy Services
             </label>
             <div className="p-3 bg-theme-surface border border-theme rounded-lg">
-              <span className="text-theme-success font-medium">
+              <span className="text-theme-success-fg font-medium">
                 {Object.keys(currentEnvServices).filter(name =>
                   healthStatus?.services[name]?.status === 'healthy'
                 ).length} healthy
@@ -605,7 +605,7 @@ export const ServicesListComponent: React.FC<ServicesListComponentProps> = ({
                   key={template.type}
                   className={`p-4 cursor-pointer border-2 transition-all ${
                     currentEnvServices[template.type]
-                      ? 'border-theme-success bg-theme-success/10'
+                      ? 'border-theme-success-border bg-theme-success-fg/10'
                       : 'border-theme hover:border-theme-primary/50'
                   }`}
                   onClick={() => {

@@ -336,9 +336,9 @@ export const auditLogsApi = {
   // Helper methods
   getLogLevelColor(level: string): string {
     switch (level) {
-      case 'error': return 'bg-theme-error bg-opacity-10 text-theme-error';
-      case 'warning': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'info': return 'bg-theme-info bg-opacity-10 text-theme-info';
+      case 'error': return 'bg-theme-error-bg text-theme-error-fg';
+      case 'warning': return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'info': return 'bg-theme-info-bg text-theme-info-fg';
       case 'debug': return 'bg-theme-surface text-theme-tertiary';
       default: return 'bg-theme-surface text-theme-secondary';
     }
@@ -346,9 +346,9 @@ export const auditLogsApi = {
 
   getStatusColor(status: string): string {
     switch (status) {
-      case 'success': return 'bg-theme-success bg-opacity-10 text-theme-success';
-      case 'warning': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'error': return 'bg-theme-error bg-opacity-10 text-theme-error';
+      case 'success': return 'bg-theme-success-bg text-theme-success-fg';
+      case 'warning': return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'error': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   },
@@ -365,10 +365,10 @@ export const auditLogsApi = {
   },
 
   getRiskScoreColor(score: number): string {
-    if (score >= 8) return 'bg-theme-error bg-opacity-10 text-theme-error';
-    if (score >= 5) return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-    if (score >= 3) return 'bg-theme-info bg-opacity-10 text-theme-info';
-    return 'bg-theme-success bg-opacity-10 text-theme-success';
+    if (score >= 8) return 'bg-theme-error-bg text-theme-error-fg';
+    if (score >= 5) return 'bg-theme-warning-bg text-theme-warning-fg';
+    if (score >= 3) return 'bg-theme-info-bg text-theme-info-fg';
+    return 'bg-theme-success-bg text-theme-success-fg';
   },
 
   // Available filter options

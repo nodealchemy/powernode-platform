@@ -41,29 +41,29 @@ export const AuditDashboardPage: React.FC = () => {
       label: 'Total Violations',
       value: stats?.total_violations ?? 0,
       icon: AlertTriangle,
-      colorClass: 'text-theme-warning',
-      bgClass: 'bg-theme-warning',
+      colorClass: 'text-theme-warning-fg',
+      bgClass: 'bg-theme-warning-bg',
     },
     {
       label: 'Open / Critical',
       value: `${stats?.open_violations ?? 0} / ${stats?.critical_violations ?? 0}`,
       icon: Shield,
-      colorClass: 'text-theme-error',
-      bgClass: 'bg-theme-error',
+      colorClass: 'text-theme-error-fg',
+      bgClass: 'bg-theme-error-bg',
     },
     {
       label: 'Active Policies',
       value: stats?.active_policies ?? 0,
       icon: FileCheck,
-      colorClass: 'text-theme-info',
-      bgClass: 'bg-theme-info',
+      colorClass: 'text-theme-info-fg',
+      bgClass: 'bg-theme-info-bg',
     },
     {
       label: 'Compliance Score',
       value: stats?.compliance_score != null ? `${stats.compliance_score}%` : '--',
       icon: Activity,
-      colorClass: 'text-theme-success',
-      bgClass: 'bg-theme-success',
+      colorClass: 'text-theme-success-fg',
+      bgClass: 'bg-theme-success-bg',
     },
     {
       label: 'Security Events Today',
@@ -131,7 +131,7 @@ export const AuditDashboardPage: React.FC = () => {
                       {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
                     </p>
                   </div>
-                  <div className={`h-10 w-10 ${stat.bgClass} bg-opacity-10 rounded-lg flex items-center justify-center`}>
+                  <div className={`h-10 w-10 ${stat.bgClass} rounded-lg flex items-center justify-center`}>
                     <Icon className={`h-5 w-5 ${stat.colorClass}`} />
                   </div>
                 </div>

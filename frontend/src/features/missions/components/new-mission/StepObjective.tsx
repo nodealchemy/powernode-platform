@@ -17,7 +17,7 @@ export const StepObjective: React.FC<StepObjectiveProps> = ({
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3 p-4 bg-theme-surface rounded-lg">
-        <Target className="w-5 h-5 text-theme-info flex-shrink-0" />
+        <Target className="w-5 h-5 text-theme-info-fg flex-shrink-0" />
         <div>
           <p className="text-sm font-medium text-theme-primary">Mission Objective</p>
           <p className="text-xs text-theme-tertiary">

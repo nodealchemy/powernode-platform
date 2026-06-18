@@ -31,9 +31,9 @@ interface MemoryTimelineProps {
 }
 
 const TIER_CONFIG: Record<string, { color: string; label: string }> = {
-  working: { color: 'text-theme-warning', label: 'Working' },
-  short_term: { color: 'text-theme-info', label: 'Short-Term' },
-  long_term: { color: 'text-theme-success', label: 'Long-Term' },
+  working: { color: 'text-theme-warning-fg', label: 'Working' },
+  short_term: { color: 'text-theme-info-fg', label: 'Short-Term' },
+  long_term: { color: 'text-theme-success-fg', label: 'Long-Term' },
   shared: { color: 'text-theme-primary', label: 'Shared' },
 };
 
@@ -199,7 +199,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
 
       {/* Error state */}
       {error && (
-        <div className="p-4 bg-theme-danger/10 border border-theme-danger/30 rounded-lg text-theme-danger">
+        <div className="p-4 bg-theme-danger-fg/10 border border-theme-danger-border/30 rounded-lg text-theme-danger-fg">
           {error}
         </div>
       )}
@@ -364,7 +364,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                                 variant="ghost"
                                 size="sm"
                                 onClick={(e) => { e.stopPropagation(); handleDelete(entry); }}
-                                className="text-theme-danger hover:text-theme-danger"
+                                className="text-theme-danger-fg hover:text-theme-danger-fg"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

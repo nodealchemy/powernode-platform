@@ -13,7 +13,7 @@ function getRatingStars(rating: number, size = 'h-3.5 w-3.5') {
   return Array.from({ length: 5 }, (_, i) => (
     <Star
       key={i}
-      className={`${size} ${i < rating ? 'text-theme-warning fill-current' : 'text-theme-tertiary'}`}
+      className={`${size} ${i < rating ? 'text-theme-warning-fg fill-current' : 'text-theme-tertiary'}`}
     />
   ));
 }
@@ -42,7 +42,7 @@ const StarInput: React.FC<{ value: number; onChange: (v: number) => void }> = ({
         onClick={() => onChange(i + 1)}
         className="p-0.5"
       >
-        <Star className={`h-5 w-5 ${i < value ? 'text-theme-warning fill-current' : 'text-theme-tertiary hover:text-theme-warning/50'}`} />
+        <Star className={`h-5 w-5 ${i < value ? 'text-theme-warning-fg fill-current' : 'text-theme-tertiary hover:text-theme-warning-fg/50'}`} />
       </button>
     ))}
   </div>
@@ -110,7 +110,7 @@ const FeedbackCard: React.FC<{ feedback: AgentFeedback; isExpanded: boolean; onT
       onClick={onToggle}
       className="flex items-center gap-3 p-4 cursor-pointer hover:bg-theme-background/50 transition-colors"
     >
-      <MessageSquare className="h-4 w-4 text-theme-info shrink-0" />
+      <MessageSquare className="h-4 w-4 text-theme-info-fg shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           {feedback.agent?.name ? (
@@ -127,7 +127,7 @@ const FeedbackCard: React.FC<{ feedback: AgentFeedback; isExpanded: boolean; onT
       <div className="flex items-center gap-2 shrink-0">
         <div className="flex items-center gap-0.5">{getRatingStars(feedback.rating)}</div>
         {feedback.applied_to_trust && (
-          <span title="Applied to trust"><ThumbsUp className="h-3.5 w-3.5 text-theme-success" /></span>
+          <span title="Applied to trust"><ThumbsUp className="h-3.5 w-3.5 text-theme-success-fg" /></span>
         )}
         <ChevronDown className={`h-4 w-4 text-theme-tertiary transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
       </div>
@@ -158,7 +158,7 @@ const FeedbackCard: React.FC<{ feedback: AgentFeedback; isExpanded: boolean; onT
           {feedback.context_id && <span>ID: {feedback.context_id.substring(0, 8)}...</span>}
           <span>Created {new Date(feedback.created_at).toLocaleString()}</span>
           {feedback.applied_to_trust && (
-            <span className="flex items-center gap-1 text-theme-success">
+            <span className="flex items-center gap-1 text-theme-success-fg">
               <ThumbsUp className="h-3 w-3" /> Applied to trust score
             </span>
           )}
@@ -190,12 +190,12 @@ const FeedbackSummary: React.FC<{ feedbacks: AgentFeedback[] }> = ({ feedbacks }
         <p className="text-xs text-theme-tertiary">Avg Rating</p>
         <div className="flex items-center gap-1">
           <p className="text-xl font-semibold text-theme-primary">{avgRating.toFixed(1)}</p>
-          <Star className="h-4 w-4 text-theme-warning fill-current" />
+          <Star className="h-4 w-4 text-theme-warning-fg fill-current" />
         </div>
       </Card>
       <Card className="p-3">
         <p className="text-xs text-theme-tertiary">Applied to Trust</p>
-        <p className="text-xl font-semibold text-theme-success">{appliedCount}</p>
+        <p className="text-xl font-semibold text-theme-success-fg">{appliedCount}</p>
       </Card>
       <Card className="p-3">
         <p className="text-xs text-theme-tertiary">Types</p>

@@ -68,8 +68,8 @@ export const AdminSettingsExtensionsTabPage: React.FC = () => {
   if (error) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-theme-error/30 bg-theme-error/5 p-4">
-          <p className="text-theme-error text-sm">{error}</p>
+        <div className="rounded-lg border border-theme-error-border/30 bg-theme-error-fg/5 p-4">
+          <p className="text-theme-error-fg text-sm">{error}</p>
         </div>
         <button
           onClick={() => { setLoading(true); fetchExtensions(); }}
@@ -133,7 +133,7 @@ export const AdminSettingsExtensionsTabPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     ext.installed
-                      ? 'bg-theme-success/10 text-theme-success'
+                      ? 'bg-theme-success-fg/10 text-theme-success-fg'
                       : 'bg-theme-background-secondary/30 text-theme-secondary'
                   }`}>
                     {ext.installed ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}

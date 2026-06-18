@@ -11,22 +11,22 @@ interface ChannelConversationComponentProps {
 }
 
 const MESSAGE_TYPE_COLORS: Record<string, string> = {
-  task_assignment: 'bg-theme-info/10 text-theme-info',
-  task_update: 'bg-theme-info/10 text-theme-info',
-  task_result: 'bg-theme-success/10 text-theme-success',
+  task_assignment: 'bg-theme-info-fg/10 text-theme-info-fg',
+  task_update: 'bg-theme-info-fg/10 text-theme-info-fg',
+  task_result: 'bg-theme-success-fg/10 text-theme-success-fg',
   work_plan: 'bg-theme-interactive-primary/10 text-theme-interactive-primary',
   synthesis: 'bg-theme-interactive-primary/10 text-theme-interactive-primary',
-  question: 'bg-theme-warning/10 text-theme-warning',
-  answer: 'bg-theme-success/10 text-theme-success',
-  escalation: 'bg-theme-error/10 text-theme-error',
+  question: 'bg-theme-warning-fg/10 text-theme-warning-fg',
+  answer: 'bg-theme-success-fg/10 text-theme-success-fg',
+  escalation: 'bg-theme-error-fg/10 text-theme-error-fg',
   coordination: 'bg-theme-text-tertiary/10 text-theme-secondary',
   broadcast: 'bg-theme-text-tertiary/10 text-theme-secondary',
   human_input: 'bg-theme-interactive-primary/10 text-theme-interactive-primary',
 };
 
 const PRIORITY_INDICATORS: Record<string, string> = {
-  urgent: 'text-theme-error',
-  high: 'text-theme-warning',
+  urgent: 'text-theme-error-fg',
+  high: 'text-theme-warning-fg',
 };
 
 function formatTime(dateStr: string): string {
@@ -72,7 +72,7 @@ const ChannelMessage: React.FC<{ message: TeamChannelMessage }> = ({ message }) 
             <AlertCircle className={`h-3 w-3 ${priorityColor}`} />
           )}
           {message.requires_response && !message.responded_at && (
-            <span className="flex items-center gap-0.5 text-[9px] font-medium text-theme-warning bg-theme-warning/10 px-1 py-0.5 rounded">
+            <span className="flex items-center gap-0.5 text-[9px] font-medium text-theme-warning-fg bg-theme-warning-fg/10 px-1 py-0.5 rounded">
               <Clock className="h-2.5 w-2.5" />
               Awaiting response
             </span>

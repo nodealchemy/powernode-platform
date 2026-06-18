@@ -312,9 +312,9 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
 
   const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'active': case 'indexed': case 'completed': return 'text-theme-success bg-theme-success/10';
-      case 'indexing': case 'processing': case 'pending': return 'text-theme-warning bg-theme-warning/10';
-      case 'error': case 'failed': return 'text-theme-danger bg-theme-danger/10';
+      case 'active': case 'indexed': case 'completed': return 'text-theme-success-fg bg-theme-success-fg/10';
+      case 'indexing': case 'processing': case 'pending': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+      case 'error': case 'failed': return 'text-theme-danger-fg bg-theme-danger-fg/10';
       case 'paused': case 'archived': return 'text-theme-secondary bg-theme-surface';
       default: return 'text-theme-secondary bg-theme-surface';
     }
@@ -374,7 +374,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-theme-info text-theme-info'
+                  ? 'border-theme-info-border text-theme-info-fg'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -388,7 +388,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info-border border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading knowledge base data...</p>
         </div>
       ) : (
@@ -412,7 +412,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                       key={kb.id}
                       onClick={() => setSelectedKb(kb)}
                       className={`bg-theme-surface border rounded-lg p-4 cursor-pointer transition-colors ${
-                        selectedKb?.id === kb.id ? 'border-theme-info' : 'border-theme hover:border-theme-info/50'
+                        selectedKb?.id === kb.id ? 'border-theme-info-border' : 'border-theme hover:border-theme-info-border/50'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -427,7 +427,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteKb(kb.id); }}
-                            className="text-theme-secondary hover:text-theme-danger transition-colors"
+                            className="text-theme-secondary hover:text-theme-danger-fg transition-colors"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -480,7 +480,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                         <div className="flex items-center gap-3">
                           <h3 className="font-medium text-theme-primary">{doc.name}</h3>
                           <span className={`px-2 py-1 text-xs rounded ${getStatusColor(doc.status)}`}>{doc.status}</span>
-                          <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">{doc.source_type}</span>
+                          <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">{doc.source_type}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {doc.status === 'pending' && (
@@ -493,7 +493,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                           )}
                           <button
                             onClick={() => handleDeleteDoc(doc.id)}
-                            className="text-theme-secondary hover:text-theme-danger transition-colors"
+                            className="text-theme-secondary hover:text-theme-danger-fg transition-colors"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -555,7 +555,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                         {queryResult.chunks.map((chunk, idx) => (
                           <div key={chunk.chunk_id} className="p-4 bg-theme-surface rounded-lg">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs font-medium text-theme-info">#{idx + 1}</span>
+                              <span className="text-xs font-medium text-theme-info-fg">#{idx + 1}</span>
                               <span className="text-xs text-theme-secondary">Score: {(chunk.score * 100).toFixed(1)}%</span>
                             </div>
                             <p className="text-sm text-theme-primary whitespace-pre-wrap">{chunk.content}</p>
@@ -573,7 +573,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                         {queryHistory.slice(0, 10).map(q => (
                           <div key={q.id} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
                             <div className="flex items-center gap-3">
-                              <MessageSquare size={14} className="text-theme-info" />
+                              <MessageSquare size={14} className="text-theme-info-fg" />
                               <span className="text-sm text-theme-primary">{q.query_text}</span>
                             </div>
                             <div className="flex items-center gap-3 text-xs text-theme-secondary">
@@ -620,7 +620,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                       <div className="flex items-center gap-3">
                         <h3 className="font-medium text-theme-primary">{connector.name}</h3>
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(connector.status)}`}>{connector.status}</span>
-                        <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">{connector.connector_type}</span>
+                        <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">{connector.connector_type}</span>
                       </div>
                       <button
                         onClick={() => handleSyncConnector(connector.id)}

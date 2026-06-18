@@ -58,17 +58,17 @@ export const StepTemplate: React.FC<StepTemplateProps> = ({
               onClick={() => onTemplateSelect(isSelected ? null : template)}
               className={`w-full text-left p-3 rounded-lg border transition-colors ${
                 isSelected
-                  ? 'border-theme-info bg-theme-info/5'
+                  ? 'border-theme-info-border bg-theme-info-fg/5'
                   : 'border-theme hover:border-theme bg-theme-surface'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Icon className={`w-5 h-5 flex-shrink-0 ${isSelected ? 'text-theme-info' : 'text-theme-tertiary'}`} />
+                <Icon className={`w-5 h-5 flex-shrink-0 ${isSelected ? 'text-theme-info-fg' : 'text-theme-tertiary'}`} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-theme-primary">{template.name}</span>
                     {template.template_type === 'system' && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-theme-info/10 text-theme-info">System</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-theme-info-fg/10 text-theme-info-fg">System</span>
                     )}
                   </div>
                   {template.description && (
@@ -89,7 +89,7 @@ export const StepTemplate: React.FC<StepTemplateProps> = ({
           onClick={() => onTemplateSelect(null)}
           className={`w-full text-left p-3 rounded-lg border transition-colors ${
             selectedTemplateId === null && templates.length > 0
-              ? 'border-theme-info bg-theme-info/5'
+              ? 'border-theme-info-border bg-theme-info-fg/5'
               : 'border-theme hover:border-theme bg-theme-surface'
           }`}
         >

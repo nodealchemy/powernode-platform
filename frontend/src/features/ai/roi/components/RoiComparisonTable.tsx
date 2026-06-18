@@ -26,8 +26,8 @@ export const RoiComparisonTable: React.FC<RoiComparisonTableProps> = ({
             <div key={agent.id} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold ${
-                  index === 0 ? 'bg-theme-success' :
-                  index === 1 ? 'bg-theme-info' : 'bg-theme-background-secondary'
+                  index === 0 ? 'bg-theme-success-bg' :
+                  index === 1 ? 'bg-theme-info-bg' : 'bg-theme-background-secondary'
                 }`}>
                   {index + 1}
                 </div>
@@ -45,7 +45,7 @@ export const RoiComparisonTable: React.FC<RoiComparisonTableProps> = ({
               </div>
               <div className="text-right">
                 <p className={`font-semibold ${
-                  agent.roi_percentage >= 200 ? 'text-theme-success' : 'text-theme-primary'
+                  agent.roi_percentage >= 200 ? 'text-theme-success-fg' : 'text-theme-primary'
                 }`}>
                   {agent.roi_percentage.toFixed(0)}% ROI
                 </p>

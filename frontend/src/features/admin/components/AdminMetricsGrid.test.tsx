@@ -117,7 +117,7 @@ describe('AdminMetricsGrid', () => {
       const { container } = render(<AdminMetricsGrid metrics={lowActiveMetrics} />);
 
       // Should have warning styling for active accounts
-      expect(container.querySelector('.border-theme-warning')).toBeInTheDocument();
+      expect(container.querySelector('.border-theme-warning-border')).toBeInTheDocument();
     });
 
     it('applies warning status for medium failed payments', () => {
@@ -128,7 +128,7 @@ describe('AdminMetricsGrid', () => {
 
       const { container } = render(<AdminMetricsGrid metrics={mediumFailedMetrics} />);
 
-      expect(container.querySelector('.border-theme-warning')).toBeInTheDocument();
+      expect(container.querySelector('.border-theme-warning-border')).toBeInTheDocument();
     });
 
     it('applies critical status for high failed payments', () => {
@@ -139,7 +139,7 @@ describe('AdminMetricsGrid', () => {
 
       const { container } = render(<AdminMetricsGrid metrics={highFailedMetrics} />);
 
-      expect(container.querySelector('.border-theme-error')).toBeInTheDocument();
+      expect(container.querySelector('.border-theme-error-border')).toBeInTheDocument();
     });
 
     it('applies warning status for warning system health', () => {
@@ -150,7 +150,7 @@ describe('AdminMetricsGrid', () => {
 
       const { container } = render(<AdminMetricsGrid metrics={warningMetrics} />);
 
-      expect(container.querySelector('.border-theme-warning')).toBeInTheDocument();
+      expect(container.querySelector('.border-theme-warning-border')).toBeInTheDocument();
     });
 
     it('applies critical status for error system health', () => {
@@ -161,7 +161,7 @@ describe('AdminMetricsGrid', () => {
 
       const { container } = render(<AdminMetricsGrid metrics={errorMetrics} />);
 
-      expect(container.querySelector('.border-theme-error')).toBeInTheDocument();
+      expect(container.querySelector('.border-theme-error-border')).toBeInTheDocument();
     });
   });
 

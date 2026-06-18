@@ -20,7 +20,7 @@ export function ResearchResultsPanel({ report }: ResearchResultsPanelProps) {
       {/* Overlap Warnings */}
       {hasOverlaps && (
         <Card variant="outlined" padding="sm">
-          <div className="flex items-center gap-2 mb-2 text-theme-warning">
+          <div className="flex items-center gap-2 mb-2 text-theme-warning-fg">
             <AlertTriangle className="w-4 h-4" />
             <span className="text-sm font-medium">Similar skills detected</span>
           </div>

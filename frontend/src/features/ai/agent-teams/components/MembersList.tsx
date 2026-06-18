@@ -29,7 +29,7 @@ export const MembersList: React.FC<MembersListProps> = ({
               key={member.id}
               className="flex items-center gap-3 p-3 rounded-md bg-theme-surface border border-theme"
             >
-              <Bot className="h-5 w-5 text-theme-info flex-shrink-0" />
+              <Bot className="h-5 w-5 text-theme-info-fg flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <EntityLink
@@ -39,7 +39,7 @@ export const MembersList: React.FC<MembersListProps> = ({
                     className="text-sm font-medium truncate"
                   />
                   {member.is_lead && (
-                    <Crown className="h-3.5 w-3.5 text-theme-warning flex-shrink-0" />
+                    <Crown className="h-3.5 w-3.5 text-theme-warning-fg flex-shrink-0" />
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
@@ -59,7 +59,7 @@ export const MembersList: React.FC<MembersListProps> = ({
               <button
                 onClick={() => onRemoveMember(member.id)}
                 disabled={removingMemberId === member.id}
-                className="flex-shrink-0 p-1 rounded hover:bg-theme-error/10 text-theme-secondary hover:text-theme-danger transition-colors disabled:opacity-50"
+                className="flex-shrink-0 p-1 rounded hover:bg-theme-error-fg/10 text-theme-secondary hover:text-theme-danger-fg transition-colors disabled:opacity-50"
                 title="Remove member"
               >
                 {removingMemberId === member.id ? (

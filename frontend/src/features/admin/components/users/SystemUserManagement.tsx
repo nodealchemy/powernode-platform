@@ -108,10 +108,10 @@ export const SystemUserManagement: React.FC = () => {
 
   const getRoleBadge = (user: User) => {
     const roleColors = {
-      'system.admin': 'bg-theme-error bg-opacity-10 text-theme-error',
-      'account.manager': 'bg-theme-success bg-opacity-10 text-theme-success',
-      'account.member': 'bg-theme-info bg-opacity-10 text-theme-info',
-      'billing.manager': 'bg-theme-warning bg-opacity-10 text-theme-warning',
+      'system.admin': 'bg-theme-error-bg text-theme-error-fg',
+      'account.manager': 'bg-theme-success-bg text-theme-success-fg',
+      'account.member': 'bg-theme-info-bg text-theme-info-fg',
+      'billing.manager': 'bg-theme-warning-bg text-theme-warning-fg',
     };
 
     if (user.roles && user.roles.length > 0) {
@@ -143,9 +143,9 @@ export const SystemUserManagement: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const statusColors = {
-      active: 'bg-theme-success bg-opacity-10 text-theme-success',
-      invited: 'bg-theme-warning bg-opacity-10 text-theme-warning',
-      suspended: 'bg-theme-error bg-opacity-10 text-theme-error',
+      active: 'bg-theme-success-bg text-theme-success-fg',
+      invited: 'bg-theme-warning-bg text-theme-warning-fg',
+      suspended: 'bg-theme-error-bg text-theme-error-fg',
       inactive: 'bg-theme-surface text-theme-tertiary',
     };
 
@@ -169,12 +169,12 @@ export const SystemUserManagement: React.FC = () => {
 
   if (!isAdmin) {
     return (
-      <div className="bg-theme-error bg-opacity-10 border border-theme-error border-opacity-30 rounded-lg p-6">
+      <div className="bg-theme-error-bg border border-theme-error-border rounded-lg p-6">
         <div className="flex items-center space-x-3">
-          <span className="text-theme-error text-2xl">🚫</span>
+          <span className="text-theme-error-fg text-2xl">🚫</span>
           <div>
-            <h3 className="text-lg font-semibold text-theme-error">Access Denied</h3>
-            <p className="text-theme-error opacity-80">
+            <h3 className="text-lg font-semibold text-theme-error-fg">Access Denied</h3>
+            <p className="text-theme-error-fg opacity-80">
               You do not have permission to access system user management.
             </p>
           </div>
@@ -211,13 +211,13 @@ export const SystemUserManagement: React.FC = () => {
           </div>
           <div className="bg-theme-background rounded-lg p-4">
             <h3 className="text-sm font-medium text-theme-tertiary mb-1">Active</h3>
-            <p className="text-2xl font-bold text-theme-success">
+            <p className="text-2xl font-bold text-theme-success-fg">
               {users.filter(u => u.status === 'active').length}
             </p>
           </div>
           <div className="bg-theme-background rounded-lg p-4">
             <h3 className="text-sm font-medium text-theme-tertiary mb-1">Suspended</h3>
-            <p className="text-2xl font-bold text-theme-error">
+            <p className="text-2xl font-bold text-theme-error-fg">
               {users.filter(u => u.status === 'suspended').length}
             </p>
           </div>
@@ -350,28 +350,28 @@ export const SystemUserManagement: React.FC = () => {
                       {user.status === 'active' ? (
                         <button
                           onClick={() => handleSuspendUser(user.id)}
-                          className="text-theme-warning hover:text-theme-warning-hover text-sm"
+                          className="text-theme-warning-fg hover:text-theme-warning-hover text-sm"
                         >
                           Suspend
                         </button>
                       ) : (
                         <button
                           onClick={() => handleActivateUser(user.id)}
-                          className="text-theme-success hover:text-theme-success-hover text-sm"
+                          className="text-theme-success-fg hover:text-theme-success-hover text-sm"
                         >
                           Activate
                         </button>
                       )}
                       <button
                         onClick={() => handleImpersonateUser(user.id)}
-                        className="text-theme-info hover:text-theme-info text-sm"
+                        className="text-theme-info-fg hover:text-theme-info-fg text-sm"
                         title="Impersonate User"
                       >
                         Impersonate
                       </button>
                       <button
                         onClick={() => handleDeleteUser(user.id)}
-                        className="text-theme-error hover:text-theme-error-hover text-sm"
+                        className="text-theme-error-fg hover:text-theme-error-hover text-sm"
                       >
                         Delete
                       </button>
@@ -395,7 +395,7 @@ export const SystemUserManagement: React.FC = () => {
 
       {/* User Details Modal */}
       {showDetailsModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-theme-surface rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-semibold text-theme-primary">User Details</h3>

@@ -31,10 +31,10 @@ const SEVERITY_ICONS: Record<string, React.ElementType> = {
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  info: 'text-theme-info bg-theme-info/20 dark:bg-theme-info/30',
-  success: 'text-theme-success bg-theme-success/20 dark:bg-theme-success/30',
-  warning: 'text-theme-warning bg-theme-warning/20 dark:bg-theme-warning/30',
-  error: 'text-theme-danger bg-theme-danger/20 dark:bg-theme-danger/30',
+  info: 'text-theme-info-fg bg-theme-info-fg/20 dark:bg-theme-info-fg/30',
+  success: 'text-theme-success-fg bg-theme-success-fg/20 dark:bg-theme-success-fg/30',
+  warning: 'text-theme-warning-fg bg-theme-warning-fg/20 dark:bg-theme-warning-fg/30',
+  error: 'text-theme-danger-fg bg-theme-danger-fg/20 dark:bg-theme-danger-fg/30',
 };
 
 export const NotificationBell: React.FC<NotificationBellProps> = ({
@@ -270,7 +270,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           <BellIcon className="h-6 w-6" />
         )}
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-5 w-5 text-xs font-bold text-white bg-theme-danger rounded-full">
+          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-5 w-5 text-xs font-bold text-white bg-theme-danger-bg rounded-full">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -287,7 +287,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 <button
                   onClick={handleDismissAll}
                   disabled={loading}
-                  className="text-xs text-theme-secondary hover:text-theme-danger transition-colors disabled:opacity-50"
+                  className="text-xs text-theme-secondary hover:text-theme-danger-fg transition-colors disabled:opacity-50"
                 >
                   Dismiss all
                 </button>
@@ -328,8 +328,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                       key={notification.id}
                       className={`
                         px-4 py-3 hover:bg-theme-surface-hover transition-colors cursor-pointer
-                        ${!notification.read ? 'bg-theme-info/10 dark:bg-theme-info/10' : ''}
-                        ${isAutonomyApproval ? 'border-l-4 border-theme-warning' : ''}
+                        ${!notification.read ? 'bg-theme-info-fg/10 dark:bg-theme-info-fg/10' : ''}
+                        ${isAutonomyApproval ? 'border-l-4 border-theme-warning-border' : ''}
                       `}
                       onClick={() => handleNotificationClick(notification)}
                     >
@@ -354,7 +354,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                               )}
                               <button
                                 onClick={(e) => handleDismiss(notification.id, e)}
-                                className="p-1 text-theme-tertiary hover:text-theme-error transition-colors"
+                                className="p-1 text-theme-tertiary hover:text-theme-error-fg transition-colors"
                                 title="Dismiss"
                               >
                                 <XMarkIcon className="h-4 w-4" />

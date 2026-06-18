@@ -171,7 +171,7 @@ describe('VendorRiskDashboardPage', () => {
       renderPage();
 
       const errorElement = screen.getByText('Test error');
-      expect(errorElement).toHaveClass('bg-theme-error', 'bg-opacity-10', 'text-theme-error');
+      expect(errorElement).toHaveClass('bg-theme-error-bg', 'text-theme-error-fg');
     });
 
     it('does not show page content in error state', () => {

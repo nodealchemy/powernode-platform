@@ -58,23 +58,23 @@ interface ConnectionNodeData {
 // Custom node for the selected agent (center)
 function AgentNode({ data }: { data: ConnectionNodeData }) {
   return (
-    <div className="px-4 py-3 rounded-lg border-2 border-theme-info bg-theme-surface shadow-lg min-w-[140px]">
-      <Handle type="target" position={Position.Top} className="!bg-theme-info" />
+    <div className="px-4 py-3 rounded-lg border-2 border-theme-info-border bg-theme-surface shadow-lg min-w-[140px]">
+      <Handle type="target" position={Position.Top} className="!bg-theme-info-bg" />
       <div className="flex items-center gap-2">
-        <Bot className="h-5 w-5 text-theme-info" />
+        <Bot className="h-5 w-5 text-theme-info-fg" />
         <div>
           <div className="font-semibold text-theme-primary text-sm">{data.label}</div>
           <div className="text-xs text-theme-tertiary">{String(data.metadata?.agent_type || 'agent')}</div>
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-info" />
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-info-bg" />
     </div>
   );
 }
 
 // Custom node for peer agents
 function PeerAgentNode({ data }: { data: ConnectionNodeData }) {
-  const statusColor = data.status === 'active' ? 'text-theme-success' : 'text-theme-tertiary';
+  const statusColor = data.status === 'active' ? 'text-theme-success-fg' : 'text-theme-tertiary';
   return (
     <div className="px-3 py-2 rounded-lg border border-theme bg-theme-surface shadow min-w-[120px]">
       <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
@@ -96,7 +96,7 @@ function TeamNode({ data }: { data: ConnectionNodeData }) {
     <div className="px-3 py-2 rounded-lg border border-theme bg-theme-surface shadow min-w-[120px]">
       <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <div className="flex items-center gap-2">
-        <Users className="h-4 w-4 text-theme-info" />
+        <Users className="h-4 w-4 text-theme-info-fg" />
         <div>
           <div className="font-medium text-theme-primary text-xs">{data.label}</div>
           <div className="text-[10px] text-theme-tertiary">
@@ -115,7 +115,7 @@ function McpServerNode({ data }: { data: ConnectionNodeData }) {
     <div className="px-3 py-2 rounded-lg border border-theme bg-theme-surface shadow min-w-[120px]">
       <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <div className="flex items-center gap-2">
-        <Server className="h-4 w-4 text-theme-warning" />
+        <Server className="h-4 w-4 text-theme-warning-fg" />
         <div>
           <div className="font-medium text-theme-primary text-xs">{data.label}</div>
           <div className="text-[10px] text-theme-tertiary">MCP Server</div>
@@ -132,7 +132,7 @@ function MemoryPoolNode({ data }: { data: ConnectionNodeData }) {
     <div className="px-3 py-2 rounded-lg border border-theme bg-theme-surface shadow min-w-[120px]">
       <Handle type="target" position={Position.Top} className="!bg-theme-background-secondary" />
       <div className="flex items-center gap-2">
-        <Database className="h-4 w-4 text-theme-success" />
+        <Database className="h-4 w-4 text-theme-success-fg" />
         <div>
           <div className="font-medium text-theme-primary text-xs">{data.label}</div>
           <div className="text-[10px] text-theme-tertiary">Memory Pool</div>
@@ -250,7 +250,7 @@ export const AgentConnectionsGraph: React.FC<AgentConnectionsGraphProps> = ({ ag
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-3">
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-theme-info" />
+              <Users className="h-4 w-4 text-theme-info-fg" />
               <div>
                 <div className="text-xs text-theme-tertiary">Teams</div>
                 <div className="text-lg font-semibold text-theme-primary">{summary.teams}</div>
@@ -259,7 +259,7 @@ export const AgentConnectionsGraph: React.FC<AgentConnectionsGraphProps> = ({ ag
           </Card>
           <Card className="p-3">
             <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4 text-theme-info" />
+              <Bot className="h-4 w-4 text-theme-info-fg" />
               <div>
                 <div className="text-xs text-theme-tertiary">Peers</div>
                 <div className="text-lg font-semibold text-theme-primary">{summary.peers}</div>
@@ -268,7 +268,7 @@ export const AgentConnectionsGraph: React.FC<AgentConnectionsGraphProps> = ({ ag
           </Card>
           <Card className="p-3">
             <div className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-theme-warning" />
+              <Server className="h-4 w-4 text-theme-warning-fg" />
               <div>
                 <div className="text-xs text-theme-tertiary">MCP Servers</div>
                 <div className="text-lg font-semibold text-theme-primary">{summary.mcp_servers}</div>
@@ -277,7 +277,7 @@ export const AgentConnectionsGraph: React.FC<AgentConnectionsGraphProps> = ({ ag
           </Card>
           <Card className="p-3">
             <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-theme-success" />
+              <Database className="h-4 w-4 text-theme-success-fg" />
               <div>
                 <div className="text-xs text-theme-tertiary">Connections</div>
                 <div className="text-lg font-semibold text-theme-primary">{summary.connections}</div>

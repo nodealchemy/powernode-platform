@@ -21,7 +21,7 @@ export const AddCredentialForm: React.FC<AddCredentialFormProps> = ({
   disabled
 }) => {
   return (
-    <div className="space-y-4 p-4 bg-theme-info/5 border border-theme-info/20 rounded-lg">
+    <div className="space-y-4 p-4 bg-theme-info-fg/5 border border-theme-info-border/20 rounded-lg">
       <h5 className="text-sm font-medium text-theme-primary flex items-center gap-2">
         <Plus className="h-4 w-4" />
         Add New Credential (Optional)
@@ -84,7 +84,7 @@ export const AddCredentialForm: React.FC<AddCredentialFormProps> = ({
       </div>
 
       {(data.name || data.api_key) && (
-        <div className="text-xs text-theme-info">
+        <div className="text-xs text-theme-info-fg">
           <strong>Note:</strong> A new credential will be created with these details when you save the provider.
         </div>
       )}

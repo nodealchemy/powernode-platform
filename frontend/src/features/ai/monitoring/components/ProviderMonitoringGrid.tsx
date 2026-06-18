@@ -43,9 +43,9 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
 
   const getCircuitBreakerIcon = (state: string) => {
     switch (state) {
-      case 'closed': return <CheckCircle className="h-4 w-4 text-theme-success" />;
-      case 'half_open': return <Clock className="h-4 w-4 text-theme-warning" />;
-      case 'open': return <XCircle className="h-4 w-4 text-theme-error" />;
+      case 'closed': return <CheckCircle className="h-4 w-4 text-theme-success-fg" />;
+      case 'half_open': return <Clock className="h-4 w-4 text-theme-warning-fg" />;
+      case 'open': return <XCircle className="h-4 w-4 text-theme-error-fg" />;
       default: return <AlertCircle className="h-4 w-4 text-theme-tertiary" />;
     }
   };
@@ -101,7 +101,7 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
               {/* Health Score */}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-theme-tertiary">Health Score</span>
-                <span className={`font-medium ${provider.health_score >= 90 ? 'text-theme-success' : provider.health_score >= 70 ? 'text-theme-warning' : 'text-theme-error'}`}>
+                <span className={`font-medium ${provider.health_score >= 90 ? 'text-theme-success-fg' : provider.health_score >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
                   {provider.health_score.toFixed(1)}%
                 </span>
               </div>
@@ -119,7 +119,7 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-theme-tertiary">Success Rate</span>
-                  <span className={provider.performance.success_rate >= 95 ? 'text-theme-success' : provider.performance.success_rate >= 90 ? 'text-theme-warning' : 'text-theme-error'}>
+                  <span className={provider.performance.success_rate >= 95 ? 'text-theme-success-fg' : provider.performance.success_rate >= 90 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}>
                     {provider.performance.success_rate.toFixed(1)}%
                   </span>
                 </div>
@@ -151,9 +151,9 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
 
               {/* Active Alerts */}
               {provider.alerts.length > 0 && (
-                <div className="flex items-center gap-2 p-2 bg-theme-error/10 rounded border border-theme-error/20">
-                  <AlertCircle className="h-4 w-4 text-theme-error" />
-                  <span className="text-sm text-theme-error">
+                <div className="flex items-center gap-2 p-2 bg-theme-error-fg/10 rounded border border-theme-error-border/20">
+                  <AlertCircle className="h-4 w-4 text-theme-error-fg" />
+                  <span className="text-sm text-theme-error-fg">
                     {provider.alerts.length} active alert{provider.alerts.length > 1 ? 's' : ''}
                   </span>
                 </div>

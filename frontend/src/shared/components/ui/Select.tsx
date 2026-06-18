@@ -43,7 +43,7 @@ export const Select: React.FC<SelectProps> = ({
     focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent
     disabled:bg-theme-background disabled:text-theme-secondary
     ${fullWidth ? 'w-full' : ''}
-    ${error ? 'border-theme-error focus:ring-theme-error' : ''}
+    ${error ? 'border-theme-error-border focus:ring-theme-error-fg' : ''}
     ${className}
   `.trim();
 
@@ -75,7 +75,7 @@ export const Select: React.FC<SelectProps> = ({
         )}
       </select>
       {error && (
-        <p className="mt-1 text-sm text-theme-error">
+        <p className="mt-1 text-sm text-theme-error-fg">
           {error}
         </p>
       )}

@@ -115,7 +115,7 @@ describe('AuditLogFilters', () => {
       render(<AuditLogFilters {...defaultProps} filters={activeFilters} />);
 
       const failedLoginsButton = screen.getByText('Failed Logins').closest('button');
-      expect(failedLoginsButton).toHaveClass('bg-theme-error');
+      expect(failedLoginsButton).toHaveClass('bg-theme-error-bg');
     });
   });
 

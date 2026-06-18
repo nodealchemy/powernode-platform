@@ -39,7 +39,7 @@ export const SwarmLogViewer: React.FC<SwarmLogViewerProps> = ({ logs, isLoading,
               <span className="text-theme-tertiary flex-shrink-0 select-none">
                 {entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : ''}
               </span>
-              <span className={entry.stream === 'stderr' ? 'text-theme-error' : 'text-theme-primary'}>
+              <span className={entry.stream === 'stderr' ? 'text-theme-error-fg' : 'text-theme-primary'}>
                 {entry.message}
               </span>
             </div>

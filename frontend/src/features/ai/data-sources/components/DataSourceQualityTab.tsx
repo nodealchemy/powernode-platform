@@ -118,9 +118,9 @@ export const DataSourceQualityTab: React.FC<DataSourceQualityTabProps> = ({ data
     >
       <div className="min-w-0 flex items-start gap-2">
         {result.passed ? (
-          <CheckCircle2 className="h-4 w-4 text-theme-success shrink-0 mt-0.5" />
+          <CheckCircle2 className="h-4 w-4 text-theme-success-fg shrink-0 mt-0.5" />
         ) : (
-          <XCircle className="h-4 w-4 text-theme-error shrink-0 mt-0.5" />
+          <XCircle className="h-4 w-4 text-theme-error-fg shrink-0 mt-0.5" />
         )}
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -202,10 +202,10 @@ export const DataSourceQualityTab: React.FC<DataSourceQualityTabProps> = ({ data
           />
 
           {!qualityEnabled && (
-            <div className="p-3 bg-theme-warning/10 border border-theme-warning/20 rounded-lg">
+            <div className="p-3 bg-theme-warning-fg/10 border border-theme-warning-border/20 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-theme-warning shrink-0" />
-                <span className="text-sm text-theme-warning">
+                <AlertTriangle className="h-4 w-4 text-theme-warning-fg shrink-0" />
+                <span className="text-sm text-theme-warning-fg">
                   Quality checks are disabled for this endpoint. Enable &quot;Quality checks&quot; to
                   evaluate expectations on each fetch.
                 </span>
@@ -280,10 +280,10 @@ export const DataSourceQualityTab: React.FC<DataSourceQualityTabProps> = ({ data
           )}
 
           {latest?.quarantined && (
-            <div className="p-3 bg-theme-error/10 border border-theme-error/20 rounded-lg">
+            <div className="p-3 bg-theme-error-fg/10 border border-theme-error-border/20 rounded-lg">
               <div className="flex items-center gap-2">
-                <Lock className="h-4 w-4 text-theme-error shrink-0" />
-                <span className="text-sm text-theme-error">
+                <Lock className="h-4 w-4 text-theme-error-fg shrink-0" />
+                <span className="text-sm text-theme-error-fg">
                   Last fetch failed quality and was quarantined. Last-known-good data is served from
                   cache until quality recovers.
                 </span>

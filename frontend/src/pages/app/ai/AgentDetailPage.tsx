@@ -96,7 +96,7 @@ const IntelligenceContent: React.FC<{ agentId: string }> = ({ agentId }) => {
       {/* Experience Replays */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Lightbulb size={18} className="text-theme-warning" />
+          <Lightbulb size={18} className="text-theme-warning-fg" />
           <h3 className="text-lg font-medium text-theme-primary">Experience Replays</h3>
           <Badge variant="secondary" size="sm">{replays.length}</Badge>
         </div>
@@ -127,7 +127,7 @@ const IntelligenceContent: React.FC<{ agentId: string }> = ({ agentId }) => {
       {/* Self-Challenges */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Trophy size={18} className="text-theme-info" />
+          <Trophy size={18} className="text-theme-info-fg" />
           <h3 className="text-lg font-medium text-theme-primary">Self-Challenges</h3>
           <Badge variant="secondary" size="sm">{challenges.length}</Badge>
         </div>
@@ -141,7 +141,7 @@ const IntelligenceContent: React.FC<{ agentId: string }> = ({ agentId }) => {
                   <div className="flex items-center gap-2">
                     <Badge variant={getChallengeStatusColor(c.status) as 'success' | 'danger' | 'info' | 'secondary'} size="sm">{c.status}</Badge>
                     <Badge variant={getDifficultyColor(c.difficulty) as 'success' | 'info' | 'warning' | 'danger'} size="sm">{c.difficulty}</Badge>
-                    {c.skill && <span className="text-xs text-theme-info">{c.skill.name}</span>}
+                    {c.skill && <span className="text-xs text-theme-info-fg">{c.skill.name}</span>}
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     {c.quality_score != null && <span className="text-theme-secondary">Score: <strong>{(c.quality_score * 100).toFixed(0)}%</strong></span>}
@@ -258,8 +258,8 @@ export const AgentDetailPage: React.FC = () => {
         <TabPanel tabId="overview" activeTab={activeTab}>
           <Card className="p-6">
             <div className="flex items-start gap-4 mb-6">
-              <div className="h-12 w-12 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-                <Bot className="h-6 w-6 text-theme-info" />
+              <div className="h-12 w-12 bg-theme-info-bg rounded-lg flex items-center justify-center">
+                <Bot className="h-6 w-6 text-theme-info-fg" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-1">
@@ -329,7 +329,7 @@ export const AgentDetailPage: React.FC = () => {
                 )}
                 {agent.skill_slugs && agent.skill_slugs.length > 0 && (
                   <div className="text-xs">
-                    <button type="button" onClick={() => navigate('/app/ai/knowledge?tab=skill-graph')} className="text-theme-info hover:underline">
+                    <button type="button" onClick={() => navigate('/app/ai/knowledge?tab=skill-graph')} className="text-theme-info-fg hover:underline">
                       View skills in graph →
                     </button>
                   </div>

@@ -40,13 +40,13 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 function getStatusColor(status: string): string {
   switch (status) {
-    case 'active': return 'text-theme-success bg-theme-success/10';
+    case 'active': return 'text-theme-success-fg bg-theme-success-fg/10';
     case 'inactive': return 'text-theme-secondary bg-theme-surface';
-    case 'paused': return 'text-theme-warning bg-theme-warning/10';
-    case 'completed': return 'text-theme-success bg-theme-success/10';
-    case 'running': return 'text-theme-info bg-theme-info/10';
-    case 'failed': return 'text-theme-danger bg-theme-danger/10';
-    case 'passed': return 'text-theme-success bg-theme-success/10';
+    case 'paused': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+    case 'completed': return 'text-theme-success-fg bg-theme-success-fg/10';
+    case 'running': return 'text-theme-info-fg bg-theme-info-fg/10';
+    case 'failed': return 'text-theme-danger-fg bg-theme-danger-fg/10';
+    case 'passed': return 'text-theme-success-fg bg-theme-success-fg/10';
     default: return 'text-theme-secondary bg-theme-surface';
   }
 }
@@ -204,7 +204,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-theme-info text-theme-info'
+                  ? 'border-theme-info-border text-theme-info-fg'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -258,7 +258,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info-border border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading sandbox data...</p>
         </div>
       ) : (
@@ -287,7 +287,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                       data-selected={selectedSandbox?.id === sandbox.id}
                       onClick={() => setSelectedSandbox(sandbox)}
                       className={`bg-theme-surface border rounded-lg p-4 cursor-pointer transition-colors ${
-                        selectedSandbox?.id === sandbox.id ? 'border-theme-info' : 'border-theme hover:border-theme-info/50'
+                        selectedSandbox?.id === sandbox.id ? 'border-theme-info-border' : 'border-theme hover:border-theme-info-border/50'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -303,7 +303,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                         <span>{sandbox.total_executions} executions</span>
                       </div>
                       {sandbox.recording_enabled && (
-                        <span className="inline-block mt-2 px-2 py-1 text-xs bg-theme-danger/10 text-theme-danger rounded">Recording</span>
+                        <span className="inline-block mt-2 px-2 py-1 text-xs bg-theme-danger-fg/10 text-theme-danger-fg rounded">Recording</span>
                       )}
                     </div>
                   ))}
@@ -337,7 +337,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                         <span data-testid="scenario-status-badge" className={`px-2 py-1 text-xs rounded ${getStatusColor(scenario.status)}`}>
                           {scenario.status}
                         </span>
-                        <span data-testid="scenario-type-badge" className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
+                        <span data-testid="scenario-type-badge" className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">
                           {scenario.scenario_type}
                         </span>
                       </div>
@@ -348,8 +348,8 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                     <p className="text-sm text-theme-secondary mb-2">{scenario.description}</p>
                     <div className="flex gap-4 text-xs text-theme-secondary">
                       <span>{scenario.run_count} runs</span>
-                      <span className="text-theme-success">{scenario.pass_count} passed</span>
-                      <span className="text-theme-danger">{scenario.fail_count} failed</span>
+                      <span className="text-theme-success-fg">{scenario.pass_count} passed</span>
+                      <span className="text-theme-danger-fg">{scenario.fail_count} failed</span>
                     </div>
                   </div>
                 ))
@@ -397,7 +397,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(run.status)}`}>
                           {run.status}
                         </span>
-                        <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
+                        <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">
                           {run.run_type}
                         </span>
                       </div>
@@ -407,8 +407,8 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                     </div>
                     <div className="flex gap-4 text-sm text-theme-secondary">
                       <span>{run.total_scenarios} scenarios</span>
-                      <span className="text-theme-success">{run.passed_scenarios} passed</span>
-                      <span className="text-theme-danger">{run.failed_scenarios} failed</span>
+                      <span className="text-theme-success-fg">{run.passed_scenarios} passed</span>
+                      <span className="text-theme-danger-fg">{run.failed_scenarios} failed</span>
                       {run.duration_ms && <span>{(run.duration_ms / 1000).toFixed(2)}s</span>}
                     </div>
                   </div>
@@ -441,15 +441,15 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                       <div className="flex items-center gap-2">
                         {benchmark.trend && (
                           <span className={`px-2 py-1 text-xs rounded ${
-                            benchmark.trend === 'improving' ? 'text-theme-success bg-theme-success/10' :
-                            benchmark.trend === 'degrading' ? 'text-theme-danger bg-theme-danger/10' :
+                            benchmark.trend === 'improving' ? 'text-theme-success-fg bg-theme-success-fg/10' :
+                            benchmark.trend === 'degrading' ? 'text-theme-danger-fg bg-theme-danger-fg/10' :
                             'text-theme-secondary bg-theme-surface'
                           }`}>
                             {benchmark.trend}
                           </span>
                         )}
                         {benchmark.latest_score !== null && (
-                          <span className="text-lg font-bold text-theme-info">{benchmark.latest_score}</span>
+                          <span className="text-lg font-bold text-theme-info-fg">{benchmark.latest_score}</span>
                         )}
                       </div>
                     </div>
@@ -487,7 +487,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                         </span>
                       </div>
                       {test.winning_variant && (
-                        <span className="text-sm font-medium text-theme-success">
+                        <span className="text-sm font-medium text-theme-success-fg">
                           Winner: {test.winning_variant}
                         </span>
                       )}

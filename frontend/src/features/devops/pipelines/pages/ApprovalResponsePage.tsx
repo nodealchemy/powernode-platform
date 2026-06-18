@@ -163,7 +163,7 @@ export const ApprovalResponsePage: React.FC = () => {
     return (
       <div className="min-h-screen bg-theme-background flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-theme-surface rounded-xl shadow-lg border border-theme p-8 text-center">
-          <AlertTriangle className="w-16 h-16 text-theme-error mx-auto mb-4" />
+          <AlertTriangle className="w-16 h-16 text-theme-error-fg mx-auto mb-4" />
           <h1 className="text-xl font-semibold text-theme-primary mb-2">
             Unable to Process Request
           </h1>
@@ -181,9 +181,9 @@ export const ApprovalResponsePage: React.FC = () => {
       <div className="min-h-screen bg-theme-background flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-theme-surface rounded-xl shadow-lg border border-theme p-8 text-center">
           {completed === 'approve' ? (
-            <CheckCircle className="w-16 h-16 text-theme-success mx-auto mb-4" />
+            <CheckCircle className="w-16 h-16 text-theme-success-fg mx-auto mb-4" />
           ) : (
-            <XCircle className="w-16 h-16 text-theme-error mx-auto mb-4" />
+            <XCircle className="w-16 h-16 text-theme-error-fg mx-auto mb-4" />
           )}
           <h1 className="text-xl font-semibold text-theme-primary mb-2">
             {completed === 'approve' ? 'Step Approved' : 'Step Rejected'}
@@ -240,7 +240,7 @@ export const ApprovalResponsePage: React.FC = () => {
           </div>
 
           {details.step_configuration.description && (
-            <div className="bg-theme-warning/10 border-l-4 border-theme-warning rounded-r px-4 py-3">
+            <div className="bg-theme-warning-fg/10 border-l-4 border-theme-warning-border rounded-r px-4 py-3">
               <p className="text-sm text-theme-primary">
                 <strong>Description:</strong> {details.step_configuration.description}
               </p>
@@ -248,7 +248,7 @@ export const ApprovalResponsePage: React.FC = () => {
           )}
 
           {/* Time remaining */}
-          <div className={`flex items-center gap-2 ${isExpired ? 'text-theme-error' : 'text-theme-secondary'}`}>
+          <div className={`flex items-center gap-2 ${isExpired ? 'text-theme-error-fg' : 'text-theme-secondary'}`}>
             <Clock className="w-4 h-4" />
             <span className="text-sm">
               {isExpired ? 'This approval request has expired' : formatTimeRemaining(details.time_remaining_seconds)}
@@ -260,7 +260,7 @@ export const ApprovalResponsePage: React.FC = () => {
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-theme-secondary mb-2">
                 <MessageSquare className="w-4 h-4" />
-                Comment {details.requires_comment && <span className="text-theme-error">*</span>}
+                Comment {details.requires_comment && <span className="text-theme-error-fg">*</span>}
               </label>
               <textarea
                 value={comment}
@@ -278,7 +278,7 @@ export const ApprovalResponsePage: React.FC = () => {
               <Button
                 onClick={() => handleSubmit('approve')}
                 variant="primary"
-                className="flex-1 bg-theme-success hover:bg-theme-success/90"
+                className="flex-1 bg-theme-success-bg hover:bg-theme-success-fg/90"
                 disabled={submitting}
               >
                 {submitting ? (
@@ -291,7 +291,7 @@ export const ApprovalResponsePage: React.FC = () => {
               <Button
                 onClick={() => handleSubmit('reject')}
                 variant="primary"
-                className="flex-1 bg-theme-error hover:bg-theme-error/90"
+                className="flex-1 bg-theme-error-bg hover:bg-theme-error-fg/90"
                 disabled={submitting}
               >
                 {submitting ? (

@@ -27,10 +27,10 @@ export const WebSocketConfigFields: React.FC<WebSocketConfigFieldsProps> = ({
           ? 'e.g., wss://mcp.example.com'
           : 'e.g., http://localhost:3100'
       }
-      className={urlError ? 'border-theme-error' : ''}
+      className={urlError ? 'border-theme-error-border' : ''}
     />
     {urlError && (
-      <p className="mt-1 text-sm text-theme-error">{urlError}</p>
+      <p className="mt-1 text-sm text-theme-error-fg">{urlError}</p>
     )}
   </div>
 );

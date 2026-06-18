@@ -28,11 +28,11 @@ const statusIconMap: Record<string, React.FC<{ className?: string }>> = {
 
 const statusColorMap: Record<string, string> = {
   pending: 'text-theme-tertiary',
-  active: 'text-theme-info',
-  completed: 'text-theme-success',
-  failed: 'text-theme-danger',
-  cancelled: 'text-theme-warning',
-  input_required: 'text-theme-warning',
+  active: 'text-theme-info-fg',
+  completed: 'text-theme-success-fg',
+  failed: 'text-theme-danger-fg',
+  cancelled: 'text-theme-warning-fg',
+  input_required: 'text-theme-warning-fg',
 };
 
 function timeAgo(timestamp: string): string {

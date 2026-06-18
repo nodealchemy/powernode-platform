@@ -20,9 +20,9 @@ const DEFAULT_AGENTS: AgentNode[] = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-theme-success border-theme-success',
-  idle: 'bg-theme-info border-theme',
-  error: 'bg-theme-error/20 border-theme-danger'
+  active: 'bg-theme-success-bg border-theme-success-border',
+  idle: 'bg-theme-info-bg border-theme',
+  error: 'bg-theme-error-fg/20 border-theme-danger-border'
 };
 
 const PULSE_CLASS: Record<string, string> = {
@@ -83,15 +83,15 @@ export const ExecutionFlowVisualization: React.FC<ExecutionFlowVisualizationProp
             <div key={agent.id} className="flex flex-col items-center gap-2">
               <div className={`relative h-12 w-12 rounded-full flex items-center justify-center border-2 ${STATUS_COLORS[agent.status]} ${PULSE_CLASS[agent.status]}`}>
                 <Bot className={`h-5 w-5 ${
-                  agent.status === 'active' ? 'text-theme-success' : 'text-theme-secondary'
+                  agent.status === 'active' ? 'text-theme-success-fg' : 'text-theme-secondary'
                 }`} />
                 {agent.status === 'active' && (
-                  <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-theme-success border-2 border-theme-surface" />
+                  <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-theme-success-bg border-2 border-theme-surface" />
                 )}
               </div>
               <span className="text-xs font-medium text-theme-primary text-center">{agent.name}</span>
               <span className={`text-xs capitalize ${
-                agent.status === 'active' ? 'text-theme-success' : 'text-theme-secondary'
+                agent.status === 'active' ? 'text-theme-success-fg' : 'text-theme-secondary'
               }`}>
                 {agent.status}
               </span>

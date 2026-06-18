@@ -310,7 +310,7 @@ export const DataSourceMonitoringTab: React.FC<DataSourceMonitoringTabProps> = (
               </span>
             )}
             {subscription.consecutive_failures > 0 && (
-              <span className="flex items-center gap-1 text-theme-warning">
+              <span className="flex items-center gap-1 text-theme-warning-fg">
                 <AlertTriangle className="h-3 w-3" />
                 {subscription.consecutive_failures} consecutive failure
                 {subscription.consecutive_failures === 1 ? '' : 's'}

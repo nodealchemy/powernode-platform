@@ -209,7 +209,7 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
                           <User className="w-4 h-4 text-theme-secondary" />
                         </div>
                         {session.status === 'active' && (
-                          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-theme-success border-2 border-theme-background" />
+                          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-theme-success-bg border-2 border-theme-background" />
                         )}
                       </div>
                       <div>

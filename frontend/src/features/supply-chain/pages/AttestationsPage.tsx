@@ -98,7 +98,7 @@ export const AttestationsPage: React.FC = () => {
       render: (item) => (
         <div className="flex items-center justify-center">
           {item.signed ? (
-            <Check className="w-5 h-5 text-theme-success" />
+            <Check className="w-5 h-5 text-theme-success-fg" />
           ) : (
             <X className="w-5 h-5 text-theme-tertiary" />
           )}
@@ -118,7 +118,7 @@ export const AttestationsPage: React.FC = () => {
       render: (item) => (
         <div className="flex items-center justify-center">
           {item.rekor_logged ? (
-            <Check className="w-5 h-5 text-theme-success" />
+            <Check className="w-5 h-5 text-theme-success-fg" />
           ) : (
             <X className="w-5 h-5 text-theme-tertiary" />
           )}

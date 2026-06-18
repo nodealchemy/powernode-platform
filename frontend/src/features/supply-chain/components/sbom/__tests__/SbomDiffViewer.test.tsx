@@ -180,7 +180,7 @@ describe('SbomDiffViewer', () => {
 
     it('shows new version in success color', () => {
       const { container } = render(<SbomDiffViewer {...defaultProps} />);
-      const newVersion = Array.from(container.querySelectorAll('[class*="text-theme-success"]')).find(
+      const newVersion = Array.from(container.querySelectorAll('[class*="text-theme-success-fg"]')).find(
         el => el.textContent.includes('@18.2.0')
       );
       expect(newVersion).toBeInTheDocument();

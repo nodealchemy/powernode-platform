@@ -321,13 +321,13 @@ export const YamlEditor: React.FC<YamlEditorProps> = ({
       {label && (
         <label className="block text-sm font-semibold text-theme-primary mb-2">
           {label}
-          {required && <span className="text-theme-error ml-1">*</span>}
+          {required && <span className="text-theme-error-fg ml-1">*</span>}
         </label>
       )}
 
       <div
         className={`relative border rounded-lg overflow-hidden ${
-          hasError ? 'border-theme-error' : 'border-theme'
+          hasError ? 'border-theme-error-border' : 'border-theme'
         } ${disabled ? 'opacity-60' : ''}`}
       >
         {/* Header */}
@@ -392,7 +392,7 @@ export const YamlEditor: React.FC<YamlEditorProps> = ({
 
       {/* Error message */}
       {displayError && (
-        <p className="mt-1 text-sm text-theme-error flex items-center gap-1">
+        <p className="mt-1 text-sm text-theme-error-fg flex items-center gap-1">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{displayError}</span>
         </p>

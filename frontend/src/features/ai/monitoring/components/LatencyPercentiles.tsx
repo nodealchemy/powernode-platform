@@ -28,7 +28,7 @@ export const LatencyPercentiles: React.FC<LatencyPercentilesProps> = ({ provider
       </div>
       <div className="p-4 bg-theme-surface rounded">
         <p className="text-xs text-theme-tertiary">Error Rate</p>
-        <p className={cn('text-xl font-bold', provider.performance.error_rate > 5 ? 'text-theme-danger' : 'text-theme-success')}>
+        <p className={cn('text-xl font-bold', provider.performance.error_rate > 5 ? 'text-theme-danger-fg' : 'text-theme-success-fg')}>
           {provider.performance.error_rate.toFixed(2)}%
         </p>
       </div>

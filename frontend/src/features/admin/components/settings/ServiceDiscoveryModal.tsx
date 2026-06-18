@@ -141,11 +141,11 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <CheckCircle className="w-4 h-4 text-theme-success" />;
+        return <CheckCircle className="w-4 h-4 text-theme-success-fg" />;
       case 'unhealthy':
-        return <AlertTriangle className="w-4 h-4 text-theme-warning" />;
+        return <AlertTriangle className="w-4 h-4 text-theme-warning-fg" />;
       case 'unreachable':
-        return <XCircle className="w-4 h-4 text-theme-danger" />;
+        return <XCircle className="w-4 h-4 text-theme-danger-fg" />;
       default:
         return <Server className="w-4 h-4 text-theme-secondary" />;
     }

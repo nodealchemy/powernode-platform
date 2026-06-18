@@ -230,7 +230,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
         {riskFactors.map((factor, index) => (
           <div key={index} className={`p-4 rounded-lg border ${getRiskColor(factor.level)}`}>
             <div className="flex items-center justify-between mb-2">
-              <div className="p-1 rounded bg-theme-background bg-opacity-50">
+              <div className="p-1 rounded bg-theme-background/50">
                 {factor.icon}
               </div>
               <div className="flex items-center gap-1 text-sm">
@@ -250,7 +250,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
             
             {/* Risk level indicator */}
             <div className="mt-3">
-              <div className="w-full bg-theme-background bg-opacity-30 rounded-full h-1">
+              <div className="w-full bg-theme-background/30 rounded-full h-1">
                 <div 
                   className="bg-current h-1 rounded-full transition-all duration-300"
                   style={{ width: `${factor.score}%` }}

@@ -108,7 +108,7 @@ export const StepTypeAndRepo: React.FC<StepTypeAndRepoProps> = ({
       {/* Mission name */}
       <div>
         <label className="block text-sm font-medium text-theme-primary mb-1.5">
-          Mission Name <span className="text-theme-error">*</span>
+          Mission Name <span className="text-theme-error-fg">*</span>
         </label>
         <input
           type="text"
@@ -130,8 +130,8 @@ export const StepTypeAndRepo: React.FC<StepTypeAndRepoProps> = ({
               onClick={() => onMissionTypeChange(t.value)}
               className={`p-3 rounded-lg border text-left transition-all ${
                 missionType === t.value
-                  ? 'border-theme-info bg-theme-info/5 ring-1 ring-theme-accent/30'
-                  : 'border-theme bg-theme-surface hover:border-theme-info/50'
+                  ? 'border-theme-info-border bg-theme-info-fg/5 ring-1 ring-theme-accent/30'
+                  : 'border-theme bg-theme-surface hover:border-theme-info-border/50'
               }`}
             >
               <span className="text-lg">{t.icon}</span>

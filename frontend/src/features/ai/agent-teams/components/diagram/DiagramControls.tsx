@@ -22,10 +22,10 @@ interface DiagramControlsProps {
 
 const getStatusIcon = (status: DiagramExecutionState['status']) => {
   switch (status) {
-    case 'running': return <Loader className="animate-spin text-theme-info" size={18} />;
-    case 'paused': return <Pause className="text-theme-warning" size={18} />;
-    case 'completed': return <CheckCircle className="text-theme-success" size={18} />;
-    case 'failed': return <XCircle className="text-theme-danger" size={18} />;
+    case 'running': return <Loader className="animate-spin text-theme-info-fg" size={18} />;
+    case 'paused': return <Pause className="text-theme-warning-fg" size={18} />;
+    case 'completed': return <CheckCircle className="text-theme-success-fg" size={18} />;
+    case 'failed': return <XCircle className="text-theme-danger-fg" size={18} />;
     case 'cancelled': return <StopCircle className="text-theme-secondary" size={18} />;
     default: return <Clock className="text-theme-tertiary" size={18} />;
   }
@@ -82,7 +82,7 @@ export const DiagramControls: React.FC<DiagramControlsProps> = ({
               <button
                 type="button"
                 onClick={onPause}
-                className="p-1 rounded text-theme-warning hover:bg-theme-warning/10 transition-colors"
+                className="p-1 rounded text-theme-warning-fg hover:bg-theme-warning-fg/10 transition-colors"
                 title="Pause execution"
               >
                 <Pause size={14} />
@@ -90,7 +90,7 @@ export const DiagramControls: React.FC<DiagramControlsProps> = ({
               <button
                 type="button"
                 onClick={onCancel}
-                className="p-1 rounded text-theme-danger hover:bg-theme-error/10 transition-colors"
+                className="p-1 rounded text-theme-danger-fg hover:bg-theme-error-fg/10 transition-colors"
                 title="Cancel execution"
               >
                 <StopCircle size={14} />
@@ -101,7 +101,7 @@ export const DiagramControls: React.FC<DiagramControlsProps> = ({
             <button
               type="button"
               onClick={onResume}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-theme-success/10 text-theme-success hover:bg-theme-success/20 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-theme-success-fg/10 text-theme-success-fg hover:bg-theme-success-fg/20 transition-colors"
               title="Resume execution"
             >
               <Play size={12} /> Resume
@@ -114,7 +114,7 @@ export const DiagramControls: React.FC<DiagramControlsProps> = ({
             </div>
           )}
           <div className="flex items-center gap-1.5">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-theme-success' : 'bg-theme-danger'}`} />
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'}`} />
             <span className="text-[10px] text-theme-secondary">
               {isConnected ? 'Live' : 'Disconnected'}
             </span>
@@ -137,7 +137,7 @@ export const DiagramControls: React.FC<DiagramControlsProps> = ({
           <span>
             {execState.tasksCompleted}/{execState.tasksTotal} agents completed
             {execState.tasksFailed > 0 && (
-              <span className="text-theme-danger ml-2">{execState.tasksFailed} failed</span>
+              <span className="text-theme-danger-fg ml-2">{execState.tasksFailed} failed</span>
             )}
           </span>
           <span>{execState.progress}%</span>

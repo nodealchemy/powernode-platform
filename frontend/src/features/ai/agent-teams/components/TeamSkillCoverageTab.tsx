@@ -13,15 +13,15 @@ interface TeamSkillCoverageTabProps {
 }
 
 function getCoverageColor(ratio: number): string {
-  if (ratio >= 0.7) return 'text-theme-success';
-  if (ratio >= 0.4) return 'text-theme-warning';
-  return 'text-theme-error';
+  if (ratio >= 0.7) return 'text-theme-success-fg';
+  if (ratio >= 0.4) return 'text-theme-warning-fg';
+  return 'text-theme-error-fg';
 }
 
 function getCoverageBgColor(ratio: number): string {
-  if (ratio >= 0.7) return 'bg-theme-success';
-  if (ratio >= 0.4) return 'bg-theme-warning';
-  return 'bg-theme-error';
+  if (ratio >= 0.7) return 'bg-theme-success-bg';
+  if (ratio >= 0.4) return 'bg-theme-warning-bg';
+  return 'bg-theme-error-bg';
 }
 
 function getCoverageLabel(ratio: number): string {
@@ -98,11 +98,11 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
                 <span className="text-theme-tertiary">Covered</span>
-                <div className="font-semibold text-theme-success">{coverage.covered_count}</div>
+                <div className="font-semibold text-theme-success-fg">{coverage.covered_count}</div>
               </div>
               <div>
                 <span className="text-theme-tertiary">Uncovered</span>
-                <div className="font-semibold text-theme-error">{coverage.uncovered_count}</div>
+                <div className="font-semibold text-theme-error-fg">{coverage.uncovered_count}</div>
               </div>
               <div>
                 <span className="text-theme-tertiary">Total</span>
@@ -134,7 +134,7 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
                       type="skill"
                       id={skill.id}
                       label={skill.name}
-                      className="px-2 py-0.5 text-xs rounded bg-theme-info bg-opacity-10 text-theme-info"
+                      className="px-2 py-0.5 text-xs rounded bg-theme-info-bg text-theme-info-fg"
                     />
                   ))}
                   {agent.skills.length === 0 && (
@@ -151,7 +151,7 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
       {coverage.uncovered_skills?.length > 0 && (
         <Card className="p-4">
           <h4 className="text-sm font-semibold text-theme-primary mb-3 flex items-center gap-2">
-            <AlertTriangle size={16} className="text-theme-warning" />
+            <AlertTriangle size={16} className="text-theme-warning-fg" />
             Skill Gaps ({coverage.uncovered_skills.length})
           </h4>
           <div className="space-y-1">
@@ -185,7 +185,7 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
       {recommendations.length > 0 && (
         <Card className="p-4">
           <h4 className="text-sm font-semibold text-theme-primary mb-3 flex items-center gap-2">
-            <CheckCircle size={16} className="text-theme-success" />
+            <CheckCircle size={16} className="text-theme-success-fg" />
             Recommendations
           </h4>
           <div className="space-y-3">
@@ -202,7 +202,7 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
                       type="skill"
                       id={skill.id}
                       label={skill.name}
-                      className="px-2 py-0.5 text-xs rounded bg-theme-success bg-opacity-10 text-theme-success"
+                      className="px-2 py-0.5 text-xs rounded bg-theme-success-bg text-theme-success-fg"
                     />
                   ))}
                 </div>

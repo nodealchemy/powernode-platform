@@ -62,7 +62,7 @@ export class AiErrorBoundary extends Component<Props, State> {
       // Default fallback UI
       return (
         <div className="flex flex-col items-center justify-center p-8 bg-theme-surface border border-theme rounded-lg">
-          <AlertCircle className="w-12 h-12 text-theme-error mb-4" />
+          <AlertCircle className="w-12 h-12 text-theme-error-fg mb-4" />
           <h2 className="text-lg font-semibold text-theme-primary mb-2">
             Something went wrong
           </h2>
@@ -116,7 +116,7 @@ export class MinimalErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="flex items-center gap-2 p-3 text-theme-error text-sm">
+        <div className="flex items-center gap-2 p-3 text-theme-error-fg text-sm">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>Error loading component</span>
           <button

@@ -10,16 +10,16 @@ interface ChannelListItemProps {
 }
 
 const CHANNEL_TYPE_ICONS: Record<string, React.ReactNode> = {
-  broadcast: <Radio className="h-3 w-3 text-theme-info" />,
-  escalation: <Zap className="h-3 w-3 text-theme-error" />,
+  broadcast: <Radio className="h-3 w-3 text-theme-info-fg" />,
+  escalation: <Zap className="h-3 w-3 text-theme-error-fg" />,
 };
 
 const CHANNEL_TYPE_COLORS: Record<string, string> = {
-  broadcast: 'bg-theme-info/10 text-theme-info',
-  direct: 'bg-theme-success/10 text-theme-success',
+  broadcast: 'bg-theme-info-fg/10 text-theme-info-fg',
+  direct: 'bg-theme-success-fg/10 text-theme-success-fg',
   topic: 'bg-theme-interactive-primary/10 text-theme-interactive-primary',
-  task: 'bg-theme-warning/10 text-theme-warning',
-  escalation: 'bg-theme-error/10 text-theme-error',
+  task: 'bg-theme-warning-fg/10 text-theme-warning-fg',
+  escalation: 'bg-theme-error-fg/10 text-theme-error-fg',
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -105,7 +105,7 @@ export const ChannelListItem: React.FC<ChannelListItemProps> = ({
           </span>
 
           {channel.has_active_execution && (
-            <span className="h-1.5 w-1.5 rounded-full bg-theme-success animate-pulse flex-shrink-0" title="Active execution" />
+            <span className="h-1.5 w-1.5 rounded-full bg-theme-success-bg animate-pulse flex-shrink-0" title="Active execution" />
           )}
         </div>
 

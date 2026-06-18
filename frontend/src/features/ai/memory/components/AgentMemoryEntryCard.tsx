@@ -36,20 +36,20 @@ const memoryTypeConfig: Record<
 > = {
   factual: {
     icon: Brain,
-    bgColor: 'bg-theme-info/10',
-    textColor: 'text-theme-info',
+    bgColor: 'bg-theme-info-fg/10',
+    textColor: 'text-theme-info-fg',
     label: 'Factual',
   },
   experiential: {
     icon: Lightbulb,
-    bgColor: 'bg-theme-warning/10',
-    textColor: 'text-theme-warning',
+    bgColor: 'bg-theme-warning-fg/10',
+    textColor: 'text-theme-warning-fg',
     label: 'Experiential',
   },
   working: {
     icon: Activity,
-    bgColor: 'bg-theme-success/10',
-    textColor: 'text-theme-success',
+    bgColor: 'bg-theme-success-fg/10',
+    textColor: 'text-theme-success-fg',
     label: 'Working',
   },
 };
@@ -119,10 +119,10 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
                   </Badge>
                 )}
                 {memory.outcome_success === true && (
-                  <CheckCircle className="h-4 w-4 text-theme-success" />
+                  <CheckCircle className="h-4 w-4 text-theme-success-fg" />
                 )}
                 {memory.outcome_success === false && (
-                  <XCircle className="h-4 w-4 text-theme-danger" />
+                  <XCircle className="h-4 w-4 text-theme-danger-fg" />
                 )}
               </div>
             </div>
@@ -143,7 +143,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => onDelete(memory)}
-                className="text-theme-danger hover:text-theme-danger"
+                className="text-theme-danger-fg hover:text-theme-danger-fg"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

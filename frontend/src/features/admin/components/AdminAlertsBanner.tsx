@@ -62,31 +62,31 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
     switch (severity) {
       case 'critical':
         return {
-          bg: 'bg-theme-error',
+          bg: 'bg-theme-error-bg',
           text: 'text-white',
           icon: AlertTriangle,
-          border: 'border-theme-error',
+          border: 'border-theme-error-border',
         };
       case 'high':
         return {
-          bg: 'bg-theme-error bg-opacity-80',
+          bg: 'bg-theme-error-bg',
           text: 'text-white',
           icon: AlertCircle,
-          border: 'border-theme-error',
+          border: 'border-theme-error-border',
         };
       case 'medium':
         return {
-          bg: 'bg-theme-warning',
+          bg: 'bg-theme-warning-bg',
           text: 'text-white',
           icon: AlertCircle,
-          border: 'border-theme-warning',
+          border: 'border-theme-warning-border',
         };
       default:
         return {
-          bg: 'bg-theme-info',
+          bg: 'bg-theme-info-bg',
           text: 'text-white',
           icon: Bell,
-          border: 'border-theme-info',
+          border: 'border-theme-info-border',
         };
     }
   };
@@ -120,7 +120,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
                 <Button
                   variant="outline"
                   onClick={onViewAll}
-                  className={`border-white border-opacity-30 ${styles.text} hover:bg-white hover:bg-opacity-10`}
+                  className={`border-white/30 ${styles.text} hover:bg-white hover:bg-white/10`}
                 >
                   View Details
                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -128,7 +128,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
               )}
               <button
                 onClick={() => dismissAlert(alert.id)}
-                className={`p-1 rounded-full hover:bg-white hover:bg-opacity-10 ${styles.text}`}
+                className={`p-1 rounded-full hover:bg-white hover:bg-white/10 ${styles.text}`}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -141,7 +141,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
 
   // Multiple alerts - compact summary
   return (
-    <div className={`bg-theme-warning ${className}`}>
+    <div className={`bg-theme-warning-bg ${className}`}>
       <div className="px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -153,12 +153,12 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
             </div>
             <div className="flex items-center gap-3">
               {criticalCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-white bg-opacity-20 text-white text-xs font-medium">
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-medium">
                   {criticalCount} Critical
                 </span>
               )}
               {highCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-white bg-opacity-20 text-white text-xs font-medium">
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-medium">
                   {highCount} High
                 </span>
               )}
@@ -173,7 +173,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
                 return (
                   <div
                     key={alert.id}
-                    className="flex items-center gap-2 px-3 py-1 bg-white bg-opacity-10 rounded-full"
+                    className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full"
                   >
                     <Icon className="w-4 h-4 text-white" />
                     <span className="text-sm text-white truncate max-w-[150px]">
@@ -192,7 +192,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
               <Button
                 variant="outline"
                 onClick={onViewAll}
-                className="border-white border-opacity-30 text-white hover:bg-white hover:bg-opacity-10"
+                className="border-white/30 text-white hover:bg-white hover:bg-white/10"
               >
                 View All
                 <ChevronRight className="w-4 h-4 ml-1" />

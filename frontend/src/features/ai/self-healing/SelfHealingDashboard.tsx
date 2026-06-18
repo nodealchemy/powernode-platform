@@ -70,10 +70,10 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
   if (loading && !healthSummary) return <LoadingSpinner />;
 
   const statusColor = healthSummary?.overall_status === 'healthy'
-    ? 'text-theme-success'
+    ? 'text-theme-success-fg'
     : healthSummary?.overall_status === 'degraded'
-      ? 'text-theme-warning'
-      : 'text-theme-error';
+      ? 'text-theme-warning-fg'
+      : 'text-theme-error-fg';
 
   return (
     <div className="space-y-6">
@@ -95,7 +95,7 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <Activity className="w-8 h-8 text-theme-info" />
+              <Activity className="w-8 h-8 text-theme-info-fg" />
               <div>
                 <p className="text-sm text-theme-tertiary">Actions (1h)</p>
                 <p className="text-lg font-semibold text-theme-primary">
@@ -109,7 +109,7 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="w-8 h-8 text-theme-warning" />
+              <AlertTriangle className="w-8 h-8 text-theme-warning-fg" />
               <div>
                 <p className="text-sm text-theme-tertiary">Success Rate</p>
                 <p className="text-lg font-semibold text-theme-primary">
@@ -138,7 +138,7 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
       {!healthSummary?.feature_flag_enabled && (
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-theme-warning">
+            <div className="flex items-center gap-2 text-theme-warning-fg">
               <AlertTriangle className="w-5 h-5" />
               <span className="text-sm font-medium">
                 Self-healing remediation is currently disabled. Enable the feature flag to activate automated actions.

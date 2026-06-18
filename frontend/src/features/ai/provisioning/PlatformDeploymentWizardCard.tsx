@@ -287,7 +287,7 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
   return (
     <Card className={`mt-3 p-4 ${className}`.trim()}>
       <div className="flex items-center gap-2 mb-3">
-        <Rocket className="w-5 h-5 text-theme-info" />
+        <Rocket className="w-5 h-5 text-theme-info-fg" />
         <h3 className="font-semibold text-theme-primary">Deploy a New Platform</h3>
       </div>
 
@@ -299,7 +299,7 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
                 key={m.value}
                 className={`block p-2 rounded border cursor-pointer transition-colors ${
                   mode === m.value
-                    ? 'border-theme-info bg-theme-info'
+                    ? 'border-theme-info-border bg-theme-info-bg'
                     : 'border-theme bg-theme-background-secondary hover:bg-theme-surface-hover'
                 }`}
               >
@@ -372,7 +372,7 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
         {isStatefulRole && (
           <div className="p-3 bg-theme-background-secondary border border-theme rounded space-y-2">
             <div className="flex items-center gap-2 text-sm text-theme-primary font-medium">
-              <HardDrive className="w-4 h-4 text-theme-info" />
+              <HardDrive className="w-4 h-4 text-theme-info-fg" />
               <span>Persistent Storage</span>
               <span className="text-xs text-theme-secondary font-normal">
                 ({serviceRole} is stateful — recommended ≥{recommendedSize ?? '?'} GB
@@ -402,7 +402,7 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
               </select>
               <p className="text-xs text-theme-secondary mt-1">
                 {volumeChoice === '__skip__' ? (
-                  <span className="text-theme-warning">
+                  <span className="text-theme-warning-fg">
                     ⚠ Stateful role with ephemeral storage — data lost on instance termination.
                   </span>
                 ) : volumeChoice === '__create__' ? (
@@ -410,7 +410,7 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
                 ) : volumeChoice ? (
                   <span>Volume will attach at {mountPoint || 'default mount'} on first boot.</span>
                 ) : compatibleVolumes.length === 0 ? (
-                  <span className="text-theme-warning">
+                  <span className="text-theme-warning-fg">
                     No volumes ≥{recommendedSize ?? '?'} GB are available — choose "Create new volume…" above or proceed ephemeral.
                   </span>
                 ) : (
@@ -423,7 +423,7 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
               <div className="p-3 bg-theme-surface border border-theme rounded space-y-2">
                 <div className="text-xs font-medium text-theme-primary">Create new volume</div>
                 {createVolumeError && (
-                  <div className="p-2 bg-theme-danger text-theme-danger text-xs rounded flex items-start gap-2">
+                  <div className="p-2 bg-theme-danger-bg text-theme-danger-fg text-xs rounded flex items-start gap-2">
                     <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                     <span>{createVolumeError}</span>
                   </div>
@@ -562,7 +562,7 @@ const DoneCard: React.FC<{ payload: WizardDonePayload; className: string }> = ({
   return (
     <Card className={`mt-3 p-4 ${className}`.trim()}>
       <div className="flex items-center gap-2 mb-3">
-        <CheckCircle2 className="w-5 h-5 text-theme-success" />
+        <CheckCircle2 className="w-5 h-5 text-theme-success-fg" />
         <h3 className="font-semibold text-theme-primary">Deployment Queued</h3>
         <span className="text-xs text-theme-secondary font-mono">({payload.mode})</span>
       </div>
@@ -578,7 +578,7 @@ const DoneCard: React.FC<{ payload: WizardDonePayload; className: string }> = ({
       {payload.storage_volume && !payload.storage_volume.error && payload.storage_volume.volume_id && (
         <div className="mb-3 p-2 bg-theme-background-secondary border border-theme rounded text-xs">
           <div className="flex items-center gap-2 text-theme-primary mb-1">
-            <HardDrive className="w-3 h-3 text-theme-success" />
+            <HardDrive className="w-3 h-3 text-theme-success-fg" />
             <strong>Volume attached</strong>
           </div>
           <div className="text-theme-secondary">
@@ -595,14 +595,14 @@ const DoneCard: React.FC<{ payload: WizardDonePayload; className: string }> = ({
       )}
 
       {payload.storage_volume?.error && (
-        <div className="mb-3 p-2 bg-theme-warning text-theme-warning rounded text-xs">
+        <div className="mb-3 p-2 bg-theme-warning-bg text-theme-warning-fg rounded text-xs">
           <strong>Storage attach failed:</strong> {payload.storage_volume.error}
         </div>
       )}
 
       {isFederated && payload.acceptance_token && (
         <div className="mb-3">
-          <div className="p-2 bg-theme-warning text-theme-warning text-xs rounded flex items-start gap-2 mb-2">
+          <div className="p-2 bg-theme-warning-bg text-theme-warning-fg text-xs rounded flex items-start gap-2 mb-2">
             <KeyRound className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <span>
               <strong>Capture this token NOW.</strong> The plaintext is shown only
@@ -619,7 +619,7 @@ const DoneCard: React.FC<{ payload: WizardDonePayload; className: string }> = ({
             <button
               type="button"
               onClick={handleCopyToken}
-              className="px-3 py-1.5 border border-theme rounded bg-theme-info-solid text-white text-xs inline-flex items-center gap-1 hover:opacity-90 transition-opacity"
+              className="px-3 py-1.5 border border-theme rounded bg-theme-info-fg text-white text-xs inline-flex items-center gap-1 hover:opacity-90 transition-opacity"
             >
               {tokenCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               {tokenCopied ? 'Copied' : 'Copy'}

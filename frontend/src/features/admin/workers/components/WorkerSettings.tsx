@@ -244,7 +244,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
           />
 
           {config.security.token_rotation_enabled && (
-            <div className="pl-4 border-l-2 border-theme-warning border-opacity-30">
+            <div className="pl-4 border-l-2 border-theme-warning-border">
               <FormField label="Token Expiry (Days)">
                 <Input
                   type="number"
@@ -266,7 +266,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
           />
 
           {config.security.require_ip_whitelist && (
-            <div className="pl-4 border-l-2 border-theme-error border-opacity-30">
+            <div className="pl-4 border-l-2 border-theme-error-border">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-theme-primary">Allowed IP Addresses</span>
@@ -284,7 +284,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
                       <span className="text-sm font-mono text-theme-primary">{ip}</span>
                       <button
                         onClick={() => removeAllowedIP(index)}
-                        className="text-theme-error hover:text-theme-error/80 transition-colors"
+                        className="text-theme-error-fg hover:text-theme-error-fg/80 transition-colors"
                       >
                         <XCircle className="w-4 h-4" />
                       </button>
@@ -341,7 +341,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
           />
 
           {config.rate_limiting.enabled && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-4 border-l-2 border-theme-interactive-primary border-opacity-30">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-4 border-l-2 border-theme-interactive-primary/30">
               <FormField label="Requests per Minute">
                 <Input
                   type="number"
@@ -536,7 +536,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
 
           <button
             onClick={resetToDefaults}
-            className="btn-secondary text-theme-warning hover:bg-theme-warning hover:text-white"
+            className="btn-secondary text-theme-warning-fg hover:bg-theme-warning-bg hover:text-white"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Reset to Defaults
@@ -574,9 +574,9 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-sm text-theme-secondary">Security Level</span>
               {config.security.require_ip_whitelist ? (
-                <Lock className="w-5 h-5 text-theme-error" />
+                <Lock className="w-5 h-5 text-theme-error-fg" />
               ) : (
-                <Shield className="w-5 h-5 text-theme-warning" />
+                <Shield className="w-5 h-5 text-theme-warning-fg" />
               )}
             </div>
             <p className="text-lg font-semibold text-theme-primary mt-1">
@@ -588,9 +588,9 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-sm text-theme-secondary">Rate Limiting</span>
               {config.rate_limiting.enabled ? (
-                <CheckCircle className="w-5 h-5 text-theme-success" />
+                <CheckCircle className="w-5 h-5 text-theme-success-fg" />
               ) : (
-                <XCircle className="w-5 h-5 text-theme-error" />
+                <XCircle className="w-5 h-5 text-theme-error-fg" />
               )}
             </div>
             <p className="text-lg font-semibold text-theme-primary mt-1">
@@ -601,7 +601,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
           <div className="p-4 rounded-lg border border-theme bg-theme-background">
             <div className="flex items-center justify-between">
               <span className="text-sm text-theme-secondary">Monitoring</span>
-              <Activity className="w-5 h-5 text-theme-info" />
+              <Activity className="w-5 h-5 text-theme-info-fg" />
             </div>
             <p className="text-lg font-semibold text-theme-primary mt-1">
               {[
@@ -615,7 +615,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
           <div className="p-4 rounded-lg border border-theme bg-theme-background">
             <div className="flex items-center justify-between">
               <span className="text-sm text-theme-secondary">Health Checks</span>
-              <Clock className="w-5 h-5 text-theme-info" />
+              <Clock className="w-5 h-5 text-theme-info-fg" />
             </div>
             <p className="text-lg font-semibold text-theme-primary mt-1">
               {config.operational.enable_health_checks ? 

@@ -99,7 +99,7 @@ export const PolicyList: React.FC = () => {
       header: 'Violations',
       width: '100px',
       render: (item) => (
-        <span className={`font-medium ${item.violation_count > 0 ? 'text-theme-error' : 'text-theme-secondary'}`}>
+        <span className={`font-medium ${item.violation_count > 0 ? 'text-theme-error-fg' : 'text-theme-secondary'}`}>
           {item.violation_count}
         </span>
       ),
@@ -131,7 +131,7 @@ export const PolicyList: React.FC = () => {
             title={isActive ? 'Disable policy' : 'Enable policy'}
           >
             {isActive ? (
-              <ToggleRight className="h-4 w-4 text-theme-success" />
+              <ToggleRight className="h-4 w-4 text-theme-success-fg" />
             ) : (
               <ToggleLeft className="h-4 w-4 text-theme-tertiary" />
             )}

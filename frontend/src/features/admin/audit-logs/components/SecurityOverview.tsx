@@ -62,10 +62,10 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics: _me
 
   const getColorClasses = (color: string) => {
     switch (color) {
-      case 'red': return 'bg-theme-error text-theme-error';
-      case 'yellow': return 'bg-theme-warning-background text-theme-warning';
-      case 'orange': return 'bg-theme-warning-background text-theme-warning';
-      case 'purple': return 'bg-theme-info text-theme-info';
+      case 'red': return 'bg-theme-error-bg text-theme-error-fg';
+      case 'yellow': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'orange': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'purple': return 'bg-theme-info-bg text-theme-info-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -76,7 +76,7 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics: _me
       <div className="bg-theme-background rounded-lg border border-theme p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-theme-success-background rounded-lg">
-            <Shield className="w-6 h-6 text-theme-success" />
+            <Shield className="w-6 h-6 text-theme-success-fg" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-theme-primary">Security Status</h3>
@@ -93,11 +93,11 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics: _me
                 </div>
                 <div className="flex items-center gap-1 text-sm">
                   {metric.change > 0 ? (
-                    <TrendingUp className="w-3 h-3 text-theme-error" />
+                    <TrendingUp className="w-3 h-3 text-theme-error-fg" />
                   ) : (
-                    <TrendingDown className="w-3 h-3 text-theme-success" />
+                    <TrendingDown className="w-3 h-3 text-theme-success-fg" />
                   )}
-                  <span className={metric.change > 0 ? 'text-theme-error' : 'text-theme-success'}>
+                  <span className={metric.change > 0 ? 'text-theme-error-fg' : 'text-theme-success-fg'}>
                     {Math.abs(metric.change)}%
                   </span>
                 </div>
@@ -129,7 +129,7 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics: _me
                 <div className="flex items-center gap-3">
                   <div className="w-20 bg-theme-background rounded-full h-2">
                     <div 
-                      className="bg-theme-error h-2 rounded-full"
+                      className="bg-theme-error-bg h-2 rounded-full"
                       style={{ width: `${source.percentage}%` }}
                     />
                   </div>
@@ -146,35 +146,35 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics: _me
             <h4 className="text-lg font-semibold text-theme-primary">Recent Security Events</h4>
           </div>
           <div className="space-y-3">
-            <div className="flex items-start gap-3 p-3 bg-theme-error rounded-lg border border-theme-error">
-              <div className="p-1 bg-theme-error rounded">
-                <AlertTriangle className="w-3 h-3 text-theme-error" />
+            <div className="flex items-start gap-3 p-3 bg-theme-error-bg rounded-lg border border-theme-error-border">
+              <div className="p-1 bg-theme-error-bg rounded">
+                <AlertTriangle className="w-3 h-3 text-theme-error-fg" />
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-theme-error">Multiple failed login attempts</div>
-                <div className="text-xs text-theme-error">admin@company.com - 5 attempts</div>
+                <div className="text-sm font-medium text-theme-error-fg">Multiple failed login attempts</div>
+                <div className="text-xs text-theme-error-fg">admin@company.com - 5 attempts</div>
                 <div className="text-xs text-theme-tertiary">2 minutes ago</div>
               </div>
             </div>
             
-            <div className="flex items-start gap-3 p-3 bg-theme-warning-background rounded-lg border border-theme-warning">
+            <div className="flex items-start gap-3 p-3 bg-theme-warning-background rounded-lg border border-theme-warning-border">
               <div className="p-1 bg-theme-warning-background rounded">
-                <Eye className="w-3 h-3 text-theme-warning" />
+                <Eye className="w-3 h-3 text-theme-warning-fg" />
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-theme-warning">Unusual access pattern detected</div>
-                <div className="text-xs text-theme-warning">User login from new location</div>
+                <div className="text-sm font-medium text-theme-warning-fg">Unusual access pattern detected</div>
+                <div className="text-xs text-theme-warning-fg">User login from new location</div>
                 <div className="text-xs text-theme-tertiary">15 minutes ago</div>
               </div>
             </div>
             
-            <div className="flex items-start gap-3 p-3 bg-theme-info rounded-lg border border-theme-info">
-              <div className="p-1 bg-theme-info rounded">
-                <Users className="w-3 h-3 text-theme-info" />
+            <div className="flex items-start gap-3 p-3 bg-theme-info-bg rounded-lg border border-theme-info-border">
+              <div className="p-1 bg-theme-info-bg rounded">
+                <Users className="w-3 h-3 text-theme-info-fg" />
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-theme-info">Admin action performed</div>
-                <div className="text-xs text-theme-info">User permissions modified</div>
+                <div className="text-sm font-medium text-theme-info-fg">Admin action performed</div>
+                <div className="text-xs text-theme-info-fg">User permissions modified</div>
                 <div className="text-xs text-theme-tertiary">1 hour ago</div>
               </div>
             </div>

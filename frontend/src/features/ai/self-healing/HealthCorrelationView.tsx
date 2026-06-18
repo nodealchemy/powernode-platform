@@ -28,9 +28,9 @@ export const HealthCorrelationView: React.FC<HealthCorrelationViewProps> = ({ co
       {correlations.map((correlation, index) => {
         const confidencePercent = Math.round(correlation.confidence * 100);
         const confidenceColor = confidencePercent >= 70
-          ? 'text-theme-error'
+          ? 'text-theme-error-fg'
           : confidencePercent >= 40
-            ? 'text-theme-warning'
+            ? 'text-theme-warning-fg'
             : 'text-theme-tertiary';
 
         return (
@@ -39,7 +39,7 @@ export const HealthCorrelationView: React.FC<HealthCorrelationViewProps> = ({ co
             className="p-3 rounded-lg bg-theme-surface border border-theme"
           >
             <div className="flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 mt-0.5 text-theme-warning" />
+              <AlertTriangle className="w-4 h-4 mt-0.5 text-theme-warning-fg" />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-theme-primary">

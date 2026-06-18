@@ -75,7 +75,7 @@ export const VendorDetailPage: React.FC = () => {
 
   if (error || !vendor) {
     return (
-      <div className="bg-theme-error bg-opacity-10 text-theme-error p-4 rounded-lg">
+      <div className="bg-theme-error-bg text-theme-error-fg p-4 rounded-lg">
         {error || 'Vendor not found'}
       </div>
     );
@@ -125,19 +125,19 @@ export const VendorDetailPage: React.FC = () => {
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Data Handling</h3>
         <div className="flex flex-wrap gap-3">
           {vendor.handles_pii && (
-            <div className="flex items-center gap-2 bg-theme-info bg-opacity-10 text-theme-info px-4 py-2 rounded-lg">
+            <div className="flex items-center gap-2 bg-theme-info-bg text-theme-info-fg px-4 py-2 rounded-lg">
               <Shield className="w-5 h-5" />
               <span className="font-medium">Handles PII</span>
             </div>
           )}
           {vendor.handles_phi && (
-            <div className="flex items-center gap-2 bg-theme-warning bg-opacity-10 text-theme-warning px-4 py-2 rounded-lg">
+            <div className="flex items-center gap-2 bg-theme-warning-bg text-theme-warning-fg px-4 py-2 rounded-lg">
               <FileText className="w-5 h-5" />
               <span className="font-medium">Handles PHI</span>
             </div>
           )}
           {vendor.handles_pci && (
-            <div className="flex items-center gap-2 bg-theme-error bg-opacity-10 text-theme-error px-4 py-2 rounded-lg">
+            <div className="flex items-center gap-2 bg-theme-error-bg text-theme-error-fg px-4 py-2 rounded-lg">
               <Database className="w-5 h-5" />
               <span className="font-medium">Handles PCI Data</span>
             </div>
@@ -246,7 +246,7 @@ export const VendorDetailPage: React.FC = () => {
             </div>
 
             {assessment.finding_count > 0 && (
-              <div className="mt-4 flex items-center gap-2 text-theme-warning">
+              <div className="mt-4 flex items-center gap-2 text-theme-warning-fg">
                 <AlertCircle className="w-4 h-4" />
                 <span className="text-sm">{assessment.finding_count} findings identified</span>
               </div>
@@ -409,12 +409,12 @@ export const VendorDetailPage: React.FC = () => {
           <span
             className={`text-2xl font-bold ${
               vendor.risk_score >= 80
-                ? 'text-theme-error'
+                ? 'text-theme-error-fg'
                 : vendor.risk_score >= 60
-                ? 'text-theme-warning'
+                ? 'text-theme-warning-fg'
                 : vendor.risk_score >= 40
-                ? 'text-theme-info'
-                : 'text-theme-success'
+                ? 'text-theme-info-fg'
+                : 'text-theme-success-fg'
             }`}
           >
             {vendor.risk_score}/100

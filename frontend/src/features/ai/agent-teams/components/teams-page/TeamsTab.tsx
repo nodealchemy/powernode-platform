@@ -39,7 +39,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
           key={team.id}
           onClick={() => onSelectTeam(team)}
           className={`bg-theme-surface border rounded-lg p-4 cursor-pointer transition-colors ${
-            selectedTeam?.id === team.id ? 'border-theme-info' : 'border-theme hover:border-theme-info/50'
+            selectedTeam?.id === team.id ? 'border-theme-info-border' : 'border-theme hover:border-theme-info-border/50'
           }`}
         >
           <div className="flex items-center justify-between mb-2">
@@ -48,7 +48,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
               <span className={`px-2 py-1 text-xs rounded ${getStatusColor(team.status)}`}>{team.status}</span>
               <button
                 onClick={(e) => { e.stopPropagation(); onDeleteTeam(team.id); }}
-                className="text-theme-secondary hover:text-theme-danger transition-colors"
+                className="text-theme-secondary hover:text-theme-danger-fg transition-colors"
               >
                 <Trash2 size={14} />
               </button>
@@ -56,7 +56,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
           </div>
           <p className="text-sm text-theme-secondary mb-3">{team.description || 'No description'}</p>
           <div className="flex flex-wrap gap-2 text-xs text-theme-secondary">
-            <span className="px-2 py-1 bg-theme-info/10 text-theme-info rounded">{team.team_topology}</span>
+            <span className="px-2 py-1 bg-theme-info-fg/10 text-theme-info-fg rounded">{team.team_topology}</span>
             <span>{team.coordination_strategy}</span>
             <span>{team.roles_count || 0} roles</span>
             <span>Max {team.max_parallel_tasks} parallel</span>

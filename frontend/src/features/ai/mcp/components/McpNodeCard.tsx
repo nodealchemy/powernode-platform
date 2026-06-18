@@ -25,13 +25,13 @@ const variantConfig: Record<NodeVariant, {
 };
 
 const statusDotColor: Record<string, string> = {
-  active: 'bg-theme-success',
-  connected: 'bg-theme-success',
-  healthy: 'bg-theme-success',
+  active: 'bg-theme-success-bg',
+  connected: 'bg-theme-success-bg',
+  healthy: 'bg-theme-success-bg',
   inactive: 'bg-theme-background-secondary',
-  disconnected: 'bg-theme-warning',
-  connecting: 'bg-theme-warning',
-  error: 'bg-theme-danger',
+  disconnected: 'bg-theme-warning-bg',
+  connecting: 'bg-theme-warning-bg',
+  error: 'bg-theme-danger-bg',
 };
 
 export const McpNodeCard: React.FC<McpNodeCardProps> = ({

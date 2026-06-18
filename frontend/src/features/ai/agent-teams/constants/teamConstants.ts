@@ -7,10 +7,10 @@ export const STATUS_CONFIG: Record<string, {
   label: string;
   dot: string;
 }> = {
-  active: { variant: 'success', label: 'Active', dot: 'bg-theme-success' },
-  paused: { variant: 'warning', label: 'Paused', dot: 'bg-theme-warning' },
+  active: { variant: 'success', label: 'Active', dot: 'bg-theme-success-bg' },
+  paused: { variant: 'warning', label: 'Paused', dot: 'bg-theme-warning-bg' },
   archived: { variant: 'outline', label: 'Archived', dot: 'bg-theme-surface' },
-  disbanded: { variant: 'danger', label: 'Disbanded', dot: 'bg-theme-error' },
+  disbanded: { variant: 'danger', label: 'Disbanded', dot: 'bg-theme-error-bg' },
 };
 
 export type StatusTabId = 'all' | 'active' | 'paused' | 'archived';

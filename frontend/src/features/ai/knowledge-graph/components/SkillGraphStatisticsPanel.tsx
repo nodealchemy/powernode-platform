@@ -39,9 +39,9 @@ export const SkillGraphStatisticsPanel: React.FC<SkillGraphStatisticsPanelProps>
   if (nodes.length === 0) return null;
 
   const summaryCards = [
-    { label: 'Total Skills', value: stats.totalSkills, icon: Wrench, colorClass: 'text-theme-info', bgClass: 'bg-theme-info' },
-    { label: 'Dependencies', value: stats.totalDeps, icon: Link2, colorClass: 'text-theme-success', bgClass: 'bg-theme-success' },
-    { label: 'Avg Deps / Skill', value: stats.avgDeps.toFixed(1), icon: GitBranch, colorClass: 'text-theme-warning', bgClass: 'bg-theme-warning' },
+    { label: 'Total Skills', value: stats.totalSkills, icon: Wrench, colorClass: 'text-theme-info-fg', bgClass: 'bg-theme-info-bg' },
+    { label: 'Dependencies', value: stats.totalDeps, icon: Link2, colorClass: 'text-theme-success-fg', bgClass: 'bg-theme-success-bg' },
+    { label: 'Avg Deps / Skill', value: stats.avgDeps.toFixed(1), icon: GitBranch, colorClass: 'text-theme-warning-fg', bgClass: 'bg-theme-warning-bg' },
     { label: 'Categories', value: stats.categories.length, icon: LayoutGrid, colorClass: 'text-theme-interactive-primary', bgClass: 'bg-theme-surface-selected' },
   ];
 

@@ -27,9 +27,9 @@ export const Progress: React.FC<ProgressProps> = ({
 
   const variantClasses = {
     default: 'bg-theme-interactive-primary',
-    success: 'bg-theme-success',
-    warning: 'bg-theme-warning',
-    error: 'bg-theme-error'
+    success: 'bg-theme-success-bg',
+    warning: 'bg-theme-warning-bg',
+    error: 'bg-theme-error-bg'
   };
 
   return (

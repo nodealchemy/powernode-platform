@@ -109,7 +109,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-theme-surface rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-theme-primary">Create New User</h3>
@@ -125,11 +125,11 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         </div>
 
         {errors.length > 0 && (
-          <div className="bg-theme-error bg-opacity-10 border border-theme-error border-opacity-30 rounded-lg p-4 mb-6">
-            <h4 className="font-medium text-theme-error mb-2">Please correct the following errors:</h4>
+          <div className="bg-theme-error-bg border border-theme-error-border rounded-lg p-4 mb-6">
+            <h4 className="font-medium text-theme-error-fg mb-2">Please correct the following errors:</h4>
             <ul className="list-disc list-inside space-y-1">
               {errors.map((error, index) => (
-                <li key={index} className="text-theme-error text-sm">{error}</li>
+                <li key={index} className="text-theme-error-fg text-sm">{error}</li>
               ))}
             </ul>
           </div>
@@ -139,7 +139,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           {/* Account Selection */}
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-2">
-              Account <span className="text-theme-error">*</span>
+              Account <span className="text-theme-error-fg">*</span>
             </label>
             <select
               value={formData.account_id}
@@ -160,7 +160,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           {/* Personal Information */}
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-2">
-              Full Name <span className="text-theme-error">*</span>
+              Full Name <span className="text-theme-error-fg">*</span>
             </label>
             <input
               type="text"
@@ -176,7 +176,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           {/* Email */}
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-2">
-              Email Address <span className="text-theme-error">*</span>
+              Email Address <span className="text-theme-error-fg">*</span>
             </label>
             <input
               type="email"
@@ -205,7 +205,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           {/* Role Selection */}
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-2">
-              Role <span className="text-theme-error">*</span>
+              Role <span className="text-theme-error-fg">*</span>
             </label>
             <select
               value={formData.roles[0] || ''}
@@ -232,12 +232,12 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           </div>
 
           {/* Information Note */}
-          <div className="bg-theme-info bg-opacity-10 border border-theme-info border-opacity-30 rounded-lg p-4">
+          <div className="bg-theme-info-bg border border-theme-info-border rounded-lg p-4">
             <div className="flex items-start space-x-3">
-              <span className="text-theme-info text-xl">ℹ️</span>
+              <span className="text-theme-info-fg text-xl">ℹ️</span>
               <div>
-                <h4 className="font-medium text-theme-info mb-1">Account Setup</h4>
-                <p className="text-theme-info opacity-80 text-sm">
+                <h4 className="font-medium text-theme-info-fg mb-1">Account Setup</h4>
+                <p className="text-theme-info-fg opacity-80 text-sm">
                   A temporary password will be generated and sent to the user's email address. 
                   They will be prompted to change it on first login.
                 </p>

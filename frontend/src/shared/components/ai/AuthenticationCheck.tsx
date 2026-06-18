@@ -84,11 +84,11 @@ export const AuthenticationCheck: React.FC<AuthenticationCheckProps> = ({
   // Show authentication error if not authenticated
   if (!isAuthenticated) {
     const defaultFallback = (
-      <Card className="p-6 border-theme-error bg-theme-error bg-opacity-5">
+      <Card className="p-6 border-theme-error-border bg-theme-error-bg">
         <div className="flex items-start space-x-3">
-          <AlertCircle className="h-6 w-6 text-theme-error flex-shrink-0 mt-1" />
+          <AlertCircle className="h-6 w-6 text-theme-error-fg flex-shrink-0 mt-1" />
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-theme-error mb-2">
+            <h3 className="text-lg font-semibold text-theme-error-fg mb-2">
               Authentication Required
             </h3>
             <p className="text-theme-tertiary mb-4">
@@ -122,11 +122,11 @@ export const AuthenticationCheck: React.FC<AuthenticationCheckProps> = ({
   // Show permissions error if authenticated but missing permissions
   if (!hasRequiredPermissions) {
     const defaultPermissionsFallback = (
-      <Card className="p-6 border-theme-warning bg-theme-warning bg-opacity-5">
+      <Card className="p-6 border-theme-warning-border bg-theme-warning-bg">
         <div className="flex items-start space-x-3">
-          <Shield className="h-6 w-6 text-theme-warning flex-shrink-0 mt-1" />
+          <Shield className="h-6 w-6 text-theme-warning-fg flex-shrink-0 mt-1" />
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-theme-warning mb-2">
+            <h3 className="text-lg font-semibold text-theme-warning-fg mb-2">
               Insufficient Permissions
             </h3>
             <p className="text-theme-tertiary mb-3">

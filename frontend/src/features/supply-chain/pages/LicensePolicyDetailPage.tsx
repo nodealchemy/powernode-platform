@@ -174,9 +174,9 @@ export const LicensePolicyDetailPage: React.FC = () => {
                 <div>
                   <span className="text-sm font-medium text-theme-tertiary">Enforcement Level</span>
                   <p className={`mt-1 ${
-                    policy.enforcement_level === 'block' ? 'text-theme-error' :
-                    policy.enforcement_level === 'warn' ? 'text-theme-warning' :
-                    'text-theme-info'
+                    policy.enforcement_level === 'block' ? 'text-theme-error-fg' :
+                    policy.enforcement_level === 'warn' ? 'text-theme-warning-fg' :
+                    'text-theme-info-fg'
                   }`}>
                     {enforcementConfig.label}
                   </p>
@@ -235,7 +235,7 @@ export const LicensePolicyDetailPage: React.FC = () => {
         {policy.allowed_licenses && policy.allowed_licenses.length > 0 && (
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
-              <CheckCircle className="w-5 h-5 text-theme-success" />
+              <CheckCircle className="w-5 h-5 text-theme-success-fg" />
               <h2 className="text-lg font-semibold text-theme-primary">
                 Allowed Licenses ({policy.allowed_licenses.length})
               </h2>
@@ -244,7 +244,7 @@ export const LicensePolicyDetailPage: React.FC = () => {
               {policy.allowed_licenses.map((license) => (
                 <span
                   key={license}
-                  className="px-3 py-1 rounded-full bg-theme-success/10 text-theme-success text-sm font-medium"
+                  className="px-3 py-1 rounded-full bg-theme-success-fg/10 text-theme-success-fg text-sm font-medium"
                 >
                   {license}
                 </span>
@@ -257,7 +257,7 @@ export const LicensePolicyDetailPage: React.FC = () => {
         {policy.denied_licenses && policy.denied_licenses.length > 0 && (
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
-              <XCircle className="w-5 h-5 text-theme-error" />
+              <XCircle className="w-5 h-5 text-theme-error-fg" />
               <h2 className="text-lg font-semibold text-theme-primary">
                 Denied Licenses ({policy.denied_licenses.length})
               </h2>
@@ -266,7 +266,7 @@ export const LicensePolicyDetailPage: React.FC = () => {
               {policy.denied_licenses.map((license) => (
                 <span
                   key={license}
-                  className="px-3 py-1 rounded-full bg-theme-error/10 text-theme-error text-sm font-medium"
+                  className="px-3 py-1 rounded-full bg-theme-error-fg/10 text-theme-error-fg text-sm font-medium"
                 >
                   {license}
                 </span>
@@ -279,7 +279,7 @@ export const LicensePolicyDetailPage: React.FC = () => {
         {policy.exception_packages && policy.exception_packages.length > 0 && (
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Shield className="w-5 h-5 text-theme-warning" />
+              <Shield className="w-5 h-5 text-theme-warning-fg" />
               <h2 className="text-lg font-semibold text-theme-primary">
                 Exception Packages ({policy.exception_packages.length})
               </h2>
@@ -288,7 +288,7 @@ export const LicensePolicyDetailPage: React.FC = () => {
               {policy.exception_packages.map((exception, index) => (
                 <div
                   key={index}
-                  className="p-3 rounded-lg bg-theme-warning/10 border border-theme-warning/30"
+                  className="p-3 rounded-lg bg-theme-warning-fg/10 border border-theme-warning-border/30"
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -310,8 +310,8 @@ export const LicensePolicyDetailPage: React.FC = () => {
 
         {/* Violation Count */}
         {typeof policy.violation_count === 'number' && policy.violation_count > 0 && (
-          <div className="flex items-start gap-3 p-4 rounded-lg bg-theme-warning/10 border border-theme-warning/30">
-            <AlertTriangle className="w-5 h-5 text-theme-warning flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-theme-warning-fg/10 border border-theme-warning-border/30">
+            <AlertTriangle className="w-5 h-5 text-theme-warning-fg flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-medium text-theme-primary">
                 {policy.violation_count} open violation{policy.violation_count > 1 ? 's' : ''}
@@ -344,7 +344,7 @@ const RestrictionRow: React.FC<RestrictionRowProps> = ({ label, enabled }) => (
   <div className="flex items-center justify-between py-2 border-b border-theme last:border-0">
     <span className="text-sm text-theme-primary">{label}</span>
     {enabled ? (
-      <CheckCircle className="w-5 h-5 text-theme-success" />
+      <CheckCircle className="w-5 h-5 text-theme-success-fg" />
     ) : (
       <XCircle className="w-5 h-5 text-theme-tertiary" />
     )}

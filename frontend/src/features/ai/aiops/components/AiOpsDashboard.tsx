@@ -71,7 +71,7 @@ export const AiOpsContent: React.FC = () => {
   if (!dashboardData) {
     return (
       <div className="text-center py-12">
-        <AlertTriangle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
+        <AlertTriangle className="h-12 w-12 text-theme-warning-fg mx-auto mb-4" />
         <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
         <p className="text-theme-tertiary">Unable to load operations data.</p>
       </div>
@@ -118,9 +118,9 @@ const getHealthBadge = (status: string) => {
 
 const getStatusIcon = (status: string) => {
   switch (status) {
-    case 'healthy': return <CheckCircle2 className="h-4 w-4 text-theme-success" />;
-    case 'degraded': return <AlertTriangle className="h-4 w-4 text-theme-warning" />;
-    case 'critical': return <XCircle className="h-4 w-4 text-theme-error" />;
+    case 'healthy': return <CheckCircle2 className="h-4 w-4 text-theme-success-fg" />;
+    case 'degraded': return <AlertTriangle className="h-4 w-4 text-theme-warning-fg" />;
+    case 'critical': return <XCircle className="h-4 w-4 text-theme-error-fg" />;
     default: return <Clock className="h-4 w-4 text-theme-tertiary" />;
   }
 };
@@ -180,7 +180,7 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
         </div>
         <div className="text-center">
           <p className="text-xs text-theme-tertiary uppercase">Error Rate</p>
-          <p className={`text-xl font-bold ${realTimeData.current_error_rate > 0.05 ? 'text-theme-error' : 'text-theme-success'}`}>
+          <p className={`text-xl font-bold ${realTimeData.current_error_rate > 0.05 ? 'text-theme-error-fg' : 'text-theme-success-fg'}`}>
             {(realTimeData.current_error_rate * 100).toFixed(1)}%
           </p>
         </div>
@@ -204,7 +204,7 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
             <p className="text-2xl font-semibold text-theme-primary">{formatNumber(dashboardData.summary.total_requests)}</p>
             <p className="text-xs text-theme-tertiary mt-1">{dashboardData.summary.success_rate.toFixed(1)}% success</p>
           </div>
-          <BarChart3 className="h-8 w-8 text-theme-info" />
+          <BarChart3 className="h-8 w-8 text-theme-info-fg" />
         </div>
       </Card>
       <Card className="p-4">
@@ -214,7 +214,7 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
             <p className="text-2xl font-semibold text-theme-primary">{dashboardData.summary.avg_latency_ms.toFixed(0)}ms</p>
             <p className="text-xs text-theme-tertiary mt-1">p95: {dashboardData.summary.p95_latency_ms.toFixed(0)}ms</p>
           </div>
-          <Clock className="h-8 w-8 text-theme-warning" />
+          <Clock className="h-8 w-8 text-theme-warning-fg" />
         </div>
       </Card>
       <Card className="p-4">
@@ -224,21 +224,21 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
             <p className="text-2xl font-semibold text-theme-primary">${dashboardData.summary.total_cost_usd.toFixed(2)}</p>
             <p className="text-xs text-theme-tertiary mt-1">This period</p>
           </div>
-          <DollarSign className="h-8 w-8 text-theme-success" />
+          <DollarSign className="h-8 w-8 text-theme-success-fg" />
         </div>
       </Card>
       <Card className="p-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-theme-tertiary">Failed Requests</p>
-            <p className="text-2xl font-semibold text-theme-error">{formatNumber(dashboardData.summary.failed_requests)}</p>
+            <p className="text-2xl font-semibold text-theme-error-fg">{formatNumber(dashboardData.summary.failed_requests)}</p>
             <p className="text-xs text-theme-tertiary mt-1">
               {dashboardData.summary.total_requests > 0
                 ? ((dashboardData.summary.failed_requests / dashboardData.summary.total_requests) * 100).toFixed(1)
                 : '0.0'}% error rate
             </p>
           </div>
-          <AlertTriangle className="h-8 w-8 text-theme-error" />
+          <AlertTriangle className="h-8 w-8 text-theme-error-fg" />
         </div>
       </Card>
     </div>
@@ -253,8 +253,8 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
           </h3>
           <div className="text-center mb-4">
             <div className={`text-4xl font-bold ${
-              healthData.overall_score >= 90 ? 'text-theme-success' :
-              healthData.overall_score >= 70 ? 'text-theme-warning' : 'text-theme-error'
+              healthData.overall_score >= 90 ? 'text-theme-success-fg' :
+              healthData.overall_score >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'
             }`}>
               {healthData.overall_score.toFixed(0)}%
             </div>
@@ -272,13 +272,13 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
                 </div>
                 <div className="text-right">
                   <p className={`font-medium ${
-                    component.score >= 90 ? 'text-theme-success' :
-                    component.score >= 70 ? 'text-theme-warning' : 'text-theme-error'
+                    component.score >= 90 ? 'text-theme-success-fg' :
+                    component.score >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'
                   }`}>
                     {component.score.toFixed(0)}%
                   </p>
                   {component.error_count > 0 && (
-                    <p className="text-xs text-theme-error">{component.error_count} errors</p>
+                    <p className="text-xs text-theme-error-fg">{component.error_count} errors</p>
                   )}
                 </div>
               </div>
@@ -309,8 +309,8 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
             <div key={provider.id} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
               <div className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${
-                  provider.success_rate >= 99 ? 'bg-theme-success' :
-                  provider.success_rate >= 95 ? 'bg-theme-warning' : 'bg-theme-error'
+                  provider.success_rate >= 99 ? 'bg-theme-success-bg' :
+                  provider.success_rate >= 95 ? 'bg-theme-warning-bg' : 'bg-theme-error-bg'
                 }`} />
                 <div>
                   <EntityLink
@@ -336,21 +336,21 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
     <div className="grid grid-cols-1 gap-6">
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-theme-error" />
+          <AlertTriangle className="h-5 w-5 text-theme-error-fg" />
           Recent Errors
         </h3>
         {dashboardData.recent_errors.length === 0 ? (
           <div className="text-center py-8">
-            <CheckCircle2 className="h-12 w-12 text-theme-success mx-auto mb-2" />
+            <CheckCircle2 className="h-12 w-12 text-theme-success-fg mx-auto mb-2" />
             <p className="text-theme-tertiary">No recent errors</p>
           </div>
         ) : (
           <div className="space-y-3">
             {dashboardData.recent_errors.slice(0, 5).map((error, index) => (
-              <div key={index} className="p-3 bg-theme-error rounded-lg border border-theme-error">
+              <div key={index} className="p-3 bg-theme-error-bg rounded-lg border border-theme-error-border">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-medium text-theme-error">{error.error_type}</p>
+                    <p className="font-medium text-theme-error-fg">{error.error_type}</p>
                     <p className="text-sm text-theme-secondary mt-1">{error.message}</p>
                     <p className="text-xs text-theme-tertiary mt-1">{error.source_type}: {error.source_name}</p>
                   </div>

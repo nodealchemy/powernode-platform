@@ -315,7 +315,7 @@ export const McpBrowserContent: React.FC = () => {
   if (!canViewMcpServers) {
     return (
       <div className="text-center py-12">
-        <AlertCircle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
+        <AlertCircle className="h-12 w-12 text-theme-warning-fg mx-auto mb-4" />
         <p className="text-theme-secondary">
           You don't have permission to view MCP servers.
         </p>
@@ -330,8 +330,8 @@ export const McpBrowserContent: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-theme-interactive-primary bg-opacity-10 rounded-lg flex items-center justify-center">
-                <Server className="h-6 w-6 text-theme-interactive-primary" />
+              <div className="w-12 h-12 bg-theme-info-bg rounded-lg flex items-center justify-center">
+                <Server className="h-6 w-6 text-theme-info-fg" />
               </div>
               <div>
                 <p className="text-xs text-theme-tertiary mb-1">Total Servers</p>
@@ -342,8 +342,8 @@ export const McpBrowserContent: React.FC = () => {
 
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-theme-success bg-opacity-10 rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="h-6 w-6 text-theme-success" />
+              <div className="w-12 h-12 bg-theme-success-bg rounded-lg flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-theme-success-fg" />
               </div>
               <div>
                 <p className="text-xs text-theme-tertiary mb-1">Connected</p>
@@ -354,8 +354,8 @@ export const McpBrowserContent: React.FC = () => {
 
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-                <Zap className="h-6 w-6 text-theme-info" />
+              <div className="w-12 h-12 bg-theme-info-bg rounded-lg flex items-center justify-center">
+                <Zap className="h-6 w-6 text-theme-info-fg" />
               </div>
               <div>
                 <p className="text-xs text-theme-tertiary mb-1">Total Tools</p>
@@ -366,8 +366,8 @@ export const McpBrowserContent: React.FC = () => {
 
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-theme-warning bg-opacity-10 rounded-lg flex items-center justify-center">
-                <Package className="h-6 w-6 text-theme-warning" />
+              <div className="w-12 h-12 bg-theme-warning-bg rounded-lg flex items-center justify-center">
+                <Package className="h-6 w-6 text-theme-warning-fg" />
               </div>
               <div>
                 <p className="text-xs text-theme-tertiary mb-1">Total Resources</p>

@@ -3,19 +3,19 @@ import { BookOpen, ChevronDown, ChevronRight } from 'lucide-react';
 import { sharedLearningsApi, type Learning } from '../services/sharedLearningsApi';
 
 const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
-  fact: { label: 'Facts', color: 'bg-theme-info/10 text-theme-info' },
-  pattern: { label: 'Patterns', color: 'bg-theme-success/10 text-theme-success' },
-  anti_pattern: { label: 'Anti-Patterns', color: 'bg-theme-danger/10 text-theme-danger' },
-  best_practice: { label: 'Best Practices', color: 'bg-theme-info/10 text-theme-info' },
-  discovery: { label: 'Discoveries', color: 'bg-theme-warning/10 text-theme-warning' },
+  fact: { label: 'Facts', color: 'bg-theme-info-fg/10 text-theme-info-fg' },
+  pattern: { label: 'Patterns', color: 'bg-theme-success-fg/10 text-theme-success-fg' },
+  anti_pattern: { label: 'Anti-Patterns', color: 'bg-theme-danger-fg/10 text-theme-danger-fg' },
+  best_practice: { label: 'Best Practices', color: 'bg-theme-info-fg/10 text-theme-info-fg' },
+  discovery: { label: 'Discoveries', color: 'bg-theme-warning-fg/10 text-theme-warning-fg' },
 };
 
 function ImportanceBadge({ importance }: { importance: number }) {
   const level = importance >= 0.8 ? 'High' : importance >= 0.6 ? 'Medium' : 'Low';
   const className = importance >= 0.8
-    ? 'bg-theme-error/10 text-theme-error'
+    ? 'bg-theme-error-fg/10 text-theme-error-fg'
     : importance >= 0.6
-      ? 'bg-theme-warning/10 text-theme-warning'
+      ? 'bg-theme-warning-fg/10 text-theme-warning-fg'
       : 'bg-theme-surface/10 text-theme-secondary';
 
   return (
@@ -32,7 +32,7 @@ interface CategorySectionProps {
 
 function CategorySection({ category, learnings }: CategorySectionProps) {
   const [expanded, setExpanded] = useState(true);
-  const config = CATEGORY_CONFIG[category] || { label: category, color: 'bg-theme-info text-theme-primary' };
+  const config = CATEGORY_CONFIG[category] || { label: category, color: 'bg-theme-info-bg text-theme-primary' };
 
   return (
     <div className="border border-theme rounded-lg overflow-hidden">

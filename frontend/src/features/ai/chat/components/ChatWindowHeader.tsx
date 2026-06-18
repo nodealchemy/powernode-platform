@@ -133,7 +133,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
         >
           {state.showSidebar ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
         </button>
-        <div className="h-2 w-2 rounded-full bg-theme-success shrink-0" />
+        <div className="h-2 w-2 rounded-full bg-theme-success-bg shrink-0" />
         <span className="text-sm font-semibold text-theme-primary truncate">
           {activeTab?.agentName ?? 'AI Chat'}
         </span>
@@ -215,7 +215,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
                   <button
                     type="button"
                     onClick={() => { setConfirmAction(null); handleArchive(); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white bg-theme-danger hover:bg-theme-danger/90 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white bg-theme-danger-bg hover:bg-theme-danger-fg/90 transition-colors"
                   >
                     <Archive className="h-3.5 w-3.5" /> Confirm Archive
                   </button>
@@ -232,7 +232,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
                   <button
                     type="button"
                     onClick={() => { setConfirmAction(null); handleClearChat(); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white bg-theme-danger hover:bg-theme-danger/90 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white bg-theme-danger-bg hover:bg-theme-danger-fg/90 transition-colors"
                   >
                     <Eraser className="h-3.5 w-3.5" /> Confirm Clear
                   </button>
@@ -250,7 +250,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
                   <button
                     type="button"
                     onClick={() => { setConfirmAction(null); handleDelete(); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white bg-theme-danger hover:bg-theme-danger/90 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white bg-theme-danger-bg hover:bg-theme-danger-fg/90 transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" /> Confirm Delete
                   </button>
@@ -258,7 +258,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
                   <button
                     type="button"
                     onClick={() => setConfirmAction('delete')}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-error hover:bg-theme-error transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-error-fg hover:bg-theme-error-bg transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" /> Delete
                   </button>

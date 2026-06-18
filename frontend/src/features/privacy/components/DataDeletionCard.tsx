@@ -43,14 +43,14 @@ export const DataDeletionCard: React.FC<DataDeletionCardProps> = ({
   // If there's an active deletion request
   if (deletionRequest && ['pending', 'approved', 'processing'].includes(deletionRequest.status)) {
     return (
-      <div className="bg-theme-danger/10 dark:bg-theme-danger/20 rounded-lg border border-theme-danger/30 dark:border-theme-danger/50 p-6">
+      <div className="bg-theme-danger-fg/10 dark:bg-theme-danger-fg/20 rounded-lg border border-theme-danger-border/30 dark:border-theme-danger-border/50 p-6">
         <div className="flex items-start space-x-3">
-          <ExclamationTriangleIcon className="h-6 w-6 text-theme-danger" />
+          <ExclamationTriangleIcon className="h-6 w-6 text-theme-danger-fg" />
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-theme-danger dark:text-theme-danger">
+            <h3 className="text-lg font-semibold text-theme-danger-fg dark:text-theme-danger-fg">
               Account Deletion Scheduled
             </h3>
-            <p className="text-sm text-theme-danger mt-1">
+            <p className="text-sm text-theme-danger-fg mt-1">
               {deletionRequest.in_grace_period ? (
                 <>
                   Your account is scheduled for deletion in{' '}
@@ -65,8 +65,8 @@ export const DataDeletionCard: React.FC<DataDeletionCardProps> = ({
             {deletionRequest.grace_period_ends_at && (
               <div className="mt-4 p-3 bg-theme-background dark:bg-theme-surface rounded">
                 <div className="flex items-center space-x-2 text-sm">
-                  <ClockIcon className="h-5 w-5 text-theme-danger" />
-                  <span className="text-theme-danger">
+                  <ClockIcon className="h-5 w-5 text-theme-danger-fg" />
+                  <span className="text-theme-danger-fg">
                     Grace period ends:{' '}
                     {new Date(deletionRequest.grace_period_ends_at).toLocaleDateString()}
                   </span>
@@ -78,7 +78,7 @@ export const DataDeletionCard: React.FC<DataDeletionCardProps> = ({
               <button
                 onClick={handleCancelDeletion}
                 disabled={loading}
-                className="mt-4 px-4 py-2 bg-theme-background dark:bg-theme-surface text-theme-danger border border-theme-danger/40 dark:border-theme-danger/60 rounded-lg hover:bg-theme-danger/10 dark:hover:bg-theme-danger/30 transition-colors"
+                className="mt-4 px-4 py-2 bg-theme-background dark:bg-theme-surface text-theme-danger-fg border border-theme-danger-border/40 dark:border-theme-danger-border/60 rounded-lg hover:bg-theme-danger-fg/10 dark:hover:bg-theme-danger-fg/30 transition-colors"
               >
                 Cancel Deletion Request
               </button>
@@ -93,7 +93,7 @@ export const DataDeletionCard: React.FC<DataDeletionCardProps> = ({
   return (
     <div className="bg-theme-surface rounded-lg border border-theme p-6">
       <div className="flex items-center space-x-3 mb-4">
-        <TrashIcon className="h-6 w-6 text-theme-danger" />
+        <TrashIcon className="h-6 w-6 text-theme-danger-fg" />
         <div>
           <h3 className="text-lg font-semibold text-theme-primary">Delete Your Data</h3>
           <p className="text-sm text-theme-secondary">
@@ -110,17 +110,17 @@ export const DataDeletionCard: React.FC<DataDeletionCardProps> = ({
           </p>
           <button
             onClick={() => setShowConfirm(true)}
-            className="px-4 py-2 bg-theme-danger text-white rounded-lg hover:opacity-90 transition-colors"
+            className="px-4 py-2 bg-theme-danger-bg text-white rounded-lg hover:opacity-90 transition-colors"
           >
             Request Data Deletion
           </button>
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="p-4 bg-theme-warning/10 dark:bg-theme-warning/20 rounded-lg">
+          <div className="p-4 bg-theme-warning-fg/10 dark:bg-theme-warning-fg/20 rounded-lg">
             <div className="flex items-start space-x-3">
-              <ExclamationTriangleIcon className="h-5 w-5 text-theme-warning mt-0.5" />
-              <div className="text-sm text-theme-warning dark:text-theme-warning">
+              <ExclamationTriangleIcon className="h-5 w-5 text-theme-warning-fg mt-0.5" />
+              <div className="text-sm text-theme-warning-fg dark:text-theme-warning-fg">
                 <p className="font-medium">Important Notice</p>
                 <ul className="mt-2 list-disc list-inside space-y-1">
                   <li>This action cannot be undone after the grace period</li>
@@ -179,7 +179,7 @@ export const DataDeletionCard: React.FC<DataDeletionCardProps> = ({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Help us improve by sharing why you're leaving..."
-              className="w-full px-3 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-error"
+              className="w-full px-3 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-error-fg"
               rows={3}
             />
           </div>
@@ -188,7 +188,7 @@ export const DataDeletionCard: React.FC<DataDeletionCardProps> = ({
             <button
               onClick={handleRequestDeletion}
               disabled={requesting || loading}
-              className="px-4 py-2 bg-theme-danger text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-theme-danger-bg text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
             >
               {requesting ? 'Submitting...' : 'Confirm Deletion Request'}
             </button>

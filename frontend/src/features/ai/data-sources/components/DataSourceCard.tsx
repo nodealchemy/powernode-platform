@@ -122,9 +122,9 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
 
   const getHealthStatusColor = (status: string) => {
     switch (status) {
-      case 'healthy': return 'text-theme-success';
-      case 'degraded': return 'text-theme-warning';
-      case 'critical': return 'text-theme-danger';
+      case 'healthy': return 'text-theme-success-fg';
+      case 'degraded': return 'text-theme-warning-fg';
+      case 'critical': return 'text-theme-danger-fg';
       default: return 'text-theme-tertiary';
     }
   };
@@ -305,9 +305,9 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
           <div className="w-full bg-theme-surface-secondary rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all ${
-                maxUtilization > 90 ? 'bg-theme-danger' :
-                maxUtilization > 70 ? 'bg-theme-warning' :
-                'bg-theme-success'
+                maxUtilization > 90 ? 'bg-theme-danger-bg' :
+                maxUtilization > 70 ? 'bg-theme-warning-bg' :
+                'bg-theme-success-bg'
               }`}
               style={{ width: `${Math.min(maxUtilization, 100)}%` }}
             />
@@ -385,10 +385,10 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
       )}
 
       {(dataSource.credential_count ?? 0) === 0 && dataSource.requires_auth && (
-        <div className="mt-4 p-3 bg-theme-warning/10 rounded-lg border border-theme-warning/30">
+        <div className="mt-4 p-3 bg-theme-warning-fg/10 rounded-lg border border-theme-warning-border/30">
           <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-theme-warning" />
-            <span className="text-sm text-theme-warning">
+            <AlertCircle className="h-4 w-4 text-theme-warning-fg" />
+            <span className="text-sm text-theme-warning-fg">
               No credentials configured. Add credentials to start using this data source.
             </span>
           </div>

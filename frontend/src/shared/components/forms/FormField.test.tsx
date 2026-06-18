@@ -261,7 +261,7 @@ describe('FormField', () => {
       render(<FormField label="Test Label" name="testField" form={form} />);
 
       const input = screen.getByRole('textbox');
-      expect(input).toHaveClass('border-theme-error');
+      expect(input).toHaveClass('border-theme-error-border');
     });
 
     it('does not show help text when error is present', () => {

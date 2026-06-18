@@ -51,9 +51,9 @@ export const OptimizationTab: React.FC<OptimizationTabProps> = ({
                 <div className="flex items-center gap-3">
                   <h3 className="font-medium text-theme-primary">{opt.optimization_type}</h3>
                   <span className={`px-2 py-1 text-xs rounded ${
-                    opt.status === 'applied' ? 'text-theme-success bg-theme-success/10' :
-                    opt.status === 'identified' ? 'text-theme-warning bg-theme-warning/10' :
-                    opt.status === 'recommended' ? 'text-theme-info bg-theme-info/10' :
+                    opt.status === 'applied' ? 'text-theme-success-fg bg-theme-success-fg/10' :
+                    opt.status === 'identified' ? 'text-theme-warning-fg bg-theme-warning-fg/10' :
+                    opt.status === 'recommended' ? 'text-theme-info-fg bg-theme-info-fg/10' :
                     'text-theme-secondary bg-theme-surface'
                   }`}>{opt.status}</span>
                 </div>
@@ -65,8 +65,8 @@ export const OptimizationTab: React.FC<OptimizationTabProps> = ({
               </div>
               {opt.description && <p className="text-sm text-theme-secondary mb-2">{opt.description}</p>}
               <div className="flex gap-4 text-xs text-theme-secondary">
-                {opt.potential_savings_usd && <span className="text-theme-success">Est. savings: ${opt.potential_savings_usd.toFixed(2)}</span>}
-                {opt.actual_savings_usd && <span className="text-theme-success">Actual savings: ${opt.actual_savings_usd.toFixed(2)}</span>}
+                {opt.potential_savings_usd && <span className="text-theme-success-fg">Est. savings: ${opt.potential_savings_usd.toFixed(2)}</span>}
+                {opt.actual_savings_usd && <span className="text-theme-success-fg">Actual savings: ${opt.actual_savings_usd.toFixed(2)}</span>}
               </div>
             </div>
           ))}

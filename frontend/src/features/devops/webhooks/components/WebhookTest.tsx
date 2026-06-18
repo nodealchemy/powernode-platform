@@ -88,16 +88,16 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
 
   // Get status color based on HTTP status
   const getStatusColor = (status: number) => {
-    if (status >= 200 && status < 300) return 'text-theme-success';
-    if (status >= 400 && status < 500) return 'text-theme-warning';
-    return 'text-theme-error';
+    if (status >= 200 && status < 300) return 'text-theme-success-fg';
+    if (status >= 400 && status < 500) return 'text-theme-warning-fg';
+    return 'text-theme-error-fg';
   };
 
   // Get response time color
   const getResponseTimeColor = (ms: number) => {
-    if (ms < 1000) return 'text-theme-success';
-    if (ms < 3000) return 'text-theme-warning';
-    return 'text-theme-error';
+    if (ms < 1000) return 'text-theme-success-fg';
+    if (ms < 3000) return 'text-theme-warning-fg';
+    return 'text-theme-error-fg';
   };
 
   // Generate sample payload preview
@@ -191,7 +191,7 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
             </Button>
 
             {webhook.status !== 'active' && (
-              <div className="flex items-center gap-2 text-theme-warning">
+              <div className="flex items-center gap-2 text-theme-warning-fg">
                 <AlertTriangle className="w-4 h-4" />
                 <span className="text-sm">Webhook must be active to test</span>
               </div>
@@ -229,13 +229,13 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${
                   testResult.response.success
-                    ? 'bg-theme-success bg-opacity-10'
-                    : 'bg-theme-error bg-opacity-10'
+                    ? 'bg-theme-success-bg'
+                    : 'bg-theme-error-bg'
                 }`}>
                   {testResult.response.success ? (
-                    <CheckCircle className="w-5 h-5 text-theme-success" />
+                    <CheckCircle className="w-5 h-5 text-theme-success-fg" />
                   ) : (
-                    <AlertTriangle className="w-5 h-5 text-theme-error" />
+                    <AlertTriangle className="w-5 h-5 text-theme-error-fg" />
                   )}
                 </div>
                 <div>
@@ -249,8 +249,8 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
 
             <div className="bg-theme-surface rounded-lg p-4 border border-theme">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-theme-interactive-primary bg-opacity-10">
-                  <Clock className="w-5 h-5 text-theme-interactive-primary" />
+                <div className="p-2 rounded-lg bg-theme-info-bg">
+                  <Clock className="w-5 h-5 text-theme-info-fg" />
                 </div>
                 <div>
                   <p className="text-sm text-theme-secondary">Response Time</p>
@@ -263,7 +263,7 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
 
             <div className="bg-theme-surface rounded-lg p-4 border border-theme">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-theme-background-secondary bg-opacity-10">
+                <div className="p-2 rounded-lg bg-theme-background-secondary/10">
                   <Globe className="w-5 h-5 text-theme-tertiary" />
                 </div>
                 <div>
@@ -278,11 +278,11 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
 
           {/* Success/Failure Details */}
           {testResult.response.success ? (
-            <div className="bg-theme-success bg-opacity-5 border border-theme-success rounded-lg p-4">
+            <div className="bg-theme-success-bg border border-theme-success-border rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-theme-success flex-shrink-0 mt-0.5" />
+                <CheckCircle className="w-5 h-5 text-theme-success-fg flex-shrink-0 mt-0.5" />
                 <div>
-                  <h5 className="font-medium text-theme-success mb-2">Test Successful</h5>
+                  <h5 className="font-medium text-theme-success-fg mb-2">Test Successful</h5>
                   <p className="text-sm text-theme-secondary">
                     Your webhook endpoint responded successfully to the test event. 
                     The endpoint is configured correctly and ready to receive real webhook events.
@@ -291,11 +291,11 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
               </div>
             </div>
           ) : (
-            <div className="bg-theme-error bg-opacity-5 border border-theme-error rounded-lg p-4">
+            <div className="bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-theme-error flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-theme-error-fg flex-shrink-0 mt-0.5" />
                 <div>
-                  <h5 className="font-medium text-theme-error mb-2">Test Failed</h5>
+                  <h5 className="font-medium text-theme-error-fg mb-2">Test Failed</h5>
                   <p className="text-sm text-theme-secondary mb-3">
                     Your webhook endpoint did not respond successfully. Please check the following:
                   </p>
@@ -348,7 +348,7 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
       )}
 
       {/* Tips */}
-      <div className="bg-theme-interactive-primary bg-opacity-5 border border-theme-interactive-primary rounded-lg p-4">
+      <div className="bg-theme-interactive-primary/5 border border-theme-interactive-primary rounded-lg p-4">
         <h4 className="font-medium text-theme-interactive-primary mb-3 flex items-center gap-2">
           <Zap className="w-5 h-5" />
           Testing Tips

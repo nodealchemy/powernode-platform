@@ -253,7 +253,7 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
             onChange={(e) => handleInputChange('description', e.target.value)}
             placeholder="Brief description of the data source..."
             rows={3}
-            className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-info focus:border-transparent"
+            className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-info-fg focus:border-transparent"
           />
         </div>
 
@@ -275,7 +275,7 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
               type="checkbox"
               checked={formData.requires_auth}
               onChange={(e) => handleInputChange('requires_auth', e.target.checked)}
-              className="rounded border-theme-300 text-theme-info focus:ring-theme-info"
+              className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg"
             />
             <span className="text-sm text-theme-secondary">Requires Authentication</span>
           </label>
@@ -293,7 +293,7 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
               type="checkbox"
               checked={formData.respect_robots}
               onChange={(e) => handleInputChange('respect_robots', e.target.checked)}
-              className="rounded border-theme-300 text-theme-info focus:ring-theme-info"
+              className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg"
             />
             <span className="text-sm text-theme-secondary">Respect robots.txt</span>
           </label>

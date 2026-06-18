@@ -563,7 +563,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
           className="block text-sm font-medium text-theme-primary"
         >
           {field.label}
-          {field.required && <span className="ml-1 text-theme-danger">*</span>}
+          {field.required && <span className="ml-1 text-theme-danger-fg">*</span>}
         </label>
 
         {field.type === 'textarea' ? (
@@ -594,7 +594,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
 
         {errorMsg && (
           <p
-            className="flex items-center gap-1 text-xs text-theme-danger"
+            className="flex items-center gap-1 text-xs text-theme-danger-fg"
             data-testid={`provider-cred-error-${field.key}`}
           >
             <AlertCircle className="h-3 w-3" />
@@ -613,8 +613,8 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
       autoComplete="off"
     >
       {!compact && (
-        <div className="flex items-start gap-2 rounded-lg border border-theme bg-theme-info/10 px-3 py-2 text-xs text-theme-secondary">
-          <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-theme-info" />
+        <div className="flex items-start gap-2 rounded-lg border border-theme bg-theme-info-fg/10 px-3 py-2 text-xs text-theme-secondary">
+          <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-theme-info-fg" />
           <span>
             Credentials are stored encrypted at rest using Rails attribute encryption and
             never leave your account. Use a least-privilege key whenever possible.
@@ -646,7 +646,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
 
           {testStatus === 'valid' && (
             <span
-              className="flex items-center gap-1 text-xs text-theme-success"
+              className="flex items-center gap-1 text-xs text-theme-success-fg"
               data-testid="provider-cred-test-success"
             >
               <CheckCircle2 className="h-4 w-4" />
@@ -656,7 +656,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
 
           {testStatus === 'invalid' && (
             <span
-              className="flex items-center gap-1 text-xs text-theme-danger"
+              className="flex items-center gap-1 text-xs text-theme-danger-fg"
               data-testid="provider-cred-test-error"
             >
               <XCircle className="h-4 w-4" />

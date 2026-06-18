@@ -319,7 +319,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
                 <div key={param.name}>
                   <label className="block text-sm text-theme-primary mb-1">
                     {param.name}
-                    {param.required && <span className="text-theme-error ml-1">*</span>}
+                    {param.required && <span className="text-theme-error-fg ml-1">*</span>}
                     <span className="text-theme-tertiary ml-2 text-xs">({param.type})</span>
                   </label>
                   {param.description && (
@@ -393,14 +393,14 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
         {executionResult && (
           <div className={`p-4 rounded-lg border ${
             executionResult.success
-              ? 'bg-theme-success bg-opacity-5 border-theme-success'
-              : 'bg-theme-error bg-opacity-5 border-theme-error'
+              ? 'bg-theme-success-bg border-theme-success-border'
+              : 'bg-theme-error-bg border-theme-error-border'
           }`}>
             <div className="flex items-center gap-2 mb-3">
               {executionResult.success ? (
-                <CheckCircle2 className="h-5 w-5 text-theme-success" />
+                <CheckCircle2 className="h-5 w-5 text-theme-success-fg" />
               ) : (
-                <XCircle className="h-5 w-5 text-theme-error" />
+                <XCircle className="h-5 w-5 text-theme-error-fg" />
               )}
               <span className="font-medium text-theme-primary">
                 {executionResult.success ? 'Execution Successful' : 'Execution Failed'}
@@ -413,7 +413,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
             </div>
 
             {executionResult.error && (
-              <div className="text-sm text-theme-error">
+              <div className="text-sm text-theme-error-fg">
                 <p className="font-medium mb-1">Error:</p>
                 <p>{executionResult.error}</p>
               </div>

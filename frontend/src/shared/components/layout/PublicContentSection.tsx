@@ -38,8 +38,8 @@ export const PublicContentSection: React.FC<PublicContentSectionProps> = ({
                           <span className="label">Status:</span>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             metaData.status === 'published'
-                              ? 'bg-theme-success/20 text-theme-success'
-                              : 'bg-theme-warning/20 text-theme-warning'
+                              ? 'bg-theme-success-fg/20 text-theme-success-fg'
+                              : 'bg-theme-warning-fg/20 text-theme-warning-fg'
                           }`}>
                             {metaData.status.charAt(0).toUpperCase() + metaData.status.slice(1)}
                           </span>

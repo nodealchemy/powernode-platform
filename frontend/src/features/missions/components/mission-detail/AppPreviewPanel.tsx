@@ -15,7 +15,7 @@ export const AppPreviewPanel: React.FC<AppPreviewPanelProps> = ({ url, port, con
     <div className="card-theme-elevated p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Monitor className="w-5 h-5 text-theme-info" />
+          <Monitor className="w-5 h-5 text-theme-info-fg" />
           <h3 className="text-sm font-semibold text-theme-primary">App Preview</h3>
         </div>
         <div className="flex items-center gap-2">
@@ -32,7 +32,7 @@ export const AppPreviewPanel: React.FC<AppPreviewPanelProps> = ({ url, port, con
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-theme-info hover:underline"
+            className="inline-flex items-center gap-1 text-xs text-theme-info-fg hover:underline"
           >
             Open in new tab <ExternalLink className="w-3 h-3" />
           </a>
@@ -42,7 +42,7 @@ export const AppPreviewPanel: React.FC<AppPreviewPanelProps> = ({ url, port, con
       <div className="space-y-3">
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-theme-success" />
+            <span className="w-2 h-2 rounded-full bg-theme-success-bg" />
             <span className="text-theme-secondary">Running</span>
           </div>
           {port && (
@@ -58,7 +58,7 @@ export const AppPreviewPanel: React.FC<AppPreviewPanelProps> = ({ url, port, con
         {!showIframe ? (
           <button
             onClick={() => setShowIframe(true)}
-            className="w-full py-8 border-2 border-dashed border-theme rounded-lg text-center hover:border-theme-info/50 transition-colors"
+            className="w-full py-8 border-2 border-dashed border-theme rounded-lg text-center hover:border-theme-info-border/50 transition-colors"
           >
             <Monitor className="w-8 h-8 text-theme-tertiary mx-auto mb-2" />
             <span className="text-sm text-theme-secondary">Click to load preview</span>

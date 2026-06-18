@@ -340,6 +340,25 @@ describe('WebhookTest', () => {
       expect(screen.getByText('POST')).toBeInTheDocument();
       expect(screen.getByText('application/json')).toBeInTheDocument();
     });
+
+    it('renders the Response Time result chip with a semantic status token, not the interactive-primary affordance token (IMP-4892d5ac1777)', async () => {
+      mockTestWebhook.mockResolvedValue(successResult);
+
+      render(<WebhookTest {...defaultProps} />);
+      fireEvent.click(screen.getByText('Send Test Event'));
+
+      // The sibling Status tile uses semantic success/error tokens; this neutral metric
+      // chip must not be the interactive-primary odd-one-out.
+      const label = await screen.findByText('Response Time');
+      const row = label.closest('div.flex');
+      expect(row).toBeTruthy();
+
+      const iconChip = row!.querySelector('div.rounded-lg');
+      expect(iconChip).toBeTruthy();
+
+      expect(iconChip!.className).not.toMatch(/theme-interactive-primary/);
+      expect(iconChip!.className).toMatch(/bg-theme-info/);
+    });
   });
 
   describe('sample payload', () => {

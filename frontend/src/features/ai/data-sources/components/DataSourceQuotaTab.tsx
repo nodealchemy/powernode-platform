@@ -15,9 +15,9 @@ interface QuotaBarProps {
 
 const QuotaBar: React.FC<QuotaBarProps> = ({ label, current, limit, pct }) => {
   const percentage = pct ?? (limit && limit > 0 ? (current / limit) * 100 : 0);
-  const barColor = percentage > 90 ? 'bg-theme-danger' :
-                   percentage > 70 ? 'bg-theme-warning' :
-                   'bg-theme-success';
+  const barColor = percentage > 90 ? 'bg-theme-danger-bg' :
+                   percentage > 70 ? 'bg-theme-warning-bg' :
+                   'bg-theme-success-bg';
 
   return (
     <div className="space-y-1">

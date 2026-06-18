@@ -12,10 +12,10 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   onDelete,
   actionLoading
 }) => (
-  <div className="bg-theme-info border border-theme-info-border rounded-lg p-4 mb-6">
+  <div className="bg-theme-info-bg border border-theme-info-border rounded-lg p-4 mb-6">
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-4">
-        <span className="text-theme-info font-medium">
+        <span className="text-theme-info-fg font-medium">
           {selectedCount} user{selectedCount > 1 ? 's' : ''} selected
         </span>
         <button

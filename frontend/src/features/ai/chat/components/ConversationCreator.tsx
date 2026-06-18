@@ -116,7 +116,7 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
       >
         <div className={`flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center ${
           isSelected
-            ? isMcp ? 'bg-theme-info/10 text-theme-info' : 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
+            ? isMcp ? 'bg-theme-info-fg/10 text-theme-info-fg' : 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
             : 'bg-theme-surface text-theme-secondary'
         }`}>
           {isMcp ? <Terminal className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
@@ -127,7 +127,7 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
               {displayName}
             </span>
             {seqNum && (
-              <span className="flex-shrink-0 min-w-[1.25rem] h-5 px-1 bg-theme-info/15 text-theme-info text-[10px] font-bold rounded flex items-center justify-center">
+              <span className="flex-shrink-0 min-w-[1.25rem] h-5 px-1 bg-theme-info-fg/15 text-theme-info-fg text-[10px] font-bold rounded flex items-center justify-center">
                 #{seqNum}
               </span>
             )}
@@ -142,7 +142,7 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
         </div>
         <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded-full flex-shrink-0 ${
           isMcp
-            ? 'bg-theme-info/10 text-theme-info'
+            ? 'bg-theme-info-fg/10 text-theme-info-fg'
             : 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
         }`}>
           {isMcp ? 'MCP' : 'AI'}

@@ -101,7 +101,7 @@ export const ContainerLogViewer: React.FC<ContainerLogViewerProps> = ({
         ) : (
           <pre className="p-3 text-xs font-mono leading-relaxed">
             {logs.map((entry, i) => (
-              <div key={i} className={`hover:bg-theme-surface-hover ${entry.stream === 'stderr' ? 'text-theme-error' : 'text-theme-primary'}`}>
+              <div key={i} className={`hover:bg-theme-surface-hover ${entry.stream === 'stderr' ? 'text-theme-error-fg' : 'text-theme-primary'}`}>
                 {entry.timestamp && (
                   <span className="text-theme-tertiary mr-2">{new Date(entry.timestamp).toLocaleTimeString()}</span>
                 )}

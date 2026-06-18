@@ -8,9 +8,9 @@ interface DashboardAIOverviewProps {
 }
 
 const healthConfig = {
-  healthy: { icon: CheckCircle, color: 'text-theme-success', bg: 'bg-theme-success', label: 'Healthy' },
-  degraded: { icon: AlertTriangle, color: 'text-theme-warning', bg: 'bg-theme-warning', label: 'Degraded' },
-  down: { icon: XCircle, color: 'text-theme-error', bg: 'bg-theme-error', label: 'Down' },
+  healthy: { icon: CheckCircle, color: 'text-theme-success-fg', bg: 'bg-theme-success-bg', label: 'Healthy' },
+  degraded: { icon: AlertTriangle, color: 'text-theme-warning-fg', bg: 'bg-theme-warning-bg', label: 'Degraded' },
+  down: { icon: XCircle, color: 'text-theme-error-fg', bg: 'bg-theme-error-bg', label: 'Down' },
 } as const;
 
 export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats, loading }) => {
@@ -43,16 +43,16 @@ export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats,
   const recentAlerts = stats.alerts.slice(0, 3);
 
   const severityClasses: Record<string, string> = {
-    critical: 'bg-theme-error text-white',
-    warning: 'bg-theme-warning text-white',
-    info: 'bg-theme-info text-white',
+    critical: 'bg-theme-error-bg text-white',
+    warning: 'bg-theme-warning-bg text-white',
+    info: 'bg-theme-info-bg text-white',
   };
 
   return (
     <div className="card-theme-elevated p-6">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${health.bg} bg-opacity-10`}>
+          <div className={`p-2 rounded-lg ${health.bg}`}>
             <Activity className={`h-5 w-5 ${health.color}`} />
           </div>
           <div>

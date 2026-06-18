@@ -161,7 +161,7 @@ export function TemplateSelectionStep({ onSelect, onCancel }: TemplateSelectionS
                     {template.name}
                   </h3>
                   {template.is_featured && (
-                    <span className="px-1.5 py-0.5 text-xs bg-theme-warning bg-opacity-10 text-theme-warning rounded">
+                    <span className="px-1.5 py-0.5 text-xs bg-theme-warning-bg text-theme-warning-fg rounded">
                       Featured
                     </span>
                   )}

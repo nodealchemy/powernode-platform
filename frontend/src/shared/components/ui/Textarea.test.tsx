@@ -44,7 +44,7 @@ describe('Textarea', () => {
     it('textarea has error styling', () => {
       render(<Textarea error="Error" />);
 
-      expect(screen.getByRole('textbox')).toHaveClass('border-theme-error');
+      expect(screen.getByRole('textbox')).toHaveClass('border-theme-error-border');
     });
 
     it('textarea is connected to error via aria-describedby', () => {

@@ -142,13 +142,13 @@ export const MySubscriptionsPage: React.FC = () => {
   const getTypeBadgeColor = (type: string) => {
     switch (type) {
       case 'app':
-        return 'bg-theme-info bg-opacity-10 text-theme-info';
+        return 'bg-theme-info-bg text-theme-info-fg';
       case 'plugin':
-        return 'bg-theme-success bg-opacity-10 text-theme-success';
+        return 'bg-theme-success-bg text-theme-success-fg';
       case 'template':
-        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+        return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'integration':
-        return 'bg-theme-primary bg-opacity-10 text-theme-primary';
+        return 'bg-theme-primary/10 text-theme-primary';
       default:
         return 'bg-theme-surface text-theme-primary';
     }
@@ -157,12 +157,12 @@ export const MySubscriptionsPage: React.FC = () => {
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-theme-success bg-opacity-10 text-theme-success';
+        return 'bg-theme-success-bg text-theme-success-fg';
       case 'paused':
-        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+        return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'cancelled':
       case 'expired':
-        return 'bg-theme-danger bg-opacity-10 text-theme-danger';
+        return 'bg-theme-danger-bg text-theme-danger-fg';
       default:
         return 'bg-theme-surface text-theme-primary';
     }
@@ -311,7 +311,7 @@ export const MySubscriptionsPage: React.FC = () => {
                     </div>
 
                     {subscription.status === 'paused' && (
-                      <div className="flex items-center gap-1 mt-2 text-sm text-theme-warning">
+                      <div className="flex items-center gap-1 mt-2 text-sm text-theme-warning-fg">
                         <AlertCircle className="h-4 w-4" />
                         <span>This subscription is paused</span>
                       </div>
@@ -373,7 +373,7 @@ export const MySubscriptionsPage: React.FC = () => {
                       size="sm"
                       onClick={() => handleCancel(subscription.id)}
                       disabled={actionLoading === subscription.id}
-                      className="text-xs text-theme-danger hover:text-theme-danger"
+                      className="text-xs text-theme-danger-fg hover:text-theme-danger-fg"
                       title="Cancel"
                     >
                       <Trash2 className="h-4 w-4" />

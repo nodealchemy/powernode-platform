@@ -52,9 +52,9 @@ export const SwarmStatsCards: React.FC<SwarmStatsCardsProps> = ({
       <Card variant="default" padding="md">
         <p className="text-xs text-theme-tertiary mb-1">Avg Health</p>
         <p className={`text-2xl font-bold ${
-          avgHealth >= 100 ? 'text-theme-success' :
-          avgHealth >= 50 ? 'text-theme-warning' :
-          'text-theme-error'
+          avgHealth >= 100 ? 'text-theme-success-fg' :
+          avgHealth >= 50 ? 'text-theme-warning-fg' :
+          'text-theme-error-fg'
         }`}>
           {Math.round(avgHealth)}%
         </p>
@@ -64,13 +64,13 @@ export const SwarmStatsCards: React.FC<SwarmStatsCardsProps> = ({
         <p className="text-xs text-theme-tertiary mb-1">Events</p>
         <div className="flex items-baseline gap-2">
           {criticalEvents > 0 && (
-            <span className="text-lg font-bold text-theme-error">{criticalEvents}</span>
+            <span className="text-lg font-bold text-theme-error-fg">{criticalEvents}</span>
           )}
           {warningEvents > 0 && (
-            <span className="text-lg font-bold text-theme-warning">{warningEvents}</span>
+            <span className="text-lg font-bold text-theme-warning-fg">{warningEvents}</span>
           )}
           {criticalEvents === 0 && warningEvents === 0 && (
-            <span className="text-lg font-bold text-theme-success">0</span>
+            <span className="text-lg font-bold text-theme-success-fg">0</span>
           )}
         </div>
         <p className="text-xs text-theme-secondary mt-1">

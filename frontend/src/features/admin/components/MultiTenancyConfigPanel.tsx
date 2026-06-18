@@ -75,12 +75,12 @@ const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({
 
   const getPatternType = (pattern: string) => {
     if (pattern.startsWith('*.')) {
-      return { label: 'Subdomain Wildcard', color: 'bg-theme-info/20 text-theme-info' };
+      return { label: 'Subdomain Wildcard', color: 'bg-theme-info-fg/20 text-theme-info-fg' };
     }
     if (pattern.includes('*')) {
-      return { label: 'Pattern', color: 'bg-theme-warning/20 text-theme-warning' };
+      return { label: 'Pattern', color: 'bg-theme-warning-fg/20 text-theme-warning-fg' };
     }
-    return { label: 'Domain', color: 'bg-theme-success/20 text-theme-success' };
+    return { label: 'Domain', color: 'bg-theme-success-fg/20 text-theme-success-fg' };
   };
 
   const patternType = getPatternType(pattern);
@@ -121,7 +121,7 @@ const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({
               />
               <button
                 onClick={handleSaveEdit}
-                className="p-1 text-theme-success hover:text-theme-success/80"
+                className="p-1 text-theme-success-fg hover:text-theme-success-fg/80"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -129,7 +129,7 @@ const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({
               </button>
               <button
                 onClick={handleCancelEdit}
-                className="p-1 text-theme-error hover:text-theme-error/80"
+                className="p-1 text-theme-error-fg hover:text-theme-error-fg/80"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -160,7 +160,7 @@ const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({
         )}
         <button
           onClick={() => onRemove(pattern)}
-          className="p-1 text-theme-error hover:text-theme-error/80 transition-colors"
+          className="p-1 text-theme-error-fg hover:text-theme-error-fg/80 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -298,7 +298,7 @@ export const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = (
         <button
           onClick={handleToggleEnabled}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            config.enabled ? 'bg-theme-success' : 'bg-theme-background-secondary'
+            config.enabled ? 'bg-theme-success-bg' : 'bg-theme-background-secondary'
           }`}
         >
           <span
@@ -393,12 +393,12 @@ export const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = (
           </div>
 
           {/* Status and impact info */}
-          <div className="mt-6 p-4 bg-theme-info/10 border border-theme-info rounded-md">
+          <div className="mt-6 p-4 bg-theme-info-fg/10 border border-theme-info-border rounded-md">
             <div className="flex items-start space-x-2">
-              <svg className="w-5 h-5 text-theme-info flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-theme-info-fg flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <div className="text-sm text-theme-info">
+              <div className="text-sm text-theme-info-fg">
                 <p className="font-medium mb-2">Multi-Tenancy Impact:</p>
                 <ul className="space-y-1">
                   <li>• CORS origins will include all wildcard patterns</li>

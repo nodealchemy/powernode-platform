@@ -37,15 +37,15 @@ export const DataSourceCredentialsTab: React.FC<DataSourceCredentialsTabProps> =
               >
                 <div className="flex items-center gap-3">
                   <div className={`h-3 w-3 rounded-full ${
-                    credential.last_test_status === 'success' ? 'bg-theme-success' :
-                    credential.last_test_status === 'failed' ? 'bg-theme-error' :
+                    credential.last_test_status === 'success' ? 'bg-theme-success-bg' :
+                    credential.last_test_status === 'failed' ? 'bg-theme-error-bg' :
                     'bg-theme-background-secondary'
                   }`} />
                   <div>
                     <p className="text-sm font-medium text-theme-primary">
                       {credential.name}
                       {credential.is_default && (
-                        <span className="ml-2 px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
+                        <span className="ml-2 px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">
                           Default
                         </span>
                       )}
@@ -58,7 +58,7 @@ export const DataSourceCredentialsTab: React.FC<DataSourceCredentialsTabProps> =
                         <span>Last used: {new Date(credential.last_used_at).toLocaleDateString()}</span>
                       )}
                       {credential.consecutive_failures > 0 && (
-                        <span className="text-theme-error">
+                        <span className="text-theme-error-fg">
                           {credential.consecutive_failures} recent failures
                         </span>
                       )}

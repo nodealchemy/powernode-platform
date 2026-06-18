@@ -148,7 +148,7 @@ export const ApprovalGateModal: React.FC<ApprovalGateModalProps> = ({
           <div className="space-y-3">
             {mission.branch_name && (
               <div className="flex items-center gap-2 p-2.5 bg-theme-surface rounded-lg border border-theme">
-                <GitBranch className="w-4 h-4 text-theme-info flex-shrink-0" />
+                <GitBranch className="w-4 h-4 text-theme-info-fg flex-shrink-0" />
                 <span className="text-xs text-theme-secondary">Branch:</span>
                 <code className="text-xs font-mono text-theme-primary">{mission.branch_name}</code>
               </div>
@@ -192,7 +192,7 @@ export const ApprovalGateModal: React.FC<ApprovalGateModalProps> = ({
               href={mission.deployed_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block text-sm text-theme-info hover:underline mt-1"
+              className="block text-sm text-theme-info-fg hover:underline mt-1"
             >
               {mission.deployed_url}
             </a>

@@ -36,8 +36,8 @@ export function ReviewDetail({ resource }: ResourceDetailProps) {
 
       {/* Approval / Rejection */}
       {resource.status === 'approved' && resource.approval_notes && (
-        <div className="p-3 rounded-lg border border-theme bg-theme-success/5">
-          <div className="flex items-center gap-1.5 text-xs text-theme-success mb-1">
+        <div className="p-3 rounded-lg border border-theme bg-theme-success-fg/5">
+          <div className="flex items-center gap-1.5 text-xs text-theme-success-fg mb-1">
             <CheckCircle className="w-3.5 h-3.5" />
             Approval Notes
           </div>
@@ -46,8 +46,8 @@ export function ReviewDetail({ resource }: ResourceDetailProps) {
       )}
 
       {(resource.status === 'rejected' || resource.status === 'revision_requested') && resource.rejection_reason && (
-        <div className="p-3 rounded-lg border border-theme bg-theme-error/5">
-          <div className="flex items-center gap-1.5 text-xs text-theme-error mb-1">
+        <div className="p-3 rounded-lg border border-theme bg-theme-error-fg/5">
+          <div className="flex items-center gap-1.5 text-xs text-theme-error-fg mb-1">
             <XCircle className="w-3.5 h-3.5" />
             Rejection Reason
           </div>
@@ -94,8 +94,8 @@ export function ReviewDetail({ resource }: ResourceDetailProps) {
           <div className="space-y-2">
             {findings.map((finding, i) => {
               const severity = (finding.severity as string) || 'info';
-              const severityColor = severity === 'critical' || severity === 'error' ? 'text-theme-error' :
-                severity === 'warning' ? 'text-theme-warning' : 'text-theme-info';
+              const severityColor = severity === 'critical' || severity === 'error' ? 'text-theme-error-fg' :
+                severity === 'warning' ? 'text-theme-warning-fg' : 'text-theme-info-fg';
 
               const category = finding.category ? String(finding.category) : null;
               const message = finding.message ? String(finding.message) : null;

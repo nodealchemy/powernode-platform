@@ -314,7 +314,7 @@ describe('TextAreaField', () => {
 
       render(<TextAreaField label="Description" name="testTextarea" form={form} />);
 
-      expect(screen.getByRole('textbox')).toHaveClass('border-theme-error');
+      expect(screen.getByRole('textbox')).toHaveClass('border-theme-error-border');
     });
 
     it('does not show help text when error is present', () => {

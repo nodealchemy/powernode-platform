@@ -24,8 +24,8 @@ interface StatusBadgeProps {
 
 const statusConfig: Record<StatusType, { bg: string; text: string; label: string }> = {
   verified: {
-    bg: 'bg-theme-success/10',
-    text: 'text-theme-success',
+    bg: 'bg-theme-success-fg/10',
+    text: 'text-theme-success-fg',
     label: 'Verified',
   },
   unverified: {
@@ -34,13 +34,13 @@ const statusConfig: Record<StatusType, { bg: string; text: string; label: string
     label: 'Unverified',
   },
   quarantined: {
-    bg: 'bg-theme-error/10',
-    text: 'text-theme-error',
+    bg: 'bg-theme-error-fg/10',
+    text: 'text-theme-error-fg',
     label: 'Quarantined',
   },
   active: {
-    bg: 'bg-theme-success/10',
-    text: 'text-theme-success',
+    bg: 'bg-theme-success-fg/10',
+    text: 'text-theme-success-fg',
     label: 'Active',
   },
   inactive: {
@@ -49,13 +49,13 @@ const statusConfig: Record<StatusType, { bg: string; text: string; label: string
     label: 'Inactive',
   },
   pending: {
-    bg: 'bg-theme-warning/10',
-    text: 'text-theme-warning',
+    bg: 'bg-theme-warning-fg/10',
+    text: 'text-theme-warning-fg',
     label: 'Pending',
   },
   error: {
-    bg: 'bg-theme-error/10',
-    text: 'text-theme-error',
+    bg: 'bg-theme-error-fg/10',
+    text: 'text-theme-error-fg',
     label: 'Error',
   },
   draft: {
@@ -64,33 +64,33 @@ const statusConfig: Record<StatusType, { bg: string; text: string; label: string
     label: 'Draft',
   },
   completed: {
-    bg: 'bg-theme-success/10',
-    text: 'text-theme-success',
+    bg: 'bg-theme-success-fg/10',
+    text: 'text-theme-success-fg',
     label: 'Completed',
   },
   failed: {
-    bg: 'bg-theme-error/10',
-    text: 'text-theme-error',
+    bg: 'bg-theme-error-fg/10',
+    text: 'text-theme-error-fg',
     label: 'Failed',
   },
   expired: {
-    bg: 'bg-theme-warning/10',
-    text: 'text-theme-warning',
+    bg: 'bg-theme-warning-fg/10',
+    text: 'text-theme-warning-fg',
     label: 'Expired',
   },
   running: {
-    bg: 'bg-theme-info/10',
-    text: 'text-theme-info',
+    bg: 'bg-theme-info-fg/10',
+    text: 'text-theme-info-fg',
     label: 'Running',
   },
   in_progress: {
-    bg: 'bg-theme-info/10',
-    text: 'text-theme-info',
+    bg: 'bg-theme-info-fg/10',
+    text: 'text-theme-info-fg',
     label: 'In Progress',
   },
   suspended: {
-    bg: 'bg-theme-error/10',
-    text: 'text-theme-error',
+    bg: 'bg-theme-error-fg/10',
+    text: 'text-theme-error-fg',
     label: 'Suspended',
   },
   queued: {

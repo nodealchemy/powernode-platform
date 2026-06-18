@@ -5,11 +5,11 @@ import { skillLifecycleApi } from '../services/skillLifecycleApi';
 import type { SkillHealthMetricsData } from '../types/lifecycle';
 
 const GRADE_COLORS: Record<string, string> = {
-  A: 'text-theme-success',
-  B: 'text-theme-info',
-  C: 'text-theme-warning',
-  D: 'text-theme-warning',
-  F: 'text-theme-error',
+  A: 'text-theme-success-fg',
+  B: 'text-theme-info-fg',
+  C: 'text-theme-warning-fg',
+  D: 'text-theme-warning-fg',
+  F: 'text-theme-error-fg',
 };
 
 interface GaugeProps {
@@ -20,7 +20,7 @@ interface GaugeProps {
 
 function Gauge({ label, value, maxValue = 1 }: GaugeProps) {
   const pct = Math.round((value / maxValue) * 100);
-  const color = pct >= 80 ? 'bg-theme-success' : pct >= 60 ? 'bg-theme-info' : pct >= 40 ? 'bg-theme-warning' : 'bg-theme-error';
+  const color = pct >= 80 ? 'bg-theme-success-bg' : pct >= 60 ? 'bg-theme-info-bg' : pct >= 40 ? 'bg-theme-warning-bg' : 'bg-theme-error-bg';
 
   return (
     <div>
@@ -91,12 +91,12 @@ export function SkillHealthMetrics() {
           {health.components.conflict_penalty > 0 && (
             <div>
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-theme-error">Conflict Penalty</span>
-                <span className="text-theme-error">-{Math.round(health.components.conflict_penalty * 100)}%</span>
+                <span className="text-theme-error-fg">Conflict Penalty</span>
+                <span className="text-theme-error-fg">-{Math.round(health.components.conflict_penalty * 100)}%</span>
               </div>
               <div className="h-2 bg-theme-surface-secondary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-theme-error rounded-full transition-all"
+                  className="h-full bg-theme-error-bg rounded-full transition-all"
                   style={{ width: `${Math.round(health.components.conflict_penalty * 100)}%` }}
                 />
               </div>

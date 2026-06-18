@@ -87,7 +87,7 @@ export function ImportExportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-theme-surface border border-theme rounded-lg w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* Header */}
@@ -300,20 +300,20 @@ export function ImportExportModal({
               </div>
 
               <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="p-4 bg-theme-success bg-opacity-10 rounded-lg">
-                  <p className="text-2xl font-semibold text-theme-success">
+                <div className="p-4 bg-theme-success-bg rounded-lg">
+                  <p className="text-2xl font-semibold text-theme-success-fg">
                     {importResult.imported}
                   </p>
                   <p className="text-sm text-theme-secondary">Imported</p>
                 </div>
-                <div className="p-4 bg-theme-warning bg-opacity-10 rounded-lg">
-                  <p className="text-2xl font-semibold text-theme-warning">
+                <div className="p-4 bg-theme-warning-bg rounded-lg">
+                  <p className="text-2xl font-semibold text-theme-warning-fg">
                     {importResult.skipped}
                   </p>
                   <p className="text-sm text-theme-secondary">Skipped</p>
                 </div>
-                <div className="p-4 bg-theme-error bg-opacity-10 rounded-lg">
-                  <p className="text-2xl font-semibold text-theme-error">
+                <div className="p-4 bg-theme-error-bg rounded-lg">
+                  <p className="text-2xl font-semibold text-theme-error-fg">
                     {importResult.errors.length}
                   </p>
                   <p className="text-sm text-theme-secondary">Errors</p>
@@ -321,9 +321,9 @@ export function ImportExportModal({
               </div>
 
               {importResult.errors.length > 0 && (
-                <div className="p-4 bg-theme-error bg-opacity-10 rounded-lg">
-                  <h4 className="font-medium text-theme-error mb-2">Errors:</h4>
-                  <ul className="space-y-1 text-sm text-theme-error">
+                <div className="p-4 bg-theme-error-bg rounded-lg">
+                  <h4 className="font-medium text-theme-error-fg mb-2">Errors:</h4>
+                  <ul className="space-y-1 text-sm text-theme-error-fg">
                     {importResult.errors.slice(0, 5).map((error, i) => (
                       <li key={i}>• {error}</li>
                     ))}

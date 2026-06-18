@@ -35,7 +35,7 @@ const DetailValue: React.FC<{ value: unknown }> = ({ value }) => {
   if (typeof value === 'object') {
     return <pre className="text-xs bg-theme-surface p-2 rounded overflow-x-auto font-mono mt-0.5">{JSON.stringify(value, null, 2)}</pre>;
   }
-  if (typeof value === 'boolean') return <span className={value ? 'text-theme-success' : 'text-theme-danger'}>{value ? 'Yes' : 'No'}</span>;
+  if (typeof value === 'boolean') return <span className={value ? 'text-theme-success-fg' : 'text-theme-danger-fg'}>{value ? 'Yes' : 'No'}</span>;
   if (typeof value === 'number') return <span className="font-mono">{value.toLocaleString()}</span>;
   return <span className="font-mono">{String(value)}</span>;
 };
@@ -121,7 +121,7 @@ export const RulesTab: React.FC<RulesTabProps> = ({
             >
               <div className="flex items-center gap-3">
                 {isExpanded
-                  ? <ChevronUp size={16} className="text-theme-info flex-shrink-0" />
+                  ? <ChevronUp size={16} className="text-theme-info-fg flex-shrink-0" />
                   : <ChevronDown size={16} className="text-theme-secondary flex-shrink-0" />}
                 <span className="text-sm font-mono text-theme-secondary">#{rule.priority}</span>
                 <h3 className="font-medium text-theme-primary">{rule.name}</h3>
@@ -129,9 +129,9 @@ export const RulesTab: React.FC<RulesTabProps> = ({
               </div>
               <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
                 <button onClick={() => onToggleRule(rule.id)} className="text-theme-secondary hover:text-theme-primary transition-colors" title={rule.is_active ? 'Disable' : 'Enable'}>
-                  {rule.is_active ? <ToggleRight size={20} className="text-theme-success" /> : <ToggleLeft size={20} />}
+                  {rule.is_active ? <ToggleRight size={20} className="text-theme-success-fg" /> : <ToggleLeft size={20} />}
                 </button>
-                <button onClick={() => onDeleteClick(rule.id)} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border border-theme-danger/30 text-theme-danger hover:bg-theme-danger/10 transition-colors" title="Delete rule">
+                <button onClick={() => onDeleteClick(rule.id)} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border border-theme-danger-border/30 text-theme-danger-fg hover:bg-theme-danger-fg/10 transition-colors" title="Delete rule">
                   <Trash2 size={13} /> Delete
                 </button>
               </div>
@@ -143,8 +143,8 @@ export const RulesTab: React.FC<RulesTabProps> = ({
                 {rule.stats && (
                   <div className="flex gap-4 text-xs text-theme-secondary pl-7">
                     <span>{rule.stats.times_matched} matched</span>
-                    <span className="text-theme-success">{rule.stats.times_succeeded} succeeded</span>
-                    <span className="text-theme-danger">{rule.stats.times_failed} failed</span>
+                    <span className="text-theme-success-fg">{rule.stats.times_succeeded} succeeded</span>
+                    <span className="text-theme-danger-fg">{rule.stats.times_failed} failed</span>
                     <span>{(rule.stats.success_rate * 100).toFixed(1)}% success</span>
                   </div>
                 )}
@@ -155,7 +155,7 @@ export const RulesTab: React.FC<RulesTabProps> = ({
               <div className="border-t border-theme px-4 py-4">
                 {isLoadingDetail ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 size={20} className="animate-spin text-theme-info" />
+                    <Loader2 size={20} className="animate-spin text-theme-info-fg" />
                     <span className="ml-2 text-sm text-theme-secondary">Loading rule details...</span>
                   </div>
                 ) : detail ? (

@@ -326,8 +326,8 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({
         {selectedProvider && (
           <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <div className="flex items-start gap-3">
-              <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-theme-info" />
+              <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-theme-info-fg" />
               </div>
               <div>
                 <h5 className="font-semibold text-theme-primary">{selectedProvider.name}</h5>
@@ -336,7 +336,7 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({
                   {selectedProvider.capabilities && Array.isArray(selectedProvider.capabilities) && selectedProvider.capabilities.slice(0, 3).map(capability => (
                     <span
                       key={capability}
-                      className="px-2 py-1 text-xs bg-theme-info bg-opacity-10 text-theme-info rounded"
+                      className="px-2 py-1 text-xs bg-theme-info-bg text-theme-info-fg rounded"
                     >
                       {capability}
                     </span>

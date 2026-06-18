@@ -133,7 +133,7 @@ export const PlatformConfiguration: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-theme-interactive-primary bg-opacity-10 rounded-lg">
+          <div className="p-2 bg-theme-interactive-primary/10 rounded-lg">
             <Settings className="w-5 h-5 text-theme-interactive-primary" />
           </div>
           <div>

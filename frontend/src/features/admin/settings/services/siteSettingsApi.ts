@@ -193,11 +193,11 @@ class SiteSettingsApiService {
       case 'text':
         return 'bg-theme-surface/20 text-theme-secondary border-theme-secondary/30';
       case 'boolean':
-        return 'bg-theme-success/20 text-theme-success border-theme-success/30';
+        return 'bg-theme-success-fg/20 text-theme-success-fg border-theme-success-border/30';
       case 'integer':
-        return 'bg-theme-info/20 text-theme-info border-theme-info/30';
+        return 'bg-theme-info-fg/20 text-theme-info-fg border-theme-info-border/30';
       case 'json':
-        return 'bg-theme-warning/20 text-theme-warning border-theme-warning/30';
+        return 'bg-theme-warning-fg/20 text-theme-warning-fg border-theme-warning-border/30';
       default:
         return 'bg-theme-background-secondary text-theme-secondary border-theme';
     }

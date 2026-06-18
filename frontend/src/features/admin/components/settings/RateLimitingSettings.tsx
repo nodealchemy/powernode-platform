@@ -283,7 +283,7 @@ export const RateLimitingSettings: React.FC = () => {
       <div className="bg-theme-surface rounded-lg border border-theme p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-theme-primary bg-opacity-10 rounded-lg">
+            <div className="p-2 bg-theme-primary/10 rounded-lg">
               <Shield className="w-6 h-6 text-theme-primary" />
             </div>
             <div>
@@ -315,7 +315,7 @@ export const RateLimitingSettings: React.FC = () => {
         {/* Global Enable/Disable */}
         <div className="flex items-center justify-between p-4 bg-theme-surface-subtle rounded-lg mb-6">
           <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${config.enabled ? 'bg-theme-success' : 'bg-theme-danger'}`}></div>
+            <div className={`w-3 h-3 rounded-full ${config.enabled ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'}`}></div>
             <div>
               <h3 className="font-medium text-theme-primary">Rate Limiting Status</h3>
               <p className="text-sm text-theme-secondary">
@@ -331,7 +331,7 @@ export const RateLimitingSettings: React.FC = () => {
               className="sr-only"
             />
             <div className={`relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full ${
-              config.enabled ? 'bg-theme-success' : 'bg-theme-background-secondary/50'
+              config.enabled ? 'bg-theme-success-bg' : 'bg-theme-background-secondary/50'
             }`}>
               <div className={`absolute left-0 top-0 bg-white w-6 h-6 rounded-full shadow transition-transform duration-200 ease-in-out ${
                 config.enabled ? 'transform translate-x-4' : ''
@@ -345,7 +345,7 @@ export const RateLimitingSettings: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="p-4 bg-theme-surface-subtle rounded-lg">
               <div className="flex items-center gap-3">
-                <Activity className="w-5 h-5 text-theme-info" />
+                <Activity className="w-5 h-5 text-theme-info-fg" />
                 <div>
                   <p className="text-sm text-theme-secondary">Active Limits</p>
                   <p className="text-xl font-semibold text-theme-primary">{stats.active_limits}</p>
@@ -354,10 +354,10 @@ export const RateLimitingSettings: React.FC = () => {
             </div>
             <div className="p-4 bg-theme-surface-subtle rounded-lg">
               <div className="flex items-center gap-3">
-                <AlertTriangle className={`w-5 h-5 ${stats.current_violations > 0 ? 'text-theme-danger' : 'text-theme-success'}`} />
+                <AlertTriangle className={`w-5 h-5 ${stats.current_violations > 0 ? 'text-theme-danger-fg' : 'text-theme-success-fg'}`} />
                 <div>
                   <p className="text-sm text-theme-secondary">Current Violations</p>
-                  <p className={`text-xl font-semibold ${stats.current_violations > 0 ? 'text-theme-danger' : 'text-theme-success'}`}>
+                  <p className={`text-xl font-semibold ${stats.current_violations > 0 ? 'text-theme-danger-fg' : 'text-theme-success-fg'}`}>
                     {stats.current_violations}
                   </p>
                 </div>
@@ -365,10 +365,10 @@ export const RateLimitingSettings: React.FC = () => {
             </div>
             <div className="p-4 bg-theme-surface-subtle rounded-lg">
               <div className="flex items-center gap-3">
-                <CheckCircle className="w-5 h-5 text-theme-success" />
+                <CheckCircle className="w-5 h-5 text-theme-success-fg" />
                 <div>
                   <p className="text-sm text-theme-secondary">System Status</p>
-                  <p className="text-lg font-medium text-theme-success">
+                  <p className="text-lg font-medium text-theme-success-fg">
                     {config.enabled ? 'Protected' : 'Unprotected'}
                   </p>
                 </div>
@@ -386,7 +386,7 @@ export const RateLimitingSettings: React.FC = () => {
           {/* Emergency Controls */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="p-4 border border-theme bg-theme-warning-background rounded-lg">
-              <h4 className="font-medium text-theme-warning mb-2">Temporarily Disable</h4>
+              <h4 className="font-medium text-theme-warning-fg mb-2">Temporarily Disable</h4>
               <p className="text-sm text-theme-warning-dark mb-3">Disable rate limiting for maintenance or emergency</p>
               <div className="flex items-center gap-3">
                 <input
@@ -395,7 +395,7 @@ export const RateLimitingSettings: React.FC = () => {
                   onChange={(e) => setTempDisableMinutes(parseInt(e.target.value) || 30)}
                   min="1"
                   max="480"
-                  className="w-20 px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-warning focus:border-theme-warning text-sm font-medium"
+                  className="w-20 px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-warning-fg focus:border-theme-warning-border text-sm font-medium"
                 />
                 <span className="text-sm text-theme-warning-dark font-medium">minutes</span>
                 <Button
@@ -411,7 +411,7 @@ export const RateLimitingSettings: React.FC = () => {
             </div>
             
             <div className="p-4 border border-theme bg-theme-success-background rounded-lg">
-              <h4 className="font-medium text-theme-success mb-2">Re-enable Protection</h4>
+              <h4 className="font-medium text-theme-success-fg mb-2">Re-enable Protection</h4>
               <p className="text-sm text-theme-success-dark mb-3">Immediately restore rate limiting</p>
               <Button
                 onClick={reEnableRateLimit}
@@ -430,17 +430,17 @@ export const RateLimitingSettings: React.FC = () => {
               <h4 className="font-medium text-theme-primary mb-3">Recent Violations</h4>
               <div className="space-y-3">
                 {stats.recent_violations.map((violation, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-theme-error border border-theme-error rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-4 bg-theme-error-bg border border-theme-error-border rounded-lg">
                     <div className="flex items-center gap-3">
-                      <AlertTriangle className="w-5 h-5 text-theme-error" />
+                      <AlertTriangle className="w-5 h-5 text-theme-error-fg" />
                       <div>
-                        <p className="font-medium text-theme-error">{violation.endpoint}</p>
-                        <p className="text-sm text-theme-error">{violation.identifier}</p>
+                        <p className="font-medium text-theme-error-fg">{violation.endpoint}</p>
+                        <p className="text-sm text-theme-error-fg">{violation.identifier}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-theme-error">{violation.count}/{violation.limit}</p>
-                      <p className="text-sm text-theme-error">{new Date(violation.timestamp).toLocaleTimeString()}</p>
+                      <p className="font-medium text-theme-error-fg">{violation.count}/{violation.limit}</p>
+                      <p className="text-sm text-theme-error-fg">{new Date(violation.timestamp).toLocaleTimeString()}</p>
                     </div>
                     <Button
                       onClick={() => clearLimitsForUser(violation.identifier)}
@@ -464,7 +464,7 @@ export const RateLimitingSettings: React.FC = () => {
         {limitCategories.map((category) => (
           <div key={category.title} className="bg-theme-surface rounded-lg border border-theme p-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-theme-primary bg-opacity-10 rounded-lg">
+              <div className="p-2 bg-theme-primary/10 rounded-lg">
                 <category.icon className="w-5 h-5 text-theme-primary" />
               </div>
               <div>

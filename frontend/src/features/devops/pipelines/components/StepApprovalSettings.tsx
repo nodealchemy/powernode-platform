@@ -185,7 +185,7 @@ export const StepApprovalSettings: React.FC<StepApprovalSettingsProps> = ({
                       size="sm"
                       disabled={disabled}
                     >
-                      <Trash2 className="w-4 h-4 text-theme-error" />
+                      <Trash2 className="w-4 h-4 text-theme-error-fg" />
                     </Button>
                   </div>
                 ))}

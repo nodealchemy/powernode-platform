@@ -54,16 +54,16 @@ const StatCard: React.FC<{
   onClick?: () => void;
 }> = ({ title, value, subtitle, icon: Icon, status = 'neutral', onClick }) => {
   const statusColors = {
-    success: 'text-theme-success',
-    warning: 'text-theme-warning',
-    error: 'text-theme-error',
+    success: 'text-theme-success-fg',
+    warning: 'text-theme-warning-fg',
+    error: 'text-theme-error-fg',
     neutral: 'text-theme-primary'
   };
 
   const statusBgColors = {
-    success: 'bg-theme-success/10',
-    warning: 'bg-theme-warning/10',
-    error: 'bg-theme-error/10',
+    success: 'bg-theme-success-fg/10',
+    warning: 'bg-theme-warning-fg/10',
+    error: 'bg-theme-error-fg/10',
     neutral: 'bg-theme-primary/10'
   };
 
@@ -124,9 +124,9 @@ const StatusIndicator: React.FC<{
   type: 'success' | 'warning' | 'error';
 }> = ({ label, value, total, type }) => {
   const colors = {
-    success: 'bg-theme-success',
-    warning: 'bg-theme-warning',
-    error: 'bg-theme-error'
+    success: 'bg-theme-success-bg',
+    warning: 'bg-theme-warning-bg',
+    error: 'bg-theme-error-bg'
   };
 
   const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
@@ -487,15 +487,15 @@ export function DevOpsOverviewPage() {
                 </div>
                 <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
                   <div
-                    className="bg-theme-success transition-all"
+                    className="bg-theme-success-bg transition-all"
                     style={{ width: `${(stats.runners.online / totalRunners) * 100}%` }}
                   />
                   <div
-                    className="bg-theme-warning transition-all"
+                    className="bg-theme-warning-bg transition-all"
                     style={{ width: `${(stats.runners.busy / totalRunners) * 100}%` }}
                   />
                   <div
-                    className="bg-theme-error transition-all"
+                    className="bg-theme-error-bg transition-all"
                     style={{ width: `${(stats.runners.offline / totalRunners) * 100}%` }}
                   />
                 </div>
@@ -536,16 +536,16 @@ export function DevOpsOverviewPage() {
                     <p className="text-xs text-theme-tertiary">Total</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-theme-success">{stats.webhooks.successful_deliveries_today}</p>
+                    <p className="text-2xl font-bold text-theme-success-fg">{stats.webhooks.successful_deliveries_today}</p>
                     <p className="text-xs text-theme-tertiary">Successful</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-theme-error">{stats.webhooks.failed_deliveries_today}</p>
+                    <p className="text-2xl font-bold text-theme-error-fg">{stats.webhooks.failed_deliveries_today}</p>
                     <p className="text-xs text-theme-tertiary">Failed</p>
                   </div>
                 </div>
                 {stats.webhooks.failed_deliveries_today > 0 && (
-                  <div className="flex items-center gap-2 p-2 bg-theme-error/10 rounded text-sm text-theme-error">
+                  <div className="flex items-center gap-2 p-2 bg-theme-error-fg/10 rounded text-sm text-theme-error-fg">
                     <AlertTriangle className="w-4 h-4" />
                     <span>{stats.webhooks.failed_deliveries_today} failed deliveries require attention</span>
                   </div>
@@ -553,7 +553,7 @@ export function DevOpsOverviewPage() {
               </div>
             ) : (
               <div className="text-center py-4">
-                <CheckCircle className="w-8 h-8 text-theme-success mx-auto mb-2" />
+                <CheckCircle className="w-8 h-8 text-theme-success-fg mx-auto mb-2" />
                 <p className="text-sm text-theme-secondary">No webhook activity today</p>
               </div>
             )}
@@ -593,7 +593,7 @@ export function DevOpsOverviewPage() {
                           className="flex-1 flex flex-col items-center justify-end h-full group"
                         >
                           <div
-                            className={`w-full rounded-t-sm bg-theme-success transition-all group-hover:opacity-80 cursor-default ${getActivityBarHeight(week.count, maxCount)}`}
+                            className={`w-full rounded-t-sm bg-theme-success-bg transition-all group-hover:opacity-80 cursor-default ${getActivityBarHeight(week.count, maxCount)}`}
                             title={`Week of ${week.weekLabel}: ${week.count} commit${week.count !== 1 ? 's' : ''}`}
                           />
                         </div>
@@ -644,8 +644,8 @@ export function DevOpsOverviewPage() {
 
         {/* Recent Activity / Alerts */}
         {(stats.integrations.errors > 0 || (stats.runners && stats.runners.offline > 0)) && (
-          <div className="bg-theme-warning/10 border border-theme-warning/30 rounded-lg p-4">
-            <h3 className="font-semibold text-theme-warning flex items-center gap-2 mb-3">
+          <div className="bg-theme-warning-fg/10 border border-theme-warning-border/30 rounded-lg p-4">
+            <h3 className="font-semibold text-theme-warning-fg flex items-center gap-2 mb-3">
               <AlertTriangle className="w-5 h-5" />
               Attention Required
             </h3>

@@ -110,7 +110,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ selectedAgentId, o
           {selectedTeamId ? (
             <Users className="h-4 w-4 text-theme-interactive-primary flex-shrink-0" />
           ) : (
-            <Bot className="h-4 w-4 text-theme-info flex-shrink-0" />
+            <Bot className="h-4 w-4 text-theme-info-fg flex-shrink-0" />
           )}
           <span className="truncate">
             {loading ? 'Loading...' : displayName || 'Select an agent'}
@@ -188,14 +188,14 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ selectedAgentId, o
                     }`}
                   >
                     {agent.agent_type === 'mcp_client' ? (
-                      <Terminal className="h-4 w-4 text-theme-info flex-shrink-0" />
+                      <Terminal className="h-4 w-4 text-theme-info-fg flex-shrink-0" />
                     ) : (
                       <Sparkles className="h-4 w-4 text-theme-interactive-primary flex-shrink-0" />
                     )}
                     <span className="flex-1 min-w-0 truncate">{agent.name}</span>
                     <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded-full flex-shrink-0 ${
                       agent.agent_type === 'mcp_client'
-                        ? 'bg-theme-info/10 text-theme-info'
+                        ? 'bg-theme-info-fg/10 text-theme-info-fg'
                         : 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
                     }`}>
                       {agent.agent_type === 'mcp_client' ? 'MCP' : 'AI'}

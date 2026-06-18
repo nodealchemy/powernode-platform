@@ -265,12 +265,12 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
         <div className="bg-theme-surface rounded-lg border border-theme p-4">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${
-              successRate >= 95 ? 'bg-theme-success bg-opacity-10' :
-              successRate >= 80 ? 'bg-theme-warning bg-opacity-10' : 'bg-theme-error bg-opacity-10'
+              successRate >= 95 ? 'bg-theme-success-bg' :
+              successRate >= 80 ? 'bg-theme-warning-bg' : 'bg-theme-error-bg'
             }`}>
               <TrendingUp className={`w-5 h-5 ${
-                successRate >= 95 ? 'text-theme-success' :
-                successRate >= 80 ? 'text-theme-warning' : 'text-theme-error'
+                successRate >= 95 ? 'text-theme-success-fg' :
+                successRate >= 80 ? 'text-theme-warning-fg' : 'text-theme-error-fg'
               }`} />
             </div>
             <div>
@@ -282,8 +282,8 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
 
         <div className="bg-theme-surface rounded-lg border border-theme p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-interactive-primary bg-opacity-10">
-              <Activity className="w-5 h-5 text-theme-interactive-primary" />
+            <div className="p-2 rounded-lg bg-theme-info-bg">
+              <Activity className="w-5 h-5 text-theme-info-fg" />
             </div>
             <div>
               <p className="text-2xl font-bold text-theme-primary">
@@ -296,8 +296,8 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
 
         <div className="bg-theme-surface rounded-lg border border-theme p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-success bg-opacity-10">
-              <CheckCircle className="w-5 h-5 text-theme-success" />
+            <div className="p-2 rounded-lg bg-theme-success-bg">
+              <CheckCircle className="w-5 h-5 text-theme-success-fg" />
             </div>
             <div>
               <p className="text-2xl font-bold text-theme-primary">{webhook.success_count}</p>
@@ -308,8 +308,8 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
 
         <div className="bg-theme-surface rounded-lg border border-theme p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-error bg-opacity-10">
-              <AlertTriangle className="w-5 h-5 text-theme-error" />
+            <div className="p-2 rounded-lg bg-theme-error-bg">
+              <AlertTriangle className="w-5 h-5 text-theme-error-fg" />
             </div>
             <div>
               <p className="text-2xl font-bold text-theme-primary">{webhook.failure_count}</p>
@@ -461,7 +461,7 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
                   {webhook.event_types.map((eventType) => (
                     <span
                       key={eventType}
-                      className="px-3 py-1 bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary rounded-full text-sm"
+                      className="px-3 py-1 bg-theme-interactive-primary/10 text-theme-interactive-primary rounded-full text-sm"
                     >
                       {webhooksApi.formatEventType(eventType)}
                     </span>
@@ -519,10 +519,10 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
                               {delivery.http_status && (
                                 <span className={`text-sm px-2 py-0.5 rounded ${
                                   delivery.http_status >= 200 && delivery.http_status < 300
-                                    ? 'bg-theme-success bg-opacity-10 text-theme-success'
+                                    ? 'bg-theme-success-bg text-theme-success-fg'
                                     : delivery.http_status >= 400 && delivery.http_status < 500
-                                    ? 'bg-theme-warning bg-opacity-10 text-theme-warning'
-                                    : 'bg-theme-error bg-opacity-10 text-theme-error'
+                                    ? 'bg-theme-warning-bg text-theme-warning-fg'
+                                    : 'bg-theme-error-bg text-theme-error-fg'
                                 }`}>
                                   {delivery.http_status}
                                 </span>
@@ -546,7 +546,7 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
                             </div>
                             
                             {delivery.error_message && (
-                              <p className="text-sm text-theme-error mt-2">
+                              <p className="text-sm text-theme-error-fg mt-2">
                                 {delivery.error_message}
                               </p>
                             )}
@@ -582,7 +582,7 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
 
       {/* Test Modal */}
       {showTestModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-theme-surface rounded-lg border border-theme max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">

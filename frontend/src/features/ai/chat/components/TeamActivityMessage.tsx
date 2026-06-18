@@ -16,8 +16,8 @@ const activityConfig: Record<ActivityType, {
 }> = {
   execution_started: {
     icon: Play,
-    containerClass: 'bg-theme-info/10 border-theme-info/30',
-    iconClass: 'text-theme-info',
+    containerClass: 'bg-theme-info-fg/10 border-theme-info-border/30',
+    iconClass: 'text-theme-info-fg',
     label: 'Execution Started',
   },
   task_assigned: {
@@ -34,14 +34,14 @@ const activityConfig: Record<ActivityType, {
   },
   task_completed: {
     icon: CheckCircle2,
-    containerClass: 'bg-theme-success/10 border-theme-success/30',
-    iconClass: 'text-theme-success',
+    containerClass: 'bg-theme-success-fg/10 border-theme-success-border/30',
+    iconClass: 'text-theme-success-fg',
     label: 'Task Completed',
   },
   agent_question: {
     icon: HelpCircle,
-    containerClass: 'bg-theme-warning/10 border-theme-warning/30',
-    iconClass: 'text-theme-warning',
+    containerClass: 'bg-theme-warning-fg/10 border-theme-warning-border/30',
+    iconClass: 'text-theme-warning-fg',
     label: 'Agent Question',
   },
   execution_summary: {
@@ -52,26 +52,26 @@ const activityConfig: Record<ActivityType, {
   },
   mission_phase_changed: {
     icon: Rocket,
-    containerClass: 'bg-theme-info/10 border-theme-info/30',
-    iconClass: 'text-theme-info',
+    containerClass: 'bg-theme-info-fg/10 border-theme-info-border/30',
+    iconClass: 'text-theme-info-fg',
     label: 'Mission Update',
   },
   mission_approval_required: {
     icon: ShieldCheck,
-    containerClass: 'bg-theme-warning/10 border-theme-warning/30',
-    iconClass: 'text-theme-warning',
+    containerClass: 'bg-theme-warning-fg/10 border-theme-warning-border/30',
+    iconClass: 'text-theme-warning-fg',
     label: 'Approval Required',
   },
   mission_completed: {
     icon: CheckCircle2,
-    containerClass: 'bg-theme-success/10 border-theme-success/30',
-    iconClass: 'text-theme-success',
+    containerClass: 'bg-theme-success-fg/10 border-theme-success-border/30',
+    iconClass: 'text-theme-success-fg',
     label: 'Mission Complete',
   },
   mission_failed: {
     icon: AlertTriangle,
-    containerClass: 'bg-theme-danger/10 border-theme-danger/30',
-    iconClass: 'text-theme-danger',
+    containerClass: 'bg-theme-danger-fg/10 border-theme-danger-border/30',
+    iconClass: 'text-theme-danger-fg',
     label: 'Mission Failed',
   },
 };

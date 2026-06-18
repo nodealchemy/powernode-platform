@@ -26,9 +26,9 @@ interface RepositoryFilters {
 const ProviderBadge: React.FC<{ type: string }> = ({ type }) => {
   const config: Record<string, { bg: string; text: string; label: string }> = {
     github: { bg: 'bg-theme-background dark:bg-theme-surface', text: 'text-white dark:text-theme-primary', label: 'GitHub' },
-    gitlab: { bg: 'bg-theme-warning', text: 'text-white', label: 'GitLab' },
-    gitea: { bg: 'bg-theme-success', text: 'text-white', label: 'Gitea' },
-    bitbucket: { bg: 'bg-theme-info', text: 'text-white', label: 'Bitbucket' },
+    gitlab: { bg: 'bg-theme-warning-bg', text: 'text-white', label: 'GitLab' },
+    gitea: { bg: 'bg-theme-success-bg', text: 'text-white', label: 'Gitea' },
+    bitbucket: { bg: 'bg-theme-info-bg', text: 'text-white', label: 'Bitbucket' },
   };
   const c = config[type?.toLowerCase()] || config.github;
   return (
@@ -287,9 +287,9 @@ const RepositoryCard: React.FC<{
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0 flex-1">
-            <div className={`p-2 rounded-lg ${repository.is_private ? 'bg-theme-warning/10' : 'bg-theme-primary/10'}`}>
+            <div className={`p-2 rounded-lg ${repository.is_private ? 'bg-theme-warning-fg/10' : 'bg-theme-primary/10'}`}>
               {repository.is_private ? (
-                <Lock className="w-5 h-5 text-theme-warning" />
+                <Lock className="w-5 h-5 text-theme-warning-fg" />
               ) : (
                 <FolderGit2 className="w-5 h-5 text-theme-primary" />
               )}
@@ -305,7 +305,7 @@ const RepositoryCard: React.FC<{
                   </span>
                 )}
                 {repository.webhook_configured && (
-                  <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-theme-success/10 text-theme-success">
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-theme-success-fg/10 text-theme-success-fg">
                     <Webhook className="w-3 h-3" />
                     Webhook
                   </span>
@@ -350,7 +350,7 @@ const RepositoryCard: React.FC<{
                   <div className="border-t border-theme my-1" />
                   <button
                     onClick={(e) => { e.stopPropagation(); onDelete(); setMenuOpen(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-danger hover:bg-theme-danger/10"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-danger-fg hover:bg-theme-danger-fg/10"
                   >
                     <Trash2 className="w-4 h-4" />
                     Remove Repository
@@ -499,7 +499,7 @@ const RepositoryCard: React.FC<{
                                 className="flex-1 flex flex-col items-center justify-end h-full group"
                               >
                                 <div
-                                  className={`w-full rounded-t-sm bg-theme-success transition-all group-hover:opacity-80 cursor-default ${getActivityBarHeight(week.count, maxCount)}`}
+                                  className={`w-full rounded-t-sm bg-theme-success-bg transition-all group-hover:opacity-80 cursor-default ${getActivityBarHeight(week.count, maxCount)}`}
                                   title={`Week of ${week.weekLabel}: ${week.count} commit${week.count !== 1 ? 's' : ''}`}
                                 />
                               </div>
@@ -601,7 +601,7 @@ const RepositoryCard: React.FC<{
                               </span>
                             )}
                             {branch.protected && (
-                              <span title="Protected"><Lock className="w-2.5 h-2.5 text-theme-warning flex-shrink-0" /></span>
+                              <span title="Protected"><Lock className="w-2.5 h-2.5 text-theme-warning-fg flex-shrink-0" /></span>
                             )}
                           </button>
                         ))}
@@ -717,7 +717,7 @@ const RepositoryCard: React.FC<{
                     {pullRequests.map((pr) => (
                       <div key={pr.id} className="p-3 bg-theme-background-secondary rounded-lg">
                         <div className="flex items-start gap-3">
-                          <GitPullRequest className={`w-4 h-4 mt-0.5 ${pr.state === 'open' ? 'text-theme-success' : 'text-theme-interactive-primary'}`} />
+                          <GitPullRequest className={`w-4 h-4 mt-0.5 ${pr.state === 'open' ? 'text-theme-success-fg' : 'text-theme-interactive-primary'}`} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-theme-primary">
                               <span className="text-theme-secondary">#{pr.number}</span> {pr.title}

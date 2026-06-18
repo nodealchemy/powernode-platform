@@ -14,10 +14,10 @@ import type { AgentProposal, ProposalStatus } from '../types/autonomy';
 
 function getStatusBadge(status: ProposalStatus) {
   switch (status) {
-    case 'approved': return { class: 'text-theme-success bg-theme-success/10', icon: CheckCircle };
-    case 'rejected': return { class: 'text-theme-error bg-theme-error/10', icon: XCircle };
-    case 'pending_review': return { class: 'text-theme-warning bg-theme-warning/10', icon: Clock };
-    case 'implemented': return { class: 'text-theme-info bg-theme-info/10', icon: CheckCircle };
+    case 'approved': return { class: 'text-theme-success-fg bg-theme-success-fg/10', icon: CheckCircle };
+    case 'rejected': return { class: 'text-theme-error-fg bg-theme-error-fg/10', icon: XCircle };
+    case 'pending_review': return { class: 'text-theme-warning-fg bg-theme-warning-fg/10', icon: Clock };
+    case 'implemented': return { class: 'text-theme-info-fg bg-theme-info-fg/10', icon: CheckCircle };
     case 'withdrawn': return { class: 'text-theme-tertiary bg-theme-surface', icon: XCircle };
     default: return { class: 'text-theme-secondary bg-theme-surface', icon: Clock };
   }
@@ -25,9 +25,9 @@ function getStatusBadge(status: ProposalStatus) {
 
 function getPriorityColor(priority: string): string {
   switch (priority) {
-    case 'critical': return 'text-theme-error';
-    case 'high': return 'text-theme-warning';
-    case 'medium': return 'text-theme-info';
+    case 'critical': return 'text-theme-error-fg';
+    case 'high': return 'text-theme-warning-fg';
+    case 'medium': return 'text-theme-info-fg';
     default: return 'text-theme-tertiary';
   }
 }
@@ -66,7 +66,7 @@ const ProposalCard: React.FC<{
           onClick={onToggle}
           className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
         >
-          <FileText className="h-4 w-4 text-theme-info shrink-0" />
+          <FileText className="h-4 w-4 text-theme-info-fg shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h4 className="font-medium text-theme-primary truncate">{proposal.title}</h4>
@@ -85,7 +85,7 @@ const ProposalCard: React.FC<{
               )}
               <span>{new Date(proposal.created_at).toLocaleDateString()}</span>
               {isOverdue && isPending && (
-                <span className="flex items-center gap-1 text-theme-error">
+                <span className="flex items-center gap-1 text-theme-error-fg">
                   <AlertTriangle className="h-3 w-3" /> Overdue
                 </span>
               )}
@@ -260,7 +260,7 @@ export const ProposalsPanel: React.FC = () => {
           <option value="withdrawn">Withdrawn</option>
         </select>
         {pendingCount > 0 && (
-          <span className="px-2 py-1 text-xs rounded bg-theme-warning/10 text-theme-warning">
+          <span className="px-2 py-1 text-xs rounded bg-theme-warning-fg/10 text-theme-warning-fg">
             {pendingCount} pending review
           </span>
         )}
@@ -268,7 +268,7 @@ export const ProposalsPanel: React.FC = () => {
 
       {/* Batch action bar */}
       {selectedIds.size >= 2 && (
-        <div className="flex items-center gap-3 p-3 bg-theme-info/10 border border-theme-info/30 rounded-lg">
+        <div className="flex items-center gap-3 p-3 bg-theme-info-fg/10 border border-theme-info-border/30 rounded-lg">
           <span className="text-sm text-theme-primary font-medium">{selectedIds.size} selected</span>
           <button
             onClick={() => handleBatchAction('approve')}

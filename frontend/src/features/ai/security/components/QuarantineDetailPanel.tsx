@@ -46,8 +46,8 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-theme-error bg-opacity-10 rounded-lg flex items-center justify-center">
-            <ShieldAlert className="h-5 w-5 text-theme-error" />
+          <div className="h-10 w-10 bg-theme-error-bg rounded-lg flex items-center justify-center">
+            <ShieldAlert className="h-5 w-5 text-theme-error-fg" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-theme-primary">Quarantine Details</h3>
@@ -127,8 +127,8 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
 
       {/* Restoration Notes */}
       {record.restoration_notes && (
-        <div className="bg-theme-success bg-opacity-5 border border-theme rounded-lg p-4 mb-6">
-          <h4 className="text-sm font-medium text-theme-success mb-1">Restoration Notes</h4>
+        <div className="bg-theme-success-bg border border-theme rounded-lg p-4 mb-6">
+          <h4 className="text-sm font-medium text-theme-success-fg mb-1">Restoration Notes</h4>
           <p className="text-sm text-theme-secondary">{record.restoration_notes}</p>
         </div>
       )}

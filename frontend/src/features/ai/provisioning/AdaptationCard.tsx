@@ -52,15 +52,15 @@ const BLAST_RADIUS_STYLES: Record<
   { className: string; label: string }
 > = {
   low: {
-    className: 'bg-theme-success/10 text-theme-success border border-theme-success/30',
+    className: 'bg-theme-success-fg/10 text-theme-success-fg border border-theme-success-border/30',
     label: 'LOW',
   },
   med: {
-    className: 'bg-theme-warning/10 text-theme-warning border border-theme-warning/30',
+    className: 'bg-theme-warning-fg/10 text-theme-warning-fg border border-theme-warning-border/30',
     label: 'MED',
   },
   high: {
-    className: 'bg-theme-danger/10 text-theme-danger border border-theme-danger/30',
+    className: 'bg-theme-danger-fg/10 text-theme-danger-fg border border-theme-danger-border/30',
     label: 'HIGH',
   },
 };
@@ -99,8 +99,8 @@ function formatCostDelta(value: number): string {
  * AdaptationProposer pipeline, plus operator-facing approve/reject/snooze
  * controls and a "Why?" affordance for full reasoning.
  *
- * Theme classes: validated token catalog only — `bg-theme-info/10`,
- * `bg-theme-warning/10`, `bg-theme-success/10`, `bg-theme-danger/10`,
+ * Theme classes: validated token catalog only — `bg-theme-info-fg/10`,
+ * `bg-theme-warning-fg/10`, `bg-theme-success-fg/10`, `bg-theme-danger-fg/10`,
  * `bg-theme-interactive-primary/10`, `bg-theme-surface`,
  * `bg-theme-background-secondary`. **Never** `bg-theme-secondary` /
  * `bg-theme-tertiary` / `bg-theme-*-bg` (these don't exist).
@@ -118,9 +118,9 @@ export const AdaptationCard: React.FC<AdaptationCardProps> = ({
   const cost = proposal.proposed_change.cost_delta_monthly_usd;
   const costClass =
     cost > 0
-      ? 'text-theme-warning'
+      ? 'text-theme-warning-fg'
       : cost < 0
-        ? 'text-theme-success'
+        ? 'text-theme-success-fg'
         : 'text-theme-secondary';
 
   const run = async (kind: 'approve' | 'reject' | 'snooze', fn: () => Promise<void>) => {
@@ -143,7 +143,7 @@ export const AdaptationCard: React.FC<AdaptationCardProps> = ({
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <span
           data-testid="adaptation-header-tag"
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-theme-info/10 text-theme-info"
+          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-theme-info-fg/10 text-theme-info-fg"
         >
           <AlertTriangle className="h-3 w-3" aria-hidden="true" />
           ADAPTATION
@@ -206,7 +206,7 @@ export const AdaptationCard: React.FC<AdaptationCardProps> = ({
         <span
           data-testid="adaptation-reversible"
           className={
-            proposal.proposed_change.reversible ? 'text-theme-success' : 'text-theme-warning'
+            proposal.proposed_change.reversible ? 'text-theme-success-fg' : 'text-theme-warning-fg'
           }
         >
           {proposal.proposed_change.reversible ? 'reversible' : 'irreversible'}
@@ -220,7 +220,7 @@ export const AdaptationCard: React.FC<AdaptationCardProps> = ({
           onClick={() => run('reject', () => onReject(proposal.id))}
           disabled={pending !== null}
           data-testid="adaptation-reject"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-theme-surface border border-theme text-theme-primary hover:bg-theme-danger/10 hover:border-theme-danger/40 hover:text-theme-danger disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-theme-surface border border-theme text-theme-primary hover:bg-theme-danger-fg/10 hover:border-theme-danger-border/40 hover:text-theme-danger-fg disabled:opacity-50 transition-colors"
         >
           {pending === 'reject' ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

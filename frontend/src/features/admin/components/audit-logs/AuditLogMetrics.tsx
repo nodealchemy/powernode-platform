@@ -11,11 +11,11 @@ interface AuditLogMetricsProps {
 }
 
 const colorMap = {
-  blue: 'text-theme-link bg-theme-info',
-  green: 'text-theme-success bg-theme-success-background',
-  red: 'text-theme-error bg-theme-error',
-  yellow: 'text-theme-warning bg-theme-warning-background',
-  purple: 'text-theme-info bg-theme-info'
+  blue: 'text-theme-link bg-theme-info-bg',
+  green: 'text-theme-success-fg bg-theme-success-background',
+  red: 'text-theme-error-fg bg-theme-error-bg',
+  yellow: 'text-theme-warning-fg bg-theme-warning-background',
+  purple: 'text-theme-info-fg bg-theme-info-bg'
 };
 
 export const AuditLogMetrics: React.FC<AuditLogMetricsProps> = ({
@@ -42,9 +42,9 @@ export const AuditLogMetrics: React.FC<AuditLogMetricsProps> = ({
     if (!trendText) return 'text-theme-tertiary';
     
     if (trendText.startsWith('+')) {
-      return color === 'red' ? 'text-theme-error' : 'text-theme-success';
+      return color === 'red' ? 'text-theme-error-fg' : 'text-theme-success-fg';
     } else if (trendText.startsWith('-')) {
-      return color === 'red' ? 'text-theme-success' : 'text-theme-error';
+      return color === 'red' ? 'text-theme-success-fg' : 'text-theme-error-fg';
     } else {
       return 'text-theme-tertiary';
     }

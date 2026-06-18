@@ -62,7 +62,7 @@ export const AguiTextStream: React.FC<AguiTextStreamProps> = ({ events }) => {
           key={msg.messageId}
           className={`rounded-lg p-3 ${
             msg.role === 'user'
-              ? 'bg-theme-interactive-primary bg-opacity-10 ml-8'
+              ? 'bg-theme-interactive-primary/10 ml-8'
               : 'bg-theme-surface mr-8'
           }`}
         >

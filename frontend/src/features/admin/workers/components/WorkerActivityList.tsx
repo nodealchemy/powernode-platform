@@ -89,19 +89,19 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
   const getStatusBadge = (activity: WorkerActivity) => {
     if (activity.successful) {
       return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-success-background text-theme-success">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-success-background text-theme-success-fg">
           Success
         </span>
       );
     } else if (activity.failed) {
       return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-error text-theme-error">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-error-bg text-theme-error-fg">
           Failed
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-info text-theme-info">
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-info-bg text-theme-info-fg">
         Pending
       </span>
     );
@@ -118,9 +118,9 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
   if (error) {
     return (
       <div className="text-center py-8">
-        <div className="bg-theme-error rounded-lg p-4 max-w-md mx-auto">
-          <p className="text-theme-error font-medium">Error Loading Activities</p>
-          <p className="text-theme-error text-sm mt-1">{error}</p>
+        <div className="bg-theme-error-bg rounded-lg p-4 max-w-md mx-auto">
+          <p className="text-theme-error-fg font-medium">Error Loading Activities</p>
+          <p className="text-theme-error-fg text-sm mt-1">{error}</p>
           <button
             onClick={loadActivities}
             className="btn-theme btn-theme-danger mt-3"
@@ -165,15 +165,15 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
             <div className="text-theme-secondary text-sm">Recent</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-theme-success">{summary.successful_recent}</div>
+            <div className="text-2xl font-bold text-theme-success-fg">{summary.successful_recent}</div>
             <div className="text-theme-secondary text-sm">Success</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-theme-error">{summary.failed_recent}</div>
+            <div className="text-2xl font-bold text-theme-error-fg">{summary.failed_recent}</div>
             <div className="text-theme-secondary text-sm">Failed</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-theme-info">{Object.keys(summary.actions).length}</div>
+            <div className="text-2xl font-bold text-theme-info-fg">{Object.keys(summary.actions).length}</div>
             <div className="text-theme-secondary text-sm">Actions</div>
           </div>
         </div>
@@ -264,7 +264,7 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
                         <span>
                           {format(new Date(activity.performed_at), 'MMM d, yyyy HH:mm:ss')}
                         </span>
-                        <span className="text-theme-info">
+                        <span className="text-theme-info-fg">
                           {formatDistanceToNow(new Date(activity.performed_at), { addSuffix: true })}
                         </span>
                       </div>
@@ -278,7 +278,7 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
                       )}
                       
                       {activity.error_message && (
-                        <div className="text-xs text-theme-error mt-2 p-2 bg-theme-error rounded">
+                        <div className="text-xs text-theme-error-fg mt-2 p-2 bg-theme-error-bg rounded">
                           {activity.error_message}
                         </div>
                       )}
@@ -289,10 +289,10 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
                 {activity.response_status && (
                   <div className={`px-2 py-1 rounded text-xs font-mono ${
                     activity.response_status >= 200 && activity.response_status < 300
-                      ? 'bg-theme-success-background text-theme-success'
+                      ? 'bg-theme-success-background text-theme-success-fg'
                       : activity.response_status >= 400
-                      ? 'bg-theme-error text-theme-error'
-                      : 'bg-theme-warning-background text-theme-warning'
+                      ? 'bg-theme-error-bg text-theme-error-fg'
+                      : 'bg-theme-warning-background text-theme-warning-fg'
                   }`}>
                     {activity.response_status}
                   </div>

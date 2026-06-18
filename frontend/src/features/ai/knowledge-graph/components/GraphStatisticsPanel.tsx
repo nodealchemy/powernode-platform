@@ -7,13 +7,13 @@ import { useGraphStatistics } from '../api/knowledgeGraphApi';
 import type { EntityType } from '../types/knowledgeGraph';
 
 const ENTITY_TYPE_COLORS: Record<EntityType, string> = {
-  concept: 'text-theme-info',
-  entity: 'text-theme-success',
-  document: 'text-theme-warning',
+  concept: 'text-theme-info-fg',
+  entity: 'text-theme-success-fg',
+  document: 'text-theme-warning-fg',
   agent: 'text-theme-interactive-primary',
-  skill: 'text-theme-info',
-  context: 'text-theme-error',
-  learning: 'text-theme-success',
+  skill: 'text-theme-info-fg',
+  context: 'text-theme-error-fg',
+  learning: 'text-theme-success-fg',
 };
 
 export const GraphStatisticsPanel: React.FC = () => {
@@ -32,29 +32,29 @@ export const GraphStatisticsPanel: React.FC = () => {
       label: 'Total Nodes',
       value: stats.node_count,
       icon: Circle,
-      colorClass: 'text-theme-info',
-      bgClass: 'bg-theme-info',
+      colorClass: 'text-theme-info-fg',
+      bgClass: 'bg-theme-info-bg',
     },
     {
       label: 'Total Edges',
       value: stats.edge_count,
       icon: Link2,
-      colorClass: 'text-theme-success',
-      bgClass: 'bg-theme-success',
+      colorClass: 'text-theme-success-fg',
+      bgClass: 'bg-theme-success-bg',
     },
     {
       label: 'Avg Degree',
       value: (stats.avg_degree ?? 0).toFixed(1),
       icon: GitBranch,
-      colorClass: 'text-theme-warning',
-      bgClass: 'bg-theme-warning',
+      colorClass: 'text-theme-warning-fg',
+      bgClass: 'bg-theme-warning-bg',
     },
     {
       label: 'Entity Types',
       value: Object.keys(stats.by_entity_type || {}).length,
       icon: BarChart3,
-      colorClass: 'text-theme-error',
-      bgClass: 'bg-theme-error',
+      colorClass: 'text-theme-error-fg',
+      bgClass: 'bg-theme-error-bg',
     },
   ];
 
@@ -73,7 +73,7 @@ export const GraphStatisticsPanel: React.FC = () => {
                     {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
                   </p>
                 </div>
-                <div className={`h-10 w-10 ${stat.bgClass} bg-opacity-10 rounded-lg flex items-center justify-center`}>
+                <div className={`h-10 w-10 ${stat.bgClass} rounded-lg flex items-center justify-center`}>
                   <Icon className={`h-5 w-5 ${stat.colorClass}`} />
                 </div>
               </div>

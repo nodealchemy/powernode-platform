@@ -69,7 +69,7 @@ export function ResourceListPanel({
         onClick={() => onFilterChange({ type: undefined })}
         className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
           !filters.type
-            ? 'bg-theme-interactive-primary/10 text-theme-info'
+            ? 'bg-theme-interactive-primary/10 text-theme-info-fg'
             : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
         }`}
       >
@@ -86,7 +86,7 @@ export function ResourceListPanel({
             onClick={() => onFilterChange({ type: filters.type === type ? undefined : type })}
             className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
               filters.type === type
-                ? 'bg-theme-interactive-primary/10 text-theme-info'
+                ? 'bg-theme-interactive-primary/10 text-theme-info-fg'
                 : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
             }`}
           >

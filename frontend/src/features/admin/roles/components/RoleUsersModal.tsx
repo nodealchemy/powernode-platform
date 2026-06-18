@@ -212,7 +212,7 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
                         className="flex items-center justify-between p-3 bg-theme-background hover:bg-theme-surface-hover rounded-md transition-colors"
                       >
                         <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-theme-interactive-primary bg-opacity-10 rounded-full flex items-center justify-center">
+                          <div className="w-8 h-8 bg-theme-interactive-primary/10 rounded-full flex items-center justify-center">
                             <User className="w-4 h-4 text-theme-interactive-primary" />
                           </div>
                           <div>

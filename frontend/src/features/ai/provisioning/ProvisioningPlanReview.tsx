@@ -56,19 +56,19 @@ const RISK_LABEL: Record<RiskSeverity, string> = {
 };
 
 const RISK_BG: Record<string, string> = {
-  low: 'bg-theme-success/10 border-theme-success/30',
-  med: 'bg-theme-warning/10 border-theme-warning/30',
-  high: 'bg-theme-danger/10 border-theme-danger/30'
+  low: 'bg-theme-success-fg/10 border-theme-success-border/30',
+  med: 'bg-theme-warning-fg/10 border-theme-warning-border/30',
+  high: 'bg-theme-danger-fg/10 border-theme-danger-border/30'
 };
 
 const stepIcon = (status: PlanStepStatus | undefined): React.ReactElement => {
   switch (status) {
     case 'completed':
-      return <CheckCircle className="w-4 h-4 text-theme-success" aria-label="completed" />;
+      return <CheckCircle className="w-4 h-4 text-theme-success-fg" aria-label="completed" />;
     case 'running':
-      return <Loader2 className="w-4 h-4 text-theme-info animate-spin" aria-label="running" />;
+      return <Loader2 className="w-4 h-4 text-theme-info-fg animate-spin" aria-label="running" />;
     case 'failed':
-      return <AlertCircle className="w-4 h-4 text-theme-danger" aria-label="failed" />;
+      return <AlertCircle className="w-4 h-4 text-theme-danger-fg" aria-label="failed" />;
     case 'skipped':
       return <SkipForward className="w-4 h-4 text-theme-tertiary" aria-label="skipped" />;
     default:
@@ -305,7 +305,7 @@ export const ProvisioningPlanReview: React.FC<ProvisioningPlanReviewProps> = ({
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-theme-warning" />
+                <AlertTriangle className="w-4 h-4 text-theme-warning-fg" />
                 <h4 className="text-sm font-semibold text-theme-primary">Risk assessment</h4>
               </div>
               {plan.risk?.severity != null && (
@@ -330,7 +330,7 @@ export const ProvisioningPlanReview: React.FC<ProvisioningPlanReviewProps> = ({
 
         {/* Authorization line */}
         <div
-          className="text-xs text-theme-secondary bg-theme-warning/10 border border-theme-warning/30 rounded-lg px-3 py-2"
+          className="text-xs text-theme-secondary bg-theme-warning-fg/10 border border-theme-warning-border/30 rounded-lg px-3 py-2"
           data-testid="provisioning-authorization"
         >
           By approving you authorize creation of resources costing approximately{' '}

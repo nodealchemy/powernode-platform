@@ -14,10 +14,10 @@ interface RalphTaskNodeData {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-theme-surface text-theme-tertiary border-theme',
-  in_progress: 'bg-theme-info/10 text-theme-info border-theme-info',
-  passed: 'bg-theme-success/10 text-theme-success border-theme-success',
-  failed: 'bg-theme-error/10 text-theme-error border-theme-error',
-  blocked: 'bg-theme-warning/10 text-theme-warning border-theme-warning',
+  in_progress: 'bg-theme-info-fg/10 text-theme-info-fg border-theme-info-border',
+  passed: 'bg-theme-success-fg/10 text-theme-success-fg border-theme-success-border',
+  failed: 'bg-theme-error-fg/10 text-theme-error-fg border-theme-error-border',
+  blocked: 'bg-theme-warning-fg/10 text-theme-warning-fg border-theme-warning-border',
   skipped: 'bg-theme-surface text-theme-tertiary border-theme',
 };
 

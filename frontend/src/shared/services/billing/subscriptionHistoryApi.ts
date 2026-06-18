@@ -86,18 +86,18 @@ export const subscriptionHistoryApi = {
 
   getEventColor(eventType: string): string {
     const colorMap: Record<string, string> = {
-      'subscription_created': 'text-theme-success',
-      'trial_started': 'text-theme-info',
-      'trial_converted': 'text-theme-success',
-      'subscription_activated': 'text-theme-success',
-      'plan_changed': 'text-theme-info',
-      'quantity_changed': 'text-theme-info',
-      'subscription_canceled': 'text-theme-error',
-      'payment_failed': 'text-theme-error',
-      'payment': 'text-theme-success',
-      'status_changed': 'text-theme-warning',
-      'create': 'text-theme-success',
-      'update': 'text-theme-info'
+      'subscription_created': 'text-theme-success-fg',
+      'trial_started': 'text-theme-info-fg',
+      'trial_converted': 'text-theme-success-fg',
+      'subscription_activated': 'text-theme-success-fg',
+      'plan_changed': 'text-theme-info-fg',
+      'quantity_changed': 'text-theme-info-fg',
+      'subscription_canceled': 'text-theme-error-fg',
+      'payment_failed': 'text-theme-error-fg',
+      'payment': 'text-theme-success-fg',
+      'status_changed': 'text-theme-warning-fg',
+      'create': 'text-theme-success-fg',
+      'update': 'text-theme-info-fg'
     };
 
     return Object.keys(colorMap).includes(eventType) 

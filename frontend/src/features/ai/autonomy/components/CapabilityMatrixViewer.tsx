@@ -5,9 +5,9 @@ import { useCapabilityMatrix } from '../api/autonomyApi';
 import type { CapabilityPolicy } from '../types/autonomy';
 
 const POLICY_COLORS: Record<CapabilityPolicy, string> = {
-  allowed: 'bg-theme-success text-white',
-  requires_approval: 'bg-theme-warning text-white',
-  denied: 'bg-theme-error text-white',
+  allowed: 'bg-theme-success-bg text-white',
+  requires_approval: 'bg-theme-warning-bg text-white',
+  denied: 'bg-theme-error-bg text-white',
 };
 
 const POLICY_LABELS: Record<CapabilityPolicy, string> = {

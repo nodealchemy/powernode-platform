@@ -106,11 +106,11 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-theme-success text-theme-success border border-theme';
+        return 'bg-theme-success-bg text-theme-success-fg border border-theme';
       case 'suspended':
-        return 'bg-theme-warning text-theme-warning border border-theme';
+        return 'bg-theme-warning-bg text-theme-warning-fg border border-theme';
       case 'revoked':
-        return 'bg-theme-error text-theme-error border border-theme';
+        return 'bg-theme-error-bg text-theme-error-fg border border-theme';
       default:
         return 'bg-theme-background-secondary text-theme-secondary border border-theme';
     }
@@ -124,8 +124,8 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <div className="text-theme-error text-4xl mb-4">⚠️</div>
-          <p className="text-theme-error mb-4">{error}</p>
+          <div className="text-theme-error-fg text-4xl mb-4">⚠️</div>
+          <p className="text-theme-error-fg mb-4">{error}</p>
           <button
             onClick={loadServiceDetails}
             className="text-theme-link hover:text-theme-link-hover underline"
@@ -186,15 +186,15 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                 <div className="text-sm text-theme-secondary">Total Requests</div>
               </div>
               <div className="bg-theme-surface p-4 rounded-lg border border-theme">
-                <div className="text-2xl font-bold text-theme-success">{details.activity_summary.successful_requests}</div>
+                <div className="text-2xl font-bold text-theme-success-fg">{details.activity_summary.successful_requests}</div>
                 <div className="text-sm text-theme-secondary">Successful</div>
               </div>
               <div className="bg-theme-surface p-4 rounded-lg border border-theme">
-                <div className="text-2xl font-bold text-theme-error">{details.activity_summary.failed_requests}</div>
+                <div className="text-2xl font-bold text-theme-error-fg">{details.activity_summary.failed_requests}</div>
                 <div className="text-sm text-theme-secondary">Failed</div>
               </div>
               <div className="bg-theme-surface p-4 rounded-lg border border-theme">
-                <div className="text-2xl font-bold text-theme-info">{details.activity_summary.unique_actions.length}</div>
+                <div className="text-2xl font-bold text-theme-info-fg">{details.activity_summary.unique_actions.length}</div>
                 <div className="text-sm text-theme-secondary">Unique Actions</div>
               </div>
             </div>
@@ -235,7 +235,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                     </button>
                     <button
                       onClick={handleTokenRegenerate}
-                      className="text-theme-warning hover:text-theme-warning text-sm transition-colors duration-150 opacity-80 hover:opacity-100"
+                      className="text-theme-warning-fg hover:text-theme-warning-fg text-sm transition-colors duration-150 opacity-80 hover:opacity-100"
                     >
                       Regenerate
                     </button>
@@ -252,7 +252,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                   {details.recent_activities.slice(0, 5).map((activity) => (
                     <div key={activity.id} className="flex items-center justify-between py-2 border-b border-theme last:border-0">
                       <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${activity.successful ? 'bg-theme-success' : 'bg-theme-danger'}`}></div>
+                        <div className={`w-2 h-2 rounded-full ${activity.successful ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'}`}></div>
                         <div>
                           <div className="text-sm font-medium text-theme-primary">{activity.action}</div>
                           <div className="text-xs text-theme-secondary">
@@ -301,7 +301,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                     {service.status === 'active' && (
                       <button
                         onClick={() => onStatusChange(service.id, 'suspend')}
-                        className="px-3 py-1 bg-theme-warning text-theme-warning rounded text-sm hover:bg-theme-warning border border-theme font-medium transition-colors duration-200 opacity-90 hover:opacity-100"
+                        className="px-3 py-1 bg-theme-warning-bg text-theme-warning-fg rounded text-sm hover:bg-theme-warning-bg border border-theme font-medium transition-colors duration-200 opacity-90 hover:opacity-100"
                       >
                         Suspend
                       </button>
@@ -309,7 +309,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                     {service.status === 'suspended' && (
                       <button
                         onClick={() => onStatusChange(service.id, 'activate')}
-                        className="px-3 py-1 bg-theme-success text-theme-success rounded text-sm hover:bg-theme-success border border-theme font-medium transition-colors duration-200 opacity-90 hover:opacity-100"
+                        className="px-3 py-1 bg-theme-success-bg text-theme-success-fg rounded text-sm hover:bg-theme-success-bg border border-theme font-medium transition-colors duration-200 opacity-90 hover:opacity-100"
                       >
                         Activate
                       </button>
@@ -317,7 +317,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                     {service.status !== 'revoked' && (
                       <button
                         onClick={() => setShowConfirmRevoke(true)}
-                        className="px-3 py-1 bg-theme-error text-theme-error rounded text-sm hover:bg-theme-error border border-theme font-medium transition-colors duration-200 opacity-90 hover:opacity-100"
+                        className="px-3 py-1 bg-theme-error-bg text-theme-error-fg rounded text-sm hover:bg-theme-error-bg border border-theme font-medium transition-colors duration-200 opacity-90 hover:opacity-100"
                       >
                         Revoke
                       </button>
@@ -345,7 +345,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
 
       {/* New Token Modal */}
       {newToken && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-theme-surface rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-medium text-theme-primary mb-4">New Token Generated</h3>
             <p className="text-sm text-theme-secondary mb-4">
@@ -374,7 +374,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
 
       {/* Confirm Revoke Modal */}
       {showConfirmRevoke && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-theme-surface rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-medium text-theme-primary mb-4">Revoke Service</h3>
             <p className="text-sm text-theme-secondary mb-4">
@@ -385,7 +385,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                 onClick={() => {
                   onStatusChange(service.id, 'revoke');
                   setShowConfirmRevoke(false);
-                }}className="flex-1 bg-theme-error text-white px-4 py-2 rounded text-sm hover:bg-theme-error transition-colors duration-200 opacity-90 hover:opacity-100"
+                }}className="flex-1 bg-theme-error-bg text-white px-4 py-2 rounded text-sm hover:bg-theme-error-bg transition-colors duration-200 opacity-90 hover:opacity-100"
               >
                 Yes, Revoke Service
               </button>

@@ -82,11 +82,11 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
 
   const getRoleBadgeColor = (role: string) => {
     if (role.includes('system.admin') || role.includes('admin')) {
-      return 'bg-theme-error bg-opacity-10 text-theme-error';
+      return 'bg-theme-error-bg text-theme-error-fg';
     } else if (role.includes('account.manager') || role.includes('manager')) {
-      return 'bg-theme-success bg-opacity-10 text-theme-success';
+      return 'bg-theme-success-bg text-theme-success-fg';
     } else {
-      return 'bg-theme-info bg-opacity-10 text-theme-info';
+      return 'bg-theme-info-bg text-theme-info-fg';
     }
   };
 
@@ -96,9 +96,9 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
 
   const getStatusBadge = (status: string) => {
     const statusColors = {
-      active: 'bg-theme-success bg-opacity-10 text-theme-success',
-      invited: 'bg-theme-warning bg-opacity-10 text-theme-warning',
-      suspended: 'bg-theme-error bg-opacity-10 text-theme-error',
+      active: 'bg-theme-success-bg text-theme-success-fg',
+      invited: 'bg-theme-warning-bg text-theme-warning-fg',
+      suspended: 'bg-theme-error-bg text-theme-error-fg',
       inactive: 'bg-theme-surface text-theme-tertiary',
     };
 
@@ -127,7 +127,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
         </div>
         <div className="bg-theme-background rounded-lg p-4">
           <h3 className="text-sm font-medium text-theme-tertiary mb-1">Active</h3>
-          <p className="text-2xl font-bold text-theme-success">
+          <p className="text-2xl font-bold text-theme-success-fg">
             {teamMembers.filter(m => m.status === 'active').length}
           </p>
         </div>
@@ -227,7 +227,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
                           {(canManageTeam && member.id !== currentUser?.id) && (
                             <button
                               onClick={() => handleRemoveMember(member.id)}
-                              className="text-theme-error hover:text-theme-error-hover text-sm"
+                              className="text-theme-error-fg hover:text-theme-error-hover text-sm"
                             >
                               Remove
                             </button>
@@ -256,7 +256,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       {ConfirmationDialog}
 
       {showEditModal && selectedMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-theme-surface rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-theme-primary mb-4">
               Edit Team Member Roles

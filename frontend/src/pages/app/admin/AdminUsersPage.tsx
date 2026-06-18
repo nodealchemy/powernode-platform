@@ -675,7 +675,7 @@ const AdminUsersPage: React.FC = () => {
                   className="p-1.5 rounded hover:bg-theme-surface-hover text-theme-secondary"
                   title="Copy to clipboard"
                 >
-                  {copied ? <Check className="h-4 w-4 text-theme-success" /> : <Copy className="h-4 w-4" />}
+                  {copied ? <Check className="h-4 w-4 text-theme-success-fg" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
               <div className="flex justify-end">

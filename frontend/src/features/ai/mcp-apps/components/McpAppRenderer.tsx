@@ -67,7 +67,7 @@ export const McpAppRenderer: React.FC<McpAppRendererProps> = ({
   if (renderApp.isError) {
     return (
       <div className="bg-theme-surface border border-theme rounded-lg p-8 text-center">
-        <p className="text-sm text-theme-error mb-3">Failed to render app.</p>
+        <p className="text-sm text-theme-error-fg mb-3">Failed to render app.</p>
         <Button variant="secondary" size="sm" onClick={handleRender}>
           Retry
         </Button>

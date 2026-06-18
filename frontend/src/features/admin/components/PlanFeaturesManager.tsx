@@ -281,7 +281,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
                             {feature.type}
                           </span>
                           {feature.is_system_feature && (
-                            <span className="px-2 py-1 rounded-full text-xs bg-theme-warning bg-opacity-10 text-theme-warning">
+                            <span className="px-2 py-1 rounded-full text-xs bg-theme-warning-bg text-theme-warning-fg">
                               System
                             </span>
                           )}
@@ -301,7 +301,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button variant="outline" onClick={() => handleDeleteFeature(feature.id)}
-                            className="p-2 text-theme-secondary hover:text-theme-error transition-colors"
+                            className="p-2 text-theme-secondary hover:text-theme-error-fg transition-colors"
                             title="Delete feature"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -362,15 +362,15 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
                             <h4 className="font-medium text-theme-primary">{feature.name}</h4>
                             {currentLimit ? (
                               currentLimit.is_unlimited ? (
-                                <span className="px-2 py-1 rounded-full text-xs bg-theme-success bg-opacity-10 text-theme-success">
+                                <span className="px-2 py-1 rounded-full text-xs bg-theme-success-bg text-theme-success-fg">
                                   Unlimited
                                 </span>
                               ) : currentLimit.is_enabled ? (
-                                <span className="px-2 py-1 rounded-full text-xs bg-theme-info bg-opacity-10 text-theme-info">
+                                <span className="px-2 py-1 rounded-full text-xs bg-theme-info-bg text-theme-info-fg">
                                   {planFeaturesApi.formatFeatureValue(feature, currentLimit.value)}
                                 </span>
                               ) : (
-                                <span className="px-2 py-1 rounded-full text-xs bg-theme-error bg-opacity-10 text-theme-error">
+                                <span className="px-2 py-1 rounded-full text-xs bg-theme-error-bg text-theme-error-fg">
                                   Disabled
                                 </span>
                               )
@@ -474,12 +474,12 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
                         <td key={plan.id} className="px-6 py-4 text-center">
                           {value !== undefined ? (
                             value === 'unlimited' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-theme-success bg-opacity-10 text-theme-success">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-theme-success-bg text-theme-success-fg">
                                 <CheckCircle className="w-3 h-3" />
                                 Unlimited
                               </span>
                             ) : value === null || value === false ? (
-                              <span className="text-theme-error">
+                              <span className="text-theme-error-fg">
                                 <X className="w-4 h-4 mx-auto" />
                               </span>
                             ) : (

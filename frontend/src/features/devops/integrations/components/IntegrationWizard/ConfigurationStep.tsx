@@ -101,7 +101,7 @@ export function ConfigurationStep({
     const label = (
       <label className="block text-sm font-medium text-theme-primary mb-1">
         {property.title || key}
-        {isRequired && <span className="text-theme-error ml-1">*</span>}
+        {isRequired && <span className="text-theme-error-fg ml-1">*</span>}
       </label>
     );
 
@@ -110,11 +110,11 @@ export function ConfigurationStep({
     );
 
     const errorText = error && (
-      <p className="text-xs text-theme-error mt-1">{error}</p>
+      <p className="text-xs text-theme-error-fg mt-1">{error}</p>
     );
 
     const inputClasses = `w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
-      error ? 'border-theme-error' : 'border-theme'
+      error ? 'border-theme-error-border' : 'border-theme'
     }`;
 
     switch (property.type) {
@@ -274,7 +274,7 @@ export function ConfigurationStep({
       <div>
         <label className="block text-sm font-medium text-theme-primary mb-1">
           Integration Name
-          <span className="text-theme-error ml-1">*</span>
+          <span className="text-theme-error-fg ml-1">*</span>
         </label>
         <input
           type="text"
@@ -291,14 +291,14 @@ export function ConfigurationStep({
           }}
           placeholder="My Integration"
           className={`w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
-            errors.name ? 'border-theme-error' : 'border-theme'
+            errors.name ? 'border-theme-error-border' : 'border-theme'
           }`}
         />
         <p className="text-xs text-theme-tertiary mt-1">
           A friendly name to identify this integration
         </p>
         {errors.name && (
-          <p className="text-xs text-theme-error mt-1">{errors.name}</p>
+          <p className="text-xs text-theme-error-fg mt-1">{errors.name}</p>
         )}
       </div>
 

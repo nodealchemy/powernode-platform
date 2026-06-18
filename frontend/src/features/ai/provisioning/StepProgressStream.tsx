@@ -44,10 +44,10 @@ interface MissionPhaseEvent {
 
 const STATUS_ICON_CLS: Record<ProvisioningStepStatus, string> = {
   pending: 'text-theme-secondary',
-  running: 'text-theme-info animate-spin',
-  completed: 'text-theme-success',
-  failed: 'text-theme-danger',
-  rolled_back: 'text-theme-warning',
+  running: 'text-theme-info-fg animate-spin',
+  completed: 'text-theme-success-fg',
+  failed: 'text-theme-danger-fg',
+  rolled_back: 'text-theme-warning-fg',
 };
 
 function StatusIcon({ status }: { status: ProvisioningStepStatus }) {
@@ -243,9 +243,9 @@ export const StepProgressStream: React.FC<StepProgressStreamProps> = ({
               data-status={state.status}
               className={`flex flex-col gap-1 px-3 py-2 rounded-md border ${
                 isFailed
-                  ? 'border-theme-danger/30 bg-theme-danger/10'
+                  ? 'border-theme-danger-border/30 bg-theme-danger-fg/10'
                   : isRolled
-                    ? 'border-theme-warning/30 bg-theme-warning/10'
+                    ? 'border-theme-warning-border/30 bg-theme-warning-fg/10'
                     : 'border-theme bg-theme-background-secondary'
               }`}
             >
@@ -282,7 +282,7 @@ export const StepProgressStream: React.FC<StepProgressStreamProps> = ({
               {isExpandable && isExpanded && (
                 <div className="pl-6 pt-1 space-y-2" data-testid={`step-details-${step.id}`}>
                   {state.error && (
-                    <pre className="text-xs whitespace-pre-wrap break-words rounded bg-theme-danger/10 text-theme-danger p-2 border border-theme-danger/30">
+                    <pre className="text-xs whitespace-pre-wrap break-words rounded bg-theme-danger-fg/10 text-theme-danger-fg p-2 border border-theme-danger-border/30">
                       {state.error}
                     </pre>
                   )}

@@ -169,20 +169,20 @@ export const ApiKeysPage: React.FC = () => {
           <LoadingSpinner />
         </div>
       ) : error ? (
-        <div className="bg-theme-error bg-opacity-10 border border-theme-error border-opacity-30 rounded-lg p-6">
-          <h3 className="font-medium text-theme-error mb-2">Error Loading API Keys</h3>
-          <p className="text-theme-error opacity-80">{error}</p>
+        <div className="bg-theme-error-bg border border-theme-error-border rounded-lg p-6">
+          <h3 className="font-medium text-theme-error-fg mb-2">Error Loading API Keys</h3>
+          <p className="text-theme-error-fg opacity-80">{error}</p>
         </div>
       ) : (
         <>
           <div className="bg-theme-surface rounded-lg p-6">
 
-            <div className="bg-theme-warning bg-opacity-10 border border-theme-warning border-opacity-30 rounded-lg p-4 mb-6">
+            <div className="bg-theme-warning-bg border border-theme-warning-border rounded-lg p-4 mb-6">
           <div className="flex items-start space-x-3">
-            <span className="text-theme-warning text-xl">⚠️</span>
+            <span className="text-theme-warning-fg text-xl">⚠️</span>
             <div>
-              <h3 className="font-medium text-theme-warning">Security Notice</h3>
-              <p className="text-sm text-theme-warning opacity-80 mt-1">
+              <h3 className="font-medium text-theme-warning-fg">Security Notice</h3>
+              <p className="text-sm text-theme-warning-fg opacity-80 mt-1">
                 API keys provide full access to your account. Keep them secure and never share them publicly.
                 Rotate keys regularly and revoke unused keys immediately.
               </p>
@@ -261,8 +261,8 @@ export const ApiKeysPage: React.FC = () => {
                     <button 
                       className={`text-sm ${
                         apiKey.status === 'active' 
-                          ? 'text-theme-error hover:text-theme-error-hover' 
-                          : 'text-theme-success hover:text-theme-success-hover'
+                          ? 'text-theme-error-fg hover:text-theme-error-hover' 
+                          : 'text-theme-success-fg hover:text-theme-success-hover'
                       }`}
                       onClick={() => handleToggleStatus(apiKey.id)}
                     >

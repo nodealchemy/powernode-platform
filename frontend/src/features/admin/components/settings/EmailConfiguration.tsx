@@ -642,9 +642,9 @@ export const EmailConfiguration: React.FC = () => {
           <h3 className="text-lg font-medium text-theme-primary mb-4">Configuration Status</h3>
           <div className="flex items-center gap-3 p-3 bg-theme-background rounded-lg border border-theme">
             {emailSettings.smtp_enabled || emailSettings.email_provider !== 'smtp' ? (
-              <CheckCircle className="w-4 h-4 text-theme-success" />
+              <CheckCircle className="w-4 h-4 text-theme-success-fg" />
             ) : (
-              <AlertCircle className="w-4 h-4 text-theme-warning" />
+              <AlertCircle className="w-4 h-4 text-theme-warning-fg" />
             )}
             <span className="text-sm text-theme-primary">
               Email service: {emailSettings.smtp_enabled || emailSettings.email_provider !== 'smtp' ? 'Configured' : 'Not configured'}

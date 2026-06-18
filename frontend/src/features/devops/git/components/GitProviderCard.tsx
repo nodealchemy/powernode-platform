@@ -117,7 +117,7 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
                             setShowMenu(false);
                             onDelete();
                           }}
-                          className="w-full px-3 py-2 text-left text-sm text-theme-error hover:bg-theme-surface-hover flex items-center gap-2"
+                          className="w-full px-3 py-2 text-left text-sm text-theme-error-fg hover:bg-theme-surface-hover flex items-center gap-2"
                         >
                           <Trash2 className="w-4 h-4" />
                           Delete
@@ -148,12 +148,12 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
             </span>
           )}
           {provider.supports_pat && (
-            <span className="px-2 py-1 text-xs rounded-full bg-theme-success/10 text-theme-success">
+            <span className="px-2 py-1 text-xs rounded-full bg-theme-success-fg/10 text-theme-success-fg">
               PAT
             </span>
           )}
           {provider.supports_devops && (
-            <span className="px-2 py-1 text-xs rounded-full bg-theme-warning/10 text-theme-warning">
+            <span className="px-2 py-1 text-xs rounded-full bg-theme-warning-fg/10 text-theme-warning-fg">
               DevOps
             </span>
           )}

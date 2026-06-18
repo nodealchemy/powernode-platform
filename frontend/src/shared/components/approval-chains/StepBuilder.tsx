@@ -58,7 +58,7 @@ export function StepBuilder({ step, index, total, onChange, onDelete }: StepBuil
         <span className="flex-1 text-theme-primary">{label}</span>
         <button
           onClick={() => removeApprover(idx)}
-          className="text-theme-tertiary hover:text-theme-danger"
+          className="text-theme-tertiary hover:text-theme-danger-fg"
           aria-label="Remove approver"
         >
           <TrashIcon className="h-3.5 w-3.5" />
@@ -76,7 +76,7 @@ export function StepBuilder({ step, index, total, onChange, onDelete }: StepBuil
         {onDelete && total > 1 && (
           <button
             onClick={onDelete}
-            className="text-theme-tertiary hover:text-theme-danger text-xs"
+            className="text-theme-tertiary hover:text-theme-danger-fg text-xs"
           >
             Remove step
           </button>

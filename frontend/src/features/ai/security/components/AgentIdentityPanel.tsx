@@ -73,7 +73,7 @@ export const AgentIdentityPanel: React.FC<AgentIdentityPanelProps> = ({ identity
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-theme-primary bg-opacity-10 rounded-lg flex items-center justify-center">
+          <div className="h-10 w-10 bg-theme-primary/10 rounded-lg flex items-center justify-center">
             <Key className="h-5 w-5 text-theme-primary" />
           </div>
           <div>
@@ -108,8 +108,8 @@ export const AgentIdentityPanel: React.FC<AgentIdentityPanelProps> = ({ identity
 
       {/* Revocation Info */}
       {identity.revoked_at && (
-        <div className="bg-theme-error bg-opacity-5 border border-theme rounded-lg p-4 mb-6">
-          <h4 className="text-sm font-medium text-theme-error mb-1">Revocation Details</h4>
+        <div className="bg-theme-error-bg border border-theme rounded-lg p-4 mb-6">
+          <h4 className="text-sm font-medium text-theme-error-fg mb-1">Revocation Details</h4>
           <p className="text-sm text-theme-secondary">
             Revoked: {new Date(identity.revoked_at).toLocaleString()}
           </p>

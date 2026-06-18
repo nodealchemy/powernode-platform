@@ -73,7 +73,7 @@ export function EntityDetailLoader<T = unknown>({
       <>
         {wrap(
           <div className="flex items-center justify-center py-20">
-            <p className="text-sm text-theme-error">{error}</p>
+            <p className="text-sm text-theme-error-fg">{error}</p>
           </div>,
         )}
       </>

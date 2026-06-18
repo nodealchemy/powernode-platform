@@ -59,7 +59,7 @@ const AttachmentItem: React.FC<{
         {onRemove && (
           <button
             onClick={() => onRemove(index)}
-            className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-theme-error text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-theme-error-bg text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <X className="h-3 w-3" />
           </button>
@@ -87,7 +87,7 @@ const AttachmentItem: React.FC<{
       {onRemove && (
         <button
           onClick={() => onRemove(index)}
-          className="flex-shrink-0 p-0.5 rounded hover:bg-theme-error text-theme-text-tertiary hover:text-theme-error transition-colors"
+          className="flex-shrink-0 p-0.5 rounded hover:bg-theme-error-bg text-theme-text-tertiary hover:text-theme-error-fg transition-colors"
         >
           <X className="h-3 w-3" />
         </button>

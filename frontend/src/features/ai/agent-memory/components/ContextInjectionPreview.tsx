@@ -174,19 +174,19 @@ export const ContextInjectionPreview: React.FC<ContextInjectionPreviewProps> = (
 
             {/* Token breakdown */}
             <div className="grid grid-cols-3 gap-2">
-              <div className="p-2 bg-theme-info/10 rounded text-center">
+              <div className="p-2 bg-theme-info-fg/10 rounded text-center">
                 <div className="text-sm font-medium text-theme-primary">
                   {response.breakdown.factual}
                 </div>
                 <div className="text-xs text-theme-tertiary">Factual</div>
               </div>
-              <div className="p-2 bg-theme-warning/10 rounded text-center">
+              <div className="p-2 bg-theme-warning-fg/10 rounded text-center">
                 <div className="text-sm font-medium text-theme-primary">
                   {response.breakdown.experiential}
                 </div>
                 <div className="text-xs text-theme-tertiary">Experiential</div>
               </div>
-              <div className="p-2 bg-theme-success/10 rounded text-center">
+              <div className="p-2 bg-theme-success-fg/10 rounded text-center">
                 <div className="text-sm font-medium text-theme-primary">
                   {response.breakdown.working}
                 </div>

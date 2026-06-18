@@ -54,8 +54,8 @@ export const OptimizationRecommendations: React.FC = () => {
       <Card className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 bg-theme-success bg-opacity-10 rounded-lg flex items-center justify-center">
-              <Lightbulb className="h-6 w-6 text-theme-success" />
+            <div className="h-12 w-12 bg-theme-success-bg rounded-lg flex items-center justify-center">
+              <Lightbulb className="h-6 w-6 text-theme-success-fg" />
             </div>
             <div>
               <p className="text-sm text-theme-tertiary">Optimization Score</p>
@@ -66,7 +66,7 @@ export const OptimizationRecommendations: React.FC = () => {
           </div>
           <div className="text-right">
             <p className="text-sm text-theme-tertiary">Potential Savings</p>
-            <p className="text-xl font-bold text-theme-success">{formatCost(potential_savings)}</p>
+            <p className="text-xl font-bold text-theme-success-fg">{formatCost(potential_savings)}</p>
             <p className="text-xs text-theme-tertiary">
               {pendingRecs.length} pending, {appliedRecs.length} applied
             </p>
@@ -75,9 +75,9 @@ export const OptimizationRecommendations: React.FC = () => {
 
         {/* Score progress bar */}
         <div className="mt-4">
-          <div className="w-full bg-theme-info rounded-full h-2">
+          <div className="w-full bg-theme-info-bg rounded-full h-2">
             <div
-              className="h-2 rounded-full bg-theme-success transition-all"
+              className="h-2 rounded-full bg-theme-success-bg transition-all"
               style={{ width: `${max_score > 0 ? (score / max_score) * 100 : 0}%` }}
             />
           </div>
@@ -97,7 +97,7 @@ export const OptimizationRecommendations: React.FC = () => {
                   key={rec.id}
                   className={`p-4 rounded-lg border bg-theme-surface ${
                     rec.status === 'applied'
-                      ? 'border-theme-success opacity-70'
+                      ? 'border-theme-success-border opacity-70'
                       : rec.status === 'dismissed'
                         ? 'border-theme opacity-50'
                         : 'border-theme'
@@ -106,9 +106,9 @@ export const OptimizationRecommendations: React.FC = () => {
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-0.5">
                       <StatusIcon className={`h-5 w-5 ${
-                        rec.status === 'applied' ? 'text-theme-success' :
+                        rec.status === 'applied' ? 'text-theme-success-fg' :
                         rec.status === 'dismissed' ? 'text-theme-tertiary' :
-                        'text-theme-warning'
+                        'text-theme-warning-fg'
                       }`} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -127,7 +127,7 @@ export const OptimizationRecommendations: React.FC = () => {
                           {rec.affected_resources.map((resource) => (
                             <span
                               key={resource}
-                              className="text-xs px-2 py-0.5 rounded bg-theme-info text-theme-tertiary"
+                              className="text-xs px-2 py-0.5 rounded bg-theme-info-bg text-theme-tertiary"
                             >
                               {resource}
                             </span>
@@ -136,7 +136,7 @@ export const OptimizationRecommendations: React.FC = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <div className="flex items-center gap-1 text-theme-success">
+                      <div className="flex items-center gap-1 text-theme-success-fg">
                         <DollarSign className="h-4 w-4" />
                         <span className="text-sm font-semibold">{formatCost(rec.potential_savings)}</span>
                       </div>

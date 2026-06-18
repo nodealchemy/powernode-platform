@@ -45,7 +45,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <Link to="/" className="flex items-center space-x-3 group">
-              <div className="w-11 h-11 bg-theme-info-solid rounded-xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-200 shadow-lg">
+              <div className="w-11 h-11 bg-theme-info-fg rounded-xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-200 shadow-lg">
                 <span className="text-white font-bold text-xl">P</span>
               </div>
               <h1 className="text-lg font-bold text-theme-primary">
@@ -71,7 +71,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                   </span>
                   <Link
                     to="/app"
-                    className="inline-flex items-center space-x-2 px-4 py-2 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-lg transition-all duration-200 text-sm shadow-lg"
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-theme-info-fg hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-lg transition-all duration-200 text-sm shadow-lg"
                   >
                     <User className="w-4 h-4" />
                     <span>Dashboard</span>
@@ -87,7 +87,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                   </Link>
                   <Link
                     to="/plans"
-                    className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info-fg hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     <span>Get Started</span>
                   </Link>
@@ -103,8 +103,8 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
         <section className="relative overflow-hidden pt-16 pb-12">
           {/* Background Decorations */}
           <div className="absolute inset-0">
-            <div className="absolute top-20 left-10 w-72 h-72 bg-theme-info/5 rounded-full blur-3xl"></div>
-            <div className="absolute top-10 right-20 w-96 h-96 bg-theme-info/5 rounded-full blur-3xl"></div>
+            <div className="absolute top-20 left-10 w-72 h-72 bg-theme-info-fg/5 rounded-full blur-3xl"></div>
+            <div className="absolute top-10 right-20 w-96 h-96 bg-theme-info-fg/5 rounded-full blur-3xl"></div>
           </div>
 
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -137,7 +137,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               {/* Company Info */}
               <div className="lg:col-span-1">
                 <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-theme-info-solid rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-theme-info-fg rounded-xl flex items-center justify-center">
                     <span className="text-white font-bold text-lg">P</span>
                   </div>
                   <div>
@@ -265,7 +265,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-2 bg-theme-surface px-3 py-2 rounded-full">
-                  <div className="w-2 h-2 bg-theme-success-solid rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-theme-success-fg rounded-full animate-pulse"></div>
                   <span className="text-xs text-theme-secondary font-medium">All systems operational</span>
                 </div>
                 <div className="flex items-center space-x-2 text-xs text-theme-tertiary">

@@ -32,10 +32,10 @@ export const ChannelsTab: React.FC<ChannelsTabProps> = ({ selectedTeam, channels
         <div key={channel.id} className="bg-theme-surface border border-theme rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <Hash size={16} className="text-theme-info" />
+              <Hash size={16} className="text-theme-info-fg" />
               <h3 className="font-medium text-theme-primary">{channel.name}</h3>
-              <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">{channel.channel_type}</span>
-              {channel.is_persistent && <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">Persistent</span>}
+              <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">{channel.channel_type}</span>
+              {channel.is_persistent && <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">Persistent</span>}
             </div>
             <span className="text-sm text-theme-secondary">{channel.message_count} messages</span>
           </div>

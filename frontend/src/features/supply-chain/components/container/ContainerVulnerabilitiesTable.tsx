@@ -33,10 +33,10 @@ interface ContainerVulnerabilitiesTableProps {
 }
 
 const severityStyles: Record<Severity, string> = {
-  critical: 'bg-theme-error text-white',
-  high: 'bg-theme-error/80 text-white',
-  medium: 'bg-theme-warning text-theme-on-warning',
-  low: 'bg-theme-info text-white',
+  critical: 'bg-theme-error-bg text-white',
+  high: 'bg-theme-error-fg/80 text-white',
+  medium: 'bg-theme-warning-bg text-theme-on-warning',
+  low: 'bg-theme-info-bg text-white',
 };
 
 export const ContainerVulnerabilitiesTable: React.FC<ContainerVulnerabilitiesTableProps> = ({
@@ -91,7 +91,7 @@ export const ContainerVulnerabilitiesTable: React.FC<ContainerVulnerabilitiesTab
       key: 'fixed_version',
       header: 'Fixed In',
       render: (item) => (
-        <span className={item.fixed_version ? 'text-theme-success' : 'text-theme-tertiary'}>
+        <span className={item.fixed_version ? 'text-theme-success-fg' : 'text-theme-tertiary'}>
           {item.fixed_version || 'No fix available'}
         </span>
       ),

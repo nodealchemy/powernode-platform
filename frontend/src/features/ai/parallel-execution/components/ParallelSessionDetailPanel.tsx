@@ -29,7 +29,7 @@ export const ParallelSessionDetailPanel: React.FC<ParallelSessionDetailPanelProp
   if (error && !session) {
     return (
       <div className="flex-1 flex items-center justify-center px-6">
-        <p className="text-sm text-theme-error">{error}</p>
+        <p className="text-sm text-theme-error-fg">{error}</p>
       </div>
     );
   }

@@ -19,12 +19,12 @@ interface Props {
 }
 
 const STATUS_TONE: Record<StorageAssignmentStatus, string> = {
-  pending: 'bg-theme-warning text-theme-on-warning',
-  provisioning: 'bg-theme-warning text-theme-on-warning',
-  mounted: 'bg-theme-success text-theme-on-success',
-  degraded: 'bg-theme-warning text-theme-on-warning',
-  unmounting: 'bg-theme-info text-theme-on-info',
-  failed: 'bg-theme-danger text-theme-on-danger',
+  pending: 'bg-theme-warning-bg text-theme-on-warning',
+  provisioning: 'bg-theme-warning-bg text-theme-on-warning',
+  mounted: 'bg-theme-success-bg text-theme-on-success',
+  degraded: 'bg-theme-warning-bg text-theme-on-warning',
+  unmounting: 'bg-theme-info-bg text-theme-on-info',
+  failed: 'bg-theme-danger-bg text-theme-on-danger',
   disabled: 'bg-theme-surface-muted text-theme-secondary',
 };
 
@@ -173,7 +173,7 @@ const AssignmentRow: React.FC<{
           <button
             type="button"
             onClick={trigger}
-            className={`text-xs underline ${armed ? 'text-theme-danger font-semibold' : 'text-theme-danger'}`}
+            className={`text-xs underline ${armed ? 'text-theme-danger-fg font-semibold' : 'text-theme-danger-fg'}`}
           >
             {armed ? 'Click to confirm' : 'Delete'}
           </button>

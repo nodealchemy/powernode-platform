@@ -9,11 +9,11 @@ interface ContainerStatsViewProps {
 export const ContainerStatsView: React.FC<ContainerStatsViewProps> = ({ stats }) => {
   const memoryPercentage = stats.memory_percentage;
 
-  const cpuColor = stats.cpu_percentage > 80 ? 'text-theme-error' :
-    stats.cpu_percentage > 50 ? 'text-theme-warning' : 'text-theme-success';
+  const cpuColor = stats.cpu_percentage > 80 ? 'text-theme-error-fg' :
+    stats.cpu_percentage > 50 ? 'text-theme-warning-fg' : 'text-theme-success-fg';
 
-  const memColor = memoryPercentage > 80 ? 'text-theme-error' :
-    memoryPercentage > 50 ? 'text-theme-warning' : 'text-theme-success';
+  const memColor = memoryPercentage > 80 ? 'text-theme-error-fg' :
+    memoryPercentage > 50 ? 'text-theme-warning-fg' : 'text-theme-success-fg';
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -25,8 +25,8 @@ export const ContainerStatsView: React.FC<ContainerStatsViewProps> = ({ stats })
         <div className="mt-2 w-full h-1.5 bg-theme-surface rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
-              stats.cpu_percentage > 80 ? 'bg-theme-error' :
-              stats.cpu_percentage > 50 ? 'bg-theme-warning' : 'bg-theme-success'
+              stats.cpu_percentage > 80 ? 'bg-theme-error-bg' :
+              stats.cpu_percentage > 50 ? 'bg-theme-warning-bg' : 'bg-theme-success-bg'
             }`}
             style={{ width: `${Math.min(stats.cpu_percentage, 100)}%` }}
           />
@@ -44,8 +44,8 @@ export const ContainerStatsView: React.FC<ContainerStatsViewProps> = ({ stats })
         <div className="mt-1 w-full h-1.5 bg-theme-surface rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
-              memoryPercentage > 80 ? 'bg-theme-error' :
-              memoryPercentage > 50 ? 'bg-theme-warning' : 'bg-theme-success'
+              memoryPercentage > 80 ? 'bg-theme-error-bg' :
+              memoryPercentage > 50 ? 'bg-theme-warning-bg' : 'bg-theme-success-bg'
             }`}
             style={{ width: `${Math.min(memoryPercentage, 100)}%` }}
           />
@@ -56,10 +56,10 @@ export const ContainerStatsView: React.FC<ContainerStatsViewProps> = ({ stats })
         <p className="text-xs text-theme-tertiary mb-1">Network I/O</p>
         <div className="space-y-1">
           <p className="text-sm font-medium text-theme-primary">
-            <span className="text-theme-success">&#x2191;</span> {dockerApi.formatBytes(stats.network_tx)}
+            <span className="text-theme-success-fg">&#x2191;</span> {dockerApi.formatBytes(stats.network_tx)}
           </p>
           <p className="text-sm font-medium text-theme-primary">
-            <span className="text-theme-info">&#x2193;</span> {dockerApi.formatBytes(stats.network_rx)}
+            <span className="text-theme-info-fg">&#x2193;</span> {dockerApi.formatBytes(stats.network_rx)}
           </p>
         </div>
       </div>

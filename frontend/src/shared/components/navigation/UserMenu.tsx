@@ -67,7 +67,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
             </span>
           </div>
           {/* Online status indicator */}
-          <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-theme-success border-2 border-theme-surface rounded-full"></div>
+          <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-theme-success-bg border-2 border-theme-surface rounded-full"></div>
         </div>
         
         {/* User Info - Hidden on mobile */}
@@ -185,9 +185,9 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
                 <div className="border-t border-theme my-1"></div>
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error transition-colors duration-150"
+                  className="w-full flex items-center px-4 py-2.5 text-sm text-theme-error-fg hover:bg-theme-error-bg transition-colors duration-150"
                 >
-                  <div className="mr-3 h-4 w-4 text-theme-error">
+                  <div className="mr-3 h-4 w-4 text-theme-error-fg">
                     {typeof logoutItem.icon === 'string' ? (
                       <span>{logoutItem.icon}</span>
                     ) : (

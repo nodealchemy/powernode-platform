@@ -161,8 +161,8 @@ export const TeamDetailModal: React.FC = () => {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-              <Users className="h-5 w-5 text-theme-info" />
+            <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+              <Users className="h-5 w-5 text-theme-info-fg" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-theme-primary">{team.name}</h2>

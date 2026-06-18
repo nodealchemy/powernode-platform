@@ -23,7 +23,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   >
     <div className="space-y-6 p-1">
       {formErrors.length > 0 && (
-        <div className="bg-theme-error border border-theme-error-border text-theme-error px-4 py-3 rounded">
+        <div className="bg-theme-error-bg border border-theme-error-border text-theme-error-fg px-4 py-3 rounded">
           <ul className="list-disc list-inside">
             {formErrors.map((error, index) => (
               <li key={index}>{error}</li>
@@ -35,7 +35,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       <div className="bg-theme-background border border-theme rounded-xl p-6 space-y-5">
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-theme-primary">
-            Full Name <span className="text-theme-error">*</span>
+            Full Name <span className="text-theme-error-fg">*</span>
           </label>
           <input
             type="text"
@@ -49,7 +49,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-theme-primary">
-            Email Address <span className="text-theme-error">*</span>
+            Email Address <span className="text-theme-error-fg">*</span>
           </label>
           <input
             type="email"
@@ -76,7 +76,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-theme-primary">
-            Roles <span className="text-theme-error">*</span>
+            Roles <span className="text-theme-error-fg">*</span>
             {rolesLoading && <span className="text-xs text-theme-secondary ml-2">(Loading...)</span>}
           </label>
           {rolesLoading ? (
@@ -111,7 +111,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-theme-primary">
-              Password <span className="text-theme-error">*</span>
+              Password <span className="text-theme-error-fg">*</span>
             </label>
             <input
               type="password"
@@ -124,7 +124,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-theme-primary">
-              Confirm Password <span className="text-theme-error">*</span>
+              Confirm Password <span className="text-theme-error-fg">*</span>
             </label>
             <input
               type="password"

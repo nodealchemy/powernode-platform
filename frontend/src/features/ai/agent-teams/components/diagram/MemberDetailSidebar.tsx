@@ -27,15 +27,15 @@ export const MemberDetailSidebar: React.FC<MemberDetailSidebarProps> = ({ member
       {member.isLead && (
         <div className="flex justify-between">
           <span className="text-theme-secondary">Lead</span>
-          <span className="text-theme-warning font-medium">Yes</span>
+          <span className="text-theme-warning-fg font-medium">Yes</span>
         </div>
       )}
       <div className="flex justify-between">
         <span className="text-theme-secondary">Status</span>
         <span className={`font-medium ${
-          member.status === 'completed' ? 'text-theme-success' :
-          member.status === 'failed' ? 'text-theme-danger' :
-          member.status === 'running' ? 'text-theme-info' :
+          member.status === 'completed' ? 'text-theme-success-fg' :
+          member.status === 'failed' ? 'text-theme-danger-fg' :
+          member.status === 'running' ? 'text-theme-info-fg' :
           'text-theme-secondary'
         }`}>
           {member.status}
@@ -56,7 +56,7 @@ export const MemberDetailSidebar: React.FC<MemberDetailSidebarProps> = ({ member
           <span className="text-theme-secondary">Capabilities</span>
           <div className="flex flex-wrap gap-1 mt-1">
             {member.capabilities.map((cap) => (
-              <span key={cap} className="px-1.5 py-0.5 text-[10px] rounded bg-theme-info text-theme-secondary">
+              <span key={cap} className="px-1.5 py-0.5 text-[10px] rounded bg-theme-info-bg text-theme-secondary">
                 {cap}
               </span>
             ))}

@@ -61,8 +61,8 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-theme">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-theme-error/10">
-                <AlertTriangle className="w-5 h-5 text-theme-error" />
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-theme-error-fg/10">
+                <AlertTriangle className="w-5 h-5 text-theme-error-fg" />
               </div>
               <h3 className="text-lg font-semibold text-theme-primary">
                 {displayTitle}

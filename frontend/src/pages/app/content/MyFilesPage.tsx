@@ -281,7 +281,7 @@ const MyFilesPage: React.FC = () => {
       <div className="space-y-6">
         {/* Upload Modal */}
         {showUploadModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-theme-surface border border-theme rounded-lg max-w-2xl w-full p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-theme-primary">Upload Files</h3>
@@ -302,7 +302,7 @@ const MyFilesPage: React.FC = () => {
                   <select
                     value={selectedStorageId}
                     onChange={(e) => setSelectedStorageId(e.target.value)}
-                    className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
+                    className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
                   >
                     {storageProviders.map((provider) => (
                       <option key={provider.id} value={provider.id}>
@@ -344,7 +344,7 @@ const MyFilesPage: React.FC = () => {
                 placeholder="Search files..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-info"
+                className="w-full pl-10 pr-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
               />
             </div>
           </div>
@@ -353,7 +353,7 @@ const MyFilesPage: React.FC = () => {
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
           >
             <option value="">All Categories</option>
             <option value="user_upload">User Upload</option>
@@ -366,7 +366,7 @@ const MyFilesPage: React.FC = () => {
           <select
             value={filterVisibility}
             onChange={(e) => setFilterVisibility(e.target.value)}
-            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
           >
             <option value="">All Visibility</option>
             <option value="private">Private</option>
@@ -379,7 +379,7 @@ const MyFilesPage: React.FC = () => {
             <select
               value={selectedStorageId}
               onChange={(e) => setSelectedStorageId(e.target.value)}
-              className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
+              className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
             >
               <option value="">All Storage</option>
               {storageProviders.map((provider) => (
@@ -393,7 +393,7 @@ const MyFilesPage: React.FC = () => {
 
         {/* Bulk Actions */}
         {selectedFiles.size > 0 && (
-          <div className="flex items-center gap-4 p-4 bg-theme-info/10 dark:bg-theme-info/20 border border-theme-info/30 dark:border-theme-info/50 rounded-lg">
+          <div className="flex items-center gap-4 p-4 bg-theme-info-fg/10 dark:bg-theme-info-fg/20 border border-theme-info-border/30 dark:border-theme-info-border/50 rounded-lg">
             <span className="text-sm text-theme-primary">
               {selectedFiles.size} file{selectedFiles.size > 1 ? 's' : ''} selected
             </span>
@@ -408,7 +408,7 @@ const MyFilesPage: React.FC = () => {
               {canDelete && (
                 <button
                   onClick={handleBulkDelete}
-                  className="px-3 py-1.5 text-sm bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 rounded-lg text-theme-danger hover:bg-theme-danger/20 dark:hover:bg-theme-danger/30 transition-colors flex items-center gap-2"
+                  className="px-3 py-1.5 text-sm bg-theme-danger-fg/10 dark:bg-theme-danger-fg/20 border border-theme-danger-border/30 dark:border-theme-danger-border/50 rounded-lg text-theme-danger-fg hover:bg-theme-danger-fg/20 dark:hover:bg-theme-danger-fg/30 transition-colors flex items-center gap-2"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Delete
@@ -498,9 +498,9 @@ const MyFilesPage: React.FC = () => {
         {fileStats && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Storage Usage */}
-            <div className="bg-theme-info/10 dark:bg-theme-info/20 border border-theme-info/30 dark:border-theme-info/50 rounded-lg p-4">
+            <div className="bg-theme-info-fg/10 dark:bg-theme-info-fg/20 border border-theme-info-border/30 dark:border-theme-info-border/50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Database className="h-5 w-5 text-theme-info" />
+                <Database className="h-5 w-5 text-theme-info-fg" />
                 <span className="text-sm font-medium text-theme-primary">
                   Storage Used
                 </span>
@@ -518,7 +518,7 @@ const MyFilesPage: React.FC = () => {
               {selectedStorageId && (
                 <div className="w-full bg-theme-surface rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-theme-info h-full rounded-full transition-all"
+                    className="bg-theme-info-bg h-full rounded-full transition-all"
                     style={{ width: `${Math.min(getStorageUsagePercentage(), 100)}%` }}
                   ></div>
                 </div>
@@ -526,9 +526,9 @@ const MyFilesPage: React.FC = () => {
             </div>
 
             {/* File Count */}
-            <div className="bg-theme-success/10 dark:bg-theme-success/20 border border-theme-success/30 dark:border-theme-success/50 rounded-lg p-4">
+            <div className="bg-theme-success-fg/10 dark:bg-theme-success-fg/20 border border-theme-success-border/30 dark:border-theme-success-border/50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <HardDrive className="h-5 w-5 text-theme-success" />
+                <HardDrive className="h-5 w-5 text-theme-success-fg" />
                 <span className="text-sm font-medium text-theme-primary">
                   Total Files
                 </span>

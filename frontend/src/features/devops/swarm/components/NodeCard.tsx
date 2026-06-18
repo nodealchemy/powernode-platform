@@ -27,12 +27,12 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onPromote, onDemote, o
       </div>
 
       <div className="flex items-center gap-3 mb-3 text-xs text-theme-secondary">
-        <span className={`px-2 py-0.5 rounded ${node.role === 'manager' ? 'bg-theme-info bg-opacity-10 text-theme-info' : 'bg-theme-surface text-theme-secondary'}`}>
+        <span className={`px-2 py-0.5 rounded ${node.role === 'manager' ? 'bg-theme-info-bg text-theme-info-fg' : 'bg-theme-surface text-theme-secondary'}`}>
           {node.role}
         </span>
         <span className={`px-2 py-0.5 rounded ${
-          node.availability === 'active' ? 'bg-theme-success bg-opacity-10 text-theme-success' :
-          node.availability === 'drain' ? 'bg-theme-warning bg-opacity-10 text-theme-warning' :
+          node.availability === 'active' ? 'bg-theme-success-bg text-theme-success-fg' :
+          node.availability === 'drain' ? 'bg-theme-warning-bg text-theme-warning-fg' :
           'bg-theme-surface text-theme-secondary'
         }`}>
           {node.availability}

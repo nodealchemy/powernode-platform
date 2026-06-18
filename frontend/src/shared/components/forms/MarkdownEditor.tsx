@@ -186,12 +186,12 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           <div className="flex items-center gap-2">
             {isSaving ? (
               <>
-                <div className="w-2 h-2 rounded-full bg-theme-warning animate-pulse" />
+                <div className="w-2 h-2 rounded-full bg-theme-warning-bg animate-pulse" />
                 <span>Saving...</span>
               </>
             ) : lastSaved ? (
               <>
-                <div className="w-2 h-2 rounded-full bg-theme-success" />
+                <div className="w-2 h-2 rounded-full bg-theme-success-bg" />
                 <span>Last saved: {lastSaved.toLocaleTimeString()}</span>
               </>
             ) : null}
