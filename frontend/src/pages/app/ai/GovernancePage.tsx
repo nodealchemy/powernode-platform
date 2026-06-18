@@ -574,8 +574,8 @@ export const GovernancePage: React.FC = () => {
                 <p className="text-sm text-theme-tertiary">Total Policies</p>
                 <p className="text-2xl font-semibold text-theme-primary">{summary.policies.total}</p>
               </div>
-              <div className="h-10 w-10 bg-theme-interactive-primary bg-opacity-10 rounded-lg flex items-center justify-center">
-                <Shield className="h-5 w-5 text-theme-interactive-primary" />
+              <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
+                <Shield className="h-5 w-5 text-theme-info" />
               </div>
             </div>
             <p className="text-xs text-theme-tertiary mt-2">{summary.policies.active} active</p>
