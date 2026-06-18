@@ -4,7 +4,10 @@ import {
   Plus, DollarSign, FileText, Shield, BarChart3, AlertTriangle,
   Check, X, Play, Pause, TrendingUp
 } from 'lucide-react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { usePermissions } from '@/shared/hooks/usePermissions';
+import { PathTabs, PathTabSpec, firstAccessibleTabPath } from '@/shared/components/navigation/PathTabs';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
@@ -43,11 +46,35 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-type TabType = 'definitions' | 'contracts' | 'records' | 'violations' | 'performance' | 'summary';
+const DEFAULT_OUTCOME_BILLING_BASE_PATH = '/app/ai/cost/outcome-billing';
 
-export const OutcomeBillingContent: React.FC = () => {
+/**
+ * Path-based tab specs for the outcome-billing hub. Each tab owns a URL
+ * segment, so switching tabs updates the URL path (and the breadcrumbs the
+ * parent page derives from it). Every tab requires `ai.billing.read` — the
+ * same permission the page's data endpoints require — which preserves the
+ * prior all-or-nothing visibility (the page rendered every tab to anyone who
+ * could load it).
+ */
+export const OUTCOME_BILLING_TABS: PathTabSpec[] = [
+  { key: 'definitions', label: 'Definitions', permission: 'ai.billing.read', icon: <FileText size={16} /> },
+  { key: 'contracts', label: 'Contracts', permission: 'ai.billing.read', icon: <Shield size={16} /> },
+  { key: 'records', label: 'Records', permission: 'ai.billing.read', icon: <DollarSign size={16} /> },
+  { key: 'violations', label: 'Violations', permission: 'ai.billing.read', icon: <AlertTriangle size={16} /> },
+  { key: 'performance', label: 'Performance', permission: 'ai.billing.read', icon: <BarChart3 size={16} /> },
+  { key: 'summary', label: 'Summary', permission: 'ai.billing.read', icon: <TrendingUp size={16} /> },
+];
+
+interface OutcomeBillingContentProps {
+  /** URL prefix the tab segments append to. Defaults to the canonical hub path. */
+  basePath?: string;
+}
+
+export const OutcomeBillingContent: React.FC<OutcomeBillingContentProps> = ({
+  basePath = DEFAULT_OUTCOME_BILLING_BASE_PATH,
+}) => {
   const dispatch = useDispatch<AppDispatch>();
-  const [activeTab, setActiveTab] = useState<TabType>('definitions');
+  const { hasPermission } = usePermissions();
   const [definitions, setDefinitions] = useState<OutcomeDefinition[]>([]);
   const [contracts, setContracts] = useState<SlaContract[]>([]);
   const [records, setRecords] = useState<OutcomeBillingRecord[]>([]);
@@ -220,14 +247,7 @@ export const OutcomeBillingContent: React.FC = () => {
     }
   };
 
-  const tabs = [
-    { id: 'definitions' as TabType, label: 'Definitions', icon: FileText },
-    { id: 'contracts' as TabType, label: 'Contracts', icon: Shield },
-    { id: 'records' as TabType, label: 'Records', icon: DollarSign },
-    { id: 'violations' as TabType, label: 'Violations', icon: AlertTriangle },
-    { id: 'performance' as TabType, label: 'Performance', icon: BarChart3 },
-    { id: 'summary' as TabType, label: 'Summary', icon: TrendingUp }
-  ];
+  const firstTabPath = firstAccessibleTabPath(OUTCOME_BILLING_TABS, basePath, hasPermission) ?? basePath;
 
   return (
     <div className="space-y-6">
@@ -281,36 +301,31 @@ export const OutcomeBillingContent: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="border-b border-theme mb-6">
-        <nav className="flex gap-4 overflow-x-auto">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'border-theme-info-border text-theme-info-fg'
-                  : 'border-transparent text-theme-secondary hover:text-theme-primary'
-              }`}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      {/* Path-based tabs — each tab owns a URL segment so tab changes update the URL & breadcrumbs */}
+      <PathTabs
+        tabs={OUTCOME_BILLING_TABS}
+        basePath={basePath}
+        hasPermission={hasPermission}
+        emptyState={
+          <div className="text-center py-12">
+            <DollarSign className="h-12 w-12 text-theme-tertiary mx-auto mb-4 opacity-50" />
+            <p className="text-theme-secondary">You do not have permission to view outcome billing.</p>
+          </div>
+        }
+      >
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info-border border-t-theme-primary"></div>
+            <p className="mt-4 text-theme-secondary">Loading billing data...</p>
+          </div>
+        ) : (
+          <Routes>
+            <Route index element={<Navigate to={firstTabPath} replace />} />
 
-      {/* Tab Content */}
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info-border border-t-theme-primary"></div>
-          <p className="mt-4 text-theme-secondary">Loading billing data...</p>
-        </div>
-      ) : (
-        <>
-          {/* Definitions Tab */}
-          {activeTab === 'definitions' && (
+            {/* Definitions Tab */}
+            <Route
+              path="definitions"
+              element={
             <div className="space-y-4">
               {definitions.length === 0 ? (
                 <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
@@ -353,10 +368,13 @@ export const OutcomeBillingContent: React.FC = () => {
                 ))
               )}
             </div>
-          )}
+              }
+            />
 
-          {/* Contracts Tab */}
-          {activeTab === 'contracts' && (
+            {/* Contracts Tab */}
+            <Route
+              path="contracts"
+              element={
             <div className="space-y-4">
               <div className="flex justify-end">
                 <button onClick={() => setShowCreateContractModal(true)} className="btn-theme btn-theme-secondary btn-theme-sm">
@@ -447,10 +465,13 @@ export const OutcomeBillingContent: React.FC = () => {
                 ))
               )}
             </div>
-          )}
+              }
+            />
 
-          {/* Records Tab */}
-          {activeTab === 'records' && (
+            {/* Records Tab */}
+            <Route
+              path="records"
+              element={
             <div className="space-y-4">
               {/* Actions */}
               {selectedRecordIds.length > 0 && (
@@ -544,10 +565,13 @@ export const OutcomeBillingContent: React.FC = () => {
                 </div>
               )}
             </div>
-          )}
+              }
+            />
 
-          {/* Violations Tab */}
-          {activeTab === 'violations' && (
+            {/* Violations Tab */}
+            <Route
+              path="violations"
+              element={
             <div className="space-y-4">
               {violations.length === 0 ? (
                 <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
@@ -625,10 +649,13 @@ export const OutcomeBillingContent: React.FC = () => {
                 ))
               )}
             </div>
-          )}
+              }
+            />
 
-          {/* Performance Tab */}
-          {activeTab === 'performance' && (
+            {/* Performance Tab */}
+            <Route
+              path="performance"
+              element={
             <div className="space-y-4">
               {!slaPerformance ? (
                 <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
@@ -702,10 +729,13 @@ export const OutcomeBillingContent: React.FC = () => {
                 </>
               )}
             </div>
-          )}
+              }
+            />
 
-          {/* Summary Tab */}
-          {activeTab === 'summary' && (
+            {/* Summary Tab */}
+            <Route
+              path="summary"
+              element={
             <div className="space-y-4">
               {!summary ? (
                 <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
@@ -764,9 +794,13 @@ export const OutcomeBillingContent: React.FC = () => {
                 </div>
               )}
             </div>
-          )}
-        </>
-      )}
+              }
+            />
+
+            <Route path="*" element={<Navigate to={firstTabPath} replace />} />
+          </Routes>
+        )}
+      </PathTabs>
 
       {/* Create Definition Modal */}
       <Modal

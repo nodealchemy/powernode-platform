@@ -57,7 +57,7 @@ const getTrendIcon = (direction: string) => {
   }
 };
 
-export const RoiDashboard: React.FC = () => {
+export const RoiDashboardContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
@@ -112,60 +112,24 @@ export const RoiDashboard: React.FC = () => {
     }
   }, [timeRange, hourlyRate]);
 
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'AI', href: '/app/ai' },
-    { label: 'ROI Analytics' }
-  ];
-
-  const pageActions = [
-    {
-      id: 'refresh',
-      label: 'Refresh',
-      onClick: handleRefresh,
-      variant: 'outline' as const,
-      icon: RefreshCw,
-      disabled: refreshing
-    }
-  ];
-
   if (loading) {
-    return (
-      <PageContainer
-        title="ROI Analytics"
-        description="Track the business value and ROI of your AI investments"
-        breadcrumbs={breadcrumbs}
-      >
-        <LoadingSpinner className="py-12" />
-      </PageContainer>
-    );
+    return <LoadingSpinner className="py-12" />;
   }
 
   if (!dashboardData) {
     return (
-      <PageContainer
-        title="ROI Analytics"
-        description="Track the business value and ROI of your AI investments"
-        breadcrumbs={breadcrumbs}
-      >
-        <div className="text-center py-12">
-          <Target className="h-12 w-12 text-theme-warning-fg mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
-          <p className="text-theme-tertiary">Start using AI features to see ROI analytics.</p>
-        </div>
-      </PageContainer>
+      <div className="text-center py-12">
+        <Target className="h-12 w-12 text-theme-warning-fg mx-auto mb-4" />
+        <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
+        <p className="text-theme-tertiary">Start using AI features to see ROI analytics.</p>
+      </div>
     );
   }
 
   return (
-    <PageContainer
-      title="ROI Analytics"
-      description="Track the business value and ROI of your AI investments"
-      breadcrumbs={breadcrumbs}
-      actions={pageActions}
-    >
+    <>
       {/* Controls */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
           <Select
             value={timeRange}
@@ -194,9 +158,22 @@ export const RoiDashboard: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          {getRoiBadge(dashboardData.summary.roi_percentage)}
-          <span className="text-sm text-theme-tertiary">Overall ROI</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {getRoiBadge(dashboardData.summary.roi_percentage)}
+            <span className="text-sm text-theme-tertiary">Overall ROI</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className={`btn-theme btn-theme-outline btn-theme-sm ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            data-testid="roi-refresh"
+            aria-label="Refresh ROI data"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </button>
         </div>
       </div>
 
@@ -223,8 +200,27 @@ export const RoiDashboard: React.FC = () => {
         recommendations={recommendations}
         formatCurrency={formatCurrency}
       />
-    </PageContainer>
+    </>
   );
 };
+
+/**
+ * Standalone ROI page wrapper (PageContainer + breadcrumbs). The ROI dashboard
+ * is primarily surfaced as the `roi` leaf of the Cost hub (which supplies its
+ * own PageContainer); this wrapper is kept for direct/standalone rendering.
+ */
+export const RoiDashboard: React.FC = () => (
+  <PageContainer
+    title="ROI Analytics"
+    description="Track the business value and ROI of your AI investments"
+    breadcrumbs={[
+      { label: 'Dashboard', href: '/app' },
+      { label: 'AI', href: '/app/ai' },
+      { label: 'ROI Analytics' }
+    ]}
+  >
+    <RoiDashboardContent />
+  </PageContainer>
+);
 
 export default RoiDashboard;
