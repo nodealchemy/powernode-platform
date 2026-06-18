@@ -157,8 +157,8 @@ const PrivacyDashboardPage: React.FC = () => {
 
         <div className="bg-theme-surface rounded-lg border border-theme p-6">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-theme-interactive-primary/20 dark:bg-theme-interactive-primary/30 rounded-lg">
-              <Cog6ToothIcon className="h-6 w-6 text-theme-interactive-primary dark:text-theme-interactive-primary" />
+            <div className="p-3 bg-theme-info/20 dark:bg-theme-info/30 rounded-lg">
+              <Cog6ToothIcon className="h-6 w-6 text-theme-info dark:text-theme-info" />
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Terms Status</p>
