@@ -144,7 +144,7 @@ describe('EmailField', () => {
       );
 
       const input = screen.getByRole('textbox');
-      expect(input).toHaveClass('border-theme-error');
+      expect(input).toHaveClass('border-theme-error-border');
     });
 
     it('has aria-invalid when error present', () => {

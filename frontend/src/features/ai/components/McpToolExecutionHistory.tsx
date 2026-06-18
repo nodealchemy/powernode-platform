@@ -102,13 +102,13 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
   const getStatusIcon = (status: McpToolExecution['status']) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle2 className="h-4 w-4 text-theme-success" />;
+        return <CheckCircle2 className="h-4 w-4 text-theme-success-fg" />;
       case 'failed':
-        return <XCircle className="h-4 w-4 text-theme-error" />;
+        return <XCircle className="h-4 w-4 text-theme-error-fg" />;
       case 'running':
-        return <Loader2 className="h-4 w-4 text-theme-info animate-spin" />;
+        return <Loader2 className="h-4 w-4 text-theme-info-fg animate-spin" />;
       case 'pending':
-        return <Clock className="h-4 w-4 text-theme-warning" />;
+        return <Clock className="h-4 w-4 text-theme-warning-fg" />;
       case 'cancelled':
         return <StopCircle className="h-4 w-4 text-theme-tertiary" />;
       default:
@@ -181,13 +181,13 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
         </h4>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 text-xs text-theme-tertiary">
-            <span className="text-theme-success">{data.meta.success_count} passed</span>
+            <span className="text-theme-success-fg">{data.meta.success_count} passed</span>
             <span>|</span>
-            <span className="text-theme-error">{data.meta.failed_count} failed</span>
+            <span className="text-theme-error-fg">{data.meta.failed_count} failed</span>
             {data.meta.running_count > 0 && (
               <>
                 <span>|</span>
-                <span className="text-theme-info">{data.meta.running_count} running</span>
+                <span className="text-theme-info-fg">{data.meta.running_count} running</span>
               </>
             )}
           </div>
@@ -259,7 +259,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
                       handleCancel(execution.id);
                     }}
                     disabled={isCancelling}
-                    className="text-theme-error hover:bg-theme-error hover:bg-opacity-10"
+                    className="text-theme-error-fg hover:bg-theme-error-bg hover:bg-opacity-10"
                     aria-label="Cancel execution"
                   >
                     {isCancelling ? (
@@ -273,7 +273,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
 
               {/* Expanded details */}
               {isExpanded && (
-                <div className="border-t border-theme px-3 py-2 bg-theme-surface bg-opacity-50">
+                <div className="border-t border-theme px-3 py-2 bg-theme-surface/50">
                   {/* Parameters */}
                   {execution.parameters && Object.keys(execution.parameters).length > 0 && (
                     <div className="mb-2">
@@ -297,8 +297,8 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
                   {/* Error message */}
                   {execution.status === 'failed' && execution.error_message && (
                     <div className="mb-2">
-                      <p className="text-xs font-medium text-theme-error mb-1">Error:</p>
-                      <p className="text-xs text-theme-error bg-theme-error bg-opacity-10 p-2 rounded">
+                      <p className="text-xs font-medium text-theme-error-fg mb-1">Error:</p>
+                      <p className="text-xs text-theme-error-fg bg-theme-error-bg p-2 rounded">
                         {execution.error_message}
                       </p>
                     </div>

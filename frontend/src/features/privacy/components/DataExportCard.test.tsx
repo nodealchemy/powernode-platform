@@ -275,7 +275,7 @@ describe('DataExportCard', () => {
       render(<DataExportCard {...defaultProps} requests={completedRequest} />);
 
       const statusBadge = screen.getByText('completed');
-      expect(statusBadge).toHaveClass('text-theme-success');
+      expect(statusBadge).toHaveClass('text-theme-success-fg');
     });
 
     it('applies correct style for pending status', () => {
@@ -283,7 +283,7 @@ describe('DataExportCard', () => {
       render(<DataExportCard {...defaultProps} requests={pendingRequest} />);
 
       const statusBadge = screen.getByText('pending');
-      expect(statusBadge).toHaveClass('text-theme-warning');
+      expect(statusBadge).toHaveClass('text-theme-warning-fg');
     });
 
     it('applies correct style for failed status', () => {
@@ -291,7 +291,7 @@ describe('DataExportCard', () => {
       render(<DataExportCard {...defaultProps} requests={failedRequest} />);
 
       const statusBadge = screen.getByText('failed');
-      expect(statusBadge).toHaveClass('text-theme-danger');
+      expect(statusBadge).toHaveClass('text-theme-danger-fg');
     });
 
     it('applies correct style for processing status', () => {
@@ -299,7 +299,7 @@ describe('DataExportCard', () => {
       render(<DataExportCard {...defaultProps} requests={processingRequest} />);
 
       const statusBadge = screen.getByText('processing');
-      expect(statusBadge).toHaveClass('text-theme-info');
+      expect(statusBadge).toHaveClass('text-theme-info-fg');
     });
 
     it('applies correct style for expired status', () => {

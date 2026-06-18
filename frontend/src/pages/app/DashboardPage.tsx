@@ -218,7 +218,7 @@ const DashboardOverview: React.FC = () => {
             <h3 className="text-xl font-semibold text-theme-primary">
               Getting Started
             </h3>
-            <span className="bg-theme-info text-theme-on-primary px-3 py-1 rounded-full text-xs font-medium bg-opacity-10 text-theme-info">
+            <span className="bg-theme-info-bg text-theme-on-primary px-3 py-1 rounded-full text-xs font-medium bg-opacity-10 text-theme-info-fg">
               {`${completedCount} of ${totalTasks} complete`}
             </span>
           </div>
@@ -226,7 +226,7 @@ const DashboardOverview: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0 mt-1">
-                <div className="h-5 w-5 bg-theme-success rounded-full flex items-center justify-center">
+                <div className="h-5 w-5 bg-theme-success-bg rounded-full flex items-center justify-center">
                   <span className="text-white text-xs">✓</span>
                 </div>
               </div>
@@ -239,7 +239,7 @@ const DashboardOverview: React.FC = () => {
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0 mt-1">
                 <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                  user?.email_verified ? 'bg-theme-success' : 'bg-theme-error'
+                  user?.email_verified ? 'bg-theme-success-bg' : 'bg-theme-error-bg'
                 }`}>
                   <span className="text-white text-xs">
                     {user?.email_verified ? '✓' : '✗'}
@@ -335,8 +335,8 @@ const DashboardOverview: React.FC = () => {
         <div className="flex items-center">
           <span className="text-2xl mr-3">🚀</span>
           <div>
-            <h4 className="font-medium text-theme-success">Powernode Platform Ready</h4>
-            <p className="text-sm text-theme-success mt-1">
+            <h4 className="font-medium text-theme-success-fg">Powernode Platform Ready</h4>
+            <p className="text-sm text-theme-success-fg mt-1">
               Your self-hosted platform is set up and ready. Start by connecting AI providers and setting up your first workflow!
             </p>
           </div>

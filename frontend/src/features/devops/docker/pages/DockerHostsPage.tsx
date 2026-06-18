@@ -110,7 +110,7 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
   if (error) {
     return (
       <div className="text-center py-20">
-        <p className="text-theme-error mb-4">{error}</p>
+        <p className="text-theme-error-fg mb-4">{error}</p>
         <Button onClick={refresh} variant="secondary" size="sm">Retry</Button>
       </div>
     );
@@ -169,7 +169,7 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
                     // follow-up once /app/system/compute/instances/:id
                     // routes are wired).
                     <span
-                      className="px-2 py-0.5 rounded bg-theme-info bg-opacity-10 text-theme-info text-xs font-medium inline-flex items-center gap-1"
+                      className="px-2 py-0.5 rounded bg-theme-info-bg text-theme-info-fg text-xs font-medium inline-flex items-center gap-1"
                       title="Auto-provisioned from a System NodeInstance — endpoint and TLS credentials are platform-managed"
                     >
                       <LinkIcon className="w-3 h-3" /> Managed
@@ -180,7 +180,7 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
                 </div>
 
                 {testResults[host.id] && (
-                  <div className={`text-xs mb-3 px-2 py-1 rounded ${testResults[host.id]?.connected ? 'bg-theme-success bg-opacity-10 text-theme-success' : 'bg-theme-error bg-opacity-10 text-theme-error'}`}>
+                  <div className={`text-xs mb-3 px-2 py-1 rounded ${testResults[host.id]?.connected ? 'bg-theme-success-bg text-theme-success-fg' : 'bg-theme-error-bg text-theme-error-fg'}`}>
                     {testResults[host.id]?.message}
                   </div>
                 )}
@@ -246,7 +246,7 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
             <label htmlFor="tls_verify" className="text-sm text-theme-primary">Verify TLS certificates</label>
           </div>
           {hasSavedTls && !formData.tls_ca && !formData.tls_cert && !formData.tls_key && (
-            <p className="text-xs text-theme-success">TLS credentials are configured. Leave fields empty to keep existing credentials, or paste new values to replace them.</p>
+            <p className="text-xs text-theme-success-fg">TLS credentials are configured. Leave fields empty to keep existing credentials, or paste new values to replace them.</p>
           )}
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">CA Certificate (PEM)</label>

@@ -331,7 +331,7 @@ export default function KnowledgeBaseAdminPage() {
 
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="flex items-center">
-              <div className="h-8 w-8 bg-theme-success rounded-lg flex items-center justify-center">
+              <div className="h-8 w-8 bg-theme-success-bg rounded-lg flex items-center justify-center">
                 <span className="text-white text-sm font-bold">P</span>
               </div>
               <div className="ml-3">
@@ -343,7 +343,7 @@ export default function KnowledgeBaseAdminPage() {
 
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="flex items-center">
-              <div className="h-8 w-8 bg-theme-warning rounded-lg flex items-center justify-center">
+              <div className="h-8 w-8 bg-theme-warning-bg rounded-lg flex items-center justify-center">
                 <span className="text-white text-sm font-bold">D</span>
               </div>
               <div className="ml-3">
@@ -355,7 +355,7 @@ export default function KnowledgeBaseAdminPage() {
 
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="flex items-center">
-              <div className="h-8 w-8 bg-theme-info rounded-lg flex items-center justify-center">
+              <div className="h-8 w-8 bg-theme-info-bg rounded-lg flex items-center justify-center">
                 <span className="text-white text-sm font-bold">R</span>
               </div>
               <div className="ml-3">

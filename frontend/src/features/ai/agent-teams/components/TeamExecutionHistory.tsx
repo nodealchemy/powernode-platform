@@ -10,14 +10,14 @@ interface TeamExecutionHistoryProps {
 const getStatusIcon = (status: string) => {
   switch (status) {
     case 'completed':
-      return <CheckCircle className="text-theme-success" size={14} />;
+      return <CheckCircle className="text-theme-success-fg" size={14} />;
     case 'failed':
-      return <XCircle className="text-theme-danger" size={14} />;
+      return <XCircle className="text-theme-danger-fg" size={14} />;
     case 'running':
-      return <Loader className="animate-spin text-theme-info" size={14} />;
+      return <Loader className="animate-spin text-theme-info-fg" size={14} />;
     case 'cancelled':
     case 'timeout':
-      return <AlertTriangle className="text-theme-warning" size={14} />;
+      return <AlertTriangle className="text-theme-warning-fg" size={14} />;
     default:
       return <Clock className="text-theme-tertiary" size={14} />;
   }
@@ -26,16 +26,16 @@ const getStatusIcon = (status: string) => {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'completed':
-      return 'bg-theme-success/10 text-theme-success';
+      return 'bg-theme-success-fg/10 text-theme-success-fg';
     case 'failed':
-      return 'bg-theme-error/10 text-theme-danger';
+      return 'bg-theme-error-fg/10 text-theme-danger-fg';
     case 'running':
-      return 'bg-theme-info/10 text-theme-info';
+      return 'bg-theme-info-fg/10 text-theme-info-fg';
     case 'cancelled':
     case 'timeout':
-      return 'bg-theme-warning/10 text-theme-warning';
+      return 'bg-theme-warning-fg/10 text-theme-warning-fg';
     default:
-      return 'bg-theme-info text-theme-secondary';
+      return 'bg-theme-info-bg text-theme-secondary';
   }
 };
 
@@ -79,7 +79,7 @@ export const TeamExecutionHistory: React.FC<TeamExecutionHistoryProps> = ({ team
   if (loading) {
     return (
       <div className="flex items-center justify-center p-6">
-        <Loader className="animate-spin text-theme-info" size={20} />
+        <Loader className="animate-spin text-theme-info-fg" size={20} />
         <span className="ml-2 text-sm text-theme-secondary">Loading history...</span>
       </div>
     );
@@ -88,11 +88,11 @@ export const TeamExecutionHistory: React.FC<TeamExecutionHistoryProps> = ({ team
   if (error) {
     return (
       <div className="p-4 text-center">
-        <p className="text-sm text-theme-danger mb-2">{error}</p>
+        <p className="text-sm text-theme-danger-fg mb-2">{error}</p>
         <button
           type="button"
           onClick={loadExecutions}
-          className="text-xs text-theme-info hover:text-theme-primary underline"
+          className="text-xs text-theme-info-fg hover:text-theme-primary underline"
         >
           Retry
         </button>
@@ -116,7 +116,7 @@ export const TeamExecutionHistory: React.FC<TeamExecutionHistoryProps> = ({ team
         <button
           type="button"
           onClick={loadExecutions}
-          className="p-1 rounded text-theme-secondary hover:bg-theme-info hover:text-theme-primary transition-colors"
+          className="p-1 rounded text-theme-secondary hover:bg-theme-info-bg hover:text-theme-primary transition-colors"
           title="Refresh"
         >
           <RefreshCw size={14} />
@@ -128,7 +128,7 @@ export const TeamExecutionHistory: React.FC<TeamExecutionHistoryProps> = ({ team
           <div key={execution.id} className="border border-theme rounded-md overflow-hidden">
             <button
               type="button"
-              className="w-full flex items-center justify-between p-3 hover:bg-theme-info/50 transition-colors text-left"
+              className="w-full flex items-center justify-between p-3 hover:bg-theme-info-fg/50 transition-colors text-left"
               onClick={() => setExpandedId(prev => prev === execution.id ? null : execution.id)}
             >
               <div className="flex items-center gap-3">
@@ -146,13 +146,13 @@ export const TeamExecutionHistory: React.FC<TeamExecutionHistoryProps> = ({ team
                   {execution.tasks_completed}/{execution.tasks_total} agents
                 </span>
                 {execution.tasks_failed > 0 && (
-                  <span className="text-xs text-theme-danger">{execution.tasks_failed} failed</span>
+                  <span className="text-xs text-theme-danger-fg">{execution.tasks_failed} failed</span>
                 )}
                 {(Number(execution.total_cost_usd) || 0) > 0 && (
                   <span className={`text-xs font-medium ${
-                    (Number(execution.total_cost_usd) || 0) < 0.01 ? 'text-theme-success' :
-                    (Number(execution.total_cost_usd) || 0) < 0.10 ? 'text-theme-warning' :
-                    'text-theme-danger'
+                    (Number(execution.total_cost_usd) || 0) < 0.01 ? 'text-theme-success-fg' :
+                    (Number(execution.total_cost_usd) || 0) < 0.10 ? 'text-theme-warning-fg' :
+                    'text-theme-danger-fg'
                   }`}>
                     ${(Number(execution.total_cost_usd) || 0).toFixed(4)}
                   </span>
@@ -165,7 +165,7 @@ export const TeamExecutionHistory: React.FC<TeamExecutionHistoryProps> = ({ team
             </button>
 
             {expandedId === execution.id && (
-              <div className="border-t border-theme p-3 bg-theme-info/30 text-xs space-y-2">
+              <div className="border-t border-theme p-3 bg-theme-info-fg/30 text-xs space-y-2">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <span className="text-theme-secondary">Execution ID:</span>{' '}
@@ -186,7 +186,7 @@ export const TeamExecutionHistory: React.FC<TeamExecutionHistoryProps> = ({ team
                   {execution.termination_reason && execution.termination_reason !== 'completed' && (
                     <div className="col-span-2">
                       <span className="text-theme-secondary">Reason:</span>{' '}
-                      <span className="text-theme-danger">{execution.termination_reason}</span>
+                      <span className="text-theme-danger-fg">{execution.termination_reason}</span>
                     </div>
                   )}
                 </div>

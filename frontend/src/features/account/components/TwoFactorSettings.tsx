@@ -144,7 +144,7 @@ export const TwoFactorSettings: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <div className={`w-3 h-3 rounded-full mr-3 ${
-              status?.enabled ? 'bg-theme-success' : 'bg-theme-surface'
+              status?.enabled ? 'bg-theme-success-bg' : 'bg-theme-surface'
             }`} />
             <div>
               <p className="font-medium text-theme-primary">
@@ -160,7 +160,7 @@ export const TwoFactorSettings: React.FC = () => {
           {status?.enabled ? (
             <button
               onClick={() => setShowDisableConfirm(true)}
-              className="btn-theme btn-theme-outline border-theme-error text-theme-error hover:bg-theme-error text-sm"
+              className="btn-theme btn-theme-outline border-theme-error-border text-theme-error-fg hover:bg-theme-error-bg text-sm"
             >
               Disable
             </button>
@@ -232,8 +232,8 @@ export const TwoFactorSettings: React.FC = () => {
             Are you sure you want to disable two-factor authentication? This will make your account less secure.
           </p>
           
-          <div className="p-3 bg-theme-warning-background border border-theme-warning rounded-md">
-            <p className="text-theme-warning text-sm">
+          <div className="p-3 bg-theme-warning-background border border-theme-warning-border rounded-md">
+            <p className="text-theme-warning-fg text-sm">
               <strong>Warning:</strong> Disabling 2FA will remove the additional security layer from your account.
             </p>
           </div>
@@ -292,8 +292,8 @@ export const TwoFactorSettings: React.FC = () => {
             </button>
           </div>
 
-          <div className="p-3 bg-theme-warning-background border border-theme-warning rounded-md">
-            <p className="text-theme-warning text-xs">
+          <div className="p-3 bg-theme-warning-background border border-theme-warning-border rounded-md">
+            <p className="text-theme-warning-fg text-xs">
               <strong>Important:</strong> Store these codes in a safe place. If you regenerate codes, the old ones will no longer work.
             </p>
           </div>

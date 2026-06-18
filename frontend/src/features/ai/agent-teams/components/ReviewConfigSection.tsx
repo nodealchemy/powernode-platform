@@ -36,11 +36,11 @@ export const ReviewConfigSection: React.FC<ReviewConfigSectionProps> = ({
 
   return (
     <details className="border border-theme rounded-lg" data-testid="review-config-section">
-      <summary className="flex items-center gap-2 p-4 cursor-pointer hover:bg-theme-info/50 transition-colors">
+      <summary className="flex items-center gap-2 p-4 cursor-pointer hover:bg-theme-info-fg/50 transition-colors">
         <Shield size={18} className="text-theme-primary" />
         <span className="text-sm font-medium text-theme-primary">Review Configuration</span>
         {config.auto_review_enabled && (
-          <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-theme-success/10 text-theme-success">
+          <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-theme-success-fg/10 text-theme-success-fg">
             Enabled
           </span>
         )}
@@ -53,7 +53,7 @@ export const ReviewConfigSection: React.FC<ReviewConfigSectionProps> = ({
             type="checkbox"
             checked={config.auto_review_enabled}
             onChange={(e) => updateConfig({ auto_review_enabled: e.target.checked })}
-            className="w-4 h-4 rounded border-theme text-theme-info focus:ring-theme-primary"
+            className="w-4 h-4 rounded border-theme text-theme-info-fg focus:ring-theme-primary"
           />
           <span className="text-sm text-theme-primary">Enable automatic reviews</span>
         </label>
@@ -73,7 +73,7 @@ export const ReviewConfigSection: React.FC<ReviewConfigSectionProps> = ({
                     value="blocking"
                     checked={config.review_mode === 'blocking'}
                     onChange={() => updateConfig({ review_mode: 'blocking' })}
-                    className="text-theme-info focus:ring-theme-primary"
+                    className="text-theme-info-fg focus:ring-theme-primary"
                   />
                   <div>
                     <span className="text-sm text-theme-primary">Blocking</span>
@@ -88,7 +88,7 @@ export const ReviewConfigSection: React.FC<ReviewConfigSectionProps> = ({
                     value="shadow"
                     checked={config.review_mode === 'shadow'}
                     onChange={() => updateConfig({ review_mode: 'shadow' })}
-                    className="text-theme-info focus:ring-theme-primary"
+                    className="text-theme-info-fg focus:ring-theme-primary"
                   />
                   <div>
                     <span className="text-sm text-theme-primary">Shadow (async)</span>
@@ -110,7 +110,7 @@ export const ReviewConfigSection: React.FC<ReviewConfigSectionProps> = ({
                       type="checkbox"
                       checked={(config.review_task_types || []).includes(option.value)}
                       onChange={() => toggleTaskType(option.value)}
-                      className="w-4 h-4 rounded border-theme text-theme-info focus:ring-theme-primary"
+                      className="w-4 h-4 rounded border-theme text-theme-info-fg focus:ring-theme-primary"
                     />
                     <span className="text-sm text-theme-primary">{option.label}</span>
                   </label>

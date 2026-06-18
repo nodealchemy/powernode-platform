@@ -15,17 +15,17 @@ const formatCurrency = (cents: number, currency: string): string => {
 };
 
 const getUtilizationColor = (pct: number): string => {
-  if (pct >= 100) return 'bg-theme-error';
-  if (pct > 80) return 'bg-theme-warning';
-  if (pct > 60) return 'bg-theme-warning';
-  return 'bg-theme-success';
+  if (pct >= 100) return 'bg-theme-error-bg';
+  if (pct > 80) return 'bg-theme-warning-bg';
+  if (pct > 60) return 'bg-theme-warning-bg';
+  return 'bg-theme-success-bg';
 };
 
 const getUtilizationTextColor = (pct: number): string => {
-  if (pct >= 100) return 'text-theme-error';
-  if (pct > 80) return 'text-theme-error';
-  if (pct > 60) return 'text-theme-warning';
-  return 'text-theme-success';
+  if (pct >= 100) return 'text-theme-error-fg';
+  if (pct > 80) return 'text-theme-error-fg';
+  if (pct > 60) return 'text-theme-warning-fg';
+  return 'text-theme-success-fg';
 };
 
 const getAlertBadge = (pct: number): React.ReactNode => {
@@ -64,7 +64,7 @@ export const BudgetAllocationPanel: React.FC<BudgetAllocationPanelProps> = ({ bu
           action={
             <button
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-theme-info text-white hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-theme-info-bg text-white hover:opacity-90 transition-opacity"
             >
               <Plus className="h-4 w-4" /> Create Budget
             </button>
@@ -104,7 +104,7 @@ export const BudgetAllocationPanel: React.FC<BudgetAllocationPanelProps> = ({ bu
                           </button>
                           <button
                             onClick={() => handleDelete(budget.id)}
-                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary hover:text-theme-error transition-colors"
+                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary hover:text-theme-error-fg transition-colors"
                             title="Delete budget"
                           >
                             <Trash2 className="h-3.5 w-3.5" />

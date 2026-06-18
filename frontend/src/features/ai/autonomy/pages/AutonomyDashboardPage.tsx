@@ -72,10 +72,10 @@ const KillSwitchStatusBar: React.FC = () => {
   if (!status?.halted) return null;
 
   return (
-    <div className="flex items-center gap-3 p-3 mb-4 rounded-lg border border-theme-error/50 bg-theme-error/5">
-      <div className="h-3 w-3 rounded-full bg-theme-error animate-pulse" />
+    <div className="flex items-center gap-3 p-3 mb-4 rounded-lg border border-theme-error-border/50 bg-theme-error-fg/5">
+      <div className="h-3 w-3 rounded-full bg-theme-error-bg animate-pulse" />
       <div className="flex-1">
-        <p className="text-sm font-medium text-theme-error">AI Activity Suspended</p>
+        <p className="text-sm font-medium text-theme-error-fg">AI Activity Suspended</p>
         {status.reason && <p className="text-xs text-theme-secondary">{status.reason}</p>}
       </div>
       <span className="text-xs text-theme-tertiary">Since {new Date(status.halted_since!).toLocaleString()}</span>
@@ -88,13 +88,13 @@ const OverviewTab: React.FC<{ stats: AutonomyStats }> = ({ stats }) => {
   return (
     <>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
-        <StatCard label="Total Agents" value={stats.total_agents} icon={Bot} iconColor="text-theme-info" />
-        <StatCard label="Supervised" value={stats.supervised} icon={Eye} iconColor="text-theme-warning" />
-        <StatCard label="Monitored" value={stats.monitored} icon={Shield} iconColor="text-theme-info" />
-        <StatCard label="Trusted" value={stats.trusted} icon={Users} iconColor="text-theme-success" />
+        <StatCard label="Total Agents" value={stats.total_agents} icon={Bot} iconColor="text-theme-info-fg" />
+        <StatCard label="Supervised" value={stats.supervised} icon={Eye} iconColor="text-theme-warning-fg" />
+        <StatCard label="Monitored" value={stats.monitored} icon={Shield} iconColor="text-theme-info-fg" />
+        <StatCard label="Trusted" value={stats.trusted} icon={Users} iconColor="text-theme-success-fg" />
         <StatCard label="Autonomous" value={stats.autonomous} icon={Bot} iconColor="text-theme-primary" />
-        <StatCard label="Pending Promotions" value={stats.pending_promotions} icon={TrendingUp} iconColor="text-theme-success" />
-        <StatCard label="Pending Demotions" value={stats.pending_demotions} icon={TrendingDown} iconColor="text-theme-error" />
+        <StatCard label="Pending Promotions" value={stats.pending_promotions} icon={TrendingUp} iconColor="text-theme-success-fg" />
+        <StatCard label="Pending Demotions" value={stats.pending_demotions} icon={TrendingDown} iconColor="text-theme-error-fg" />
       </div>
       {regime && <BudgetRegimeIndicator regime={regime} />}
     </>
@@ -138,7 +138,7 @@ const LineageTab: React.FC<{
           <div className="mb-4">
             <label className="block text-sm text-theme-tertiary mb-1">Filter by Agent (optional)</label>
             <select
-              className="w-full max-w-xs rounded-md border border-theme bg-theme-surface text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+              className="w-full max-w-xs rounded-md border border-theme bg-theme-surface text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
               value={selectedAgentId}
               onChange={(e) => onAgentSelect(e.target.value)}
             >
@@ -177,7 +177,7 @@ const LineageTab: React.FC<{
             <div className="mt-4">
               <button
                 onClick={() => setShowOrphans(!showOrphans)}
-                className="text-sm text-theme-info hover:underline flex items-center gap-1"
+                className="text-sm text-theme-info-fg hover:underline flex items-center gap-1"
               >
                 <GitBranch className="h-3.5 w-3.5" />
                 {showOrphans ? 'Hide' : 'Show'} Standalone Agents ({forest.orphans.length})
@@ -296,7 +296,7 @@ export const AutonomyContent: React.FC = () => {
 
       {/* Mobile section selector */}
       <select
-        className="md:hidden w-full mb-4 rounded-md border border-theme bg-theme-surface text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+        className="md:hidden w-full mb-4 rounded-md border border-theme bg-theme-surface text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
         value={activeSection}
         onChange={(e) => setActiveSection(e.target.value as SectionId)}
       >

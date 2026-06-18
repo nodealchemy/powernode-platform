@@ -30,13 +30,13 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   const getTypeIconComponent = (type: MarketplaceItemType) => {
     switch (type) {
       case 'workflow_template':
-        return <Workflow className="h-6 w-6 text-theme-info" />;
+        return <Workflow className="h-6 w-6 text-theme-info-fg" />;
       case 'pipeline_template':
-        return <GitBranch className="h-6 w-6 text-theme-success" />;
+        return <GitBranch className="h-6 w-6 text-theme-success-fg" />;
       case 'integration_template':
         return <Puzzle className="h-6 w-6 text-theme-primary" />;
       case 'prompt_template':
-        return <MessageSquare className="h-6 w-6 text-theme-warning" />;
+        return <MessageSquare className="h-6 w-6 text-theme-warning-fg" />;
       default:
         return <Package className="h-6 w-6 text-theme-tertiary" />;
     }
@@ -76,7 +76,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           <div className="flex items-center gap-2">
             {/* Verified badge */}
             {item.is_verified && (
-              <div className="flex items-center gap-1 text-theme-info" title="Verified">
+              <div className="flex items-center gap-1 text-theme-info-fg" title="Verified">
                 <CheckCircle className="h-4 w-4" />
               </div>
             )}
@@ -126,7 +126,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           <div className="flex items-center gap-4 text-sm text-theme-tertiary">
             {/* Rating */}
             <div className="flex items-center gap-1">
-              <Star className="h-4 w-4 text-theme-warning fill-current" />
+              <Star className="h-4 w-4 text-theme-warning-fg fill-current" />
               <span>{item.rating.toFixed(1)}</span>
             </div>
 

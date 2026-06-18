@@ -41,7 +41,7 @@ export const DockerStatsCards: React.FC<DockerStatsCardsProps> = ({
         <p className="text-xs text-theme-tertiary mb-1">Containers</p>
         <p className="text-2xl font-bold text-theme-primary">{totalContainers}</p>
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-theme-success">{runningContainers} running</span>
+          <span className="text-xs text-theme-success-fg">{runningContainers} running</span>
           <span className="text-xs text-theme-tertiary">{stoppedContainers} stopped</span>
         </div>
       </Card>

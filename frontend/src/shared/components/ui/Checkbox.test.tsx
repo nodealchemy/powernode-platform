@@ -141,7 +141,7 @@ describe('Checkbox', () => {
       render(<Checkbox error="Error" />);
 
       const checkbox = screen.getByRole('checkbox');
-      expect(checkbox).toHaveClass('border-theme-error');
+      expect(checkbox).toHaveClass('border-theme-error-border');
     });
   });
 

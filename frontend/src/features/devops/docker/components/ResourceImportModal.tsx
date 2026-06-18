@@ -156,7 +156,7 @@ export const ResourceImportModal: React.FC<ResourceImportModalProps> = ({
                           </span>
                         )}
                         {isImported && (
-                          <span className="px-1.5 py-0.5 text-xs rounded bg-theme-success bg-opacity-10 text-theme-success">
+                          <span className="px-1.5 py-0.5 text-xs rounded bg-theme-success-bg text-theme-success-fg">
                             Imported
                           </span>
                         )}

@@ -14,10 +14,10 @@ export const HostStatusBadge: React.FC<HostStatusBadgeProps> = ({ status, size =
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full font-medium ${colorClasses} ${sizeClasses}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${
-        status === 'connected' ? 'bg-theme-success' :
-        status === 'error' ? 'bg-theme-error' :
-        status === 'pending' ? 'bg-theme-warning' :
-        status === 'maintenance' ? 'bg-theme-info' :
+        status === 'connected' ? 'bg-theme-success-bg' :
+        status === 'error' ? 'bg-theme-error-bg' :
+        status === 'pending' ? 'bg-theme-warning-bg' :
+        status === 'maintenance' ? 'bg-theme-info-bg' :
         'bg-theme-background-secondary'
       }`} />
       {status}

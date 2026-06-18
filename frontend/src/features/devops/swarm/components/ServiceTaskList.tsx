@@ -17,10 +17,10 @@ export const ServiceTaskList: React.FC<ServiceTaskListProps> = ({ tasks }) => {
 
   const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'running': return 'bg-theme-success bg-opacity-10 text-theme-success';
-      case 'complete': return 'bg-theme-info bg-opacity-10 text-theme-info';
-      case 'failed': return 'bg-theme-error bg-opacity-10 text-theme-error';
-      case 'pending': case 'preparing': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+      case 'running': return 'bg-theme-success-bg text-theme-success-fg';
+      case 'complete': return 'bg-theme-info-bg text-theme-info-fg';
+      case 'failed': return 'bg-theme-error-bg text-theme-error-fg';
+      case 'pending': case 'preparing': return 'bg-theme-warning-bg text-theme-warning-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -53,7 +53,7 @@ export const ServiceTaskList: React.FC<ServiceTaskListProps> = ({ tasks }) => {
               </td>
               <td className="px-4 py-3 text-theme-secondary">{task.desired_state}</td>
               <td className="px-4 py-3 text-theme-tertiary text-xs truncate max-w-[200px]">{task.image}</td>
-              <td className="px-4 py-3 text-theme-error text-xs truncate max-w-[200px]">{task.error || '-'}</td>
+              <td className="px-4 py-3 text-theme-error-fg text-xs truncate max-w-[200px]">{task.error || '-'}</td>
               <td className="px-4 py-3 text-theme-tertiary text-xs">
                 {task.updated_at ? new Date(task.updated_at).toLocaleString() : '-'}
               </td>

@@ -211,9 +211,9 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
           ${item.disabled
             ? 'text-theme-tertiary cursor-not-allowed opacity-50'
             : isArmed
-              ? 'bg-theme-error text-white font-medium'
+              ? 'bg-theme-error-bg text-white font-medium'
               : item.danger
-                ? 'text-theme-error hover:bg-theme-error'
+                ? 'text-theme-error-fg hover:bg-theme-error-bg'
                 : 'text-theme-primary hover:bg-theme-surface-hover'
           }
         `}
@@ -225,7 +225,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
               : isArmed
                 ? 'text-white'
                 : item.danger
-                  ? 'text-theme-error'
+                  ? 'text-theme-error-fg'
                   : 'text-theme-secondary'
           }`}>
             <item.icon className="h-4 w-4" />

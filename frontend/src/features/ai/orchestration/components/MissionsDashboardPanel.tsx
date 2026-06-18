@@ -11,11 +11,11 @@ import { phaseLabel, isApprovalGate } from '@/features/missions/types/mission';
 import type { Mission, MissionStatus } from '@/features/missions/types/mission';
 
 const STATUS_CONFIG: Record<MissionStatus, { icon: React.ElementType; color: string; variant: 'success' | 'warning' | 'danger' | 'info' | 'secondary' }> = {
-  active: { icon: Loader2, color: 'text-theme-info', variant: 'info' },
-  paused: { icon: Pause, color: 'text-theme-warning', variant: 'warning' },
+  active: { icon: Loader2, color: 'text-theme-info-fg', variant: 'info' },
+  paused: { icon: Pause, color: 'text-theme-warning-fg', variant: 'warning' },
   draft: { icon: Clock, color: 'text-theme-secondary', variant: 'secondary' },
-  completed: { icon: CheckCircle, color: 'text-theme-success', variant: 'success' },
-  failed: { icon: XCircle, color: 'text-theme-danger', variant: 'danger' },
+  completed: { icon: CheckCircle, color: 'text-theme-success-fg', variant: 'success' },
+  failed: { icon: XCircle, color: 'text-theme-danger-fg', variant: 'danger' },
   cancelled: { icon: XCircle, color: 'text-theme-secondary', variant: 'secondary' },
 };
 
@@ -127,9 +127,9 @@ export const MissionsDashboardPanel: React.FC = () => {
 
       {/* Awaiting Approval Banner */}
       {awaitingApproval.length > 0 && (
-        <div className="mx-6 mb-4 p-3 bg-theme-warning/10 border border-theme-warning/30 rounded-lg">
+        <div className="mx-6 mb-4 p-3 bg-theme-warning-fg/10 border border-theme-warning-border/30 rounded-lg">
           <div className="flex items-center gap-2 text-sm">
-            <AlertCircle className="h-4 w-4 text-theme-warning flex-shrink-0" />
+            <AlertCircle className="h-4 w-4 text-theme-warning-fg flex-shrink-0" />
             <span className="text-theme-primary font-medium">
               {awaitingApproval.length} mission{awaitingApproval.length > 1 ? 's' : ''} awaiting your approval
             </span>
@@ -139,7 +139,7 @@ export const MissionsDashboardPanel: React.FC = () => {
               <button
                 key={m.id}
                 onClick={() => navigate(`/app/ai/missions/${m.id}`)}
-                className="flex items-center justify-between w-full text-left px-2 py-1 rounded hover:bg-theme-warning/10 transition-colors text-sm"
+                className="flex items-center justify-between w-full text-left px-2 py-1 rounded hover:bg-theme-warning-fg/10 transition-colors text-sm"
               >
                 <span className="text-theme-primary truncate">{m.name}</span>
                 <Badge variant="warning" size="sm">{phaseLabel(m.current_phase || '')}</Badge>
@@ -252,7 +252,7 @@ export const MissionsDashboardPanel: React.FC = () => {
                 className="flex items-center justify-between w-full text-left px-2 py-1.5 rounded hover:bg-theme-surface transition-colors text-sm"
               >
                 <span className="text-theme-secondary truncate flex items-center gap-2">
-                  <CheckCircle className="h-3.5 w-3.5 text-theme-success flex-shrink-0" />
+                  <CheckCircle className="h-3.5 w-3.5 text-theme-success-fg flex-shrink-0" />
                   {m.name}
                 </span>
                 <span className="text-xs text-theme-tertiary">{formatDuration(m.duration_ms)}</span>

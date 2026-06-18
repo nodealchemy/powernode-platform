@@ -20,20 +20,20 @@ export interface ConfirmationModalProps {
 const variantConfig = {
   danger: {
     icon: Trash2,
-    iconBg: 'bg-theme-danger/10',
-    iconColor: 'text-theme-danger',
+    iconBg: 'bg-theme-danger-fg/10',
+    iconColor: 'text-theme-danger-fg',
     confirmVariant: 'danger' as const
   },
   warning: {
     icon: AlertTriangle,
-    iconBg: 'bg-theme-warning/10',
-    iconColor: 'text-theme-warning',
+    iconBg: 'bg-theme-warning-fg/10',
+    iconColor: 'text-theme-warning-fg',
     confirmVariant: 'warning' as const
   },
   info: {
     icon: Info,
-    iconBg: 'bg-theme-info/10',
-    iconColor: 'text-theme-info',
+    iconBg: 'bg-theme-info-fg/10',
+    iconColor: 'text-theme-info-fg',
     confirmVariant: 'primary' as const
   },
   default: {

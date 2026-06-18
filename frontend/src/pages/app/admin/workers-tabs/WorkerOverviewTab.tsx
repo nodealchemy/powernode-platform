@@ -52,24 +52,24 @@ export const WorkerOverviewTab: React.FC<WorkerOverviewTabProps> = ({
           <div className="space-y-3">
             <FlexBetween>
               <FlexItemsCenter>
-                <div className="w-3 h-3 bg-theme-success rounded-full mr-2"></div>
+                <div className="w-3 h-3 bg-theme-success-bg rounded-full mr-2"></div>
                 <span className="text-sm text-theme-secondary">Active</span>
               </FlexItemsCenter>
-              <span className="font-medium text-theme-success">{stats.active}</span>
+              <span className="font-medium text-theme-success-fg">{stats.active}</span>
             </FlexBetween>
             <FlexBetween>
               <FlexItemsCenter>
-                <div className="w-3 h-3 bg-theme-warning rounded-full mr-2"></div>
+                <div className="w-3 h-3 bg-theme-warning-bg rounded-full mr-2"></div>
                 <span className="text-sm text-theme-secondary">Suspended</span>
               </FlexItemsCenter>
-              <span className="font-medium text-theme-warning">{stats.suspended}</span>
+              <span className="font-medium text-theme-warning-fg">{stats.suspended}</span>
             </FlexBetween>
             <FlexBetween>
               <FlexItemsCenter>
-                <div className="w-3 h-3 bg-theme-danger rounded-full mr-2"></div>
+                <div className="w-3 h-3 bg-theme-danger-bg rounded-full mr-2"></div>
                 <span className="text-sm text-theme-secondary">Revoked</span>
               </FlexItemsCenter>
-              <span className="font-medium text-theme-error">{stats.revoked}</span>
+              <span className="font-medium text-theme-error-fg">{stats.revoked}</span>
             </FlexBetween>
           </div>
         </Card>
@@ -134,11 +134,11 @@ export const WorkerOverviewTab: React.FC<WorkerOverviewTabProps> = ({
             <div className="text-sm text-theme-secondary">Online Now</div>
           </div>
           <div className="text-center p-4 bg-theme-surface rounded-lg">
-            <div className="text-2xl font-bold text-theme-info mb-1">{stats.systemWorkers}</div>
+            <div className="text-2xl font-bold text-theme-info-fg mb-1">{stats.systemWorkers}</div>
             <div className="text-sm text-theme-secondary">System Workers</div>
           </div>
           <div className="text-center p-4 bg-theme-surface rounded-lg">
-            <div className="text-2xl font-bold text-theme-warning mb-1">{stats.accountWorkers}</div>
+            <div className="text-2xl font-bold text-theme-warning-fg mb-1">{stats.accountWorkers}</div>
             <div className="text-sm text-theme-secondary">Account Workers</div>
           </div>
           <div className="text-center p-4 bg-theme-surface rounded-lg">

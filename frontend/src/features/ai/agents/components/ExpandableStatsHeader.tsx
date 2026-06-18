@@ -89,7 +89,7 @@ export const ExpandableStatsHeader: React.FC<ExpandableStatsHeaderProps> = ({
         <div className="flex items-center gap-1.5 text-sm text-theme-secondary flex-wrap">
           <span>{agentStats.total_agents} total</span>
           <span className="text-theme-tertiary">·</span>
-          <span className="text-theme-success">{agentStats.active_agents} active</span>
+          <span className="text-theme-success-fg">{agentStats.active_agents} active</span>
           <span className="text-theme-tertiary">·</span>
           <span className={successRateColor(agentStats.success_rate)}>
             {agentStats.success_rate}% success
@@ -117,28 +117,28 @@ export const ExpandableStatsHeader: React.FC<ExpandableStatsHeaderProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard
             icon={Brain}
-            iconColor="text-theme-info"
+            iconColor="text-theme-info-fg"
             label="Total Agents"
             value={agentStats.total_agents}
-            valueColor="text-theme-info"
+            valueColor="text-theme-info-fg"
           />
           <StatCard
             icon={Play}
-            iconColor="text-theme-success"
+            iconColor="text-theme-success-fg"
             label="Active"
             value={agentStats.active_agents}
-            valueColor="text-theme-success"
+            valueColor="text-theme-success-fg"
           />
           <StatCard
             icon={BarChart3}
-            iconColor="text-theme-warning"
+            iconColor="text-theme-warning-fg"
             label="Executions"
             value={agentStats.total_executions.toLocaleString()}
-            valueColor="text-theme-warning"
+            valueColor="text-theme-warning-fg"
           />
           <StatCard
             icon={Activity}
-            iconColor="text-theme-success"
+            iconColor="text-theme-success-fg"
             label="Success Rate"
             value={`${agentStats.success_rate}%`}
             valueColor={successRateColor(agentStats.success_rate)}
@@ -150,17 +150,17 @@ export const ExpandableStatsHeader: React.FC<ExpandableStatsHeaderProps> = ({
           <div className="grid grid-cols-2 gap-3 mt-3">
             <StatCard
               icon={Zap}
-              iconColor="text-theme-warning"
+              iconColor="text-theme-warning-fg"
               label="Total Tokens"
               value={formatTokens(agentStats.total_tokens_used ?? 0)}
-              valueColor="text-theme-warning"
+              valueColor="text-theme-warning-fg"
             />
             <StatCard
               icon={DollarSign}
-              iconColor="text-theme-success"
+              iconColor="text-theme-success-fg"
               label="Total Cost"
               value={formatCost(agentStats.total_cost_usd ?? 0)}
-              valueColor="text-theme-success"
+              valueColor="text-theme-success-fg"
             />
           </div>
         )}
@@ -169,17 +169,17 @@ export const ExpandableStatsHeader: React.FC<ExpandableStatsHeaderProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
           <StatCard
             icon={Users}
-            iconColor="text-theme-info"
+            iconColor="text-theme-info-fg"
             label="Total Teams"
             value={teamStats.total}
-            valueColor="text-theme-info"
+            valueColor="text-theme-info-fg"
           />
           <StatCard
             icon={Activity}
-            iconColor="text-theme-success"
+            iconColor="text-theme-success-fg"
             label="Active Teams"
             value={teamStats.active}
-            valueColor="text-theme-success"
+            valueColor="text-theme-success-fg"
           />
           <StatCard
             icon={Users}
@@ -190,10 +190,10 @@ export const ExpandableStatsHeader: React.FC<ExpandableStatsHeaderProps> = ({
           />
           <StatCard
             icon={Crown}
-            iconColor="text-theme-warning"
+            iconColor="text-theme-warning-fg"
             label="With Lead"
             value={teamStats.withLead}
-            valueColor="text-theme-warning"
+            valueColor="text-theme-warning-fg"
           />
         </div>
       </div>

@@ -24,7 +24,7 @@ export const VendorRiskDashboardPage: React.FC = () => {
 
   if (error || !data) {
     return (
-      <div className="bg-theme-error bg-opacity-10 text-theme-error p-4 rounded-lg">
+      <div className="bg-theme-error-bg text-theme-error-fg p-4 rounded-lg">
         {error || 'Failed to load dashboard data'}
       </div>
     );
@@ -38,9 +38,9 @@ export const VendorRiskDashboardPage: React.FC = () => {
   ) => {
     const colorClasses = {
       primary: 'text-theme-interactive-primary',
-      danger: 'text-theme-error',
-      warning: 'text-theme-warning',
-      info: 'text-theme-info',
+      danger: 'text-theme-error-fg',
+      warning: 'text-theme-warning-fg',
+      info: 'text-theme-info-fg',
     };
 
     return (
@@ -65,10 +65,10 @@ export const VendorRiskDashboardPage: React.FC = () => {
     };
 
     const tiers: Array<{ tier: RiskTier; label: string; color: string }> = [
-      { tier: 'critical', label: 'Critical', color: 'bg-theme-error' },
-      { tier: 'high', label: 'High', color: 'bg-theme-warning' },
-      { tier: 'medium', label: 'Medium', color: 'bg-theme-info' },
-      { tier: 'low', label: 'Low', color: 'bg-theme-success' },
+      { tier: 'critical', label: 'Critical', color: 'bg-theme-error-bg' },
+      { tier: 'high', label: 'High', color: 'bg-theme-warning-bg' },
+      { tier: 'medium', label: 'Medium', color: 'bg-theme-info-bg' },
+      { tier: 'low', label: 'Low', color: 'bg-theme-success-bg' },
     ];
 
     return (
@@ -113,7 +113,7 @@ export const VendorRiskDashboardPage: React.FC = () => {
         <div className="bg-theme-surface rounded-lg p-6 border border-theme">
           <h3 className="text-lg font-semibold text-theme-primary mb-4">Critical Risk Vendors</h3>
           <div className="text-center py-8">
-            <Shield className="w-12 h-12 text-theme-success mx-auto mb-3 opacity-50" />
+            <Shield className="w-12 h-12 text-theme-success-fg mx-auto mb-3 opacity-50" />
             <p className="text-theme-tertiary">No critical risk vendors</p>
           </div>
         </div>

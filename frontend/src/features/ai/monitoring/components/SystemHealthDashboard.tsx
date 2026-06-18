@@ -43,9 +43,9 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
   };
 
   const getHealthScoreColor = (score: number) => {
-    if (score >= 80) return 'text-theme-success';
-    if (score >= 50) return 'text-theme-warning';
-    return 'text-theme-error';
+    if (score >= 80) return 'text-theme-success-fg';
+    if (score >= 50) return 'text-theme-warning-fg';
+    return 'text-theme-error-fg';
   };
 
   const getDatabaseAvailability = (): number => {
@@ -63,12 +63,12 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
   const getComponentStatusIcon = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <CheckCircle className="h-4 w-4 text-theme-success" />;
+        return <CheckCircle className="h-4 w-4 text-theme-success-fg" />;
       case 'degraded':
-        return <AlertTriangle className="h-4 w-4 text-theme-warning" />;
+        return <AlertTriangle className="h-4 w-4 text-theme-warning-fg" />;
       case 'unhealthy':
       case 'critical':
-        return <XCircle className="h-4 w-4 text-theme-error" />;
+        return <XCircle className="h-4 w-4 text-theme-error-fg" />;
       default:
         return <Clock className="h-4 w-4 text-theme-tertiary" />;
     }
@@ -107,7 +107,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
           icon={<Activity className="h-5 w-5" />}
         />
         <CardContent className="py-8 text-center">
-          <AlertTriangle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
+          <AlertTriangle className="h-12 w-12 text-theme-warning-fg mx-auto mb-4" />
           <p className="text-theme-tertiary">No health data available</p>
           <Button onClick={onRefresh} variant="outline" size="sm" className="mt-4">
             <RefreshCw className="h-4 w-4 mr-2" />

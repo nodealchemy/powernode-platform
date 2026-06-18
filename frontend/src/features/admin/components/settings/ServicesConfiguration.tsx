@@ -207,7 +207,7 @@ export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ cl
   if (!config) {
     return (
       <Card className="p-8 text-center">
-        <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-theme-warning" />
+        <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-theme-warning-fg" />
         <h3 className="text-lg font-semibold text-theme-primary mb-2">
           Configuration Not Available
         </h3>

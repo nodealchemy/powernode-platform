@@ -556,7 +556,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   }
                 }}
                 title="Delete all selected"
-                className="text-theme-error hover:text-theme-error"
+                className="text-theme-error-fg hover:text-theme-error-fg"
               >
                 <Trash2 className="h-3 w-3 mr-1" />
                 Delete

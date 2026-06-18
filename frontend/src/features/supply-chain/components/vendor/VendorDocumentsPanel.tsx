@@ -315,7 +315,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
                   <button
                     onClick={() => handleDelete(file.id)}
                     disabled={deletingId === file.id}
-                    className="p-2 text-theme-secondary hover:text-theme-error hover:bg-theme-error hover:bg-opacity-10 rounded-lg transition-colors disabled:opacity-50"
+                    className="p-2 text-theme-secondary hover:text-theme-error-fg hover:bg-theme-error-bg hover:bg-opacity-10 rounded-lg transition-colors disabled:opacity-50"
                     title="Delete"
                   >
                     {deletingId === file.id ? (
@@ -332,8 +332,8 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
       )}
 
       {/* Info Box */}
-      <div className="bg-theme-info bg-opacity-10 rounded-lg p-4 flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-theme-info flex-shrink-0 mt-0.5" />
+      <div className="bg-theme-info-bg rounded-lg p-4 flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-theme-info-fg flex-shrink-0 mt-0.5" />
         <div className="text-sm text-theme-secondary">
           <p className="font-medium text-theme-primary mb-1">Document Types</p>
           <ul className="space-y-1">

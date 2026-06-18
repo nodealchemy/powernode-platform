@@ -101,21 +101,21 @@ describe('Progress', () => {
       const { container } = render(<Progress value={50} variant="success" />);
 
       const progressBar = container.querySelector('.transition-all');
-      expect(progressBar).toHaveClass('bg-theme-success');
+      expect(progressBar).toHaveClass('bg-theme-success-bg');
     });
 
     it('renders warning variant', () => {
       const { container } = render(<Progress value={50} variant="warning" />);
 
       const progressBar = container.querySelector('.transition-all');
-      expect(progressBar).toHaveClass('bg-theme-warning');
+      expect(progressBar).toHaveClass('bg-theme-warning-bg');
     });
 
     it('renders error variant', () => {
       const { container } = render(<Progress value={50} variant="error" />);
 
       const progressBar = container.querySelector('.transition-all');
-      expect(progressBar).toHaveClass('bg-theme-error');
+      expect(progressBar).toHaveClass('bg-theme-error-bg');
     });
   });
 

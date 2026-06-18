@@ -16,9 +16,9 @@ export const NodeTopologyView: React.FC<NodeTopologyViewProps> = ({ nodes }) => 
     return (
       <div key={node.id} className="flex items-center gap-3 p-3 rounded-lg bg-theme-surface border border-theme">
         <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-          node.status === 'ready' ? 'bg-theme-success' :
-          node.status === 'down' ? 'bg-theme-error' :
-          'bg-theme-warning'
+          node.status === 'ready' ? 'bg-theme-success-bg' :
+          node.status === 'down' ? 'bg-theme-error-bg' :
+          'bg-theme-warning-bg'
         }`} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-theme-primary truncate">{node.hostname}</p>
@@ -39,7 +39,7 @@ export const NodeTopologyView: React.FC<NodeTopologyViewProps> = ({ nodes }) => 
     <div className="space-y-6">
       <div>
         <h3 className="text-sm font-semibold text-theme-primary mb-3 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-theme-info" />
+          <span className="w-2 h-2 rounded-full bg-theme-info-bg" />
           Manager Nodes ({managers.length})
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -57,7 +57,7 @@ export const NodeTopologyView: React.FC<NodeTopologyViewProps> = ({ nodes }) => 
 
       <div>
         <h3 className="text-sm font-semibold text-theme-primary mb-3 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-theme-success" />
+          <span className="w-2 h-2 rounded-full bg-theme-success-bg" />
           Worker Nodes ({workers.length})
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

@@ -23,8 +23,8 @@ export const ProviderStatsCards: React.FC<ProviderStatsCardsProps> = ({
             <p className="text-sm text-theme-tertiary">Total Providers</p>
             <p className="text-2xl font-semibold text-theme-primary">{totalCount}</p>
           </div>
-          <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-            <Settings className="h-5 w-5 text-theme-info" />
+          <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+            <Settings className="h-5 w-5 text-theme-info-fg" />
           </div>
         </div>
       </Card>
@@ -35,8 +35,8 @@ export const ProviderStatsCards: React.FC<ProviderStatsCardsProps> = ({
             <p className="text-sm text-theme-tertiary">Healthy Providers</p>
             <p className="text-2xl font-semibold text-theme-primary">{healthyCount}</p>
           </div>
-          <div className="h-10 w-10 bg-theme-success bg-opacity-10 rounded-lg flex items-center justify-center">
-            <Zap className="h-5 w-5 text-theme-success" />
+          <div className="h-10 w-10 bg-theme-success-bg rounded-lg flex items-center justify-center">
+            <Zap className="h-5 w-5 text-theme-success-fg" />
           </div>
         </div>
       </Card>
@@ -47,8 +47,8 @@ export const ProviderStatsCards: React.FC<ProviderStatsCardsProps> = ({
             <p className="text-sm text-theme-tertiary">Priority Providers</p>
             <p className="text-2xl font-semibold text-theme-primary">{priorityCount}</p>
           </div>
-          <div className="h-10 w-10 bg-theme-warning bg-opacity-10 rounded-lg flex items-center justify-center">
-            <AlertCircle className="h-5 w-5 text-theme-warning" />
+          <div className="h-10 w-10 bg-theme-warning-bg rounded-lg flex items-center justify-center">
+            <AlertCircle className="h-5 w-5 text-theme-warning-fg" />
           </div>
         </div>
       </Card>
@@ -59,8 +59,8 @@ export const ProviderStatsCards: React.FC<ProviderStatsCardsProps> = ({
             <p className="text-sm text-theme-tertiary">Active Credentials</p>
             <p className="text-2xl font-semibold text-theme-primary">{credentialCount}</p>
           </div>
-          <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-            <Settings className="h-5 w-5 text-theme-info" />
+          <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+            <Settings className="h-5 w-5 text-theme-info-fg" />
           </div>
         </div>
       </Card>

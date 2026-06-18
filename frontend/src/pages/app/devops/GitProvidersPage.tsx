@@ -470,14 +470,14 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
     switch (status) {
       case 'connected':
         return (
-          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-success/10 text-theme-success ">
+          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-success-fg/10 text-theme-success-fg ">
             <CheckCircle className="w-3 h-3" />
             Connected
           </span>
         );
       case 'error':
         return (
-          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-danger/10 text-theme-danger ">
+          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-danger-fg/10 text-theme-danger-fg ">
             <XCircle className="w-3 h-3" />
             Error
           </span>
@@ -522,7 +522,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
               <div
                 key={provider.id}
                 className={`bg-theme-surface border rounded-lg ${
-                  provider.status === 'error' ? 'border-theme-danger' : 'border-theme'
+                  provider.status === 'error' ? 'border-theme-danger-border' : 'border-theme'
                 }`}
               >
                 {/* Provider Header - Always visible */}
@@ -559,7 +559,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                           {provider.apiUrl}
                         </p>
                         {provider.error && (
-                          <p className="text-sm text-theme-danger mt-2 flex items-center gap-1">
+                          <p className="text-sm text-theme-danger-fg mt-2 flex items-center gap-1">
                             <AlertTriangle className="w-4 h-4" />
                             {provider.error}
                           </p>
@@ -614,7 +614,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                             <div className="border-t border-theme my-1" />
                             <button
                               onClick={() => handleDeleteProvider(provider.id)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-danger hover:bg-theme-danger/10"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-danger-fg hover:bg-theme-danger-fg/10"
                             >
                               <Trash2 className="w-4 h-4" />
                               Delete Provider
@@ -751,12 +751,12 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                                       </span>
                                     )}
                                     {credential.is_active ? (
-                                      <span className="flex items-center gap-0.5 text-xs text-theme-success">
+                                      <span className="flex items-center gap-0.5 text-xs text-theme-success-fg">
                                         <CheckCircle className="w-3 h-3" />
                                         Active
                                       </span>
                                     ) : (
-                                      <span className="flex items-center gap-0.5 text-xs text-theme-danger">
+                                      <span className="flex items-center gap-0.5 text-xs text-theme-danger-fg">
                                         <XCircle className="w-3 h-3" />
                                         Inactive
                                       </span>
@@ -811,7 +811,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                                 <button
                                   onClick={() => handleDeleteCredential(provider.id, credential.id, credential.name)}
                                   disabled={credentialActionLoading !== null}
-                                  className="p-1.5 rounded-lg hover:bg-theme-danger/10 text-theme-secondary hover:text-theme-danger"
+                                  className="p-1.5 rounded-lg hover:bg-theme-danger-fg/10 text-theme-secondary hover:text-theme-danger-fg"
                                   title="Delete"
                                 >
                                   {credentialActionLoading === `delete-${credential.id}` ? (

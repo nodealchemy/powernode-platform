@@ -54,8 +54,8 @@ export const SandboxCard: React.FC<SandboxCardProps> = ({
     <Card className="p-5">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-            <Box className="h-5 w-5 text-theme-info" />
+          <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+            <Box className="h-5 w-5 text-theme-info-fg" />
           </div>
           <div>
             <h3 className="font-semibold text-theme-primary">

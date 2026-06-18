@@ -186,7 +186,7 @@ export function SkillEditor({ onSaved, onCancel }: SkillEditorProps) {
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="text-theme-tertiary hover:text-theme-error"
+                        className="text-theme-tertiary hover:text-theme-error-fg"
                       >
                         &times;
                       </button>

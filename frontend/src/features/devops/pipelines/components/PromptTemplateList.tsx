@@ -15,15 +15,15 @@ interface PromptTemplateListProps {
 
 const getCategoryConfig = (category: DevopsPromptCategory) => {
   const configs: Record<DevopsPromptCategory, { bg: string; text: string; label: string }> = {
-    review: { bg: 'bg-theme-info/10', text: 'text-theme-info', label: 'Review' },
-    implement: { bg: 'bg-theme-success/10', text: 'text-theme-success', label: 'Implement' },
-    security: { bg: 'bg-theme-error/10', text: 'text-theme-error', label: 'Security' },
-    deploy: { bg: 'bg-theme-warning/10', text: 'text-theme-warning', label: 'Deploy' },
+    review: { bg: 'bg-theme-info-fg/10', text: 'text-theme-info-fg', label: 'Review' },
+    implement: { bg: 'bg-theme-success-fg/10', text: 'text-theme-success-fg', label: 'Implement' },
+    security: { bg: 'bg-theme-error-fg/10', text: 'text-theme-error-fg', label: 'Security' },
+    deploy: { bg: 'bg-theme-warning-fg/10', text: 'text-theme-warning-fg', label: 'Deploy' },
     docs: { bg: 'bg-theme-primary/10', text: 'text-theme-primary', label: 'Docs' },
     custom: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary', label: 'Custom' },
     general: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary', label: 'General' },
     agent: { bg: 'bg-theme-primary/10', text: 'text-theme-primary', label: 'Agent' },
-    workflow: { bg: 'bg-theme-info/10', text: 'text-theme-info', label: 'Workflow' },
+    workflow: { bg: 'bg-theme-info-fg/10', text: 'text-theme-info-fg', label: 'Workflow' },
   };
   return configs[category] || configs.custom;
 };
@@ -78,7 +78,7 @@ const TemplateCard: React.FC<{
           </span>
           <span>{template.usage_count} uses</span>
           {!template.is_active && (
-            <span className="text-theme-warning">Inactive</span>
+            <span className="text-theme-warning-fg">Inactive</span>
           )}
         </div>
       </button>
@@ -134,7 +134,7 @@ const TemplateCard: React.FC<{
                     onDelete();
                     setShowMenu(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-sm text-theme-error hover:bg-theme-error/10 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-sm text-theme-error-fg hover:bg-theme-error-fg/10 flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete

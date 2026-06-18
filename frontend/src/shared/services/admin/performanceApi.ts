@@ -297,31 +297,31 @@ export const performanceApi = {
 
   // Helper methods
   getMetricColor(value: number, thresholds: { warn: number; critical: number }): string {
-    if (value >= thresholds.critical) return 'text-theme-error';
-    if (value >= thresholds.warn) return 'text-theme-warning';
-    return 'text-theme-success';
+    if (value >= thresholds.critical) return 'text-theme-error-fg';
+    if (value >= thresholds.warn) return 'text-theme-warning-fg';
+    return 'text-theme-success-fg';
   },
 
   getMetricBackgroundColor(value: number, thresholds: { warn: number; critical: number }): string {
-    if (value >= thresholds.critical) return 'bg-theme-error';
+    if (value >= thresholds.critical) return 'bg-theme-error-bg';
     if (value >= thresholds.warn) return 'bg-theme-warning-background';
     return 'bg-theme-success-background';
   },
 
   getAlertSeverityColor(severity: string): string {
     switch (severity) {
-      case 'critical': return 'bg-theme-error bg-opacity-10 text-theme-error';
-      case 'high': return 'bg-theme-error bg-opacity-5 text-theme-error';
-      case 'medium': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'low': return 'bg-theme-info bg-opacity-10 text-theme-info';
+      case 'critical': return 'bg-theme-error-bg text-theme-error-fg';
+      case 'high': return 'bg-theme-error-bg text-theme-error-fg';
+      case 'medium': return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'low': return 'bg-theme-info-bg text-theme-info-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   },
 
   getHealthScoreColor(score: number): string {
-    if (score >= 90) return 'text-theme-success';
-    if (score >= 70) return 'text-theme-warning';
-    return 'text-theme-error';
+    if (score >= 90) return 'text-theme-success-fg';
+    if (score >= 70) return 'text-theme-warning-fg';
+    return 'text-theme-error-fg';
   },
 
   formatBytes(bytes: number): string {

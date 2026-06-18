@@ -32,15 +32,15 @@ const StatCard: React.FC<{
   onClick?: () => void;
 }> = ({ title, value, subtitle, icon: Icon, status = 'neutral', onClick }) => {
   const statusColors = {
-    success: 'text-theme-success',
-    warning: 'text-theme-warning',
-    error: 'text-theme-error',
+    success: 'text-theme-success-fg',
+    warning: 'text-theme-warning-fg',
+    error: 'text-theme-error-fg',
     neutral: 'text-theme-primary'
   };
   const statusBgColors = {
-    success: 'bg-theme-success/10',
-    warning: 'bg-theme-warning/10',
-    error: 'bg-theme-error/10',
+    success: 'bg-theme-success-fg/10',
+    warning: 'bg-theme-warning-fg/10',
+    error: 'bg-theme-error-fg/10',
     neutral: 'bg-theme-primary/10'
   };
 
@@ -70,9 +70,9 @@ const StatusIndicator: React.FC<{
   type: 'success' | 'warning' | 'error';
 }> = ({ label, value, total, type }) => {
   const colors = {
-    success: 'bg-theme-success',
-    warning: 'bg-theme-warning',
-    error: 'bg-theme-error'
+    success: 'bg-theme-success-bg',
+    warning: 'bg-theme-warning-bg',
+    error: 'bg-theme-error-bg'
   };
   const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
 
@@ -255,15 +255,15 @@ export function DevOpsHubPage() {
       <div className="space-y-6">
         {/* Alerts banner */}
         {serverAlerts.length > 0 && (
-          <div className="bg-theme-warning/10 border border-theme-warning/30 rounded-lg p-4">
-            <h3 className="font-semibold text-theme-warning flex items-center gap-2 mb-3">
+          <div className="bg-theme-warning-fg/10 border border-theme-warning-border/30 rounded-lg p-4">
+            <h3 className="font-semibold text-theme-warning-fg flex items-center gap-2 mb-3">
               <AlertTriangle className="w-5 h-5" />
               Attention Required
             </h3>
             <div className="space-y-2">
               {serverAlerts.map((alert, idx) => (
                 <div key={idx} className="flex items-center justify-between text-sm">
-                  <span className={alert.level === 'error' ? 'text-theme-error' : 'text-theme-secondary'}>
+                  <span className={alert.level === 'error' ? 'text-theme-error-fg' : 'text-theme-secondary'}>
                     {alert.message}
                   </span>
                   <button onClick={() => navigate(alertHrefMap[alert.section] || '/app/devops')} className="text-theme-primary hover:underline">
@@ -364,9 +364,9 @@ export function DevOpsHubPage() {
                   <StatusIndicator label="Offline" value={cicd.runners.offline} total={totalRunners} type="error" />
                 </div>
                 <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
-                  <div className="bg-theme-success transition-all" style={{ width: `${(cicd.runners.online / totalRunners) * 100}%` }} />
-                  <div className="bg-theme-warning transition-all" style={{ width: `${(cicd.runners.busy / totalRunners) * 100}%` }} />
-                  <div className="bg-theme-error transition-all" style={{ width: `${(cicd.runners.offline / totalRunners) * 100}%` }} />
+                  <div className="bg-theme-success-bg transition-all" style={{ width: `${(cicd.runners.online / totalRunners) * 100}%` }} />
+                  <div className="bg-theme-warning-bg transition-all" style={{ width: `${(cicd.runners.busy / totalRunners) * 100}%` }} />
+                  <div className="bg-theme-error-bg transition-all" style={{ width: `${(cicd.runners.offline / totalRunners) * 100}%` }} />
                 </div>
               </div>
             ) : (
@@ -392,11 +392,11 @@ export function DevOpsHubPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <p className="text-xl font-bold text-theme-success">{successRuns}</p>
+                    <p className="text-xl font-bold text-theme-success-fg">{successRuns}</p>
                     <p className="text-[10px] text-theme-tertiary">Passed</p>
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-theme-error">{failedRuns}</p>
+                    <p className="text-xl font-bold text-theme-error-fg">{failedRuns}</p>
                     <p className="text-[10px] text-theme-tertiary">Failed</p>
                   </div>
                   <div>
@@ -407,8 +407,8 @@ export function DevOpsHubPage() {
                 {totalStatusRuns > 0 && (
                   <>
                     <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
-                      <div className="bg-theme-success transition-all" style={{ width: `${(successRuns / totalStatusRuns) * 100}%` }} />
-                      <div className="bg-theme-error transition-all" style={{ width: `${(failedRuns / totalStatusRuns) * 100}%` }} />
+                      <div className="bg-theme-success-bg transition-all" style={{ width: `${(successRuns / totalStatusRuns) * 100}%` }} />
+                      <div className="bg-theme-error-bg transition-all" style={{ width: `${(failedRuns / totalStatusRuns) * 100}%` }} />
                     </div>
                     <p className="text-center text-xs text-theme-secondary">
                       {cicd.pipeline_runs.success_rate}% success rate
@@ -443,19 +443,19 @@ export function DevOpsHubPage() {
                     <p className="text-[10px] text-theme-tertiary">Total</p>
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-theme-success">{infra.containers.completed}</p>
+                    <p className="text-xl font-bold text-theme-success-fg">{infra.containers.completed}</p>
                     <p className="text-[10px] text-theme-tertiary">Completed</p>
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-theme-error">{infra.containers.failed}</p>
+                    <p className="text-xl font-bold text-theme-error-fg">{infra.containers.failed}</p>
                     <p className="text-[10px] text-theme-tertiary">Failed</p>
                   </div>
                 </div>
                 <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
                   {infra.containers.finished > 0 && (
                     <>
-                      <div className="bg-theme-success transition-all" style={{ width: `${(infra.containers.completed / infra.containers.finished) * 100}%` }} />
-                      <div className="bg-theme-error transition-all" style={{ width: `${(infra.containers.failed / infra.containers.finished) * 100}%` }} />
+                      <div className="bg-theme-success-bg transition-all" style={{ width: `${(infra.containers.completed / infra.containers.finished) * 100}%` }} />
+                      <div className="bg-theme-error-bg transition-all" style={{ width: `${(infra.containers.failed / infra.containers.finished) * 100}%` }} />
                     </>
                   )}
                 </div>
@@ -490,16 +490,16 @@ export function DevOpsHubPage() {
                     <p className="text-[10px] text-theme-tertiary">Total</p>
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-theme-success">{conns.webhooks.processed_today}</p>
+                    <p className="text-xl font-bold text-theme-success-fg">{conns.webhooks.processed_today}</p>
                     <p className="text-[10px] text-theme-tertiary">Processed</p>
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-theme-error">{conns.webhooks.failed_today}</p>
+                    <p className="text-xl font-bold text-theme-error-fg">{conns.webhooks.failed_today}</p>
                     <p className="text-[10px] text-theme-tertiary">Failed</p>
                   </div>
                 </div>
                 {conns.webhooks.failed_today > 0 && (
-                  <div className="flex items-center gap-2 p-2 bg-theme-error/10 rounded text-xs text-theme-error">
+                  <div className="flex items-center gap-2 p-2 bg-theme-error-fg/10 rounded text-xs text-theme-error-fg">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     <span>{conns.webhooks.failed_today} failed</span>
                   </div>
@@ -507,7 +507,7 @@ export function DevOpsHubPage() {
               </div>
             ) : (
               <div className="text-center py-4">
-                <CheckCircle className="w-8 h-8 text-theme-success mx-auto mb-2" />
+                <CheckCircle className="w-8 h-8 text-theme-success-fg mx-auto mb-2" />
                 <p className="text-sm text-theme-secondary">No webhook activity today</p>
               </div>
             )}
@@ -521,9 +521,9 @@ export function DevOpsHubPage() {
             {sectionCards.map((section) => {
               const SectionIcon = section.icon;
               const statusColors = {
-                success: 'border-theme-success/30',
-                warning: 'border-theme-warning/30',
-                error: 'border-theme-error/30',
+                success: 'border-theme-success-border/30',
+                warning: 'border-theme-warning-border/30',
+                error: 'border-theme-error-border/30',
                 neutral: 'border-theme',
               };
               return (

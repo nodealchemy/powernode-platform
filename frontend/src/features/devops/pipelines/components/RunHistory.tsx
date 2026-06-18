@@ -17,11 +17,11 @@ interface RunHistoryProps {
 
 const getStatusConfig = (status: DevopsPipelineRunStatus) => {
   const configs: Record<DevopsPipelineRunStatus, { bg: string; text: string; icon: React.ElementType; label: string }> = {
-    pending: { bg: 'bg-theme-warning/10', text: 'text-theme-warning', icon: Clock, label: 'Pending' },
-    queued: { bg: 'bg-theme-warning/10', text: 'text-theme-warning', icon: Clock, label: 'Queued' },
-    running: { bg: 'bg-theme-info/10', text: 'text-theme-info', icon: RefreshCw, label: 'Running' },
-    success: { bg: 'bg-theme-success/10', text: 'text-theme-success', icon: CheckCircle, label: 'Success' },
-    failure: { bg: 'bg-theme-error/10', text: 'text-theme-error', icon: XCircle, label: 'Failed' },
+    pending: { bg: 'bg-theme-warning-fg/10', text: 'text-theme-warning-fg', icon: Clock, label: 'Pending' },
+    queued: { bg: 'bg-theme-warning-fg/10', text: 'text-theme-warning-fg', icon: Clock, label: 'Queued' },
+    running: { bg: 'bg-theme-info-fg/10', text: 'text-theme-info-fg', icon: RefreshCw, label: 'Running' },
+    success: { bg: 'bg-theme-success-fg/10', text: 'text-theme-success-fg', icon: CheckCircle, label: 'Success' },
+    failure: { bg: 'bg-theme-error-fg/10', text: 'text-theme-error-fg', icon: XCircle, label: 'Failed' },
     cancelled: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary', icon: AlertCircle, label: 'Cancelled' },
   };
   return configs[status] || configs.pending;
@@ -175,7 +175,7 @@ const RunRow: React.FC<{
                 <div className="flex items-center gap-2">
                   <div className="w-24 h-1.5 bg-theme-surface/20 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-theme-info rounded-full transition-all"
+                      className="h-full bg-theme-info-bg rounded-full transition-all"
                       style={{ width: `${run.progress_percentage}%` }}
                     />
                   </div>
@@ -189,7 +189,7 @@ const RunRow: React.FC<{
 
           {/* Error message */}
           {run.error_message && (
-            <div className="mb-3 p-2 bg-theme-error/10 rounded text-sm text-theme-error">
+            <div className="mb-3 p-2 bg-theme-error-fg/10 rounded text-sm text-theme-error-fg">
               {run.error_message}
             </div>
           )}

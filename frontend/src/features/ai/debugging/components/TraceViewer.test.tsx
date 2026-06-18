@@ -203,7 +203,7 @@ describe('TraceViewer', () => {
 
       // Failed span should have danger/red styling indicator
       const failedRow = screen.getByText('Tool: calculator').closest('div[class*="flex items-center"]');
-      expect(failedRow?.querySelector('.text-theme-danger')).toBeInTheDocument();
+      expect(failedRow?.querySelector('.text-theme-danger-fg')).toBeInTheDocument();
     });
   });
 

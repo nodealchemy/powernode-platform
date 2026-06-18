@@ -106,7 +106,7 @@ describe('StreamingMessage', () => {
       );
 
       const errorContainer = screen.getByText('Error occurred').parentElement;
-      expect(errorContainer).toHaveClass('bg-theme-danger/10');
+      expect(errorContainer).toHaveClass('bg-theme-danger-fg/10');
     });
   });
 

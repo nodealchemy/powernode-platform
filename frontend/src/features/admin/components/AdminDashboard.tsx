@@ -171,7 +171,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {data?.recent_users?.slice(0, 5).map((user) => (
               <div key={user.id} className="px-6 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-theme-interactive-primary bg-opacity-10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-theme-interactive-primary/10 flex items-center justify-center">
                     <span className="text-sm font-medium text-theme-interactive-primary">
                       {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
                     </span>
@@ -218,7 +218,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {data?.recent_accounts?.slice(0, 5).map((account) => (
               <div key={account.id} className="px-6 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-theme-interactive-primary bg-opacity-10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-theme-interactive-primary/10 flex items-center justify-center">
                     <Building2 className="w-5 h-5 text-theme-interactive-primary" />
                   </div>
                   <div>
@@ -233,10 +233,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
                       account.status === 'active'
-                        ? 'bg-theme-success bg-opacity-10 text-theme-success'
+                        ? 'bg-theme-success-bg text-theme-success-fg'
                         : account.status === 'suspended'
-                        ? 'bg-theme-error bg-opacity-10 text-theme-error'
-                        : 'bg-theme-surface bg-opacity-10 text-theme-secondary'
+                        ? 'bg-theme-error-bg text-theme-error-fg'
+                        : 'bg-theme-surface/10 text-theme-secondary'
                     }`}
                   >
                     {account.status}
@@ -271,10 +271,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div
                   className={`w-2 h-2 rounded-full ${
                     log.level === 'error'
-                      ? 'bg-theme-error'
+                      ? 'bg-theme-error-bg'
                       : log.level === 'warning'
-                      ? 'bg-theme-warning'
-                      : 'bg-theme-success'
+                      ? 'bg-theme-warning-bg'
+                      : 'bg-theme-success-bg'
                   }`}
                 />
                 <div>
@@ -287,10 +287,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span
                 className={`px-2 py-1 rounded-full text-xs font-medium uppercase ${
                   log.level === 'error'
-                    ? 'bg-theme-error bg-opacity-10 text-theme-error'
+                    ? 'bg-theme-error-bg text-theme-error-fg'
                     : log.level === 'warning'
-                    ? 'bg-theme-warning bg-opacity-10 text-theme-warning'
-                    : 'bg-theme-info bg-opacity-10 text-theme-info'
+                    ? 'bg-theme-warning-bg text-theme-warning-fg'
+                    : 'bg-theme-info-bg text-theme-info-fg'
                 }`}
               >
                 {log.level}

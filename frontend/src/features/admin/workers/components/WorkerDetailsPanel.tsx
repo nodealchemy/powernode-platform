@@ -105,9 +105,9 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-theme-success-background text-theme-success';
-      case 'suspended': return 'bg-theme-warning-background text-theme-warning';
-      case 'revoked': return 'bg-theme-error text-theme-error';
+      case 'active': return 'bg-theme-success-background text-theme-success-fg';
+      case 'suspended': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'revoked': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -338,7 +338,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-semibold text-theme-primary">{worker.name}</h2>
                 {isSystemWorker && (
-                  <span className="px-2 py-1 bg-theme-error text-white text-xs font-medium rounded-full">
+                  <span className="px-2 py-1 bg-theme-error-bg text-white text-xs font-medium rounded-full">
                     ⚙️ SYSTEM
                   </span>
                 )}
@@ -410,12 +410,12 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                       {...form.getFieldProps('name')}
                       type="text"
                       className={`w-full px-3 py-2 border rounded-lg bg-theme-background text-theme-primary ${
-                        form.errors.name ? 'border-theme-error' : 'border-theme'
+                        form.errors.name ? 'border-theme-error-border' : 'border-theme'
                       }`}
                       disabled={form.isSubmitting}
                     />
                     {form.errors.name && (
-                      <p className="text-theme-error text-sm mt-1">{form.errors.name}</p>
+                      <p className="text-theme-error-fg text-sm mt-1">{form.errors.name}</p>
                     )}
                   </div>
 
@@ -427,12 +427,12 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                       {...form.getFieldProps('description')}
                       rows={3}
                       className={`w-full px-3 py-2 border rounded-lg bg-theme-background text-theme-primary ${
-                        form.errors.description ? 'border-theme-error' : 'border-theme'
+                        form.errors.description ? 'border-theme-error-border' : 'border-theme'
                       }`}
                       disabled={form.isSubmitting}
                     />
                     {form.errors.description && (
-                      <p className="text-theme-error text-sm mt-1">{form.errors.description}</p>
+                      <p className="text-theme-error-fg text-sm mt-1">{form.errors.description}</p>
                     )}
                   </div>
 
@@ -445,11 +445,11 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                         const getRoleTypeBadge = (type: string) => {
                           switch (type) {
                             case 'user':
-                              return 'bg-theme-info text-theme-info text-xs px-2 py-0.5 rounded-full';
+                              return 'bg-theme-info-bg text-theme-info-fg text-xs px-2 py-0.5 rounded-full';
                             case 'admin':
-                              return 'bg-theme-warning-background text-theme-warning text-xs px-2 py-0.5 rounded-full';
+                              return 'bg-theme-warning-background text-theme-warning-fg text-xs px-2 py-0.5 rounded-full';
                             case 'system':
-                              return 'bg-theme-error text-theme-error text-xs px-2 py-0.5 rounded-full';
+                              return 'bg-theme-error-bg text-theme-error-fg text-xs px-2 py-0.5 rounded-full';
                             default:
                               return 'bg-theme-surface text-theme-secondary text-xs px-2 py-0.5 rounded-full';
                           }
@@ -478,7 +478,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                       })}
                     </div>
                     {form.errors.roles && (
-                      <p className="text-theme-error text-sm mt-1">{form.errors.roles}</p>
+                      <p className="text-theme-error-fg text-sm mt-1">{form.errors.roles}</p>
                     )}
                   </div>
 
@@ -595,7 +595,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                             </button>
                           </div>
-                          <p className="text-theme-info text-xs mt-2">
+                          <p className="text-theme-info-fg text-xs mt-2">
                             💡 This is the complete SHA256 hash for token verification.
                           </p>
                         </div>
@@ -612,7 +612,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                         <button
                           onClick={handleTokenRegenerate}
                           disabled={loading}
-                          className="flex items-center gap-2 px-4 py-2 bg-theme-warning-background text-theme-warning rounded hover:bg-theme-warning-background/80 transition-colors disabled:opacity-50"
+                          className="flex items-center gap-2 px-4 py-2 bg-theme-warning-background text-theme-warning-fg rounded hover:bg-theme-warning-background/80 transition-colors disabled:opacity-50"
                         >
                           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                           Regenerate Token
@@ -630,7 +630,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                         <button
                           onClick={handleTestWorker}
                           disabled={testingWorker || loading}
-                          className="px-4 py-2 bg-theme-info text-theme-info rounded hover:bg-theme-info/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          className="px-4 py-2 bg-theme-info-bg text-theme-info-fg rounded hover:bg-theme-info-fg/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                           {testingWorker ? (
                             <>
@@ -652,7 +652,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                         <button
                           onClick={() => handleStatusChange('suspend')}
                           disabled={loading}
-                          className="px-4 py-2 bg-theme-warning-background text-theme-warning rounded hover:bg-theme-warning-background/80 transition-colors disabled:opacity-50"
+                          className="px-4 py-2 bg-theme-warning-background text-theme-warning-fg rounded hover:bg-theme-warning-background/80 transition-colors disabled:opacity-50"
                         >
                           Suspend Worker
                         </button>
@@ -662,7 +662,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                         <button
                           onClick={() => handleStatusChange('activate')}
                           disabled={loading}
-                          className="px-4 py-2 bg-theme-success-background text-theme-success rounded hover:bg-theme-success-background/80 transition-colors disabled:opacity-50"
+                          className="px-4 py-2 bg-theme-success-background text-theme-success-fg rounded hover:bg-theme-success-background/80 transition-colors disabled:opacity-50"
                         >
                           Activate Worker
                         </button>
@@ -672,7 +672,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                         <button
                           onClick={() => handleStatusChange('revoke')}
                           disabled={loading}
-                          className="px-4 py-2 bg-theme-error text-theme-error rounded hover:bg-theme-error/80 transition-colors disabled:opacity-50"
+                          className="px-4 py-2 bg-theme-error-bg text-theme-error-fg rounded hover:bg-theme-error-fg/80 transition-colors disabled:opacity-50"
                         >
                           Revoke Worker
                         </button>
@@ -681,7 +681,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                       <button
                         onClick={() => setShowDeleteConfirm(true)}
                         disabled={loading}
-                        className="px-4 py-2 bg-theme-error text-white rounded hover:bg-theme-error/80 transition-colors disabled:opacity-50"
+                        className="px-4 py-2 bg-theme-error-bg text-white rounded hover:bg-theme-error-fg/80 transition-colors disabled:opacity-50"
                       >
                         Delete Worker
                       </button>
@@ -722,11 +722,11 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
           <div className="bg-theme-surface rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-theme-error rounded-lg">
-                <AlertTriangle className="w-6 h-6 text-theme-error" />
+              <div className="p-2 bg-theme-error-bg rounded-lg">
+                <AlertTriangle className="w-6 h-6 text-theme-error-fg" />
               </div>
               <h3 className="text-lg font-semibold text-theme-primary">Delete Worker</h3>
             </div>
@@ -746,7 +746,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
               <button
                 onClick={handleDelete}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-theme-error text-white rounded hover:bg-theme-error/80 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-theme-error-bg text-white rounded hover:bg-theme-error-fg/80 transition-colors disabled:opacity-50"
               >
                 {loading ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
@@ -762,7 +762,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
 
       {/* Test Results Modal */}
       {showTestResults && testResults && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
           <div className="bg-theme-surface rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-semibold text-theme-primary">Worker Health Check Results</h3>
@@ -780,10 +780,10 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
               <div className="flex items-center justify-between p-4 bg-theme-background rounded">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   testResults.status === 'healthy'
-                    ? 'bg-theme-success-background text-theme-success'
+                    ? 'bg-theme-success-background text-theme-success-fg'
                     : testResults.status === 'warning'
-                    ? 'bg-theme-warning-background text-theme-warning'
-                    : 'bg-theme-error text-theme-error'
+                    ? 'bg-theme-warning-background text-theme-warning-fg'
+                    : 'bg-theme-error-bg text-theme-error-fg'
                 }`}>
                   {testResults.status.toUpperCase()}
                 </span>
@@ -804,8 +804,8 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                     </span>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
                       status === 'pass'
-                        ? 'bg-theme-success-background text-theme-success'
-                        : 'bg-theme-error text-theme-error'
+                        ? 'bg-theme-success-background text-theme-success-fg'
+                        : 'bg-theme-error-bg text-theme-error-fg'
                     }`}>
                       {status.toUpperCase()}
                     </span>

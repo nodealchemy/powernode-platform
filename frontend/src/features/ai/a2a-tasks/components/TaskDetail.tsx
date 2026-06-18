@@ -36,11 +36,11 @@ const statusConfig: Record<
   { icon: React.FC<{ className?: string }>; variant: 'success' | 'danger' | 'warning' | 'info' | 'outline'; label: string; color: string }
 > = {
   submitted: { icon: Clock, variant: 'outline', label: 'Submitted', color: 'text-theme-tertiary' },
-  working: { icon: Loader2, variant: 'info', label: 'Working', color: 'text-theme-info' },
-  completed: { icon: CheckCircle, variant: 'success', label: 'Completed', color: 'text-theme-success' },
-  failed: { icon: XCircle, variant: 'danger', label: 'Failed', color: 'text-theme-danger' },
-  canceled: { icon: AlertCircle, variant: 'warning', label: 'Cancelled', color: 'text-theme-warning' },
-  'input-required': { icon: AlertCircle, variant: 'warning', label: 'Input Required', color: 'text-theme-warning' },
+  working: { icon: Loader2, variant: 'info', label: 'Working', color: 'text-theme-info-fg' },
+  completed: { icon: CheckCircle, variant: 'success', label: 'Completed', color: 'text-theme-success-fg' },
+  failed: { icon: XCircle, variant: 'danger', label: 'Failed', color: 'text-theme-danger-fg' },
+  canceled: { icon: AlertCircle, variant: 'warning', label: 'Cancelled', color: 'text-theme-warning-fg' },
+  'input-required': { icon: AlertCircle, variant: 'warning', label: 'Input Required', color: 'text-theme-warning-fg' },
 };
 
 export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, className }) => {
@@ -167,8 +167,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
     return (
       <Card className={className}>
         <CardContent className="py-12 text-center">
-          <AlertCircle className="h-12 w-12 text-theme-danger mx-auto mb-4" />
-          <p className="text-theme-danger">{error || 'Task not found'}</p>
+          <AlertCircle className="h-12 w-12 text-theme-danger-fg mx-auto mb-4" />
+          <p className="text-theme-danger-fg">{error || 'Task not found'}</p>
           <Button variant="outline" size="sm" onClick={onClose} className="mt-4">
             Go Back
           </Button>
@@ -193,9 +193,9 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               <div
                 className={cn(
                   'p-3 rounded-xl',
-                  statusState === 'completed' && 'bg-theme-success/10',
-                  statusState === 'failed' && 'bg-theme-danger/10',
-                  statusState === 'working' && 'bg-theme-info/10',
+                  statusState === 'completed' && 'bg-theme-success-fg/10',
+                  statusState === 'failed' && 'bg-theme-danger-fg/10',
+                  statusState === 'working' && 'bg-theme-info-fg/10',
                   ['submitted', 'canceled', 'input-required'].includes(statusState) &&
                     'bg-theme-background-secondary/10'
                 )}
@@ -244,10 +244,10 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
 
       {/* Input required prompt */}
       {needsInput && (
-        <Card className="border-theme-warning">
+        <Card className="border-theme-warning-border">
           <CardHeader
             title="Input Required"
-            icon={<AlertCircle className="h-5 w-5 text-theme-warning" />}
+            icon={<AlertCircle className="h-5 w-5 text-theme-warning-fg" />}
           />
           <CardContent className="space-y-4">
             <p className="text-sm text-theme-secondary">
@@ -275,13 +275,13 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
 
       {/* Error message */}
       {statusState === 'failed' && task.error && (
-        <Card className="border-theme-danger">
+        <Card className="border-theme-danger-border">
           <CardHeader
             title="Error"
-            icon={<XCircle className="h-5 w-5 text-theme-danger" />}
+            icon={<XCircle className="h-5 w-5 text-theme-danger-fg" />}
           />
           <CardContent>
-            <p className="text-sm text-theme-danger whitespace-pre-wrap">
+            <p className="text-sm text-theme-danger-fg whitespace-pre-wrap">
               {task.error.message || 'Unknown error'}
             </p>
             {task.error.code && (

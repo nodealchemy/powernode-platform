@@ -73,8 +73,8 @@ export const HybridSearchResults: React.FC = () => {
               }}
             >
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-lg bg-theme-info bg-opacity-10 flex items-center justify-center flex-shrink-0">
-                  <FileText className="h-5 w-5 text-theme-info" />
+                <div className="h-10 w-10 rounded-lg bg-theme-info-bg flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-5 w-5 text-theme-info-fg" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -100,7 +100,7 @@ export const HybridSearchResults: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-1 text-right flex-shrink-0">
-                  <Zap className="h-3 w-3 text-theme-warning" />
+                  <Zap className="h-3 w-3 text-theme-warning-fg" />
                   <span className="text-xs font-medium text-theme-secondary">
                     {(result.score * 100).toFixed(0)}%
                   </span>

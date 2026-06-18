@@ -516,7 +516,7 @@ export function KnowledgeBaseArticleEditor() {
                         {formData.tags.map(tag => (
                           <span
                             key={tag}
-                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-surface border border-theme cursor-pointer hover:bg-theme-danger hover:text-white transition-colors"
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-surface border border-theme cursor-pointer hover:bg-theme-danger-bg hover:text-white transition-colors"
                             onClick={() => removeTag(tag)}
                           >
                             {tag}
@@ -625,7 +625,7 @@ export function KnowledgeBaseArticleEditor() {
                 <div className="text-theme-link text-lg hover:underline cursor-pointer">
                   {formData.meta_title || formData.title || 'Article Title'}
                 </div>
-                <div className="text-theme-success text-sm">
+                <div className="text-theme-success-fg text-sm">
                   yoursite.com/kb/articles/{previewSlug || 'article-slug'}
                 </div>
                 <div className="text-theme-secondary text-sm mt-2">

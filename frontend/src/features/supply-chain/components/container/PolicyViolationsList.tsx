@@ -30,10 +30,10 @@ interface PolicyViolationsListProps {
 }
 
 const severityStyles: Record<Severity, string> = {
-  critical: 'bg-theme-error/10 text-theme-error border-theme-error/30',
-  high: 'bg-theme-error/10 text-theme-error border-theme-error/30',
-  medium: 'bg-theme-warning/10 text-theme-warning border-theme-warning/30',
-  low: 'bg-theme-info/10 text-theme-info border-theme-info/30',
+  critical: 'bg-theme-error-fg/10 text-theme-error-fg border-theme-error-border/30',
+  high: 'bg-theme-error-fg/10 text-theme-error-fg border-theme-error-border/30',
+  medium: 'bg-theme-warning-fg/10 text-theme-warning-fg border-theme-warning-border/30',
+  low: 'bg-theme-info-fg/10 text-theme-info-fg border-theme-info-border/30',
 };
 
 export const PolicyViolationsList: React.FC<PolicyViolationsListProps> = ({
@@ -55,7 +55,7 @@ export const PolicyViolationsList: React.FC<PolicyViolationsListProps> = ({
   if (error) {
     return (
       <Card className="p-6">
-        <div className="text-center py-12 text-theme-error">{error}</div>
+        <div className="text-center py-12 text-theme-error-fg">{error}</div>
       </Card>
     );
   }
@@ -87,15 +87,15 @@ export const PolicyViolationsList: React.FC<PolicyViolationsListProps> = ({
       <Card className="p-4">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-theme-success" />
+            <CheckCircle className="w-5 h-5 text-theme-success-fg" />
             <span className="text-theme-primary">
-              <span className="font-bold text-theme-success">{passedCount}</span> passed
+              <span className="font-bold text-theme-success-fg">{passedCount}</span> passed
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <XCircle className="w-5 h-5 text-theme-error" />
+            <XCircle className="w-5 h-5 text-theme-error-fg" />
             <span className="text-theme-primary">
-              <span className="font-bold text-theme-error">{failedCount}</span> failed
+              <span className="font-bold text-theme-error-fg">{failedCount}</span> failed
             </span>
           </div>
         </div>
@@ -107,9 +107,9 @@ export const PolicyViolationsList: React.FC<PolicyViolationsListProps> = ({
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 {evaluation.passed ? (
-                  <CheckCircle className="w-6 h-6 text-theme-success" />
+                  <CheckCircle className="w-6 h-6 text-theme-success-fg" />
                 ) : (
-                  <XCircle className="w-6 h-6 text-theme-error" />
+                  <XCircle className="w-6 h-6 text-theme-error-fg" />
                 )}
                 <div>
                   <h3 className="font-semibold text-theme-primary">{evaluation.policy_name}</h3>

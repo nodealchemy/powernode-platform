@@ -13,12 +13,12 @@ import { RunnerLabelEditor } from '@/features/devops/git/components/RunnerLabelE
 
 const StatusBadge: React.FC<{ status: string; busy: boolean }> = ({ status, busy }) => {
   const getStatusStyles = () => {
-    if (busy) return 'bg-theme-warning/10 text-theme-warning';
+    if (busy) return 'bg-theme-warning-fg/10 text-theme-warning-fg';
     switch (status) {
       case 'online':
-        return 'bg-theme-success/10 text-theme-success';
+        return 'bg-theme-success-fg/10 text-theme-success-fg';
       case 'offline':
-        return 'bg-theme-error/10 text-theme-error';
+        return 'bg-theme-error-fg/10 text-theme-error-fg';
       default:
         return 'bg-theme-surface/10 text-theme-secondary';
     }
@@ -27,9 +27,9 @@ const StatusBadge: React.FC<{ status: string; busy: boolean }> = ({ status, busy
   return (
     <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${getStatusStyles()}`}>
       <span className={`w-2 h-2 rounded-full mr-2 ${
-        busy ? 'bg-theme-warning' :
-        status === 'online' ? 'bg-theme-success animate-pulse' :
-        'bg-theme-error'
+        busy ? 'bg-theme-warning-bg' :
+        status === 'online' ? 'bg-theme-success-bg animate-pulse' :
+        'bg-theme-error-bg'
       }`} />
       {busy ? 'Busy' : status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
@@ -211,10 +211,10 @@ export const RunnerDetailPage: React.FC = () => {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${
-                runner.status === 'online' ? 'bg-theme-success/10' : 'bg-theme-surface/10'
+                runner.status === 'online' ? 'bg-theme-success-fg/10' : 'bg-theme-surface/10'
               }`}>
                 <Server className={`w-8 h-8 ${
-                  runner.status === 'online' ? 'text-theme-success' : 'text-theme-secondary'
+                  runner.status === 'online' ? 'text-theme-success-fg' : 'text-theme-secondary'
                 }`} />
               </div>
               <div>
@@ -241,18 +241,18 @@ export const RunnerDetailPage: React.FC = () => {
             <p className="text-2xl font-bold text-theme-primary">{runner.total_jobs_run}</p>
           </div>
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
-            <div className="flex items-center gap-2 text-theme-success mb-1">
+            <div className="flex items-center gap-2 text-theme-success-fg mb-1">
               <CheckCircle className="w-4 h-4" />
               <span className="text-sm">Successful</span>
             </div>
-            <p className="text-2xl font-bold text-theme-success">{runner.successful_jobs}</p>
+            <p className="text-2xl font-bold text-theme-success-fg">{runner.successful_jobs}</p>
           </div>
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
-            <div className="flex items-center gap-2 text-theme-error mb-1">
+            <div className="flex items-center gap-2 text-theme-error-fg mb-1">
               <XCircle className="w-4 h-4" />
               <span className="text-sm">Failed</span>
             </div>
-            <p className="text-2xl font-bold text-theme-error">{runner.failed_jobs}</p>
+            <p className="text-2xl font-bold text-theme-error-fg">{runner.failed_jobs}</p>
           </div>
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="flex items-center gap-2 text-theme-secondary mb-1">

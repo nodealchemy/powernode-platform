@@ -77,9 +77,9 @@ export const SendQuestionnaireModal: React.FC<SendQuestionnaireModalProps> = ({
   };
 
   const categoryColors: Record<string, string> = {
-    Security: 'bg-theme-error/10 text-theme-error',
-    Privacy: 'bg-theme-info/10 text-theme-info',
-    Compliance: 'bg-theme-warning/10 text-theme-warning',
+    Security: 'bg-theme-error-fg/10 text-theme-error-fg',
+    Privacy: 'bg-theme-info-fg/10 text-theme-info-fg',
+    Compliance: 'bg-theme-warning-fg/10 text-theme-warning-fg',
     General: 'bg-theme-background-secondary/10 text-theme-secondary',
   };
 

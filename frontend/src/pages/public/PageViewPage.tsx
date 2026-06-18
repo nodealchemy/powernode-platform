@@ -54,7 +54,7 @@ export const PageViewPage: React.FC = () => {
       <PublicPageContainer>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin h-12 w-12 border-4 border-theme-info border-t-transparent rounded-full mx-auto mb-4"></div>
+            <div className="animate-spin h-12 w-12 border-4 border-theme-info-border border-t-transparent rounded-full mx-auto mb-4"></div>
             <p className="text-theme-secondary">Loading page...</p>
           </div>
         </div>
@@ -84,7 +84,7 @@ export const PageViewPage: React.FC = () => {
           </p>
           <button
             onClick={() => loadPage?.()}
-            className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info-bg hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
           >
             <span>Try Again</span>
           </button>

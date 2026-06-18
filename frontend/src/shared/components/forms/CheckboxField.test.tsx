@@ -242,7 +242,7 @@ describe('CheckboxField', () => {
       );
 
       const label = container.querySelector('label');
-      expect(label).toHaveClass('border-theme-error');
+      expect(label).toHaveClass('border-theme-error-border');
     });
   });
 

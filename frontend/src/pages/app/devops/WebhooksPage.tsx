@@ -290,7 +290,7 @@ const WebhookManagementPage: React.FC = () => {
 
         <div className="bg-theme-background rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <CheckCircle className="w-8 h-8 text-theme-success" />
+            <CheckCircle className="w-8 h-8 text-theme-success-fg" />
             <div>
               <p className="text-2xl font-bold text-theme-primary">{stats.active_endpoints}</p>
               <p className="text-sm text-theme-secondary">Active</p>
@@ -320,7 +320,7 @@ const WebhookManagementPage: React.FC = () => {
 
         <div className="bg-theme-background rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <CheckCircle className="w-8 h-8 text-theme-success" />
+            <CheckCircle className="w-8 h-8 text-theme-success-fg" />
             <div>
               <p className="text-2xl font-bold text-theme-primary">{stats.successful_deliveries_today}</p>
               <p className="text-sm text-theme-secondary">Successful</p>
@@ -330,7 +330,7 @@ const WebhookManagementPage: React.FC = () => {
 
         <div className="bg-theme-background rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <AlertTriangle className="w-8 h-8 text-theme-error" />
+            <AlertTriangle className="w-8 h-8 text-theme-error-fg" />
             <div>
               <p className="text-2xl font-bold text-theme-primary">{stats.failed_deliveries_today}</p>
               <p className="text-sm text-theme-secondary">Failed</p>

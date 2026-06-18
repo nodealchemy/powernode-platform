@@ -67,9 +67,9 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
 
   const getStatusColor = () => {
     switch (server.status) {
-      case 'connected': return 'bg-theme-success';
-      case 'connecting': return 'bg-theme-warning';
-      case 'error': return 'bg-theme-error';
+      case 'connected': return 'bg-theme-success-bg';
+      case 'connecting': return 'bg-theme-warning-bg';
+      case 'error': return 'bg-theme-error-bg';
       default: return 'bg-theme-background-secondary';
     }
   };
@@ -112,8 +112,8 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
           {/* Server Icon with Status Indicator */}
           <div className="relative">
             <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl ${
-              isConnected ? 'bg-theme-success bg-opacity-10' :
-              server.status === 'error' ? 'bg-theme-error bg-opacity-10' :
+              isConnected ? 'bg-theme-success-bg' :
+              server.status === 'error' ? 'bg-theme-error-bg' :
               'bg-theme-surface'
             }`}>
               {server.metadata?.icon || <Server className="h-6 w-6 text-theme-tertiary" />}
@@ -163,8 +163,8 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
 
       {/* Error Message */}
       {server.status === 'error' && server.error_message && (
-        <div className="px-4 py-3 bg-theme-error bg-opacity-5 border-b border-theme-error border-opacity-20">
-          <div className="flex items-start gap-2 text-theme-error text-sm">
+        <div className="px-4 py-3 bg-theme-error-bg border-b border-theme-error-border">
+          <div className="flex items-start gap-2 text-theme-error-fg text-sm">
             <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <span className="line-clamp-2">{server.error_message}</span>
           </div>
@@ -172,7 +172,7 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
       )}
 
       {/* Stats & Capabilities */}
-      <div className="p-4 bg-theme-surface bg-opacity-50">
+      <div className="p-4 bg-theme-surface/50">
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
             <div className="flex items-center justify-center gap-1 text-theme-tertiary mb-1">
@@ -223,7 +223,7 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
                   e.stopPropagation();
                   onTestTool?.(tool);
                 }}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary rounded hover:bg-opacity-20 transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-theme-interactive-primary/10 text-theme-interactive-primary rounded hover:bg-opacity-20 transition-colors"
                 title={tool.description || tool.name}
               >
                 <Zap className="h-3 w-3" />
@@ -301,7 +301,7 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
                 onDelete(server.id);
               }}
               title="Delete server"
-              className="text-theme-error hover:bg-theme-error hover:bg-opacity-10"
+              className="text-theme-error-fg hover:bg-theme-error-bg hover:bg-opacity-10"
             >
               <Trash2 className="h-4 w-4" />
             </Button>

@@ -183,7 +183,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
               disabled={form.isSubmitting} 
             />
             {form.errors.url && (
-              <p className="text-theme-error text-sm mt-1">{form.errors.url}</p>
+              <p className="text-theme-error-fg text-sm mt-1">{form.errors.url}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
               The URL where webhook events will be delivered
@@ -201,12 +201,12 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
               placeholder="Describe the purpose of this webhook..."
               rows={3}
               className={`w-full px-4 py-2 rounded-lg border bg-theme-background text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:border-theme-focus resize-none ${
-                form.errors.description ? 'border-theme-error' : 'border-theme'
+                form.errors.description ? 'border-theme-error-border' : 'border-theme'
               }`}
               disabled={form.isSubmitting}
             />
             {form.errors.description && (
-              <p className="text-theme-error text-sm mt-1">{form.errors.description}</p>
+              <p className="text-theme-error-fg text-sm mt-1">{form.errors.description}</p>
             )}
           </div>
 
@@ -219,7 +219,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
               {...form.getFieldProps('status')}
               id="status"
               className={`w-full px-4 py-2 rounded-lg border bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus ${
-                form.errors.status ? 'border-theme-error' : 'border-theme'
+                form.errors.status ? 'border-theme-error-border' : 'border-theme'
               }`}
               disabled={form.isSubmitting}
             >
@@ -227,7 +227,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
               <option value="inactive">Inactive</option>
             </select>
             {form.errors.status && (
-              <p className="text-theme-error text-sm mt-1">{form.errors.status}</p>
+              <p className="text-theme-error-fg text-sm mt-1">{form.errors.status}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
               Inactive webhooks will not receive events
@@ -309,14 +309,14 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
 
             {form.values.event_types.length > 0 && (
               <div className="mt-4 p-3 bg-theme-success-background rounded-lg">
-                <p className="text-sm text-theme-success">
+                <p className="text-sm text-theme-success-fg">
                   <CheckCircle className="w-4 h-4 inline mr-2" />
                   {form.values.event_types.length} event type{form.values.event_types.length !== 1 ? 's' : ''} selected
                 </p>
               </div>
             )}
             {form.errors.event_types && (
-              <p className="text-theme-error text-sm mt-2">{form.errors.event_types}</p>
+              <p className="text-theme-error-fg text-sm mt-2">{form.errors.event_types}</p>
             )}
           </div>
         </div>
@@ -338,7 +338,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
                 {...form.getFieldProps('content_type')}
                 id="content_type"
                 className={`w-full px-4 py-2 rounded-lg border bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus ${
-                  form.errors.content_type ? 'border-theme-error' : 'border-theme'
+                  form.errors.content_type ? 'border-theme-error-border' : 'border-theme'
                 }`}
                 disabled={form.isSubmitting}
               >
@@ -346,7 +346,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
                 <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
               </select>
               {form.errors.content_type && (
-                <p className="text-theme-error text-sm mt-1">{form.errors.content_type}</p>
+                <p className="text-theme-error-fg text-sm mt-1">{form.errors.content_type}</p>
               )}
             </div>
 
@@ -361,7 +361,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
                 icon={<Clock className="w-4 h-4" />}
               />
               {form.errors.timeout_seconds && (
-                <p className="text-theme-error text-sm mt-1">{form.errors.timeout_seconds}</p>
+                <p className="text-theme-error-fg text-sm mt-1">{form.errors.timeout_seconds}</p>
               )}
               <p className="text-xs text-theme-secondary mt-1">
                 Maximum time to wait for response (1-300 seconds)
@@ -379,7 +379,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
                 icon={<RefreshCw className="w-4 h-4" />}
               />
               {form.errors.retry_limit && (
-                <p className="text-theme-error text-sm mt-1">{form.errors.retry_limit}</p>
+                <p className="text-theme-error-fg text-sm mt-1">{form.errors.retry_limit}</p>
               )}
               <p className="text-xs text-theme-secondary mt-1">
                 Number of retry attempts for failed deliveries (0-10)
@@ -395,7 +395,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
                 {...form.getFieldProps('retry_backoff')}
                 id="retry_backoff"
                 className={`w-full px-4 py-2 rounded-lg border bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus ${
-                  form.errors.retry_backoff ? 'border-theme-error' : 'border-theme'
+                  form.errors.retry_backoff ? 'border-theme-error-border' : 'border-theme'
                 }`}
                 disabled={form.isSubmitting}
               >
@@ -403,7 +403,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
                 <option value="linear">Linear Backoff</option>
               </select>
               {form.errors.retry_backoff && (
-                <p className="text-theme-error text-sm mt-1">{form.errors.retry_backoff}</p>
+                <p className="text-theme-error-fg text-sm mt-1">{form.errors.retry_backoff}</p>
               )}
               <p className="text-xs text-theme-secondary mt-1">
                 {form.values.retry_backoff === 'exponential' 
@@ -416,9 +416,9 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
         </div>
 
         {/* Info Box */}
-        <div className="bg-theme-info border border-theme-info-border rounded-lg p-4">
+        <div className="bg-theme-info-bg border border-theme-info-border rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-theme-info flex-shrink-0 mt-0.5" />
+            <Info className="w-5 h-5 text-theme-info-fg flex-shrink-0 mt-0.5" />
             <div className="text-sm text-theme-secondary">
               <p className="font-medium text-theme-primary mb-2">Security Considerations:</p>
               <ul className="space-y-1">

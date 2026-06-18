@@ -22,28 +22,28 @@ interface TeamCardProps {
 const getTeamTypeColor = (type: string) => {
   switch (type) {
     case 'hierarchical':
-      return 'bg-theme-info/10 text-theme-info';
+      return 'bg-theme-info-fg/10 text-theme-info-fg';
     case 'mesh':
       return 'bg-theme-interactive-primary/10 text-theme-interactive-primary';
     case 'sequential':
-      return 'bg-theme-success/10 text-theme-success';
+      return 'bg-theme-success-fg/10 text-theme-success-fg';
     case 'parallel':
-      return 'bg-theme-warning/10 text-theme-warning';
+      return 'bg-theme-warning-fg/10 text-theme-warning-fg';
     default:
-      return 'bg-theme-info text-theme-secondary';
+      return 'bg-theme-info-bg text-theme-secondary';
   }
 };
 
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'active':
-      return 'bg-theme-success/10 text-theme-success';
+      return 'bg-theme-success-fg/10 text-theme-success-fg';
     case 'inactive':
-      return 'bg-theme-info text-theme-secondary';
+      return 'bg-theme-info-bg text-theme-secondary';
     case 'archived':
-      return 'bg-theme-error/10 text-theme-error';
+      return 'bg-theme-error-fg/10 text-theme-error-fg';
     default:
-      return 'bg-theme-info text-theme-secondary';
+      return 'bg-theme-info-bg text-theme-secondary';
   }
 };
 
@@ -64,7 +64,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
       className={cn(
         'bg-theme-surface border border-theme rounded-lg hover:shadow-md transition-all',
         isExpanded && 'col-span-full shadow-lg',
-        isExecuting && 'border-theme-info/50'
+        isExecuting && 'border-theme-info-border/50'
       )}
     >
       {/* Clickable header area */}
@@ -94,13 +94,13 @@ export const TeamCard: React.FC<TeamCardProps> = ({
             {team.team_type}
           </span>
 
-          <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-theme-info text-theme-primary">
+          <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-theme-info-bg text-theme-primary">
             <Users size={12} />
             {team.member_count} {team.member_count === 1 ? 'member' : 'members'}
           </span>
 
           {team.has_lead && (
-            <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-theme-warning/10 text-theme-warning">
+            <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-theme-warning-fg/10 text-theme-warning-fg">
               <Crown size={12} />
               Has Lead
             </span>
@@ -152,7 +152,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
 
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(team); }}
-            className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-danger bg-theme-error/10 rounded-md hover:bg-theme-error/20 transition-colors"
+            className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-danger-fg bg-theme-error-fg/10 rounded-md hover:bg-theme-error-fg/20 transition-colors"
           >
             <Trash2 size={16} />
             Delete

@@ -77,17 +77,17 @@ export const SkillNodeDetailPanel: React.FC<SkillNodeDetailPanelProps> = ({
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-2">
           <Card className="p-3 text-center">
-            <Terminal className="h-4 w-4 text-theme-info mx-auto mb-1" />
+            <Terminal className="h-4 w-4 text-theme-info-fg mx-auto mb-1" />
             <div className="text-lg font-semibold text-theme-primary">{node.command_count}</div>
             <div className="text-[10px] text-theme-tertiary">Commands</div>
           </Card>
           <Card className="p-3 text-center">
-            <Server className="h-4 w-4 text-theme-success mx-auto mb-1" />
+            <Server className="h-4 w-4 text-theme-success-fg mx-auto mb-1" />
             <div className="text-lg font-semibold text-theme-primary">{node.connector_count}</div>
             <div className="text-[10px] text-theme-tertiary">MCP Servers</div>
           </Card>
           <Card className="p-3 text-center">
-            <BarChart3 className="h-4 w-4 text-theme-warning mx-auto mb-1" />
+            <BarChart3 className="h-4 w-4 text-theme-warning-fg mx-auto mb-1" />
             <div className="text-lg font-semibold text-theme-primary">{node.dependency_count}</div>
             <div className="text-[10px] text-theme-tertiary">Dependencies</div>
           </Card>

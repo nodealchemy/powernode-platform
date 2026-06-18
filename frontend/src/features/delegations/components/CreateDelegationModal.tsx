@@ -79,7 +79,7 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-theme-surface rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden">
         <div className="p-6 border-b border-theme">
           <div className="flex items-center justify-between">
@@ -100,14 +100,14 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
               <React.Fragment key={s}>
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
                   s === step ? 'bg-theme-interactive-primary text-white' :
-                  s < step ? 'bg-theme-success text-white' :
+                  s < step ? 'bg-theme-success-bg text-white' :
                   'bg-theme-surface-hover text-theme-secondary'
                 }`}>
                   {s < step ? '✓' : s}
                 </div>
                 {s < 2 && (
                   <div className={`w-16 h-1 ${
-                    s < step ? 'bg-theme-success' : 'bg-theme-surface-hover'
+                    s < step ? 'bg-theme-success-bg' : 'bg-theme-surface-hover'
                   }`} />
                 )}
               </React.Fragment>

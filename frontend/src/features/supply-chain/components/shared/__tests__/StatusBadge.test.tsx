@@ -20,20 +20,20 @@ type StatusType =
 
 describe('StatusBadge', () => {
   const statuses: Array<{ status: StatusType; label: string; bg: string; text: string }> = [
-    { status: 'verified', label: 'Verified', bg: 'bg-theme-success/10', text: 'text-theme-success' },
+    { status: 'verified', label: 'Verified', bg: 'bg-theme-success-fg/10', text: 'text-theme-success-fg' },
     { status: 'unverified', label: 'Unverified', bg: 'bg-theme-background-secondary/10', text: 'text-theme-tertiary' },
-    { status: 'quarantined', label: 'Quarantined', bg: 'bg-theme-error/10', text: 'text-theme-error' },
-    { status: 'active', label: 'Active', bg: 'bg-theme-success/10', text: 'text-theme-success' },
+    { status: 'quarantined', label: 'Quarantined', bg: 'bg-theme-error-fg/10', text: 'text-theme-error-fg' },
+    { status: 'active', label: 'Active', bg: 'bg-theme-success-fg/10', text: 'text-theme-success-fg' },
     { status: 'inactive', label: 'Inactive', bg: 'bg-theme-background-secondary/10', text: 'text-theme-tertiary' },
-    { status: 'pending', label: 'Pending', bg: 'bg-theme-warning/10', text: 'text-theme-warning' },
-    { status: 'error', label: 'Error', bg: 'bg-theme-error/10', text: 'text-theme-error' },
+    { status: 'pending', label: 'Pending', bg: 'bg-theme-warning-fg/10', text: 'text-theme-warning-fg' },
+    { status: 'error', label: 'Error', bg: 'bg-theme-error-fg/10', text: 'text-theme-error-fg' },
     { status: 'draft', label: 'Draft', bg: 'bg-theme-background-secondary/10', text: 'text-theme-tertiary' },
-    { status: 'completed', label: 'Completed', bg: 'bg-theme-success/10', text: 'text-theme-success' },
-    { status: 'failed', label: 'Failed', bg: 'bg-theme-error/10', text: 'text-theme-error' },
-    { status: 'expired', label: 'Expired', bg: 'bg-theme-warning/10', text: 'text-theme-warning' },
-    { status: 'running', label: 'Running', bg: 'bg-theme-info/10', text: 'text-theme-info' },
-    { status: 'in_progress', label: 'In Progress', bg: 'bg-theme-info/10', text: 'text-theme-info' },
-    { status: 'suspended', label: 'Suspended', bg: 'bg-theme-error/10', text: 'text-theme-error' },
+    { status: 'completed', label: 'Completed', bg: 'bg-theme-success-fg/10', text: 'text-theme-success-fg' },
+    { status: 'failed', label: 'Failed', bg: 'bg-theme-error-fg/10', text: 'text-theme-error-fg' },
+    { status: 'expired', label: 'Expired', bg: 'bg-theme-warning-fg/10', text: 'text-theme-warning-fg' },
+    { status: 'running', label: 'Running', bg: 'bg-theme-info-fg/10', text: 'text-theme-info-fg' },
+    { status: 'in_progress', label: 'In Progress', bg: 'bg-theme-info-fg/10', text: 'text-theme-info-fg' },
+    { status: 'suspended', label: 'Suspended', bg: 'bg-theme-error-fg/10', text: 'text-theme-error-fg' },
     { status: 'queued', label: 'Queued', bg: 'bg-theme-background-secondary/10', text: 'text-theme-tertiary' },
   ];
 
@@ -72,29 +72,29 @@ describe('StatusBadge', () => {
     it('applies success colors for verified status', () => {
       const { container } = render(<StatusBadge status="verified" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-success/10');
-      expect(badge).toHaveClass('text-theme-success');
+      expect(badge).toHaveClass('bg-theme-success-fg/10');
+      expect(badge).toHaveClass('text-theme-success-fg');
     });
 
     it('applies error colors for quarantined status', () => {
       const { container } = render(<StatusBadge status="quarantined" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-error/10');
-      expect(badge).toHaveClass('text-theme-error');
+      expect(badge).toHaveClass('bg-theme-error-fg/10');
+      expect(badge).toHaveClass('text-theme-error-fg');
     });
 
     it('applies warning colors for pending status', () => {
       const { container } = render(<StatusBadge status="pending" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-warning/10');
-      expect(badge).toHaveClass('text-theme-warning');
+      expect(badge).toHaveClass('bg-theme-warning-fg/10');
+      expect(badge).toHaveClass('text-theme-warning-fg');
     });
 
     it('applies info colors for running status', () => {
       const { container } = render(<StatusBadge status="running" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-info/10');
-      expect(badge).toHaveClass('text-theme-info');
+      expect(badge).toHaveClass('bg-theme-info-fg/10');
+      expect(badge).toHaveClass('text-theme-info-fg');
     });
 
     it('applies muted colors for unverified status', () => {
@@ -162,8 +162,8 @@ describe('StatusBadge', () => {
       const { container } = render(<StatusBadge status={'unknown' as StatusType} />);
       expect(screen.getByText('Pending')).toBeInTheDocument();
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-warning/10');
-      expect(badge).toHaveClass('text-theme-warning');
+      expect(badge).toHaveClass('bg-theme-warning-fg/10');
+      expect(badge).toHaveClass('text-theme-warning-fg');
     });
   });
 
@@ -173,7 +173,7 @@ describe('StatusBadge', () => {
       const badge = container.querySelector('span');
       expect(badge).toHaveClass('px-1.5');
       expect(badge).toHaveClass('py-0.5');
-      expect(badge).toHaveClass('bg-theme-success/10');
+      expect(badge).toHaveClass('bg-theme-success-fg/10');
     });
 
     it('renders medium failed badge', () => {
@@ -181,7 +181,7 @@ describe('StatusBadge', () => {
       const badge = container.querySelector('span');
       expect(badge).toHaveClass('px-2');
       expect(badge).toHaveClass('py-1');
-      expect(badge).toHaveClass('bg-theme-error/10');
+      expect(badge).toHaveClass('bg-theme-error-fg/10');
     });
 
     it('renders different sizes for different statuses', () => {

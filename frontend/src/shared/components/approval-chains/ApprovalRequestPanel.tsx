@@ -66,7 +66,7 @@ export function ApprovalRequestPanel({ approvalRequestId, onResolved }: Approval
   };
 
   if (loading) return <p className="text-sm text-theme-tertiary py-4">Loading…</p>;
-  if (!request) return <p className="text-sm text-theme-danger py-4">Approval request not found</p>;
+  if (!request) return <p className="text-sm text-theme-danger-fg py-4">Approval request not found</p>;
 
   const stepStatus = request.step_statuses?.[request.current_step];
   const isPending = request.status === 'pending';
@@ -80,7 +80,7 @@ export function ApprovalRequestPanel({ approvalRequestId, onResolved }: Approval
       {/* Header status bar */}
       <div className="rounded-lg border border-theme p-3 bg-theme-background-secondary">
         <div className="flex items-center gap-2 mb-1">
-          <ClockIcon className="h-4 w-4 text-theme-warning" />
+          <ClockIcon className="h-4 w-4 text-theme-warning-fg" />
           <span className="text-sm font-semibold text-theme-primary">
             {isCompleted
               ? `Status: ${request.status}`
@@ -103,10 +103,10 @@ export function ApprovalRequestPanel({ approvalRequestId, onResolved }: Approval
             {op.preview?.summary || op.action_category}
           </div>
           {op.preview?.impact && (
-            <div className="text-xs text-theme-warning mt-1">Impact: {op.preview.impact}</div>
+            <div className="text-xs text-theme-warning-fg mt-1">Impact: {op.preview.impact}</div>
           )}
           {op.error_message && (
-            <div className="text-xs text-theme-danger mt-1">Error: {op.error_message}</div>
+            <div className="text-xs text-theme-danger-fg mt-1">Error: {op.error_message}</div>
           )}
         </div>
       )}
@@ -171,7 +171,7 @@ export function ApprovalRequestPanel({ approvalRequestId, onResolved }: Approval
       )}
 
       {errorMessage && (
-        <p className="text-sm text-theme-danger">{errorMessage}</p>
+        <p className="text-sm text-theme-danger-fg">{errorMessage}</p>
       )}
     </div>
   );

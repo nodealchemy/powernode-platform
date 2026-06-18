@@ -97,7 +97,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
             onClick={() => setActiveTab('details')}
             className={`pb-2 px-1 text-sm font-medium transition-colors ${
               activeTab === 'details'
-                ? 'text-theme-info border-b-2 border-theme-info'
+                ? 'text-theme-info-fg border-b-2 border-theme-info-border'
                 : 'text-theme-secondary hover:text-theme-primary'
             }`}
           >
@@ -107,7 +107,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
             onClick={() => setActiveTab('share')}
             className={`pb-2 px-1 text-sm font-medium transition-colors ${
               activeTab === 'share'
-                ? 'text-theme-info border-b-2 border-theme-info'
+                ? 'text-theme-info-fg border-b-2 border-theme-info-border'
                 : 'text-theme-secondary hover:text-theme-primary'
             }`}
           >
@@ -117,7 +117,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
             onClick={() => setActiveTab('tags')}
             className={`pb-2 px-1 text-sm font-medium transition-colors ${
               activeTab === 'tags'
-                ? 'text-theme-info border-b-2 border-theme-info'
+                ? 'text-theme-info-fg border-b-2 border-theme-info-border'
                 : 'text-theme-secondary hover:text-theme-primary'
             }`}
           >
@@ -182,7 +182,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
             <div className="flex gap-2 pt-4">
               <button
                 onClick={handleDownload}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-theme-info text-white rounded-lg hover:opacity-90 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-theme-info-bg text-white rounded-lg hover:opacity-90 transition-colors"
               >
                 <Download className="h-4 w-4" />
                 Download
@@ -190,7 +190,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
 
               <button
                 onClick={handleDelete}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-theme-danger text-white rounded-lg hover:opacity-90 transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-theme-danger-bg text-white rounded-lg hover:opacity-90 transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
                 Delete
@@ -210,7 +210,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
                 </p>
                 <button
                   onClick={handleCreateShare}
-                  className="px-6 py-2 bg-theme-info text-white rounded-lg hover:opacity-90 transition-colors"
+                  className="px-6 py-2 bg-theme-info-bg text-white rounded-lg hover:opacity-90 transition-colors"
                 >
                   Create Share Link
                 </button>
@@ -230,7 +230,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
                   />
                   <button
                     onClick={handleCopyUrl}
-                    className="px-4 py-2 bg-theme-info text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-2"
+                    className="px-4 py-2 bg-theme-info-bg text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-2"
                   >
                     {copiedUrl ? (
                       <>

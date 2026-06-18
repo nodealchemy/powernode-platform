@@ -25,9 +25,9 @@ interface DiffViewerProps {
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
-  critical: 'border-theme-danger bg-theme-error/5',
-  warning: 'border-theme-warning bg-theme-warning/5',
-  info: 'border-theme-info bg-theme-info/5'
+  critical: 'border-theme-danger-border bg-theme-error-fg/5',
+  warning: 'border-theme-warning-border bg-theme-warning-fg/5',
+  info: 'border-theme-info-border bg-theme-info-fg/5'
 };
 
 export const DiffViewer: React.FC<DiffViewerProps> = ({
@@ -92,7 +92,7 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({
             >
               {file.path}
               {fileCommentCount > 0 && (
-                <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-theme-warning/20 text-theme-warning">
+                <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-theme-warning-fg/20 text-theme-warning-fg">
                   {fileCommentCount}
                 </span>
               )}
@@ -115,9 +115,9 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({
                   <tr
                     className={`group ${
                       line.type === 'add'
-                        ? 'bg-theme-success/10'
+                        ? 'bg-theme-success-fg/10'
                         : line.type === 'remove'
-                        ? 'bg-theme-error/10'
+                        ? 'bg-theme-error-fg/10'
                         : ''
                     }`}
                     onMouseEnter={() => setHoveredLine(line.lineNumber)}
@@ -127,8 +127,8 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({
                       {line.lineNumber}
                     </td>
                     <td className="w-6 px-1 py-0.5 text-center select-none">
-                      {line.type === 'add' && <span className="text-theme-success">+</span>}
-                      {line.type === 'remove' && <span className="text-theme-danger">-</span>}
+                      {line.type === 'add' && <span className="text-theme-success-fg">+</span>}
+                      {line.type === 'remove' && <span className="text-theme-danger-fg">-</span>}
                     </td>
                     <td className="px-4 py-0.5 whitespace-pre text-theme-primary">
                       {line.content}
@@ -138,7 +138,7 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({
                           className="inline-flex ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Add comment"
                         >
-                          <Plus className="h-3 w-3 text-theme-info" />
+                          <Plus className="h-3 w-3 text-theme-info-fg" />
                         </button>
                       )}
                     </td>
@@ -159,14 +159,14 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleResolve(comment.id)}
-                                className="text-xs text-theme-success hover:underline flex items-center gap-1"
+                                className="text-xs text-theme-success-fg hover:underline flex items-center gap-1"
                               >
                                 <CheckCircle className="h-3 w-3" />
                                 Resolve
                               </button>
                             )}
                             {comment.resolved && (
-                              <span className="text-xs text-theme-success flex items-center gap-1">
+                              <span className="text-xs text-theme-success-fg flex items-center gap-1">
                                 <CheckCircle className="h-3 w-3" /> Resolved
                               </span>
                             )}

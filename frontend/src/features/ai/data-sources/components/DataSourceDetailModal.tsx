@@ -134,7 +134,7 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
       <Modal isOpen={isOpen} onClose={onClose} title="Error Loading Data Source" maxWidth="md" icon={<Database />}
         footer={<Button variant="outline" onClick={onClose}>Close</Button>}>
         <div className="text-center py-8">
-          <p className="text-theme-error">{error}</p>
+          <p className="text-theme-error-fg">{error}</p>
           <Button variant="outline" onClick={loadDataSource} className="mt-4">Try Again</Button>
         </div>
       </Modal>
@@ -176,18 +176,18 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
         {(!dataSource.is_active || dataSource.health_status === 'critical' || ((dataSource.credential_count ?? 0) === 0 && dataSource.requires_auth)) && (
           <div className="space-y-3">
             {!dataSource.is_active && (
-              <div className="p-4 bg-theme-warning/10 border border-theme-warning/20 rounded-lg">
-                <div className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-theme-warning" /><span className="text-sm text-theme-warning">Data source is currently inactive</span></div>
+              <div className="p-4 bg-theme-warning-fg/10 border border-theme-warning-border/20 rounded-lg">
+                <div className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-theme-warning-fg" /><span className="text-sm text-theme-warning-fg">Data source is currently inactive</span></div>
               </div>
             )}
             {dataSource.health_status === 'critical' && (
-              <div className="p-4 bg-theme-error/10 border border-theme-error/20 rounded-lg">
-                <div className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-theme-error" /><span className="text-sm text-theme-error">Data source health check is critical</span></div>
+              <div className="p-4 bg-theme-error-fg/10 border border-theme-error-border/20 rounded-lg">
+                <div className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-theme-error-fg" /><span className="text-sm text-theme-error-fg">Data source health check is critical</span></div>
               </div>
             )}
             {(dataSource.credential_count ?? 0) === 0 && dataSource.requires_auth && (
-              <div className="p-4 bg-theme-warning/10 border border-theme-warning/20 rounded-lg">
-                <div className="flex items-center gap-2"><Key className="h-4 w-4 text-theme-warning" /><span className="text-sm text-theme-warning">No credentials configured. Add credentials to start using this data source.</span></div>
+              <div className="p-4 bg-theme-warning-fg/10 border border-theme-warning-border/20 rounded-lg">
+                <div className="flex items-center gap-2"><Key className="h-4 w-4 text-theme-warning-fg" /><span className="text-sm text-theme-warning-fg">No credentials configured. Add credentials to start using this data source.</span></div>
               </div>
             )}
           </div>

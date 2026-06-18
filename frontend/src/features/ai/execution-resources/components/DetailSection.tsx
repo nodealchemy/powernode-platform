@@ -38,9 +38,9 @@ export function StatCard({ label, value, icon, variant = 'default' }: StatCardPr
 
   const variantClasses = {
     default: 'text-theme-primary',
-    success: 'text-theme-success',
-    warning: 'text-theme-warning',
-    danger: 'text-theme-error',
+    success: 'text-theme-success-fg',
+    warning: 'text-theme-warning-fg',
+    danger: 'text-theme-error-fg',
   };
 
   return (
@@ -77,22 +77,22 @@ export function formatTimestamp(ts: string | null | undefined): string {
 
 export function StatusBadge({ status, className = '' }: { status: string; className?: string }) {
   const colorMap: Record<string, string> = {
-    completed: 'bg-theme-success/10 text-theme-success',
-    active: 'bg-theme-success/10 text-theme-success',
-    ready: 'bg-theme-success/10 text-theme-success',
-    available: 'bg-theme-success/10 text-theme-success',
-    approved: 'bg-theme-success/10 text-theme-success',
-    running: 'bg-theme-info/10 text-theme-info',
-    in_progress: 'bg-theme-info/10 text-theme-info',
-    in_use: 'bg-theme-info/10 text-theme-info',
-    building: 'bg-theme-info/10 text-theme-info',
-    pending: 'bg-theme-warning/10 text-theme-warning',
-    creating: 'bg-theme-warning/10 text-theme-warning',
-    dispatched: 'bg-theme-warning/10 text-theme-warning',
-    failed: 'bg-theme-error/10 text-theme-error',
-    conflict: 'bg-theme-error/10 text-theme-error',
-    rejected: 'bg-theme-error/10 text-theme-error',
-    rolled_back: 'bg-theme-error/10 text-theme-error',
+    completed: 'bg-theme-success-fg/10 text-theme-success-fg',
+    active: 'bg-theme-success-fg/10 text-theme-success-fg',
+    ready: 'bg-theme-success-fg/10 text-theme-success-fg',
+    available: 'bg-theme-success-fg/10 text-theme-success-fg',
+    approved: 'bg-theme-success-fg/10 text-theme-success-fg',
+    running: 'bg-theme-info-fg/10 text-theme-info-fg',
+    in_progress: 'bg-theme-info-fg/10 text-theme-info-fg',
+    in_use: 'bg-theme-info-fg/10 text-theme-info-fg',
+    building: 'bg-theme-info-fg/10 text-theme-info-fg',
+    pending: 'bg-theme-warning-fg/10 text-theme-warning-fg',
+    creating: 'bg-theme-warning-fg/10 text-theme-warning-fg',
+    dispatched: 'bg-theme-warning-fg/10 text-theme-warning-fg',
+    failed: 'bg-theme-error-fg/10 text-theme-error-fg',
+    conflict: 'bg-theme-error-fg/10 text-theme-error-fg',
+    rejected: 'bg-theme-error-fg/10 text-theme-error-fg',
+    rolled_back: 'bg-theme-error-fg/10 text-theme-error-fg',
     cancelled: 'bg-theme-background-secondary/10 text-theme-tertiary',
     archived: 'bg-theme-background-secondary/10 text-theme-tertiary',
     cleaned_up: 'bg-theme-background-secondary/10 text-theme-tertiary',

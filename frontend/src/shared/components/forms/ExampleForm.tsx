@@ -68,7 +68,7 @@ export const ExampleForm: React.FC<ExampleFormProps> = ({
           {/* Email Field */}
           <div>
             <label htmlFor="email" className="block text-sm font-semibold text-theme-primary mb-2">
-              Email Address <span className="text-theme-error">*</span>
+              Email Address <span className="text-theme-error-fg">*</span>
             </label>
             <input
               {...form.getFieldProps('email')}
@@ -76,11 +76,11 @@ export const ExampleForm: React.FC<ExampleFormProps> = ({
               id="email"
               placeholder="Enter your email address"
               className={`w-full px-4 py-3 border rounded-lg bg-theme-surface focus:ring-2 focus:ring-theme-focus focus:border-transparent transition-colors ${
-                form.getFieldProps('email').error ? 'border-theme-error' : 'border-theme'
+                form.getFieldProps('email').error ? 'border-theme-error-border' : 'border-theme'
               }`}
             />
             {form.getFieldProps('email').error && (
-              <p id="email-error" className="mt-1 text-sm text-theme-error">
+              <p id="email-error" className="mt-1 text-sm text-theme-error-fg">
                 {form.getFieldProps('email').error}
               </p>
             )}
@@ -89,7 +89,7 @@ export const ExampleForm: React.FC<ExampleFormProps> = ({
           {/* Name Field */}
           <div>
             <label htmlFor="name" className="block text-sm font-semibold text-theme-primary mb-2">
-              Full Name <span className="text-theme-error">*</span>
+              Full Name <span className="text-theme-error-fg">*</span>
             </label>
             <input
               {...form.getFieldProps('name')}
@@ -97,11 +97,11 @@ export const ExampleForm: React.FC<ExampleFormProps> = ({
               id="name"
               placeholder="Enter your full name"
               className={`w-full px-4 py-3 border rounded-lg bg-theme-surface focus:ring-2 focus:ring-theme-focus focus:border-transparent transition-colors ${
-                form.getFieldProps('name').error ? 'border-theme-error' : 'border-theme'
+                form.getFieldProps('name').error ? 'border-theme-error-border' : 'border-theme'
               }`}
             />
             {form.getFieldProps('name').error && (
-              <p id="name-error" className="mt-1 text-sm text-theme-error">
+              <p id="name-error" className="mt-1 text-sm text-theme-error-fg">
                 {form.getFieldProps('name').error}
               </p>
             )}
@@ -110,7 +110,7 @@ export const ExampleForm: React.FC<ExampleFormProps> = ({
           {/* Message Field */}
           <div>
             <label htmlFor="message" className="block text-sm font-semibold text-theme-primary mb-2">
-              Message <span className="text-theme-error">*</span>
+              Message <span className="text-theme-error-fg">*</span>
             </label>
             <textarea
               {...form.getFieldProps('message')}
@@ -118,11 +118,11 @@ export const ExampleForm: React.FC<ExampleFormProps> = ({
               rows={4}
               placeholder="Enter your message (minimum 10 characters)"
               className={`w-full px-4 py-3 border rounded-lg bg-theme-surface focus:ring-2 focus:ring-theme-focus focus:border-transparent transition-colors resize-vertical ${
-                form.getFieldProps('message').error ? 'border-theme-error' : 'border-theme'
+                form.getFieldProps('message').error ? 'border-theme-error-border' : 'border-theme'
               }`}
             />
             {form.getFieldProps('message').error && (
-              <p id="message-error" className="mt-1 text-sm text-theme-error">
+              <p id="message-error" className="mt-1 text-sm text-theme-error-fg">
                 {form.getFieldProps('message').error}
               </p>
             )}
@@ -148,10 +148,10 @@ export const ExampleForm: React.FC<ExampleFormProps> = ({
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center space-x-4">
               {form.isDirty && (
-                <span className="text-theme-warning">Unsaved changes</span>
+                <span className="text-theme-warning-fg">Unsaved changes</span>
               )}
               {!form.isValid && form.values.email && (
-                <span className="text-theme-error">Please fix errors</span>
+                <span className="text-theme-error-fg">Please fix errors</span>
               )}
             </div>
             <div className="text-theme-tertiary">

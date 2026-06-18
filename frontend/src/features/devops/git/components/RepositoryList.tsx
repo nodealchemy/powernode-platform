@@ -147,9 +147,9 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     {repo.is_private ? (
-                      <Lock className="w-4 h-4 text-theme-warning" />
+                      <Lock className="w-4 h-4 text-theme-warning-fg" />
                     ) : (
-                      <Globe className="w-4 h-4 text-theme-success" />
+                      <Globe className="w-4 h-4 text-theme-success-fg" />
                     )}
                     <div>
                       <div className="font-medium text-theme-primary">
@@ -183,7 +183,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                 </td>
                 <td className="px-4 py-3">
                   {repo.webhook_configured ? (
-                    <span className="flex items-center gap-1 text-sm text-theme-success">
+                    <span className="flex items-center gap-1 text-sm text-theme-success-fg">
                       <Webhook className="w-4 h-4" />
                       Active
                     </span>
@@ -282,7 +282,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                                 'Repository removed'
                               );
                             }}
-                            className="w-full px-3 py-2 text-left text-sm text-theme-error hover:bg-theme-surface-hover flex items-center gap-2"
+                            className="w-full px-3 py-2 text-left text-sm text-theme-error-fg hover:bg-theme-surface-hover flex items-center gap-2"
                           >
                             <Trash2 className="w-4 h-4" />
                             Remove

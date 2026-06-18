@@ -81,7 +81,7 @@ export const MessageActions: React.FC<MessageActionsProps> = ({
             onClick={handleCopy}
             className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-theme-secondary hover:bg-theme-surface-hover"
           >
-            {copied ? <Check className="h-3.5 w-3.5 text-theme-success" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? <Check className="h-3.5 w-3.5 text-theme-success-fg" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? 'Copied!' : 'Copy message'}
           </button>
 
@@ -149,7 +149,7 @@ export const MessageActions: React.FC<MessageActionsProps> = ({
                 setShowMenu(false);
                 onDelete();
               }}
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-theme-error hover:bg-theme-error"
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-theme-error-fg hover:bg-theme-error-bg"
             >
               {message.deleted_at ? (
                 <>

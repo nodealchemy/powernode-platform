@@ -108,7 +108,7 @@ export const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
                 key={option.value}
                 className={`flex items-start space-x-3 p-3 rounded-lg border cursor-pointer transition-all ${
                   form.values.role === option.value
-                    ? 'border-theme-interactive-primary bg-theme-interactive-primary bg-opacity-5'
+                    ? 'border-theme-interactive-primary bg-theme-interactive-primary/5'
                     : 'border-theme hover:border-theme-interactive-primary hover:bg-theme-surface-hover'
                 }`}
               >
@@ -130,7 +130,7 @@ export const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
             ))}
           </div>
           {form.errors.role && (
-            <p className="mt-2 text-sm text-theme-error">{form.errors.role}</p>
+            <p className="mt-2 text-sm text-theme-error-fg">{form.errors.role}</p>
           )}
         </div>
 

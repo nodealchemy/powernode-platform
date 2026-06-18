@@ -233,13 +233,13 @@ describe('VendorsPage', () => {
     it('risk score colored by value - high risk (75)', () => {
       renderPage();
       const scoreElement = screen.getByText('75/100');
-      expect(scoreElement).toHaveClass('text-theme-warning');
+      expect(scoreElement).toHaveClass('text-theme-warning-fg');
     });
 
     it('risk score colored by value - low risk (20)', () => {
       renderPage();
       const scoreElement = screen.getByText('20/100');
-      expect(scoreElement).toHaveClass('text-theme-success');
+      expect(scoreElement).toHaveClass('text-theme-success-fg');
     });
 
     it('status badge renders', () => {
@@ -630,7 +630,7 @@ describe('VendorsPage', () => {
 
       renderPage();
       const score = screen.getByText('85/100');
-      expect(score).toHaveClass('text-theme-error');
+      expect(score).toHaveClass('text-theme-error-fg');
     });
 
     it('shows warning color for score >= 60', () => {
@@ -645,7 +645,7 @@ describe('VendorsPage', () => {
 
       renderPage();
       const score = screen.getByText('65/100');
-      expect(score).toHaveClass('text-theme-warning');
+      expect(score).toHaveClass('text-theme-warning-fg');
     });
 
     it('shows info color for score >= 40', () => {
@@ -660,7 +660,7 @@ describe('VendorsPage', () => {
 
       renderPage();
       const score = screen.getByText('45/100');
-      expect(score).toHaveClass('text-theme-info');
+      expect(score).toHaveClass('text-theme-info-fg');
     });
 
     it('shows success color for score < 40', () => {
@@ -675,7 +675,7 @@ describe('VendorsPage', () => {
 
       renderPage();
       const score = screen.getByText('25/100');
-      expect(score).toHaveClass('text-theme-success');
+      expect(score).toHaveClass('text-theme-success-fg');
     });
   });
 

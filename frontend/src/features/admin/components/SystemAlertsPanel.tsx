@@ -80,31 +80,31 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
     switch (severity) {
       case 'critical':
         return {
-          color: 'border-theme-error bg-theme-error',
-          textColor: 'text-theme-error',
+          color: 'border-theme-error-border bg-theme-error-bg',
+          textColor: 'text-theme-error-fg',
           icon: AlertTriangle,
-          iconColor: 'text-theme-error'
+          iconColor: 'text-theme-error-fg'
         };
       case 'high':
         return {
-          color: 'border-theme-error bg-theme-error',
-          textColor: 'text-theme-error', 
+          color: 'border-theme-error-border bg-theme-error-bg',
+          textColor: 'text-theme-error-fg', 
           icon: AlertCircle,
-          iconColor: 'text-theme-error'
+          iconColor: 'text-theme-error-fg'
         };
       case 'medium':
         return {
-          color: 'border-theme-warning bg-theme-warning-background',
-          textColor: 'text-theme-warning',
+          color: 'border-theme-warning-border bg-theme-warning-background',
+          textColor: 'text-theme-warning-fg',
           icon: AlertCircle,
-          iconColor: 'text-theme-warning'
+          iconColor: 'text-theme-warning-fg'
         };
       case 'low':
         return {
-          color: 'border-theme-info bg-theme-info',
-          textColor: 'text-theme-info',
+          color: 'border-theme-info-border bg-theme-info-bg',
+          textColor: 'text-theme-info-fg',
           icon: AlertCircle,
-          iconColor: 'text-theme-info'
+          iconColor: 'text-theme-info-fg'
         };
       default:
         return {
@@ -185,8 +185,8 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
       <div className="px-6 py-4 border-b border-theme">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-theme-error bg-opacity-10 rounded-lg">
-              <Bell className="w-5 h-5 text-theme-error" />
+            <div className="p-2 bg-theme-error-bg rounded-lg">
+              <Bell className="w-5 h-5 text-theme-error-fg" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-theme-primary">System Alerts</h3>
@@ -254,7 +254,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
       <div className="divide-y divide-theme">
         {filteredAlerts.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <CheckCircle className="w-12 h-12 text-theme-success mx-auto mb-4" />
+            <CheckCircle className="w-12 h-12 text-theme-success-fg mx-auto mb-4" />
             <h4 className="text-lg font-medium text-theme-primary mb-2">No Active Alerts</h4>
             <p className="text-theme-secondary">All systems are operating normally</p>
           </div>
@@ -268,7 +268,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
               <div key={alert.id} className={`p-6 ${config.color}`}>
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
-                    <div className={`p-2 bg-theme-surface bg-opacity-20 rounded-lg ${config.iconColor}`}>
+                    <div className={`p-2 bg-theme-surface/20 rounded-lg ${config.iconColor}`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     
@@ -277,7 +277,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
                         <h4 className={`font-semibold ${config.textColor}`}>
                           {getTypeDisplayName(alert.type)} Alert
                         </h4>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.textColor} bg-theme-surface bg-opacity-20`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.textColor} bg-theme-surface/20`}>
                           {alert.severity.toUpperCase()}
                         </span>
                       </div>

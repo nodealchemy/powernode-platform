@@ -77,14 +77,14 @@ export const AgentSkillsSection: React.FC<AgentSkillsSectionProps> = ({
                     <button
                       type="button"
                       onClick={() => onRemoveSkill(skill.id)}
-                      className="ml-1 hover:text-theme-error"
+                      className="ml-1 hover:text-theme-error-fg"
                       title={removeWarn || undefined}
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </Badge>
                   {removeWarn && (
-                    <span className="flex items-center gap-0.5 text-[10px] text-theme-warning mt-0.5">
+                    <span className="flex items-center gap-0.5 text-[10px] text-theme-warning-fg mt-0.5">
                       <AlertTriangle className="w-2.5 h-2.5" />
                       {removeWarn}
                     </span>
@@ -139,7 +139,7 @@ export const AgentSkillsSection: React.FC<AgentSkillsSectionProps> = ({
                         </span>
                       </div>
                       {!isAssigned && getAssignWarning(skill.id) && (
-                        <span className="flex items-center gap-0.5 text-[10px] text-theme-warning ml-6 mt-0.5">
+                        <span className="flex items-center gap-0.5 text-[10px] text-theme-warning-fg ml-6 mt-0.5">
                           <AlertTriangle className="w-2.5 h-2.5" />
                           {getAssignWarning(skill.id)}
                         </span>

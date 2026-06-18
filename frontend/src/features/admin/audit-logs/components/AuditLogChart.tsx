@@ -71,7 +71,7 @@ export const AuditLogChart: React.FC<AuditLogChartProps> = ({
     <div className="bg-theme-background rounded-lg border border-theme p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="p-1 bg-theme-interactive-primary bg-opacity-10 rounded">
+          <div className="p-1 bg-theme-interactive-primary/10 rounded">
             { }
             {chartIcon[type]}
           </div>

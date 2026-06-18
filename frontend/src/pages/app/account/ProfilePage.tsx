@@ -504,8 +504,8 @@ export const ProfilePage: React.FC = () => {
           <div className="flex justify-end items-center space-x-3 mb-6">
             <WebSocketStatusIndicator showDetails={false} />
             {isReceivingUpdate && (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-theme-info text-theme-info rounded-md">
-                <div className="animate-pulse w-2 h-2 bg-theme-info rounded-full"></div>
+              <div className="flex items-center space-x-2 px-3 py-1 bg-theme-info-bg text-theme-info-fg rounded-md">
+                <div className="animate-pulse w-2 h-2 bg-theme-info-bg rounded-full"></div>
                 <span className="text-sm">Syncing...</span>
               </div>
             )}
@@ -541,7 +541,7 @@ export const ProfilePage: React.FC = () => {
                           value={profileForm.name}
                           onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                           className={`input-theme w-full ${
-                            !profileForm.name.trim() ? 'border-theme-error' : ''
+                            !profileForm.name.trim() ? 'border-theme-error-border' : ''
                           }`}
                           placeholder="Enter your full name"
                           required
@@ -560,7 +560,7 @@ export const ProfilePage: React.FC = () => {
                           value={profileForm.email}
                           onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
                           className={`input-theme w-full ${
-                            profileForm.email.trim() && !isValidEmail(profileForm.email) ? 'border-theme-error' : ''
+                            profileForm.email.trim() && !isValidEmail(profileForm.email) ? 'border-theme-error-border' : ''
                           }`}
                           placeholder="Enter your email address"
                           required
@@ -612,7 +612,7 @@ export const ProfilePage: React.FC = () => {
                     <div className="space-y-4">
                       <div>
                         <h4 className="text-sm font-medium text-theme-primary">Account Status</h4>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-theme-success text-theme-success">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-theme-success-bg text-theme-success-fg">
                           {user?.status || 'Active'}
                         </span>
                       </div>
@@ -758,31 +758,31 @@ export const ProfilePage: React.FC = () => {
                       <p className="text-xs text-theme-tertiary mb-2">Password must contain:</p>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className={`flex items-center ${
-                          passwordForm.password.length >= 12 ? 'text-theme-success' : 'text-theme-quaternary'
+                          passwordForm.password.length >= 12 ? 'text-theme-success-fg' : 'text-theme-quaternary'
                         }`}>
                           <span className="mr-1">{passwordForm.password.length >= 12 ? '✓' : '○'}</span>
                           At least 12 characters
                         </div>
                         <div className={`flex items-center ${
-                          /[A-Z]/.test(passwordForm.password) ? 'text-theme-success' : 'text-theme-quaternary'
+                          /[A-Z]/.test(passwordForm.password) ? 'text-theme-success-fg' : 'text-theme-quaternary'
                         }`}>
                           <span className="mr-1">{/[A-Z]/.test(passwordForm.password) ? '✓' : '○'}</span>
                           Uppercase letter
                         </div>
                         <div className={`flex items-center ${
-                          /[a-z]/.test(passwordForm.password) ? 'text-theme-success' : 'text-theme-quaternary'
+                          /[a-z]/.test(passwordForm.password) ? 'text-theme-success-fg' : 'text-theme-quaternary'
                         }`}>
                           <span className="mr-1">{/[a-z]/.test(passwordForm.password) ? '✓' : '○'}</span>
                           Lowercase letter
                         </div>
                         <div className={`flex items-center ${
-                          /\d/.test(passwordForm.password) ? 'text-theme-success' : 'text-theme-quaternary'
+                          /\d/.test(passwordForm.password) ? 'text-theme-success-fg' : 'text-theme-quaternary'
                         }`}>
                           <span className="mr-1">{/\d/.test(passwordForm.password) ? '✓' : '○'}</span>
                           Number
                         </div>
                         <div className={`flex items-center ${
-                          /[!@#$%^&*(),.?":{}|<>]/.test(passwordForm.password) ? 'text-theme-success' : 'text-theme-quaternary'
+                          /[!@#$%^&*(),.?":{}|<>]/.test(passwordForm.password) ? 'text-theme-success-fg' : 'text-theme-quaternary'
                         }`}>
                           <span className="mr-1">{/[!@#$%^&*(),.?":{}|<>]/.test(passwordForm.password) ? '✓' : '○'}</span>
                           Special character
@@ -847,7 +847,7 @@ export const ProfilePage: React.FC = () => {
                     placeholder="ssh-ed25519 AAAA... user@host"
                   />
                   {sshKeysError && (
-                    <div className="p-3 bg-theme-danger text-theme-danger rounded text-sm whitespace-pre-line">
+                    <div className="p-3 bg-theme-danger-bg text-theme-danger-fg rounded text-sm whitespace-pre-line">
                       {sshKeysError}
                     </div>
                   )}
@@ -876,8 +876,8 @@ export const ProfilePage: React.FC = () => {
                     <span className="text-sm font-medium text-theme-primary">Email Verification</span>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       settings.security_settings?.email_verified || user?.email_verified
-                        ? 'bg-theme-success text-theme-success' 
-                        : 'bg-theme-error text-theme-error'
+                        ? 'bg-theme-success-bg text-theme-success-fg' 
+                        : 'bg-theme-error-bg text-theme-error-fg'
                     }`}>
                       {(settings.security_settings?.email_verified || user?.email_verified) ? 'Verified' : 'Not Verified'}
                     </span>

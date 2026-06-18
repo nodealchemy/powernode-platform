@@ -48,10 +48,10 @@ interface ExecutionDetail {
 
 const StatusIcon: React.FC<{ status: string }> = ({ status }) => {
   switch (status) {
-    case 'completed': return <CheckCircle size={16} className="text-theme-success" />;
-    case 'failed': case 'timeout': return <XCircle size={16} className="text-theme-danger" />;
-    case 'running': return <Loader2 size={16} className="text-theme-warning animate-spin" />;
-    case 'paused': return <Pause size={16} className="text-theme-info" />;
+    case 'completed': return <CheckCircle size={16} className="text-theme-success-fg" />;
+    case 'failed': case 'timeout': return <XCircle size={16} className="text-theme-danger-fg" />;
+    case 'running': return <Loader2 size={16} className="text-theme-warning-fg animate-spin" />;
+    case 'paused': return <Pause size={16} className="text-theme-info-fg" />;
     case 'cancelled': return <XCircle size={16} className="text-theme-secondary" />;
     default: return <Clock size={16} className="text-theme-secondary" />;
   }
@@ -59,10 +59,10 @@ const StatusIcon: React.FC<{ status: string }> = ({ status }) => {
 
 function getStatusColor(status: string): string {
   switch (status) {
-    case 'active': case 'completed': return 'text-theme-success bg-theme-success/10';
-    case 'running': case 'pending': return 'text-theme-warning bg-theme-warning/10';
-    case 'paused': return 'text-theme-info bg-theme-info/10';
-    case 'failed': case 'cancelled': case 'timeout': return 'text-theme-danger bg-theme-danger/10';
+    case 'active': case 'completed': return 'text-theme-success-fg bg-theme-success-fg/10';
+    case 'running': case 'pending': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+    case 'paused': return 'text-theme-info-fg bg-theme-info-fg/10';
+    case 'failed': case 'cancelled': case 'timeout': return 'text-theme-danger-fg bg-theme-danger-fg/10';
     default: return 'text-theme-secondary bg-theme-surface';
   }
 }
@@ -184,7 +184,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
           <div
             key={execution.id}
             className={`bg-theme-surface border rounded-lg transition-all ${
-              isExpanded ? 'border-theme-info/60 shadow-sm' : 'border-theme hover:border-theme-info/30'
+              isExpanded ? 'border-theme-info-border/60 shadow-sm' : 'border-theme hover:border-theme-info-border/30'
             }`}
           >
             {/* Header */}
@@ -229,9 +229,9 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
               <div className="w-full bg-theme-surface rounded-full h-1.5 mb-2">
                 <div
                   className={`h-1.5 rounded-full transition-all ${
-                    execution.status === 'failed' ? 'bg-theme-danger' :
-                    execution.status === 'completed' ? 'bg-theme-success' :
-                    'bg-theme-info'
+                    execution.status === 'failed' ? 'bg-theme-danger-bg' :
+                    execution.status === 'completed' ? 'bg-theme-success-bg' :
+                    'bg-theme-info-bg'
                   }`}
                   style={{ width: `${progressPct}%` }}
                 />
@@ -239,7 +239,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
 
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-theme-secondary">
                 <span className="flex items-center gap-1"><Cpu size={12} />{execution.tasks_completed}/{execution.tasks_total} agents</span>
-                {execution.tasks_failed > 0 && <span className="flex items-center gap-1 text-theme-danger"><AlertTriangle size={12} />{execution.tasks_failed} failed</span>}
+                {execution.tasks_failed > 0 && <span className="flex items-center gap-1 text-theme-danger-fg"><AlertTriangle size={12} />{execution.tasks_failed} failed</span>}
                 <span className="flex items-center gap-1"><Zap size={12} />{(execution.total_tokens_used || 0).toLocaleString()} tokens</span>
                 {Number(execution.total_cost_usd) > 0 && <span className="flex items-center gap-1"><DollarSign size={12} />{formatCost(execution.total_cost_usd)}</span>}
                 <span className="flex items-center gap-1"><Clock size={12} />{formatDuration(execution.duration_ms)}</span>
@@ -252,7 +252,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
               <div className="border-t border-theme px-4 pb-4">
                 {isLoadingThis ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 size={20} className="animate-spin text-theme-info mr-2" />
+                    <Loader2 size={20} className="animate-spin text-theme-info-fg mr-2" />
                     <span className="text-sm text-theme-secondary">Loading details...</span>
                   </div>
                 ) : (
@@ -303,14 +303,14 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                         return (
                           <div>
                             <h4 className="text-sm font-medium text-theme-primary mb-1.5 flex items-center justify-between">
-                              <span className="flex items-center gap-2"><CheckCircle size={14} className="text-theme-success" />Output</span>
+                              <span className="flex items-center gap-2"><CheckCircle size={14} className="text-theme-success-fg" />Output</span>
                               <div className="flex items-center gap-1">
                                 {mdContent && (
-                                  <button onClick={(e) => { e.stopPropagation(); downloadContent(mdContent, `${execution.execution_id}-output.md`, 'text/markdown'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-surface border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors" title="Download as Markdown">
+                                  <button onClick={(e) => { e.stopPropagation(); downloadContent(mdContent, `${execution.execution_id}-output.md`, 'text/markdown'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-surface border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info-border/50 transition-colors" title="Download as Markdown">
                                     <FileText size={12} />.md
                                   </button>
                                 )}
-                                <button onClick={(e) => { e.stopPropagation(); downloadContent(JSON.stringify(outputResult, null, 2), `${execution.execution_id}-output.json`, 'application/json'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-surface border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors" title="Download as JSON">
+                                <button onClick={(e) => { e.stopPropagation(); downloadContent(JSON.stringify(outputResult, null, 2), `${execution.execution_id}-output.json`, 'application/json'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-surface border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info-border/50 transition-colors" title="Download as JSON">
                                   <FileJson size={12} />.json
                                 </button>
                               </div>
@@ -330,9 +330,9 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
 
                       {execution.termination_reason && (
                         <div>
-                          <h4 className="text-sm font-medium text-theme-danger mb-1.5 flex items-center gap-2"><AlertTriangle size={14} />Error</h4>
-                          <div className="bg-theme-danger/5 border border-theme-danger/20 rounded-md p-2.5">
-                            <p className="text-xs text-theme-danger whitespace-pre-wrap">{execution.termination_reason}</p>
+                          <h4 className="text-sm font-medium text-theme-danger-fg mb-1.5 flex items-center gap-2"><AlertTriangle size={14} />Error</h4>
+                          <div className="bg-theme-danger-fg/5 border border-theme-danger-border/20 rounded-md p-2.5">
+                            <p className="text-xs text-theme-danger-fg whitespace-pre-wrap">{execution.termination_reason}</p>
                           </div>
                         </div>
                       )}
@@ -407,11 +407,11 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                           {execMessages.map(msg => (
                             <div key={msg.id} className="flex items-start gap-2 text-xs p-2 bg-theme-surface rounded-md border border-theme/50">
                               <div className="flex items-center gap-1 shrink-0">
-                                <span className="font-medium text-theme-info">{msg.from_role_name || 'System'}</span>
+                                <span className="font-medium text-theme-info-fg">{msg.from_role_name || 'System'}</span>
                                 {msg.to_role_name && (
                                   <>
                                     <ArrowRightLeft size={10} className="text-theme-secondary" />
-                                    <span className="font-medium text-theme-info">{msg.to_role_name}</span>
+                                    <span className="font-medium text-theme-info-fg">{msg.to_role_name}</span>
                                   </>
                                 )}
                               </div>

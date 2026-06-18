@@ -316,9 +316,9 @@ class MaintenanceApiService {
 
   getStatusColor(status: string): string {
     switch (status) {
-      case 'healthy': return 'text-theme-success';
-      case 'warning': return 'text-theme-warning';
-      case 'critical': return 'text-theme-error';
+      case 'healthy': return 'text-theme-success-fg';
+      case 'warning': return 'text-theme-warning-fg';
+      case 'critical': return 'text-theme-error-fg';
       default: return 'text-theme-secondary';
     }
   }
@@ -327,7 +327,7 @@ class MaintenanceApiService {
     switch (status) {
       case 'healthy': return 'bg-theme-success-background';
       case 'warning': return 'bg-theme-warning-background';
-      case 'critical': return 'bg-theme-error';
+      case 'critical': return 'bg-theme-error-bg';
       default: return 'bg-theme-background-secondary';
     }
   }

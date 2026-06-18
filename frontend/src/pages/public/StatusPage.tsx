@@ -19,9 +19,9 @@ export const StatusPage: React.FC = () => {
 
   const statusConfig = {
     loading: { label: 'Checking...', color: 'text-theme-secondary', bg: 'bg-theme-surface' },
-    operational: { label: 'All Systems Operational', color: 'text-theme-success', bg: 'bg-theme-success/10' },
-    degraded: { label: 'Partial Outage', color: 'text-theme-warning', bg: 'bg-theme-warning/10' },
-    error: { label: 'Service Disruption', color: 'text-theme-error', bg: 'bg-theme-error/10' },
+    operational: { label: 'All Systems Operational', color: 'text-theme-success-fg', bg: 'bg-theme-success-fg/10' },
+    degraded: { label: 'Partial Outage', color: 'text-theme-warning-fg', bg: 'bg-theme-warning-fg/10' },
+    error: { label: 'Service Disruption', color: 'text-theme-error-fg', bg: 'bg-theme-error-fg/10' },
   };
 
   const config = statusConfig[status];

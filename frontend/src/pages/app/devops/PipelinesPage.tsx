@@ -143,8 +143,8 @@ export const PipelinesPage: React.FC<PipelinesPageProps> = ({ onActionsReady }) 
             </div>
             <div className="bg-theme-surface rounded-lg border border-theme p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-theme-success/10 rounded-lg">
-                  <Play className="w-5 h-5 text-theme-success" />
+                <div className="p-2 bg-theme-success-fg/10 rounded-lg">
+                  <Play className="w-5 h-5 text-theme-success-fg" />
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-theme-primary">{meta.active_count}</div>
@@ -154,8 +154,8 @@ export const PipelinesPage: React.FC<PipelinesPageProps> = ({ onActionsReady }) 
             </div>
             <div className="bg-theme-surface rounded-lg border border-theme p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-theme-info/10 rounded-lg">
-                  <RefreshCw className="w-5 h-5 text-theme-info" />
+                <div className="p-2 bg-theme-info-fg/10 rounded-lg">
+                  <RefreshCw className="w-5 h-5 text-theme-info-fg" />
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-theme-primary">{meta.total_runs}</div>

@@ -10,9 +10,9 @@ interface ApprovalGateNodeData {
 }
 
 const GATE_COLORS: Record<string, string> = {
-  pending: 'bg-theme-warning/10 text-theme-warning border-theme-warning',
-  approved: 'bg-theme-success/10 text-theme-success border-theme-success',
-  rejected: 'bg-theme-error/10 text-theme-error border-theme-error',
+  pending: 'bg-theme-warning-fg/10 text-theme-warning-fg border-theme-warning-border',
+  approved: 'bg-theme-success-fg/10 text-theme-success-fg border-theme-success-border',
+  rejected: 'bg-theme-error-fg/10 text-theme-error-fg border-theme-error-border',
 };
 
 const ApprovalGateNode: React.FC<NodeProps> = ({ data }) => {

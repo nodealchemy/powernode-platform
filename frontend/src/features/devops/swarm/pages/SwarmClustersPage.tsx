@@ -103,7 +103,7 @@ export const SwarmClustersPage: React.FC<{ onActionsReady?: (actions: PageAction
   if (error) {
     return (
       <div className="text-center py-20">
-        <p className="text-theme-error mb-4">{error}</p>
+        <p className="text-theme-error-fg mb-4">{error}</p>
         <Button onClick={refetch} variant="secondary" size="sm">Retry</Button>
       </div>
     );
@@ -141,7 +141,7 @@ export const SwarmClustersPage: React.FC<{ onActionsReady?: (actions: PageAction
               </div>
 
               {testResults[cluster.id] && (
-                <div className={`text-xs mb-3 px-2 py-1 rounded ${testResults[cluster.id]?.connected ? 'bg-theme-success bg-opacity-10 text-theme-success' : 'bg-theme-error bg-opacity-10 text-theme-error'}`}>
+                <div className={`text-xs mb-3 px-2 py-1 rounded ${testResults[cluster.id]?.connected ? 'bg-theme-success-bg text-theme-success-fg' : 'bg-theme-error-bg text-theme-error-fg'}`}>
                   {testResults[cluster.id]?.message}
                 </div>
               )}
@@ -192,7 +192,7 @@ export const SwarmClustersPage: React.FC<{ onActionsReady?: (actions: PageAction
             <label htmlFor="tls_verify" className="text-sm font-medium text-theme-primary">TLS Verify</label>
           </div>
           {hasSavedTls && !formData.tls_ca && !formData.tls_cert && !formData.tls_key && (
-            <p className="text-xs text-theme-success">TLS credentials are configured. Leave fields empty to keep existing credentials, or paste new values to replace them.</p>
+            <p className="text-xs text-theme-success-fg">TLS credentials are configured. Leave fields empty to keep existing credentials, or paste new values to replace them.</p>
           )}
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">CA Certificate (PEM)</label>

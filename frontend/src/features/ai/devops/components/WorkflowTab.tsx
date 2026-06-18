@@ -21,7 +21,7 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({
       <div>
         <label className={labelClass}>
           Workflow Definition
-          {jsonErrors.workflow_definition && <span className="text-theme-danger ml-2 font-normal">{jsonErrors.workflow_definition}</span>}
+          {jsonErrors.workflow_definition && <span className="text-theme-danger-fg ml-2 font-normal">{jsonErrors.workflow_definition}</span>}
         </label>
         <p className="text-xs text-theme-secondary mb-2">
           Define the workflow pipeline with nodes and edges. Each node has an id, type (trigger, action, ai, condition), label, and config.
@@ -30,7 +30,7 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({
           value={workflowText}
           onChange={(e) => onWorkflowChange(e.target.value)}
           rows={20}
-          className={`${inputClass} font-mono text-xs ${jsonErrors.workflow_definition ? 'border-theme-danger' : ''}`}
+          className={`${inputClass} font-mono text-xs ${jsonErrors.workflow_definition ? 'border-theme-danger-border' : ''}`}
           placeholder={`{
   "nodes": [
     {"id": "trigger", "type": "trigger", "label": "Event", "config": {}},
@@ -53,12 +53,12 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({
               <div className="flex flex-wrap items-center gap-2">
                 {((workflowDefinition as { nodes: Array<{ id: string; type: string; label: string }> }).nodes).map((node, i, arr) => {
                   const nodeColors: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-                    trigger: { bg: 'bg-theme-info/15', text: 'text-theme-info', border: 'border-theme-info/30', dot: 'bg-current' },
+                    trigger: { bg: 'bg-theme-info-fg/15', text: 'text-theme-info-fg', border: 'border-theme-info-border/30', dot: 'bg-current' },
                     ai: { bg: 'bg-theme-primary/10', text: 'text-theme-primary', border: 'border-theme-primary/25', dot: 'bg-current' },
-                    action: { bg: 'bg-theme-success/15', text: 'text-theme-success', border: 'border-theme-success/30', dot: 'bg-current' },
-                    condition: { bg: 'bg-theme-warning/15', text: 'text-theme-warning', border: 'border-theme-warning/30', dot: 'bg-current' },
+                    action: { bg: 'bg-theme-success-fg/15', text: 'text-theme-success-fg', border: 'border-theme-success-border/30', dot: 'bg-current' },
+                    condition: { bg: 'bg-theme-warning-fg/15', text: 'text-theme-warning-fg', border: 'border-theme-warning-border/30', dot: 'bg-current' },
                   };
-                  const colors = nodeColors[node.type] || { bg: 'bg-theme-danger/15', text: 'text-theme-danger', border: 'border-theme-danger/30', dot: 'bg-current' };
+                  const colors = nodeColors[node.type] || { bg: 'bg-theme-danger-fg/15', text: 'text-theme-danger-fg', border: 'border-theme-danger-border/30', dot: 'bg-current' };
                   return (
                     <React.Fragment key={node.id || i}>
                       <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md font-medium border ${colors.bg} ${colors.text} ${colors.border}`}>
@@ -78,10 +78,10 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({
           </div>
           {/* Legend */}
           <div className="flex flex-wrap gap-3 mt-2 text-[10px] text-theme-secondary">
-            <span className="flex items-center gap-1 text-theme-info"><span className="w-2 h-2 rounded-full bg-current" /> Trigger</span>
-            <span className="flex items-center gap-1 text-theme-success"><span className="w-2 h-2 rounded-full bg-current" /> Action</span>
+            <span className="flex items-center gap-1 text-theme-info-fg"><span className="w-2 h-2 rounded-full bg-current" /> Trigger</span>
+            <span className="flex items-center gap-1 text-theme-success-fg"><span className="w-2 h-2 rounded-full bg-current" /> Action</span>
             <span className="flex items-center gap-1 text-theme-primary"><span className="w-2 h-2 rounded-full bg-current" /> AI</span>
-            <span className="flex items-center gap-1 text-theme-warning"><span className="w-2 h-2 rounded-full bg-current" /> Condition</span>
+            <span className="flex items-center gap-1 text-theme-warning-fg"><span className="w-2 h-2 rounded-full bg-current" /> Condition</span>
           </div>
         </div>
       )}

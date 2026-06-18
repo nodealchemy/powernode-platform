@@ -30,13 +30,13 @@ export const FileItem: React.FC<FileItemProps> = ({
       case 'image':
         return <Image className={`${iconClass} text-theme-interactive-primary`} />;
       case 'video':
-        return <Video className={`${iconClass} text-theme-danger`} />;
+        return <Video className={`${iconClass} text-theme-danger-fg`} />;
       case 'audio':
-        return <Music className={`${iconClass} text-theme-success`} />;
+        return <Music className={`${iconClass} text-theme-success-fg`} />;
       case 'document':
-        return <FileText className={`${iconClass} text-theme-info`} />;
+        return <FileText className={`${iconClass} text-theme-info-fg`} />;
       case 'archive':
-        return <Archive className={`${iconClass} text-theme-warning`} />;
+        return <Archive className={`${iconClass} text-theme-warning-fg`} />;
       case 'code':
         return <Code className={`${iconClass} text-theme-primary`} />;
       default:
@@ -67,13 +67,13 @@ export const FileItem: React.FC<FileItemProps> = ({
   const getCategoryBadgeColor = (category: string): string => {
     switch (category) {
       case 'user_upload':
-        return 'bg-theme-info/20 text-theme-info dark:bg-theme-info/30 dark:text-theme-info';
+        return 'bg-theme-info-fg/20 text-theme-info-fg dark:bg-theme-info-fg/30 dark:text-theme-info-fg';
       case 'workflow_output':
-        return 'bg-theme-success/20 text-theme-success dark:bg-theme-success/30 dark:text-theme-success';
+        return 'bg-theme-success-fg/20 text-theme-success-fg dark:bg-theme-success-fg/30 dark:text-theme-success-fg';
       case 'ai_generated':
         return 'bg-theme-interactive-primary/20 text-theme-interactive-primary dark:bg-theme-interactive-primary/30 dark:text-theme-interactive-primary';
       case 'temp':
-        return 'bg-theme-warning/20 text-theme-warning dark:bg-theme-warning/30 dark:text-theme-warning';
+        return 'bg-theme-warning-fg/20 text-theme-warning-fg dark:bg-theme-warning-fg/30 dark:text-theme-warning-fg';
       default:
         return 'bg-theme-surface text-theme-secondary dark:bg-theme-surface dark:text-theme-secondary';
     }
@@ -90,7 +90,7 @@ export const FileItem: React.FC<FileItemProps> = ({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <h4
-            className="text-sm font-medium text-theme-primary truncate cursor-pointer hover:text-theme-info"
+            className="text-sm font-medium text-theme-primary truncate cursor-pointer hover:text-theme-info-fg"
             onClick={() => onView?.(file)}
           >
             {file.filename}
@@ -153,7 +153,7 @@ export const FileItem: React.FC<FileItemProps> = ({
               e.stopPropagation();
               onView?.(file);
             }}
-            className="p-2 text-theme-secondary hover:text-theme-info hover:bg-theme-info/10 dark:hover:bg-theme-info/20 rounded"
+            className="p-2 text-theme-secondary hover:text-theme-info-fg hover:bg-theme-info-fg/10 dark:hover:bg-theme-info-fg/20 rounded"
             title="View details"
           >
             <Eye className="h-4 w-4" />
@@ -164,7 +164,7 @@ export const FileItem: React.FC<FileItemProps> = ({
               e.stopPropagation();
               onDownload?.(file);
             }}
-            className="p-2 text-theme-secondary hover:text-theme-success hover:bg-theme-success/10 dark:hover:bg-theme-success/20 rounded"
+            className="p-2 text-theme-secondary hover:text-theme-success-fg hover:bg-theme-success-fg/10 dark:hover:bg-theme-success-fg/20 rounded"
             title="Download"
           >
             <Download className="h-4 w-4" />
@@ -186,7 +186,7 @@ export const FileItem: React.FC<FileItemProps> = ({
               e.stopPropagation();
               onDelete?.(file);
             }}
-            className="p-2 text-theme-secondary hover:text-theme-danger hover:bg-theme-danger/10 dark:hover:bg-theme-danger/20 rounded"
+            className="p-2 text-theme-secondary hover:text-theme-danger-fg hover:bg-theme-danger-fg/10 dark:hover:bg-theme-danger-fg/20 rounded"
             title="Delete"
           >
             <Trash2 className="h-4 w-4" />

@@ -836,7 +836,7 @@ const CategoryStep: React.FC<CategoryStepProps> = ({
 
             {progress.saveStatus === 'saved' && (
               <span
-                className="flex items-center gap-1 text-xs text-theme-success"
+                className="flex items-center gap-1 text-xs text-theme-success-fg"
                 data-testid="first-run-save-success"
               >
                 <CheckCircle2 className="h-4 w-4" />
@@ -846,7 +846,7 @@ const CategoryStep: React.FC<CategoryStepProps> = ({
 
             {progress.saveStatus === 'error' && progress.saveError && (
               <span
-                className="flex items-center gap-1 text-xs text-theme-danger"
+                className="flex items-center gap-1 text-xs text-theme-danger-fg"
                 data-testid="first-run-save-error"
               >
                 <XCircle className="h-4 w-4" />
@@ -901,7 +901,7 @@ const CompleteStep: React.FC<CompleteStepProps> = ({ completeStatus, completeErr
 
     {completeStatus === 'error' && completeError && (
       <span
-        className="flex items-center gap-1 text-xs text-theme-danger"
+        className="flex items-center gap-1 text-xs text-theme-danger-fg"
         data-testid="first-run-seed-error"
       >
         <XCircle className="h-4 w-4" />

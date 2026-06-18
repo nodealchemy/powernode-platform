@@ -236,11 +236,11 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 bg-theme-info/10 rounded-lg flex items-center justify-center">
-                        <Bot className="h-5 w-5 text-theme-info" />
+                      <div className="h-10 w-10 bg-theme-info-fg/10 rounded-lg flex items-center justify-center">
+                        <Bot className="h-5 w-5 text-theme-info-fg" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-theme-primary group-hover:text-theme-info transition-colors">
+                        <h3 className="font-semibold text-theme-primary group-hover:text-theme-info-fg transition-colors">
                           {card.name}
                         </h3>
                         <div className="flex items-center gap-2 text-xs text-theme-tertiary">
@@ -292,7 +292,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
 
                   {/* External link */}
                   {card.endpoint_url && (
-                    <div className="flex items-center gap-1 text-xs text-theme-info mt-2">
+                    <div className="flex items-center gap-1 text-xs text-theme-info-fg mt-2">
                       <ExternalLink className="h-3 w-3" />
                       <span className="truncate">{card.endpoint_url}</span>
                     </div>
@@ -421,7 +421,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       onClick={(e) => e.stopPropagation()}
-                                      className="text-theme-info hover:underline break-all"
+                                      className="text-theme-info-fg hover:underline break-all"
                                     >
                                       {card.endpoint_url}
                                     </a>

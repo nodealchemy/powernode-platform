@@ -50,10 +50,10 @@ export const ContainerImagesPage: React.FC = () => {
     if (count === 0) return 'text-theme-tertiary';
 
     const severityClasses = {
-      critical: 'text-theme-error font-semibold',
-      high: 'text-theme-warning font-medium',
-      medium: 'text-theme-info',
-      low: 'text-theme-success',
+      critical: 'text-theme-error-fg font-semibold',
+      high: 'text-theme-warning-fg font-medium',
+      medium: 'text-theme-info-fg',
+      low: 'text-theme-success-fg',
     };
 
     return severityClasses[severity];
@@ -126,7 +126,7 @@ export const ContainerImagesPage: React.FC = () => {
       key: 'deployed',
       header: 'Deployed',
       render: (item) => (
-        <span className={item.is_deployed ? 'text-theme-success' : 'text-theme-tertiary'}>
+        <span className={item.is_deployed ? 'text-theme-success-fg' : 'text-theme-tertiary'}>
           {item.is_deployed ? 'Yes' : 'No'}
         </span>
       ),

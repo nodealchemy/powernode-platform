@@ -161,22 +161,22 @@ export const CreditsContent: React.FC = () => {
 
   const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'completed': return 'text-theme-success bg-theme-success/10';
-      case 'pending': return 'text-theme-warning bg-theme-warning/10';
-      case 'failed': return 'text-theme-danger bg-theme-danger/10';
+      case 'completed': return 'text-theme-success-fg bg-theme-success-fg/10';
+      case 'pending': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+      case 'failed': return 'text-theme-danger-fg bg-theme-danger-fg/10';
       case 'cancelled': return 'text-theme-secondary bg-theme-surface';
-      case 'approved': return 'text-theme-info bg-theme-info/10';
+      case 'approved': return 'text-theme-info-fg bg-theme-info-fg/10';
       default: return 'text-theme-secondary bg-theme-surface';
     }
   };
 
   const getTransactionTypeColor = (type: string): string => {
     switch (type) {
-      case 'purchase': return 'text-theme-success bg-theme-success/10';
-      case 'deduction': return 'text-theme-danger bg-theme-danger/10';
-      case 'transfer_in': return 'text-theme-info bg-theme-info/10';
-      case 'transfer_out': return 'text-theme-warning bg-theme-warning/10';
-      case 'refund': return 'text-theme-info bg-theme-info/10';
+      case 'purchase': return 'text-theme-success-fg bg-theme-success-fg/10';
+      case 'deduction': return 'text-theme-danger-fg bg-theme-danger-fg/10';
+      case 'transfer_in': return 'text-theme-info-fg bg-theme-info-fg/10';
+      case 'transfer_out': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+      case 'refund': return 'text-theme-info-fg bg-theme-info-fg/10';
       default: return 'text-theme-secondary bg-theme-surface';
     }
   };
@@ -204,7 +204,7 @@ export const CreditsContent: React.FC = () => {
                 <p className="text-sm text-theme-secondary">Available Balance</p>
                 <p className="text-2xl font-bold text-theme-primary">{balance.available.toLocaleString()}</p>
               </div>
-              <Coins className="h-8 w-8 text-theme-info" />
+              <Coins className="h-8 w-8 text-theme-info-fg" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">{balance.reserved.toLocaleString()} reserved</p>
           </div>
@@ -214,7 +214,7 @@ export const CreditsContent: React.FC = () => {
                 <p className="text-sm text-theme-secondary">Total Balance</p>
                 <p className="text-2xl font-bold text-theme-primary">{balance.balance.toLocaleString()}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-theme-success" />
+              <DollarSign className="h-8 w-8 text-theme-success-fg" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">Lifetime: {balance.lifetime_purchased.toLocaleString()}</p>
           </div>
@@ -222,9 +222,9 @@ export const CreditsContent: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-theme-secondary">Lifetime Used</p>
-                <p className="text-2xl font-bold text-theme-warning">{balance.lifetime_used.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-theme-warning-fg">{balance.lifetime_used.toLocaleString()}</p>
               </div>
-              <TrendingUp className="h-8 w-8 text-theme-warning" />
+              <TrendingUp className="h-8 w-8 text-theme-warning-fg" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">
               {balance.last_usage_at ? `Last: ${new Date(balance.last_usage_at).toLocaleDateString()}` : 'No usage yet'}
@@ -236,7 +236,7 @@ export const CreditsContent: React.FC = () => {
                 <p className="text-sm text-theme-secondary">Reseller</p>
                 <p className="text-2xl font-bold text-theme-primary">{balance.is_reseller ? 'Active' : 'Inactive'}</p>
               </div>
-              <Store className="h-8 w-8 text-theme-info" />
+              <Store className="h-8 w-8 text-theme-info-fg" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">
               {balance.last_purchase_at ? `Last purchase: ${new Date(balance.last_purchase_at).toLocaleDateString()}` : 'No purchases'}
@@ -254,7 +254,7 @@ export const CreditsContent: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-theme-info text-theme-info'
+                  ? 'border-theme-info-border text-theme-info-fg'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -268,7 +268,7 @@ export const CreditsContent: React.FC = () => {
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info-border border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading credits data...</p>
         </div>
       ) : (
@@ -297,7 +297,7 @@ export const CreditsContent: React.FC = () => {
                   <h3 className="text-lg font-semibold text-theme-primary">Recent Transactions</h3>
                   <button
                     onClick={() => setActiveTab('transactions')}
-                    className="text-sm text-theme-info hover:underline"
+                    className="text-sm text-theme-info-fg hover:underline"
                   >
                     View All ({transactionCount})
                   </button>
@@ -315,7 +315,7 @@ export const CreditsContent: React.FC = () => {
                           <span className="text-sm text-theme-primary">{tx.description || 'Transaction'}</span>
                         </div>
                         <div className="text-right">
-                          <span className={`text-sm font-medium ${tx.amount >= 0 ? 'text-theme-success' : 'text-theme-danger'}`}>
+                          <span className={`text-sm font-medium ${tx.amount >= 0 ? 'text-theme-success-fg' : 'text-theme-danger-fg'}`}>
                             {tx.amount >= 0 ? '+' : ''}{tx.amount.toLocaleString()}
                           </span>
                           <p className="text-xs text-theme-secondary">{new Date(tx.created_at).toLocaleDateString()}</p>
@@ -343,11 +343,11 @@ export const CreditsContent: React.FC = () => {
                     <div
                       key={pack.id}
                       className={`bg-theme-surface border rounded-lg p-6 transition-colors ${
-                        pack.is_featured ? 'border-theme-info ring-1 ring-theme-accent' : 'border-theme hover:border-theme-info/50'
+                        pack.is_featured ? 'border-theme-info-border ring-1 ring-theme-accent' : 'border-theme hover:border-theme-info-border/50'
                       }`}
                     >
                       {pack.is_featured && (
-                        <span className="inline-block px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded mb-3">Featured</span>
+                        <span className="inline-block px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded mb-3">Featured</span>
                       )}
                       <h3 className="text-lg font-semibold text-theme-primary mb-1">{pack.name}</h3>
                       <p className="text-sm text-theme-secondary mb-4">{pack.description || `${pack.credits.toLocaleString()} credits`}</p>
@@ -358,7 +358,7 @@ export const CreditsContent: React.FC = () => {
                       <div className="flex items-center justify-between mb-4">
                         <span className="text-sm text-theme-primary">{pack.credits.toLocaleString()} credits</span>
                         {pack.bonus_credits > 0 && (
-                          <span className="text-sm text-theme-success">+{pack.bonus_credits.toLocaleString()} bonus</span>
+                          <span className="text-sm text-theme-success-fg">+{pack.bonus_credits.toLocaleString()} bonus</span>
                         )}
                       </div>
                       <button
@@ -435,7 +435,7 @@ export const CreditsContent: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm text-theme-primary">{tx.description || '-'}</td>
-                          <td className={`px-4 py-3 text-sm text-right font-medium ${tx.amount >= 0 ? 'text-theme-success' : 'text-theme-danger'}`}>
+                          <td className={`px-4 py-3 text-sm text-right font-medium ${tx.amount >= 0 ? 'text-theme-success-fg' : 'text-theme-danger-fg'}`}>
                             {tx.amount >= 0 ? '+' : ''}{tx.amount.toLocaleString()}
                           </td>
                           <td className="px-4 py-3 text-sm text-right text-theme-primary">{tx.balance_after.toLocaleString()}</td>
@@ -469,7 +469,7 @@ export const CreditsContent: React.FC = () => {
                   <div key={transfer.id} className="bg-theme-surface border border-theme rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
-                        <ArrowRightLeft size={16} className="text-theme-info" />
+                        <ArrowRightLeft size={16} className="text-theme-info-fg" />
                         <span className="font-medium text-theme-primary">{transfer.amount.toLocaleString()} credits</span>
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(transfer.status)}`}>
                           {transfer.status}

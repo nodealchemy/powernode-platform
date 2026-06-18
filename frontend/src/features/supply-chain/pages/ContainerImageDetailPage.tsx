@@ -197,26 +197,26 @@ export const ContainerImageDetailPage: React.FC = () => {
       <Card className="p-6">
         <h2 className="text-lg font-semibold text-theme-primary mb-4">Vulnerability Summary</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-theme-error/10 rounded-lg">
-            <div className="text-3xl font-bold text-theme-error">
+          <div className="text-center p-4 bg-theme-error-fg/10 rounded-lg">
+            <div className="text-3xl font-bold text-theme-error-fg">
               {image.critical_vuln_count}
             </div>
             <div className="text-sm text-theme-tertiary mt-1">Critical</div>
           </div>
-          <div className="text-center p-4 bg-theme-warning/10 rounded-lg">
-            <div className="text-3xl font-bold text-theme-warning">
+          <div className="text-center p-4 bg-theme-warning-fg/10 rounded-lg">
+            <div className="text-3xl font-bold text-theme-warning-fg">
               {image.high_vuln_count}
             </div>
             <div className="text-sm text-theme-tertiary mt-1">High</div>
           </div>
-          <div className="text-center p-4 bg-theme-info/10 rounded-lg">
-            <div className="text-3xl font-bold text-theme-info">
+          <div className="text-center p-4 bg-theme-info-fg/10 rounded-lg">
+            <div className="text-3xl font-bold text-theme-info-fg">
               {image.medium_vuln_count}
             </div>
             <div className="text-sm text-theme-tertiary mt-1">Medium</div>
           </div>
-          <div className="text-center p-4 bg-theme-success/10 rounded-lg">
-            <div className="text-3xl font-bold text-theme-success">
+          <div className="text-center p-4 bg-theme-success-fg/10 rounded-lg">
+            <div className="text-3xl font-bold text-theme-success-fg">
               {image.low_vuln_count}
             </div>
             <div className="text-sm text-theme-tertiary mt-1">Low</div>
@@ -243,10 +243,10 @@ export const ContainerImageDetailPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex gap-4 text-sm">
-                  <span className="text-theme-error">C: {scan.critical_count}</span>
-                  <span className="text-theme-warning">H: {scan.high_count}</span>
-                  <span className="text-theme-info">M: {scan.medium_count}</span>
-                  <span className="text-theme-success">L: {scan.low_count}</span>
+                  <span className="text-theme-error-fg">C: {scan.critical_count}</span>
+                  <span className="text-theme-warning-fg">H: {scan.high_count}</span>
+                  <span className="text-theme-info-fg">M: {scan.medium_count}</span>
+                  <span className="text-theme-success-fg">L: {scan.low_count}</span>
                 </div>
               </div>
             ))}

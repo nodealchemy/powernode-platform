@@ -452,7 +452,7 @@ describe('LicensePolicyDetailPage', () => {
 
     it('shows check icon for enabled restrictions', () => {
       const { container } = renderComponent();
-      const checkIcons = container.querySelectorAll('svg.text-theme-success');
+      const checkIcons = container.querySelectorAll('svg.text-theme-success-fg');
       expect(checkIcons.length).toBeGreaterThan(0);
     });
 

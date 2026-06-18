@@ -57,10 +57,10 @@ export const spanTypeIcons: Record<string, React.FC<{ className?: string }>> = {
 
 export const statusConfig: Record<string, { icon: React.FC<{ className?: string }>; color: string; bgColor: string }> = {
   pending: { icon: Clock, color: 'text-theme-tertiary', bgColor: 'bg-theme-background-secondary/10' },
-  running: { icon: Loader2, color: 'text-theme-info', bgColor: 'bg-theme-info/10' },
-  completed: { icon: CheckCircle, color: 'text-theme-success', bgColor: 'bg-theme-success/10' },
-  failed: { icon: XCircle, color: 'text-theme-danger', bgColor: 'bg-theme-danger/10' },
-  cancelled: { icon: AlertCircle, color: 'text-theme-warning', bgColor: 'bg-theme-warning/10' },
+  running: { icon: Loader2, color: 'text-theme-info-fg', bgColor: 'bg-theme-info-fg/10' },
+  completed: { icon: CheckCircle, color: 'text-theme-success-fg', bgColor: 'bg-theme-success-fg/10' },
+  failed: { icon: XCircle, color: 'text-theme-danger-fg', bgColor: 'bg-theme-danger-fg/10' },
+  cancelled: { icon: AlertCircle, color: 'text-theme-warning-fg', bgColor: 'bg-theme-warning-fg/10' },
 };
 
 export const formatDuration = (ms: number | null) => {

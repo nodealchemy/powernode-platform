@@ -53,10 +53,10 @@ const KillSwitchButton: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Status indicator */}
-      <div className={`flex items-center gap-3 p-4 rounded-lg border ${halted ? 'border-theme-error/50 bg-theme-error/5' : 'border-theme-success/50 bg-theme-success/5'}`}>
-        <div className={`h-3 w-3 rounded-full ${halted ? 'bg-theme-error animate-pulse' : 'bg-theme-success'}`} />
+      <div className={`flex items-center gap-3 p-4 rounded-lg border ${halted ? 'border-theme-error-border/50 bg-theme-error-fg/5' : 'border-theme-success-border/50 bg-theme-success-fg/5'}`}>
+        <div className={`h-3 w-3 rounded-full ${halted ? 'bg-theme-error-bg animate-pulse' : 'bg-theme-success-bg'}`} />
         <div className="flex-1">
-          <p className={`font-medium ${halted ? 'text-theme-error' : 'text-theme-success'}`}>
+          <p className={`font-medium ${halted ? 'text-theme-error-fg' : 'text-theme-success-fg'}`}>
             {halted ? 'AI SUSPENDED' : 'AI Active'}
           </p>
           {halted && status?.halted_since && (
@@ -79,12 +79,12 @@ const KillSwitchButton: React.FC = () => {
 
       {/* Confirmation dialog */}
       {showConfirm && (
-        <Card className="border-theme-warning/50">
+        <Card className="border-theme-warning-border/50">
           <CardContent className="p-4">
             {halted ? (
               /* Resume confirmation */
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-theme-warning">
+                <div className="flex items-center gap-2 text-theme-warning-fg">
                   <PlayCircle className="h-5 w-5" />
                   <h4 className="font-medium">Resume AI Activity</h4>
                 </div>
@@ -97,11 +97,11 @@ const KillSwitchButton: React.FC = () => {
                 )}
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" checked={resumeMode === 'full'} onChange={() => setResumeMode('full')} className="text-theme-info" />
+                    <input type="radio" checked={resumeMode === 'full'} onChange={() => setResumeMode('full')} className="text-theme-info-fg" />
                     <span className="text-sm text-theme-primary">Full restore</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" checked={resumeMode === 'minimal'} onChange={() => setResumeMode('minimal')} className="text-theme-info" />
+                    <input type="radio" checked={resumeMode === 'minimal'} onChange={() => setResumeMode('minimal')} className="text-theme-info-fg" />
                     <span className="text-sm text-theme-primary">Minimal (lift suspension only)</span>
                   </label>
                 </div>
@@ -115,7 +115,7 @@ const KillSwitchButton: React.FC = () => {
             ) : (
               /* Halt confirmation */
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-theme-error">
+                <div className="flex items-center gap-2 text-theme-error-fg">
                   <AlertTriangle className="h-5 w-5" />
                   <h4 className="font-medium">Confirm Emergency Stop</h4>
                 </div>
@@ -127,7 +127,7 @@ const KillSwitchButton: React.FC = () => {
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Reason for emergency halt..."
-                  className="w-full px-3 py-2 text-sm rounded-md border border-theme bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-error"
+                  className="w-full px-3 py-2 text-sm rounded-md border border-theme bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-error-fg"
                 />
                 <div className="flex gap-2">
                   <button onClick={handleHalt} disabled={haltMutation.isPending} className="btn-theme btn-theme-danger btn-theme-sm">
@@ -159,13 +159,13 @@ const KillSwitchEventLog: React.FC = () => {
       {events.map((event) => (
         <div key={event.id} className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg border border-theme">
           {event.event_type === 'halt' ? (
-            <Power className="h-4 w-4 text-theme-error mt-0.5 shrink-0" />
+            <Power className="h-4 w-4 text-theme-error-fg mt-0.5 shrink-0" />
           ) : (
-            <PlayCircle className="h-4 w-4 text-theme-success mt-0.5 shrink-0" />
+            <PlayCircle className="h-4 w-4 text-theme-success-fg mt-0.5 shrink-0" />
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className={`text-sm font-medium ${event.event_type === 'halt' ? 'text-theme-error' : 'text-theme-success'}`}>
+              <span className={`text-sm font-medium ${event.event_type === 'halt' ? 'text-theme-error-fg' : 'text-theme-success-fg'}`}>
                 {event.event_type === 'halt' ? 'Emergency Halt' : 'Resumed'}
               </span>
               <span className="text-xs text-theme-tertiary">{new Date(event.created_at).toLocaleString()}</span>

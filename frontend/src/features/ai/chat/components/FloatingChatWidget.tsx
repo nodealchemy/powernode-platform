@@ -46,7 +46,7 @@ export const FloatingChatWidget: React.FC = () => {
       >
         <Bot className="h-6 w-6" />
         {totalUnread > 0 && (
-          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1 text-[10px] font-bold rounded-full bg-theme-danger text-white">
+          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1 text-[10px] font-bold rounded-full bg-theme-danger-bg text-white">
             {totalUnread > 99 ? '99+' : totalUnread}
           </span>
         )}

@@ -119,7 +119,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
       <Modal isOpen={isOpen} onClose={onClose} title="Error Loading Conversation" maxWidth="md" icon={<MessageSquare />}
         footer={<Button variant="outline" onClick={onClose}>Close</Button>}>
         <div className="text-center py-8">
-          <p className="text-theme-danger">{error}</p>
+          <p className="text-theme-danger-fg">{error}</p>
           <Button variant="outline" onClick={loadConversation} className="mt-4">Try Again</Button>
         </div>
       </Modal>

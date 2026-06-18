@@ -74,7 +74,7 @@ describe('ApiKeyModal', () => {
       scope.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
     );
     mockGetScopeCategory.mockReturnValue('General');
-    mockGetScopeCategoryColor.mockReturnValue('bg-theme-info text-theme-info');
+    mockGetScopeCategoryColor.mockReturnValue('bg-theme-info-bg text-theme-info-fg');
   });
 
   describe('closed state', () => {

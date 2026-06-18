@@ -213,15 +213,15 @@ export const WorkerSettingsTab: React.FC<WorkerSettingsTabProps> = ({
               </FlexBetween>
               <FlexBetween>
                 <span className="text-theme-secondary">Active Workers:</span>
-                <span className="text-theme-success">{workers.filter(w => w.status === 'active').length}</span>
+                <span className="text-theme-success-fg">{workers.filter(w => w.status === 'active').length}</span>
               </FlexBetween>
               <FlexBetween>
                 <span className="text-theme-secondary">System Workers:</span>
-                <span className="text-theme-info">{workers.filter(w => w.account_name === 'System').length}</span>
+                <span className="text-theme-info-fg">{workers.filter(w => w.account_name === 'System').length}</span>
               </FlexBetween>
               <FlexBetween>
                 <span className="text-theme-secondary">Account Workers:</span>
-                <span className="text-theme-warning">{workers.filter(w => w.account_name !== 'System').length}</span>
+                <span className="text-theme-warning-fg">{workers.filter(w => w.account_name !== 'System').length}</span>
               </FlexBetween>
             </div>
           </div>
@@ -242,11 +242,11 @@ export const WorkerSettingsTab: React.FC<WorkerSettingsTabProps> = ({
               </FlexBetween>
               <FlexBetween>
                 <span className="text-theme-secondary">Recently Active:</span>
-                <span className="text-theme-success">{workers.filter(w => w.active_recently).length}</span>
+                <span className="text-theme-success-fg">{workers.filter(w => w.active_recently).length}</span>
               </FlexBetween>
               <FlexBetween>
                 <span className="text-theme-secondary">System Uptime:</span>
-                <span className="text-theme-success">99.8%</span>
+                <span className="text-theme-success-fg">99.8%</span>
               </FlexBetween>
             </div>
           </div>

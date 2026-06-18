@@ -62,8 +62,8 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <div className="bg-theme-surface rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-info bg-opacity-10">
-              <Globe className="w-5 h-5 text-theme-info" />
+            <div className="p-2 rounded-lg bg-theme-info-bg">
+              <Globe className="w-5 h-5 text-theme-info-fg" />
             </div>
             <div>
               <p className="text-2xl font-bold text-theme-primary">{stats.total_endpoints}</p>
@@ -74,8 +74,8 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
 
         <div className="bg-theme-surface rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-success bg-opacity-10">
-              <CheckCircle className="w-5 h-5 text-theme-success" />
+            <div className="p-2 rounded-lg bg-theme-success-bg">
+              <CheckCircle className="w-5 h-5 text-theme-success-fg" />
             </div>
             <div>
               <p className="text-2xl font-bold text-theme-primary">{stats.active_endpoints}</p>
@@ -86,7 +86,7 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
 
         <div className="bg-theme-surface rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-background-secondary bg-opacity-10">
+            <div className="p-2 rounded-lg bg-theme-background-secondary/10">
               <Clock className="w-5 h-5 text-theme-tertiary" />
             </div>
             <div>
@@ -98,8 +98,8 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
 
         <div className="bg-theme-surface rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-info bg-opacity-10">
-              <Activity className="w-5 h-5 text-theme-info" />
+            <div className="p-2 rounded-lg bg-theme-info-bg">
+              <Activity className="w-5 h-5 text-theme-info-fg" />
             </div>
             <div>
               <p className="text-2xl font-bold text-theme-primary">{stats.total_deliveries_today}</p>
@@ -110,8 +110,8 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
 
         <div className="bg-theme-surface rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-success bg-opacity-10">
-              <CheckCircle className="w-5 h-5 text-theme-success" />
+            <div className="p-2 rounded-lg bg-theme-success-bg">
+              <CheckCircle className="w-5 h-5 text-theme-success-fg" />
             </div>
             <div>
               <p className="text-2xl font-bold text-theme-primary">{stats.successful_deliveries_today}</p>
@@ -122,8 +122,8 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
 
         <div className="bg-theme-surface rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-error bg-opacity-10">
-              <AlertTriangle className="w-5 h-5 text-theme-error" />
+            <div className="p-2 rounded-lg bg-theme-error-bg">
+              <AlertTriangle className="w-5 h-5 text-theme-error-fg" />
             </div>
             <div>
               <p className="text-2xl font-bold text-theme-primary">{stats.failed_deliveries_today}</p>
@@ -141,8 +141,8 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
             Success Rate Today
           </h3>
           <div className={`flex items-center gap-2 text-sm font-medium ${
-            successRate >= 95 ? 'text-theme-success' :
-            successRate >= 80 ? 'text-theme-warning' : 'text-theme-error'
+            successRate >= 95 ? 'text-theme-success-fg' :
+            successRate >= 80 ? 'text-theme-warning-fg' : 'text-theme-error-fg'
           }`}>
             {successRate >= 95 ? (
               <TrendingUp className="w-4 h-4" />
@@ -157,8 +157,8 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
           <div className="w-full bg-theme-background rounded-full h-3">
             <div 
               className={`h-3 rounded-full transition-all duration-300 ${
-                successRate >= 95 ? 'bg-theme-success' :
-                successRate >= 80 ? 'bg-theme-warning' : 'bg-theme-error'
+                successRate >= 95 ? 'bg-theme-success-bg' :
+                successRate >= 80 ? 'bg-theme-warning-bg' : 'bg-theme-error-bg'
               }`}
               style={{ width: `${successRate}%` }}
             />
@@ -209,13 +209,13 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-theme-secondary">Pending Retries</span>
-                  <span className="font-medium text-theme-warning">
+                  <span className="font-medium text-theme-warning-fg">
                     {detailedStats.retry_statistics.pending_retries}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-theme-secondary">Max Retries Reached</span>
-                  <span className="font-medium text-theme-error">
+                  <span className="font-medium text-theme-error-fg">
                     {detailedStats.retry_statistics.max_retries_reached}
                   </span>
                 </div>
@@ -244,7 +244,7 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
                           {url.length > 50 ? url.substring(0, 47) + '...' : url}
                         </span>
                       </div>
-                      <span className="bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary px-2 py-1 rounded text-sm font-medium ml-2">
+                      <span className="bg-theme-interactive-primary/10 text-theme-interactive-primary px-2 py-1 rounded text-sm font-medium ml-2">
                         {count}
                       </span>
                     </div>
@@ -318,7 +318,7 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
                         </div>
                         <div className="w-full bg-theme-background rounded-full h-2">
                           <div 
-                            className="h-2 bg-theme-success rounded-full transition-all duration-300"
+                            className="h-2 bg-theme-success-bg rounded-full transition-all duration-300"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -332,7 +332,7 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
       )}
 
       {/* Health Summary */}
-      <div className="bg-theme-interactive-primary bg-opacity-5 border border-theme-interactive-primary rounded-lg p-6">
+      <div className="bg-theme-interactive-primary/5 border border-theme-interactive-primary rounded-lg p-6">
         <h3 className="text-lg font-semibold text-theme-interactive-primary mb-4">
           Webhook Health Summary
         </h3>
@@ -346,7 +346,7 @@ export const WebhookStats: React.FC<WebhookStatsProps> = ({
               </li>
               <li>• {successRate}% success rate today</li>
               {detailedStats && detailedStats.retry_statistics.pending_retries > 0 && (
-                <li className="text-theme-warning">
+                <li className="text-theme-warning-fg">
                   • {detailedStats.retry_statistics.pending_retries} pending retries
                 </li>
               )}

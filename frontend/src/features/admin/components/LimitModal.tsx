@@ -44,7 +44,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({ isOpen, plan, feature, c
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-theme-surface rounded-lg shadow-xl max-w-lg w-full">
         <div className="px-6 py-4 border-b border-theme">
           <h3 className="text-lg font-semibold text-theme-primary">
@@ -55,8 +55,8 @@ export const LimitModal: React.FC<LimitModalProps> = ({ isOpen, plan, feature, c
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Errors */}
           {errors.length > 0 && (
-            <div className="bg-theme-error border border-theme-error rounded-lg p-4">
-              <ul className="list-disc list-inside text-sm text-theme-error space-y-1">
+            <div className="bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
+              <ul className="list-disc list-inside text-sm text-theme-error-fg space-y-1">
                 {errors.map((error, index) => (
                   <li key={index}>{error}</li>
                 ))}

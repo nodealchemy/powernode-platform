@@ -185,12 +185,12 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
                   </td>
                   <td className="py-3 px-3">
                     {entry.access_level === 'public' ? (
-                      <span className="flex items-center gap-1 text-theme-success text-xs">
+                      <span className="flex items-center gap-1 text-theme-success-fg text-xs">
                         <Globe className="h-3 w-3" />
                         Public
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-theme-warning text-xs">
+                      <span className="flex items-center gap-1 text-theme-warning-fg text-xs">
                         <Lock className="h-3 w-3" />
                         {entry.access_level}
                       </span>
@@ -226,7 +226,7 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
                   </td>
                   <td className="py-3 px-3 text-center">
                     {entry.has_embedding ? (
-                      <Sparkles className="h-4 w-4 text-theme-success mx-auto" />
+                      <Sparkles className="h-4 w-4 text-theme-success-fg mx-auto" />
                     ) : (
                       <span className="text-theme-tertiary text-xs">-</span>
                     )}

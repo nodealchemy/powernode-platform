@@ -168,7 +168,7 @@ export const CodeFactoryContent: React.FC<{
               onClick={() => navigateTab(tab.id)}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'text-theme-info border-b-2 border-theme-info'
+                  ? 'text-theme-info-fg border-b-2 border-theme-info-border'
                   : 'text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -194,7 +194,7 @@ export const CodeFactoryContent: React.FC<{
                   <h3 className="text-sm font-semibold text-theme-primary">Active Contracts</h3>
                   <button
                     onClick={() => navigateTab('contracts')}
-                    className="text-xs text-theme-info hover:underline"
+                    className="text-xs text-theme-info-fg hover:underline"
                   >
                     View All
                   </button>
@@ -210,7 +210,7 @@ export const CodeFactoryContent: React.FC<{
                   <h3 className="text-sm font-semibold text-theme-primary">Recent Runs</h3>
                   <button
                     onClick={() => navigateTab('runs')}
-                    className="text-xs text-theme-info hover:underline"
+                    className="text-xs text-theme-info-fg hover:underline"
                   >
                     View All
                   </button>
@@ -229,13 +229,13 @@ export const CodeFactoryContent: React.FC<{
                   <h3 className="text-sm font-semibold text-theme-primary">Harness Gaps</h3>
                   <button
                     onClick={() => navigateTab('harness-gaps')}
-                    className="text-xs text-theme-info hover:underline"
+                    className="text-xs text-theme-info-fg hover:underline"
                   >
                     View All
                   </button>
                 </div>
                 {harnessGaps.filter(g => g.status === 'open' || g.status === 'in_progress').length === 0 ? (
-                  <div className="text-xs text-theme-success text-center py-4">No open gaps</div>
+                  <div className="text-xs text-theme-success-fg text-center py-4">No open gaps</div>
                 ) : (
                   <div className="space-y-2">
                     {harnessGaps
@@ -244,9 +244,9 @@ export const CodeFactoryContent: React.FC<{
                       .map((gap) => (
                         <div key={gap.id} className="flex items-center gap-2 bg-theme-surface-bg rounded-lg px-3 py-2">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            gap.severity === 'critical' ? 'bg-theme-danger/20 text-theme-danger'
-                              : gap.severity === 'high' ? 'bg-theme-error text-theme-error'
-                              : gap.severity === 'medium' ? 'bg-theme-warning text-theme-warning'
+                            gap.severity === 'critical' ? 'bg-theme-danger-fg/20 text-theme-danger-fg'
+                              : gap.severity === 'high' ? 'bg-theme-error-bg text-theme-error-fg'
+                              : gap.severity === 'medium' ? 'bg-theme-warning-bg text-theme-warning-fg'
                               : 'bg-theme-surface-bg text-theme-secondary'
                           }`}>
                             {gap.severity}
@@ -254,7 +254,7 @@ export const CodeFactoryContent: React.FC<{
                           <EntityLink type="harness_gap" id={gap.id} label={gap.incident_id} className="text-xs font-mono" />
                           <span className="text-xs text-theme-secondary truncate flex-1">{gap.description}</span>
                           {gap.test_case_added && (
-                            <span className="text-[10px] text-theme-success flex-shrink-0">{'\u2713'} Test</span>
+                            <span className="text-[10px] text-theme-success-fg flex-shrink-0">{'\u2713'} Test</span>
                           )}
                         </div>
                       ))}
@@ -271,7 +271,7 @@ export const CodeFactoryContent: React.FC<{
                   <h3 className="text-sm font-semibold text-theme-primary">Evidence</h3>
                   <button
                     onClick={() => navigateTab('evidence')}
-                    className="text-xs text-theme-info hover:underline"
+                    className="text-xs text-theme-info-fg hover:underline"
                   >
                     View All
                   </button>
@@ -291,16 +291,16 @@ export const CodeFactoryContent: React.FC<{
                   return (
                     <div className="space-y-3">
                       <div className="grid grid-cols-3 gap-2">
-                        <div className="bg-theme-success rounded-lg p-2 text-center">
-                          <div className="text-lg font-semibold text-theme-success">{verified}</div>
+                        <div className="bg-theme-success-bg rounded-lg p-2 text-center">
+                          <div className="text-lg font-semibold text-theme-success-fg">{verified}</div>
                           <div className="text-[10px] text-theme-secondary">Verified</div>
                         </div>
                         <div className="bg-theme-surface-bg rounded-lg p-2 text-center">
                           <div className="text-lg font-semibold text-theme-primary">{pending}</div>
                           <div className="text-[10px] text-theme-secondary">Pending</div>
                         </div>
-                        <div className="bg-theme-error rounded-lg p-2 text-center">
-                          <div className="text-lg font-semibold text-theme-error">{failed}</div>
+                        <div className="bg-theme-error-bg rounded-lg p-2 text-center">
+                          <div className="text-lg font-semibold text-theme-error-fg">{failed}</div>
                           <div className="text-[10px] text-theme-secondary">Failed</div>
                         </div>
                       </div>
@@ -319,8 +319,8 @@ export const CodeFactoryContent: React.FC<{
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <span className="text-[10px] text-theme-secondary">{m.assertions.length} assertions</span>
                               <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                                m.status === 'verified' ? 'bg-theme-success text-theme-success'
-                                  : m.status === 'failed' ? 'bg-theme-error text-theme-error'
+                                m.status === 'verified' ? 'bg-theme-success-bg text-theme-success-fg'
+                                  : m.status === 'failed' ? 'bg-theme-error-bg text-theme-error-fg'
                                   : 'bg-theme-surface-bg text-theme-secondary'
                               }`}>
                                 {m.status}

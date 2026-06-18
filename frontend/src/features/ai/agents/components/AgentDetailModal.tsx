@@ -154,7 +154,7 @@ export const AgentDetailModal: React.FC = () => {
     if (error && !agent) {
       return (
         <div className="flex items-center justify-center py-20">
-          <p className="text-sm text-theme-error">{error}</p>
+          <p className="text-sm text-theme-error-fg">{error}</p>
         </div>
       );
     }
@@ -166,8 +166,8 @@ export const AgentDetailModal: React.FC = () => {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-              <Brain className="h-5 w-5 text-theme-info" />
+            <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+              <Brain className="h-5 w-5 text-theme-info-fg" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-theme-primary">{agent.name}</h2>
@@ -250,9 +250,9 @@ export const AgentDetailModal: React.FC = () => {
               <span className="text-xs text-theme-secondary">Success Rate</span>
               <span className={cn(
                 'text-xs font-medium',
-                successRate >= 80 ? 'text-theme-success' :
-                successRate >= 50 ? 'text-theme-warning' :
-                'text-theme-error'
+                successRate >= 80 ? 'text-theme-success-fg' :
+                successRate >= 50 ? 'text-theme-warning-fg' :
+                'text-theme-error-fg'
               )}>
                 {successRate}%
               </span>

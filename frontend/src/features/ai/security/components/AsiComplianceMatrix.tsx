@@ -18,15 +18,15 @@ const STATUS_CONFIG: Record<ComplianceStatus, {
 };
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return 'text-theme-success';
-  if (score >= 50) return 'text-theme-warning';
-  return 'text-theme-error';
+  if (score >= 80) return 'text-theme-success-fg';
+  if (score >= 50) return 'text-theme-warning-fg';
+  return 'text-theme-error-fg';
 }
 
 function getProgressBarColor(score: number): string {
-  if (score >= 80) return 'bg-theme-success';
-  if (score >= 50) return 'bg-theme-warning';
-  return 'bg-theme-error';
+  if (score >= 80) return 'bg-theme-success-bg';
+  if (score >= 50) return 'bg-theme-warning-bg';
+  return 'bg-theme-error-bg';
 }
 
 const ComplianceRow: React.FC<{ item: AsiComplianceItem }> = ({ item }) => {
@@ -117,15 +117,15 @@ export const AsiComplianceMatrix: React.FC = () => {
         </Card>
         <Card className="p-4 text-center">
           <p className="text-xs text-theme-tertiary">Compliant</p>
-          <p className="text-3xl font-bold text-theme-success">{compliantCount}</p>
+          <p className="text-3xl font-bold text-theme-success-fg">{compliantCount}</p>
         </Card>
         <Card className="p-4 text-center">
           <p className="text-xs text-theme-tertiary">Partial</p>
-          <p className="text-3xl font-bold text-theme-warning">{partialCount}</p>
+          <p className="text-3xl font-bold text-theme-warning-fg">{partialCount}</p>
         </Card>
         <Card className="p-4 text-center">
           <p className="text-xs text-theme-tertiary">Non-Compliant</p>
-          <p className="text-3xl font-bold text-theme-error">{nonCompliantCount}</p>
+          <p className="text-3xl font-bold text-theme-error-fg">{nonCompliantCount}</p>
         </Card>
       </div>
 

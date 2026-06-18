@@ -14,15 +14,15 @@ interface Props {
 
 const statusColors: Record<string, string> = {
   draft: 'bg-theme-surface-bg text-theme-secondary',
-  active: 'bg-theme-success text-theme-success',
-  archived: 'bg-theme-warning text-theme-warning',
+  active: 'bg-theme-success-bg text-theme-success-fg',
+  archived: 'bg-theme-warning-bg text-theme-warning-fg',
 };
 
 const tierColors: Record<string, string> = {
   low: 'text-theme-secondary',
-  standard: 'text-theme-info',
-  high: 'text-theme-warning',
-  critical: 'text-theme-error',
+  standard: 'text-theme-info-fg',
+  high: 'text-theme-warning-fg',
+  critical: 'text-theme-error-fg',
 };
 
 export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onActivate, onSave, onNavigateToContract }) => {
@@ -126,7 +126,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                 {!compact && contract.status === 'draft' && onActivate && (
                   <button
                     onClick={() => onActivate(contract.id)}
-                    className="px-3 py-1 text-xs font-medium bg-theme-info text-theme-on-primary rounded hover:opacity-90 transition-opacity"
+                    className="px-3 py-1 text-xs font-medium bg-theme-info-bg text-theme-on-primary rounded hover:opacity-90 transition-opacity"
                   >
                     Activate
                   </button>
@@ -171,7 +171,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                 {onNavigateToContract && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onNavigateToContract(contract.id); }}
-                    className="text-xs text-theme-info hover:underline"
+                    className="text-xs text-theme-info-fg hover:underline"
                   >
                     View Full Contract →
                   </button>
@@ -209,7 +209,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                         <button
                           onClick={() => handleSave(contract)}
                           disabled={saving || !editName.trim()}
-                          className="px-3 py-1 text-xs font-medium bg-theme-info text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
+                          className="px-3 py-1 text-xs font-medium bg-theme-info-bg text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
                         >
                           {saving ? 'Saving...' : 'Save'}
                         </button>
@@ -218,7 +218,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                       onSave && contract.status !== 'archived' && (
                         <button
                           onClick={() => startEditing(contract)}
-                          className="px-3 py-1 text-xs text-theme-info hover:underline"
+                          className="px-3 py-1 text-xs text-theme-info-fg hover:underline"
                         >
                           Edit
                         </button>
@@ -245,7 +245,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                   <div className="flex items-center justify-between mb-2">
                     <h5 className="text-xs font-semibold text-theme-secondary uppercase tracking-wider">Risk Tiers</h5>
                     {isEditing && (
-                      <button onClick={addTier} className="text-xs text-theme-info hover:underline">+ Add Tier</button>
+                      <button onClick={addTier} className="text-xs text-theme-info-fg hover:underline">+ Add Tier</button>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -265,7 +265,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                                 <option value="critical">Critical</option>
                               </select>
                               {editTiers.length > 1 && (
-                                <button onClick={() => removeTier(index)} className="text-xs text-theme-error hover:underline">
+                                <button onClick={() => removeTier(index)} className="text-xs text-theme-error-fg hover:underline">
                                   Remove
                                 </button>
                               )}
@@ -317,10 +317,10 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                                   {tier.tier}
                                 </span>
                                 {tier.evidence_required && (
-                                  <span className="px-1.5 py-0.5 text-[10px] bg-theme-warning text-theme-warning rounded">evidence</span>
+                                  <span className="px-1.5 py-0.5 text-[10px] bg-theme-warning-bg text-theme-warning-fg rounded">evidence</span>
                                 )}
                                 {tier.min_reviewers > 0 && (
-                                  <span className="px-1.5 py-0.5 text-[10px] bg-theme-info text-theme-info rounded">
+                                  <span className="px-1.5 py-0.5 text-[10px] bg-theme-info-bg text-theme-info-fg rounded">
                                     {tier.min_reviewers} reviewer{tier.min_reviewers > 1 ? 's' : ''}
                                   </span>
                                 )}
@@ -335,7 +335,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                               {tier.required_checks.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-0.5">
                                   {tier.required_checks.map((check, ci) => (
-                                    <span key={ci} className="text-xs text-theme-info bg-theme-info/10 px-1.5 py-0.5 rounded">
+                                    <span key={ci} className="text-xs text-theme-info-fg bg-theme-info-fg/10 px-1.5 py-0.5 rounded">
                                       {check}
                                     </span>
                                   ))}

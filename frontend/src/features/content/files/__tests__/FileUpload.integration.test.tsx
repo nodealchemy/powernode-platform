@@ -293,14 +293,14 @@ describe('FileUpload Integration Tests', () => {
 
       // Wait for state update and check visual feedback
       await waitFor(() => {
-        expect(dropZone).toHaveClass('border-theme-info');
+        expect(dropZone).toHaveClass('border-theme-info-border');
       });
 
       fireEvent.dragLeave(dropZone!);
 
       // Visual feedback should be removed
       await waitFor(() => {
-        expect(dropZone).not.toHaveClass('border-theme-info');
+        expect(dropZone).not.toHaveClass('border-theme-info-border');
       });
     });
   });

@@ -72,9 +72,9 @@ export const AssessmentDetailPage: React.FC = () => {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-theme-success';
-    if (score >= 60) return 'text-theme-warning';
-    return 'text-theme-error';
+    if (score >= 80) return 'text-theme-success-fg';
+    if (score >= 60) return 'text-theme-warning-fg';
+    return 'text-theme-error-fg';
   };
 
   const getSeverityVariant = (severity: string) => {
@@ -92,11 +92,11 @@ export const AssessmentDetailPage: React.FC = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'resolved':
-        return <CheckCircle className="w-4 h-4 text-theme-success" />;
+        return <CheckCircle className="w-4 h-4 text-theme-success-fg" />;
       case 'in_progress':
-        return <AlertCircle className="w-4 h-4 text-theme-warning" />;
+        return <AlertCircle className="w-4 h-4 text-theme-warning-fg" />;
       default:
-        return <AlertCircle className="w-4 h-4 text-theme-error" />;
+        return <AlertCircle className="w-4 h-4 text-theme-error-fg" />;
     }
   };
 

@@ -25,8 +25,8 @@ export const AIDebugPage: React.FC = () => {
       <div className="max-w-4xl">
         <AIPermissionsDebug />
         
-        <div className="mt-6 p-4 bg-theme-info bg-opacity-5 border border-theme-info rounded-lg">
-          <h4 className="font-medium text-theme-info mb-2">Troubleshooting Steps</h4>
+        <div className="mt-6 p-4 bg-theme-info-bg border border-theme-info-border rounded-lg">
+          <h4 className="font-medium text-theme-info-fg mb-2">Troubleshooting Steps</h4>
           <ol className="list-decimal list-inside space-y-2 text-sm text-theme-tertiary">
             <li>If "Not Authenticated": Click "Refresh Session" or reload the page</li>
             <li>If "No Access Token": Clear browser storage and sign in again</li>

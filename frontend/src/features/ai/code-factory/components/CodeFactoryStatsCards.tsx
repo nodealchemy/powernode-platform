@@ -21,9 +21,9 @@ const STEPS = ['Preflight', 'Review', 'Remediation', 'Verify', 'Evidence', 'Comp
 
 const severityColors: Record<string, string> = {
   low: 'bg-theme-surface-bg text-theme-secondary',
-  medium: 'bg-theme-warning text-theme-warning',
-  high: 'bg-theme-error text-theme-error',
-  critical: 'bg-theme-danger/20 text-theme-danger',
+  medium: 'bg-theme-warning-bg text-theme-warning-fg',
+  high: 'bg-theme-error-bg text-theme-error-fg',
+  critical: 'bg-theme-danger-fg/20 text-theme-danger-fg',
 };
 
 const MiniProgressBar: React.FC<{ status: string }> = ({ status }) => {
@@ -36,9 +36,9 @@ const MiniProgressBar: React.FC<{ status: string }> = ({ status }) => {
           key={i}
           className={`h-1 flex-1 rounded-full ${
             idx > i
-              ? 'bg-theme-success'
+              ? 'bg-theme-success-bg'
               : idx === i
-              ? isFailed ? 'bg-theme-error' : 'bg-theme-info'
+              ? isFailed ? 'bg-theme-error-bg' : 'bg-theme-info-bg'
               : 'bg-theme-background-secondary'
           }`}
         />
@@ -76,10 +76,10 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all"
           onClick={() => toggleExpand('contracts')}
         >
-          <div className="text-2xl font-bold text-theme-info">{activeContracts.length}</div>
+          <div className="text-2xl font-bold text-theme-info-fg">{activeContracts.length}</div>
           <div className="text-xs text-theme-secondary mt-0.5">Active Contracts</div>
           {draftContracts.length > 0 && (
-            <div className="text-[10px] text-theme-warning mt-0.5">{draftContracts.length} draft</div>
+            <div className="text-[10px] text-theme-warning-fg mt-0.5">{draftContracts.length} draft</div>
           )}
         </div>
 
@@ -88,7 +88,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all"
           onClick={() => toggleExpand('runs')}
         >
-          <div className="text-2xl font-bold text-theme-info">{activeRuns.length}</div>
+          <div className="text-2xl font-bold text-theme-info-fg">{activeRuns.length}</div>
           <div className="text-xs text-theme-secondary mt-0.5">Active Runs</div>
           {activeRuns.length > 0 && (
             <div className="mt-1"><MiniProgressBar status={activeRuns[0].status} /></div>
@@ -100,7 +100,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all"
           onClick={() => onNavigateTab?.('runs')}
         >
-          <div className="text-2xl font-bold text-theme-success">{cleanReviews.length}</div>
+          <div className="text-2xl font-bold text-theme-success-fg">{cleanReviews.length}</div>
           <div className="text-xs text-theme-secondary mt-0.5">Clean</div>
         </div>
 
@@ -109,18 +109,18 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all"
           onClick={() => onNavigateTab?.('runs')}
         >
-          <div className="text-2xl font-bold text-theme-error">{dirtyReviews.length}</div>
+          <div className="text-2xl font-bold text-theme-error-fg">{dirtyReviews.length}</div>
           <div className="text-xs text-theme-secondary mt-0.5">Dirty</div>
         </div>
 
         {/* SLA Compliance */}
         <div
           className={`card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all ${
-            slaRate < 80 ? 'border-l-2 border-theme-error' : ''
+            slaRate < 80 ? 'border-l-2 border-theme-error-border' : ''
           }`}
           onClick={() => toggleExpand('sla')}
         >
-          <div className={`text-2xl font-bold ${slaRate >= 90 ? 'text-theme-success' : slaRate >= 70 ? 'text-theme-warning' : 'text-theme-error'}`}>
+          <div className={`text-2xl font-bold ${slaRate >= 90 ? 'text-theme-success-fg' : slaRate >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
             {slaRate.toFixed(0)}%
           </div>
           <div className="text-xs text-theme-secondary mt-0.5">SLA Compliance</div>
@@ -129,14 +129,14 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
         {/* Open Gaps */}
         <div
           className={`card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all ${
-            criticalGaps.length > 0 ? 'border-l-2 border-theme-error' : ''
+            criticalGaps.length > 0 ? 'border-l-2 border-theme-error-border' : ''
           }`}
           onClick={() => toggleExpand('gaps')}
         >
-          <div className="text-2xl font-bold text-theme-warning">{openGaps.length}</div>
+          <div className="text-2xl font-bold text-theme-warning-fg">{openGaps.length}</div>
           <div className="text-xs text-theme-secondary mt-0.5">Open Gaps</div>
           {criticalGaps.length > 0 && (
-            <div className="text-[10px] text-theme-error mt-0.5">{criticalGaps.length} critical/high</div>
+            <div className="text-[10px] text-theme-error-fg mt-0.5">{criticalGaps.length} critical/high</div>
           )}
         </div>
       </div>
@@ -146,7 +146,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
         <div className="card-theme p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-theme-primary">Contract Overview</h4>
-            <button onClick={() => onNavigateTab?.('contracts')} className="text-xs text-theme-info hover:underline">
+            <button onClick={() => onNavigateTab?.('contracts')} className="text-xs text-theme-info-fg hover:underline">
               View All
             </button>
           </div>
@@ -160,10 +160,10 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                     <span className="text-sm text-theme-primary truncate">{contract.name}</span>
                     <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                       contract.status === 'active'
-                        ? 'bg-theme-success text-theme-success'
+                        ? 'bg-theme-success-bg text-theme-success-fg'
                         : contract.status === 'draft'
                         ? 'bg-theme-surface-bg text-theme-secondary border border-theme'
-                        : 'bg-theme-warning text-theme-warning'
+                        : 'bg-theme-warning-bg text-theme-warning-fg'
                     }`}>
                       {contract.status}
                     </span>
@@ -185,7 +185,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
         <div className="card-theme p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-theme-primary">Active Runs</h4>
-            <button onClick={() => onNavigateTab?.('runs')} className="text-xs text-theme-info hover:underline">
+            <button onClick={() => onNavigateTab?.('runs')} className="text-xs text-theme-info-fg hover:underline">
               View All
             </button>
           </div>
@@ -201,16 +201,16 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                       <span className="text-xs font-mono text-theme-secondary">{run.head_sha?.substring(0, 8)}</span>
                       {run.risk_tier && (
                         <span className={`text-[10px] font-medium capitalize ${
-                          run.risk_tier === 'critical' ? 'text-theme-error'
-                            : run.risk_tier === 'high' ? 'text-theme-warning'
-                            : 'text-theme-info'
+                          run.risk_tier === 'critical' ? 'text-theme-error-fg'
+                            : run.risk_tier === 'high' ? 'text-theme-warning-fg'
+                            : 'text-theme-info-fg'
                         }`}>{run.risk_tier}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-theme-secondary">
                       <span>{run.review_findings_count} findings</span>
                       {run.critical_findings_count > 0 && (
-                        <span className="text-theme-error">{run.critical_findings_count} critical</span>
+                        <span className="text-theme-error-fg">{run.critical_findings_count} critical</span>
                       )}
                     </div>
                   </div>
@@ -218,7 +218,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                   <div className="flex items-center gap-3 text-[10px] text-theme-secondary">
                     <span className="capitalize">{run.status.replace(/_/g, ' ')}</span>
                     <span>{run.remediation_attempts} remediations</span>
-                    {run.risk_contract && <span className="text-theme-info">{run.risk_contract.name}</span>}
+                    {run.risk_contract && <span className="text-theme-info-fg">{run.risk_contract.name}</span>}
                   </div>
                 </div>
               ))}
@@ -231,7 +231,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
         <div className="card-theme p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-theme-primary">SLA Status</h4>
-            <button onClick={() => onNavigateTab?.('harness-gaps')} className="text-xs text-theme-info hover:underline">
+            <button onClick={() => onNavigateTab?.('harness-gaps')} className="text-xs text-theme-info-fg hover:underline">
               View Gaps
             </button>
           </div>
@@ -239,14 +239,14 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           <div>
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="text-theme-secondary">Compliance Rate</span>
-              <span className={slaRate >= 90 ? 'text-theme-success' : slaRate >= 70 ? 'text-theme-warning' : 'text-theme-error'}>
+              <span className={slaRate >= 90 ? 'text-theme-success-fg' : slaRate >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}>
                 {slaRate.toFixed(1)}%
               </span>
             </div>
             <div className="h-2 bg-theme-background-secondary rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
-                  slaRate >= 90 ? 'bg-theme-success' : slaRate >= 70 ? 'bg-theme-warning' : 'bg-theme-error'
+                  slaRate >= 90 ? 'bg-theme-success-bg' : slaRate >= 70 ? 'bg-theme-warning-bg' : 'bg-theme-error-bg'
                 }`}
                 style={{ width: `${Math.min(slaRate, 100)}%` }}
               />
@@ -255,21 +255,21 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           {/* Overdue Items */}
           {slaCompliance.past_sla_count > 0 ? (
             <div className="space-y-1.5">
-              <div className="text-xs font-medium text-theme-error">
+              <div className="text-xs font-medium text-theme-error-fg">
                 {slaCompliance.past_sla_count} gap(s) past SLA
               </div>
               {slaCompliance.past_sla_gaps.slice(0, 5).map((g) => (
-                <div key={g.id} className="flex items-center gap-2 bg-theme-error rounded px-2 py-1.5">
+                <div key={g.id} className="flex items-center gap-2 bg-theme-error-bg rounded px-2 py-1.5">
                   <span className="text-xs font-mono text-theme-primary">{g.incident_id}</span>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] ${severityColors[g.severity] || ''}`}>
                     {g.severity}
                   </span>
-                  <span className="text-xs text-theme-error ml-auto">{g.hours_overdue.toFixed(0)}h overdue</span>
+                  <span className="text-xs text-theme-error-fg ml-auto">{g.hours_overdue.toFixed(0)}h overdue</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-xs text-theme-success text-center py-1">All gaps within SLA</div>
+            <div className="text-xs text-theme-success-fg text-center py-1">All gaps within SLA</div>
           )}
           {/* Gap Breakdown */}
           {gapMetrics && (
@@ -279,15 +279,15 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                 <div className="text-[10px] text-theme-secondary">Total</div>
               </div>
               <div className="text-center">
-                <div className="text-sm font-semibold text-theme-error">{gapMetrics.open}</div>
+                <div className="text-sm font-semibold text-theme-error-fg">{gapMetrics.open}</div>
                 <div className="text-[10px] text-theme-secondary">Open</div>
               </div>
               <div className="text-center">
-                <div className="text-sm font-semibold text-theme-info">{gapMetrics.in_progress}</div>
+                <div className="text-sm font-semibold text-theme-info-fg">{gapMetrics.in_progress}</div>
                 <div className="text-[10px] text-theme-secondary">In Progress</div>
               </div>
               <div className="text-center">
-                <div className="text-sm font-semibold text-theme-success">{gapMetrics.closed}</div>
+                <div className="text-sm font-semibold text-theme-success-fg">{gapMetrics.closed}</div>
                 <div className="text-[10px] text-theme-secondary">Closed</div>
               </div>
             </div>
@@ -299,12 +299,12 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
         <div className="card-theme p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-theme-primary">Open Harness Gaps</h4>
-            <button onClick={() => onNavigateTab?.('harness-gaps')} className="text-xs text-theme-info hover:underline">
+            <button onClick={() => onNavigateTab?.('harness-gaps')} className="text-xs text-theme-info-fg hover:underline">
               View All
             </button>
           </div>
           {openGaps.length === 0 ? (
-            <div className="text-xs text-theme-success text-center py-2">No open gaps</div>
+            <div className="text-xs text-theme-success-fg text-center py-2">No open gaps</div>
           ) : (
             <>
               {/* Severity Breakdown */}
@@ -339,10 +339,10 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
 
                       <span className="text-xs text-theme-secondary truncate flex-1">{gap.description}</span>
                       {gap.test_case_added && (
-                        <span className="text-[10px] text-theme-success">{'\u2713'} Test</span>
+                        <span className="text-[10px] text-theme-success-fg">{'\u2713'} Test</span>
                       )}
                       {sla && (
-                        <span className={`text-[10px] flex-shrink-0 ${sla.overdue ? 'text-theme-error font-medium' : 'text-theme-secondary'}`}>
+                        <span className={`text-[10px] flex-shrink-0 ${sla.overdue ? 'text-theme-error-fg font-medium' : 'text-theme-secondary'}`}>
                           {sla.text}
                         </span>
                       )}

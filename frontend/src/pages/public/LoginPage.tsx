@@ -163,7 +163,7 @@ export const LoginPage: React.FC = () => {
     <div className="bg-theme-background min-h-screen relative overflow-hidden">
       {/* Decorative Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-theme-info/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-theme-info-fg/10 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-theme-interactive-primary/10 rounded-full blur-3xl" />
         <div className="absolute top-3/4 left-1/2 w-64 h-64 bg-theme-interactive-primary/5 rounded-full blur-2xl" />
       </div>
@@ -225,7 +225,7 @@ export const LoginPage: React.FC = () => {
                     />
                   </div>
                   {touched.email && errors.email && (
-                    <p className="mt-2 text-sm text-theme-danger">{errors.email}</p>
+                    <p className="mt-2 text-sm text-theme-danger-fg">{errors.email}</p>
                   )}
                 </div>
 
@@ -264,7 +264,7 @@ export const LoginPage: React.FC = () => {
                     </button>
                   </div>
                   {touched.password && errors.password && (
-                    <p className="mt-2 text-sm text-theme-danger">{errors.password}</p>
+                    <p className="mt-2 text-sm text-theme-danger-fg">{errors.password}</p>
                   )}
                 </div>
 
@@ -350,7 +350,7 @@ export const LoginPage: React.FC = () => {
             {/* Enhanced Trust Indicators */}
             <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-theme-tertiary">
               <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 rounded-full flex items-center justify-center bg-theme-success">
+                <div className="w-4 h-4 rounded-full flex items-center justify-center bg-theme-success-bg">
                   <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
@@ -358,7 +358,7 @@ export const LoginPage: React.FC = () => {
                 <span className="font-medium">Secure Login</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 rounded-full flex items-center justify-center bg-theme-info">
+                <div className="w-4 h-4 rounded-full flex items-center justify-center bg-theme-info-bg">
                   <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>

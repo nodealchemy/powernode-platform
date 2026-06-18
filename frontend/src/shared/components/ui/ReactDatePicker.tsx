@@ -279,7 +279,7 @@ export const ReactDatePicker: React.FC<ReactDatePickerProps> = ({
                       ${isDateSelected(day)
                         ? 'bg-theme-interactive-primary text-white shadow-sm'
                         : isToday(day)
-                        ? 'bg-theme-warning text-white shadow-sm'
+                        ? 'bg-theme-warning-bg text-white shadow-sm'
                         : 'text-theme-primary hover:bg-theme-surface-hover'
                       }
                       ${isDateDisabled(day)

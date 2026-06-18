@@ -33,14 +33,14 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
       label: 'Activate Workers',
       icon: Play,
       description: 'Activate selected workers',
-      color: 'text-theme-success hover:bg-theme-success-background'
+      color: 'text-theme-success-fg hover:bg-theme-success-background'
     },
     {
       id: 'suspend',
       label: 'Suspend Workers',
       icon: Pause,
       description: 'Suspend selected workers',
-      color: 'text-theme-warning hover:bg-theme-warning-background'
+      color: 'text-theme-warning-fg hover:bg-theme-warning-background'
     },
     {
       id: 'export',
@@ -54,7 +54,7 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
       label: 'Delete Workers',
       icon: Trash2,
       description: 'Permanently delete selected workers',
-      color: 'text-theme-error hover:bg-theme-error'
+      color: 'text-theme-error-fg hover:bg-theme-error-bg'
     }
   ];
 
@@ -108,7 +108,7 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
 
       {/* Confirmation Modal */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-theme-surface rounded-lg p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-theme-primary">
@@ -125,8 +125,8 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
             <div className="mb-6">
               {showConfirm === 'delete' && (
                 <div className="space-y-3">
-                  <div className="p-3 bg-theme-error rounded-lg">
-                    <div className="flex items-center gap-2 text-theme-error font-medium">
+                  <div className="p-3 bg-theme-error-bg rounded-lg">
+                    <div className="flex items-center gap-2 text-theme-error-fg font-medium">
                       <Trash2 className="w-4 h-4" />
                       <span>Permanent Deletion Warning</span>
                     </div>
@@ -141,7 +141,7 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
                     <li>• Delete all worker activity history</li>
                     <li>• Cannot be reversed or restored</li>
                   </ul>
-                  <p className="text-theme-error text-sm font-medium">
+                  <p className="text-theme-error-fg text-sm font-medium">
                     Please type "DELETE" to confirm this destructive action.
                   </p>
                 </div>
@@ -159,7 +159,7 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
                 onClick={() => confirmAction(showConfirm)}
                 className={`px-4 py-2 rounded-md transition-colors font-medium ${
                   showConfirm === 'delete'
-                    ? 'bg-theme-error text-white hover:bg-theme-error/80'
+                    ? 'bg-theme-error-bg text-white hover:bg-theme-error-fg/80'
                     : 'bg-theme-interactive-primary text-white hover:bg-theme-interactive-primary/80'
                 }`}
               >

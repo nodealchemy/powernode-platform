@@ -40,22 +40,22 @@ export const CompositionHealthBanner: React.FC<CompositionHealthBannerProps> = (
   const getStatusIcon = () => {
     switch (health.status) {
       case 'healthy':
-        return <CheckCircle className="text-theme-success" size={18} />;
+        return <CheckCircle className="text-theme-success-fg" size={18} />;
       case 'warning':
-        return <AlertTriangle className="text-theme-warning" size={18} />;
+        return <AlertTriangle className="text-theme-warning-fg" size={18} />;
       case 'unhealthy':
-        return <XCircle className="text-theme-danger" size={18} />;
+        return <XCircle className="text-theme-danger-fg" size={18} />;
     }
   };
 
   const getStatusColor = () => {
     switch (health.status) {
       case 'healthy':
-        return 'border-theme-success/30 bg-theme-success/5';
+        return 'border-theme-success-border/30 bg-theme-success-fg/5';
       case 'warning':
-        return 'border-theme-warning/30 bg-theme-warning/5';
+        return 'border-theme-warning-border/30 bg-theme-warning-fg/5';
       case 'unhealthy':
-        return 'border-theme-danger/30 bg-theme-error/5';
+        return 'border-theme-danger-border/30 bg-theme-error-fg/5';
     }
   };
 
@@ -91,9 +91,9 @@ export const CompositionHealthBanner: React.FC<CompositionHealthBannerProps> = (
         <div className="flex items-center gap-3">
           {getStatusIcon()}
           <span className={`text-sm font-medium ${
-            health.status === 'healthy' ? 'text-theme-success' :
-            health.status === 'warning' ? 'text-theme-warning' :
-            'text-theme-danger'
+            health.status === 'healthy' ? 'text-theme-success-fg' :
+            health.status === 'warning' ? 'text-theme-warning-fg' :
+            'text-theme-danger-fg'
           }`}>
             {getStatusText()}
           </span>
@@ -116,12 +116,12 @@ export const CompositionHealthBanner: React.FC<CompositionHealthBannerProps> = (
             <span>Workers per Lead</span>
             <span>{isOptimalRange ? 'Optimal (2-5)' : health.workers_per_lead > 5 ? 'High' : 'Low'}</span>
           </div>
-          <div className="w-full bg-theme-info rounded-full h-2">
+          <div className="w-full bg-theme-info-bg rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all duration-300 ${
-                isOptimalRange ? 'bg-theme-success' :
-                health.workers_per_lead > 9 ? 'bg-theme-danger' :
-                'bg-theme-warning'
+                isOptimalRange ? 'bg-theme-success-bg' :
+                health.workers_per_lead > 9 ? 'bg-theme-danger-bg' :
+                'bg-theme-warning-bg'
               }`}
               style={{ width: `${ratioPercentage}%` }}
             />
@@ -135,11 +135,11 @@ export const CompositionHealthBanner: React.FC<CompositionHealthBannerProps> = (
           {/* Warnings */}
           {health.warnings.length > 0 && (
             <div>
-              <h4 className="text-xs font-medium text-theme-warning mb-1">Warnings</h4>
+              <h4 className="text-xs font-medium text-theme-warning-fg mb-1">Warnings</h4>
               <ul className="space-y-1">
                 {health.warnings.map((warning, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-xs text-theme-secondary">
-                    <AlertTriangle size={12} className="text-theme-warning mt-0.5 shrink-0" />
+                    <AlertTriangle size={12} className="text-theme-warning-fg mt-0.5 shrink-0" />
                     {warning}
                   </li>
                 ))}
@@ -150,11 +150,11 @@ export const CompositionHealthBanner: React.FC<CompositionHealthBannerProps> = (
           {/* Recommendations */}
           {health.recommendations.length > 0 && (
             <div>
-              <h4 className="text-xs font-medium text-theme-info mb-1">Recommendations</h4>
+              <h4 className="text-xs font-medium text-theme-info-fg mb-1">Recommendations</h4>
               <ul className="space-y-1">
                 {health.recommendations.map((rec, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-xs text-theme-secondary">
-                    <CheckCircle size={12} className="text-theme-info mt-0.5 shrink-0" />
+                    <CheckCircle size={12} className="text-theme-info-fg mt-0.5 shrink-0" />
                     {rec}
                   </li>
                 ))}

@@ -31,11 +31,11 @@ const SignalChip: React.FC<{
   const pct = Math.round(value * 100);
   const tone =
     pct >= 80
-      ? 'text-theme-success'
+      ? 'text-theme-success-fg'
       : pct >= 60
-        ? 'text-theme-info'
+        ? 'text-theme-info-fg'
         : pct >= 40
-          ? 'text-theme-warning'
+          ? 'text-theme-warning-fg'
           : 'text-theme-tertiary';
   return (
     <span
@@ -112,17 +112,17 @@ export const DataSourceDiscoveryPanel: React.FC<DataSourceDiscoveryPanelProps> =
 
   const getScoreTone = (score: number): string =>
     score >= 0.8
-      ? 'text-theme-success'
+      ? 'text-theme-success-fg'
       : score >= 0.6
-        ? 'text-theme-info'
+        ? 'text-theme-info-fg'
         : score >= 0.4
-          ? 'text-theme-warning'
+          ? 'text-theme-warning-fg'
           : 'text-theme-tertiary';
 
   return (
     <Card variant="outlined" padding="md" className="mb-6">
       <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="h-4 w-4 text-theme-info" />
+        <Sparkles className="h-4 w-4 text-theme-info-fg" />
         <h3 className="text-sm font-semibold text-theme-text-primary">Discover Data Sources</h3>
       </div>
       <p className="text-xs text-theme-tertiary mb-3">

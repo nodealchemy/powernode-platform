@@ -143,8 +143,8 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
     return (
       <Card className={className}>
         <CardContent className="py-12 text-center">
-          <AlertCircle className="h-12 w-12 text-theme-danger mx-auto mb-4" />
-          <p className="text-theme-danger">{error || 'Agent card not found'}</p>
+          <AlertCircle className="h-12 w-12 text-theme-danger-fg mx-auto mb-4" />
+          <p className="text-theme-danger-fg">{error || 'Agent card not found'}</p>
           <Button variant="outline" size="sm" onClick={onClose} className="mt-4">
             Go Back
           </Button>
@@ -163,8 +163,8 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
         <CardContent className="p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
-              <div className="h-16 w-16 bg-theme-info/10 rounded-xl flex items-center justify-center">
-                <Bot className="h-8 w-8 text-theme-info" />
+              <div className="h-16 w-16 bg-theme-info-fg/10 rounded-xl flex items-center justify-center">
+                <Bot className="h-8 w-8 text-theme-info-fg" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-theme-primary">{card.name}</h1>
@@ -346,7 +346,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                   <div className="text-xs text-theme-tertiary">Tasks Completed</div>
                 </div>
                 <div className="text-center p-3 bg-theme-surface rounded-lg">
-                  <div className="text-2xl font-bold text-theme-success">
+                  <div className="text-2xl font-bold text-theme-success-fg">
                     {card.task_count > 0 && card.success_count !== undefined
                       ? `${Math.round((card.success_count / card.task_count) * 100)}%`
                       : 'N/A'}
@@ -381,7 +381,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                       href={card.endpoint_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-theme-info hover:underline break-all"
+                      className="text-theme-info-fg hover:underline break-all"
                     >
                       {card.endpoint_url}
                     </a>

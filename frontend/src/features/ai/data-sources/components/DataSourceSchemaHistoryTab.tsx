@@ -122,21 +122,21 @@ export const DataSourceSchemaHistoryTab: React.FC<DataSourceSchemaHistoryTabProp
       <div className="space-y-1.5">
         {(diff.added_fields ?? []).map((field) => (
           <div key={`add-${field}`} className="flex items-center gap-2 text-xs">
-            <PlusCircle className="h-3 w-3 text-theme-success shrink-0" />
+            <PlusCircle className="h-3 w-3 text-theme-success-fg shrink-0" />
             <span className="font-mono text-theme-primary break-all">{field}</span>
             <span className="text-theme-tertiary">added</span>
           </div>
         ))}
         {(diff.removed_fields ?? []).map((field) => (
           <div key={`rem-${field}`} className="flex items-center gap-2 text-xs">
-            <MinusCircle className="h-3 w-3 text-theme-error shrink-0" />
+            <MinusCircle className="h-3 w-3 text-theme-error-fg shrink-0" />
             <span className="font-mono text-theme-primary break-all">{field}</span>
             <span className="text-theme-tertiary">removed</span>
           </div>
         ))}
         {(diff.type_changes ?? []).map((change) => (
           <div key={`type-${change.field}`} className="flex items-center gap-2 text-xs flex-wrap">
-            <ArrowRight className="h-3 w-3 text-theme-warning shrink-0" />
+            <ArrowRight className="h-3 w-3 text-theme-warning-fg shrink-0" />
             <span className="font-mono text-theme-primary break-all">{change.field}</span>
             <span className="text-theme-tertiary">
               {change.from}
@@ -224,10 +224,10 @@ export const DataSourceSchemaHistoryTab: React.FC<DataSourceSchemaHistoryTabProp
           />
 
           {selectedEndpoint && selectedEndpoint.track_schema === false && (
-            <div className="p-3 bg-theme-warning/10 border border-theme-warning/20 rounded-lg">
+            <div className="p-3 bg-theme-warning-fg/10 border border-theme-warning-border/20 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-theme-warning shrink-0" />
-                <span className="text-sm text-theme-warning">
+                <AlertTriangle className="h-4 w-4 text-theme-warning-fg shrink-0" />
+                <span className="text-sm text-theme-warning-fg">
                   Schema tracking is disabled for this endpoint. Enable &quot;Track schema&quot; to
                   record versions on each fetch.
                 </span>

@@ -52,7 +52,7 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
       {/* Roles Section */}
       <CollapsibleSection
         title="Roles"
-        icon={<UserCog size={16} className="text-theme-info" />}
+        icon={<UserCog size={16} className="text-theme-info-fg" />}
         count={roles.length}
       >
         {roles.length === 0 ? (
@@ -67,12 +67,12 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-theme-primary">{role.role_name}</span>
-                    <span className="px-1.5 py-0.5 text-[10px] bg-theme-info/10 text-theme-info rounded">{role.role_type}</span>
+                    <span className="px-1.5 py-0.5 text-[10px] bg-theme-info-fg/10 text-theme-info-fg rounded">{role.role_type}</span>
                     <span className="text-xs text-theme-secondary">Priority: {role.priority_order}</span>
                   </div>
                   <div className="flex gap-1.5 text-[10px]">
-                    {role.can_delegate && <span className="px-1.5 py-0.5 bg-theme-info/10 text-theme-info rounded">Delegate</span>}
-                    {role.can_escalate && <span className="px-1.5 py-0.5 bg-theme-warning/10 text-theme-warning rounded">Escalate</span>}
+                    {role.can_delegate && <span className="px-1.5 py-0.5 bg-theme-info-fg/10 text-theme-info-fg rounded">Delegate</span>}
+                    {role.can_escalate && <span className="px-1.5 py-0.5 bg-theme-warning-fg/10 text-theme-warning-fg rounded">Escalate</span>}
                   </div>
                 </div>
                 {role.role_description && <p className="text-xs text-theme-secondary mb-1">{role.role_description}</p>}
@@ -98,7 +98,7 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
       {/* Channels Section */}
       <CollapsibleSection
         title="Channels"
-        icon={<Hash size={16} className="text-theme-info" />}
+        icon={<Hash size={16} className="text-theme-info-fg" />}
         count={channels.length}
       >
         {channels.length === 0 ? (
@@ -112,10 +112,10 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
               <div key={channel.id} className="px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
-                    <Hash size={14} className="text-theme-info" />
+                    <Hash size={14} className="text-theme-info-fg" />
                     <span className="text-sm font-medium text-theme-primary">{channel.name}</span>
-                    <span className="px-1.5 py-0.5 text-[10px] bg-theme-info/10 text-theme-info rounded">{channel.channel_type}</span>
-                    {channel.is_persistent && <span className="px-1.5 py-0.5 text-[10px] bg-theme-info/10 text-theme-info rounded">Persistent</span>}
+                    <span className="px-1.5 py-0.5 text-[10px] bg-theme-info-fg/10 text-theme-info-fg rounded">{channel.channel_type}</span>
+                    {channel.is_persistent && <span className="px-1.5 py-0.5 text-[10px] bg-theme-info-fg/10 text-theme-info-fg rounded">Persistent</span>}
                   </div>
                   <span className="text-xs text-theme-secondary">{channel.message_count} msgs</span>
                 </div>
@@ -133,7 +133,7 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
       {/* Templates Section */}
       <CollapsibleSection
         title="Templates"
-        icon={<Copy size={16} className="text-theme-info" />}
+        icon={<Copy size={16} className="text-theme-info-fg" />}
         count={templates.length}
         defaultOpen={false}
       >
@@ -149,8 +149,8 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-theme-primary">{template.name}</span>
-                    {template.is_public && <span className="px-1.5 py-0.5 text-[10px] text-theme-success bg-theme-success/10 rounded">Published</span>}
-                    {template.is_system && <span className="px-1.5 py-0.5 text-[10px] text-theme-info bg-theme-info/10 rounded">System</span>}
+                    {template.is_public && <span className="px-1.5 py-0.5 text-[10px] text-theme-success-fg bg-theme-success-fg/10 rounded">Published</span>}
+                    {template.is_system && <span className="px-1.5 py-0.5 text-[10px] text-theme-info-fg bg-theme-info-fg/10 rounded">System</span>}
                   </div>
                   {!template.published_at && (
                     <button onClick={() => onPublishTemplate(template.id)} className="btn-theme btn-theme-success btn-theme-sm text-xs">

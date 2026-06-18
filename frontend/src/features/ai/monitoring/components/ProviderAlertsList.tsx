@@ -33,9 +33,9 @@ export const ProviderAlertsList: React.FC<ProviderAlertsListProps> = ({ provider
         {provider.credentials.map(cred => (
           <div key={cred.id} className="flex items-center justify-between p-3 bg-theme-surface rounded">
             <div className="flex items-center gap-3">
-              {cred.status === 'valid' && <CheckCircle className="h-4 w-4 text-theme-success" />}
-              {cred.status === 'invalid' && <XCircle className="h-4 w-4 text-theme-danger" />}
-              {cred.status === 'expired' && <AlertTriangle className="h-4 w-4 text-theme-warning" />}
+              {cred.status === 'valid' && <CheckCircle className="h-4 w-4 text-theme-success-fg" />}
+              {cred.status === 'invalid' && <XCircle className="h-4 w-4 text-theme-danger-fg" />}
+              {cred.status === 'expired' && <AlertTriangle className="h-4 w-4 text-theme-warning-fg" />}
               {cred.status === 'unknown' && <AlertCircle className="h-4 w-4 text-theme-tertiary" />}
               <div>
                 <p className="font-medium text-theme-primary">{cred.name}</p>
@@ -78,20 +78,20 @@ export const ProviderAlertsList: React.FC<ProviderAlertsListProps> = ({ provider
           key={alert.id}
           className={cn(
             'p-3 rounded border',
-            alert.severity === 'critical' && 'bg-theme-danger/10 border-theme-danger/30',
-            alert.severity === 'high' && 'bg-theme-danger/10 border-theme-danger/30',
-            alert.severity === 'medium' && 'bg-theme-warning/10 border-theme-warning/30',
-            alert.severity === 'low' && 'bg-theme-info/10 border-theme-info/30'
+            alert.severity === 'critical' && 'bg-theme-danger-fg/10 border-theme-danger-border/30',
+            alert.severity === 'high' && 'bg-theme-danger-fg/10 border-theme-danger-border/30',
+            alert.severity === 'medium' && 'bg-theme-warning-fg/10 border-theme-warning-border/30',
+            alert.severity === 'low' && 'bg-theme-info-fg/10 border-theme-info-border/30'
           )}
         >
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-2">
               <AlertTriangle className={cn(
                 'h-4 w-4 mt-0.5',
-                alert.severity === 'critical' && 'text-theme-danger',
-                alert.severity === 'high' && 'text-theme-danger',
-                alert.severity === 'medium' && 'text-theme-warning',
-                alert.severity === 'low' && 'text-theme-info'
+                alert.severity === 'critical' && 'text-theme-danger-fg',
+                alert.severity === 'high' && 'text-theme-danger-fg',
+                alert.severity === 'medium' && 'text-theme-warning-fg',
+                alert.severity === 'low' && 'text-theme-info-fg'
               )} />
               <div>
                 <p className="font-medium text-theme-primary">{alert.title}</p>

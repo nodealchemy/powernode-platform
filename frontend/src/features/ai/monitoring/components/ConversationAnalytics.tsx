@@ -83,7 +83,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
                   {totalMessages.toLocaleString()}
                 </p>
               </div>
-              <MessageCircle className="h-8 w-8 text-theme-info" />
+              <MessageCircle className="h-8 w-8 text-theme-info-fg" />
             </div>
           </CardContent>
         </Card>
@@ -97,7 +97,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
                   {avgResponseTime.toFixed(0)}ms
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-theme-warning" />
+              <Clock className="h-8 w-8 text-theme-warning-fg" />
             </div>
           </CardContent>
         </Card>
@@ -111,7 +111,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
                   {avgSuccessRate.toFixed(1)}%
                 </p>
               </div>
-              <TrendingUp className="h-8 w-8 text-theme-success" />
+              <TrendingUp className="h-8 w-8 text-theme-success-fg" />
             </div>
           </CardContent>
         </Card>
@@ -125,7 +125,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
                   ${totalCost.toFixed(4)}
                 </p>
               </div>
-              <BarChart3 className="h-8 w-8 text-theme-error" />
+              <BarChart3 className="h-8 w-8 text-theme-error-fg" />
             </div>
           </CardContent>
         </Card>
@@ -155,7 +155,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-theme-tertiary">Health Score</span>
-                  <span className={`font-medium ${conversation.health_score >= 90 ? 'text-theme-success' : conversation.health_score >= 70 ? 'text-theme-warning' : 'text-theme-error'}`}>
+                  <span className={`font-medium ${conversation.health_score >= 90 ? 'text-theme-success-fg' : conversation.health_score >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
                     {conversation.health_score.toFixed(1)}%
                   </span>
                 </div>
@@ -171,13 +171,13 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
                   <div className="text-xs text-theme-tertiary">Human</div>
                 </div>
                 <div className="text-center p-2 bg-theme-surface rounded">
-                  <div className="font-medium text-theme-success">
+                  <div className="font-medium text-theme-success-fg">
                     {conversation.participants.ai_messages}
                   </div>
                   <div className="text-xs text-theme-tertiary">AI</div>
                 </div>
                 <div className="text-center p-2 bg-theme-surface rounded">
-                  <div className="font-medium text-theme-info">
+                  <div className="font-medium text-theme-info-fg">
                     {conversation.participants.system_messages}
                   </div>
                   <div className="text-xs text-theme-tertiary">System</div>

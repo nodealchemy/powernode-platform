@@ -320,9 +320,9 @@ class UsersApiService {
   getStatusColor(status: string): string {
     switch (status) {
       case 'active':
-        return 'text-theme-success bg-theme-success-background border-theme-success-border';
+        return 'text-theme-success-fg bg-theme-success-background border-theme-success-border';
       case 'suspended':
-        return 'text-theme-error bg-theme-error border-theme-error-border';
+        return 'text-theme-error-fg bg-theme-error-bg border-theme-error-border';
       case 'inactive':
         return 'text-theme-secondary bg-theme-surface-hover border-theme';
       default:
@@ -337,23 +337,23 @@ class UsersApiService {
     
     // System and administrative roles - red
     if (primaryRole.includes('system.admin') || primaryRole === 'admin') {
-      return 'bg-theme-error bg-opacity-10 text-theme-error border border-theme-error border-opacity-20';
+      return 'bg-theme-error-bg text-theme-error-fg border border-theme-error-border';
     }
     // Management roles - green
     else if (primaryRole.includes('account.manager') || primaryRole.includes('manager')) {
-      return 'bg-theme-success bg-opacity-10 text-theme-success border border-theme-success border-opacity-20';
+      return 'bg-theme-success-bg text-theme-success-fg border border-theme-success-border';
     }
     // Billing roles - blue
     else if (primaryRole.includes('billing.manager') || primaryRole.includes('billing')) {
-      return 'bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary border border-theme-interactive-primary border-opacity-20';
+      return 'bg-theme-interactive-primary/10 text-theme-interactive-primary border border-theme-interactive-primary/20';
     }
     // Content and support roles - info
     else if (primaryRole.includes('content_manager') || primaryRole.includes('support.agent')) {
-      return 'bg-theme-info bg-opacity-10 text-theme-info border border-theme-info border-opacity-20';
+      return 'bg-theme-info-bg text-theme-info-fg border border-theme-info-border';
     }
     // Analytics and API roles - warning
     else if (primaryRole.includes('analytics.reader') || primaryRole.includes('api.developer')) {
-      return 'bg-theme-warning bg-opacity-10 text-theme-warning border border-theme-warning border-opacity-20';
+      return 'bg-theme-warning-bg text-theme-warning-fg border border-theme-warning-border';
     }
     // Worker roles - surface
     else if (primaryRole.includes('worker.')) {
@@ -361,7 +361,7 @@ class UsersApiService {
     }
     // Default member roles - info blue
     else {
-      return 'bg-theme-info bg-opacity-10 text-theme-info border border-theme-info border-opacity-20';
+      return 'bg-theme-info-bg text-theme-info-fg border border-theme-info-border';
     }
   }
   

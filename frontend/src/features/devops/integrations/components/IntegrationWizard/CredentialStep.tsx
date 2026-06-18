@@ -269,7 +269,7 @@ export function CredentialStep({
                   key={credential.id}
                   className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
                     selected === credential.id
-                      ? 'border-theme-primary bg-theme-primary bg-opacity-5'
+                      ? 'border-theme-primary bg-theme-primary/5'
                       : 'border-theme hover:border-theme-secondary'
                   }`}
                 >

@@ -190,7 +190,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     <div className={`space-y-4 ${className}`}>
       {/* Selected Date Range Display */}
       {startDate && endDate && (
-        <div className="bg-theme-interactive-primary bg-opacity-10 border border-theme-interactive-primary rounded-lg p-3">
+        <div className="bg-theme-interactive-primary/10 border border-theme-interactive-primary rounded-lg p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-theme-interactive-primary">Selected Range</p>

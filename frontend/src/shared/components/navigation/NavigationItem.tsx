@@ -122,7 +122,7 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
   const renderBadge = () => {
     if (!item.badge) return null;
     return (
-      <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-theme-error rounded-full">
+      <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-theme-error-bg rounded-full">
         {item.badge}
       </span>
     );

@@ -26,7 +26,7 @@ export const OAuthConfigFields: React.FC<OAuthConfigFieldsProps> = ({
 }) => (
   <div className="border-t border-theme pt-4 space-y-4">
     <div className="flex items-center gap-2">
-      <Shield className="h-4 w-4 text-theme-info" />
+      <Shield className="h-4 w-4 text-theme-info-fg" />
       <h3 className="text-sm font-medium text-theme-primary">Authentication</h3>
     </div>
 
@@ -72,10 +72,10 @@ export const OAuthConfigFields: React.FC<OAuthConfigFieldsProps> = ({
             value={config.oauthClientId}
             onChange={(e) => onChange('oauthClientId', e.target.value)}
             placeholder="Your OAuth client ID"
-            className={errors.oauth_client_id ? 'border-theme-error' : ''}
+            className={errors.oauth_client_id ? 'border-theme-error-border' : ''}
           />
           {errors.oauth_client_id && (
-            <p className="mt-1 text-sm text-theme-error">{errors.oauth_client_id}</p>
+            <p className="mt-1 text-sm text-theme-error-fg">{errors.oauth_client_id}</p>
           )}
         </div>
 
@@ -100,10 +100,10 @@ export const OAuthConfigFields: React.FC<OAuthConfigFieldsProps> = ({
             value={config.oauthAuthorizationUrl}
             onChange={(e) => onChange('oauthAuthorizationUrl', e.target.value)}
             placeholder="https://provider.com/oauth/authorize"
-            className={errors.oauth_authorization_url ? 'border-theme-error' : ''}
+            className={errors.oauth_authorization_url ? 'border-theme-error-border' : ''}
           />
           {errors.oauth_authorization_url && (
-            <p className="mt-1 text-sm text-theme-error">{errors.oauth_authorization_url}</p>
+            <p className="mt-1 text-sm text-theme-error-fg">{errors.oauth_authorization_url}</p>
           )}
         </div>
 
@@ -116,10 +116,10 @@ export const OAuthConfigFields: React.FC<OAuthConfigFieldsProps> = ({
             value={config.oauthTokenUrl}
             onChange={(e) => onChange('oauthTokenUrl', e.target.value)}
             placeholder="https://provider.com/oauth/token"
-            className={errors.oauth_token_url ? 'border-theme-error' : ''}
+            className={errors.oauth_token_url ? 'border-theme-error-border' : ''}
           />
           {errors.oauth_token_url && (
-            <p className="mt-1 text-sm text-theme-error">{errors.oauth_token_url}</p>
+            <p className="mt-1 text-sm text-theme-error-fg">{errors.oauth_token_url}</p>
           )}
         </div>
 

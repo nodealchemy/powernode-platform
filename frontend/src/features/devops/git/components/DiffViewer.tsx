@@ -17,15 +17,15 @@ interface FileDiffProps {
  */
 function DiffLine({ line }: { line: GitDiffLine }) {
   const bgColor = {
-    addition: 'bg-theme-success/10',
-    deletion: 'bg-theme-danger/10',
+    addition: 'bg-theme-success-fg/10',
+    deletion: 'bg-theme-danger-fg/10',
     context: 'bg-theme-surface',
     header: 'bg-theme-surface-secondary',
   }[line.type];
 
   const textColor = {
-    addition: 'text-theme-success',
-    deletion: 'text-theme-danger',
+    addition: 'text-theme-success-fg',
+    deletion: 'text-theme-danger-fg',
     context: 'text-theme-secondary',
     header: 'text-theme-secondary font-medium',
   }[line.type];
@@ -63,8 +63,8 @@ function DiffHunk({ hunk, index }: { hunk: GitDiffHunk; index: number }) {
   return (
     <tbody>
       {/* Hunk header */}
-      <tr className="bg-theme-info/10">
-        <td colSpan={3} className="px-4 py-1 text-xs font-mono text-theme-info">
+      <tr className="bg-theme-info-fg/10">
+        <td colSpan={3} className="px-4 py-1 text-xs font-mono text-theme-info-fg">
           {hunk.header}
         </td>
       </tr>
@@ -84,11 +84,11 @@ function FileDiff({ file, defaultExpanded = true }: FileDiffProps) {
   const [copied, setCopied] = useState(false);
 
   const statusColor = {
-    added: 'text-theme-success bg-theme-success/10',
-    removed: 'text-theme-danger bg-theme-danger/10',
-    modified: 'text-theme-warning bg-theme-warning/10',
+    added: 'text-theme-success-fg bg-theme-success-fg/10',
+    removed: 'text-theme-danger-fg bg-theme-danger-fg/10',
+    modified: 'text-theme-warning-fg bg-theme-warning-fg/10',
     renamed: 'text-theme-interactive-primary bg-theme-interactive-primary/10',
-    copied: 'text-theme-info bg-theme-info/10',
+    copied: 'text-theme-info-fg bg-theme-info-fg/10',
   }[file.status] || 'text-theme-secondary bg-theme-surface-secondary';
 
   const statusLabel = {
@@ -144,7 +144,7 @@ function FileDiff({ file, defaultExpanded = true }: FileDiffProps) {
             title="Copy path"
           >
             {copied ? (
-              <Check className="w-4 h-4 text-theme-success" />
+              <Check className="w-4 h-4 text-theme-success-fg" />
             ) : (
               <Copy className="w-4 h-4" />
             )}
@@ -152,13 +152,13 @@ function FileDiff({ file, defaultExpanded = true }: FileDiffProps) {
         </div>
         <div className="flex items-center gap-4 text-sm">
           {file.additions > 0 && (
-            <span className="flex items-center gap-1 text-theme-success">
+            <span className="flex items-center gap-1 text-theme-success-fg">
               <Plus className="w-3 h-3" />
               {file.additions}
             </span>
           )}
           {file.deletions > 0 && (
-            <span className="flex items-center gap-1 text-theme-danger">
+            <span className="flex items-center gap-1 text-theme-danger-fg">
               <Minus className="w-3 h-3" />
               {file.deletions}
             </span>
@@ -212,11 +212,11 @@ export function DiffViewer({ files, className = '' }: DiffViewerProps) {
           <span className="text-theme-secondary">
             Showing <span className="font-medium text-theme-primary">{files.length}</span> changed files
           </span>
-          <span className="flex items-center gap-1 text-theme-success">
+          <span className="flex items-center gap-1 text-theme-success-fg">
             <Plus className="w-3 h-3" />
             {totalAdditions} additions
           </span>
-          <span className="flex items-center gap-1 text-theme-danger">
+          <span className="flex items-center gap-1 text-theme-danger-fg">
             <Minus className="w-3 h-3" />
             {totalDeletions} deletions
           </span>

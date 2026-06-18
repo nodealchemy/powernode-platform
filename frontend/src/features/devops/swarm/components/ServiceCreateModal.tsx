@@ -152,7 +152,7 @@ export const ServiceCreateModal: React.FC<ServiceCreateModalProps> = ({
           {(formData.ports || []).map((port, i) => (
             <div key={i} className="flex items-center gap-2 text-sm text-theme-secondary mb-1">
               <span>{port.published}:{port.target}/tcp</span>
-              <button className="text-theme-error hover:underline text-xs" onClick={() => removePort(i)}>remove</button>
+              <button className="text-theme-error-fg hover:underline text-xs" onClick={() => removePort(i)}>remove</button>
             </div>
           ))}
         </div>
@@ -173,7 +173,7 @@ export const ServiceCreateModal: React.FC<ServiceCreateModalProps> = ({
           {(formData.environment || []).map((env, i) => (
             <div key={i} className="flex items-center gap-2 text-sm text-theme-secondary mb-1">
               <span className="font-mono text-xs">{env}</span>
-              <button className="text-theme-error hover:underline text-xs" onClick={() => removeEnv(i)}>remove</button>
+              <button className="text-theme-error-fg hover:underline text-xs" onClick={() => removeEnv(i)}>remove</button>
             </div>
           ))}
         </div>

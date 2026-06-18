@@ -160,7 +160,7 @@ describe('EnhancedSelect', () => {
     it('has error styling on button', () => {
       render(<EnhancedSelect options={defaultOptions} error="Error" />);
 
-      expect(screen.getByRole('button')).toHaveClass('border-theme-error');
+      expect(screen.getByRole('button')).toHaveClass('border-theme-error-border');
     });
   });
 

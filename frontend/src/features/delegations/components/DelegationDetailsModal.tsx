@@ -108,7 +108,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-theme-surface rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
         <div className="p-6 border-b border-theme">
           <div className="flex items-center justify-between">
@@ -159,10 +159,10 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                   <div className="flex items-center space-x-2">
                     <span className={`text-sm px-2 py-1 rounded-full ${
                       delegation.status === 'active' 
-                        ? 'bg-theme-success bg-opacity-10 text-theme-success'
+                        ? 'bg-theme-success-bg text-theme-success-fg'
                         : delegation.status === 'pending'
-                        ? 'bg-theme-warning bg-opacity-10 text-theme-warning'
-                        : 'bg-theme-error bg-opacity-10 text-theme-error'
+                        ? 'bg-theme-warning-bg text-theme-warning-fg'
+                        : 'bg-theme-error-bg text-theme-error-fg'
                     }`}>
                       {delegation.status.charAt(0).toUpperCase() + delegation.status.slice(1)}
                     </span>
@@ -194,7 +194,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                   {(delegation.permissions || []).map((permission) => (
                     <div key={typeof permission === 'string' ? permission : permission.id || permission.key} className="bg-theme-background rounded-lg p-3">
                       <div className="flex items-center space-x-2">
-                        <span className="text-theme-success">✓</span>
+                        <span className="text-theme-success-fg">✓</span>
                         <span className="text-theme-primary text-sm">{getPermissionLabel(typeof permission === 'string' ? permission : permission.key)}</span>
                       </div>
                     </div>
@@ -206,7 +206,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                 <div className="pt-6 border-t border-theme">
                   <button
                     onClick={() => onRevoke(delegation.id)}
-                    className="btn-theme btn-theme-secondary text-theme-error hover:bg-theme-error hover:text-white"
+                    className="btn-theme btn-theme-secondary text-theme-error-fg hover:bg-theme-error-bg hover:text-white"
                   >
                     Revoke Delegation
                   </button>
@@ -295,7 +295,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                     {delegation.status === 'active' && (
                       <button
                         onClick={() => handleRemoveUser(user.userId || user.id || '')}
-                        className="text-theme-error hover:text-theme-error-hover"
+                        className="text-theme-error-fg hover:text-theme-error-hover"
                       >
                         Remove
                       </button>

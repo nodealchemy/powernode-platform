@@ -173,7 +173,7 @@ export const MissionStatusBar: React.FC<MissionStatusBarProps> = ({ messages, cl
     }
     if (phase === 'compose_plan') {
       return {
-        icon: <Loader2 className="h-4 w-4 text-theme-info animate-spin" />,
+        icon: <Loader2 className="h-4 w-4 text-theme-info-fg animate-spin" />,
         label: 'Composing plan…',
         variant: 'info' as const,
         action: null,
@@ -181,7 +181,7 @@ export const MissionStatusBar: React.FC<MissionStatusBarProps> = ({ messages, cl
     }
     if (phase === 'execute' || phase === 'executing') {
       return {
-        icon: <Server className="h-4 w-4 text-theme-info" />,
+        icon: <Server className="h-4 w-4 text-theme-info-fg" />,
         label: 'Provisioning in progress',
         variant: 'info' as const,
         action: null,
@@ -189,7 +189,7 @@ export const MissionStatusBar: React.FC<MissionStatusBarProps> = ({ messages, cl
     }
     if (phase === 'adapt' || phase === 'adapting') {
       return {
-        icon: <Loader2 className="h-4 w-4 text-theme-warning animate-spin" />,
+        icon: <Loader2 className="h-4 w-4 text-theme-warning-fg animate-spin" />,
         label: 'Adapting plan',
         variant: 'warning' as const,
         action: null,
@@ -197,7 +197,7 @@ export const MissionStatusBar: React.FC<MissionStatusBarProps> = ({ messages, cl
     }
     if (phase === 'completed' || mission?.status === 'completed') {
       return {
-        icon: <CheckCircle2 className="h-4 w-4 text-theme-success" />,
+        icon: <CheckCircle2 className="h-4 w-4 text-theme-success-fg" />,
         label: 'Provisioned',
         variant: 'success' as const,
         action: null,
@@ -205,7 +205,7 @@ export const MissionStatusBar: React.FC<MissionStatusBarProps> = ({ messages, cl
     }
     if (phase === 'failed' || mission?.status === 'failed') {
       return {
-        icon: <AlertCircle className="h-4 w-4 text-theme-danger" />,
+        icon: <AlertCircle className="h-4 w-4 text-theme-danger-fg" />,
         label: 'Provisioning failed',
         variant: 'danger' as const,
         action: null,
@@ -213,7 +213,7 @@ export const MissionStatusBar: React.FC<MissionStatusBarProps> = ({ messages, cl
     }
     // Default: capture_intent / brief sketch state
     return {
-      icon: <Sparkles className="h-4 w-4 text-theme-info" />,
+      icon: <Sparkles className="h-4 w-4 text-theme-info-fg" />,
       label: missingFields.length > 0 ? 'Brief incomplete' : 'Capturing intent',
       variant: 'info' as const,
       action: null,

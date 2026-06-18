@@ -484,14 +484,14 @@ describe('SbomsPage', () => {
       renderWithRouter(<SbomsPage />);
       const appRow = screen.getByTestId('row-sbom-1');
       const icon = appRow.querySelector('svg');
-      expect(icon?.classList.contains('text-theme-success')).toBeTruthy();
+      expect(icon?.classList.contains('text-theme-success-fg')).toBeTruthy();
     });
 
     it('displays appropriate icon styling for non-compliant status', () => {
       renderWithRouter(<SbomsPage />);
       const apiRow = screen.getByTestId('row-sbom-2');
       const icon = apiRow.querySelector('svg');
-      expect(icon?.classList.contains('text-theme-error')).toBeTruthy();
+      expect(icon?.classList.contains('text-theme-error-fg')).toBeTruthy();
     });
   });
 

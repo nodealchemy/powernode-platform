@@ -42,8 +42,8 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
 
   if (error) {
     return (
-      <div className={cn('rounded-lg p-4 bg-theme-danger/10 border border-theme-danger/30', className)}>
-        <p className="text-theme-danger text-sm">{error}</p>
+      <div className={cn('rounded-lg p-4 bg-theme-danger-fg/10 border border-theme-danger-border/30', className)}>
+        <p className="text-theme-danger-fg text-sm">{error}</p>
       </div>
     );
   }
@@ -104,7 +104,7 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-theme-info hover:text-theme-info/80 underline"
+                  className="text-theme-info-fg hover:text-theme-info-fg/80 underline"
                 >
                   {children}
                 </a>

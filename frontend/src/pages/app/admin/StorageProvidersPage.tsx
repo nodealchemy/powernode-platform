@@ -207,7 +207,7 @@ const StorageProvidersPage: React.FC = () => {
             </div>
             <div className="bg-theme-surface border border-theme rounded-lg p-4">
               <p className="text-sm text-theme-secondary mb-1">Active Providers</p>
-              <p className="text-2xl font-bold text-theme-success">
+              <p className="text-2xl font-bold text-theme-success-fg">
                 {providers.filter((p) => p.status === 'active').length}
               </p>
             </div>
@@ -224,7 +224,7 @@ const StorageProvidersPage: React.FC = () => {
           {/* Storage Providers Grid */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin h-8 w-8 border-4 border-theme-info border-t-transparent rounded-full" />
+              <div className="animate-spin h-8 w-8 border-4 border-theme-info-border border-t-transparent rounded-full" />
             </div>
           ) : providers.length === 0 ? (
             <div className="bg-theme-surface border border-theme rounded-lg p-12 text-center">
@@ -262,7 +262,7 @@ const StorageProvidersPage: React.FC = () => {
           )}
 
           {/* Information Panel */}
-          <div className="bg-theme-info/10 dark:bg-theme-info/20 border border-theme-info/30 dark:border-theme-info/50 rounded-lg p-6">
+          <div className="bg-theme-info-fg/10 dark:bg-theme-info-fg/20 border border-theme-info-border/30 dark:border-theme-info-border/50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-theme-primary mb-2">
               About Storage Providers
             </h3>

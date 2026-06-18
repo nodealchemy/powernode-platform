@@ -29,8 +29,8 @@ const statusIcons: Record<string, React.FC<{ className?: string }>> = {
 };
 
 const conclusionStyles: Record<string, { bg: string; text: string; icon: React.FC<{ className?: string }> }> = {
-  success: { bg: 'bg-theme-success/10', text: 'text-theme-success', icon: CheckCircle },
-  failure: { bg: 'bg-theme-error/10', text: 'text-theme-error', icon: XCircle },
+  success: { bg: 'bg-theme-success-fg/10', text: 'text-theme-success-fg', icon: CheckCircle },
+  failure: { bg: 'bg-theme-error-fg/10', text: 'text-theme-error-fg', icon: XCircle },
   cancelled: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary', icon: StopCircle },
   skipped: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary', icon: Clock },
 };
@@ -62,7 +62,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
           </div>
           <div className="bg-theme-surface rounded-lg p-4 border border-theme">
             <p className="text-sm text-theme-secondary">Success Rate</p>
-            <p className="text-2xl font-semibold text-theme-success">
+            <p className="text-2xl font-semibold text-theme-success-fg">
               {stats.success_rate}%
             </p>
           </div>
@@ -74,7 +74,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
           </div>
           <div className="bg-theme-surface rounded-lg p-4 border border-theme">
             <p className="text-sm text-theme-secondary">Active</p>
-            <p className="text-2xl font-semibold text-theme-warning">
+            <p className="text-2xl font-semibold text-theme-warning-fg">
               {stats.active_runs}
             </p>
           </div>
@@ -114,7 +114,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
                         className={`p-2 rounded-lg ${
                           conclusionStyle
                             ? conclusionStyle.bg
-                            : 'bg-theme-warning/10'
+                            : 'bg-theme-warning-fg/10'
                         }`}
                       >
                         {conclusionStyle ? (
@@ -125,7 +125,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
                           <StatusIcon
                             className={`w-5 h-5 ${
                               pipeline.status === 'running'
-                                ? 'text-theme-warning animate-pulse'
+                                ? 'text-theme-warning-fg animate-pulse'
                                 : 'text-theme-secondary'
                             }`}
                           />
@@ -202,7 +202,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
                               e.stopPropagation();
                               onCancel(pipeline.id);
                             }}
-                            className="p-1 rounded hover:bg-theme-surface-hover text-theme-error"
+                            className="p-1 rounded hover:bg-theme-surface-hover text-theme-error-fg"
                             title="Cancel"
                           >
                             <StopCircle className="w-4 h-4" />

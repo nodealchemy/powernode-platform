@@ -398,7 +398,7 @@ describe('SignAttestationModal', () => {
 
     it('applies info styling to information box', () => {
       const { container } = render(<SignAttestationModal {...defaultProps} />);
-      const infoBox = container.querySelector('.bg-theme-info\\/10');
+      const infoBox = container.querySelector('.bg-theme-info-bg\\/10');
       expect(infoBox).toBeInTheDocument();
     });
   });

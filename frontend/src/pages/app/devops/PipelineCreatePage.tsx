@@ -139,7 +139,7 @@ export const PipelineCreatePage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-theme-secondary mb-1">
-                Pipeline Name <span className="text-theme-error">*</span>
+                Pipeline Name <span className="text-theme-error-fg">*</span>
               </label>
               <input
                 type="text"
@@ -299,7 +299,7 @@ export const PipelineCreatePage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => removeStep(index)}
-                    className="p-1.5 text-theme-error hover:bg-theme-error/10 rounded"
+                    className="p-1.5 text-theme-error-fg hover:bg-theme-error-fg/10 rounded"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

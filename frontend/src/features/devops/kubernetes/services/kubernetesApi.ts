@@ -95,12 +95,12 @@ export const kubernetesApi = {
 
   getClusterStatusColor(status: string): string {
     switch (status) {
-      case 'active':         return 'bg-theme-success bg-opacity-10 text-theme-success';
-      case 'bootstrapping':  return 'bg-theme-info bg-opacity-10 text-theme-info';
-      case 'pending':        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'degraded':       return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'disconnected':   return 'bg-theme-danger bg-opacity-10 text-theme-danger';
-      case 'error':          return 'bg-theme-danger bg-opacity-10 text-theme-danger';
+      case 'active':         return 'bg-theme-success-bg text-theme-success-fg';
+      case 'bootstrapping':  return 'bg-theme-info-bg text-theme-info-fg';
+      case 'pending':        return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'degraded':       return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'disconnected':   return 'bg-theme-danger-bg text-theme-danger-fg';
+      case 'error':          return 'bg-theme-danger-bg text-theme-danger-fg';
       default:               return 'bg-theme-surface text-theme-secondary';
     }
   },

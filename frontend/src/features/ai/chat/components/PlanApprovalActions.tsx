@@ -50,7 +50,7 @@ export const PlanApprovalActions: React.FC<PlanApprovalActionsProps> = ({
     return (
       <div className="mt-3 flex items-center gap-2">
         {isApproved && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-theme-success/10 text-theme-success">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-theme-success-fg/10 text-theme-success-fg">
             <Check className="h-3.5 w-3.5" />
             Plan Approved
             {actionContext.resolved_at && (
@@ -61,7 +61,7 @@ export const PlanApprovalActions: React.FC<PlanApprovalActionsProps> = ({
           </span>
         )}
         {isChangesRequested && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-theme-warning/10 text-theme-warning">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-theme-warning-fg/10 text-theme-warning-fg">
             <MessageSquareText className="h-3.5 w-3.5" />
             Changes Requested
             {actionContext.resolved_at && (
@@ -113,7 +113,7 @@ export const PlanApprovalActions: React.FC<PlanApprovalActionsProps> = ({
             <button
               onClick={handleSubmitFeedback}
               disabled={loading || !feedback.trim()}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium bg-theme-warning text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium bg-theme-warning-bg text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
               {loading ? 'Submitting...' : 'Submit Feedback'}
             </button>

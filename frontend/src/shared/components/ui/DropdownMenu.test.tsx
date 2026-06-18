@@ -88,7 +88,7 @@ describe('DropdownMenu', () => {
       fireEvent.click(screen.getByText('Open Menu'));
 
       const deleteButton = screen.getByText('Delete').closest('button');
-      expect(deleteButton).toHaveClass('text-theme-error');
+      expect(deleteButton).toHaveClass('text-theme-error-fg');
     });
   });
 

@@ -31,17 +31,17 @@ import { resolveCoreEntityType } from '@/shared/entity/registerCoreEntities';
 
 function getSeverityColor(severity: string): string {
   switch (severity) {
-    case 'critical': return 'text-theme-error bg-theme-error/10';
-    case 'high': case 'medium': return 'text-theme-warning bg-theme-warning/10';
-    case 'low': return 'text-theme-info bg-theme-info/10';
+    case 'critical': return 'text-theme-error-fg bg-theme-error-fg/10';
+    case 'high': case 'medium': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+    case 'low': return 'text-theme-info-fg bg-theme-info-fg/10';
     default: return 'text-theme-secondary bg-theme-surface';
   }
 }
 
 function getStatusColor(status: string): string {
   switch (status) {
-    case 'active': return 'text-theme-success bg-theme-success/10';
-    case 'disabled': return 'text-theme-error bg-theme-error/10';
+    case 'active': return 'text-theme-success-fg bg-theme-success-fg/10';
+    case 'disabled': return 'text-theme-error-fg bg-theme-error-fg/10';
     default: return 'text-theme-secondary bg-theme-surface';
   }
 }
@@ -81,7 +81,7 @@ const ViolationsContent: React.FC<{ violations: PolicyViolation[]; loading: bool
   if (violations.length === 0) {
     return (
       <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
-        <CheckCircle size={48} className="mx-auto text-theme-success mb-4" />
+        <CheckCircle size={48} className="mx-auto text-theme-success-fg mb-4" />
         <h3 className="text-lg font-semibold text-theme-primary mb-2">No violations</h3>
         <p className="text-theme-secondary">All AI operations are compliant</p>
       </div>
@@ -119,7 +119,7 @@ const ApprovalsContent: React.FC<{
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Pending Approvals</h3>
         {pendingApprovals.length === 0 ? (
           <div className="text-center py-8 bg-theme-surface border border-theme rounded-lg">
-            <CheckCircle size={32} className="mx-auto text-theme-success mb-2" />
+            <CheckCircle size={32} className="mx-auto text-theme-success-fg mb-2" />
             <p className="text-theme-secondary">No pending approvals</p>
           </div>
         ) : (
@@ -175,12 +175,12 @@ const ApprovalsContent: React.FC<{
 
 function getReportTypeColor(type: string): string {
   switch (type) {
-    case 'collusion_suspicion': return 'text-theme-error bg-theme-error/10';
-    case 'safety_concern': return 'text-theme-error bg-theme-error/10';
-    case 'policy_violation': return 'text-theme-warning bg-theme-warning/10';
-    case 'anomaly': return 'text-theme-warning bg-theme-warning/10';
-    case 'resource_abuse': return 'text-theme-warning bg-theme-warning/10';
-    case 'pattern_drift': return 'text-theme-info bg-theme-info/10';
+    case 'collusion_suspicion': return 'text-theme-error-fg bg-theme-error-fg/10';
+    case 'safety_concern': return 'text-theme-error-fg bg-theme-error-fg/10';
+    case 'policy_violation': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+    case 'anomaly': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+    case 'resource_abuse': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+    case 'pattern_drift': return 'text-theme-info-fg bg-theme-info-fg/10';
     default: return 'text-theme-secondary bg-theme-surface';
   }
 }
@@ -201,7 +201,7 @@ const ReportsContent: React.FC<{ reports: GovernanceReport[]; loading: boolean; 
   if (reports.length === 0) {
     return (
       <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
-        <FileText size={48} className="mx-auto text-theme-success mb-4" />
+        <FileText size={48} className="mx-auto text-theme-success-fg mb-4" />
         <h3 className="text-lg font-semibold text-theme-primary mb-2">No governance reports</h3>
         <p className="text-theme-secondary">Automated governance scans have not detected any issues</p>
       </div>
@@ -229,7 +229,7 @@ const ReportsContent: React.FC<{ reports: GovernanceReport[]; loading: boolean; 
           <div className="flex items-center gap-4 text-sm text-theme-secondary">
             {report.subject_agent && <span>Agent: <EntityLink type="agent" id={report.subject_agent.id} label={report.subject_agent.name} /></span>}
             {report.monitor_agent && <span>Detected by: <EntityLink type="agent" id={report.monitor_agent.id} label={report.monitor_agent.name} /></span>}
-            {report.auto_remediated && <span className="text-theme-success">Auto-remediated</span>}
+            {report.auto_remediated && <span className="text-theme-success-fg">Auto-remediated</span>}
             <span>{new Date(report.created_at).toLocaleDateString()}</span>
           </div>
         </div>
@@ -243,7 +243,7 @@ const CollusionContent: React.FC<{ indicators: CollusionIndicator[]; loading: bo
   if (indicators.length === 0) {
     return (
       <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
-        <Eye size={48} className="mx-auto text-theme-success mb-4" />
+        <Eye size={48} className="mx-auto text-theme-success-fg mb-4" />
         <h3 className="text-lg font-semibold text-theme-primary mb-2">No collusion indicators</h3>
         <p className="text-theme-secondary">Multi-agent collusion detection has not found suspicious patterns</p>
       </div>
@@ -255,7 +255,7 @@ const CollusionContent: React.FC<{ indicators: CollusionIndicator[]; loading: bo
         <div key={indicator.id} data-testid="collusion-card" className="bg-theme-surface border border-theme rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <span className={`px-2 py-1 text-xs rounded ${indicator.correlation_score >= 0.7 ? 'text-theme-error bg-theme-error/10' : 'text-theme-warning bg-theme-warning/10'}`}>
+              <span className={`px-2 py-1 text-xs rounded ${indicator.correlation_score >= 0.7 ? 'text-theme-error-fg bg-theme-error-fg/10' : 'text-theme-warning-fg bg-theme-warning-fg/10'}`}>
                 {(indicator.correlation_score * 100).toFixed(0)}% correlation
               </span>
               <span className="font-medium text-theme-primary">{getCollusionTypeLabel(indicator.indicator_type)}</span>
@@ -311,12 +311,12 @@ const CoordinationContent: React.FC<{
       {coordSummary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-theme-success">{coordSummary.signals.active}</div>
+            <div className="text-2xl font-bold text-theme-success-fg">{coordSummary.signals.active}</div>
             <div className="text-xs text-theme-tertiary">Active Signals</div>
             <div className="text-xs text-theme-secondary mt-1">{coordSummary.signals.fading} fading</div>
           </Card>
           <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-theme-warning">{coordSummary.pressure_fields.actionable}</div>
+            <div className="text-2xl font-bold text-theme-warning-fg">{coordSummary.pressure_fields.actionable}</div>
             <div className="text-xs text-theme-tertiary">Actionable Pressures</div>
             <div className="text-xs text-theme-secondary mt-1">Avg: {(coordSummary.pressure_fields.avg_pressure * 100).toFixed(0)}%</div>
           </Card>
@@ -325,7 +325,7 @@ const CoordinationContent: React.FC<{
             <div className="text-xs text-theme-tertiary">Pressure Fields</div>
           </Card>
           <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-theme-info">{coordSummary.team_events.recent_24h}</div>
+            <div className="text-2xl font-bold text-theme-info-fg">{coordSummary.team_events.recent_24h}</div>
             <div className="text-xs text-theme-tertiary">Team Events (24h)</div>
             <div className="text-xs text-theme-secondary mt-1">{coordSummary.team_events.total} total</div>
           </Card>
@@ -335,7 +335,7 @@ const CoordinationContent: React.FC<{
       {/* Stigmergic Signals */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Radio size={18} className="text-theme-success" />
+          <Radio size={18} className="text-theme-success-fg" />
           <h3 className="text-lg font-medium text-theme-primary">Stigmergic Signals</h3>
           <Badge variant="secondary" size="sm">{signals.length}</Badge>
         </div>
@@ -356,10 +356,10 @@ const CoordinationContent: React.FC<{
                     <span className="text-theme-tertiary">{s.perceive_count} perceived</span>
                   </div>
                 </div>
-                {s.emitter_agent && <span className="text-xs text-theme-info">Emitted by <EntityLink type="agent" id={s.emitter_agent.id} label={s.emitter_agent.name} /></span>}
+                {s.emitter_agent && <span className="text-xs text-theme-info-fg">Emitted by <EntityLink type="agent" id={s.emitter_agent.id} label={s.emitter_agent.name} /></span>}
                 {/* Strength bar */}
                 <div className="mt-2 h-1.5 bg-theme-surface-secondary rounded-full overflow-hidden">
-                  <div className="h-full bg-theme-success rounded-full transition-all" style={{ width: `${s.strength * 100}%` }} />
+                  <div className="h-full bg-theme-success-bg rounded-full transition-all" style={{ width: `${s.strength * 100}%` }} />
                 </div>
               </div>
             ))}
@@ -370,7 +370,7 @@ const CoordinationContent: React.FC<{
       {/* Pressure Fields */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Gauge size={18} className="text-theme-warning" />
+          <Gauge size={18} className="text-theme-warning-fg" />
           <h3 className="text-lg font-medium text-theme-primary">Pressure Fields</h3>
           <Badge variant="secondary" size="sm">{pressureFields.length}</Badge>
         </div>
@@ -386,7 +386,7 @@ const CoordinationContent: React.FC<{
                     <span className="text-sm text-theme-primary">{f.artifact_ref}</span>
                   </div>
                   <div className="flex items-center gap-3 text-xs">
-                    <span className={f.actionable ? 'text-theme-warning font-medium' : 'text-theme-secondary'}>
+                    <span className={f.actionable ? 'text-theme-warning-fg font-medium' : 'text-theme-secondary'}>
                       Pressure: {(f.pressure_value * 100).toFixed(0)}%
                     </span>
                     <span className="text-theme-tertiary">Threshold: {(f.threshold * 100).toFixed(0)}%</span>
@@ -399,7 +399,7 @@ const CoordinationContent: React.FC<{
                     backgroundColor: f.actionable ? 'var(--color-warning)' : 'var(--color-info)'
                   }} />
                   {/* Threshold marker */}
-                  <div className="absolute top-0 h-full w-0.5 bg-theme-error" style={{ left: `${f.threshold * 100}%` }} />
+                  <div className="absolute top-0 h-full w-0.5 bg-theme-error-bg" style={{ left: `${f.threshold * 100}%` }} />
                 </div>
               </div>
             ))}
@@ -410,7 +410,7 @@ const CoordinationContent: React.FC<{
       {/* Team Restructure Events */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Users size={18} className="text-theme-info" />
+          <Users size={18} className="text-theme-info-fg" />
           <h3 className="text-lg font-medium text-theme-primary">Team Restructure Events</h3>
           <Badge variant="secondary" size="sm">{teamEvents.length}</Badge>
         </div>
@@ -574,8 +574,8 @@ export const GovernancePage: React.FC = () => {
                 <p className="text-sm text-theme-tertiary">Total Policies</p>
                 <p className="text-2xl font-semibold text-theme-primary">{summary.policies.total}</p>
               </div>
-              <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-                <Shield className="h-5 w-5 text-theme-info" />
+              <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+                <Shield className="h-5 w-5 text-theme-info-fg" />
               </div>
             </div>
             <p className="text-xs text-theme-tertiary mt-2">{summary.policies.active} active</p>
@@ -584,10 +584,10 @@ export const GovernancePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-theme-tertiary">Active Violations</p>
-                <p className="text-2xl font-semibold text-theme-error">{summary.violations.open}</p>
+                <p className="text-2xl font-semibold text-theme-error-fg">{summary.violations.open}</p>
               </div>
-              <div className="h-10 w-10 bg-theme-error bg-opacity-10 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-theme-error" />
+              <div className="h-10 w-10 bg-theme-error-bg rounded-lg flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-theme-error-fg" />
               </div>
             </div>
             <p className="text-xs text-theme-tertiary mt-2">{summary.violations.total} total</p>
@@ -596,10 +596,10 @@ export const GovernancePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-theme-tertiary">Pending Approvals</p>
-                <p className="text-2xl font-semibold text-theme-warning">{summary.approvals.pending}</p>
+                <p className="text-2xl font-semibold text-theme-warning-fg">{summary.approvals.pending}</p>
               </div>
-              <div className="h-10 w-10 bg-theme-warning bg-opacity-10 rounded-lg flex items-center justify-center">
-                <Clock className="h-5 w-5 text-theme-warning" />
+              <div className="h-10 w-10 bg-theme-warning-bg rounded-lg flex items-center justify-center">
+                <Clock className="h-5 w-5 text-theme-warning-fg" />
               </div>
             </div>
             <p className="text-xs text-theme-tertiary mt-2">{summary.approvals.approved} approved</p>
@@ -608,10 +608,10 @@ export const GovernancePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-theme-tertiary">Security Score</p>
-                <p className="text-2xl font-semibold text-theme-success">{securityScore}%</p>
+                <p className="text-2xl font-semibold text-theme-success-fg">{securityScore}%</p>
               </div>
-              <div className="h-10 w-10 bg-theme-success bg-opacity-10 rounded-lg flex items-center justify-center">
-                <ShieldCheck className="h-5 w-5 text-theme-success" />
+              <div className="h-10 w-10 bg-theme-success-bg rounded-lg flex items-center justify-center">
+                <ShieldCheck className="h-5 w-5 text-theme-success-fg" />
               </div>
             </div>
             <p className="text-xs text-theme-tertiary mt-2">{summary.violations.total - summary.violations.open} resolved</p>

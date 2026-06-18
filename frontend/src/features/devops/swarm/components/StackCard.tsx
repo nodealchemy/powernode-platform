@@ -55,7 +55,7 @@ export const StackCard: React.FC<StackCardProps> = ({
                 {stack.status}
               </span>
               {stack.source === 'discovered' && (
-                <span className="px-2 py-0.5 rounded text-xs font-medium bg-theme-info/10 text-theme-info">
+                <span className="px-2 py-0.5 rounded text-xs font-medium bg-theme-info-fg/10 text-theme-info-fg">
                   Discovered
                 </span>
               )}
@@ -90,7 +90,7 @@ export const StackCard: React.FC<StackCardProps> = ({
             </div>
           ) : expandedData?.error ? (
             <div className="text-center py-4">
-              <p className="text-sm text-theme-error mb-2">{expandedData.error}</p>
+              <p className="text-sm text-theme-error-fg mb-2">{expandedData.error}</p>
               <Button size="xs" variant="secondary" onClick={onToggleExpand}>Retry</Button>
             </div>
           ) : (
@@ -179,7 +179,7 @@ interface ServiceRowProps {
 const ServiceRow: React.FC<ServiceRowProps> = ({ service, onScale, onRollback }) => {
   const healthColor = swarmApi.getHealthPercentageColor(service.health_percentage);
   const healthWidth = Math.min(100, Math.max(0, service.health_percentage));
-  const replicaColor = service.running_replicas >= service.desired_replicas ? 'text-theme-success' : 'text-theme-warning';
+  const replicaColor = service.running_replicas >= service.desired_replicas ? 'text-theme-success-fg' : 'text-theme-warning-fg';
 
   return (
     <div className={`${SERVICE_GRID} py-1.5 rounded hover:bg-theme-surface/50 group`}>
@@ -203,9 +203,9 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ service, onScale, onRollback })
       <div className="w-full h-1 bg-theme-surface rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full ${
-            service.health_percentage >= 100 ? 'bg-theme-success' :
-            service.health_percentage >= 50 ? 'bg-theme-warning' :
-            'bg-theme-error'
+            service.health_percentage >= 100 ? 'bg-theme-success-bg' :
+            service.health_percentage >= 50 ? 'bg-theme-warning-bg' :
+            'bg-theme-error-bg'
           }`}
           style={{ width: `${healthWidth}%` }}
         />

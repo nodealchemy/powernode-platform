@@ -19,7 +19,7 @@ export const ResourceUsageChart: React.FC<ResourceUsageChartProps> = ({ resource
 
       {resources.map((resource) => {
         const percentage = resource.total > 0 ? Math.min(100, (resource.used / resource.total) * 100) : 0;
-        const color = percentage >= 90 ? 'bg-theme-error' : percentage >= 70 ? 'bg-theme-warning' : 'bg-theme-success';
+        const color = percentage >= 90 ? 'bg-theme-error-bg' : percentage >= 70 ? 'bg-theme-warning-bg' : 'bg-theme-success-bg';
 
         return (
           <div key={resource.label}>

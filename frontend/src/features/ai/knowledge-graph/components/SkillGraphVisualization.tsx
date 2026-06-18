@@ -62,7 +62,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 function SkillGraphNode({ data }: { data: SkillGraphNodeData }) {
   const icon = CATEGORY_ICONS[data.category] || '🔧';
-  const statusClass = data.status === 'active' ? 'bg-theme-success' : 'bg-theme-surface-secondary';
+  const statusClass = data.status === 'active' ? 'bg-theme-success-bg' : 'bg-theme-surface-secondary';
 
   return (
     <div className="px-3 py-2 rounded-lg border-2 border-theme bg-theme-surface shadow min-w-[200px] max-w-[240px]">
@@ -79,7 +79,7 @@ function SkillGraphNode({ data }: { data: SkillGraphNodeData }) {
           </div>
         </div>
         {data.dependencyCount > 0 && (
-          <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-theme-warning text-theme-warning flex-shrink-0">
+          <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-theme-warning-bg text-theme-warning-fg flex-shrink-0">
             {data.dependencyCount} deps
           </span>
         )}

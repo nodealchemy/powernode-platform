@@ -23,7 +23,7 @@ export const Textarea: React.FC<TextareaProps> = ({
     focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent
     resize-vertical min-h-[80px]
     ${fullWidth ? 'w-full' : ''}
-    ${error ? 'border-theme-error focus:ring-theme-error' : 'border-theme'}
+    ${error ? 'border-theme-error-border focus:ring-theme-error-fg' : 'border-theme'}
     ${className}
   `.replace(/\s+/g, ' ').trim();
 
@@ -49,7 +49,7 @@ export const Textarea: React.FC<TextareaProps> = ({
         </p>
       )}
       {error && (
-        <p id={`${textareaId}-error`} className="mt-1 text-sm text-theme-error" role="alert">{error}</p>
+        <p id={`${textareaId}-error`} className="mt-1 text-sm text-theme-error-fg" role="alert">{error}</p>
       )}
     </div>
   );

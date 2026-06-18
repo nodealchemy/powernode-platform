@@ -9,10 +9,10 @@ interface SeverityBadgeProps {
 }
 
 const severityConfig: Record<Severity, { bg: string; text: string; dot: string; label: string }> = {
-  critical: { bg: 'bg-theme-error/10', text: 'text-theme-error', dot: 'bg-theme-error', label: 'Critical' },
-  high: { bg: 'bg-theme-warning/10', text: 'text-theme-warning', dot: 'bg-theme-warning', label: 'High' },
-  medium: { bg: 'bg-theme-info/10', text: 'text-theme-info', dot: 'bg-theme-info', label: 'Medium' },
-  low: { bg: 'bg-theme-success/10', text: 'text-theme-success', dot: 'bg-theme-success', label: 'Low' },
+  critical: { bg: 'bg-theme-error-fg/10', text: 'text-theme-error-fg', dot: 'bg-theme-error-bg', label: 'Critical' },
+  high: { bg: 'bg-theme-warning-fg/10', text: 'text-theme-warning-fg', dot: 'bg-theme-warning-bg', label: 'High' },
+  medium: { bg: 'bg-theme-info-fg/10', text: 'text-theme-info-fg', dot: 'bg-theme-info-bg', label: 'Medium' },
+  low: { bg: 'bg-theme-success-fg/10', text: 'text-theme-success-fg', dot: 'bg-theme-success-bg', label: 'Low' },
 };
 
 export const SeverityBadge: React.FC<SeverityBadgeProps> = ({

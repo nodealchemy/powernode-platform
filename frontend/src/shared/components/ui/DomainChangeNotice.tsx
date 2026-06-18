@@ -25,7 +25,7 @@ export const DomainChangeNotice: React.FC<DomainChangeNoticeProps> = ({ onDismis
   };
   
   return (
-    <div className="bg-theme-warning/10 border border-theme-warning/20 rounded-lg p-4 mb-6">
+    <div className="bg-theme-warning-fg/10 border border-theme-warning-border/20 rounded-lg p-4 mb-6">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <h3 className="text-sm font-medium text-theme-warning-foreground mb-1">

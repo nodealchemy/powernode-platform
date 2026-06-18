@@ -28,7 +28,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, iconColor
         <p className="text-sm text-theme-secondary">{title}</p>
         <p className="text-2xl font-semibold text-theme-primary mt-1">{value}</p>
         {trend && (
-          <p className="text-xs text-theme-success mt-1 flex items-center gap-1">
+          <p className="text-xs text-theme-success-fg mt-1 flex items-center gap-1">
             <TrendingUp className="w-3 h-3" />
             {trend}
           </p>
@@ -70,19 +70,19 @@ export const PipelineStatsCards: React.FC<PipelineStatsCardsProps> = ({ stats, l
         title="Active Pipelines"
         value={stats.active_count}
         icon={Activity}
-        iconColor="bg-theme-success/10 text-theme-success"
+        iconColor="bg-theme-success-fg/10 text-theme-success-fg"
       />
       <StatCard
         title="Total Runs"
         value={stats.total_runs}
         icon={CheckCircle}
-        iconColor="bg-theme-info/10 text-theme-info"
+        iconColor="bg-theme-info-fg/10 text-theme-info-fg"
       />
       <StatCard
         title="Success Rate"
         value={stats.total_runs > 0 ? `${Math.round((stats.active_count / stats.total) * 100)}%` : '-'}
         icon={TrendingUp}
-        iconColor="bg-theme-warning/10 text-theme-warning"
+        iconColor="bg-theme-warning-fg/10 text-theme-warning-fg"
       />
     </div>
   );

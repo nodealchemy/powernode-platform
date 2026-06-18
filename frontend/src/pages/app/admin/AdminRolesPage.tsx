@@ -317,7 +317,7 @@ export const AdminRolesPage: React.FC = () => {
                           variant="ghost"
                           size="xs"
                           onClick={() => handleDeleteRole(role)}
-                          className="hover:text-theme-error"
+                          className="hover:text-theme-error-fg"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>

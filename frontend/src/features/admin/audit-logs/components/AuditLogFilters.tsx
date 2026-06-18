@@ -116,7 +116,7 @@ export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
             onClick={() => handleFilterChange('action', 'login_failed')}
             className={`flex items-center gap-1 px-3 py-1 text-xs rounded-full transition-colors duration-200 ${
               localFilters.action === 'login_failed'
-                ? 'bg-theme-error bg-opacity-10 text-theme-error'
+                ? 'bg-theme-error-bg text-theme-error-fg'
                 : 'bg-theme-background text-theme-secondary hover:text-theme-primary'
             }`}
           >
@@ -128,7 +128,7 @@ export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
             onClick={() => handleFilterChange('status', 'error')}
             className={`flex items-center gap-1 px-3 py-1 text-xs rounded-full transition-colors duration-200 ${
               localFilters.status === 'error'
-                ? 'bg-theme-error bg-opacity-10 text-theme-error'
+                ? 'bg-theme-error-bg text-theme-error-fg'
                 : 'bg-theme-background text-theme-secondary hover:text-theme-primary'
             }`}
           >
@@ -140,7 +140,7 @@ export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
             onClick={() => handleFilterChange('source', 'admin_panel')}
             className={`flex items-center gap-1 px-3 py-1 text-xs rounded-full transition-colors duration-200 ${
               localFilters.source === 'admin_panel'
-                ? 'bg-theme-warning bg-opacity-10 text-theme-warning'
+                ? 'bg-theme-warning-bg text-theme-warning-fg'
                 : 'bg-theme-background text-theme-secondary hover:text-theme-primary'
             }`}
           >
@@ -152,7 +152,7 @@ export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
             onClick={() => handleFilterChange('date_from', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0])}
             className={`flex items-center gap-1 px-3 py-1 text-xs rounded-full transition-colors duration-200 ${
               localFilters.date_from === new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-                ? 'bg-theme-info bg-opacity-10 text-theme-info'
+                ? 'bg-theme-info-bg text-theme-info-fg'
                 : 'bg-theme-background text-theme-secondary hover:text-theme-primary'
             }`}
           >
@@ -333,7 +333,7 @@ export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
               return (
                 <div
                   key={key}
-                  className="flex items-center gap-1 px-2 py-1 bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary text-xs rounded-full"
+                  className="flex items-center gap-1 px-2 py-1 bg-theme-interactive-primary/10 text-theme-interactive-primary text-xs rounded-full"
                 >
                   <span className="font-medium">
                     {key.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}:

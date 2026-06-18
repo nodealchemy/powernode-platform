@@ -121,7 +121,7 @@ const SbomsPageContent: React.FC = () => {
       key: 'vulnerability_count',
       header: 'Vulnerabilities',
       render: (item: typeof sboms[0]) => (
-        <span className={item.vulnerability_count > 0 ? 'text-theme-error' : 'text-theme-success'}>
+        <span className={item.vulnerability_count > 0 ? 'text-theme-error-fg' : 'text-theme-success-fg'}>
           {item.vulnerability_count}
         </span>
       ),
@@ -137,9 +137,9 @@ const SbomsPageContent: React.FC = () => {
       render: (item: typeof sboms[0]) => (
         <div className="flex items-center justify-center">
           {item.ntia_minimum_compliant ? (
-            <CheckCircle className="w-4 h-4 text-theme-success" />
+            <CheckCircle className="w-4 h-4 text-theme-success-fg" />
           ) : (
-            <XCircle className="w-4 h-4 text-theme-error" />
+            <XCircle className="w-4 h-4 text-theme-error-fg" />
           )}
         </div>
       ),
@@ -171,7 +171,7 @@ const SbomsPageContent: React.FC = () => {
               e.stopPropagation();
               handleDelete(item.id, item.name);
             }}
-            className="text-theme-secondary hover:text-theme-error"
+            className="text-theme-secondary hover:text-theme-error-fg"
           >
             <Trash2 className="w-4 h-4" />
           </button>

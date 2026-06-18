@@ -436,7 +436,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
             placeholder="Search items..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-info focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-info-fg focus:border-transparent"
           />
         </div>
 
@@ -489,12 +489,12 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
                     <h3 className="text-lg font-semibold text-theme-primary">{item.name}</h3>
                     {item.is_verified && (
                       <span title="Verified">
-                        <CheckCircle className="w-4 h-4 text-theme-info" />
+                        <CheckCircle className="w-4 h-4 text-theme-info-fg" />
                       </span>
                     )}
                     {item.is_featured && (
                       <span title="Featured">
-                        <Star className="w-4 h-4 text-theme-warning fill-current" />
+                        <Star className="w-4 h-4 text-theme-warning-fg fill-current" />
                       </span>
                     )}
                   </div>
@@ -511,7 +511,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
                       v{item.version}
                     </span>
                     <span className="text-sm text-theme-secondary flex items-center gap-1">
-                      <Star className="w-3 h-3 text-theme-warning fill-current" />
+                      <Star className="w-3 h-3 text-theme-warning-fg fill-current" />
                       {item.rating.toFixed(1)}
                     </span>
                     <span className="text-sm text-theme-secondary">
@@ -540,7 +540,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
                     size="sm"
                     title="Remove Featured"
                   >
-                    <Star className="w-4 h-4 fill-current text-theme-warning" />
+                    <Star className="w-4 h-4 fill-current text-theme-warning-fg" />
                   </Button>
                 ) : (
                   <Button
@@ -556,7 +556,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
                   variant="ghost"
                   size="sm"
                   title="Delete Item"
-                  className="text-theme-danger hover:text-theme-danger"
+                  className="text-theme-danger-fg hover:text-theme-danger-fg"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -585,7 +585,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
             placeholder="Search pending templates..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-info focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-info-fg focus:border-transparent"
           />
         </div>
 
@@ -615,8 +615,8 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
         {loading && <div className="text-center py-8 text-theme-secondary">Loading pending templates...</div>}
         {!loading && filteredPendingTemplates.length === 0 && (
           <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-theme-success bg-opacity-10 flex items-center justify-center">
-              <FileCheck className="w-8 h-8 text-theme-success" />
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-theme-success-bg flex items-center justify-center">
+              <FileCheck className="w-8 h-8 text-theme-success-fg" />
             </div>
             <h3 className="text-lg font-semibold text-theme-primary mb-2">No Pending Templates</h3>
             <p className="text-theme-secondary">
@@ -628,8 +628,8 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
           <Card key={template.id} className="p-6">
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 rounded-lg bg-theme-warning bg-opacity-10 flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-theme-warning" />
+                <div className="w-12 h-12 rounded-lg bg-theme-warning-bg flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-theme-warning-fg" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -682,7 +682,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
                   onClick={() => handleApproveTemplate(template)}
                   disabled={loading}
                   title="Approve Template"
-                  className="text-theme-success border-theme-success hover:bg-theme-success hover:text-white"
+                  className="text-theme-success-fg border-theme-success-border hover:bg-theme-success-bg hover:text-white"
                 >
                   <CheckCircle className="w-4 h-4" />
                 </Button>
@@ -693,7 +693,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
                   onClick={() => openRejectModal(template)}
                   disabled={loading}
                   title="Reject Template"
-                  className="text-theme-danger border-theme-danger hover:bg-theme-danger hover:text-white"
+                  className="text-theme-danger-fg border-theme-danger-border hover:bg-theme-danger-bg hover:text-white"
                 >
                   <XCircle className="w-4 h-4" />
                 </Button>
@@ -716,7 +716,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
             placeholder="Search reviews..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-info focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-info-fg focus:border-transparent"
           />
         </div>
 
@@ -768,7 +768,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
                     {[1, 2, 3, 4, 5].map((star) => (
                       <Star
                         key={star}
-                        className={`w-4 h-4 ${star <= review.rating ? 'text-theme-warning fill-current' : 'text-theme-tertiary'}`}
+                        className={`w-4 h-4 ${star <= review.rating ? 'text-theme-warning-fg fill-current' : 'text-theme-tertiary'}`}
                       />
                     ))}
                   </div>
@@ -856,8 +856,8 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
 
   const renderAnalyticsTab = () => (
     <div className="text-center py-12">
-      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-theme-info bg-opacity-10 flex items-center justify-center">
-        <TrendingUp className="w-8 h-8 text-theme-info" />
+      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-theme-info-bg flex items-center justify-center">
+        <TrendingUp className="w-8 h-8 text-theme-info-fg" />
       </div>
       <h3 className="text-lg font-semibold text-theme-primary mb-2">Analytics Coming Soon</h3>
       <p className="text-theme-secondary">
@@ -882,7 +882,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === tab.id
-                  ? 'border-theme-info text-theme-info'
+                  ? 'border-theme-info-border text-theme-info-fg'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
               }`}
             >
@@ -956,7 +956,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
                 <div>
                   <label className="text-sm font-medium text-theme-primary">Rating</label>
                   <p className="text-theme-secondary flex items-center gap-1">
-                    <Star className="w-4 h-4 text-theme-warning fill-current" />
+                    <Star className="w-4 h-4 text-theme-warning-fg fill-current" />
                     {selectedItem.rating.toFixed(1)} ({selectedItem.rating_count} reviews)
                   </p>
                 </div>
@@ -1012,14 +1012,14 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
 
             <div>
               <label className="block text-sm font-medium text-theme-primary mb-2">
-                Rejection Reason <span className="text-theme-danger">*</span>
+                Rejection Reason <span className="text-theme-danger-fg">*</span>
               </label>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Please provide a reason for rejecting this template..."
                 rows={4}
-                className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary placeholder-theme-tertiary focus:ring-2 focus:ring-theme-info focus:border-transparent resize-none"
+                className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary placeholder-theme-tertiary focus:ring-2 focus:ring-theme-info-fg focus:border-transparent resize-none"
               />
               <p className="text-xs text-theme-tertiary mt-1">
                 This feedback will be sent to the publisher.

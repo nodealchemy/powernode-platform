@@ -148,10 +148,10 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
         {/* Permissions */}
         <div>
           <label className="block text-sm font-medium text-theme-primary mb-2">
-            Permissions <span className="text-theme-error">*</span>
+            Permissions <span className="text-theme-error-fg">*</span>
           </label>
           {form.errors.permission_ids && (
-            <p className="text-sm text-theme-error mb-2">{form.errors.permission_ids}</p>
+            <p className="text-sm text-theme-error-fg mb-2">{form.errors.permission_ids}</p>
           )}
           
           <div className="bg-theme-surface border border-theme rounded-lg p-4 max-h-96 overflow-y-auto">
@@ -234,10 +234,10 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
         {role?.system_role && (
           <div className="bg-theme-warning-background border border-theme-warning-border rounded-lg p-4">
             <div className="flex items-start space-x-3">
-              <Lock className="w-5 h-5 text-theme-warning mt-0.5" />
+              <Lock className="w-5 h-5 text-theme-warning-fg mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-theme-warning">System Role</p>
-                <p className="text-xs text-theme-warning mt-1 opacity-90">
+                <p className="text-sm font-medium text-theme-warning-fg">System Role</p>
+                <p className="text-xs text-theme-warning-fg mt-1 opacity-90">
                   This is a built-in system role and cannot be modified or deleted.
                 </p>
               </div>

@@ -146,13 +146,13 @@ export const ServiceImportModal: React.FC<ServiceImportModalProps> = ({
                         <span className="text-sm font-medium text-theme-primary truncate">{service.service_name}</span>
                         <span className={`px-1.5 py-0.5 text-xs rounded ${
                           service.mode === 'replicated'
-                            ? 'bg-theme-info bg-opacity-10 text-theme-info'
+                            ? 'bg-theme-info-bg text-theme-info-fg'
                             : 'bg-theme-surface text-theme-tertiary'
                         }`}>
                           {service.mode}{service.mode === 'replicated' ? ` (${service.desired_replicas})` : ''}
                         </span>
                         {isImported && (
-                          <span className="px-1.5 py-0.5 text-xs rounded bg-theme-success bg-opacity-10 text-theme-success">
+                          <span className="px-1.5 py-0.5 text-xs rounded bg-theme-success-bg text-theme-success-fg">
                             Imported
                           </span>
                         )}

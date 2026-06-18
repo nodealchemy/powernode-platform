@@ -75,7 +75,7 @@ export const KubernetesClustersPage: React.FC<KubernetesClustersPageProps> = ({ 
   if (error) {
     return (
       <Card variant="default" padding="lg" className="text-center">
-        <p className="text-theme-danger">{error}</p>
+        <p className="text-theme-danger-fg">{error}</p>
       </Card>
     );
   }

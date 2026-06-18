@@ -50,7 +50,7 @@ export const PrdGenerator: React.FC<Props> = ({ contractId }) => {
             <button
               onClick={handleGenerate}
               disabled={generating || !prompt.trim()}
-              className="px-4 py-2 bg-theme-info text-theme-on-primary text-sm rounded-lg hover:bg-theme-info disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 bg-theme-info-bg text-theme-on-primary text-sm rounded-lg hover:bg-theme-info-bg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {generating ? 'Generating...' : 'Generate PRD'}
             </button>
@@ -59,7 +59,7 @@ export const PrdGenerator: React.FC<Props> = ({ contractId }) => {
       </div>
 
       {error && (
-        <div className="card-theme p-3 border-l-4 border-theme-error text-sm text-theme-error">
+        <div className="card-theme p-3 border-l-4 border-theme-error-border text-sm text-theme-error-fg">
           {error}
         </div>
       )}

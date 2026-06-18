@@ -52,9 +52,9 @@ const PermissionCheck: React.FC<PermissionCheckProps> = ({ permission, hasPermis
     <span className="text-sm font-mono text-theme-secondary">{permission}</span>
     <div className="flex items-center space-x-2">
       {hasPermission ? (
-        <CheckCircle className="h-4 w-4 text-theme-success" />
+        <CheckCircle className="h-4 w-4 text-theme-success-fg" />
       ) : (
-        <XCircle className="h-4 w-4 text-theme-error" />
+        <XCircle className="h-4 w-4 text-theme-error-fg" />
       )}
     </div>
   </div>
@@ -146,12 +146,12 @@ export const AIPermissionsDebug: React.FC = () => {
               Account: {currentUser.account.name} • Status: {currentUser.status}
             </div>
             {currentUser.email_verified ? (
-              <div className="flex items-center space-x-1 text-sm text-theme-success mt-1">
+              <div className="flex items-center space-x-1 text-sm text-theme-success-fg mt-1">
                 <CheckCircle className="h-3 w-3" />
                 <span>Email verified</span>
               </div>
             ) : (
-              <div className="flex items-center space-x-1 text-sm text-theme-warning mt-1">
+              <div className="flex items-center space-x-1 text-sm text-theme-warning-fg mt-1">
                 <AlertTriangle className="h-3 w-3" />
                 <span>Email not verified</span>
               </div>
@@ -168,24 +168,24 @@ export const AIPermissionsDebug: React.FC = () => {
             <Key className="h-4 w-4 text-theme-secondary" />
             <span className="text-sm">Access Token</span>
             {authState.access_token ? (
-              <CheckCircle className="h-3 w-3 text-theme-success" />
+              <CheckCircle className="h-3 w-3 text-theme-success-fg" />
             ) : (
-              <XCircle className="h-3 w-3 text-theme-error" />
+              <XCircle className="h-3 w-3 text-theme-error-fg" />
             )}
           </div>
           <div className="flex items-center space-x-2">
             <Key className="h-4 w-4 text-theme-secondary" />
             <span className="text-sm">Refresh Token</span>
             {authState.refresh_token ? (
-              <CheckCircle className="h-3 w-3 text-theme-success" />
+              <CheckCircle className="h-3 w-3 text-theme-success-fg" />
             ) : (
-              <XCircle className="h-3 w-3 text-theme-error" />
+              <XCircle className="h-3 w-3 text-theme-error-fg" />
             )}
           </div>
           {authState.impersonation.isImpersonating && (
             <div className="flex items-center space-x-2">
-              <User className="h-4 w-4 text-theme-warning" />
-              <span className="text-sm text-theme-warning">Impersonating</span>
+              <User className="h-4 w-4 text-theme-warning-fg" />
+              <span className="text-sm text-theme-warning-fg">Impersonating</span>
             </div>
           )}
         </div>
@@ -208,8 +208,8 @@ export const AIPermissionsDebug: React.FC = () => {
         <div className="flex items-center justify-between">
           <span className="font-medium text-theme-secondary">AI Permissions</span>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-theme-success">✓ {aiPermissions.length}</span>
-            <span className="text-sm text-theme-error">✗ {missingAIPermissions.length}</span>
+            <span className="text-sm text-theme-success-fg">✓ {aiPermissions.length}</span>
+            <span className="text-sm text-theme-error-fg">✗ {missingAIPermissions.length}</span>
             <Button
               onClick={() => setExpanded(!expanded)}
               variant="ghost"
@@ -236,8 +236,8 @@ export const AIPermissionsDebug: React.FC = () => {
 
       {/* Recommendations */}
       {!isAuthenticated && (
-        <div className="bg-theme-error bg-opacity-5 border border-theme-error p-3 rounded-lg">
-          <h4 className="font-medium text-theme-error mb-2">Authentication Required</h4>
+        <div className="bg-theme-error-bg border border-theme-error-border p-3 rounded-lg">
+          <h4 className="font-medium text-theme-error-fg mb-2">Authentication Required</h4>
           <p className="text-sm text-theme-tertiary">
             You need to sign in to access AI features. Please refresh the page or sign in again.
           </p>
@@ -245,8 +245,8 @@ export const AIPermissionsDebug: React.FC = () => {
       )}
 
       {isAuthenticated && aiPermissions.length === 0 && (
-        <div className="bg-theme-warning bg-opacity-5 border border-theme-warning p-3 rounded-lg">
-          <h4 className="font-medium text-theme-warning mb-2">No AI Permissions</h4>
+        <div className="bg-theme-warning-bg border border-theme-warning-border p-3 rounded-lg">
+          <h4 className="font-medium text-theme-warning-fg mb-2">No AI Permissions</h4>
           <p className="text-sm text-theme-tertiary">
             Contact your system administrator to grant AI permissions. You need at least one of the AI permissions to access AI features.
           </p>
@@ -254,8 +254,8 @@ export const AIPermissionsDebug: React.FC = () => {
       )}
 
       {isAuthenticated && aiPermissions.length > 0 && missingAIPermissions.length > 0 && (
-        <div className="bg-theme-info bg-opacity-5 border border-theme-info p-3 rounded-lg">
-          <h4 className="font-medium text-theme-info mb-2">Partial AI Access</h4>
+        <div className="bg-theme-info-bg border border-theme-info-border p-3 rounded-lg">
+          <h4 className="font-medium text-theme-info-fg mb-2">Partial AI Access</h4>
           <p className="text-sm text-theme-tertiary">
             You have access to some AI features but may be missing permissions for others. 
             Contact your administrator if you need access to additional AI capabilities.

@@ -169,7 +169,7 @@ export function EntryEditor({
       {/* Key */}
       <div>
         <label className="block text-sm font-medium text-theme-primary mb-1">
-          Key <span className="text-theme-error">*</span>
+          Key <span className="text-theme-error-fg">*</span>
         </label>
         <input
           type="text"
@@ -177,10 +177,10 @@ export function EntryEditor({
           onChange={(e) => setFormData({ ...formData, key: e.target.value })}
           placeholder="e.g., user_preference_theme, project_deadline"
           className={`w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
-            errors.key ? 'border-theme-error' : 'border-theme'
+            errors.key ? 'border-theme-error-border' : 'border-theme'
           }`}
         />
-        {errors.key && <p className="text-xs text-theme-error mt-1">{errors.key}</p>}
+        {errors.key && <p className="text-xs text-theme-error-fg mt-1">{errors.key}</p>}
       </div>
 
       {/* Content Mode Toggle */}
@@ -220,7 +220,7 @@ export function EntryEditor({
             placeholder="Enter the content text..."
             rows={4}
             className={`w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
-              errors.content_text ? 'border-theme-error' : 'border-theme'
+              errors.content_text ? 'border-theme-error-border' : 'border-theme'
             }`}
           />
         ) : (
@@ -234,12 +234,12 @@ export function EntryEditor({
             placeholder='{"key": "value"}'
             rows={6}
             className={`w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-theme-primary ${
-              jsonError || errors.content ? 'border-theme-error' : 'border-theme'
+              jsonError || errors.content ? 'border-theme-error-border' : 'border-theme'
             }`}
           />
         )}
         {(errors.content_text || errors.content || jsonError) && (
-          <p className="text-xs text-theme-error mt-1">
+          <p className="text-xs text-theme-error-fg mt-1">
             {errors.content_text || errors.content || jsonError}
           </p>
         )}
@@ -334,7 +334,7 @@ export function EntryEditor({
                 <button
                   type="button"
                   onClick={() => handleRemoveTag(tag)}
-                  className="text-theme-tertiary hover:text-theme-error"
+                  className="text-theme-tertiary hover:text-theme-error-fg"
                 >
                   ×
                 </button>
@@ -351,7 +351,7 @@ export function EntryEditor({
             <button
               type="button"
               onClick={() => onDelete(entry.id)}
-              className="px-4 py-2 text-theme-error hover:bg-theme-error hover:bg-opacity-10 rounded-lg transition-colors"
+              className="px-4 py-2 text-theme-error-fg hover:bg-theme-error-bg hover:bg-opacity-10 rounded-lg transition-colors"
             >
               Delete
             </button>

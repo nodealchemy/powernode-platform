@@ -22,11 +22,11 @@ function FileChangeItem({ file, defaultExpanded = false }: { file: GitCommitFile
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
-    added: { bg: 'bg-theme-success/10', text: 'text-theme-success', label: 'Added' },
-    removed: { bg: 'bg-theme-danger/10', text: 'text-theme-danger', label: 'Deleted' },
-    modified: { bg: 'bg-theme-warning/10', text: 'text-theme-warning', label: 'Modified' },
+    added: { bg: 'bg-theme-success-fg/10', text: 'text-theme-success-fg', label: 'Added' },
+    removed: { bg: 'bg-theme-danger-fg/10', text: 'text-theme-danger-fg', label: 'Deleted' },
+    modified: { bg: 'bg-theme-warning-fg/10', text: 'text-theme-warning-fg', label: 'Modified' },
     renamed: { bg: 'bg-theme-interactive-primary/10', text: 'text-theme-interactive-primary', label: 'Renamed' },
-    copied: { bg: 'bg-theme-info/10', text: 'text-theme-info', label: 'Copied' },
+    copied: { bg: 'bg-theme-info-fg/10', text: 'text-theme-info-fg', label: 'Copied' },
   };
 
   const config = statusConfig[file.status] || statusConfig.modified;
@@ -64,13 +64,13 @@ function FileChangeItem({ file, defaultExpanded = false }: { file: GitCommitFile
         </div>
         <div className="flex items-center gap-3 text-sm flex-shrink-0 ml-4">
           {file.additions > 0 && (
-            <span className="text-theme-success flex items-center gap-1">
+            <span className="text-theme-success-fg flex items-center gap-1">
               <Plus className="w-3 h-3" />
               {file.additions}
             </span>
           )}
           {file.deletions > 0 && (
-            <span className="text-theme-danger flex items-center gap-1">
+            <span className="text-theme-danger-fg flex items-center gap-1">
               <Minus className="w-3 h-3" />
               {file.deletions}
             </span>
@@ -86,14 +86,14 @@ function FileChangeItem({ file, defaultExpanded = false }: { file: GitCommitFile
               let lineClass = 'text-theme-secondary';
               let bgClass = '';
               if (line.startsWith('+') && !line.startsWith('+++')) {
-                lineClass = 'text-theme-success';
-                bgClass = 'bg-theme-success/10';
+                lineClass = 'text-theme-success-fg';
+                bgClass = 'bg-theme-success-fg/10';
               } else if (line.startsWith('-') && !line.startsWith('---')) {
-                lineClass = 'text-theme-danger';
-                bgClass = 'bg-theme-danger/10';
+                lineClass = 'text-theme-danger-fg';
+                bgClass = 'bg-theme-danger-fg/10';
               } else if (line.startsWith('@@')) {
-                lineClass = 'text-theme-info';
-                bgClass = 'bg-theme-info/10';
+                lineClass = 'text-theme-info-fg';
+                bgClass = 'bg-theme-info-fg/10';
               }
               return (
                 <div key={i} className={`${bgClass} ${lineClass} px-2 -mx-2`}>
@@ -204,7 +204,7 @@ export function CommitDetailModal({
                   title="Copy full SHA"
                 >
                   {copied ? (
-                    <Check className="w-4 h-4 text-theme-success" />
+                    <Check className="w-4 h-4 text-theme-success-fg" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
@@ -223,16 +223,16 @@ export function CommitDetailModal({
           <div className="p-6 max-h-[75vh] overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-theme-info" />
+                <Loader2 className="w-8 h-8 animate-spin text-theme-info-fg" />
               </div>
             ) : error ? (
-              <div className="flex flex-col items-center justify-center py-12 text-theme-danger">
+              <div className="flex flex-col items-center justify-center py-12 text-theme-danger-fg">
                 <AlertCircle className="w-12 h-12 mb-4" />
                 <p className="text-lg font-medium">Failed to load commit</p>
                 <p className="text-sm text-theme-secondary mt-1">{error}</p>
                 <button
                   onClick={fetchCommit}
-                  className="mt-4 px-4 py-2 bg-theme-info text-white rounded-lg hover:bg-theme-info/90"
+                  className="mt-4 px-4 py-2 bg-theme-info-bg text-white rounded-lg hover:bg-theme-info-fg/90"
                 >
                   Retry
                 </button>
@@ -285,16 +285,16 @@ export function CommitDetailModal({
                         {commit.stats.files_changed} file{commit.stats.files_changed !== 1 ? 's' : ''}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-theme-success">
+                    <div className="flex items-center gap-1 text-sm text-theme-success-fg">
                       <Plus className="w-4 h-4" />
                       <span>{commit.stats.additions}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-theme-danger">
+                    <div className="flex items-center gap-1 text-sm text-theme-danger-fg">
                       <Minus className="w-4 h-4" />
                       <span>{commit.stats.deletions}</span>
                     </div>
                     {commit.is_verified && (
-                      <div className="flex items-center gap-1 text-sm text-theme-success" title="Verified signature">
+                      <div className="flex items-center gap-1 text-sm text-theme-success-fg" title="Verified signature">
                         <ShieldCheck className="w-4 h-4" />
                       </div>
                     )}
@@ -325,7 +325,7 @@ export function CommitDetailModal({
                         href={commit.web_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="ml-auto flex items-center gap-1 text-theme-info hover:underline"
+                        className="ml-auto flex items-center gap-1 text-theme-info-fg hover:underline"
                       >
                         <ExternalLink className="w-3 h-3" />
                         View on Git
@@ -343,7 +343,7 @@ export function CommitDetailModal({
                     {commit.files.some(f => f.patch) && (
                       <button
                         onClick={() => setAllExpanded(!allExpanded)}
-                        className="text-xs text-theme-info hover:underline"
+                        className="text-xs text-theme-info-fg hover:underline"
                       >
                         {allExpanded ? 'Collapse all' : 'Expand all'}
                       </button>

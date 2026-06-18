@@ -223,7 +223,7 @@ describe('NavigationItem', () => {
       renderNavigationItem(itemWithBadge);
 
       const badge = screen.getByText('5');
-      expect(badge).toHaveClass('bg-theme-error', 'text-white', 'rounded-full');
+      expect(badge).toHaveClass('bg-theme-error-bg', 'text-white', 'rounded-full');
     });
 
     it('does not render badge when collapsed', () => {

@@ -65,7 +65,7 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
   if (error && !stats) {
     return (
       <Card className={className}>
-        <CardContent className="py-8 text-center text-theme-danger">
+        <CardContent className="py-8 text-center text-theme-danger-fg">
           {error || 'Failed to load stats'}
         </CardContent>
       </Card>
@@ -104,12 +104,12 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div
               className={cn(
-                'p-3 bg-theme-warning/10 rounded-lg text-center transition-colors',
-                onTierClick && 'cursor-pointer hover:ring-1 hover:ring-theme-warning/50'
+                'p-3 bg-theme-warning-fg/10 rounded-lg text-center transition-colors',
+                onTierClick && 'cursor-pointer hover:ring-1 hover:ring-theme-warning-fg/50'
               )}
               onClick={() => onTierClick?.('working')}
             >
-              <Zap className="h-5 w-5 text-theme-warning mx-auto mb-1" />
+              <Zap className="h-5 w-5 text-theme-warning-fg mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.working.count}
               </div>
@@ -117,12 +117,12 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
             </div>
             <div
               className={cn(
-                'p-3 bg-theme-info/10 rounded-lg text-center transition-colors',
-                onTierClick && 'cursor-pointer hover:ring-1 hover:ring-theme-info/50'
+                'p-3 bg-theme-info-fg/10 rounded-lg text-center transition-colors',
+                onTierClick && 'cursor-pointer hover:ring-1 hover:ring-theme-info-fg/50'
               )}
               onClick={() => onTierClick?.('short_term')}
             >
-              <Clock className="h-5 w-5 text-theme-info mx-auto mb-1" />
+              <Clock className="h-5 w-5 text-theme-info-fg mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.short_term.total}
               </div>
@@ -133,12 +133,12 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
             </div>
             <div
               className={cn(
-                'p-3 bg-theme-success/10 rounded-lg text-center transition-colors',
-                onTierClick && 'cursor-pointer hover:ring-1 hover:ring-theme-success/50'
+                'p-3 bg-theme-success-fg/10 rounded-lg text-center transition-colors',
+                onTierClick && 'cursor-pointer hover:ring-1 hover:ring-theme-success-fg/50'
               )}
               onClick={() => onTierClick?.('long_term')}
             >
-              <Database className="h-5 w-5 text-theme-success mx-auto mb-1" />
+              <Database className="h-5 w-5 text-theme-success-fg mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.long_term.total}
               </div>

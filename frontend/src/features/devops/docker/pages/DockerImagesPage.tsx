@@ -97,7 +97,7 @@ export const DockerImagesPage: React.FC<DockerImagesPageProps> = ({ onActionsRea
           </div>
         ) : error ? (
           <div className="text-center py-20">
-            <p className="text-theme-error mb-4">{error}</p>
+            <p className="text-theme-error-fg mb-4">{error}</p>
             <Button onClick={refresh} variant="secondary" size="sm">Retry</Button>
           </div>
         ) : images.length === 0 ? (
@@ -116,7 +116,7 @@ export const DockerImagesPage: React.FC<DockerImagesPageProps> = ({ onActionsRea
                     <div className="flex items-center gap-3">
                       <h3 className="text-base font-semibold text-theme-primary truncate">{image.primary_tag || '<none>'}</h3>
                       {image.container_count > 0 && (
-                        <span className="px-2 py-0.5 rounded bg-theme-info bg-opacity-10 text-theme-info text-xs font-medium">
+                        <span className="px-2 py-0.5 rounded bg-theme-info-bg text-theme-info-fg text-xs font-medium">
                           {image.container_count} container{image.container_count !== 1 ? 's' : ''}
                         </span>
                       )}

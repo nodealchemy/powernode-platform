@@ -117,24 +117,24 @@ export const AdminMetricsGrid: React.FC<AdminMetricsGridProps> = ({
     switch (status) {
       case 'critical':
         return {
-          bg: 'bg-theme-error',
-          border: 'border-theme-error',
-          text: 'text-theme-error',
-          iconBg: 'bg-theme-error bg-opacity-20',
+          bg: 'bg-theme-error-bg',
+          border: 'border-theme-error-border',
+          text: 'text-theme-error-fg',
+          iconBg: 'bg-theme-error-bg',
         };
       case 'warning':
         return {
           bg: 'bg-theme-warning-background',
-          border: 'border-theme-warning',
-          text: 'text-theme-warning',
-          iconBg: 'bg-theme-warning bg-opacity-20',
+          border: 'border-theme-warning-border',
+          text: 'text-theme-warning-fg',
+          iconBg: 'bg-theme-warning-bg',
         };
       default:
         return {
           bg: 'bg-theme-surface',
           border: 'border-theme',
           text: 'text-theme-primary',
-          iconBg: 'bg-theme-interactive-primary bg-opacity-10',
+          iconBg: 'bg-theme-interactive-primary/10',
         };
     }
   };
@@ -196,10 +196,10 @@ export const AdminMetricsGrid: React.FC<AdminMetricsGridProps> = ({
                 <div
                   className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                     metric.trend === 'up'
-                      ? 'bg-theme-success bg-opacity-10 text-theme-success'
+                      ? 'bg-theme-success-bg text-theme-success-fg'
                       : metric.trend === 'down'
-                      ? 'bg-theme-error bg-opacity-10 text-theme-error'
-                      : 'bg-theme-surface bg-opacity-10 text-theme-secondary'
+                      ? 'bg-theme-error-bg text-theme-error-fg'
+                      : 'bg-theme-surface/10 text-theme-secondary'
                   }`}
                 >
                   {metric.trend === 'up' ? (

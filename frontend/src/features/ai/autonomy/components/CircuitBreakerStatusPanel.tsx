@@ -19,7 +19,7 @@ const BreakerRow: React.FC<{ breaker: CircuitBreaker }> = ({ breaker }) => {
   return (
     <div className="flex items-center justify-between p-3 rounded-lg bg-theme-surface border border-theme">
       <div className="flex items-center gap-3">
-        <Zap className={`h-4 w-4 ${breaker.state === 'open' ? 'text-theme-error' : 'text-theme-success'}`} />
+        <Zap className={`h-4 w-4 ${breaker.state === 'open' ? 'text-theme-error-fg' : 'text-theme-success-fg'}`} />
         <div>
           <EntityLink type="agent" id={breaker.agent_id} label={breaker.agent_name} className="text-sm font-medium" />
           <span className="text-xs text-theme-tertiary ml-2">({breaker.action_type})</span>

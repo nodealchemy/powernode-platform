@@ -42,10 +42,10 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'text-theme-error';
-      case 'high': return 'text-theme-error';
-      case 'medium': return 'text-theme-warning';
-      case 'low': return 'text-theme-info';
+      case 'critical': return 'text-theme-error-fg';
+      case 'high': return 'text-theme-error-fg';
+      case 'medium': return 'text-theme-warning-fg';
+      case 'low': return 'text-theme-info-fg';
       default: return 'text-theme-tertiary';
     }
   };
@@ -175,15 +175,15 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
       <div className="space-y-3">
         {filteredAlerts.map((alert) => (
           <Card key={alert.id} className={`${
-            alert.severity === 'critical' ? 'border-theme-error' :
-            alert.severity === 'high' ? 'border-theme-error' :
-            alert.severity === 'medium' ? 'border-theme-warning' :
+            alert.severity === 'critical' ? 'border-theme-error-border' :
+            alert.severity === 'high' ? 'border-theme-error-border' :
+            alert.severity === 'medium' ? 'border-theme-warning-border' :
             'border-theme'
           }`}>
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 {/* Severity Icon */}
-                <div className={`p-2 rounded-full ${alert.severity === 'critical' || alert.severity === 'high' ? 'bg-theme-error/10' : alert.severity === 'medium' ? 'bg-theme-warning/10' : 'bg-theme-info/10'}`}>
+                <div className={`p-2 rounded-full ${alert.severity === 'critical' || alert.severity === 'high' ? 'bg-theme-error-fg/10' : alert.severity === 'medium' ? 'bg-theme-warning-fg/10' : 'bg-theme-info-fg/10'}`}>
                   <div className={getSeverityColor(alert.severity)}>
                     {getSeverityIcon(alert.severity)}
                   </div>

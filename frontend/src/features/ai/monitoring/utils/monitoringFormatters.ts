@@ -5,16 +5,16 @@ import { HeartPulse, Server, MessageSquare, ClipboardCheck, Bell, Coins, Activit
  * Get color class for health score
  */
 export const getHealthScoreColor = (score: number): string => {
-  if (score >= 80) return 'text-theme-success';
-  if (score >= 50) return 'text-theme-warning';
-  return 'text-theme-error';
+  if (score >= 80) return 'text-theme-success-fg';
+  if (score >= 50) return 'text-theme-warning-fg';
+  return 'text-theme-error-fg';
 };
 
 /**
  * Get background class for connection status
  */
 export const getConnectionStatusColor = (isConnected: boolean): string => {
-  return isConnected ? 'bg-theme-success' : 'bg-theme-error';
+  return isConnected ? 'bg-theme-success-bg' : 'bg-theme-error-bg';
 };
 
 /**

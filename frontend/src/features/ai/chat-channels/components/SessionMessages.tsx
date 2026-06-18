@@ -139,7 +139,7 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
 
       {/* Error */}
       {error && (
-        <div className="p-3 rounded-lg bg-theme-danger/10 text-theme-danger text-sm">
+        <div className="p-3 rounded-lg bg-theme-danger-fg/10 text-theme-danger-fg text-sm">
           {error}
         </div>
       )}

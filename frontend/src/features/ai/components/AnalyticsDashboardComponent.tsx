@@ -230,7 +230,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
         breadcrumbs={breadcrumbs}
       >
         <div className="text-center py-12">
-          <AlertTriangle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
+          <AlertTriangle className="h-12 w-12 text-theme-warning-fg mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
           <p className="text-theme-tertiary">Unable to load analytics data.</p>
         </div>

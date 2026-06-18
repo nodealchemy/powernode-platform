@@ -450,13 +450,13 @@ export const integrationsApi = {
   getStatusColor(status: InstanceStatus): string {
     switch (status) {
       case 'active':
-        return 'bg-theme-success bg-opacity-10 text-theme-success';
+        return 'bg-theme-success-bg text-theme-success-fg';
       case 'pending':
-        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+        return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'paused':
         return 'bg-theme-surface text-theme-tertiary';
       case 'error':
-        return 'bg-theme-error bg-opacity-10 text-theme-error';
+        return 'bg-theme-error-bg text-theme-error-fg';
       default:
         return 'bg-theme-surface text-theme-secondary';
     }
@@ -465,13 +465,13 @@ export const integrationsApi = {
   getExecutionStatusColor(status: string): string {
     switch (status) {
       case 'completed':
-        return 'bg-theme-success bg-opacity-10 text-theme-success';
+        return 'bg-theme-success-bg text-theme-success-fg';
       case 'running':
-        return 'bg-theme-info bg-opacity-10 text-theme-info';
+        return 'bg-theme-info-bg text-theme-info-fg';
       case 'queued':
-        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+        return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'failed':
-        return 'bg-theme-error bg-opacity-10 text-theme-error';
+        return 'bg-theme-error-bg text-theme-error-fg';
       case 'cancelled':
         return 'bg-theme-surface text-theme-tertiary';
       default:

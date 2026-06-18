@@ -53,15 +53,15 @@ function getServerStatusColor(status: string): string {
   switch (status) {
     case 'connected':
     case 'running':
-      return 'bg-theme-success';
+      return 'bg-theme-success-bg';
     case 'connecting':
     case 'deploying':
     case 'building':
     case 'provisioning':
-      return 'bg-theme-warning';
+      return 'bg-theme-warning-bg';
     case 'error':
     case 'failed':
-      return 'bg-theme-error';
+      return 'bg-theme-error-bg';
     default:
       return 'bg-theme-surface-secondary';
   }
@@ -71,15 +71,15 @@ function getServerStatusText(status: string): string {
   switch (status) {
     case 'connected':
     case 'running':
-      return 'text-theme-success';
+      return 'text-theme-success-fg';
     case 'connecting':
     case 'deploying':
     case 'building':
     case 'provisioning':
-      return 'text-theme-warning';
+      return 'text-theme-warning-fg';
     case 'error':
     case 'failed':
-      return 'text-theme-error';
+      return 'text-theme-error-fg';
     default:
       return 'text-theme-tertiary';
   }
@@ -101,7 +101,7 @@ function McpServerCard({ server }: { server: McpServerInfo }) {
       </div>
       {hasHosting && server.hosting && (
         <div className="mt-2 flex items-center gap-2">
-          <span className="text-xs px-1.5 py-0.5 rounded bg-theme-info bg-opacity-10 text-theme-info">
+          <span className="text-xs px-1.5 py-0.5 rounded bg-theme-info-bg text-theme-info-fg">
             Containerized
           </span>
           {server.hosting.runtime && (
@@ -212,13 +212,13 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
                 </span>
                 <span className={`px-2 py-0.5 text-xs rounded-full ${
                   skill.is_enabled
-                    ? 'bg-theme-success bg-opacity-10 text-theme-success'
+                    ? 'bg-theme-success-bg text-theme-success-fg'
                     : 'bg-theme-surface-secondary text-theme-tertiary'
                 }`}>
                   {skill.is_enabled ? 'Enabled' : 'Disabled'}
                 </span>
                 {skill.is_system && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-theme-info bg-opacity-10 text-theme-info">
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-theme-info-bg text-theme-info-fg">
                     System
                   </span>
                 )}
@@ -265,7 +265,7 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
           <button
             type="button"
             onClick={() => navigate('/app/ai/knowledge/skills/graph', { state: { focusSkillId: skill.id } })}
-            className="text-theme-info hover:underline"
+            className="text-theme-info-fg hover:underline"
           >
             View in Skill Graph →
           </button>
@@ -273,9 +273,9 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
 
         {/* Container Info Banner */}
         {containerBackedCount > 0 && (
-          <div className="bg-theme-info bg-opacity-5 border border-theme-info border-opacity-20 rounded-lg p-3">
+          <div className="bg-theme-info-bg border border-theme-info-border rounded-lg p-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-theme-info">
+              <span className="text-sm font-medium text-theme-info-fg">
                 {containerBackedCount} containerized MCP server{containerBackedCount > 1 ? 's' : ''}
               </span>
             </div>
@@ -293,7 +293,7 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
               {skill.commands.map((cmd, idx) => (
                 <div key={idx} className="bg-theme-surface-secondary rounded-lg p-3">
                   <div className="flex items-center gap-2">
-                    <code className="text-xs font-mono bg-theme-surface px-1.5 py-0.5 rounded text-theme-info">
+                    <code className="text-xs font-mono bg-theme-surface px-1.5 py-0.5 rounded text-theme-info-fg">
                       /{cmd.name}
                     </code>
                     {cmd.argument_hint && (
@@ -378,7 +378,7 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
             <Button
               variant="secondary"
               onClick={handleDelete}
-              className="text-theme-error hover:text-theme-error"
+              className="text-theme-error-fg hover:text-theme-error-fg"
             >
               Delete
             </Button>

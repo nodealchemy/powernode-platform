@@ -27,15 +27,15 @@ export const RoiSummaryCards: React.FC<RoiSummaryCardsProps> = ({
           <div className="text-center">
             <p className="text-sm text-theme-tertiary mb-1">ROI</p>
             <p className={`text-4xl font-bold ${
-              dashboardData.summary.roi_percentage >= 100 ? 'text-theme-success' :
-              dashboardData.summary.roi_percentage >= 0 ? 'text-theme-warning' : 'text-theme-error'
+              dashboardData.summary.roi_percentage >= 100 ? 'text-theme-success-fg' :
+              dashboardData.summary.roi_percentage >= 0 ? 'text-theme-warning-fg' : 'text-theme-error-fg'
             }`}>
               {dashboardData.summary.roi_percentage.toFixed(0)}%
             </p>
           </div>
           <div className="text-center">
             <p className="text-sm text-theme-tertiary mb-1">Value Generated</p>
-            <p className="text-4xl font-bold text-theme-success">
+            <p className="text-4xl font-bold text-theme-success-fg">
               {formatCurrency(dashboardData.summary.total_value_generated_usd)}
             </p>
           </div>
@@ -47,7 +47,7 @@ export const RoiSummaryCards: React.FC<RoiSummaryCardsProps> = ({
           </div>
           <div className="text-center">
             <p className="text-sm text-theme-tertiary mb-1">Time Saved</p>
-            <p className="text-4xl font-bold text-theme-info">
+            <p className="text-4xl font-bold text-theme-info-fg">
               {formatHours(dashboardData.summary.total_time_saved_hours)}
             </p>
           </div>
@@ -64,7 +64,7 @@ export const RoiSummaryCards: React.FC<RoiSummaryCardsProps> = ({
                 {dashboardData.summary.tasks_completed.toLocaleString()}
               </p>
             </div>
-            <Target className="h-8 w-8 text-theme-info" />
+            <Target className="h-8 w-8 text-theme-info-fg" />
           </div>
         </Card>
 
@@ -76,7 +76,7 @@ export const RoiSummaryCards: React.FC<RoiSummaryCardsProps> = ({
                 ${dashboardData.summary.cost_per_task.toFixed(3)}
               </p>
             </div>
-            <DollarSign className="h-8 w-8 text-theme-success" />
+            <DollarSign className="h-8 w-8 text-theme-success-fg" />
           </div>
         </Card>
 
@@ -88,7 +88,7 @@ export const RoiSummaryCards: React.FC<RoiSummaryCardsProps> = ({
                 {(dashboardData.efficiency.avg_time_saved_per_task_hours * 60).toFixed(0)} min
               </p>
             </div>
-            <Clock className="h-8 w-8 text-theme-warning" />
+            <Clock className="h-8 w-8 text-theme-warning-fg" />
           </div>
         </Card>
 
@@ -100,7 +100,7 @@ export const RoiSummaryCards: React.FC<RoiSummaryCardsProps> = ({
                 {(dashboardData.efficiency.automation_rate * 100).toFixed(0)}%
               </p>
             </div>
-            <Zap className="h-8 w-8 text-theme-info" />
+            <Zap className="h-8 w-8 text-theme-info-fg" />
           </div>
         </Card>
       </div>

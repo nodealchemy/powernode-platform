@@ -8,7 +8,7 @@ interface AgentBadgeProps {
 /** Color-code sender names by agent type for quick visual differentiation. */
 export function getAgentNameColorClass(agentType?: string): string {
   if (!agentType) return 'text-theme-primary'; // User — default theme text
-  if (agentType === 'mcp_client') return 'text-theme-info'; // MCP — blue (matches MCP badge)
+  if (agentType === 'mcp_client') return 'text-theme-info-fg'; // MCP — blue (matches MCP badge)
   if (agentType === 'assistant') return 'text-theme-interactive-primary'; // AI — purple (matches AI badge)
   return 'text-theme-primary'; // Fallback
 }
@@ -24,7 +24,7 @@ export function getAgentNameColorClass(agentType?: string): string {
 export const AgentBadge: React.FC<AgentBadgeProps> = ({ agentType }) => {
   if (agentType === 'mcp_client') {
     return (
-      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-theme-info/10 text-theme-info rounded-full">
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-theme-info-fg/10 text-theme-info-fg rounded-full">
         <Terminal className="h-2.5 w-2.5" aria-hidden="true" />
         MCP
       </span>

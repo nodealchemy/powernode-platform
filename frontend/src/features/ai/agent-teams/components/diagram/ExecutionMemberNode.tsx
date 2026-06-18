@@ -6,16 +6,16 @@ import type { ExecutionMemberNodeData } from './executionDiagramTypes';
 
 const statusBorderClass: Record<string, string> = {
   idle: 'border-theme opacity-60',
-  running: 'border-theme-info execution-node-pulse',
-  completed: 'border-theme-success',
-  failed: 'border-theme-danger',
+  running: 'border-theme-info-border execution-node-pulse',
+  completed: 'border-theme-success-border',
+  failed: 'border-theme-danger-border',
 };
 
 const statusIcon: Record<string, React.ReactNode> = {
   idle: <Clock className="h-3 w-3 text-theme-tertiary" />,
-  running: <Loader className="h-3 w-3 text-theme-info animate-spin" />,
-  completed: <CheckCircle className="h-3 w-3 text-theme-success" />,
-  failed: <XCircle className="h-3 w-3 text-theme-danger" />,
+  running: <Loader className="h-3 w-3 text-theme-info-fg animate-spin" />,
+  completed: <CheckCircle className="h-3 w-3 text-theme-success-fg" />,
+  failed: <XCircle className="h-3 w-3 text-theme-danger-fg" />,
 };
 
 function formatDuration(ms: number): string {
@@ -37,9 +37,9 @@ function ExecutionMemberNode({ data }: { data: ExecutionMemberNodeData }) {
 
       <div className="flex items-center gap-2">
         {data.isLead ? (
-          <Crown className="h-4 w-4 text-theme-warning flex-shrink-0" />
+          <Crown className="h-4 w-4 text-theme-warning-fg flex-shrink-0" />
         ) : (
-          <Bot className="h-4 w-4 text-theme-info flex-shrink-0" />
+          <Bot className="h-4 w-4 text-theme-info-fg flex-shrink-0" />
         )}
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-theme-primary text-sm truncate">
@@ -61,21 +61,21 @@ function ExecutionMemberNode({ data }: { data: ExecutionMemberNodeData }) {
 
 function ExecutionInputNode({ data }: { data: ExecutionMemberNodeData }) {
   return (
-    <div className="px-3 py-2 rounded-full border border-theme-info bg-theme-info/10 shadow min-w-[80px] flex items-center justify-center gap-1.5">
-      <Handle type="source" position={Position.Bottom} className="!bg-theme-info" />
-      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-info" />
-      <Play className="h-3.5 w-3.5 text-theme-info" />
-      <span className="text-xs font-medium text-theme-info">{data.memberName}</span>
+    <div className="px-3 py-2 rounded-full border border-theme-info-border bg-theme-info-fg/10 shadow min-w-[80px] flex items-center justify-center gap-1.5">
+      <Handle type="source" position={Position.Bottom} className="!bg-theme-info-bg" />
+      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-info-bg" />
+      <Play className="h-3.5 w-3.5 text-theme-info-fg" />
+      <span className="text-xs font-medium text-theme-info-fg">{data.memberName}</span>
     </div>
   );
 }
 
 function ExecutionOutputNode({ data }: { data: ExecutionMemberNodeData }) {
   const colorMap: Record<string, { border: string; bg: string; text: string }> = {
-    idle: { border: 'border-theme', bg: 'bg-theme-info/50', text: 'text-theme-secondary' },
-    running: { border: 'border-theme', bg: 'bg-theme-info/50', text: 'text-theme-secondary' },
-    completed: { border: 'border-theme-success', bg: 'bg-theme-success/10', text: 'text-theme-success' },
-    failed: { border: 'border-theme-danger', bg: 'bg-theme-error/10', text: 'text-theme-danger' },
+    idle: { border: 'border-theme', bg: 'bg-theme-info-fg/50', text: 'text-theme-secondary' },
+    running: { border: 'border-theme', bg: 'bg-theme-info-fg/50', text: 'text-theme-secondary' },
+    completed: { border: 'border-theme-success-border', bg: 'bg-theme-success-fg/10', text: 'text-theme-success-fg' },
+    failed: { border: 'border-theme-danger-border', bg: 'bg-theme-error-fg/10', text: 'text-theme-danger-fg' },
   };
   const colors = colorMap[data.status] || colorMap.idle;
 

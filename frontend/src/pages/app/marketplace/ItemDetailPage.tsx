@@ -143,7 +143,7 @@ export const ItemDetailPage: React.FC = () => {
                 <div className="flex items-start justify-between mb-2">
                   <h2 className="text-2xl font-bold text-theme-primary">{item.name}</h2>
                   {item.is_verified && (
-                    <div className="flex items-center gap-1 text-theme-info" title="Verified">
+                    <div className="flex items-center gap-1 text-theme-info-fg" title="Verified">
                       <CheckCircle className="h-5 w-5" />
                       <span className="text-sm font-medium">Verified</span>
                     </div>
@@ -154,7 +154,7 @@ export const ItemDetailPage: React.FC = () => {
 
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">
-                    <Star className="h-5 w-5 text-theme-warning fill-current" />
+                    <Star className="h-5 w-5 text-theme-warning-fg fill-current" />
                     <span className="font-medium">{item.rating.toFixed(1)}</span>
                   </div>
 

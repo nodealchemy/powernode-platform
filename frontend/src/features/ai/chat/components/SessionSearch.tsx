@@ -217,7 +217,7 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
                       >
                         <div className={`flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center ${
                           isSelected
-                            ? 'bg-theme-info/10 text-theme-info'
+                            ? 'bg-theme-info-fg/10 text-theme-info-fg'
                             : 'bg-theme-surface text-theme-secondary'
                         }`}>
                           <Terminal className="h-4 w-4" />
@@ -228,7 +228,7 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
                               {sessionDisplayName}
                             </span>
                             {sessionSeqNum && (
-                              <span className="flex-shrink-0 min-w-[1.25rem] h-5 px-1 bg-theme-info/15 text-theme-info text-[10px] font-bold rounded flex items-center justify-center">
+                              <span className="flex-shrink-0 min-w-[1.25rem] h-5 px-1 bg-theme-info-fg/15 text-theme-info-fg text-[10px] font-bold rounded flex items-center justify-center">
                                 #{sessionSeqNum}
                               </span>
                             )}
@@ -309,7 +309,7 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
                               {agentDisplayName}
                             </span>
                             {agentSeqNum && (
-                              <span className="flex-shrink-0 min-w-[1.25rem] h-5 px-1 bg-theme-info/15 text-theme-info text-[10px] font-bold rounded flex items-center justify-center">
+                              <span className="flex-shrink-0 min-w-[1.25rem] h-5 px-1 bg-theme-info-fg/15 text-theme-info-fg text-[10px] font-bold rounded flex items-center justify-center">
                                 #{agentSeqNum}
                               </span>
                             )}

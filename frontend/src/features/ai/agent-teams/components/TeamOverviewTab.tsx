@@ -12,10 +12,10 @@ interface TeamOverviewTabProps {
 
 function getStatusColor(status: string): string {
   switch (status) {
-    case 'active': case 'completed': return 'text-theme-success bg-theme-success/10';
-    case 'running': case 'pending': return 'text-theme-warning bg-theme-warning/10';
-    case 'paused': return 'text-theme-info bg-theme-info/10';
-    case 'failed': case 'cancelled': return 'text-theme-danger bg-theme-danger/10';
+    case 'active': case 'completed': return 'text-theme-success-fg bg-theme-success-fg/10';
+    case 'running': case 'pending': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+    case 'paused': return 'text-theme-info-fg bg-theme-info-fg/10';
+    case 'failed': case 'cancelled': return 'text-theme-danger-fg bg-theme-danger-fg/10';
     default: return 'text-theme-secondary bg-theme-surface';
   }
 }
@@ -36,9 +36,9 @@ function formatRelativeTime(iso: string | null | undefined): string {
 
 function successRateColorClass(rate: number | null): string {
   if (rate === null) return 'text-theme-secondary';
-  if (rate >= 0.8) return 'text-theme-success';
-  if (rate >= 0.5) return 'text-theme-warning';
-  return 'text-theme-danger';
+  if (rate >= 0.8) return 'text-theme-success-fg';
+  if (rate >= 0.5) return 'text-theme-warning-fg';
+  return 'text-theme-danger-fg';
 }
 
 export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, onDeleteTeam }) => {
@@ -53,10 +53,10 @@ export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, o
 
   const coverageColorClass = coverage
     ? coverage.coverage_ratio >= 0.7
-      ? 'text-theme-success'
+      ? 'text-theme-success-fg'
       : coverage.coverage_ratio >= 0.4
-        ? 'text-theme-warning'
-        : 'text-theme-error'
+        ? 'text-theme-warning-fg'
+        : 'text-theme-error-fg'
     : 'text-theme-secondary';
 
   return (
@@ -75,7 +75,7 @@ export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, o
           </div>
           <button
             onClick={() => onDeleteTeam(team.id)}
-            className="p-2 text-theme-secondary hover:text-theme-danger transition-colors rounded hover:bg-theme-danger/10"
+            className="p-2 text-theme-secondary hover:text-theme-danger-fg transition-colors rounded hover:bg-theme-danger-fg/10"
             title="Delete team"
           >
             <Trash2 size={16} />
@@ -135,13 +135,13 @@ export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, o
         <div className="bg-theme-surface border border-theme rounded-lg p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-theme-primary flex items-center gap-2">
-              <Zap size={16} className={triggersEnabled ? 'text-theme-warning' : 'text-theme-secondary'} />
+              <Zap size={16} className={triggersEnabled ? 'text-theme-warning-fg' : 'text-theme-secondary'} />
               Event Triggers
             </h3>
             <span
               className={`px-2 py-0.5 text-[10px] rounded font-medium ${
                 triggersEnabled
-                  ? 'text-theme-success bg-theme-success/10'
+                  ? 'text-theme-success-fg bg-theme-success-fg/10'
                   : 'text-theme-secondary bg-theme-surface border border-theme-light'
               }`}
               title={triggersEnabled ? 'Team will activate on matching signals' : 'Subscriptions defined but dispatch is gated off'}
@@ -192,7 +192,7 @@ export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, o
                     className="flex items-center justify-between text-xs bg-theme-surface border border-theme-light rounded px-2.5 py-1.5"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <Zap size={11} className="text-theme-warning shrink-0" />
+                      <Zap size={11} className="text-theme-warning-fg shrink-0" />
                       <span className="font-mono text-theme-primary truncate">{entry.signal_key}</span>
                       {entry.execution_id && (
                         <span className="font-mono text-[10px] text-theme-secondary truncate">
@@ -251,7 +251,7 @@ export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, o
                           label={role.agent_name || role.role_name}
                           className="text-sm font-medium truncate"
                         />
-                        {role.is_lead && <Crown size={12} className="text-theme-warning shrink-0" />}
+                        {role.is_lead && <Crown size={12} className="text-theme-warning-fg shrink-0" />}
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="px-1.5 py-0.5 text-[10px] bg-theme-interactive-primary/10 text-theme-interactive-primary rounded">
@@ -263,7 +263,7 @@ export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, o
                           </span>
                         )}
                         {!role.agent_id && (
-                          <span className="text-[10px] text-theme-warning">Unassigned</span>
+                          <span className="text-[10px] text-theme-warning-fg">Unassigned</span>
                         )}
                       </div>
                     </div>
@@ -281,7 +281,7 @@ export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, o
                         <span className="font-mono text-[10px] text-theme-primary truncate">{role.agent_model}</span>
                       )}
                       {sel && (
-                        <span className="text-[10px] text-theme-info" title="Model picked by AgentModelSelector">AI</span>
+                        <span className="text-[10px] text-theme-info-fg" title="Model picked by AgentModelSelector">AI</span>
                       )}
                     </div>
                   )}
@@ -312,8 +312,8 @@ export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, o
                           {cap}
                         </span>
                       ))}
-                      {role.can_delegate && <span className="text-[10px] text-theme-info">Delegate</span>}
-                      {role.can_escalate && <span className="text-[10px] text-theme-warning">Escalate</span>}
+                      {role.can_delegate && <span className="text-[10px] text-theme-info-fg">Delegate</span>}
+                      {role.can_escalate && <span className="text-[10px] text-theme-warning-fg">Escalate</span>}
                     </div>
                   )}
                 </div>

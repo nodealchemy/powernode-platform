@@ -41,19 +41,19 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
       category: 'User & Team Management',
       permissions: ['user.read', 'user.edit_self', 'user.delete_self', 'team.read', 'team.invite', 'team.remove', 'team.assign_roles'],
       description: 'User profiles and team collaboration',
-      color: 'bg-theme-info text-theme-info'
+      color: 'bg-theme-info-bg text-theme-info-fg'
     },
     {
       category: 'Billing & Subscriptions',
       permissions: ['billing.read', 'billing.update', 'billing.cancel', 'plans.read', 'plans.create', 'plans.manage', 'invoice.read', 'invoice.download'],
       description: 'Subscription management and billing',
-      color: 'bg-theme-warning-background text-theme-warning'
+      color: 'bg-theme-warning-background text-theme-warning-fg'
     },
     {
       category: 'Content & Pages',
       permissions: ['page.create', 'page.read', 'page.update', 'page.delete', 'page.publish'],
       description: 'Content creation and management',
-      color: 'bg-theme-success-background text-theme-success'
+      color: 'bg-theme-success-background text-theme-success-fg'
     },
     {
       category: 'Analytics & Reports',
@@ -71,13 +71,13 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
       category: 'Marketplace',
       permissions: ['app.read', 'app.create', 'app.update', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'listing.read', 'listing.create', 'subscription.read', 'subscription.create', 'review.read'],
       description: 'Marketplace apps and subscriptions',
-      color: 'bg-theme-success-background/50 text-theme-success'
+      color: 'bg-theme-success-background/50 text-theme-success-fg'
     },
     {
       category: 'Admin Operations',
       permissions: ['admin.access', 'admin.user.read', 'admin.user.create', 'admin.account.read', 'admin.billing.read', 'admin.settings.read', 'admin.audit.read'],
       description: 'Administrative functions and oversight',
-      color: 'bg-theme-error text-theme-error'
+      color: 'bg-theme-error-bg text-theme-error-fg'
     },
     {
       category: 'System & Workers',
@@ -253,11 +253,11 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
   const getRoleTypeBadge = (roleType: string) => {
     switch (roleType) {
       case 'user':
-        return { className: 'bg-theme-info text-theme-info', label: 'USER' };
+        return { className: 'bg-theme-info-bg text-theme-info-fg', label: 'USER' };
       case 'admin':
-        return { className: 'bg-theme-warning-background text-theme-warning', label: 'ADMIN' };
+        return { className: 'bg-theme-warning-background text-theme-warning-fg', label: 'ADMIN' };
       case 'system':
-        return { className: 'bg-theme-error text-theme-error', label: 'SYSTEM' };
+        return { className: 'bg-theme-error-bg text-theme-error-fg', label: 'SYSTEM' };
       default:
         return { className: 'bg-theme-surface text-theme-secondary', label: 'UNKNOWN' };
     }
@@ -274,8 +274,8 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
         </div>
 
         {/* Role Type Information */}
-        <div className="mb-4 p-3 bg-theme-info/30 border border-theme-info rounded-lg">
-          <div className="text-sm text-theme-info">
+        <div className="mb-4 p-3 bg-theme-info-fg/30 border border-theme-info-border rounded-lg">
+          <div className="text-sm text-theme-info-fg">
             <strong>Role Restrictions:</strong> {isSystemWorker ? 'System workers' : 'Account workers'} can only be assigned 
             {isSystemWorker ? ' system and admin roles' : ' specific user roles and task worker role'} based on their worker type.
           </div>
@@ -348,7 +348,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
                           {!showAllPermissions && inheritedPermissions.length > 5 && (
                             <button
                               onClick={() => setShowAllPermissions(true)}
-                              className="px-2 py-1 bg-theme-info text-theme-info text-xs rounded-full hover:bg-theme-info/80"
+                              className="px-2 py-1 bg-theme-info-bg text-theme-info-fg text-xs rounded-full hover:bg-theme-info-fg/80"
                             >
                               +{inheritedPermissions.length - 5} more
                             </button>
@@ -426,14 +426,14 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
                             key={permission}
                             className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
                               status === 'inherited'
-                                ? 'border-theme-success bg-theme-success-background'
+                                ? 'border-theme-success-border bg-theme-success-background'
                                 : 'border-theme bg-theme-background opacity-50'
                             }`}
                           >
                             <div className="flex items-center gap-3 flex-1">
                               <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
                                 status === 'inherited'
-                                  ? 'border-theme-success bg-theme-success'
+                                  ? 'border-theme-success-border bg-theme-success-bg'
                                   : 'border-theme'
                               }`}>
                                 {status === 'inherited' && <Check className="w-3 h-3 text-white" />}
@@ -441,7 +441,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
                               <div className="flex-1">
                                 <div className="text-sm font-mono text-theme-primary">{permission}</div>
                                 {status === 'inherited' && (
-                                  <div className="text-xs text-theme-success">Inherited from assigned roles</div>
+                                  <div className="text-xs text-theme-success-fg">Inherited from assigned roles</div>
                                 )}
                                 {status === 'none' && (
                                   <div className="text-xs text-theme-secondary">Not granted by current roles</div>
@@ -459,14 +459,14 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
           })}
 
           {/* Information Box for Role-Based Permissions */}
-          <div className="border border-theme-info rounded-lg bg-theme-info">
+          <div className="border border-theme-info-border rounded-lg bg-theme-info-bg">
             <div className="flex items-start gap-3 p-4">
               <div className="p-1">
-                <Shield className="w-5 h-5 text-theme-info" />
+                <Shield className="w-5 h-5 text-theme-info-fg" />
               </div>
               <div className="flex-1">
-                <div className="font-medium text-theme-info mb-1">Role-Based Permission System</div>
-                <div className="text-sm text-theme-info/80">
+                <div className="font-medium text-theme-info-fg mb-1">Role-Based Permission System</div>
+                <div className="text-sm text-theme-info-fg/80">
                   Workers inherit permissions from their assigned roles. To modify permissions, 
                   edit the worker's roles above. Direct permission assignment is not allowed for security reasons.
                 </div>
@@ -485,7 +485,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
             <div className="text-theme-secondary">Assigned Roles</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-theme-success">
+            <div className="text-2xl font-bold text-theme-success-fg">
               {new Set((currentWorker.roles || []).flatMap(role => getRolePermissions(role))).size}
             </div>
             <div className="text-theme-secondary">Total Permissions</div>

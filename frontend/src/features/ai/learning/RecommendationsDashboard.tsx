@@ -84,7 +84,7 @@ export const RecommendationsDashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <Lightbulb className="w-8 h-8 text-theme-warning" />
+              <Lightbulb className="w-8 h-8 text-theme-warning-fg" />
               <div>
                 <p className="text-sm text-theme-tertiary">Pending</p>
                 <p className="text-2xl font-bold text-theme-primary">{pending.length}</p>
@@ -93,7 +93,7 @@ export const RecommendationsDashboard: React.FC = () => {
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <CheckCircle className="w-8 h-8 text-theme-success" />
+              <CheckCircle className="w-8 h-8 text-theme-success-fg" />
               <div>
                 <p className="text-sm text-theme-tertiary">Applied</p>
                 <p className="text-2xl font-bold text-theme-primary">{applied.length}</p>
@@ -102,7 +102,7 @@ export const RecommendationsDashboard: React.FC = () => {
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <TrendingUp className="w-8 h-8 text-theme-info" />
+              <TrendingUp className="w-8 h-8 text-theme-info-fg" />
               <div>
                 <p className="text-sm text-theme-tertiary">Total</p>
                 <p className="text-2xl font-bold text-theme-primary">{recommendations.length}</p>

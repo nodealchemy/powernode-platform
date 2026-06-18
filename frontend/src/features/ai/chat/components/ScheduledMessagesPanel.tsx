@@ -280,7 +280,7 @@ export const ScheduledMessagesPanel: React.FC<ScheduledMessagesPanelProps> = ({
                     <p className="text-xs text-theme-primary truncate">{msg.content}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className={`text-[10px] font-medium ${
-                        msg.status === 'paused' ? 'text-theme-warning' : 'text-theme-success'
+                        msg.status === 'paused' ? 'text-theme-warning-fg' : 'text-theme-success-fg'
                       }`}>
                         {msg.status}
                       </span>
@@ -319,7 +319,7 @@ export const ScheduledMessagesPanel: React.FC<ScheduledMessagesPanelProps> = ({
                     <button
                       type="button"
                       onClick={() => handleCancel(msg.id)}
-                      className="p-0.5 rounded hover:bg-theme-surface-hover text-theme-error transition-colors"
+                      className="p-0.5 rounded hover:bg-theme-surface-hover text-theme-error-fg transition-colors"
                       title="Cancel"
                     >
                       <X className="h-3 w-3" />

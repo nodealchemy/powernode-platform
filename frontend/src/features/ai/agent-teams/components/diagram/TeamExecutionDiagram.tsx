@@ -143,15 +143,15 @@ export const TeamExecutionDiagram: React.FC<TeamExecutionDiagramProps> = ({
       {(execState.status === 'completed' || execState.status === 'failed') && execState.tasksTotal > 0 && (
         <div className={`p-3 rounded-md mt-3 ${
           execState.status === 'completed'
-            ? 'bg-theme-success/10 border border-theme-success/30'
-            : 'bg-theme-error/10 border border-theme-error/30'
+            ? 'bg-theme-success-fg/10 border border-theme-success-border/30'
+            : 'bg-theme-error-fg/10 border border-theme-error-border/30'
         }`}>
           <div className="flex items-center gap-4 text-sm">
-            <span className={execState.status === 'completed' ? 'text-theme-success' : 'text-theme-danger'}>
+            <span className={execState.status === 'completed' ? 'text-theme-success-fg' : 'text-theme-danger-fg'}>
               {execState.tasksCompleted}/{execState.tasksTotal} agents completed
             </span>
             {execState.tasksFailed > 0 && (
-              <span className="text-theme-danger">{execState.tasksFailed} failed</span>
+              <span className="text-theme-danger-fg">{execState.tasksFailed} failed</span>
             )}
             {elapsed && <span className="text-theme-secondary">Duration: {elapsed}</span>}
           </div>
@@ -160,22 +160,22 @@ export const TeamExecutionDiagram: React.FC<TeamExecutionDiagramProps> = ({
 
       {/* Error display */}
       {execState.status === 'failed' && execState.error && (
-        <div className="p-3 bg-theme-error/10 border border-theme-error/30 rounded-md mt-3">
-          <p className="text-sm text-theme-danger font-medium mb-1">Error</p>
-          <p className="text-sm text-theme-danger">{execState.error}</p>
+        <div className="p-3 bg-theme-error-fg/10 border border-theme-error-border/30 rounded-md mt-3">
+          <p className="text-sm text-theme-danger-fg font-medium mb-1">Error</p>
+          <p className="text-sm text-theme-danger-fg">{execState.error}</p>
         </div>
       )}
 
       {/* Trajectory status */}
       {execState.status === 'running' && (
-        <div className="flex items-center gap-2 text-xs text-theme-secondary mt-3 p-2 bg-theme-info/50 rounded-md">
-          <BookOpen size={14} className="text-theme-info" />
+        <div className="flex items-center gap-2 text-xs text-theme-secondary mt-3 p-2 bg-theme-info-fg/50 rounded-md">
+          <BookOpen size={14} className="text-theme-info-fg" />
           <span>Trajectory building in progress...</span>
         </div>
       )}
       {execState.status === 'completed' && (
-        <div className="flex items-center justify-between mt-3 p-3 bg-theme-info/5 border border-theme-info/20 rounded-md">
-          <div className="flex items-center gap-2 text-sm text-theme-info">
+        <div className="flex items-center justify-between mt-3 p-3 bg-theme-info-fg/5 border border-theme-info-border/20 rounded-md">
+          <div className="flex items-center gap-2 text-sm text-theme-info-fg">
             <BookOpen size={16} />
             <span>Trajectory captured</span>
           </div>
@@ -183,7 +183,7 @@ export const TeamExecutionDiagram: React.FC<TeamExecutionDiagramProps> = ({
             <button
               type="button"
               onClick={() => onViewTrajectory(execState.trajectoryId!)}
-              className="text-xs text-theme-info hover:text-theme-primary underline"
+              className="text-xs text-theme-info-fg hover:text-theme-primary underline"
             >
               View Trajectory
             </button>
@@ -193,7 +193,7 @@ export const TeamExecutionDiagram: React.FC<TeamExecutionDiagramProps> = ({
 
       {/* Worktree indicator */}
       {execState.worktreeCount !== undefined && execState.worktreeCount > 0 && (
-        <div className="flex items-center gap-2 text-xs text-theme-info mt-2 p-2 bg-theme-info/5 border border-theme-info/20 rounded-md">
+        <div className="flex items-center gap-2 text-xs text-theme-info-fg mt-2 p-2 bg-theme-info-fg/5 border border-theme-info-border/20 rounded-md">
           <GitFork size={14} />
           <span>{execState.worktreeCount} worktree{execState.worktreeCount > 1 ? 's' : ''} active</span>
         </div>
@@ -201,7 +201,7 @@ export const TeamExecutionDiagram: React.FC<TeamExecutionDiagramProps> = ({
 
       {/* Review status */}
       {execState.reviewsActive !== undefined && execState.reviewsActive > 0 && (
-        <div className="flex items-center gap-2 text-xs text-theme-warning mt-2 p-2 bg-theme-warning/5 border border-theme-warning/20 rounded-md">
+        <div className="flex items-center gap-2 text-xs text-theme-warning-fg mt-2 p-2 bg-theme-warning-fg/5 border border-theme-warning-border/20 rounded-md">
           <Shield size={14} />
           <span>{execState.reviewsActive} review{execState.reviewsActive > 1 ? 's' : ''} in progress</span>
         </div>
@@ -210,12 +210,12 @@ export const TeamExecutionDiagram: React.FC<TeamExecutionDiagramProps> = ({
       {/* Activity Log */}
       {execState.updates.length > 0 && (
         <details className="mt-3">
-          <summary className="text-sm font-medium text-theme-primary cursor-pointer hover:text-theme-info">
+          <summary className="text-sm font-medium text-theme-primary cursor-pointer hover:text-theme-info-fg">
             Activity Log ({execState.updates.length} updates)
           </summary>
           <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
             {execState.updates.map((update, index) => (
-              <div key={index} className="text-xs text-theme-secondary p-2 bg-theme-info rounded">
+              <div key={index} className="text-xs text-theme-secondary p-2 bg-theme-info-bg rounded">
                 <span className="font-medium">{new Date(update.timestamp).toLocaleTimeString()}</span>
                 {' - '}
                 <span>{update.type.replace(/_/g, ' ')}</span>

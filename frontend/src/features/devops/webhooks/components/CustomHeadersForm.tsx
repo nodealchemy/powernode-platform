@@ -155,7 +155,7 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
               type="button"
               onClick={() => handleRemoveHeader(header.id)}
               disabled={disabled || (headers.length === 1 && !header.key && !header.value)}
-              className={`p-2 text-theme-text-tertiary hover:text-theme-danger hover:bg-theme-danger/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${index === 0 ? 'mt-5' : ''}`}
+              className={`p-2 text-theme-text-tertiary hover:text-theme-danger-fg hover:bg-theme-danger-fg/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${index === 0 ? 'mt-5' : ''}`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
@@ -171,8 +171,8 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
       </div>
 
       {error && (
-        <div className="p-2 bg-theme-danger/10 border border-theme-danger/20 rounded-lg">
-          <p className="text-xs text-theme-danger">{error}</p>
+        <div className="p-2 bg-theme-danger-fg/10 border border-theme-danger-border/20 rounded-lg">
+          <p className="text-xs text-theme-danger-fg">{error}</p>
         </div>
       )}
 

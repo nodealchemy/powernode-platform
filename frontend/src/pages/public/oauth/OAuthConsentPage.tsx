@@ -123,7 +123,7 @@ export const OAuthConsentPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-theme-surface flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-theme-surface border border-theme rounded-lg shadow-lg p-8 text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-theme-info mx-auto mb-4" />
+          <Loader2 className="h-8 w-8 animate-spin text-theme-info-fg mx-auto mb-4" />
           <p className="text-theme-secondary">Loading authorization request...</p>
         </div>
       </div>
@@ -135,8 +135,8 @@ export const OAuthConsentPage: React.FC = () => {
       <div className="max-w-md w-full bg-theme-surface border border-theme rounded-lg shadow-lg p-8">
         {/* Header */}
         <div className="flex items-center justify-center mb-6">
-          <div className="w-12 h-12 bg-theme-info/10 rounded-full flex items-center justify-center">
-            <Shield className="h-6 w-6 text-theme-info" />
+          <div className="w-12 h-12 bg-theme-info-fg/10 rounded-full flex items-center justify-center">
+            <Shield className="h-6 w-6 text-theme-info-fg" />
           </div>
         </div>
 
@@ -162,7 +162,7 @@ export const OAuthConsentPage: React.FC = () => {
           <ul className="space-y-2">
             {clientInfo?.scopes.map((s) => (
               <li key={s} className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-theme-success mt-0.5 flex-shrink-0" />
+                <CheckCircle className="h-4 w-4 text-theme-success-fg mt-0.5 flex-shrink-0" />
                 <span className="text-sm text-theme-primary">
                   {scopeDescriptions[s] || s}
                 </span>
@@ -173,9 +173,9 @@ export const OAuthConsentPage: React.FC = () => {
 
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 p-3 mb-4 bg-theme-error/10 border border-theme-error/20 rounded-md">
-            <XCircle className="h-4 w-4 text-theme-error flex-shrink-0" />
-            <p className="text-sm text-theme-error">{error}</p>
+          <div className="flex items-center gap-2 p-3 mb-4 bg-theme-error-fg/10 border border-theme-error-border/20 rounded-md">
+            <XCircle className="h-4 w-4 text-theme-error-fg flex-shrink-0" />
+            <p className="text-sm text-theme-error-fg">{error}</p>
           </div>
         )}
 
@@ -191,7 +191,7 @@ export const OAuthConsentPage: React.FC = () => {
           <button
             onClick={handleApprove}
             disabled={submitting}
-            className="flex-1 px-4 py-2 bg-theme-info text-white rounded-md hover:bg-theme-info/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2 bg-theme-info-bg text-white rounded-md hover:bg-theme-info-fg/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             Approve

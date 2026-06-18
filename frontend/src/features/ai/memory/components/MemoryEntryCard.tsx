@@ -80,7 +80,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => onDelete(entry)}
-              className="text-theme-danger hover:text-theme-danger shrink-0"
+              className="text-theme-danger-fg hover:text-theme-danger-fg shrink-0"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -118,15 +118,15 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
             {entry.importance_score !== undefined && (
               <span className={cn(
                 'px-1.5 py-0.5 text-xs rounded',
-                entry.importance_score >= 0.8 ? 'bg-theme-error/10 text-theme-error' :
-                entry.importance_score >= 0.6 ? 'bg-theme-warning/10 text-theme-warning' :
+                entry.importance_score >= 0.8 ? 'bg-theme-error-fg/10 text-theme-error-fg' :
+                entry.importance_score >= 0.6 ? 'bg-theme-warning-fg/10 text-theme-warning-fg' :
                 'bg-theme-surface/10 text-theme-secondary'
               )}>
                 {Math.round(entry.importance_score * 100)}% importance
               </span>
             )}
             {entry.category && (
-              <span className="px-1.5 py-0.5 text-xs rounded bg-theme-info/10 text-theme-info">
+              <span className="px-1.5 py-0.5 text-xs rounded bg-theme-info-fg/10 text-theme-info-fg">
                 {entry.category}
               </span>
             )}

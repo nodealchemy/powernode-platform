@@ -10,9 +10,9 @@ interface HostCardProps {
 
 export const HostCard: React.FC<HostCardProps> = ({ host, onClick }) => {
   const environmentColors: Record<string, string> = {
-    production: 'bg-theme-error bg-opacity-10 text-theme-error',
-    staging: 'bg-theme-warning bg-opacity-10 text-theme-warning',
-    development: 'bg-theme-info bg-opacity-10 text-theme-info',
+    production: 'bg-theme-error-bg text-theme-error-fg',
+    staging: 'bg-theme-warning-bg text-theme-warning-fg',
+    development: 'bg-theme-info-bg text-theme-info-fg',
     custom: 'bg-theme-surface text-theme-secondary',
   };
 

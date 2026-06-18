@@ -25,10 +25,10 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const RESULT_CONFIG: Record<string, { icon: React.ElementType; color: string; badge: string }> = {
-  success: { icon: CheckCircle, color: 'text-theme-success', badge: 'success' },
-  failure: { icon: XCircle, color: 'text-theme-error', badge: 'danger' },
+  success: { icon: CheckCircle, color: 'text-theme-success-fg', badge: 'success' },
+  failure: { icon: XCircle, color: 'text-theme-error-fg', badge: 'danger' },
   skipped: { icon: SkipForward, color: 'text-theme-tertiary', badge: 'default' },
-  rate_limited: { icon: Clock, color: 'text-theme-warning', badge: 'warning' },
+  rate_limited: { icon: Clock, color: 'text-theme-warning-fg', badge: 'warning' },
 };
 
 export const RemediationTimeline: React.FC<RemediationTimelineProps> = ({ logs }) => {

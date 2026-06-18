@@ -15,9 +15,9 @@ const FingerprintRow: React.FC<{ fp: BehavioralFingerprint }> = ({ fp }) => {
     <div className="flex items-center justify-between p-3 rounded-lg bg-theme-surface border border-theme">
       <div className="flex items-center gap-3">
         {hasAnomalies ? (
-          <AlertTriangle className="h-4 w-4 text-theme-warning" />
+          <AlertTriangle className="h-4 w-4 text-theme-warning-fg" />
         ) : (
-          <Activity className="h-4 w-4 text-theme-success" />
+          <Activity className="h-4 w-4 text-theme-success-fg" />
         )}
         <div>
           <span className="text-sm font-medium text-theme-primary">
@@ -32,7 +32,7 @@ const FingerprintRow: React.FC<{ fp: BehavioralFingerprint }> = ({ fp }) => {
         <p className="text-sm font-medium text-theme-primary">{fp.observation_count}</p>
         <p className="text-xs text-theme-tertiary">observations</p>
         {hasAnomalies && (
-          <p className="text-xs text-theme-warning">{fp.anomaly_count} anomalies</p>
+          <p className="text-xs text-theme-warning-fg">{fp.anomaly_count} anomalies</p>
         )}
       </div>
     </div>

@@ -83,7 +83,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-theme-surface rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
         <div className="px-6 py-4 border-b border-theme">
           <h3 className="text-lg font-semibold text-theme-primary">Create API Key</h3>
@@ -93,12 +93,12 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
           <div className="px-6 py-4 space-y-6">
             {/* Errors */}
             {errors.length > 0 && (
-              <div className="bg-theme-error border border-theme-error rounded-lg p-4">
+              <div className="bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="w-5 h-5 text-theme-error" />
-                  <span className="font-medium text-theme-error">Please fix the following errors:</span>
+                  <AlertTriangle className="w-5 h-5 text-theme-error-fg" />
+                  <span className="font-medium text-theme-error-fg">Please fix the following errors:</span>
                 </div>
-                <ul className="list-disc list-inside text-sm text-theme-error space-y-1">
+                <ul className="list-disc list-inside text-sm text-theme-error-fg space-y-1">
                   {errors.map((error, index) => (
                     <li key={index}>{error}</li>
                   ))}

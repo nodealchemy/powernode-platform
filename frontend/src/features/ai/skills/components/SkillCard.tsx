@@ -32,7 +32,7 @@ export function SkillCard({ skill, onToggle, onClick }: SkillCardProps) {
             onToggle(skill.id, !skill.is_enabled);
           }}
           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-            skill.is_enabled ? 'bg-theme-success' : 'bg-theme-surface-secondary'
+            skill.is_enabled ? 'bg-theme-success-bg' : 'bg-theme-surface-secondary'
           }`}
           aria-label={skill.is_enabled ? 'Disable skill' : 'Enable skill'}
         >

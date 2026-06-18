@@ -218,9 +218,9 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
 
   const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'completed': case 'approved': case 'published': case 'active': return 'text-theme-success bg-theme-success/10';
-      case 'running': case 'analyzing': case 'pending': return 'text-theme-info bg-theme-info/10';
-      case 'failed': case 'rejected': return 'text-theme-danger bg-theme-danger/10';
+      case 'completed': case 'approved': case 'published': case 'active': return 'text-theme-success-fg bg-theme-success-fg/10';
+      case 'running': case 'analyzing': case 'pending': return 'text-theme-info-fg bg-theme-info-fg/10';
+      case 'failed': case 'rejected': return 'text-theme-danger-fg bg-theme-danger-fg/10';
       case 'draft': case 'paused': return 'text-theme-secondary bg-theme-surface';
       default: return 'text-theme-secondary bg-theme-surface';
     }
@@ -228,10 +228,10 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
 
   const getRiskColor = (level: string): string => {
     switch (level) {
-      case 'critical': return 'text-theme-danger bg-theme-danger/10';
-      case 'high': return 'text-theme-warning bg-theme-warning/10';
-      case 'medium': return 'text-theme-warning bg-theme-warning/10';
-      case 'low': return 'text-theme-success bg-theme-success/10';
+      case 'critical': return 'text-theme-danger-fg bg-theme-danger-fg/10';
+      case 'high': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+      case 'medium': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+      case 'low': return 'text-theme-success-fg bg-theme-success-fg/10';
       default: return 'text-theme-secondary bg-theme-surface';
     }
   };
@@ -266,7 +266,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                 <p className="text-sm text-theme-secondary">Total Executions</p>
                 <p className="text-2xl font-bold text-theme-primary">{analytics.total_executions}</p>
               </div>
-              <Play className="h-8 w-8 text-theme-info" />
+              <Play className="h-8 w-8 text-theme-info-fg" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">{(analytics.success_rate * 100).toFixed(1)}% success rate</p>
           </div>
@@ -276,7 +276,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                 <p className="text-sm text-theme-secondary">Deployments</p>
                 <p className="text-2xl font-bold text-theme-primary">{analytics.deployments.total}</p>
               </div>
-              <GitBranch className="h-8 w-8 text-theme-info" />
+              <GitBranch className="h-8 w-8 text-theme-info-fg" />
             </div>
           </div>
           <div className="bg-theme-surface border border-theme rounded-lg p-4">
@@ -285,9 +285,9 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                 <p className="text-sm text-theme-secondary">Code Reviews</p>
                 <p className="text-2xl font-bold text-theme-primary">{analytics.code_reviews.total}</p>
               </div>
-              <CheckCircle className="h-8 w-8 text-theme-success" />
+              <CheckCircle className="h-8 w-8 text-theme-success-fg" />
             </div>
-            <p className="text-xs text-theme-danger mt-2">{analytics.code_reviews.critical_issues} critical issues</p>
+            <p className="text-xs text-theme-danger-fg mt-2">{analytics.code_reviews.critical_issues} critical issues</p>
           </div>
           <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <div className="flex items-center justify-between">
@@ -297,7 +297,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                   {analytics.average_duration_ms ? `${(analytics.average_duration_ms / 1000).toFixed(1)}s` : 'N/A'}
                 </p>
               </div>
-              <BarChart3 className="h-8 w-8 text-theme-info" />
+              <BarChart3 className="h-8 w-8 text-theme-info-fg" />
             </div>
           </div>
         </div>
@@ -312,7 +312,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-theme-info text-theme-info'
+                  ? 'border-theme-info-border text-theme-info-fg'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -366,7 +366,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info-border border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading DevOps data...</p>
         </div>
       ) : (
@@ -386,7 +386,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                     <div
                       key={template.id}
                       data-testid="devops-template-card"
-                      className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-info transition-colors cursor-pointer"
+                      className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-info-border transition-colors cursor-pointer"
                       onClick={() => handleViewTemplate(template)}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -398,8 +398,8 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                       <p className="text-sm text-theme-secondary mb-3 line-clamp-2">{template.description}</p>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex gap-2 text-xs text-theme-secondary">
-                          <span className="px-2 py-1 bg-theme-info/10 rounded">{template.category}</span>
-                          <span className="px-2 py-1 bg-theme-info/10 rounded">{template.template_type}</span>
+                          <span className="px-2 py-1 bg-theme-info-fg/10 rounded">{template.category}</span>
+                          <span className="px-2 py-1 bg-theme-info-fg/10 rounded">{template.template_type}</span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
@@ -417,7 +417,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                             </button>
                           )}
                           {isInstalled(template.id) ? (
-                            <span className="text-sm text-theme-success font-medium">Installed</span>
+                            <span className="text-sm text-theme-success-fg font-medium">Installed</span>
                           ) : (
                             <button
                               onClick={() => handleInstallTemplate(template)}
@@ -458,7 +458,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                         <span className="text-sm text-theme-secondary">v{installation.installed_version}</span>
                         <button
                           onClick={() => handleUninstallTemplate(installation)}
-                          className="p-1.5 text-theme-secondary hover:text-theme-danger hover:bg-theme-danger/10 rounded transition-colors"
+                          className="p-1.5 text-theme-secondary hover:text-theme-danger-fg hover:bg-theme-danger-fg/10 rounded transition-colors"
                           title="Uninstall template"
                         >
                           <Trash2 size={14} />
@@ -467,7 +467,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                     </div>
                     <div className="flex gap-4 text-sm text-theme-secondary">
                       <span>{installation.execution_count} executions</span>
-                      <span className="text-theme-success">{(installation.success_rate * 100).toFixed(1)}% success</span>
+                      <span className="text-theme-success-fg">{(installation.success_rate * 100).toFixed(1)}% success</span>
                     </div>
                   </div>
                 ))
@@ -493,7 +493,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(execution.status)}`}>
                           {execution.status}
                         </span>
-                        <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
+                        <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">
                           {execution.pipeline_type}
                         </span>
                       </div>
@@ -589,28 +589,28 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                           {review.status}
                         </span>
                         {review.overall_rating && (
-                          <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
+                          <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">
                             {review.overall_rating}
                           </span>
                         )}
                       </div>
                       <span className={`text-sm font-medium ${
-                        review.approval_recommendation === 'approve' ? 'text-theme-success' :
-                        review.approval_recommendation === 'reject' ? 'text-theme-danger' :
-                        'text-theme-warning'
+                        review.approval_recommendation === 'approve' ? 'text-theme-success-fg' :
+                        review.approval_recommendation === 'reject' ? 'text-theme-danger-fg' :
+                        'text-theme-warning-fg'
                       }`}>
                         {review.approval_recommendation}
                       </span>
                     </div>
                     <div className="flex gap-4 text-sm text-theme-secondary mb-2">
                       <span>{review.files_reviewed} files</span>
-                      <span className="text-theme-success">+{review.lines_added}</span>
-                      <span className="text-theme-danger">-{review.lines_removed}</span>
+                      <span className="text-theme-success-fg">+{review.lines_added}</span>
+                      <span className="text-theme-danger-fg">-{review.lines_removed}</span>
                     </div>
                     <div className="flex gap-4 text-xs text-theme-secondary">
                       <span>{review.issues_found} issues</span>
                       {review.critical_issues > 0 && (
-                        <span className="text-theme-danger">{review.critical_issues} critical</span>
+                        <span className="text-theme-danger-fg">{review.critical_issues} critical</span>
                       )}
                       <span>{review.suggestions_count} suggestions</span>
                     </div>
@@ -684,7 +684,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
       >
         {detailModal.loading ? (
           <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-theme-info border-t-theme-primary"></div>
+            <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-theme-info-border border-t-theme-primary"></div>
             <p className="mt-3 text-theme-secondary text-sm">Loading template details...</p>
           </div>
         ) : detailModal.template && (
@@ -694,19 +694,19 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
               <span className={`px-2.5 py-1 text-xs font-medium rounded ${getStatusColor(detailModal.template.status)}`}>
                 {detailModal.template.status}
               </span>
-              <span className="px-2.5 py-1 text-xs font-medium rounded bg-theme-info/10 text-theme-info">
+              <span className="px-2.5 py-1 text-xs font-medium rounded bg-theme-info-fg/10 text-theme-info-fg">
                 {detailModal.template.visibility}
               </span>
               <span className="px-2.5 py-1 text-xs rounded bg-theme-surface text-theme-secondary border border-theme">
                 v{detailModal.template.version}
               </span>
               {detailModal.template.is_featured && (
-                <span className="px-2.5 py-1 text-xs font-medium rounded bg-theme-warning/10 text-theme-warning flex items-center gap-1">
+                <span className="px-2.5 py-1 text-xs font-medium rounded bg-theme-warning-fg/10 text-theme-warning-fg flex items-center gap-1">
                   <Star size={12} /> Featured
                 </span>
               )}
               {isInstalled(detailModal.template.id) && (
-                <span className="px-2.5 py-1 text-xs font-medium rounded text-theme-success bg-theme-success/10">
+                <span className="px-2.5 py-1 text-xs font-medium rounded text-theme-success-fg bg-theme-success-fg/10">
                   Installed
                 </span>
               )}
@@ -757,7 +757,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                 <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Tags</h4>
                 <div className="flex flex-wrap gap-1.5">
                   {detailModal.template.tags.map((tag, i) => (
-                    <span key={i} className="px-2 py-0.5 text-xs rounded-full bg-theme-info/10 text-theme-info">
+                    <span key={i} className="px-2 py-0.5 text-xs rounded-full bg-theme-info-fg/10 text-theme-info-fg">
                       {tag}
                     </span>
                   ))}
@@ -774,7 +774,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                     <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Required Integrations</h4>
                     <div className="flex flex-wrap gap-1.5">
                       {detailModal.template.integrations_required.map((int, i) => (
-                        <span key={i} className="px-2 py-1 text-xs rounded bg-theme-info/10 text-theme-info">
+                        <span key={i} className="px-2 py-1 text-xs rounded bg-theme-info-fg/10 text-theme-info-fg">
                           {int}
                         </span>
                       ))}
@@ -788,7 +788,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                     </h4>
                     <div className="flex flex-wrap gap-1.5">
                       {detailModal.template.secrets_required.map((secret, i) => (
-                        <span key={i} className="px-2 py-1 text-xs rounded bg-theme-warning/10 text-theme-warning font-mono">
+                        <span key={i} className="px-2 py-1 text-xs rounded bg-theme-warning-fg/10 text-theme-warning-fg font-mono">
                           {secret}
                         </span>
                       ))}
@@ -831,12 +831,12 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                     <div className="flex flex-wrap items-center gap-2">
                       {((detailModal.template.workflow_definition as { nodes: Array<{ id: string; type: string; label: string }> }).nodes).map((node, i, arr) => {
                         const nodeColors: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-                          trigger: { bg: 'bg-theme-info/15', text: 'text-theme-info', border: 'border-theme-info/30', dot: 'bg-current' },
+                          trigger: { bg: 'bg-theme-info-fg/15', text: 'text-theme-info-fg', border: 'border-theme-info-border/30', dot: 'bg-current' },
                           ai: { bg: 'bg-theme-primary/10', text: 'text-theme-primary', border: 'border-theme-primary/25', dot: 'bg-current' },
-                          action: { bg: 'bg-theme-success/15', text: 'text-theme-success', border: 'border-theme-success/30', dot: 'bg-current' },
-                          condition: { bg: 'bg-theme-warning/15', text: 'text-theme-warning', border: 'border-theme-warning/30', dot: 'bg-current' },
+                          action: { bg: 'bg-theme-success-fg/15', text: 'text-theme-success-fg', border: 'border-theme-success-border/30', dot: 'bg-current' },
+                          condition: { bg: 'bg-theme-warning-fg/15', text: 'text-theme-warning-fg', border: 'border-theme-warning-border/30', dot: 'bg-current' },
                         };
-                        const colors = nodeColors[node.type] || { bg: 'bg-theme-danger/15', text: 'text-theme-danger', border: 'border-theme-danger/30', dot: 'bg-current' };
+                        const colors = nodeColors[node.type] || { bg: 'bg-theme-danger-fg/15', text: 'text-theme-danger-fg', border: 'border-theme-danger-border/30', dot: 'bg-current' };
                         return (
                           <React.Fragment key={node.id}>
                             <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md font-medium border ${colors.bg} ${colors.text} ${colors.border}`}>
@@ -856,10 +856,10 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                 </div>
                 {/* Legend */}
                 <div className="flex flex-wrap gap-3 mt-2 text-[10px] text-theme-secondary">
-                  <span className="flex items-center gap-1 text-theme-info"><span className="w-2 h-2 rounded-full bg-current" /> Trigger</span>
-                  <span className="flex items-center gap-1 text-theme-success"><span className="w-2 h-2 rounded-full bg-current" /> Action</span>
+                  <span className="flex items-center gap-1 text-theme-info-fg"><span className="w-2 h-2 rounded-full bg-current" /> Trigger</span>
+                  <span className="flex items-center gap-1 text-theme-success-fg"><span className="w-2 h-2 rounded-full bg-current" /> Action</span>
                   <span className="flex items-center gap-1 text-theme-primary"><span className="w-2 h-2 rounded-full bg-current" /> AI</span>
-                  <span className="flex items-center gap-1 text-theme-warning"><span className="w-2 h-2 rounded-full bg-current" /> Condition</span>
+                  <span className="flex items-center gap-1 text-theme-warning-fg"><span className="w-2 h-2 rounded-full bg-current" /> Condition</span>
                 </div>
               </div>
             )}

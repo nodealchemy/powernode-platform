@@ -185,10 +185,10 @@ export const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Calculator, Filesystem, Weather"
-              className={errors.name ? 'border-theme-error' : ''}
+              className={errors.name ? 'border-theme-error-border' : ''}
             />
             {errors.name && (
-              <p className="mt-1 text-sm text-theme-error">{errors.name}</p>
+              <p className="mt-1 text-sm text-theme-error-fg">{errors.name}</p>
             )}
           </div>
 

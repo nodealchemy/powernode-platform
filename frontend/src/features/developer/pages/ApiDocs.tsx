@@ -63,11 +63,11 @@ export const ApiDocs: React.FC = () => {
 
   const getMethodColor = (method: string) => {
     switch (method) {
-      case 'GET': return 'bg-theme-info bg-opacity-10 text-theme-info';
-      case 'POST': return 'bg-theme-success bg-opacity-10 text-theme-success';
-      case 'PATCH': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'PUT': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'DELETE': return 'bg-theme-error bg-opacity-10 text-theme-error';
+      case 'GET': return 'bg-theme-info-bg text-theme-info-fg';
+      case 'POST': return 'bg-theme-success-bg text-theme-success-fg';
+      case 'PATCH': return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'PUT': return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'DELETE': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };

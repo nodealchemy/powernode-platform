@@ -27,8 +27,8 @@ export const ServiceRollbackModal: React.FC<ServiceRollbackModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Rollback Service" size="sm">
       <div className="p-4 space-y-4">
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-theme-warning bg-opacity-10">
-          <RotateCcw className="w-5 h-5 text-theme-warning flex-shrink-0" />
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-theme-warning-bg">
+          <RotateCcw className="w-5 h-5 text-theme-warning-fg flex-shrink-0" />
           <p className="text-sm text-theme-primary">
             Are you sure you want to rollback <span className="font-semibold">{serviceName}</span> to its previous version?
           </p>

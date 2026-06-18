@@ -36,8 +36,8 @@ export const TeamActivityCard: React.FC = () => {
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-theme-info/10 rounded-lg">
-            <Users className="h-5 w-5 text-theme-info" />
+          <div className="p-2 bg-theme-info-fg/10 rounded-lg">
+            <Users className="h-5 w-5 text-theme-info-fg" />
           </div>
           <div>
             <div className="text-2xl font-bold text-theme-primary">{activeTeams.length}</div>
@@ -57,7 +57,7 @@ export const TeamActivityCard: React.FC = () => {
         {!loading && activeTeams.slice(0, 3).map(team => (
           <div key={team.id} className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2 truncate">
-              <Activity className="h-3 w-3 text-theme-success flex-shrink-0" />
+              <Activity className="h-3 w-3 text-theme-success-fg flex-shrink-0" />
               <span className="text-theme-primary truncate">{team.name}</span>
             </div>
             <span className="text-theme-secondary flex-shrink-0">

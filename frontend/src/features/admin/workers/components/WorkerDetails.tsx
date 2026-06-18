@@ -133,9 +133,9 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-theme-success-background text-theme-success';
-      case 'suspended': return 'bg-theme-warning-background text-theme-warning';
-      case 'revoked': return 'bg-theme-error text-theme-error';
+      case 'active': return 'bg-theme-success-background text-theme-success-fg';
+      case 'suspended': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'revoked': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -152,9 +152,9 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
   if (error) {
     return (
       <div className="text-center py-8">
-        <div className="bg-theme-error rounded-lg p-4 max-w-md mx-auto">
-          <p className="text-theme-error font-medium">Error Loading Worker Details</p>
-          <p className="text-theme-error text-sm mt-1">{error}</p>
+        <div className="bg-theme-error-bg rounded-lg p-4 max-w-md mx-auto">
+          <p className="text-theme-error-fg font-medium">Error Loading Worker Details</p>
+          <p className="text-theme-error-fg text-sm mt-1">{error}</p>
           <button
             onClick={loadWorkerDetails}
             className="btn-theme btn-theme-danger mt-3"
@@ -193,7 +193,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                   </span>
                 ))}
                 {currentWorker.permissions.length > 4 && (
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-theme-info text-theme-info">
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-theme-info-bg text-theme-info-fg">
                     +{currentWorker.permissions.length - 4} more
                   </span>
                 )}
@@ -245,7 +245,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                       {currentWorker.roles.map((role, index) => (
                         <span 
                           key={index}
-                          className="px-2 py-1 rounded-full text-xs font-medium bg-theme-warning-background text-theme-warning"
+                          className="px-2 py-1 rounded-full text-xs font-medium bg-theme-warning-background text-theme-warning-fg"
                         >
                           {role}
                         </span>
@@ -348,7 +348,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                   </button>
                   <button
                     onClick={handleTokenRegenerate}
-                    className="px-4 py-2 bg-theme-warning-background text-theme-warning rounded hover:bg-theme-warning-background/80 transition-colors"
+                    className="px-4 py-2 bg-theme-warning-background text-theme-warning-fg rounded hover:bg-theme-warning-background/80 transition-colors"
                   >
                     Regenerate Token
                   </button>
@@ -365,7 +365,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                   <button
                     onClick={handleTestWorker}
                     disabled={testingWorker}
-                    className="px-4 py-2 bg-theme-info text-theme-info rounded hover:bg-theme-info/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2 bg-theme-info-bg text-theme-info-fg rounded hover:bg-theme-info-fg/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {testingWorker ? (
                       <>
@@ -384,7 +384,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                 {currentWorker.status === 'active' && (
                   <button
                     onClick={() => handleStatusChange('suspend')}
-                    className="px-4 py-2 bg-theme-warning-background text-theme-warning rounded hover:bg-theme-warning-background/80 transition-colors"
+                    className="px-4 py-2 bg-theme-warning-background text-theme-warning-fg rounded hover:bg-theme-warning-background/80 transition-colors"
                   >
                     Suspend Worker
                   </button>
@@ -393,7 +393,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                 {currentWorker.status === 'suspended' && (
                   <button
                     onClick={() => handleStatusChange('activate')}
-                    className="px-4 py-2 bg-theme-success-background text-theme-success rounded hover:bg-theme-success-background/80 transition-colors"
+                    className="px-4 py-2 bg-theme-success-background text-theme-success-fg rounded hover:bg-theme-success-background/80 transition-colors"
                   >
                     Activate Worker
                   </button>
@@ -402,7 +402,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                 {currentWorker.status !== 'revoked' && (
                   <button
                     onClick={() => setShowConfirmRevoke(true)}
-                    className="px-4 py-2 bg-theme-error text-theme-error rounded hover:bg-theme-error/80 transition-colors"
+                    className="px-4 py-2 bg-theme-error-bg text-theme-error-fg rounded hover:bg-theme-error-fg/80 transition-colors"
                   >
                     Revoke Worker
                   </button>
@@ -437,7 +437,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
 
       {/* Confirm Revoke Modal */}
       {showConfirmRevoke && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-theme-surface rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-theme-primary mb-4">Revoke Worker</h3>
             <p className="text-theme-secondary mb-6">
@@ -452,7 +452,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
               </button>
               <button
                 onClick={() => handleStatusChange('revoke')}
-                className="px-4 py-2 bg-theme-error text-theme-error rounded hover:bg-theme-error/80 transition-colors"
+                className="px-4 py-2 bg-theme-error-bg text-theme-error-fg rounded hover:bg-theme-error-fg/80 transition-colors"
               >
                 Revoke Worker
               </button>
@@ -463,7 +463,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
 
       {/* Test Results Modal */}
       {showTestResults && testResults && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-theme-surface rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-theme-primary">Worker Health Test Results</h3>
@@ -483,10 +483,10 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                 <span className="text-theme-secondary">Overall Status:</span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   testResults.status === 'healthy' 
-                    ? 'bg-theme-success-background text-theme-success'
+                    ? 'bg-theme-success-background text-theme-success-fg'
                     : testResults.status === 'warning'
-                    ? 'bg-theme-warning-background text-theme-warning'
-                    : 'bg-theme-error text-theme-error'
+                    ? 'bg-theme-warning-background text-theme-warning-fg'
+                    : 'bg-theme-error-bg text-theme-error-fg'
                 }`}>
                   {testResults.status.toUpperCase()}
                 </span>
@@ -507,8 +507,8 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                     </span>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
                       status === 'pass'
-                        ? 'bg-theme-success-background text-theme-success'
-                        : 'bg-theme-error text-theme-error'
+                        ? 'bg-theme-success-background text-theme-success-fg'
+                        : 'bg-theme-error-bg text-theme-error-fg'
                     }`}>
                       {status.toUpperCase()}
                     </span>
@@ -542,7 +542,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
               <button
                 onClick={handleTestWorker}
                 disabled={testingWorker}
-                className="px-4 py-2 bg-theme-info text-theme-info rounded hover:bg-theme-info/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-theme-info-bg text-theme-info-fg rounded hover:bg-theme-info-fg/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {testingWorker ? 'Testing...' : 'Test Again'}
               </button>

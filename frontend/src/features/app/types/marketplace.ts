@@ -260,10 +260,10 @@ export function getTypeDescription(type: MarketplaceItemType): string {
  */
 export function getTypeBadgeColor(type: MarketplaceItemType): string {
   const colors: Record<MarketplaceItemType, string> = {
-    workflow_template: 'bg-theme-info bg-opacity-10 text-theme-info',
-    pipeline_template: 'bg-theme-success bg-opacity-10 text-theme-success',
-    integration_template: 'bg-theme-primary bg-opacity-10 text-theme-primary',
-    prompt_template: 'bg-theme-warning bg-opacity-10 text-theme-warning',
+    workflow_template: 'bg-theme-info-bg text-theme-info-fg',
+    pipeline_template: 'bg-theme-success-bg text-theme-success-fg',
+    integration_template: 'bg-theme-primary/10 text-theme-primary',
+    prompt_template: 'bg-theme-warning-bg text-theme-warning-fg',
   };
   return colors[type] || 'bg-theme-surface text-theme-primary';
 }

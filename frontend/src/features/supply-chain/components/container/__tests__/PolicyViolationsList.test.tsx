@@ -129,7 +129,7 @@ describe('PolicyViolationsList', () => {
       );
 
       const errorElement = screen.getByText('Test error');
-      expect(errorElement).toHaveClass('text-theme-error');
+      expect(errorElement).toHaveClass('text-theme-error-fg');
     });
 
     it('hides policy content when error occurs', () => {
@@ -199,7 +199,7 @@ describe('PolicyViolationsList', () => {
       );
 
       expect(screen.getByText('passed')).toBeInTheDocument();
-      const passedSpan = screen.getByText('passed').querySelector('.text-theme-success');
+      const passedSpan = screen.getByText('passed').querySelector('.text-theme-success-fg');
       expect(passedSpan?.textContent).toContain('2');
     });
 
@@ -209,7 +209,7 @@ describe('PolicyViolationsList', () => {
       );
 
       expect(screen.getByText('failed')).toBeInTheDocument();
-      const failedSpan = screen.getByText('failed').querySelector('.text-theme-error');
+      const failedSpan = screen.getByText('failed').querySelector('.text-theme-error-fg');
       expect(failedSpan?.textContent).toContain('2');
     });
 
@@ -237,7 +237,7 @@ describe('PolicyViolationsList', () => {
       );
 
       // The passed count should have success styling
-      const successElements = document.querySelectorAll('.text-theme-success');
+      const successElements = document.querySelectorAll('.text-theme-success-fg');
       expect(successElements.length).toBeGreaterThan(0);
     });
 
@@ -247,7 +247,7 @@ describe('PolicyViolationsList', () => {
       );
 
       // The failed count should have error styling
-      const errorElements = document.querySelectorAll('.text-theme-error');
+      const errorElements = document.querySelectorAll('.text-theme-error-fg');
       expect(errorElements.length).toBeGreaterThan(0);
     });
   });
@@ -426,7 +426,7 @@ describe('PolicyViolationsList', () => {
         <PolicyViolationsList evaluations={mockEvaluations} loading={false} />
       );
 
-      const criticalViolation = document.querySelector('.bg-theme-error\\/10');
+      const criticalViolation = document.querySelector('.bg-theme-error-bg\\/10');
       expect(criticalViolation).toBeInTheDocument();
     });
 
@@ -435,7 +435,7 @@ describe('PolicyViolationsList', () => {
         <PolicyViolationsList evaluations={mockEvaluations} loading={false} />
       );
 
-      const highViolations = document.querySelectorAll('.bg-theme-error\\/10');
+      const highViolations = document.querySelectorAll('.bg-theme-error-bg\\/10');
       expect(highViolations.length).toBeGreaterThan(0);
     });
 
@@ -444,7 +444,7 @@ describe('PolicyViolationsList', () => {
         <PolicyViolationsList evaluations={mockEvaluations} loading={false} />
       );
 
-      const violationWithText = document.querySelector('.text-theme-error');
+      const violationWithText = document.querySelector('.text-theme-error-fg');
       expect(violationWithText).toBeInTheDocument();
     });
   });

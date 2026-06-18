@@ -343,9 +343,9 @@ export const apiKeysApi = {
   // Helper methods
   getStatusColor(status: string): string {
     switch (status) {
-      case 'active': return 'bg-theme-success bg-opacity-10 text-theme-success';
-      case 'revoked': return 'bg-theme-error bg-opacity-10 text-theme-error';
-      case 'expired': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+      case 'active': return 'bg-theme-success-bg text-theme-success-fg';
+      case 'revoked': return 'bg-theme-error-bg text-theme-error-fg';
+      case 'expired': return 'bg-theme-warning-bg text-theme-warning-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   },
@@ -386,10 +386,10 @@ export const apiKeysApi = {
   getScopeCategoryColor(scope: string): string {
     const [category] = scope.split(':');
     switch (category) {
-      case 'read': return 'bg-theme-info bg-opacity-10 text-theme-info';
-      case 'write': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'admin': return 'bg-theme-error bg-opacity-10 text-theme-error';
-      case 'webhooks': return 'bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary';
+      case 'read': return 'bg-theme-info-bg text-theme-info-fg';
+      case 'write': return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'admin': return 'bg-theme-error-bg text-theme-error-fg';
+      case 'webhooks': return 'bg-theme-interactive-primary/10 text-theme-interactive-primary';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   },

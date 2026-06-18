@@ -20,9 +20,9 @@ const CATEGORY_COLORS: Record<string, string> = {
 const ScoreGauge: React.FC<{ score: number; label: string }> = ({ score, label }) => {
   const percentage = Math.round(score);
   const getColor = () => {
-    if (percentage >= 70) return 'text-theme-success';
-    if (percentage >= 40) return 'text-theme-warning';
-    return 'text-theme-error';
+    if (percentage >= 70) return 'text-theme-success-fg';
+    if (percentage >= 40) return 'text-theme-warning-fg';
+    return 'text-theme-error-fg';
   };
 
   return (
@@ -93,7 +93,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <BarChart3 className="w-8 h-8 text-theme-info" />
+            <BarChart3 className="w-8 h-8 text-theme-info-fg" />
             <div>
               <p className="text-sm text-theme-tertiary">Total</p>
               <p className="text-2xl font-bold text-theme-primary">{metrics.total_learnings}</p>
@@ -102,7 +102,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <Target className="w-8 h-8 text-theme-warning" />
+            <Target className="w-8 h-8 text-theme-warning-fg" />
             <div>
               <p className="text-sm text-theme-tertiary">Avg Importance</p>
               <p className="text-2xl font-bold text-theme-primary">{(metrics.avg_importance * 100).toFixed(0)}%</p>
@@ -111,7 +111,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <TrendingUp className="w-8 h-8 text-theme-success" />
+            <TrendingUp className="w-8 h-8 text-theme-success-fg" />
             <div>
               <p className="text-sm text-theme-tertiary">Avg Effectiveness</p>
               <p className="text-2xl font-bold text-theme-primary">
@@ -144,7 +144,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
       {metrics.active_learnings === 0 && (
         <Card>
           <CardContent className="p-8 text-center">
-            <Award className="w-12 h-12 mx-auto mb-4 text-theme-warning opacity-40" />
+            <Award className="w-12 h-12 mx-auto mb-4 text-theme-warning-fg opacity-40" />
             <p className="text-theme-primary font-medium mb-2">No compound learnings yet</p>
             <p className="text-sm text-theme-tertiary max-w-md mx-auto mb-4">
               Learnings are automatically extracted when agent teams execute tasks.

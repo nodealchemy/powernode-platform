@@ -30,7 +30,7 @@ const EventRow: React.FC<{ event: TelemetryEvent }> = ({ event }) => (
         </Badge>
         <span className="text-sm font-medium text-theme-primary">{event.event_type}</span>
         {event.outcome && (
-          <span className={`text-xs ${event.outcome === 'success' ? 'text-theme-success' : 'text-theme-error'}`}>
+          <span className={`text-xs ${event.outcome === 'success' ? 'text-theme-success-fg' : 'text-theme-error-fg'}`}>
             {event.outcome}
           </span>
         )}

@@ -157,9 +157,9 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
 
   const getEventStatusColor = (status: string) => {
     switch (status) {
-      case 'success': return 'text-theme-success';
-      case 'warning': return 'text-theme-warning';
-      case 'error': return 'text-theme-error';
+      case 'success': return 'text-theme-success-fg';
+      case 'warning': return 'text-theme-warning-fg';
+      case 'error': return 'text-theme-error-fg';
       default: return 'text-theme-secondary';
     }
   };
@@ -216,13 +216,13 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
               <div className="text-2xl font-bold text-theme-primary">{activityStats.totalRequests.toLocaleString()}</div>
               <div className="text-sm text-theme-secondary">Total Requests</div>
             </div>
-            <div className="p-2 bg-theme-info rounded-lg">
-              <Activity className="w-5 h-5 text-theme-info" />
+            <div className="p-2 bg-theme-info-bg rounded-lg">
+              <Activity className="w-5 h-5 text-theme-info-fg" />
             </div>
           </div>
           <div className="mt-2 flex items-center gap-1 text-xs">
-            <TrendingUp className="w-3 h-3 text-theme-success" />
-            <span className="text-theme-success">+12%</span>
+            <TrendingUp className="w-3 h-3 text-theme-success-fg" />
+            <span className="text-theme-success-fg">+12%</span>
             <span className="text-theme-secondary">vs last period</span>
           </div>
         </div>
@@ -234,12 +234,12 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
               <div className="text-sm text-theme-secondary">Success Rate</div>
             </div>
             <div className="p-2 bg-theme-success-background rounded-lg">
-              <CheckCircle className="w-5 h-5 text-theme-success" />
+              <CheckCircle className="w-5 h-5 text-theme-success-fg" />
             </div>
           </div>
           <div className="mt-2 flex items-center gap-1 text-xs">
-            <TrendingUp className="w-3 h-3 text-theme-success" />
-            <span className="text-theme-success">+0.2%</span>
+            <TrendingUp className="w-3 h-3 text-theme-success-fg" />
+            <span className="text-theme-success-fg">+0.2%</span>
             <span className="text-theme-secondary">vs last period</span>
           </div>
         </div>
@@ -251,12 +251,12 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
               <div className="text-sm text-theme-secondary">Avg Response</div>
             </div>
             <div className="p-2 bg-theme-warning-background rounded-lg">
-              <Clock className="w-5 h-5 text-theme-warning" />
+              <Clock className="w-5 h-5 text-theme-warning-fg" />
             </div>
           </div>
           <div className="mt-2 flex items-center gap-1 text-xs">
-            <TrendingDown className="w-3 h-3 text-theme-success" />
-            <span className="text-theme-success">-15ms</span>
+            <TrendingDown className="w-3 h-3 text-theme-success-fg" />
+            <span className="text-theme-success-fg">-15ms</span>
             <span className="text-theme-secondary">vs last period</span>
           </div>
         </div>
@@ -267,13 +267,13 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
               <div className="text-2xl font-bold text-theme-primary">{activityStats.errorCount}</div>
               <div className="text-sm text-theme-secondary">Errors</div>
             </div>
-            <div className="p-2 bg-theme-error rounded-lg">
-              <AlertTriangle className="w-5 h-5 text-theme-error" />
+            <div className="p-2 bg-theme-error-bg rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-theme-error-fg" />
             </div>
           </div>
           <div className="mt-2 flex items-center gap-1 text-xs">
-            <TrendingDown className="w-3 h-3 text-theme-success" />
-            <span className="text-theme-success">-3</span>
+            <TrendingDown className="w-3 h-3 text-theme-success-fg" />
+            <span className="text-theme-success-fg">-3</span>
             <span className="text-theme-secondary">vs last period</span>
           </div>
         </div>
@@ -290,7 +290,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
               {activityStats.trends.requests.map((data, index) => (
                 <div key={index} className="flex-1 flex flex-col items-center gap-1">
                   <div
-                    className="w-full bg-theme-info rounded-t"
+                    className="w-full bg-theme-info-bg rounded-t"
                     style={{
                       height: `${(data.count / Math.max(...activityStats.trends.requests.map(d => d.count))) * 100}%`,
                       minHeight: '4px'
@@ -318,7 +318,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
             activityStats.topEndpoints.map((endpoint, index) => (
               <div key={endpoint.endpoint} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-theme-info text-theme-info text-xs font-semibold flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-theme-info-bg text-theme-info-fg text-xs font-semibold flex items-center justify-center">
                     {index + 1}
                   </div>
                   <code className="text-sm font-mono text-theme-primary">{endpoint.endpoint}</code>
@@ -327,7 +327,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
                   <span className="text-sm font-medium text-theme-primary">{endpoint.count.toLocaleString()}</span>
                   <div className="w-20 h-2 bg-theme-background rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-theme-info rounded-full"
+                      className="h-full bg-theme-info-bg rounded-full"
                       style={{
                         width: `${(endpoint.count / activityStats.topEndpoints[0].count) * 100}%`
                       }}
@@ -444,11 +444,11 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
             <div className="text-theme-secondary">Last Active</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-bold text-theme-success capitalize">{worker.status}</div>
+            <div className="text-lg font-bold text-theme-success-fg capitalize">{worker.status}</div>
             <div className="text-theme-secondary">Current Status</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-bold text-theme-info">
+            <div className="text-lg font-bold text-theme-info-fg">
               {worker.active_recently ? 'Yes' : 'No'}
             </div>
             <div className="text-theme-secondary">Recently Active</div>

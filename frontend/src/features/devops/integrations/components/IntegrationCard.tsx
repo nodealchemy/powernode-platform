@@ -45,7 +45,7 @@ export function IntegrationCard({
                 {template.name}
               </h3>
               {template.is_featured && (
-                <span className="px-1.5 py-0.5 text-xs bg-theme-warning bg-opacity-10 text-theme-warning rounded">
+                <span className="px-1.5 py-0.5 text-xs bg-theme-warning-bg text-theme-warning-fg rounded">
                   Featured
                 </span>
               )}
@@ -90,7 +90,7 @@ export function IntegrationCard({
               <div className="flex items-center gap-2">
                 <Link
                   to={`/app/integrations/${instance.id}`}
-                  className="font-medium text-theme-primary hover:text-theme-info truncate"
+                  className="font-medium text-theme-primary hover:text-theme-info-fg truncate"
                 >
                   {instance.name}
                 </Link>
@@ -155,7 +155,7 @@ export function IntegrationCard({
             </Link>
             <button
               onClick={() => onDelete?.(instance.id)}
-              className="px-3 py-1.5 text-sm text-theme-error hover:bg-theme-error hover:bg-opacity-10 rounded transition-colors ml-auto"
+              className="px-3 py-1.5 text-sm text-theme-error-fg hover:bg-theme-error-bg hover:bg-opacity-10 rounded transition-colors ml-auto"
             >
               Delete
             </button>

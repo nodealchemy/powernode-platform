@@ -26,7 +26,7 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {/* AI Providers Card */}
       <div className={`card-theme p-6 hover:shadow-lg transition-all cursor-pointer ${
-        recentUpdates.includes('providers') ? 'ring-2 ring-theme-success ring-opacity-50 bg-theme-success/5' : ''
+        recentUpdates.includes('providers') ? 'ring-2 ring-theme-success-fg/50 bg-theme-success-fg/5' : ''
       }`} onClick={() => navigate('/app/ai/providers')}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -54,12 +54,12 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
 
       {/* AI Agents Card */}
       <div className={`card-theme p-6 hover:shadow-lg transition-all cursor-pointer ${
-        recentUpdates.includes('agents') ? 'ring-2 ring-theme-success ring-opacity-50 bg-theme-success/5' : ''
+        recentUpdates.includes('agents') ? 'ring-2 ring-theme-success-fg/50 bg-theme-success-fg/5' : ''
       }`} onClick={() => navigate('/app/ai/agents')}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-theme-info/10 rounded-lg">
-              <Bot className="h-5 w-5 text-theme-info" />
+            <div className="p-2 bg-theme-info-fg/10 rounded-lg">
+              <Bot className="h-5 w-5 text-theme-info-fg" />
             </div>
             <div>
               <div className="text-2xl font-bold text-theme-primary">{stats?.agents.total || 0}</div>
@@ -83,12 +83,12 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
 
       {/* Executions Card */}
       <div className={`card-theme p-6 hover:shadow-lg transition-all cursor-pointer ${
-        recentUpdates.includes('executions') ? 'ring-2 ring-theme-success ring-opacity-50 bg-theme-success/5' : ''
+        recentUpdates.includes('executions') ? 'ring-2 ring-theme-success-fg/50 bg-theme-success-fg/5' : ''
       }`} onClick={() => navigate('/app/ai/analytics')}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-theme-success/10 rounded-lg">
-              <Zap className="h-5 w-5 text-theme-success" />
+            <div className="p-2 bg-theme-success-fg/10 rounded-lg">
+              <Zap className="h-5 w-5 text-theme-success-fg" />
             </div>
             <div>
               <div className="text-2xl font-bold text-theme-primary">{stats?.executions.total_month || 0}</div>

@@ -46,8 +46,8 @@ export const SetupDefaultProvidersModal: React.FC<SetupDefaultProvidersModalProp
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <div className="flex items-center justify-between p-6 border-b border-theme">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
-            <Settings className="h-5 w-5 text-theme-info" />
+          <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
+            <Settings className="h-5 w-5 text-theme-info-fg" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-theme-primary">Setup Default Providers</h2>
@@ -66,10 +66,10 @@ export const SetupDefaultProvidersModal: React.FC<SetupDefaultProvidersModalProp
 
       <div className="p-6">
         <div className="mb-6">
-          <div className="flex items-start gap-3 p-4 bg-theme-warning bg-opacity-10 border border-theme-warning border-opacity-20 rounded-lg">
-            <AlertTriangle className="h-5 w-5 text-theme-warning mt-0.5 flex-shrink-0" />
+          <div className="flex items-start gap-3 p-4 bg-theme-warning-bg border border-theme-warning-border rounded-lg">
+            <AlertTriangle className="h-5 w-5 text-theme-warning-fg mt-0.5 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-theme-warning">Important Note</p>
+              <p className="text-sm font-medium text-theme-warning-fg">Important Note</p>
               <p className="text-sm text-theme-secondary mt-1">
                 This will create default AI provider configurations. You'll still need to add your own API credentials 
                 for each provider you want to use. Ollama providers may work without API keys depending on your server configuration.
@@ -85,8 +85,8 @@ export const SetupDefaultProvidersModal: React.FC<SetupDefaultProvidersModalProp
           <div className="space-y-3">
             {defaultProviders.map((provider, index) => (
               <div key={index} className="flex items-start gap-3 p-3 bg-theme-surface rounded-lg border border-theme">
-                <div className="h-8 w-8 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-semibold text-theme-info">
+                <div className="h-8 w-8 bg-theme-info-bg rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-semibold text-theme-info-fg">
                     {provider.name.charAt(0)}
                   </span>
                 </div>
@@ -97,7 +97,7 @@ export const SetupDefaultProvidersModal: React.FC<SetupDefaultProvidersModalProp
                     {provider.features.map((feature, featureIndex) => (
                       <span
                         key={featureIndex}
-                        className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-theme-info bg-opacity-10 text-theme-info"
+                        className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-theme-info-bg text-theme-info-fg"
                       >
                         {feature}
                       </span>

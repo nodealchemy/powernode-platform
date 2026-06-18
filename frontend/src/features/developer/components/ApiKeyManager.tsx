@@ -212,8 +212,8 @@ export const ApiKeyManager: React.FC = () => {
       >
         {newKey ? (
           <div className="space-y-4">
-            <div className="p-4 rounded-lg bg-theme-warning/10 border border-theme-warning/30">
-              <p className="text-sm text-theme-warning mb-2">
+            <div className="p-4 rounded-lg bg-theme-warning-fg/10 border border-theme-warning-border/30">
+              <p className="text-sm text-theme-warning-fg mb-2">
                 <strong>Important:</strong> Copy your API key now. You won't be able to see it again!
               </p>
             </div>

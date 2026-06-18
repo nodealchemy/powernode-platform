@@ -181,10 +181,10 @@ export const PagesPage: React.FC = () => {
     let colorClassValue: string;
     switch (colorClass) {
       case 'green':
-        colorClassValue = 'bg-theme-success text-theme-success';
+        colorClassValue = 'bg-theme-success-bg text-theme-success-fg';
         break;
       case 'yellow':
-        colorClassValue = 'bg-theme-warning text-theme-warning';
+        colorClassValue = 'bg-theme-warning-bg text-theme-warning-fg';
         break;
       case 'gray':
         colorClassValue = 'bg-theme-background-tertiary text-theme-secondary';
@@ -237,7 +237,7 @@ export const PagesPage: React.FC = () => {
     >
       {!canManagePages ? (
         <div className="text-center py-12">
-          <div className="text-theme-error text-lg font-medium">
+          <div className="text-theme-error-fg text-lg font-medium">
             🚫 Access Denied
           </div>
           <p className="text-theme-secondary mt-2">

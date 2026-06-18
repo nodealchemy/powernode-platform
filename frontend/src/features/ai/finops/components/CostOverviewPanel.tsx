@@ -39,23 +39,23 @@ export const CostOverviewPanel: React.FC = () => {
       value: formatCost(overview?.total_cost ?? 0),
       change: overview?.cost_change_pct,
       icon: DollarSign,
-      colorClass: 'text-theme-info',
-      bgClass: 'bg-theme-info',
+      colorClass: 'text-theme-info-fg',
+      bgClass: 'bg-theme-info-bg',
     },
     {
       label: 'Total Tokens',
       value: formatTokens(overview?.total_tokens ?? 0),
       change: overview?.token_change_pct,
       icon: Zap,
-      colorClass: 'text-theme-warning',
-      bgClass: 'bg-theme-warning',
+      colorClass: 'text-theme-warning-fg',
+      bgClass: 'bg-theme-warning-bg',
     },
     {
       label: 'Total Requests',
       value: (overview?.total_requests ?? 0).toLocaleString(),
       icon: Activity,
-      colorClass: 'text-theme-success',
-      bgClass: 'bg-theme-success',
+      colorClass: 'text-theme-success-fg',
+      bgClass: 'bg-theme-success-bg',
     },
     {
       label: 'Active Agents',
@@ -68,15 +68,15 @@ export const CostOverviewPanel: React.FC = () => {
       label: 'Active Models',
       value: overview?.active_models ?? 0,
       icon: Cpu,
-      colorClass: 'text-theme-info',
-      bgClass: 'bg-theme-info',
+      colorClass: 'text-theme-info-fg',
+      bgClass: 'bg-theme-info-bg',
     },
     {
       label: 'Optimization Score',
       value: optimization ? `${optimization.score}/${optimization.max_score}` : '--',
       icon: TrendingUp,
-      colorClass: 'text-theme-success',
-      bgClass: 'bg-theme-success',
+      colorClass: 'text-theme-success-fg',
+      bgClass: 'bg-theme-success-bg',
     },
   ];
 
@@ -96,7 +96,7 @@ export const CostOverviewPanel: React.FC = () => {
                   </p>
                   {stat.change !== undefined && stat.change !== null && (
                     <div className={`flex items-center gap-1 mt-1 text-xs ${
-                      stat.change > 0 ? 'text-theme-error' : stat.change < 0 ? 'text-theme-success' : 'text-theme-secondary'
+                      stat.change > 0 ? 'text-theme-error-fg' : stat.change < 0 ? 'text-theme-success-fg' : 'text-theme-secondary'
                     }`}>
                       {stat.change > 0 ? (
                         <TrendingUp className="h-3 w-3" />
@@ -151,10 +151,10 @@ export const CostOverviewPanel: React.FC = () => {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-bold text-theme-success">
+              <p className="text-lg font-bold text-theme-success-fg">
                 {formatCost(optimization.potential_savings)}
               </p>
-              <p className="text-xs text-theme-success">
+              <p className="text-xs text-theme-success-fg">
                 {optimization.potential_savings_pct.toFixed(1)}% reduction
               </p>
             </div>

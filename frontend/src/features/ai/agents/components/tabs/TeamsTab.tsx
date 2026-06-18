@@ -104,7 +104,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
     {/* Teams */}
     {teamsLoading ? (
       <div className="text-center py-12">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info-border border-t-theme-primary"></div>
         <p className="mt-4 text-theme-secondary">Loading teams...</p>
       </div>
     ) : filteredTeams.length === 0 ? (
@@ -167,10 +167,10 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
                 <td className="px-4 py-3">
                   <span className={cn(
                     'px-2 py-0.5 text-xs font-medium rounded-full capitalize',
-                    team.team_type === 'hierarchical' && 'bg-theme-info/10 text-theme-info',
+                    team.team_type === 'hierarchical' && 'bg-theme-info-fg/10 text-theme-info-fg',
                     team.team_type === 'mesh' && 'bg-theme-interactive-primary/10 text-theme-interactive-primary',
-                    team.team_type === 'sequential' && 'bg-theme-success/10 text-theme-success',
-                    team.team_type === 'parallel' && 'bg-theme-warning/10 text-theme-warning',
+                    team.team_type === 'sequential' && 'bg-theme-success-fg/10 text-theme-success-fg',
+                    team.team_type === 'parallel' && 'bg-theme-warning-fg/10 text-theme-warning-fg',
                   )}>
                     {team.team_type}
                   </span>
@@ -183,7 +183,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
                 </td>
                 <td className="px-4 py-3 text-center">
                   {team.has_lead ? (
-                    <Crown size={14} className="inline text-theme-warning" />
+                    <Crown size={14} className="inline text-theme-warning-fg" />
                   ) : (
                     <span className="text-xs text-theme-secondary">&mdash;</span>
                   )}
@@ -191,9 +191,9 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
                 <td className="px-4 py-3 text-center">
                   <span className={cn(
                     'px-2 py-0.5 text-xs font-medium rounded-full capitalize',
-                    team.status === 'active' && 'bg-theme-success/10 text-theme-success',
-                    team.status === 'inactive' && 'bg-theme-info text-theme-secondary',
-                    team.status === 'archived' && 'bg-theme-error/10 text-theme-error',
+                    team.status === 'active' && 'bg-theme-success-fg/10 text-theme-success-fg',
+                    team.status === 'inactive' && 'bg-theme-info-bg text-theme-secondary',
+                    team.status === 'archived' && 'bg-theme-error-fg/10 text-theme-error-fg',
                   )}>
                     {team.status}
                   </span>
@@ -210,7 +210,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
                     </button>
                     <button
                       onClick={() => onDeleteTeam(team)}
-                      className="p-1.5 rounded text-theme-secondary hover:bg-theme-error/10 hover:text-theme-danger transition-colors"
+                      className="p-1.5 rounded text-theme-secondary hover:bg-theme-error-fg/10 hover:text-theme-danger-fg transition-colors"
                       title="Delete"
                     >
                       <Trash2 size={14} />

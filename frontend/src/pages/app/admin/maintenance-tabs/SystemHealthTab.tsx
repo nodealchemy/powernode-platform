@@ -59,8 +59,8 @@ export const SystemHealthTab: React.FC<SystemHealthTabProps> = ({ health, metric
             <div key={index} className="flex items-center justify-between p-3 rounded border border-theme">
               <div className="flex items-center space-x-3">
                 <div className={`w-3 h-3 rounded-full ${
-                  service.status === 'healthy' ? 'bg-theme-success' :
-                  service.status === 'warning' ? 'bg-theme-warning' : 'bg-theme-error'
+                  service.status === 'healthy' ? 'bg-theme-success-bg' :
+                  service.status === 'warning' ? 'bg-theme-warning-bg' : 'bg-theme-error-bg'
                 }`} />
                 <div>
                   <p className="font-medium text-theme-primary">{service.name}</p>

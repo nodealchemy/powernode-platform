@@ -97,8 +97,8 @@ export const McpOAuthCallbackPage: React.FC = () => {
       <div className="max-w-md w-full bg-theme-surface border border-theme rounded-lg shadow-lg p-8">
         {/* Header */}
         <div className="flex items-center justify-center mb-6">
-          <div className="w-12 h-12 bg-theme-info/10 rounded-full flex items-center justify-center">
-            <Server className="h-6 w-6 text-theme-info" />
+          <div className="w-12 h-12 bg-theme-info-fg/10 rounded-full flex items-center justify-center">
+            <Server className="h-6 w-6 text-theme-info-fg" />
           </div>
         </div>
 
@@ -109,7 +109,7 @@ export const McpOAuthCallbackPage: React.FC = () => {
         {/* Processing State */}
         {processing && (
           <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-theme-info mx-auto mb-4" />
+            <Loader2 className="h-8 w-8 animate-spin text-theme-info-fg mx-auto mb-4" />
             <p className="text-theme-secondary">
               Completing authentication...
             </p>
@@ -119,8 +119,8 @@ export const McpOAuthCallbackPage: React.FC = () => {
         {/* Success State */}
         {!processing && result?.success && (
           <div className="text-center">
-            <div className="w-16 h-16 bg-theme-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="h-8 w-8 text-theme-success" />
+            <div className="w-16 h-16 bg-theme-success-fg/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="h-8 w-8 text-theme-success-fg" />
             </div>
             <h2 className="text-lg font-medium text-theme-primary mb-2">
               Authentication Successful
@@ -137,7 +137,7 @@ export const McpOAuthCallbackPage: React.FC = () => {
             </p>
             <button
               onClick={handleClose}
-              className="mt-4 text-sm text-theme-info hover:underline"
+              className="mt-4 text-sm text-theme-info-fg hover:underline"
             >
               Close now
             </button>
@@ -147,13 +147,13 @@ export const McpOAuthCallbackPage: React.FC = () => {
         {/* Error State */}
         {!processing && result && !result.success && (
           <div className="text-center">
-            <div className="w-16 h-16 bg-theme-error/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <XCircle className="h-8 w-8 text-theme-error" />
+            <div className="w-16 h-16 bg-theme-error-fg/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <XCircle className="h-8 w-8 text-theme-error-fg" />
             </div>
             <h2 className="text-lg font-medium text-theme-primary mb-2">
               Authentication Failed
             </h2>
-            <p className="text-theme-error mb-4">
+            <p className="text-theme-error-fg mb-4">
               {result.error || 'An unknown error occurred'}
             </p>
             <button

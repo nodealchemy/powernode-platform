@@ -49,8 +49,8 @@ function MemoryPoolsTab() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-theme-error/30 bg-theme-error/5 p-4">
-        <p className="text-sm text-theme-error">{error}</p>
+      <div className="rounded-lg border border-theme-error-border/30 bg-theme-error-fg/5 p-4">
+        <p className="text-sm text-theme-error-fg">{error}</p>
       </div>
     );
   }

@@ -109,7 +109,7 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
   if (error && !loop) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-theme-error">{error}</p>
+        <p className="text-sm text-theme-error-fg">{error}</p>
       </div>
     );
   }

@@ -100,25 +100,25 @@ describe('ComplianceStatusCard', () => {
 
     it('colors present fields with success color', () => {
       const { container } = render(<ComplianceStatusCard {...defaultProps} />);
-      const successElements = container.querySelectorAll('[class*="text-theme-success"]');
+      const successElements = container.querySelectorAll('[class*="text-theme-success-fg"]');
       expect(successElements.length).toBeGreaterThan(0);
     });
 
     it('colors missing fields with error color', () => {
       const { container } = render(<ComplianceStatusCard {...defaultProps} />);
-      const errorElements = container.querySelectorAll('[class*="text-theme-error"]');
+      const errorElements = container.querySelectorAll('[class*="text-theme-error-fg"]');
       expect(errorElements.length).toBeGreaterThan(0);
     });
 
     it('highlights present field rows with success background', () => {
       const { container } = render(<ComplianceStatusCard {...defaultProps} />);
-      const successRows = container.querySelectorAll('[class*="bg-theme-success/10"]');
+      const successRows = container.querySelectorAll('[class*="bg-theme-success-fg/10"]');
       expect(successRows.length).toBeGreaterThan(0);
     });
 
     it('highlights missing field rows with error background', () => {
       const { container } = render(<ComplianceStatusCard {...defaultProps} />);
-      const errorRows = container.querySelectorAll('[class*="bg-theme-error/10"]');
+      const errorRows = container.querySelectorAll('[class*="bg-theme-error-fg/10"]');
       expect(errorRows.length).toBeGreaterThan(0);
     });
   });
@@ -152,7 +152,7 @@ describe('ComplianceStatusCard', () => {
     it('uses success color for high score', () => {
       const { container } = render(<ComplianceStatusCard {...defaultProps} />);
       const progress = container.querySelector('div[class*="h-3 rounded-full"]');
-      expect(progress).toHaveClass('bg-theme-success');
+      expect(progress).toHaveClass('bg-theme-success-bg');
     });
 
     it('uses warning color for medium score', () => {
@@ -162,7 +162,7 @@ describe('ComplianceStatusCard', () => {
       };
       const { container } = render(<ComplianceStatusCard compliance={mediumCompliance} />);
       const progress = container.querySelector('div[class*="h-3 rounded-full"]');
-      expect(progress).toHaveClass('bg-theme-warning');
+      expect(progress).toHaveClass('bg-theme-warning-bg');
     });
 
     it('uses error color for low score', () => {
@@ -172,7 +172,7 @@ describe('ComplianceStatusCard', () => {
       };
       const { container } = render(<ComplianceStatusCard compliance={lowCompliance} />);
       const progress = container.querySelector('div[class*="h-3 rounded-full"]');
-      expect(progress).toHaveClass('bg-theme-error');
+      expect(progress).toHaveClass('bg-theme-error-bg');
     });
   });
 
@@ -180,7 +180,7 @@ describe('ComplianceStatusCard', () => {
     it('displays success color for score >= 80', () => {
       render(<ComplianceStatusCard {...defaultProps} />);
       const scoreText = screen.getByText('85%');
-      expect(scoreText).toHaveClass('text-theme-success');
+      expect(scoreText).toHaveClass('text-theme-success-fg');
     });
 
     it('displays warning color for score >= 60 and < 80', () => {
@@ -190,7 +190,7 @@ describe('ComplianceStatusCard', () => {
       };
       render(<ComplianceStatusCard compliance={mediumCompliance} />);
       const scoreText = screen.getByText('70%');
-      expect(scoreText).toHaveClass('text-theme-warning');
+      expect(scoreText).toHaveClass('text-theme-warning-fg');
     });
 
     it('displays error color for score < 60', () => {
@@ -200,7 +200,7 @@ describe('ComplianceStatusCard', () => {
       };
       render(<ComplianceStatusCard compliance={lowCompliance} />);
       const scoreText = screen.getByText('45%');
-      expect(scoreText).toHaveClass('text-theme-error');
+      expect(scoreText).toHaveClass('text-theme-error-fg');
     });
   });
 
@@ -361,7 +361,7 @@ describe('ComplianceStatusCard', () => {
     it('applies different styling for score above 80%', () => {
       render(<ComplianceStatusCard {...defaultProps} />);
       const scoreText = screen.getByText('85%');
-      expect(scoreText).toHaveClass('text-theme-success');
+      expect(scoreText).toHaveClass('text-theme-success-fg');
     });
 
     it('applies different styling for score 60-80%', () => {
@@ -371,7 +371,7 @@ describe('ComplianceStatusCard', () => {
       };
       render(<ComplianceStatusCard compliance={mediumCompliance} />);
       const scoreText = screen.getByText('70%');
-      expect(scoreText).toHaveClass('text-theme-warning');
+      expect(scoreText).toHaveClass('text-theme-warning-fg');
     });
 
     it('applies different styling for score below 60%', () => {
@@ -381,7 +381,7 @@ describe('ComplianceStatusCard', () => {
       };
       render(<ComplianceStatusCard compliance={lowCompliance} />);
       const scoreText = screen.getByText('50%');
-      expect(scoreText).toHaveClass('text-theme-error');
+      expect(scoreText).toHaveClass('text-theme-error-fg');
     });
   });
 });

@@ -68,7 +68,7 @@ export function ArtifactContentViewer({ resource }: ResourceDetailProps) {
         {resource.subtasks_count !== undefined && resource.subtasks_count > 0 && (
           <span>Subtasks: {resource.subtasks_count}</span>
         )}
-        {resource.is_external && <span className="px-1.5 py-0.5 rounded bg-theme-info/10 text-theme-info">External</span>}
+        {resource.is_external && <span className="px-1.5 py-0.5 rounded bg-theme-info-fg/10 text-theme-info-fg">External</span>}
         {resource.retry_count !== undefined && resource.retry_count > 0 && (
           <span>Retries: {resource.retry_count}/{resource.max_retries}</span>
         )}
@@ -98,10 +98,10 @@ export function ArtifactContentViewer({ resource }: ResourceDetailProps) {
         <DetailSection title="Error" icon={<AlertTriangle className="w-4 h-4" />} defaultOpen>
           <div className="space-y-2">
             {resource.error_code && (
-              <span className="text-xs px-2 py-0.5 rounded bg-theme-error/10 text-theme-error font-mono">{resource.error_code}</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-theme-error-fg/10 text-theme-error-fg font-mono">{resource.error_code}</span>
             )}
             {resource.error_message && (
-              <p className="text-sm text-theme-error">{resource.error_message}</p>
+              <p className="text-sm text-theme-error-fg">{resource.error_message}</p>
             )}
             {resource.error_details && Object.keys(resource.error_details).length > 0 && (
               <OutputViewer data={resource.error_details} />

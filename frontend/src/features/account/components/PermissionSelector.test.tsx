@@ -362,7 +362,7 @@ describe('PermissionSelector', () => {
 
       // The users resource should show a check icon
       const usersSection = screen.getByText('users').closest('div[class*="border-b"]');
-      expect(usersSection?.querySelector('.text-theme-success')).toBeInTheDocument();
+      expect(usersSection?.querySelector('.text-theme-success-fg')).toBeInTheDocument();
     });
 
     it('shows partial indicator when some permissions selected', () => {
@@ -375,7 +375,7 @@ describe('PermissionSelector', () => {
 
       // The users resource should show partial indicator
       const usersSection = screen.getByText('users').closest('div[class*="border-b"]');
-      expect(usersSection?.querySelector('.bg-theme-info')).toBeInTheDocument();
+      expect(usersSection?.querySelector('.bg-theme-info-bg')).toBeInTheDocument();
     });
 
     it('highlights selected permission rows', () => {
@@ -387,7 +387,7 @@ describe('PermissionSelector', () => {
       );
 
       const permissionRow = screen.getByText('users.read').closest('div[class*="cursor-pointer"]');
-      expect(permissionRow).toHaveClass('bg-theme-info');
+      expect(permissionRow).toHaveClass('bg-theme-info-bg');
     });
   });
 });

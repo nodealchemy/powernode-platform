@@ -146,10 +146,10 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'success': return <CheckCircle className="h-4 w-4 text-theme-success" />;
-      case 'error': return <XCircle className="h-4 w-4 text-theme-danger" />;
-      case 'warning': return <AlertCircle className="h-4 w-4 text-theme-warning" />;
-      case 'info': return <Activity className="h-4 w-4 text-theme-info" />;
+      case 'success': return <CheckCircle className="h-4 w-4 text-theme-success-fg" />;
+      case 'error': return <XCircle className="h-4 w-4 text-theme-danger-fg" />;
+      case 'warning': return <AlertCircle className="h-4 w-4 text-theme-warning-fg" />;
+      case 'info': return <Activity className="h-4 w-4 text-theme-info-fg" />;
       default: return <Activity className="h-4 w-4 text-theme-tertiary" />;
     }
   };
@@ -206,7 +206,7 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-semibold text-theme-primary">Activity Feed</h3>
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected() ? 'bg-theme-success' : 'bg-theme-danger'}`} />
+            <div className={`w-2 h-2 rounded-full ${isConnected() ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'}`} />
             <span className="text-xs text-theme-secondary">
               {isConnected() ? 'Live' : 'Disconnected'}
             </span>

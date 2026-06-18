@@ -19,7 +19,7 @@ export const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
   if (!isOpen || !apiKey) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-theme-surface rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         <div className="px-6 py-4 border-b border-theme flex items-center justify-between">
           <h3 className="text-lg font-semibold text-theme-primary">{apiKey.name}</h3>
@@ -177,9 +177,9 @@ export const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
                         <td className="py-2 text-sm text-theme-secondary">{usage.method}</td>
                         <td className="py-2">
                           <span className={`text-xs px-2 py-1 rounded ${
-                            usage.status_code < 300 ? 'bg-theme-success-background text-theme-success' :
-                            usage.status_code < 400 ? 'bg-theme-warning-background text-theme-warning' :
-                            'bg-theme-error text-theme-error'
+                            usage.status_code < 300 ? 'bg-theme-success-background text-theme-success-fg' :
+                            usage.status_code < 400 ? 'bg-theme-warning-background text-theme-warning-fg' :
+                            'bg-theme-error-bg text-theme-error-fg'
                           }`}>
                             {usage.status_code}
                           </span>

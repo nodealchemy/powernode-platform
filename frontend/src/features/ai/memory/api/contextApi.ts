@@ -441,21 +441,21 @@ export const contextApi = {
   getEntryTypeColor(type: EntryType): string {
     switch (type) {
       case 'fact':
-        return 'bg-theme-info/10 text-theme-info';
+        return 'bg-theme-info-fg/10 text-theme-info-fg';
       case 'preference':
-        return 'bg-theme-warning/10 text-theme-warning';
+        return 'bg-theme-warning-fg/10 text-theme-warning-fg';
       case 'interaction':
-        return 'bg-theme-info/10 text-theme-info';
+        return 'bg-theme-info-fg/10 text-theme-info-fg';
       case 'knowledge':
-        return 'bg-theme-success/10 text-theme-success';
+        return 'bg-theme-success-fg/10 text-theme-success-fg';
       case 'skill':
-        return 'bg-theme-info/10 text-theme-info';
+        return 'bg-theme-info-fg/10 text-theme-info-fg';
       case 'relationship':
-        return 'bg-theme-info/10 text-theme-info';
+        return 'bg-theme-info-fg/10 text-theme-info-fg';
       case 'goal':
-        return 'bg-theme-warning/10 text-theme-warning';
+        return 'bg-theme-warning-fg/10 text-theme-warning-fg';
       case 'constraint':
-        return 'bg-theme-error/10 text-theme-error';
+        return 'bg-theme-error-fg/10 text-theme-error-fg';
       default:
         return 'bg-theme-surface text-theme-secondary';
     }
@@ -477,9 +477,9 @@ export const contextApi = {
   },
 
   getImportanceColor(score: number): string {
-    if (score >= 0.8) return 'text-theme-error';
-    if (score >= 0.5) return 'text-theme-warning';
-    if (score >= 0.2) return 'text-theme-info';
+    if (score >= 0.8) return 'text-theme-error-fg';
+    if (score >= 0.5) return 'text-theme-warning-fg';
+    if (score >= 0.2) return 'text-theme-info-fg';
     return 'text-theme-tertiary';
   },
 };

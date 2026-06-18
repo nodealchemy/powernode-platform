@@ -58,8 +58,8 @@ describe('WebhookDetails stats cards — semantic theme tokens (IMP-be10354a89eb
       pagination: { current_page: 1, per_page: 20, total_pages: 0, total_count: 0 },
     });
     (webhooksApi.getSuccessRate as jest.Mock).mockReturnValue(96);
-    (webhooksApi.getStatusColor as jest.Mock).mockReturnValue('text-theme-success');
-    (webhooksApi.getDeliveryStatusColor as jest.Mock).mockReturnValue('text-theme-success');
+    (webhooksApi.getStatusColor as jest.Mock).mockReturnValue('text-theme-success-fg');
+    (webhooksApi.getDeliveryStatusColor as jest.Mock).mockReturnValue('text-theme-success-fg');
     (webhooksApi.formatEventType as jest.Mock).mockImplementation((eventType: string) => eventType);
   });
 

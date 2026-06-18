@@ -3,15 +3,15 @@ import type { PromptTemplate, PromptCategory } from '../types';
 
 const getCategoryColor = (category: PromptCategory): string => {
   const colors: Record<PromptCategory, string> = {
-    review: 'bg-theme-info/10 text-theme-info',
-    implement: 'bg-theme-success/10 text-theme-success',
-    security: 'bg-theme-warning/10 text-theme-warning',
+    review: 'bg-theme-info-fg/10 text-theme-info-fg',
+    implement: 'bg-theme-success-fg/10 text-theme-success-fg',
+    security: 'bg-theme-warning-fg/10 text-theme-warning-fg',
     deploy: 'bg-theme-primary/10 text-theme-primary',
     docs: 'bg-theme-background-secondary/10 text-theme-tertiary',
     custom: 'bg-theme-surface/10 text-theme-secondary',
     general: 'bg-theme-surface text-theme-secondary',
-    agent: 'bg-theme-info/10 text-theme-info',
-    workflow: 'bg-theme-success/10 text-theme-success',
+    agent: 'bg-theme-info-fg/10 text-theme-info-fg',
+    workflow: 'bg-theme-success-fg/10 text-theme-success-fg',
   };
   return colors[category] || colors.custom;
 };
@@ -56,7 +56,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
         <div className="flex items-center gap-3">
           <span>{template.variable_names.length} variables</span>
           <span>{template.usage_count} uses</span>
-          <span className={template.is_active ? 'text-theme-success' : 'text-theme-error'}>
+          <span className={template.is_active ? 'text-theme-success-fg' : 'text-theme-error-fg'}>
             {template.is_active ? 'Active' : 'Inactive'}
           </span>
         </div>
@@ -95,7 +95,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
                     setShowMenu(false);
                     onDelete();
                   }}
-                  className="w-full text-left px-3 py-2 text-sm text-theme-error hover:bg-theme-surface-hover"
+                  className="w-full text-left px-3 py-2 text-sm text-theme-error-fg hover:bg-theme-surface-hover"
                 >
                   Delete
                 </button>

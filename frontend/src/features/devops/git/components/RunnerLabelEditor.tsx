@@ -47,7 +47,7 @@ export const RunnerLabelEditor: React.FC<RunnerLabelEditorProps> = ({
             {canEdit && (
               <button
                 onClick={() => handleRemoveLabel(label)}
-                className="ml-1 hover:text-theme-error transition-colors"
+                className="ml-1 hover:text-theme-error-fg transition-colors"
                 disabled={saving}
               >
                 <X className="w-3.5 h-3.5" />

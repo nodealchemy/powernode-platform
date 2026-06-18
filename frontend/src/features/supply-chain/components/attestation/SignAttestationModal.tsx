@@ -120,9 +120,9 @@ export const SignAttestationModal: React.FC<SignAttestationModalProps> = ({
             )}
           </div>
 
-          <div className="p-4 bg-theme-info/10 rounded-lg text-sm text-theme-primary">
+          <div className="p-4 bg-theme-info-fg/10 rounded-lg text-sm text-theme-primary">
             <div className="flex items-start gap-2">
-              <CheckCircle className="w-5 h-5 text-theme-info flex-shrink-0 mt-0.5" />
+              <CheckCircle className="w-5 h-5 text-theme-info-fg flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium">Signing creates a cryptographic signature</p>
                 <p className="text-theme-secondary mt-1">

@@ -40,7 +40,7 @@ export const FormField: React.FC<FormFieldProps> = ({
         className="block text-sm font-semibold text-theme-primary mb-2"
       >
         {label}
-        {required && <span className="text-theme-error ml-1">*</span>}
+        {required && <span className="text-theme-error-fg ml-1">*</span>}
       </label>
       
       <input
@@ -52,7 +52,7 @@ export const FormField: React.FC<FormFieldProps> = ({
         autoComplete={autoComplete}
         className={`w-full px-4 py-3 border rounded-lg bg-theme-surface focus:ring-2 focus:ring-theme-focus focus:border-transparent transition-colors ${
           hasError 
-            ? 'border-theme-error focus:ring-theme-error-focus' 
+            ? 'border-theme-error-border focus:ring-theme-error-focus' 
             : 'border-theme'
         } ${
           disabled || form.isSubmitting 
@@ -64,7 +64,7 @@ export const FormField: React.FC<FormFieldProps> = ({
       {hasError && (
         <p 
           id={`${name}-error`} 
-          className="mt-1 text-sm text-theme-error flex items-center space-x-1"
+          className="mt-1 text-sm text-theme-error-fg flex items-center space-x-1"
           role="alert"
         >
           <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">

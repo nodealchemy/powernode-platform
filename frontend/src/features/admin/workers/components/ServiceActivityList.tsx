@@ -109,15 +109,15 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
   const getActionColor = (action: string) => {
     switch (action) {
       case 'authentication':
-        return 'bg-theme-info text-theme-info border border-theme';
+        return 'bg-theme-info-bg text-theme-info-fg border border-theme';
       case 'job_enqueue':
-        return 'bg-theme-success text-theme-success border border-theme';
+        return 'bg-theme-success-bg text-theme-success-fg border border-theme';
       case 'api_request':
-        return 'bg-theme-info text-theme-info border border-theme';
+        return 'bg-theme-info-bg text-theme-info-fg border border-theme';
       case 'health_check':
         return 'bg-theme-background-secondary text-theme-secondary border border-theme';
       case 'error_occurred':
-        return 'bg-theme-error text-theme-error border border-theme';
+        return 'bg-theme-error-bg text-theme-error-fg border border-theme';
       default:
         return 'bg-theme-background-secondary text-theme-secondary border border-theme';
     }
@@ -143,15 +143,15 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
             <div className="text-sm text-theme-secondary">Recent Activities</div>
           </div>
           <div className="bg-theme-surface p-4 rounded-lg border border-theme">
-            <div className="text-2xl font-bold text-theme-success">{summary.successful_recent}</div>
+            <div className="text-2xl font-bold text-theme-success-fg">{summary.successful_recent}</div>
             <div className="text-sm text-theme-secondary">Successful</div>
           </div>
           <div className="bg-theme-surface p-4 rounded-lg border border-theme">
-            <div className="text-2xl font-bold text-theme-error">{summary.failed_recent}</div>
+            <div className="text-2xl font-bold text-theme-error-fg">{summary.failed_recent}</div>
             <div className="text-sm text-theme-secondary">Failed</div>
           </div>
           <div className="bg-theme-surface p-4 rounded-lg border border-theme">
-            <div className="text-2xl font-bold text-theme-info">{Object.keys(summary.actions).length}</div>
+            <div className="text-2xl font-bold text-theme-info-fg">{Object.keys(summary.actions).length}</div>
             <div className="text-sm text-theme-secondary">Action Types</div>
           </div>
         </div>
@@ -218,11 +218,11 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
         </div>
         
         {error && (
-          <div className="p-4 bg-theme-error border-b border-theme-error">
-            <p className="text-theme-error text-sm">{error}</p>
+          <div className="p-4 bg-theme-error-bg border-b border-theme-error-border">
+            <p className="text-theme-error-fg text-sm">{error}</p>
             <button
               onClick={loadActivities}
-              className="mt-2 text-theme-error hover:text-theme-error text-sm underline opacity-80 hover:opacity-100 transition-opacity duration-150"
+              className="mt-2 text-theme-error-fg hover:text-theme-error-fg text-sm underline opacity-80 hover:opacity-100 transition-opacity duration-150"
             >
               Try again
             </button>
@@ -272,7 +272,7 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-2 ${activity.successful ? 'bg-theme-success' : 'bg-theme-danger'}`}></div>
+                        <div className={`w-2 h-2 rounded-full mr-2 ${activity.successful ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'}`}></div>
                         <span className="text-sm text-theme-primary">
                           {activity.successful ? 'Success' : 'Failed'}
                         </span>
@@ -289,7 +289,7 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
                     </td>
                     <td className="px-6 py-4 text-sm text-theme-primary">
                       {activity.error_message && (
-                        <div className="text-theme-error text-xs">
+                        <div className="text-theme-error-fg text-xs">
                           {activity.error_message}
                         </div>
                       )}

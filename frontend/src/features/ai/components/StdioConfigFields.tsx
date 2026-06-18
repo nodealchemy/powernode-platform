@@ -43,10 +43,10 @@ export const StdioConfigFields: React.FC<StdioConfigFieldsProps> = ({
           value={command}
           onChange={(e) => onCommandChange(e.target.value)}
           placeholder="e.g., node, python, /usr/local/bin/mcp-server"
-          className={commandError ? 'border-theme-error' : ''}
+          className={commandError ? 'border-theme-error-border' : ''}
         />
         {commandError && (
-          <p className="mt-1 text-sm text-theme-error">{commandError}</p>
+          <p className="mt-1 text-sm text-theme-error-fg">{commandError}</p>
         )}
       </div>
 
@@ -85,7 +85,7 @@ export const StdioConfigFields: React.FC<StdioConfigFieldsProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => removeArg(index)}
-                  className="text-theme-error"
+                  className="text-theme-error-fg"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

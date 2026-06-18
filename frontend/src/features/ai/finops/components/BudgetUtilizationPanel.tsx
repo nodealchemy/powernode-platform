@@ -65,16 +65,16 @@ export const BudgetUtilizationPanel: React.FC = () => {
         <div className="space-y-4">
           {sortedBudgets.map((budget) => {
             const utilizationColor = budget.utilization_pct >= 100
-              ? 'bg-theme-error'
+              ? 'bg-theme-error-bg'
               : budget.utilization_pct >= budget.alert_threshold
-                ? 'bg-theme-warning'
-                : 'bg-theme-success';
+                ? 'bg-theme-warning-bg'
+                : 'bg-theme-success-bg';
 
             const utilizationTextColor = budget.utilization_pct >= 100
-              ? 'text-theme-error'
+              ? 'text-theme-error-fg'
               : budget.utilization_pct >= budget.alert_threshold
-                ? 'text-theme-warning'
-                : 'text-theme-success';
+                ? 'text-theme-warning-fg'
+                : 'text-theme-success-fg';
 
             return (
               <div key={budget.id} className="p-3 rounded-lg border border-theme bg-theme-surface">
@@ -94,7 +94,7 @@ export const BudgetUtilizationPanel: React.FC = () => {
                       {budget.entity_type}
                     </Badge>
                     {budget.is_over_budget && (
-                      <AlertTriangle className="h-4 w-4 text-theme-error flex-shrink-0" />
+                      <AlertTriangle className="h-4 w-4 text-theme-error-fg flex-shrink-0" />
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-right flex-shrink-0">
@@ -105,7 +105,7 @@ export const BudgetUtilizationPanel: React.FC = () => {
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full bg-theme-info rounded-full h-2 mb-2">
+                <div className="w-full bg-theme-info-bg rounded-full h-2 mb-2">
                   <div
                     className={`h-2 rounded-full ${utilizationColor} transition-all`}
                     style={{ width: `${Math.min(budget.utilization_pct, 100)}%` }}

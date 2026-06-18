@@ -171,7 +171,7 @@ describe('ContainerVulnerabilitiesTable', () => {
       );
 
       const criticalBadge = screen.getByText('CRITICAL');
-      expect(criticalBadge).toHaveClass('bg-theme-error', 'text-white');
+      expect(criticalBadge).toHaveClass('bg-theme-error-bg', 'text-white');
       expect(criticalBadge).toHaveAttribute('data-size', 'sm');
     });
 
@@ -181,7 +181,7 @@ describe('ContainerVulnerabilitiesTable', () => {
       );
 
       const highBadge = screen.getByText('HIGH');
-      expect(highBadge).toHaveClass('bg-theme-error/80', 'text-white');
+      expect(highBadge).toHaveClass('bg-theme-error-fg/80', 'text-white');
     });
 
     it('shows medium severity badge with correct styling', () => {
@@ -190,7 +190,7 @@ describe('ContainerVulnerabilitiesTable', () => {
       );
 
       const mediumBadge = screen.getByText('MEDIUM');
-      expect(mediumBadge).toHaveClass('bg-theme-warning', 'text-theme-on-warning');
+      expect(mediumBadge).toHaveClass('bg-theme-warning-bg', 'text-theme-on-warning');
     });
 
     it('shows low severity badge with correct styling', () => {
@@ -199,7 +199,7 @@ describe('ContainerVulnerabilitiesTable', () => {
       );
 
       const lowBadge = screen.getByText('LOW');
-      expect(lowBadge).toHaveClass('bg-theme-info', 'text-white');
+      expect(lowBadge).toHaveClass('bg-theme-info-bg', 'text-white');
     });
   });
 

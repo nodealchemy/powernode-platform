@@ -194,10 +194,10 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
                     <StatusIcon
                       className={cn(
                         'h-4 w-4',
-                        trace.status === 'running' && 'animate-spin text-theme-info',
-                        trace.status === 'completed' && 'text-theme-success',
-                        trace.status === 'failed' && 'text-theme-danger',
-                        trace.status === 'cancelled' && 'text-theme-warning'
+                        trace.status === 'running' && 'animate-spin text-theme-info-fg',
+                        trace.status === 'completed' && 'text-theme-success-fg',
+                        trace.status === 'failed' && 'text-theme-danger-fg',
+                        trace.status === 'cancelled' && 'text-theme-warning-fg'
                       )}
                     />
                     <EntityLink
@@ -237,7 +237,7 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
                 </div>
 
                 {trace.error && (
-                  <div className="mt-2 flex items-center gap-1 text-xs text-theme-danger">
+                  <div className="mt-2 flex items-center gap-1 text-xs text-theme-danger-fg">
                     <AlertCircle className="h-3 w-3" />
                     <span>Has errors</span>
                   </div>

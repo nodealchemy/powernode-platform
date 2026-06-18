@@ -131,7 +131,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   // Show success screen if API key was created
   if (createdApiKey) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <div className="bg-theme-surface rounded-lg shadow-xl max-w-md w-full">
           <div className="flex items-center justify-between p-6 border-b border-theme">
             <h2 className="text-xl font-semibold text-theme-primary">API Key Created</h2>
@@ -144,24 +144,24 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           </div>
 
           <div className="p-6">
-            <div className="bg-theme-success bg-opacity-10 border border-theme-success border-opacity-30 rounded-lg p-4 mb-6">
+            <div className="bg-theme-success-bg border border-theme-success-border rounded-lg p-4 mb-6">
               <div className="flex items-start space-x-3">
-                <CheckCircle className="w-5 h-5 text-theme-success mt-0.5" />
+                <CheckCircle className="w-5 h-5 text-theme-success-fg mt-0.5" />
                 <div>
-                  <h3 className="font-medium text-theme-success">API Key Created Successfully</h3>
-                  <p className="text-sm text-theme-success opacity-80 mt-1">
+                  <h3 className="font-medium text-theme-success-fg">API Key Created Successfully</h3>
+                  <p className="text-sm text-theme-success-fg opacity-80 mt-1">
                     Your API key "{createdApiKey.name}" has been generated.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-theme-warning bg-opacity-10 border border-theme-warning border-opacity-30 rounded-lg p-4 mb-6">
+            <div className="bg-theme-warning-bg border border-theme-warning-border rounded-lg p-4 mb-6">
               <div className="flex items-start space-x-3">
-                <AlertTriangle className="w-5 h-5 text-theme-warning mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-theme-warning-fg mt-0.5" />
                 <div>
-                  <h3 className="font-medium text-theme-warning">Important Security Notice</h3>
-                  <p className="text-sm text-theme-warning opacity-80 mt-1">
+                  <h3 className="font-medium text-theme-warning-fg">Important Security Notice</h3>
+                  <p className="text-sm text-theme-warning-fg opacity-80 mt-1">
                     This is the only time you'll see the full API key. Copy it now and store it securely.
                   </p>
                 </div>
@@ -191,7 +191,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                   <button
                     type="button"
                     onClick={handleCopyKey}
-                    className={`p-1 ${copied ? 'text-theme-success' : 'text-theme-secondary hover:text-theme-primary'}`}
+                    className={`p-1 ${copied ? 'text-theme-success-fg' : 'text-theme-secondary hover:text-theme-primary'}`}
                     title="Copy to clipboard"
                   >
                     {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -215,7 +215,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-theme-surface rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-theme">
           <h2 className="text-xl font-semibold text-theme-primary">Generate New API Key</h2>
@@ -229,12 +229,12 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {errors.length > 0 && (
-            <div className="bg-theme-error bg-opacity-10 border border-theme-error border-opacity-30 rounded-lg p-4">
+            <div className="bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
               <div className="flex items-start space-x-3">
-                <AlertTriangle className="w-5 h-5 text-theme-error mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-theme-error-fg mt-0.5" />
                 <div>
-                  <h3 className="font-medium text-theme-error">Please correct the following errors:</h3>
-                  <ul className="text-sm text-theme-error opacity-80 mt-1 list-disc list-inside">
+                  <h3 className="font-medium text-theme-error-fg">Please correct the following errors:</h3>
+                  <ul className="text-sm text-theme-error-fg opacity-80 mt-1 list-disc list-inside">
                     {errors.map((error, index) => (
                       <li key={index}>{error}</li>
                     ))}
@@ -247,7 +247,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-theme-primary mb-2">
-                Name <span className="text-theme-error">*</span>
+                Name <span className="text-theme-error-fg">*</span>
               </label>
               <input
                 type="text"
@@ -338,7 +338,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-3">
-              Permissions <span className="text-theme-error">*</span>
+              Permissions <span className="text-theme-error-fg">*</span>
             </label>
             <div className="space-y-3 max-h-60 overflow-y-auto border border-theme rounded-lg p-4 bg-theme-background">
               {availableScopes.map((scope) => (

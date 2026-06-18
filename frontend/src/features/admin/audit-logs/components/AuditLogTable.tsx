@@ -44,29 +44,29 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-theme-error text-theme-error';
-      case 'high': return 'bg-theme-error text-theme-error';
-      case 'medium': return 'bg-theme-warning-background text-theme-warning';
-      case 'low': return 'bg-theme-success-background text-theme-success';
+      case 'critical': return 'bg-theme-error-bg text-theme-error-fg';
+      case 'high': return 'bg-theme-error-bg text-theme-error-fg';
+      case 'medium': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'low': return 'bg-theme-success-background text-theme-success-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'success': return 'bg-theme-success-background text-theme-success';
-      case 'warning': return 'bg-theme-warning-background text-theme-warning';
-      case 'error': return 'bg-theme-error text-theme-error';
+      case 'success': return 'bg-theme-success-background text-theme-success-fg';
+      case 'warning': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'error': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
 
   const getRiskLevelIcon = (level: string) => {
     switch (level) {
-      case 'critical': return <AlertTriangle className="w-4 h-4 text-theme-error" />;
-      case 'high': return <Shield className="w-4 h-4 text-theme-error" />;
-      case 'medium': return <Eye className="w-4 h-4 text-theme-warning" />;
-      case 'low': return <User className="w-4 h-4 text-theme-success" />;
+      case 'critical': return <AlertTriangle className="w-4 h-4 text-theme-error-fg" />;
+      case 'high': return <Shield className="w-4 h-4 text-theme-error-fg" />;
+      case 'medium': return <Eye className="w-4 h-4 text-theme-warning-fg" />;
+      case 'low': return <User className="w-4 h-4 text-theme-success-fg" />;
       default: return <User className="w-4 h-4 text-theme-secondary" />;
     }
   };
@@ -169,7 +169,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                 <React.Fragment key={log.id}>
                   <tr 
                     className={`hover:bg-theme-surface-hover transition-colors duration-200 ${
-                      isSelected ? 'bg-theme-interactive-primary bg-opacity-5' : ''
+                      isSelected ? 'bg-theme-interactive-primary/5' : ''
                     }`}
                   >
                     <td className="px-4 py-3">
@@ -349,7 +349,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                                         <div className="text-theme-secondary text-xs font-medium mb-1">{key}</div>
                                         <div className="flex items-center gap-2 text-xs">
                                           {oldVal !== undefined && (
-                                            <span className="bg-theme-error text-theme-error px-2 py-0.5 rounded">
+                                            <span className="bg-theme-error-bg text-theme-error-fg px-2 py-0.5 rounded">
                                               {formatValue(oldVal)}
                                             </span>
                                           )}
@@ -357,7 +357,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                                             <span className="text-theme-tertiary">→</span>
                                           )}
                                           {newVal !== undefined && (
-                                            <span className="bg-theme-success-background text-theme-success px-2 py-0.5 rounded">
+                                            <span className="bg-theme-success-background text-theme-success-fg px-2 py-0.5 rounded">
                                               {formatValue(newVal)}
                                             </span>
                                           )}

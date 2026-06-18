@@ -23,7 +23,7 @@ export const Input: React.FC<InputProps> = ({
     focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent
     disabled:bg-theme-background disabled:text-theme-secondary
     ${fullWidth ? 'w-full' : ''}
-    ${error ? 'border-theme-error focus:ring-theme-error' : ''}
+    ${error ? 'border-theme-error-border focus:ring-theme-error-fg' : ''}
     ${className}
   `.trim();
 
@@ -49,7 +49,7 @@ export const Input: React.FC<InputProps> = ({
         </p>
       )}
       {error && (
-        <p id={`${inputId}-error`} className="mt-1 text-sm text-theme-error" role="alert">
+        <p id={`${inputId}-error`} className="mt-1 text-sm text-theme-error-fg" role="alert">
           {error}
         </p>
       )}

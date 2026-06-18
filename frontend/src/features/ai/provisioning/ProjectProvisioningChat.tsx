@@ -262,7 +262,7 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {loading && messages.length === 0 && (
             <div className="flex items-center gap-2 text-theme-secondary text-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-theme-info" />
+              <Loader2 className="h-4 w-4 animate-spin text-theme-info-fg" />
               Loading conversation…
             </div>
           )}

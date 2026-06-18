@@ -35,7 +35,7 @@ export const TypeFilter: React.FC<TypeFilterProps> = ({ selectedTypes, onChange 
   const getButtonClass = (isActive: boolean) => {
     return `px-4 py-2 rounded-lg font-medium transition-colors ${
       isActive
-        ? 'bg-theme-info text-white'
+        ? 'bg-theme-info-bg text-white'
         : 'bg-theme-surface text-theme-tertiary hover:bg-theme-surface-hover border border-theme'
     }`;
   };

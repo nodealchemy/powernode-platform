@@ -14,16 +14,16 @@ interface Props {
 
 const severityColors: Record<string, string> = {
   low: 'bg-theme-surface-bg text-theme-secondary',
-  medium: 'bg-theme-warning text-theme-warning',
-  high: 'bg-theme-error text-theme-error',
-  critical: 'bg-theme-danger/20 text-theme-danger',
+  medium: 'bg-theme-warning-bg text-theme-warning-fg',
+  high: 'bg-theme-error-bg text-theme-error-fg',
+  critical: 'bg-theme-danger-fg/20 text-theme-danger-fg',
 };
 
 const statusColors: Record<string, string> = {
-  open: 'bg-theme-error text-theme-error',
-  in_progress: 'bg-theme-info text-theme-info',
-  case_added: 'bg-theme-info/10 text-theme-info',
-  verified: 'bg-theme-success text-theme-success',
+  open: 'bg-theme-error-bg text-theme-error-fg',
+  in_progress: 'bg-theme-info-bg text-theme-info-fg',
+  case_added: 'bg-theme-info-fg/10 text-theme-info-fg',
+  verified: 'bg-theme-success-bg text-theme-success-fg',
   closed: 'bg-theme-surface-bg text-theme-secondary',
 };
 
@@ -83,15 +83,15 @@ export const HarnessGapTracker: React.FC<Props> = ({
             <div className="text-xs text-theme-secondary">Total Gaps</div>
           </div>
           <div className="card-theme p-3 text-center">
-            <div className="text-xl font-semibold text-theme-error">{metrics.open}</div>
+            <div className="text-xl font-semibold text-theme-error-fg">{metrics.open}</div>
             <div className="text-xs text-theme-secondary">Open</div>
           </div>
           <div className="card-theme p-3 text-center">
-            <div className="text-xl font-semibold text-theme-info">{metrics.in_progress}</div>
+            <div className="text-xl font-semibold text-theme-info-fg">{metrics.in_progress}</div>
             <div className="text-xs text-theme-secondary">In Progress</div>
           </div>
           <div className="card-theme p-3 text-center">
-            <div className="text-xl font-semibold text-theme-success">
+            <div className="text-xl font-semibold text-theme-success-fg">
               {metrics.sla_compliance_rate.toFixed(0)}%
             </div>
             <div className="text-xs text-theme-secondary">SLA Compliance</div>
@@ -101,8 +101,8 @@ export const HarnessGapTracker: React.FC<Props> = ({
 
       {/* SLA Warnings */}
       {slaCompliance && slaCompliance.past_sla_count > 0 && (
-        <div className="card-theme p-3 border-l-4 border-theme-error">
-          <div className="text-sm font-medium text-theme-error mb-1">
+        <div className="card-theme p-3 border-l-4 border-theme-error-border">
+          <div className="text-sm font-medium text-theme-error-fg mb-1">
             {slaCompliance.past_sla_count} gap(s) past SLA
           </div>
           <div className="space-y-1">
@@ -112,7 +112,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                 <span className={`px-1.5 py-0.5 rounded text-[10px] ${severityColors[g.severity] || ''}`}>
                   {g.severity}
                 </span>
-                <span className="text-theme-error">{g.hours_overdue.toFixed(0)}h overdue</span>
+                <span className="text-theme-error-fg">{g.hours_overdue.toFixed(0)}h overdue</span>
               </div>
             ))}
           </div>
@@ -146,7 +146,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
         </select>
         <button
           onClick={onRefresh}
-          className="text-xs text-theme-info hover:text-theme-link-hover ml-auto"
+          className="text-xs text-theme-info-fg hover:text-theme-link-hover ml-auto"
         >
           Refresh
         </button>
@@ -184,10 +184,10 @@ export const HarnessGapTracker: React.FC<Props> = ({
                   </div>
                   <div className="flex items-center gap-2 text-xs text-theme-secondary flex-shrink-0">
                     {gap.test_case_added && (
-                      <span className="text-theme-success">{'\u2713'} Test</span>
+                      <span className="text-theme-success-fg">{'\u2713'} Test</span>
                     )}
                     {sla && (
-                      <span className={sla.overdue ? 'text-theme-error font-medium' : ''}>
+                      <span className={sla.overdue ? 'text-theme-error-fg font-medium' : ''}>
                         {sla.text}
                       </span>
                     )}
@@ -214,17 +214,17 @@ export const HarnessGapTracker: React.FC<Props> = ({
                         <div className="text-xs text-theme-primary">{new Date(gap.created_at).toLocaleDateString()}</div>
                       </div>
                       {gap.sla_deadline && (
-                        <div className={`rounded p-2 ${sla?.overdue ? 'bg-theme-error' : 'bg-theme-surface-bg'}`}>
+                        <div className={`rounded p-2 ${sla?.overdue ? 'bg-theme-error-bg' : 'bg-theme-surface-bg'}`}>
                           <div className="text-[10px] text-theme-secondary">SLA Deadline</div>
-                          <div className={`text-xs ${sla?.overdue ? 'text-theme-error font-medium' : 'text-theme-primary'}`}>
+                          <div className={`text-xs ${sla?.overdue ? 'text-theme-error-fg font-medium' : 'text-theme-primary'}`}>
                             {new Date(gap.sla_deadline).toLocaleString()}
                           </div>
                         </div>
                       )}
                       {gap.resolved_at && (
-                        <div className="bg-theme-success rounded p-2">
+                        <div className="bg-theme-success-bg rounded p-2">
                           <div className="text-[10px] text-theme-secondary">Resolved</div>
-                          <div className="text-xs text-theme-success">{new Date(gap.resolved_at).toLocaleDateString()}</div>
+                          <div className="text-xs text-theme-success-fg">{new Date(gap.resolved_at).toLocaleDateString()}</div>
                         </div>
                       )}
                     </div>
@@ -233,7 +233,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                     {gap.test_case_reference && (
                       <div>
                         <h5 className="text-xs font-semibold text-theme-secondary uppercase tracking-wider mb-1">Test Case</h5>
-                        <span className="text-xs font-mono text-theme-info bg-theme-info/10 px-2 py-1 rounded">
+                        <span className="text-xs font-mono text-theme-info-fg bg-theme-info-fg/10 px-2 py-1 rounded">
                           {gap.test_case_reference}
                         </span>
                       </div>
@@ -253,7 +253,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                         <span className="text-xs text-theme-secondary">Contract:</span>
                         <button
                           onClick={() => onNavigateToContract(gap.risk_contract_id!)}
-                          className="text-xs text-theme-info hover:underline"
+                          className="text-xs text-theme-info-fg hover:underline"
                         >
                           View Contract
                         </button>
@@ -277,7 +277,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                             <button
                               onClick={() => handleAddTestCase(gap.id)}
                               disabled={actionLoading || !testRefInput.trim()}
-                              className="px-3 py-1 text-xs font-medium bg-theme-info text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50"
+                              className="px-3 py-1 text-xs font-medium bg-theme-info-bg text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50"
                             >
                               Add Test
                             </button>
@@ -298,7 +298,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                             <button
                               onClick={() => handleCloseGap(gap.id)}
                               disabled={actionLoading}
-                              className="px-3 py-1 text-xs font-medium bg-theme-success text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50"
+                              className="px-3 py-1 text-xs font-medium bg-theme-success-bg text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50"
                             >
                               Close Gap
                             </button>

@@ -399,7 +399,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
                 <div className="text-theme-link text-lg hover:underline cursor-pointer">
                   {formData.title || 'Page Title'}
                 </div>
-                <div className="text-theme-success text-sm">
+                <div className="text-theme-success-fg text-sm">
                   yoursite.com/{previewSlug || 'page-slug'}
                 </div>
                 <div className="text-theme-secondary text-sm mt-2">

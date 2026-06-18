@@ -134,7 +134,7 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
       {/* Intro callout */}
       <div className="rounded-lg border border-theme bg-theme-surface/50 p-4">
         <div className="flex items-start gap-3">
-          <Lightbulb className="w-5 h-5 text-theme-warning shrink-0 mt-0.5" />
+          <Lightbulb className="w-5 h-5 text-theme-warning-fg shrink-0 mt-0.5" />
           <div className="text-sm text-theme-secondary">
             <p className="font-medium text-theme-primary mb-1">Agent Memory</p>
             <p>

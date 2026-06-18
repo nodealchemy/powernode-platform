@@ -104,7 +104,7 @@ export const SandboxList: React.FC<SandboxListProps> = ({ refreshKey }) => {
                   onClick={() => setStatusFilter(f.value)}
                   className={`px-3 py-1.5 text-sm rounded transition-colors ${
                     statusFilter === f.value
-                      ? 'bg-theme-interactive-primary/10 text-theme-info'
+                      ? 'bg-theme-interactive-primary/10 text-theme-info-fg'
                       : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
                   }`}
                 >

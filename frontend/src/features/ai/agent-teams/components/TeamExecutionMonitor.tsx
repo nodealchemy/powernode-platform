@@ -167,11 +167,11 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
   const getStatusIcon = () => {
     switch (executionState.status) {
       case 'running':
-        return <Loader className="animate-spin text-theme-info" size={20} />;
+        return <Loader className="animate-spin text-theme-info-fg" size={20} />;
       case 'completed':
-        return <CheckCircle className="text-theme-success" size={20} />;
+        return <CheckCircle className="text-theme-success-fg" size={20} />;
       case 'failed':
-        return <XCircle className="text-theme-danger" size={20} />;
+        return <XCircle className="text-theme-danger-fg" size={20} />;
       default:
         return <Clock className="text-theme-tertiary" size={20} />;
     }
@@ -211,11 +211,11 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
   const getMemberStatusIcon = (status: MemberResult['status']) => {
     switch (status) {
       case 'running':
-        return <Loader className="animate-spin text-theme-info" size={14} />;
+        return <Loader className="animate-spin text-theme-info-fg" size={14} />;
       case 'completed':
-        return <CheckCircle className="text-theme-success" size={14} />;
+        return <CheckCircle className="text-theme-success-fg" size={14} />;
       case 'failed':
-        return <XCircle className="text-theme-danger" size={14} />;
+        return <XCircle className="text-theme-danger-fg" size={14} />;
       default:
         return <Clock className="text-theme-tertiary" size={14} />;
     }
@@ -249,7 +249,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
           )}
 
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-theme-success' : 'bg-theme-danger'}`} />
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'}`} />
             <span className="text-xs text-theme-secondary">
               {isConnected ? 'Live' : 'Disconnected'}
             </span>
@@ -274,14 +274,14 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
             <span>{executionState.tasksCompleted}/{executionState.tasksTotal} agents completed</span>
             <span>{executionState.progress}%</span>
           </div>
-          <div className="w-full bg-theme-info rounded-full h-2">
+          <div className="w-full bg-theme-info-bg rounded-full h-2">
             <div
-              className="bg-theme-info h-2 rounded-full transition-all duration-300"
+              className="bg-theme-info-bg h-2 rounded-full transition-all duration-300"
               style={{ width: `${executionState.progress}%` }}
             />
           </div>
           {executionState.tasksFailed > 0 && (
-            <p className="text-xs text-theme-danger mt-1">{executionState.tasksFailed} failed</p>
+            <p className="text-xs text-theme-danger-fg mt-1">{executionState.tasksFailed} failed</p>
           )}
         </div>
       )}
@@ -294,7 +294,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
             {executionState.memberResults.map((member) => (
               <div
                 key={member.name}
-                className="flex items-center justify-between p-2 bg-theme-info/50 rounded-md"
+                className="flex items-center justify-between p-2 bg-theme-info-fg/50 rounded-md"
               >
                 <div className="flex items-center gap-2">
                   {getMemberStatusIcon(member.status)}
@@ -308,9 +308,9 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
                     <span className="text-xs text-theme-secondary">{formatDuration(member.duration_ms)}</span>
                   )}
                   <span className={`text-xs font-medium ${
-                    member.status === 'completed' ? 'text-theme-success' :
-                    member.status === 'failed' ? 'text-theme-danger' :
-                    member.status === 'running' ? 'text-theme-info' :
+                    member.status === 'completed' ? 'text-theme-success-fg' :
+                    member.status === 'failed' ? 'text-theme-danger-fg' :
+                    member.status === 'running' ? 'text-theme-info-fg' :
                     'text-theme-secondary'
                   }`}>
                     {member.status}
@@ -324,7 +324,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
 
       {/* Current Member (when no grid data yet) */}
       {executionState.currentMember && executionState.status === 'running' && executionState.memberResults.length === 0 && (
-        <div className="flex items-center gap-2 text-sm text-theme-secondary mb-4 p-2 bg-theme-info rounded-md">
+        <div className="flex items-center gap-2 text-sm text-theme-secondary mb-4 p-2 bg-theme-info-bg rounded-md">
           <User size={16} />
           <span>Current member: <span className="font-medium text-theme-primary">{executionState.currentMember}</span></span>
         </div>
@@ -333,14 +333,14 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
       {/* Completed Summary */}
       {(executionState.status === 'completed' || executionState.status === 'failed') && executionState.tasksTotal > 0 && (
         <div className={`p-3 rounded-md mb-4 ${
-          executionState.status === 'completed' ? 'bg-theme-success/10 border border-theme-success/30' : 'bg-theme-error/10 border border-theme-error/30'
+          executionState.status === 'completed' ? 'bg-theme-success-fg/10 border border-theme-success-border/30' : 'bg-theme-error-fg/10 border border-theme-error-border/30'
         }`}>
           <div className="flex items-center gap-4 text-sm">
-            <span className={executionState.status === 'completed' ? 'text-theme-success' : 'text-theme-danger'}>
+            <span className={executionState.status === 'completed' ? 'text-theme-success-fg' : 'text-theme-danger-fg'}>
               {executionState.tasksCompleted}/{executionState.tasksTotal} agents completed
             </span>
             {executionState.tasksFailed > 0 && (
-              <span className="text-theme-danger">{executionState.tasksFailed} failed</span>
+              <span className="text-theme-danger-fg">{executionState.tasksFailed} failed</span>
             )}
             {getElapsedTime() && (
               <span className="text-theme-secondary">Duration: {getElapsedTime()}</span>
@@ -351,32 +351,32 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
 
       {/* Result/Error */}
       {executionState.status === 'completed' && executionState.result && (
-        <div className="p-3 bg-theme-success/10 border border-theme-success/30 rounded-md">
-          <p className="text-sm text-theme-success font-medium mb-2">Execution Result</p>
-          <pre className="text-xs text-theme-success overflow-x-auto">
+        <div className="p-3 bg-theme-success-fg/10 border border-theme-success-border/30 rounded-md">
+          <p className="text-sm text-theme-success-fg font-medium mb-2">Execution Result</p>
+          <pre className="text-xs text-theme-success-fg overflow-x-auto">
             {JSON.stringify(executionState.result, null, 2)}
           </pre>
         </div>
       )}
 
       {executionState.status === 'failed' && executionState.error && (
-        <div className="p-3 bg-theme-error/10 border border-theme-error/30 rounded-md">
-          <p className="text-sm text-theme-danger font-medium mb-2">Error</p>
-          <p className="text-sm text-theme-danger">{executionState.error}</p>
+        <div className="p-3 bg-theme-error-fg/10 border border-theme-error-border/30 rounded-md">
+          <p className="text-sm text-theme-danger-fg font-medium mb-2">Error</p>
+          <p className="text-sm text-theme-danger-fg">{executionState.error}</p>
         </div>
       )}
 
       {/* Trajectory Status */}
       {executionState.status === 'running' && (
-        <div className="flex items-center gap-2 text-xs text-theme-secondary mt-4 p-2 bg-theme-info/50 rounded-md">
-          <BookOpen size={14} className="text-theme-info" />
+        <div className="flex items-center gap-2 text-xs text-theme-secondary mt-4 p-2 bg-theme-info-fg/50 rounded-md">
+          <BookOpen size={14} className="text-theme-info-fg" />
           <span>Trajectory building in progress...</span>
         </div>
       )}
 
       {executionState.status === 'completed' && (
-        <div className="flex items-center justify-between mt-4 p-3 bg-theme-info/5 border border-theme-info/20 rounded-md">
-          <div className="flex items-center gap-2 text-sm text-theme-info">
+        <div className="flex items-center justify-between mt-4 p-3 bg-theme-info-fg/5 border border-theme-info-border/20 rounded-md">
+          <div className="flex items-center gap-2 text-sm text-theme-info-fg">
             <BookOpen size={16} />
             <span>Trajectory captured</span>
           </div>
@@ -384,7 +384,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
             <button
               type="button"
               onClick={() => onViewTrajectory(executionState.trajectoryId!)}
-              className="text-xs text-theme-info hover:text-theme-primary underline"
+              className="text-xs text-theme-info-fg hover:text-theme-primary underline"
             >
               View Trajectory
             </button>
@@ -394,7 +394,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
 
       {/* Worktree Indicator */}
       {executionState.worktreeCount !== undefined && executionState.worktreeCount > 0 && (
-        <div className="flex items-center gap-2 text-xs text-theme-info mt-2 p-2 bg-theme-info/5 border border-theme-info/20 rounded-md">
+        <div className="flex items-center gap-2 text-xs text-theme-info-fg mt-2 p-2 bg-theme-info-fg/5 border border-theme-info-border/20 rounded-md">
           <GitFork size={14} />
           <span>{executionState.worktreeCount} worktree{executionState.worktreeCount > 1 ? 's' : ''} active</span>
         </div>
@@ -402,7 +402,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
 
       {/* Review Status Indicators */}
       {executionState.reviewsActive !== undefined && executionState.reviewsActive > 0 && (
-        <div className="flex items-center gap-2 text-xs text-theme-warning mt-2 p-2 bg-theme-warning/5 border border-theme-warning/20 rounded-md">
+        <div className="flex items-center gap-2 text-xs text-theme-warning-fg mt-2 p-2 bg-theme-warning-fg/5 border border-theme-warning-border/20 rounded-md">
           <Shield size={14} />
           <span>{executionState.reviewsActive} review{executionState.reviewsActive > 1 ? 's' : ''} in progress</span>
         </div>
@@ -411,14 +411,14 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
       {/* Activity Log */}
       {executionState.updates.length > 0 && (
         <details className="mt-4">
-          <summary className="text-sm font-medium text-theme-primary cursor-pointer hover:text-theme-info">
+          <summary className="text-sm font-medium text-theme-primary cursor-pointer hover:text-theme-info-fg">
             Activity Log ({executionState.updates.length} updates)
           </summary>
           <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
             {executionState.updates.map((update, index) => (
               <div
                 key={index}
-                className="text-xs text-theme-secondary p-2 bg-theme-info rounded"
+                className="text-xs text-theme-secondary p-2 bg-theme-info-bg rounded"
               >
                 <span className="font-medium">{new Date(update.timestamp).toLocaleTimeString()}</span>
                 {' - '}

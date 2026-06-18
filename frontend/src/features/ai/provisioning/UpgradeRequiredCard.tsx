@@ -41,8 +41,8 @@ const formatUsd = (value?: number): string => {
 const REASON_COPY: Record<string, ReasonCopy> = {
   max_active_instances_exceeded: {
     icon: BarChart3,
-    iconClass: 'text-theme-warning',
-    ringClass: 'bg-theme-warning/10',
+    iconClass: 'text-theme-warning-fg',
+    ringClass: 'bg-theme-warning-fg/10',
     heading: "You've hit your plan's instance cap",
     body: () => (
       <p className="text-sm text-theme-secondary">
@@ -53,8 +53,8 @@ const REASON_COPY: Record<string, ReasonCopy> = {
   },
   free_hours_exhausted: {
     icon: Sparkles,
-    iconClass: 'text-theme-info',
-    ringClass: 'bg-theme-info/10',
+    iconClass: 'text-theme-info-fg',
+    ringClass: 'bg-theme-info-fg/10',
     heading: "You're out of free runtime",
     body: () => (
       <p className="text-sm text-theme-secondary">
@@ -77,8 +77,8 @@ const REASON_COPY: Record<string, ReasonCopy> = {
   },
   llm_cost_cap_exceeded: {
     icon: ShieldAlert,
-    iconClass: 'text-theme-danger',
-    ringClass: 'bg-theme-danger/10',
+    iconClass: 'text-theme-danger-fg',
+    ringClass: 'bg-theme-danger-fg/10',
     heading: "You've hit today's AI spend cap",
     body: ({ spent, cap }) => (
       <p className="text-sm text-theme-secondary">
@@ -92,8 +92,8 @@ const REASON_COPY: Record<string, ReasonCopy> = {
 
 const FALLBACK: ReasonCopy = {
   icon: ShieldAlert,
-  iconClass: 'text-theme-warning',
-  ringClass: 'bg-theme-warning/10',
+  iconClass: 'text-theme-warning-fg',
+  ringClass: 'bg-theme-warning-fg/10',
   heading: "Hit your plan's limit",
   body: () => (
     <p className="text-sm text-theme-secondary">

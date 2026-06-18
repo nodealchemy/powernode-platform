@@ -136,9 +136,9 @@ export function ResearchModal({ isOpen, onClose, onProposalCreated }: ResearchMo
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-theme-primary">
             {(report.overlap_warnings?.length ?? 0) > 0 ? (
-              <AlertTriangle className="w-5 h-5 text-theme-warning" />
+              <AlertTriangle className="w-5 h-5 text-theme-warning-fg" />
             ) : (
-              <CheckCircle className="w-5 h-5 text-theme-success" />
+              <CheckCircle className="w-5 h-5 text-theme-success-fg" />
             )}
             <span className="font-medium">
               Research complete

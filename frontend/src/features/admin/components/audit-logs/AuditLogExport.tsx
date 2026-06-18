@@ -174,7 +174,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
       <div className="px-6 py-4 border-b border-theme">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-theme-interactive-primary bg-opacity-10 rounded-lg">
+            <div className="p-2 bg-theme-interactive-primary/10 rounded-lg">
               <Download className="w-5 h-5 text-theme-interactive-primary" />
             </div>
             <div>
@@ -203,7 +203,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
                 onClick={() => updateExportOptions('format', format.value)}
                 className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
                   exportOptions.format === format.value
-                    ? 'border-theme-interactive-primary bg-theme-interactive-primary bg-opacity-5'
+                    ? 'border-theme-interactive-primary bg-theme-interactive-primary/5'
                     : 'border-theme hover:border-theme-focus'
                 }`}
               >

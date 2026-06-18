@@ -112,7 +112,7 @@ describe('AuditLogMetrics', () => {
         <AuditLogMetrics {...defaultProps} color="blue" trend="+12%" />
       );
 
-      const trendElement = container.querySelector('.text-theme-success');
+      const trendElement = container.querySelector('.text-theme-success-fg');
       expect(trendElement).toBeInTheDocument();
     });
 
@@ -121,7 +121,7 @@ describe('AuditLogMetrics', () => {
         <AuditLogMetrics {...defaultProps} color="red" trend="+12%" />
       );
 
-      const trendElement = container.querySelector('.text-theme-error');
+      const trendElement = container.querySelector('.text-theme-error-fg');
       expect(trendElement).toBeInTheDocument();
     });
 
@@ -130,7 +130,7 @@ describe('AuditLogMetrics', () => {
         <AuditLogMetrics {...defaultProps} color="blue" trend="-5%" />
       );
 
-      const trendElement = container.querySelector('.text-theme-error');
+      const trendElement = container.querySelector('.text-theme-error-fg');
       expect(trendElement).toBeInTheDocument();
     });
 
@@ -139,7 +139,7 @@ describe('AuditLogMetrics', () => {
         <AuditLogMetrics {...defaultProps} color="red" trend="-5%" />
       );
 
-      const trendElement = container.querySelector('.text-theme-success');
+      const trendElement = container.querySelector('.text-theme-success-fg');
       expect(trendElement).toBeInTheDocument();
     });
   });
@@ -149,35 +149,35 @@ describe('AuditLogMetrics', () => {
       const { container } = render(<AuditLogMetrics {...defaultProps} color="blue" />);
 
       expect(container.querySelector('.text-theme-link')).toBeInTheDocument();
-      expect(container.querySelector('.bg-theme-info')).toBeInTheDocument();
+      expect(container.querySelector('.bg-theme-info-bg')).toBeInTheDocument();
     });
 
     it('applies green color classes', () => {
       const { container } = render(<AuditLogMetrics {...defaultProps} color="green" />);
 
-      expect(container.querySelector('.text-theme-success')).toBeInTheDocument();
+      expect(container.querySelector('.text-theme-success-fg')).toBeInTheDocument();
       expect(container.querySelector('.bg-theme-success-background')).toBeInTheDocument();
     });
 
     it('applies red color classes', () => {
       const { container } = render(<AuditLogMetrics {...defaultProps} color="red" />);
 
-      expect(container.querySelector('.text-theme-error')).toBeInTheDocument();
-      expect(container.querySelector('.bg-theme-error')).toBeInTheDocument();
+      expect(container.querySelector('.text-theme-error-fg')).toBeInTheDocument();
+      expect(container.querySelector('.bg-theme-error-bg')).toBeInTheDocument();
     });
 
     it('applies yellow color classes', () => {
       const { container } = render(<AuditLogMetrics {...defaultProps} color="yellow" />);
 
-      expect(container.querySelector('.text-theme-warning')).toBeInTheDocument();
+      expect(container.querySelector('.text-theme-warning-fg')).toBeInTheDocument();
       expect(container.querySelector('.bg-theme-warning-background')).toBeInTheDocument();
     });
 
     it('applies purple color classes', () => {
       const { container } = render(<AuditLogMetrics {...defaultProps} color="purple" />);
 
-      expect(container.querySelector('.text-theme-info')).toBeInTheDocument();
-      expect(container.querySelector('.bg-theme-info')).toBeInTheDocument();
+      expect(container.querySelector('.text-theme-info-fg')).toBeInTheDocument();
+      expect(container.querySelector('.bg-theme-info-bg')).toBeInTheDocument();
     });
   });
 

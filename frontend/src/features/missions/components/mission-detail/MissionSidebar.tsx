@@ -78,7 +78,7 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
               href={mission.pr_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-theme-info hover:underline"
+              className="inline-flex items-center gap-1 text-xs text-theme-info-fg hover:underline"
             >
               PR #{mission.pr_number} <ExternalLink className="w-3 h-3" />
             </a>
@@ -137,7 +137,7 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
           </h4>
           <Link
             to={`/app/ai/communication/conversations?id=${mission.conversation_id}`}
-            className="inline-flex items-center gap-1 text-xs text-theme-info hover:underline"
+            className="inline-flex items-center gap-1 text-xs text-theme-info-fg hover:underline"
           >
             Open Conversation <ExternalLink className="w-3 h-3" />
           </Link>
@@ -155,8 +155,8 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
                   <span className="text-theme-primary capitalize">{a.gate.replace(/_/g, ' ')}</span>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                     a.decision === 'approved'
-                      ? 'bg-theme-success/10 text-theme-success'
-                      : 'bg-theme-error/10 text-theme-error'
+                      ? 'bg-theme-success-fg/10 text-theme-success-fg'
+                      : 'bg-theme-error-fg/10 text-theme-error-fg'
                   }`}>
                     {a.decision}
                   </span>

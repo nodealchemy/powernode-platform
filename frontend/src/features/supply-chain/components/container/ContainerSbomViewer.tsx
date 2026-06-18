@@ -45,7 +45,7 @@ export const ContainerSbomViewer: React.FC<ContainerSbomViewerProps> = ({
   if (error) {
     return (
       <Card className="p-6">
-        <div className="text-center py-12 text-theme-error">{error}</div>
+        <div className="text-center py-12 text-theme-error-fg">{error}</div>
       </Card>
     );
   }

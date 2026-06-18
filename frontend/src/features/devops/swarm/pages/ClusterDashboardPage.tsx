@@ -68,7 +68,7 @@ export const ClusterDashboardPage: React.FC = () => {
     return (
       <PageContainer title="Cluster Dashboard" breadcrumbs={breadcrumbs}>
         <div className="text-center py-20">
-          <p className="text-theme-error mb-4">{error || 'Cluster not found'}</p>
+          <p className="text-theme-error-fg mb-4">{error || 'Cluster not found'}</p>
           <Button onClick={() => navigate('/app/devops/swarm')} variant="secondary" size="sm">Back to Clusters</Button>
         </div>
       </PageContainer>

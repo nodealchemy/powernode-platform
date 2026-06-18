@@ -18,14 +18,14 @@ describe('ErrorAlert', () => {
     // Check for AlertTriangle icon (svg element)
     const icon = document.querySelector('svg');
     expect(icon).toBeInTheDocument();
-    expect(icon).toHaveClass('text-theme-error');
+    expect(icon).toHaveClass('text-theme-error-fg');
   });
 
   it('applies correct error styling', () => {
     renderWithProviders(<ErrorAlert message="Styled error" />);
     
-    const container = screen.getByText('Styled error').closest('.bg-theme-error');
-    expect(container).toHaveClass('bg-theme-error', 'bg-opacity-10', 'border-theme-error');
+    const container = screen.getByText('Styled error').closest('.bg-theme-error-bg');
+    expect(container).toHaveClass('bg-theme-error-bg', 'bg-opacity-10', 'border-theme-error-border');
   });
 
   it('shows close button when onClose is provided', () => {
@@ -65,7 +65,7 @@ describe('ErrorAlert', () => {
     renderWithProviders(<ErrorAlert message="" />);
     
     // For empty message, just ensure component doesn't crash
-    expect(document.querySelector('.bg-theme-error')).toBeInTheDocument();
+    expect(document.querySelector('.bg-theme-error-bg')).toBeInTheDocument();
   });
 
   it('handles special characters in error messages', () => {
@@ -104,7 +104,7 @@ describe('ErrorAlert', () => {
     
     const closeButton = screen.getByRole('button');
     expect(closeButton).toHaveClass(
-      'text-theme-error',
+      'text-theme-error-fg',
       'hover:text-theme-error-hover',
       'transition-colors'
     );
@@ -114,14 +114,14 @@ describe('ErrorAlert', () => {
     renderWithProviders(<ErrorAlert message="Styled text" />);
     
     const message = screen.getByText('Styled text');
-    expect(message).toHaveClass('text-sm', 'text-theme-error');
+    expect(message).toHaveClass('text-sm', 'text-theme-error-fg');
   });
 
   it('icon is properly sized and positioned', () => {
     renderWithProviders(<ErrorAlert message="Icon test" />);
     
     const icon = document.querySelector('svg');
-    expect(icon).toHaveClass('w-5', 'h-5', 'text-theme-error', 'flex-shrink-0', 'mt-0.5');
+    expect(icon).toHaveClass('w-5', 'h-5', 'text-theme-error-fg', 'flex-shrink-0', 'mt-0.5');
   });
 
   it('close button icon is properly sized', () => {

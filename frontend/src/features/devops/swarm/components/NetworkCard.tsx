@@ -66,7 +66,7 @@ export const NetworkCard: React.FC<NetworkCardProps> = ({
             </div>
           ) : expandedData?.error ? (
             <div className="text-center py-4">
-              <p className="text-sm text-theme-error mb-2">{expandedData.error}</p>
+              <p className="text-sm text-theme-error-fg mb-2">{expandedData.error}</p>
               <Button size="xs" variant="secondary" onClick={onToggleExpand}>Retry</Button>
             </div>
           ) : expandedData?.details ? (
@@ -159,7 +159,7 @@ export const NetworkCard: React.FC<NetworkCardProps> = ({
               {/* IPv6 + Peers */}
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-theme-tertiary">
-                  IPv6: <span className={expandedData.details.enable_ipv6 ? 'text-theme-success' : 'text-theme-secondary'}>{expandedData.details.enable_ipv6 ? 'Enabled' : 'Disabled'}</span>
+                  IPv6: <span className={expandedData.details.enable_ipv6 ? 'text-theme-success-fg' : 'text-theme-secondary'}>{expandedData.details.enable_ipv6 ? 'Enabled' : 'Disabled'}</span>
                 </span>
                 {expandedData.details.peers && expandedData.details.peers.length > 0 && (
                   <span className="text-theme-tertiary">

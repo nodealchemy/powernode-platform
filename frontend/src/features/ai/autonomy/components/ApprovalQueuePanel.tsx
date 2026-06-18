@@ -47,7 +47,7 @@ const ApprovalCard: React.FC<{
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <AlertTriangle className="h-4 w-4 text-theme-warning shrink-0" />
+            <AlertTriangle className="h-4 w-4 text-theme-warning-fg shrink-0" />
             <span className="text-sm font-medium text-theme-primary truncate">
               {request.action_type}
             </span>
@@ -126,7 +126,7 @@ const ApprovalCard: React.FC<{
               <button
                 onClick={handleApprove}
                 disabled={approveMutation.isPending}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-theme-success text-white hover:opacity-90 disabled:opacity-50"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-theme-success-bg text-white hover:opacity-90 disabled:opacity-50"
               >
                 <CheckCircle className="h-3.5 w-3.5" />
                 Approve
@@ -134,7 +134,7 @@ const ApprovalCard: React.FC<{
               <button
                 onClick={handleReject}
                 disabled={rejectMutation.isPending}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-theme-error text-white hover:opacity-90 disabled:opacity-50"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-theme-error-bg text-white hover:opacity-90 disabled:opacity-50"
               >
                 <XCircle className="h-3.5 w-3.5" />
                 Reject
@@ -150,7 +150,7 @@ const ApprovalCard: React.FC<{
           <button
             onClick={handleApprove}
             disabled={approveMutation.isPending}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-theme-success text-white hover:opacity-90 disabled:opacity-50"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-theme-success-bg text-white hover:opacity-90 disabled:opacity-50"
           >
             <CheckCircle className="h-3.5 w-3.5" />
             Approve
@@ -158,7 +158,7 @@ const ApprovalCard: React.FC<{
           <button
             onClick={handleReject}
             disabled={rejectMutation.isPending}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-theme-error text-white hover:opacity-90 disabled:opacity-50"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-theme-error-bg text-white hover:opacity-90 disabled:opacity-50"
           >
             <XCircle className="h-3.5 w-3.5" />
             Reject

@@ -104,8 +104,8 @@ export function ApprovalChainList() {
                         onClick={() => handleDelete(chain.id)}
                         className={`p-1 rounded ${
                           armedDelete === chain.id
-                            ? 'text-theme-danger bg-theme-danger/10'
-                            : 'text-theme-tertiary hover:text-theme-danger'
+                            ? 'text-theme-danger-fg bg-theme-danger-fg/10'
+                            : 'text-theme-tertiary hover:text-theme-danger-fg'
                         }`}
                         aria-label={armedDelete === chain.id ? 'Confirm delete' : 'Delete chain'}
                       >

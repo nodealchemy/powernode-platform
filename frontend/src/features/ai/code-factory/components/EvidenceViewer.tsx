@@ -7,9 +7,9 @@ interface Props {
 
 const statusBadge: Record<string, string> = {
   pending: 'bg-theme-surface-bg text-theme-secondary',
-  captured: 'bg-theme-info text-theme-info',
-  verified: 'bg-theme-success text-theme-success',
-  failed: 'bg-theme-error text-theme-error',
+  captured: 'bg-theme-info-bg text-theme-info-fg',
+  verified: 'bg-theme-success-bg text-theme-success-fg',
+  failed: 'bg-theme-error-bg text-theme-error-fg',
 };
 
 interface ManifestWithContext extends EvidenceManifest {
@@ -64,7 +64,7 @@ export const EvidenceViewer: React.FC<Props> = ({ reviewStates }) => {
                   <span
                     key={idx}
                     className={`w-2 h-2 rounded-full ${
-                      a.passed === true ? 'bg-theme-success' : a.passed === false ? 'bg-theme-error' : 'bg-theme-surface'
+                      a.passed === true ? 'bg-theme-success-bg' : a.passed === false ? 'bg-theme-error-bg' : 'bg-theme-surface'
                     }`}
                     title={`${a.type}: ${a.passed === true ? 'passed' : a.passed === false ? 'failed' : 'pending'}`}
                   />
@@ -97,7 +97,7 @@ export const EvidenceViewer: React.FC<Props> = ({ reviewStates }) => {
               <div className="space-y-1">
                 {selectedManifest.assertions.map((assertion, idx) => (
                   <div key={idx} className="flex items-center gap-2 text-xs">
-                    <span className={assertion.passed ? 'text-theme-success' : assertion.passed === false ? 'text-theme-error' : 'text-theme-secondary'}>
+                    <span className={assertion.passed ? 'text-theme-success-fg' : assertion.passed === false ? 'text-theme-error-fg' : 'text-theme-secondary'}>
                       {assertion.passed ? '\u2713' : assertion.passed === false ? '\u2717' : '\u25CB'}
                     </span>
                     <span className="text-theme-primary">{assertion.type}</span>

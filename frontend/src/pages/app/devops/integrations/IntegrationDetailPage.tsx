@@ -262,7 +262,7 @@ export function IntegrationDetailPage() {
           </div>
           <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Success Rate</p>
-            <p className="text-2xl font-semibold text-theme-success mt-1">{successRate}%</p>
+            <p className="text-2xl font-semibold text-theme-success-fg mt-1">{successRate}%</p>
           </div>
           <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Avg. Duration</p>
@@ -303,10 +303,10 @@ export function IntegrationDetailPage() {
                       <p
                         className={`text-sm font-medium ${
                           instance.health_metrics.health_status === 'healthy'
-                            ? 'text-theme-success'
+                            ? 'text-theme-success-fg'
                             : instance.health_metrics.health_status === 'degraded'
-                              ? 'text-theme-warning'
-                              : 'text-theme-error'
+                              ? 'text-theme-warning-fg'
+                              : 'text-theme-error-fg'
                         }`}
                       >
                         {instance.health_metrics.health_status || 'Unknown'}
@@ -336,8 +336,8 @@ export function IntegrationDetailPage() {
                     </div>
                   </div>
                   {instance.health_metrics.last_error && (
-                    <div className="mt-4 p-3 bg-theme-error bg-opacity-10 rounded-lg">
-                      <p className="text-sm text-theme-error">{instance.health_metrics.last_error}</p>
+                    <div className="mt-4 p-3 bg-theme-error-bg rounded-lg">
+                      <p className="text-sm text-theme-error-fg">{instance.health_metrics.last_error}</p>
                     </div>
                   )}
                 </div>
@@ -395,8 +395,8 @@ export function IntegrationDetailPage() {
               )}
 
               {/* Danger Zone */}
-              <div className="bg-theme-surface border border-theme-error rounded-lg p-4">
-                <h3 className="text-sm font-medium text-theme-error mb-3">Danger Zone</h3>
+              <div className="bg-theme-surface border border-theme-error-border rounded-lg p-4">
+                <h3 className="text-sm font-medium text-theme-error-fg mb-3">Danger Zone</h3>
                 <p className="text-sm text-theme-secondary mb-4">
                   Deleting this integration will remove all associated data and execution history.
                 </p>

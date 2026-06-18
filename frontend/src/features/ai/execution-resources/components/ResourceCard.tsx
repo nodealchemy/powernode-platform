@@ -24,13 +24,13 @@ const TYPE_ICONS: Record<ResourceType, React.ElementType> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  completed: 'bg-theme-success/10 text-theme-success',
-  running: 'bg-theme-info/10 text-theme-info',
-  failed: 'bg-theme-danger/10 text-theme-danger',
-  pending: 'bg-theme-warning/10 text-theme-warning',
+  completed: 'bg-theme-success-fg/10 text-theme-success-fg',
+  running: 'bg-theme-info-fg/10 text-theme-info-fg',
+  failed: 'bg-theme-danger-fg/10 text-theme-danger-fg',
+  pending: 'bg-theme-warning-fg/10 text-theme-warning-fg',
   available: 'bg-theme-surface text-theme-secondary',
-  approved: 'bg-theme-success/10 text-theme-success',
-  rejected: 'bg-theme-danger/10 text-theme-danger',
+  approved: 'bg-theme-success-fg/10 text-theme-success-fg',
+  rejected: 'bg-theme-danger-fg/10 text-theme-danger-fg',
 };
 
 export function ResourceCard({ resource, onClick }: ResourceCardProps) {

@@ -202,20 +202,20 @@ export const OutcomeBillingContent: React.FC = () => {
 
   const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'active': case 'successful': case 'completed': case 'approved': case 'applied': return 'text-theme-success bg-theme-success/10';
-      case 'pending': case 'draft': case 'pending_approval': case 'processing': return 'text-theme-warning bg-theme-warning/10';
-      case 'failed': case 'cancelled': case 'rejected': case 'expired': case 'timeout': return 'text-theme-danger bg-theme-danger/10';
+      case 'active': case 'successful': case 'completed': case 'approved': case 'applied': return 'text-theme-success-fg bg-theme-success-fg/10';
+      case 'pending': case 'draft': case 'pending_approval': case 'processing': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+      case 'failed': case 'cancelled': case 'rejected': case 'expired': case 'timeout': return 'text-theme-danger-fg bg-theme-danger-fg/10';
       case 'suspended': case 'waived': return 'text-theme-secondary bg-theme-surface';
-      case 'refunded': return 'text-theme-info bg-theme-info/10';
+      case 'refunded': return 'text-theme-info-fg bg-theme-info-fg/10';
       default: return 'text-theme-secondary bg-theme-surface';
     }
   };
 
   const getSeverityColor = (severity: string): string => {
     switch (severity) {
-      case 'critical': return 'text-theme-danger bg-theme-danger/10';
-      case 'major': return 'text-theme-warning bg-theme-warning/10';
-      case 'minor': return 'text-theme-info bg-theme-info/10';
+      case 'critical': return 'text-theme-danger-fg bg-theme-danger-fg/10';
+      case 'major': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+      case 'minor': return 'text-theme-info-fg bg-theme-info-fg/10';
       default: return 'text-theme-secondary bg-theme-surface';
     }
   };
@@ -240,12 +240,12 @@ export const OutcomeBillingContent: React.FC = () => {
                 <p className="text-sm text-theme-secondary">Total Outcomes</p>
                 <p className="text-2xl font-bold text-theme-primary">{summary.total_outcomes}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-theme-info" />
+              <DollarSign className="h-8 w-8 text-theme-info-fg" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">
-              <span className="text-theme-success">{summary.successful_outcomes} successful</span>
+              <span className="text-theme-success-fg">{summary.successful_outcomes} successful</span>
               {summary.failed_outcomes > 0 && (
-                <span className="text-theme-danger ml-2">{summary.failed_outcomes} failed</span>
+                <span className="text-theme-danger-fg ml-2">{summary.failed_outcomes} failed</span>
               )}
             </p>
           </div>
@@ -255,7 +255,7 @@ export const OutcomeBillingContent: React.FC = () => {
                 <p className="text-sm text-theme-secondary">Success Rate</p>
                 <p className="text-2xl font-bold text-theme-primary">{(summary.success_rate * 100).toFixed(1)}%</p>
               </div>
-              <TrendingUp className="h-8 w-8 text-theme-success" />
+              <TrendingUp className="h-8 w-8 text-theme-success-fg" />
             </div>
           </div>
           <div className="bg-theme-surface border border-theme rounded-lg p-4">
@@ -264,7 +264,7 @@ export const OutcomeBillingContent: React.FC = () => {
                 <p className="text-sm text-theme-secondary">Total Revenue</p>
                 <p className="text-2xl font-bold text-theme-primary">${summary.total_revenue.toFixed(2)}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-theme-success" />
+              <DollarSign className="h-8 w-8 text-theme-success-fg" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">${summary.pending_revenue.toFixed(2)} pending</p>
           </div>
@@ -274,7 +274,7 @@ export const OutcomeBillingContent: React.FC = () => {
                 <p className="text-sm text-theme-secondary">Avg Quality</p>
                 <p className="text-2xl font-bold text-theme-primary">{(summary.average_quality_score * 100).toFixed(0)}%</p>
               </div>
-              <BarChart3 className="h-8 w-8 text-theme-info" />
+              <BarChart3 className="h-8 w-8 text-theme-info-fg" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">Avg {(summary.average_duration_ms / 1000).toFixed(1)}s duration</p>
           </div>
@@ -290,7 +290,7 @@ export const OutcomeBillingContent: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'border-theme-info text-theme-info'
+                  ? 'border-theme-info-border text-theme-info-fg'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -304,7 +304,7 @@ export const OutcomeBillingContent: React.FC = () => {
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info-border border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading billing data...</p>
         </div>
       ) : (
@@ -327,12 +327,12 @@ export const OutcomeBillingContent: React.FC = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <h3 className="font-medium text-theme-primary">{def.name}</h3>
-                        <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">{def.outcome_type}</span>
-                        <span className={`px-2 py-1 text-xs rounded ${def.is_active ? 'text-theme-success bg-theme-success/10' : 'text-theme-secondary bg-theme-surface'}`}>
+                        <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">{def.outcome_type}</span>
+                        <span className={`px-2 py-1 text-xs rounded ${def.is_active ? 'text-theme-success-fg bg-theme-success-fg/10' : 'text-theme-secondary bg-theme-surface'}`}>
                           {def.is_active ? 'Active' : 'Inactive'}
                         </span>
                         {def.is_system && (
-                          <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">System</span>
+                          <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">System</span>
                         )}
                       </div>
                     </div>
@@ -342,9 +342,9 @@ export const OutcomeBillingContent: React.FC = () => {
                       {def.pricing.price_per_token && <span>Per token: ${def.pricing.price_per_token.toFixed(6)}</span>}
                       {def.pricing.price_per_minute && <span>Per minute: ${def.pricing.price_per_minute.toFixed(4)}</span>}
                       {def.pricing.max_charge_usd && <span>Max: ${def.pricing.max_charge_usd.toFixed(2)}</span>}
-                      {def.free_tier_count > 0 && <span className="text-theme-info">{def.free_tier_count} free tier</span>}
+                      {def.free_tier_count > 0 && <span className="text-theme-info-fg">{def.free_tier_count} free tier</span>}
                       {def.sla.enabled && (
-                        <span className="text-theme-warning">
+                        <span className="text-theme-warning-fg">
                           SLA: {(def.sla.target_percentage || 0) * 100}% target, {def.sla.credit_percentage || 0}% credit
                         </span>
                       )}
@@ -380,7 +380,7 @@ export const OutcomeBillingContent: React.FC = () => {
                         <h3 className="font-medium text-theme-primary">{contract.name}</h3>
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(contract.status)}`}>{contract.status}</span>
                         {contract.contract_type && (
-                          <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">{contract.contract_type}</span>
+                          <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">{contract.contract_type}</span>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
@@ -429,7 +429,7 @@ export const OutcomeBillingContent: React.FC = () => {
                         <div className="p-2 bg-theme-surface rounded">
                           <p className="text-xs text-theme-secondary">Current Rate</p>
                           <p className={`text-sm font-medium ${
-                            contract.current_period.breached ? 'text-theme-danger' : 'text-theme-success'
+                            contract.current_period.breached ? 'text-theme-danger-fg' : 'text-theme-success-fg'
                           }`}>
                             {(contract.current_period.success_rate * 100).toFixed(1)}%
                           </p>
@@ -440,7 +440,7 @@ export const OutcomeBillingContent: React.FC = () => {
                       <span>Period: {contract.current_period.total} outcomes ({contract.current_period.successful} successful)</span>
                       <span>Window: {contract.measurement_window_hours}h</span>
                       {contract.current_period.breached && (
-                        <span className="text-theme-danger font-medium">SLA BREACHED</span>
+                        <span className="text-theme-danger-fg font-medium">SLA BREACHED</span>
                       )}
                     </div>
                   </div>
@@ -454,8 +454,8 @@ export const OutcomeBillingContent: React.FC = () => {
             <div className="space-y-4">
               {/* Actions */}
               {selectedRecordIds.length > 0 && (
-                <div className="flex items-center gap-4 p-3 bg-theme-info/10 rounded-lg">
-                  <span className="text-sm text-theme-info">{selectedRecordIds.length} selected</span>
+                <div className="flex items-center gap-4 p-3 bg-theme-info-fg/10 rounded-lg">
+                  <span className="text-sm text-theme-info-fg">{selectedRecordIds.length} selected</span>
                   <button onClick={handleMarkBilled} className="btn-theme btn-theme-primary btn-theme-sm">
                     Mark as Billed
                   </button>
@@ -527,9 +527,9 @@ export const OutcomeBillingContent: React.FC = () => {
                           <td className="px-4 py-3 text-sm text-theme-secondary">{record.source_name || record.source_type}</td>
                           <td className="px-4 py-3">
                             {record.is_billed ? (
-                              <span className="text-theme-success text-xs">Billed</span>
+                              <span className="text-theme-success-fg text-xs">Billed</span>
                             ) : record.is_billable ? (
-                              <span className="text-theme-warning text-xs">Pending</span>
+                              <span className="text-theme-warning-fg text-xs">Pending</span>
                             ) : (
                               <span className="text-theme-secondary text-xs">N/A</span>
                             )}
@@ -564,7 +564,7 @@ export const OutcomeBillingContent: React.FC = () => {
                         <span className={`px-2 py-1 text-xs rounded ${getSeverityColor(violation.severity)}`}>
                           {violation.severity}
                         </span>
-                        <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
+                        <span className="px-2 py-1 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded">
                           {violation.violation_type}
                         </span>
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(violation.credit.status)}`}>
@@ -606,7 +606,7 @@ export const OutcomeBillingContent: React.FC = () => {
                       </div>
                       <div className="p-2 bg-theme-surface rounded">
                         <p className="text-xs text-theme-secondary">Actual</p>
-                        <p className="text-sm font-medium text-theme-danger">{(violation.metrics.actual * 100).toFixed(1)}%</p>
+                        <p className="text-sm font-medium text-theme-danger-fg">{(violation.metrics.actual * 100).toFixed(1)}%</p>
                       </div>
                       <div className="p-2 bg-theme-surface rounded">
                         <p className="text-xs text-theme-secondary">Affected</p>
@@ -614,7 +614,7 @@ export const OutcomeBillingContent: React.FC = () => {
                       </div>
                       <div className="p-2 bg-theme-surface rounded">
                         <p className="text-xs text-theme-secondary">Credit</p>
-                        <p className="text-sm font-medium text-theme-warning">${violation.credit.amount_usd.toFixed(2)}</p>
+                        <p className="text-sm font-medium text-theme-warning-fg">${violation.credit.amount_usd.toFixed(2)}</p>
                       </div>
                     </div>
                     <div className="flex gap-4 text-xs text-theme-secondary mt-3">
@@ -645,15 +645,15 @@ export const OutcomeBillingContent: React.FC = () => {
                     </div>
                     <div className="bg-theme-surface border border-theme rounded-lg p-4">
                       <p className="text-sm text-theme-secondary">Total Violations</p>
-                      <p className="text-2xl font-bold text-theme-danger">{slaPerformance.total_violations}</p>
+                      <p className="text-2xl font-bold text-theme-danger-fg">{slaPerformance.total_violations}</p>
                     </div>
                     <div className="bg-theme-surface border border-theme rounded-lg p-4">
                       <p className="text-sm text-theme-secondary">Credits Applied</p>
-                      <p className="text-2xl font-bold text-theme-warning">${slaPerformance.total_credits_applied.toFixed(2)}</p>
+                      <p className="text-2xl font-bold text-theme-warning-fg">${slaPerformance.total_credits_applied.toFixed(2)}</p>
                     </div>
                     <div className="bg-theme-surface border border-theme rounded-lg p-4">
                       <p className="text-sm text-theme-secondary">Contracts Meeting SLA</p>
-                      <p className="text-2xl font-bold text-theme-success">
+                      <p className="text-2xl font-bold text-theme-success-fg">
                         {slaPerformance.contracts_summary.filter(c => c.is_meeting_sla).length}/{slaPerformance.contracts_summary.length}
                       </p>
                     </div>
@@ -669,7 +669,7 @@ export const OutcomeBillingContent: React.FC = () => {
                               <div className="flex items-center gap-3">
                                 <h4 className="font-medium text-theme-primary">{contract.name}</h4>
                                 <span className={`px-2 py-1 text-xs rounded ${
-                                  contract.is_meeting_sla ? 'text-theme-success bg-theme-success/10' : 'text-theme-danger bg-theme-danger/10'
+                                  contract.is_meeting_sla ? 'text-theme-success-fg bg-theme-success-fg/10' : 'text-theme-danger-fg bg-theme-danger-fg/10'
                                 }`}>
                                   {contract.is_meeting_sla ? 'Meeting SLA' : 'Below Target'}
                                 </span>
@@ -687,7 +687,7 @@ export const OutcomeBillingContent: React.FC = () => {
                                 <div className="w-full bg-theme-surface rounded-full h-2">
                                   <div
                                     className={`rounded-full h-2 transition-all ${
-                                      contract.is_meeting_sla ? 'bg-theme-success' : 'bg-theme-danger'
+                                      contract.is_meeting_sla ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'
                                     }`}
                                     style={{ width: `${Math.min(100, ((contract.current_success_rate || 0) / contract.success_rate_target) * 100)}%` }}
                                   />
@@ -728,11 +728,11 @@ export const OutcomeBillingContent: React.FC = () => {
                       </div>
                       <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Successful</span>
-                        <span className="text-sm font-medium text-theme-success">{summary.successful_outcomes}</span>
+                        <span className="text-sm font-medium text-theme-success-fg">{summary.successful_outcomes}</span>
                       </div>
                       <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Failed</span>
-                        <span className="text-sm font-medium text-theme-danger">{summary.failed_outcomes}</span>
+                        <span className="text-sm font-medium text-theme-danger-fg">{summary.failed_outcomes}</span>
                       </div>
                       <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Success Rate</span>
@@ -745,11 +745,11 @@ export const OutcomeBillingContent: React.FC = () => {
                     <div className="space-y-3">
                       <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Total Revenue</span>
-                        <span className="text-sm font-medium text-theme-success">${summary.total_revenue.toFixed(2)}</span>
+                        <span className="text-sm font-medium text-theme-success-fg">${summary.total_revenue.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Pending Revenue</span>
-                        <span className="text-sm font-medium text-theme-warning">${summary.pending_revenue.toFixed(2)}</span>
+                        <span className="text-sm font-medium text-theme-warning-fg">${summary.pending_revenue.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between p-3 bg-theme-surface rounded-lg">
                         <span className="text-sm text-theme-secondary">Avg Duration</span>

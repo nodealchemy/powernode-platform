@@ -55,7 +55,7 @@ export const APIUrlPreview: React.FC<APIUrlPreviewProps> = ({ urls }) => {
           Generated API URLs
         </h3>
         {urls.proxy_detected && (
-          <span className="px-2 py-1 text-xs bg-theme-success/20 text-theme-success rounded">
+          <span className="px-2 py-1 text-xs bg-theme-success-fg/20 text-theme-success-fg rounded">
             Via Proxy
           </span>
         )}
@@ -92,7 +92,7 @@ export const APIUrlPreview: React.FC<APIUrlPreviewProps> = ({ urls }) => {
                 {config.example && (
                   <p className="text-xs text-theme-secondary mt-1">
                     <span className="font-medium">Example:</span>{' '}
-                    <code className="font-mono text-theme-info">{config.example}</code>
+                    <code className="font-mono text-theme-info-fg">{config.example}</code>
                   </p>
                 )}
               </div>
@@ -124,19 +124,19 @@ window.location.href = '${urls.frontend_url}/dashboard';`}
       </div>
 
       {/* Reverse Proxy Path Mapping Info */}
-      <div className="mt-4 p-3 bg-theme-info/10 border border-theme-info rounded-md">
-        <h4 className="text-xs font-medium text-theme-info mb-2">
+      <div className="mt-4 p-3 bg-theme-info-fg/10 border border-theme-info-border rounded-md">
+        <h4 className="text-xs font-medium text-theme-info-fg mb-2">
           Reverse Proxy URL Routing
         </h4>
-        <p className="text-xs text-theme-info">
+        <p className="text-xs text-theme-info-fg">
           The reverse proxy routes requests based on URL paths:
         </p>
-        <ul className="mt-2 text-xs text-theme-info space-y-1">
+        <ul className="mt-2 text-xs text-theme-info-fg space-y-1">
           <li>• <code>{'/*'}</code> → Frontend (React app at {urls.frontend_url})</li>
           <li>• <code>{'/api/v1/*'}</code> → Backend API (Rails at {urls.api_url})</li>
           <li>• <code>/cable</code> → WebSocket (ActionCable at {urls.websocket_url}/cable)</li>
         </ul>
-        <p className="text-xs text-theme-info mt-2">
+        <p className="text-xs text-theme-info-fg mt-2">
           All traffic goes through the same proxy endpoint ({urls.base_url}) and is routed internally.
         </p>
       </div>

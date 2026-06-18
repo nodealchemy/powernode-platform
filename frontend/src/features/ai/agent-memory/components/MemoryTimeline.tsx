@@ -28,9 +28,9 @@ interface MemoryTimelineProps {
 }
 
 const memoryTypeConfig: Record<MemoryType, { icon: React.FC<{ className?: string }>; color: string; label: string }> = {
-  factual: { icon: Brain, color: 'text-theme-info', label: 'Factual' },
-  experiential: { icon: Lightbulb, color: 'text-theme-warning', label: 'Experiential' },
-  working: { icon: Activity, color: 'text-theme-success', label: 'Working' },
+  factual: { icon: Brain, color: 'text-theme-info-fg', label: 'Factual' },
+  experiential: { icon: Lightbulb, color: 'text-theme-warning-fg', label: 'Experiential' },
+  working: { icon: Activity, color: 'text-theme-success-fg', label: 'Working' },
 };
 
 export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
@@ -182,7 +182,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
 
       {/* Error state */}
       {error && (
-        <div className="p-4 bg-theme-danger/10 border border-theme-danger/30 rounded-lg text-theme-danger">
+        <div className="p-4 bg-theme-danger-fg/10 border border-theme-danger-border/30 rounded-lg text-theme-danger-fg">
           {error}
         </div>
       )}
@@ -225,8 +225,8 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                       <div
                         className={cn(
                           'absolute -left-2 w-4 h-4 rounded-full bg-theme-surface border-2',
-                          memory.outcome_success === true && 'border-theme-success',
-                          memory.outcome_success === false && 'border-theme-danger',
+                          memory.outcome_success === true && 'border-theme-success-border',
+                          memory.outcome_success === false && 'border-theme-danger-border',
                           memory.outcome_success === undefined && 'border-theme-muted'
                         )}
                       />
@@ -245,10 +245,10 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                                 {config.label}
                               </Badge>
                               {memory.outcome_success === true && (
-                                <CheckCircle className="h-4 w-4 text-theme-success" />
+                                <CheckCircle className="h-4 w-4 text-theme-success-fg" />
                               )}
                               {memory.outcome_success === false && (
-                                <XCircle className="h-4 w-4 text-theme-danger" />
+                                <XCircle className="h-4 w-4 text-theme-danger-fg" />
                               )}
                             </div>
                             <p className="text-sm text-theme-secondary mt-1 line-clamp-2">

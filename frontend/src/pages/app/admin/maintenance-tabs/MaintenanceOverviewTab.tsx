@@ -6,9 +6,9 @@ import { MaintenanceOverviewTabProps, MaintenanceTab } from './types';
 // Helper functions
 const getHealthColor = (status: string) => {
   switch (status) {
-    case 'healthy': return 'text-theme-success';
-    case 'warning': return 'text-theme-warning';
-    case 'critical': return 'text-theme-error';
+    case 'healthy': return 'text-theme-success-fg';
+    case 'warning': return 'text-theme-warning-fg';
+    case 'critical': return 'text-theme-error-fg';
     default: return 'text-theme-secondary';
   }
 };
@@ -17,7 +17,7 @@ const getHealthBgColor = (status: string) => {
   switch (status) {
     case 'healthy': return 'bg-theme-success-background';
     case 'warning': return 'bg-theme-warning-background';
-    case 'critical': return 'bg-theme-error';
+    case 'critical': return 'bg-theme-error-bg';
     default: return 'bg-theme-surface';
   }
 };
@@ -80,7 +80,7 @@ export const MaintenanceOverviewTab: React.FC<MaintenanceOverviewTabProps> = ({
               <h3 className="text-xl font-semibold text-theme-primary">{overallStatus.label}</h3>
               <p className="text-theme-secondary">
                 {maintenanceStatus.mode ? (
-                  <span className="text-theme-warning font-medium">Maintenance mode is currently active</span>
+                  <span className="text-theme-warning-fg font-medium">Maintenance mode is currently active</span>
                 ) : (
                   'System is running normally'
                 )}
@@ -88,7 +88,7 @@ export const MaintenanceOverviewTab: React.FC<MaintenanceOverviewTabProps> = ({
             </div>
           </div>
           {maintenanceStatus.mode && (
-            <span className="px-3 py-1 rounded-full bg-theme-warning-background text-theme-warning text-sm font-medium">
+            <span className="px-3 py-1 rounded-full bg-theme-warning-background text-theme-warning-fg text-sm font-medium">
               Maintenance Mode Active
             </span>
           )}
@@ -302,8 +302,8 @@ const SystemMetricsSection: React.FC<SystemMetricsSectionProps> = ({ systemMetri
         <div className="h-2 bg-theme-background rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
-              (systemMetrics.cpu_usage || 0) > 80 ? 'bg-theme-error' :
-              (systemMetrics.cpu_usage || 0) > 60 ? 'bg-theme-warning' : 'bg-theme-success'
+              (systemMetrics.cpu_usage || 0) > 80 ? 'bg-theme-error-bg' :
+              (systemMetrics.cpu_usage || 0) > 60 ? 'bg-theme-warning-bg' : 'bg-theme-success-bg'
             }`}
             style={{ width: `${Math.min(systemMetrics.cpu_usage || 0, 100)}%` }}
           />
@@ -319,8 +319,8 @@ const SystemMetricsSection: React.FC<SystemMetricsSectionProps> = ({ systemMetri
         <div className="h-2 bg-theme-background rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
-              (systemMetrics.memory_usage || 0) > 80 ? 'bg-theme-error' :
-              (systemMetrics.memory_usage || 0) > 60 ? 'bg-theme-warning' : 'bg-theme-success'
+              (systemMetrics.memory_usage || 0) > 80 ? 'bg-theme-error-bg' :
+              (systemMetrics.memory_usage || 0) > 60 ? 'bg-theme-warning-bg' : 'bg-theme-success-bg'
             }`}
             style={{ width: `${Math.min(systemMetrics.memory_usage || 0, 100)}%` }}
           />
@@ -336,8 +336,8 @@ const SystemMetricsSection: React.FC<SystemMetricsSectionProps> = ({ systemMetri
         <div className="h-2 bg-theme-background rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
-              (systemMetrics.disk_usage || 0) > 80 ? 'bg-theme-error' :
-              (systemMetrics.disk_usage || 0) > 60 ? 'bg-theme-warning' : 'bg-theme-success'
+              (systemMetrics.disk_usage || 0) > 80 ? 'bg-theme-error-bg' :
+              (systemMetrics.disk_usage || 0) > 60 ? 'bg-theme-warning-bg' : 'bg-theme-success-bg'
             }`}
             style={{ width: `${Math.min(systemMetrics.disk_usage || 0, 100)}%` }}
           />
@@ -395,8 +395,8 @@ const RecentBackupsSection: React.FC<RecentBackupsSectionProps> = ({ backups, on
           <div key={backup.id} className="flex items-center justify-between p-3 bg-theme-background rounded-lg">
             <div className="flex items-center space-x-3">
               <span className={`w-2 h-2 rounded-full ${
-                backup.status === 'completed' ? 'bg-theme-success' :
-                backup.status === 'in_progress' ? 'bg-theme-warning' : 'bg-theme-error'
+                backup.status === 'completed' ? 'bg-theme-success-bg' :
+                backup.status === 'in_progress' ? 'bg-theme-warning-bg' : 'bg-theme-error-bg'
               }`} />
               <div>
                 <p className="text-sm font-medium text-theme-primary">
@@ -408,9 +408,9 @@ const RecentBackupsSection: React.FC<RecentBackupsSectionProps> = ({ backups, on
               </div>
             </div>
             <span className={`px-2 py-1 rounded text-xs font-medium ${
-              backup.status === 'completed' ? 'bg-theme-success-background text-theme-success' :
-              backup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning' :
-              'bg-theme-error text-theme-error'
+              backup.status === 'completed' ? 'bg-theme-success-background text-theme-success-fg' :
+              backup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning-fg' :
+              'bg-theme-error-bg text-theme-error-fg'
             }`}>
               {backup.status}
             </span>
@@ -461,7 +461,7 @@ const ActiveSchedulesSection: React.FC<ActiveSchedulesSectionProps> = ({ schedul
                 {schedule.frequency} • Next: {new Date(schedule.next_run).toLocaleString()}
               </p>
             </div>
-            <span className="px-2 py-1 rounded text-xs font-medium bg-theme-success-background text-theme-success">
+            <span className="px-2 py-1 rounded text-xs font-medium bg-theme-success-background text-theme-success-fg">
               Active
             </span>
           </div>

@@ -9,16 +9,16 @@
 export const getHttpMethodColor = (method?: string): string => {
   switch (method?.toUpperCase()) {
     case 'GET':
-      return 'text-theme-success bg-theme-success/20';
+      return 'text-theme-success-fg bg-theme-success-fg/20';
     case 'POST':
-      return 'text-theme-info bg-theme-info/20';
+      return 'text-theme-info-fg bg-theme-info-fg/20';
     case 'PUT':
     case 'PATCH':
-      return 'text-theme-warning bg-theme-warning/20';
+      return 'text-theme-warning-fg bg-theme-warning-fg/20';
     case 'DELETE':
-      return 'text-theme-danger bg-theme-danger/20';
+      return 'text-theme-danger-fg bg-theme-danger-fg/20';
     default:
-      return 'text-theme-info bg-theme-info/20';
+      return 'text-theme-info-fg bg-theme-info-fg/20';
   }
 };
 /**
@@ -30,11 +30,11 @@ export const getStatusColor = (status?: string): string => {
     case 'active':
     case 'success':
     case 'completed':
-      return 'text-theme-success bg-theme-success/20';
+      return 'text-theme-success-fg bg-theme-success-fg/20';
     case 'draft':
     case 'pending':
     case 'waiting':
-      return 'text-theme-warning bg-theme-warning/20';
+      return 'text-theme-warning-fg bg-theme-warning-fg/20';
     case 'archived':
     case 'inactive':
     case 'skipped':
@@ -42,10 +42,10 @@ export const getStatusColor = (status?: string): string => {
     case 'error':
     case 'failed':
     case 'rejected':
-      return 'text-theme-danger bg-theme-danger/20';
+      return 'text-theme-danger-fg bg-theme-danger-fg/20';
     case 'running':
     case 'processing':
-      return 'text-theme-info bg-theme-info/20';
+      return 'text-theme-info-fg bg-theme-info-fg/20';
     default:
       return 'text-theme-secondary bg-theme-surface/20';
   }
@@ -63,14 +63,14 @@ export const getPriorityColor = (priority?: string | number): string => {
     case 'critical':
     case 'urgent':
     case 1:
-      return 'text-theme-danger bg-theme-danger/20';
+      return 'text-theme-danger-fg bg-theme-danger-fg/20';
     case 'medium':
     case 'normal':
     case 2:
-      return 'text-theme-warning bg-theme-warning/20';
+      return 'text-theme-warning-fg bg-theme-warning-fg/20';
     case 'low':
     case 3:
-      return 'text-theme-success bg-theme-success/20';
+      return 'text-theme-success-fg bg-theme-success-fg/20';
     default:
       return 'text-theme-secondary bg-theme-surface/20';
   }

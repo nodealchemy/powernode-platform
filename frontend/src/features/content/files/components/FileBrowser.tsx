@@ -285,7 +285,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
         {hasActiveFilters && (
           <button
             onClick={handleClearFilters}
-            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary hover:bg-theme-danger/10 dark:hover:bg-theme-danger/20 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary hover:bg-theme-danger-fg/10 dark:hover:bg-theme-danger-fg/20 transition-colors flex items-center gap-2"
             aria-label="Clear filters"
           >
             <X className="h-4 w-4" />
@@ -306,13 +306,13 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
 
       {/* Bulk Actions Bar */}
       {selectedFiles.size > 0 && (
-        <div className="flex items-center gap-4 p-3 bg-theme-info/10 dark:bg-theme-info/20 border border-theme-info/30 dark:border-theme-info/50 rounded-lg">
+        <div className="flex items-center gap-4 p-3 bg-theme-info-fg/10 dark:bg-theme-info-fg/20 border border-theme-info-border/30 dark:border-theme-info-border/50 rounded-lg">
           <span className="text-sm text-theme-primary">
             {selectedFiles.size} selected
           </span>
           <button
             onClick={handleBulkDelete}
-            className="px-3 py-1 bg-theme-danger text-white rounded hover:bg-theme-danger transition-colors text-sm"
+            className="px-3 py-1 bg-theme-danger-bg text-white rounded hover:bg-theme-danger-bg transition-colors text-sm"
             aria-label="Delete selected"
           >
             Delete Selected
@@ -354,11 +354,11 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
 
       {/* Error State */}
       {error && (
-        <div className="text-center py-8 text-theme-danger bg-theme-danger/10 dark:bg-theme-danger/20 rounded-lg">
+        <div className="text-center py-8 text-theme-danger-fg bg-theme-danger-fg/10 dark:bg-theme-danger-fg/20 rounded-lg">
           <p>Error loading files: {error}</p>
           <button
             onClick={handleRefresh}
-            className="mt-2 text-theme-info hover:underline"
+            className="mt-2 text-theme-info-fg hover:underline"
           >
             Try again
           </button>
@@ -377,7 +377,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
           {hasActiveFilters && (
             <button
               onClick={handleClearFilters}
-              className="mt-2 text-theme-info hover:underline"
+              className="mt-2 text-theme-info-fg hover:underline"
             >
               Clear filters
             </button>

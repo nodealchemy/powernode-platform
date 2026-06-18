@@ -52,7 +52,7 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({
                 size="sm"
                 onClick={() => onRemoveSkill(index)}
               >
-                <Trash2 className="h-4 w-4 text-theme-danger" />
+                <Trash2 className="h-4 w-4 text-theme-danger-fg" />
               </Button>
             )}
           </div>

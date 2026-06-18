@@ -40,7 +40,7 @@ export const ProviderMetricsList: React.FC<ProviderMetricsListProps> = ({
             <div key={provider.id} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full ${
-                  provider.health_status === 'healthy' ? 'bg-theme-success' : 'bg-theme-error'
+                  provider.health_status === 'healthy' ? 'bg-theme-success-bg' : 'bg-theme-error-bg'
                 }`} />
                 <div>
                   <p className="font-medium text-theme-primary">{provider.name}</p>
@@ -72,7 +72,7 @@ export const ProviderMetricsList: React.FC<ProviderMetricsListProps> = ({
           {topAgents.map((agent, index) => (
             <div key={agent.id} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-theme-info rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                <div className="w-8 h-8 bg-theme-info-bg rounded-full flex items-center justify-center text-white text-sm font-semibold">
                   {index + 1}
                 </div>
                 <div>

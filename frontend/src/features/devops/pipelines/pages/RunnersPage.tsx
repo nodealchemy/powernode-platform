@@ -14,12 +14,12 @@ import type { GitRunner, RunnerStats } from '@/features/devops/git/types';
 
 const StatusBadge: React.FC<{ status: string; busy: boolean }> = ({ status, busy }) => {
   const getStatusStyles = () => {
-    if (busy) return 'bg-theme-warning/10 text-theme-warning';
+    if (busy) return 'bg-theme-warning-fg/10 text-theme-warning-fg';
     switch (status) {
       case 'online':
-        return 'bg-theme-success/10 text-theme-success';
+        return 'bg-theme-success-fg/10 text-theme-success-fg';
       case 'offline':
-        return 'bg-theme-error/10 text-theme-error';
+        return 'bg-theme-error-fg/10 text-theme-error-fg';
       default:
         return 'bg-theme-surface/10 text-theme-secondary';
     }
@@ -28,9 +28,9 @@ const StatusBadge: React.FC<{ status: string; busy: boolean }> = ({ status, busy
   return (
     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusStyles()}`}>
       <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-        busy ? 'bg-theme-warning' :
-        status === 'online' ? 'bg-theme-success animate-pulse' :
-        'bg-theme-error'
+        busy ? 'bg-theme-warning-bg' :
+        status === 'online' ? 'bg-theme-success-bg animate-pulse' :
+        'bg-theme-error-bg'
       }`} />
       {busy ? 'Busy' : status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
@@ -50,10 +50,10 @@ const RunnerCard: React.FC<{
     <div className="flex items-start justify-between mb-3">
       <div className="flex items-center gap-3">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-          runner.status === 'online' ? 'bg-theme-success/10' : 'bg-theme-surface/10'
+          runner.status === 'online' ? 'bg-theme-success-fg/10' : 'bg-theme-surface/10'
         }`}>
           <Server className={`w-5 h-5 ${
-            runner.status === 'online' ? 'text-theme-success' : 'text-theme-secondary'
+            runner.status === 'online' ? 'text-theme-success-fg' : 'text-theme-secondary'
           }`} />
         </div>
         <div>
@@ -69,7 +69,7 @@ const RunnerCard: React.FC<{
               e.stopPropagation();
               onDelete();
             }}
-            className="text-theme-secondary hover:text-theme-error p-1"
+            className="text-theme-secondary hover:text-theme-error-fg p-1"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -103,7 +103,7 @@ const RunnerCard: React.FC<{
           <Activity className="w-3 h-3" />
           {runner.total_jobs_run} jobs
         </span>
-        <span className="text-theme-success">{runner.success_rate.toFixed(0)}% success</span>
+        <span className="text-theme-success-fg">{runner.success_rate.toFixed(0)}% success</span>
       </div>
     </div>
   </div>
@@ -119,25 +119,25 @@ const StatsCards: React.FC<{ stats: RunnerStats }> = ({ stats }) => (
       <p className="text-2xl font-bold text-theme-primary">{stats.total}</p>
     </div>
     <div className="bg-theme-surface rounded-lg p-4 border border-theme">
-      <div className="flex items-center gap-2 text-theme-success mb-1">
-        <span className="w-2 h-2 rounded-full bg-theme-success animate-pulse" />
+      <div className="flex items-center gap-2 text-theme-success-fg mb-1">
+        <span className="w-2 h-2 rounded-full bg-theme-success-bg animate-pulse" />
         <span className="text-sm">Online</span>
       </div>
-      <p className="text-2xl font-bold text-theme-success">{stats.online}</p>
+      <p className="text-2xl font-bold text-theme-success-fg">{stats.online}</p>
     </div>
     <div className="bg-theme-surface rounded-lg p-4 border border-theme">
-      <div className="flex items-center gap-2 text-theme-warning mb-1">
+      <div className="flex items-center gap-2 text-theme-warning-fg mb-1">
         <Activity className="w-4 h-4" />
         <span className="text-sm">Busy</span>
       </div>
-      <p className="text-2xl font-bold text-theme-warning">{stats.busy}</p>
+      <p className="text-2xl font-bold text-theme-warning-fg">{stats.busy}</p>
     </div>
     <div className="bg-theme-surface rounded-lg p-4 border border-theme">
-      <div className="flex items-center gap-2 text-theme-error mb-1">
-        <span className="w-2 h-2 rounded-full bg-theme-danger" />
+      <div className="flex items-center gap-2 text-theme-error-fg mb-1">
+        <span className="w-2 h-2 rounded-full bg-theme-danger-bg" />
         <span className="text-sm">Offline</span>
       </div>
-      <p className="text-2xl font-bold text-theme-error">{stats.offline}</p>
+      <p className="text-2xl font-bold text-theme-error-fg">{stats.offline}</p>
     </div>
   </div>
 );
@@ -267,8 +267,8 @@ const RunnersPageContent: React.FC<RunnersPageProps> = ({ onActionsReady }) => {
         </div>
 
         {error && (
-          <div className="bg-theme-error/10 border border-theme-error rounded-lg p-4">
-            <p className="text-theme-error">{error}</p>
+          <div className="bg-theme-error-fg/10 border border-theme-error-border rounded-lg p-4">
+            <p className="text-theme-error-fg">{error}</p>
             <Button onClick={refresh} variant="secondary" size="sm" className="mt-2">
               Try Again
             </Button>

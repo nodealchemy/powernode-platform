@@ -125,7 +125,7 @@ export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange 
         <div className="bg-theme-background rounded-lg border border-theme p-6">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-medium text-theme-secondary">Compliance Events</div>
-            <div className="p-1 bg-theme-info rounded">
+            <div className="p-1 bg-theme-info-bg rounded">
               <Activity className="w-4 h-4 text-theme-link" />
             </div>
           </div>
@@ -136,8 +136,8 @@ export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange 
         <div className="bg-theme-background rounded-lg border border-theme p-6">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-medium text-theme-secondary">Last Audit</div>
-            <div className="p-1 bg-theme-info rounded">
-              <Calendar className="w-4 h-4 text-theme-info" />
+            <div className="p-1 bg-theme-info-bg rounded">
+              <Calendar className="w-4 h-4 text-theme-info-fg" />
             </div>
           </div>
           <div className="text-lg font-bold text-theme-primary">Jan 15, 2024</div>

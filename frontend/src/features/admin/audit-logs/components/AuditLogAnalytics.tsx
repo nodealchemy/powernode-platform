@@ -281,7 +281,7 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
                         <span className="text-sm font-semibold text-theme-link">95%</span>
                       </div>
                       <div className="w-full bg-theme-background rounded-full h-2">
-                        <div className="bg-theme-info h-2 rounded-full" style={{ width: '95%' }}></div>
+                        <div className="bg-theme-info-bg h-2 rounded-full" style={{ width: '95%' }}></div>
                       </div>
                     </div>
                     <div>
@@ -320,7 +320,7 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
                         <div className="text-xs text-theme-status-warning">Consider implementing additional rate limiting</div>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3 p-3 bg-theme-info rounded-lg border border-theme-link">
+                    <div className="flex items-start gap-3 p-3 bg-theme-info-bg rounded-lg border border-theme-link">
                       <Eye className="w-4 h-4 text-theme-link mt-0.5" />
                       <div>
                         <div className="text-sm font-medium text-theme-link">Off-Hours Activity</div>

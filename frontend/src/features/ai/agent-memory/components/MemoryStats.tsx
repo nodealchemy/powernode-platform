@@ -57,7 +57,7 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
   if (error || !stats) {
     return (
       <Card className={className}>
-        <CardContent className="py-8 text-center text-theme-danger">
+        <CardContent className="py-8 text-center text-theme-danger-fg">
           {error || 'Failed to load stats'}
         </CardContent>
       </Card>
@@ -86,22 +86,22 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
         <div>
           <h4 className="text-sm font-medium text-theme-secondary mb-3">By Type</h4>
           <div className="grid grid-cols-3 gap-3">
-            <div className="p-3 bg-theme-info/10 rounded-lg text-center">
-              <Brain className="h-5 w-5 text-theme-info mx-auto mb-1" />
+            <div className="p-3 bg-theme-info-fg/10 rounded-lg text-center">
+              <Brain className="h-5 w-5 text-theme-info-fg mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_type.factual}
               </div>
               <div className="text-xs text-theme-tertiary">Factual</div>
             </div>
-            <div className="p-3 bg-theme-warning/10 rounded-lg text-center">
-              <Lightbulb className="h-5 w-5 text-theme-warning mx-auto mb-1" />
+            <div className="p-3 bg-theme-warning-fg/10 rounded-lg text-center">
+              <Lightbulb className="h-5 w-5 text-theme-warning-fg mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_type.experiential}
               </div>
               <div className="text-xs text-theme-tertiary">Experiential</div>
             </div>
-            <div className="p-3 bg-theme-success/10 rounded-lg text-center">
-              <Activity className="h-5 w-5 text-theme-success mx-auto mb-1" />
+            <div className="p-3 bg-theme-success-fg/10 rounded-lg text-center">
+              <Activity className="h-5 w-5 text-theme-success-fg mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_type.working}
               </div>
@@ -114,15 +114,15 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
         <div>
           <h4 className="text-sm font-medium text-theme-secondary mb-3">By Outcome</h4>
           <div className="grid grid-cols-3 gap-3">
-            <div className="p-3 bg-theme-success/10 rounded-lg text-center">
-              <CheckCircle className="h-5 w-5 text-theme-success mx-auto mb-1" />
+            <div className="p-3 bg-theme-success-fg/10 rounded-lg text-center">
+              <CheckCircle className="h-5 w-5 text-theme-success-fg mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_outcome.success}
               </div>
               <div className="text-xs text-theme-tertiary">Success</div>
             </div>
-            <div className="p-3 bg-theme-danger/10 rounded-lg text-center">
-              <XCircle className="h-5 w-5 text-theme-danger mx-auto mb-1" />
+            <div className="p-3 bg-theme-danger-fg/10 rounded-lg text-center">
+              <XCircle className="h-5 w-5 text-theme-danger-fg mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.by_outcome.failure}
               </div>

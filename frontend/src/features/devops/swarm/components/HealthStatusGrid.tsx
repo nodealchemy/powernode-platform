@@ -59,7 +59,7 @@ export const HealthStatusGrid: React.FC<HealthStatusGridProps> = ({ healthData, 
                 Workers: <span className="font-semibold text-theme-primary">{health.node_health?.workers ?? 0}</span>
               </span>
               {(health.node_health?.down ?? 0) > 0 && (
-                <span className="text-theme-error font-semibold">
+                <span className="text-theme-error-fg font-semibold">
                   {health.node_health?.down} down
                 </span>
               )}
@@ -68,12 +68,12 @@ export const HealthStatusGrid: React.FC<HealthStatusGridProps> = ({ healthData, 
             {((health.recent_events?.critical ?? 0) > 0 || (health.recent_events?.warning ?? 0) > 0) && (
               <div className="flex items-center gap-3 mb-3 text-xs">
                 {(health.recent_events?.critical ?? 0) > 0 && (
-                  <span className="px-2 py-0.5 rounded bg-theme-error bg-opacity-10 text-theme-error font-medium">
+                  <span className="px-2 py-0.5 rounded bg-theme-error-bg text-theme-error-fg font-medium">
                     {health.recent_events?.critical} critical
                   </span>
                 )}
                 {(health.recent_events?.warning ?? 0) > 0 && (
-                  <span className="px-2 py-0.5 rounded bg-theme-warning bg-opacity-10 text-theme-warning font-medium">
+                  <span className="px-2 py-0.5 rounded bg-theme-warning-bg text-theme-warning-fg font-medium">
                     {health.recent_events?.warning} warnings
                   </span>
                 )}

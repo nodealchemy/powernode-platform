@@ -27,10 +27,10 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
   onRefresh
 }) => {
   const getUtilizationColor = (percentage: number) => {
-    if (percentage >= 90) return 'text-theme-error';
-    if (percentage >= 75) return 'text-theme-warning';
-    if (percentage >= 50) return 'text-theme-info';
-    return 'text-theme-success';
+    if (percentage >= 90) return 'text-theme-error-fg';
+    if (percentage >= 75) return 'text-theme-warning-fg';
+    if (percentage >= 50) return 'text-theme-info-fg';
+    return 'text-theme-success-fg';
   };
 
   if (isLoading && !resourceData) {
@@ -186,13 +186,13 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
               <div className="text-theme-tertiary">Avg Query Time</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
-              <div className="font-medium text-theme-warning">
+              <div className="font-medium text-theme-warning-fg">
                 {resourceData.database.query_performance.slow_queries}
               </div>
               <div className="text-theme-tertiary">Slow Queries</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
-              <div className="font-medium text-theme-error">
+              <div className="font-medium text-theme-error-fg">
                 {resourceData.database.query_performance.deadlocks}
               </div>
               <div className="text-theme-tertiary">Deadlocks</div>
@@ -221,7 +221,7 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-theme-tertiary">Hit Rate</span>
-                <span className={`font-medium ${resourceData.redis.hit_rate >= 95 ? 'text-theme-success' : resourceData.redis.hit_rate >= 85 ? 'text-theme-warning' : 'text-theme-error'}`}>
+                <span className={`font-medium ${resourceData.redis.hit_rate >= 95 ? 'text-theme-success-fg' : resourceData.redis.hit_rate >= 85 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
                   {resourceData.redis.hit_rate.toFixed(1)}%
                 </span>
               </div>
@@ -241,19 +241,19 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
           
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div className="text-center p-2 bg-theme-surface rounded">
-              <div className="font-medium text-theme-success">
+              <div className="font-medium text-theme-success-fg">
                 {resourceData.sidekiq.worker_utilization.busy}
               </div>
               <div className="text-xs text-theme-tertiary">Busy</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
-              <div className="font-medium text-theme-info">
+              <div className="font-medium text-theme-info-fg">
                 {resourceData.sidekiq.worker_utilization.idle}
               </div>
               <div className="text-xs text-theme-tertiary">Idle</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
-              <div className="font-medium text-theme-error">
+              <div className="font-medium text-theme-error-fg">
                 {resourceData.sidekiq.failed_jobs}
               </div>
               <div className="text-xs text-theme-tertiary">Failed Jobs</div>
@@ -287,13 +287,13 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
               <div className="text-xs text-theme-tertiary">Connections</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
-              <div className="font-medium text-theme-info">
+              <div className="font-medium text-theme-info-fg">
                 {resourceData.actioncable.subscription_count}
               </div>
               <div className="text-xs text-theme-tertiary">Subscriptions</div>
             </div>
             <div className="text-center p-2 bg-theme-surface rounded">
-              <div className="font-medium text-theme-success">
+              <div className="font-medium text-theme-success-fg">
                 {resourceData.actioncable.message_throughput.toFixed(1)}/s
               </div>
               <div className="text-xs text-theme-tertiary">Messages</div>

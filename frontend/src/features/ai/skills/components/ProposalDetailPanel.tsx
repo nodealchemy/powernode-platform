@@ -223,8 +223,8 @@ export function ProposalDetailPanel({ proposalId, onClose, onUpdated }: Proposal
 
             {/* Rejection Reason */}
             {proposal.rejection_reason && (
-              <Card variant="outlined" padding="sm" className="border-theme-danger/30">
-                <p className="text-sm text-theme-danger">
+              <Card variant="outlined" padding="sm" className="border-theme-danger-border/30">
+                <p className="text-sm text-theme-danger-fg">
                   <span className="font-medium">Rejected:</span> {proposal.rejection_reason}
                 </p>
               </Card>

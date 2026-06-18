@@ -149,23 +149,23 @@ export const ProxyTestConnection: React.FC<ProxyTestConnectionProps> = ({ onTest
             <div className="mb-4">
               <div className={`p-3 rounded-md ${
                 testResult.validation.valid 
-                  ? 'bg-theme-success/10 border border-theme-success' 
-                  : 'bg-theme-error/10 border border-theme-error'
+                  ? 'bg-theme-success-fg/10 border border-theme-success-border' 
+                  : 'bg-theme-error-fg/10 border border-theme-error-border'
               }`}>
                 <p className={`text-sm font-medium ${
-                  testResult.validation.valid ? 'text-theme-success' : 'text-theme-error'
+                  testResult.validation.valid ? 'text-theme-success-fg' : 'text-theme-error-fg'
                 }`}>
                   {testResult.validation.valid ? '✓ Valid configuration' : '✗ Invalid configuration'}
                 </p>
                 {testResult.validation.errors.length > 0 && (
-                  <ul className="mt-2 text-sm text-theme-error">
+                  <ul className="mt-2 text-sm text-theme-error-fg">
                     {testResult.validation.errors.map((error: string, idx: number) => (
                       <li key={idx}>• {error}</li>
                     ))}
                   </ul>
                 )}
                 {testResult.validation.trusted && (
-                  <p className="mt-2 text-sm text-theme-success">
+                  <p className="mt-2 text-sm text-theme-success-fg">
                     ✓ Host is in trusted list
                   </p>
                 )}
@@ -201,11 +201,11 @@ export const ProxyTestConnection: React.FC<ProxyTestConnectionProps> = ({ onTest
               </div>
               
               {/* URL Path Mapping Explanation */}
-              <div className="mt-4 p-3 bg-theme-info/10 border border-theme-info rounded-md">
-                <p className="text-sm text-theme-info">
+              <div className="mt-4 p-3 bg-theme-info-fg/10 border border-theme-info-border rounded-md">
+                <p className="text-sm text-theme-info-fg">
                   ℹ️ URLs are generated based on proxy headers. In a typical setup:
                 </p>
-                <ul className="mt-2 text-sm text-theme-info">
+                <ul className="mt-2 text-sm text-theme-info-fg">
                   <li>• Frontend requests (/) are served directly</li>
                   <li>• API requests (/api/v1/*) are proxied to the Rails backend</li>
                   <li>• WebSocket connections (/cable) are proxied with protocol upgrade</li>

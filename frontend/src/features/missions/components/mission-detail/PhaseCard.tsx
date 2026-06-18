@@ -25,7 +25,7 @@ const FeatureSuggestionCard: React.FC<{ feature: FeatureSuggestion; index: numbe
   <div className="p-3 bg-theme-surface rounded-lg border border-theme">
     <div className="flex items-start justify-between mb-1">
       <h4 className="text-sm font-medium text-theme-primary">{index + 1}. {feature.title}</h4>
-      <span className="text-xs px-2 py-0.5 rounded bg-theme-info/10 text-theme-info flex-shrink-0 ml-2">
+      <span className="text-xs px-2 py-0.5 rounded bg-theme-info-fg/10 text-theme-info-fg flex-shrink-0 ml-2">
         {feature.complexity}
       </span>
     </div>
@@ -144,12 +144,12 @@ const MergeContent: React.FC<{ mission: Mission }> = ({ mission }) => (
   <div className="space-y-3">
     {mission.pr_url ? (
       <div className="flex items-center gap-2">
-        <GitPullRequest className="w-4 h-4 text-theme-success" />
+        <GitPullRequest className="w-4 h-4 text-theme-success-fg" />
         <a
           href={mission.pr_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-theme-info hover:underline"
+          className="text-sm text-theme-info-fg hover:underline"
         >
           PR #{mission.pr_number} - View on Gitea
         </a>
@@ -169,7 +169,7 @@ const EventLog: React.FC<{ events: MissionWebSocketEvent[] }> = ({ events }) => 
       <div className="space-y-1 max-h-32 overflow-y-auto">
         {events.slice(-10).reverse().map((evt, i) => (
           <div key={i} className="text-xs text-theme-tertiary flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-theme-info flex-shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-theme-info-bg flex-shrink-0" />
             <span>{evt.event}</span>
             <span className="ml-auto">{new Date(evt.timestamp).toLocaleTimeString()}</span>
           </div>
@@ -186,7 +186,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ mission, events }) => {
     if (mission.status === 'completed') {
       return (
         <div className="card-theme-elevated p-6 text-center">
-          <Rocket className="w-8 h-8 text-theme-success mx-auto mb-2" />
+          <Rocket className="w-8 h-8 text-theme-success-fg mx-auto mb-2" />
           <h3 className="text-lg font-medium text-theme-primary">Mission Completed</h3>
           <p className="text-sm text-theme-secondary mt-1">All phases finished successfully.</p>
         </div>
@@ -202,17 +202,17 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ mission, events }) => {
   return (
     <div className="card-theme-elevated p-5">
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-theme-info/10 text-theme-info">
+        <div className="p-2 rounded-lg bg-theme-info-fg/10 text-theme-info-fg">
           <PhaseIcon phase={phase} />
         </div>
         <div>
           <h3 className="text-sm font-semibold text-theme-primary">{phaseLabel(phase)}</h3>
           {isApprovalGate(phase, mission.approval_gate_phases) && (
-            <span className="text-xs text-theme-warning">Awaiting approval</span>
+            <span className="text-xs text-theme-warning-fg">Awaiting approval</span>
           )}
         </div>
         {mission.status === 'failed' && mission.error_message && (
-          <div className="ml-auto flex items-center gap-1 text-theme-error">
+          <div className="ml-auto flex items-center gap-1 text-theme-error-fg">
             <AlertCircle className="w-4 h-4" />
             <span className="text-xs">{mission.error_message}</span>
           </div>
@@ -232,7 +232,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ mission, events }) => {
             {mission.ralph_loop_id && (
               <a
                 href={`/app/ai/execution?ralph_loop=${mission.ralph_loop_id}`}
-                className="text-xs text-theme-info hover:underline"
+                className="text-xs text-theme-info-fg hover:underline"
               >
                 View in Execution Dashboard
               </a>
@@ -244,7 +244,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ mission, events }) => {
         {(phase === 'deploying' || phase === 'previewing') && (
           <div className="space-y-2">
             {mission.deployed_url ? (
-              <p className="text-sm text-theme-success">App deployed and ready for preview.</p>
+              <p className="text-sm text-theme-success-fg">App deployed and ready for preview.</p>
             ) : (
               <p className="text-sm text-theme-secondary">Deploying application...</p>
             )}

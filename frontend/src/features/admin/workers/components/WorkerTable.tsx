@@ -68,9 +68,9 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-theme-success-background text-theme-success';
-      case 'suspended': return 'bg-theme-warning-background text-theme-warning';
-      case 'revoked': return 'bg-theme-error text-theme-error';
+      case 'active': return 'bg-theme-success-background text-theme-success-fg';
+      case 'suspended': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'revoked': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
@@ -200,7 +200,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
                   className={`hover:bg-theme-background/50 transition-colors ${
                     selectedWorkers.has(worker.id) ? 'bg-theme-interactive-primary/5' : ''
                   } ${
-                    isSystemWorker ? 'bg-gradient-to-r from-theme-info/5 to-transparent border-l-2 border-theme-info/30' : ''
+                    isSystemWorker ? 'bg-gradient-to-r from-theme-info/5 to-transparent border-l-2 border-theme-info-border/30' : ''
                   }`}
                 >
                 
@@ -231,7 +231,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
                         {getStatusIcon(worker.status)} {worker.status}
                       </span>
                       {worker.active_recently ? (
-                        <span className="px-2 py-1 bg-theme-success-background text-theme-success text-xs rounded-full font-medium">
+                        <span className="px-2 py-1 bg-theme-success-background text-theme-success-fg text-xs rounded-full font-medium">
                           🟢 Online
                         </span>
                       ) : (
@@ -256,13 +256,13 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
                       {worker.roles.slice(0, 2).map((role, index) => (
                         <span
                           key={index}
-                          className="px-2 py-1 bg-theme-warning-background text-theme-warning text-xs rounded-full"
+                          className="px-2 py-1 bg-theme-warning-background text-theme-warning-fg text-xs rounded-full"
                         >
                           {role}
                         </span>
                       ))}
                       {worker.roles.length > 2 && (
-                        <span className="px-2 py-1 bg-theme-info text-theme-info text-xs rounded-full">
+                        <span className="px-2 py-1 bg-theme-info-bg text-theme-info-fg text-xs rounded-full">
                           +{worker.roles.length - 2}
                         </span>
                       )}
@@ -281,7 +281,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
                         title="Copy full hash"
                       >
                         {copiedTokens.has(worker.id) ? 
-                          <Check className="w-3 h-3 text-theme-success" /> : 
+                          <Check className="w-3 h-3 text-theme-success-fg" /> : 
                           <Copy className="w-3 h-3" />
                         }
                       </button>
@@ -322,7 +322,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
 
       {/* Worker Details Modal */}
       {isExpanded && expandedWorker && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-theme-surface rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <WorkerDetailsPanel
               worker={expandedWorker}

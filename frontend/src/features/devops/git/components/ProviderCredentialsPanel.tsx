@@ -197,12 +197,12 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           {credential.is_active ? (
-                            <span className="flex items-center gap-1 text-xs text-theme-success">
+                            <span className="flex items-center gap-1 text-xs text-theme-success-fg">
                               <CheckCircle className="w-3 h-3" />
                               Active
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1 text-xs text-theme-error">
+                            <span className="flex items-center gap-1 text-xs text-theme-error-fg">
                               <XCircle className="w-3 h-3" />
                               Inactive
                             </span>
@@ -322,7 +322,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
                     setMenuPosition(null);
                     if (credential) handleDelete(credential);
                   }}
-                  className="w-full px-3 py-2 text-left text-sm text-theme-error hover:bg-theme-surface-hover flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-sm text-theme-error-fg hover:bg-theme-surface-hover flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete

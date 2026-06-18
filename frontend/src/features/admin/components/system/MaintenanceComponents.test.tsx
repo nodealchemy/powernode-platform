@@ -48,7 +48,7 @@ const realGetStatusBgColor = (status: string): string => {
     case 'warning':
       return 'bg-theme-warning-background';
     case 'critical':
-      return 'bg-theme-error';
+      return 'bg-theme-error-bg';
     default:
       return 'bg-theme-background-secondary';
   }

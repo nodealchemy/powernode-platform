@@ -75,11 +75,11 @@ export const HealthMonitoringDashboard: React.FC<HealthMonitoringDashboardProps>
     const className = `${size} mr-2`;
     switch (status) {
       case 'healthy':
-        return <CheckCircle className={`${className} text-theme-success`} />;
+        return <CheckCircle className={`${className} text-theme-success-fg`} />;
       case 'unhealthy':
-        return <AlertTriangle className={`${className} text-theme-warning`} />;
+        return <AlertTriangle className={`${className} text-theme-warning-fg`} />;
       case 'unreachable':
-        return <XCircle className={`${className} text-theme-danger`} />;
+        return <XCircle className={`${className} text-theme-danger-fg`} />;
       default:
         return <Heart className={`${className} text-theme-secondary`} />;
     }
@@ -200,7 +200,7 @@ export const HealthMonitoringDashboard: React.FC<HealthMonitoringDashboardProps>
                   </div>
                 )}
                 {service.error && (
-                  <div className="text-theme-danger text-xs mt-2 p-2 bg-theme-danger/10 rounded">
+                  <div className="text-theme-danger-fg text-xs mt-2 p-2 bg-theme-danger-fg/10 rounded">
                     {service.error}
                   </div>
                 )}
@@ -257,12 +257,12 @@ export const HealthMonitoringDashboard: React.FC<HealthMonitoringDashboardProps>
             <div className="space-y-6">
               {/* Health Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="p-4 bg-theme-success/10 border-theme-success/20">
+                <Card className="p-4 bg-theme-success-fg/10 border-theme-success-border/20">
                   <FlexItemsCenter className="mb-2">
-                    <TrendingUp className="w-5 h-5 text-theme-success mr-2" />
-                    <h4 className="font-medium text-theme-success">Uptime</h4>
+                    <TrendingUp className="w-5 h-5 text-theme-success-fg mr-2" />
+                    <h4 className="font-medium text-theme-success-fg">Uptime</h4>
                   </FlexItemsCenter>
-                  <p className="text-2xl font-bold text-theme-success">
+                  <p className="text-2xl font-bold text-theme-success-fg">
                     {calculateUptime(healthHistory.data_points)}%
                   </p>
                   <p className="text-sm text-theme-secondary">
@@ -283,12 +283,12 @@ export const HealthMonitoringDashboard: React.FC<HealthMonitoringDashboardProps>
                   </p>
                 </Card>
 
-                <Card className="p-4 bg-theme-warning/10 border-theme-warning/20">
+                <Card className="p-4 bg-theme-warning-fg/10 border-theme-warning-border/20">
                   <FlexItemsCenter className="mb-2">
-                    <Activity className="w-5 h-5 text-theme-warning mr-2" />
-                    <h4 className="font-medium text-theme-warning">Data Points</h4>
+                    <Activity className="w-5 h-5 text-theme-warning-fg mr-2" />
+                    <h4 className="font-medium text-theme-warning-fg">Data Points</h4>
                   </FlexItemsCenter>
-                  <p className="text-2xl font-bold text-theme-warning">
+                  <p className="text-2xl font-bold text-theme-warning-fg">
                     {healthHistory.data_points.length}
                   </p>
                   <p className="text-sm text-theme-secondary">

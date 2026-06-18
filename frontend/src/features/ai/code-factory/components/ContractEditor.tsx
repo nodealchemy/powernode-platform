@@ -75,7 +75,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
               <label className="text-sm font-medium text-theme-secondary">Risk Tiers</label>
               <button
                 onClick={handleAddTier}
-                className="text-xs text-theme-info hover:underline"
+                className="text-xs text-theme-info-fg hover:underline"
               >
                 + Add Tier
               </button>
@@ -97,7 +97,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
                   {riskTiers.length > 1 && (
                     <button
                       onClick={() => handleRemoveTier(index)}
-                      className="text-xs text-theme-error hover:underline"
+                      className="text-xs text-theme-error-fg hover:underline"
                     >
                       Remove
                     </button>
@@ -160,7 +160,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
           <button
             onClick={handleSave}
             disabled={saving || !name.trim()}
-            className="px-4 py-2 text-sm font-medium bg-theme-info text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="px-4 py-2 text-sm font-medium bg-theme-info-bg text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {saving ? 'Saving...' : contract ? 'Update' : 'Create'}
           </button>

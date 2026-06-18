@@ -73,9 +73,9 @@ const computeUtilizationPct = (spend: number, cap: number): number => {
 };
 
 const gaugeColorClass = (utilizationPct: number): string => {
-  if (utilizationPct >= 100) return 'bg-theme-error';
-  if (utilizationPct >= ALERT_THRESHOLD_PCT) return 'bg-theme-warning';
-  return 'bg-theme-success';
+  if (utilizationPct >= 100) return 'bg-theme-error-bg';
+  if (utilizationPct >= ALERT_THRESHOLD_PCT) return 'bg-theme-warning-bg';
+  return 'bg-theme-success-bg';
 };
 
 export const SpendDashboard: React.FC<SpendDashboardProps> = ({
@@ -150,10 +150,10 @@ export const SpendDashboard: React.FC<SpendDashboardProps> = ({
   if (error || !summary) {
     return (
       <div
-        className="bg-theme-surface border border-theme-error rounded-lg p-6"
+        className="bg-theme-surface border border-theme-error-border rounded-lg p-6"
         data-testid="spend-dashboard-error"
       >
-        <div className="flex items-center gap-2 text-theme-error">
+        <div className="flex items-center gap-2 text-theme-error-fg">
           <AlertTriangle className="w-5 h-5" />
           <p className="font-medium">{error ?? 'No spend data available'}</p>
         </div>
@@ -253,7 +253,7 @@ export const SpendDashboard: React.FC<SpendDashboardProps> = ({
         <div className="mt-4 flex flex-wrap gap-2">
           {overCap && (
             <span
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-theme-error text-theme-primary"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-theme-error-bg text-theme-primary"
               data-testid="spend-alert-over"
             >
               <AlertTriangle className="w-3 h-3" />
@@ -262,7 +262,7 @@ export const SpendDashboard: React.FC<SpendDashboardProps> = ({
           )}
           {nearCap && (
             <span
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-theme-warning text-theme-primary"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-theme-warning-bg text-theme-primary"
               data-testid="spend-alert-near"
             >
               <AlertTriangle className="w-3 h-3" />
@@ -271,7 +271,7 @@ export const SpendDashboard: React.FC<SpendDashboardProps> = ({
           )}
           {typeof llmComponent === 'number' && (
             <span
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-theme-info text-theme-primary"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-theme-info-bg text-theme-primary"
               data-testid="spend-component-llm"
             >
               LLM {formatUsd(llmComponent)}
@@ -279,7 +279,7 @@ export const SpendDashboard: React.FC<SpendDashboardProps> = ({
           )}
           {typeof computeComponent === 'number' && (
             <span
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-theme-info text-theme-primary"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-theme-info-bg text-theme-primary"
               data-testid="spend-component-compute"
             >
               Compute {formatUsd(computeComponent)}

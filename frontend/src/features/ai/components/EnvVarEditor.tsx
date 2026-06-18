@@ -70,7 +70,7 @@ export const EnvVarEditor: React.FC<EnvVarEditorProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => removeEnvVar(index)}
-                className="text-theme-error"
+                className="text-theme-error-fg"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

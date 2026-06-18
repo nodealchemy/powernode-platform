@@ -103,13 +103,13 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <span className={`inline-block w-3 h-3 rounded-full ${
-              connection?.status === 'connected' ? 'bg-theme-success' : 'bg-theme-error'
+              connection?.status === 'connected' ? 'bg-theme-success-bg' : 'bg-theme-error-bg'
             }`} />
             <span className="text-lg font-medium text-theme-primary">
               {connection?.status === 'connected' ? 'Connected' : 'Disconnected'}
             </span>
             {connection?.error && (
-              <span className="text-sm text-theme-error">{connection.error}</span>
+              <span className="text-sm text-theme-error-fg">{connection.error}</span>
             )}
           </div>
 

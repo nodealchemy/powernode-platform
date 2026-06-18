@@ -230,7 +230,7 @@ export const DataSourceImportOpenApiModal: React.FC<DataSourceImportOpenApiModal
                     key={item.slug ?? `${item.http_method}-${item.path_template}-${index}`}
                     className="flex items-start gap-2 p-2.5 border border-theme rounded-lg"
                   >
-                    <CheckCircle2 className="h-4 w-4 text-theme-success shrink-0 mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-theme-success-fg shrink-0 mt-0.5" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="info" size="xs">{item.http_method}</Badge>
@@ -248,14 +248,14 @@ export const DataSourceImportOpenApiModal: React.FC<DataSourceImportOpenApiModal
             )}
 
             {previewErrors.length > 0 && (
-              <div className="p-3 bg-theme-warning/10 border border-theme-warning/20 rounded-lg space-y-1">
+              <div className="p-3 bg-theme-warning-fg/10 border border-theme-warning-border/20 rounded-lg space-y-1">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-theme-warning shrink-0" />
-                  <span className="text-sm font-medium text-theme-warning">
+                  <AlertCircle className="h-4 w-4 text-theme-warning-fg shrink-0" />
+                  <span className="text-sm font-medium text-theme-warning-fg">
                     {previewErrors.length} warning{previewErrors.length === 1 ? '' : 's'}
                   </span>
                 </div>
-                <ul className="text-xs text-theme-warning list-disc pl-6 space-y-0.5">
+                <ul className="text-xs text-theme-warning-fg list-disc pl-6 space-y-0.5">
                   {previewErrors.map((err, index) => (
                     <li key={index} className="break-words">{err}</li>
                   ))}

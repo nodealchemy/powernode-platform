@@ -145,15 +145,15 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
   const getEventColor = (type: string): string => {
     switch (type) {
       case 'task.status':
-        return 'text-theme-info';
+        return 'text-theme-info-fg';
       case 'task.progress':
         return 'text-theme-primary';
       case 'task.artifact':
-        return 'text-theme-success';
+        return 'text-theme-success-fg';
       case 'task.complete':
-        return 'text-theme-success';
+        return 'text-theme-success-fg';
       case 'task.error':
-        return 'text-theme-danger';
+        return 'text-theme-danger-fg';
       case 'connection':
         return 'text-theme-tertiary';
       default:
@@ -173,7 +173,7 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
     <Card className={className}>
       <CardHeader
         title="Event Stream"
-        icon={connected ? <Wifi className="h-5 w-5 text-theme-success" /> : <WifiOff className="h-5 w-5 text-theme-tertiary" />}
+        icon={connected ? <Wifi className="h-5 w-5 text-theme-success-fg" /> : <WifiOff className="h-5 w-5 text-theme-tertiary" />}
         action={
           <div className="flex items-center gap-2">
             <Badge variant={connected ? 'success' : 'outline'} size="sm">

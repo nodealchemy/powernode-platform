@@ -213,7 +213,7 @@ export const TeamExpandedView: React.FC<TeamExpandedViewProps> = ({
         <button
           onClick={handleAutoAssignLead}
           disabled={assigningLead}
-          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-warning bg-theme-warning/10 rounded-md hover:bg-theme-warning/20 transition-colors disabled:opacity-50"
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-warning-fg bg-theme-warning-fg/10 rounded-md hover:bg-theme-warning-fg/20 transition-colors disabled:opacity-50"
         >
           {assigningLead ? <Loader2 size={14} className="animate-spin" /> : <Crown size={14} />}
           Auto-Assign Lead
@@ -223,8 +223,8 @@ export const TeamExpandedView: React.FC<TeamExpandedViewProps> = ({
           className={cn(
             'flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md transition-colors',
             showHistory
-              ? 'text-theme-info bg-theme-info/20'
-              : 'text-theme-secondary bg-theme-info hover:bg-theme-info/80'
+              ? 'text-theme-info-fg bg-theme-info-fg/20'
+              : 'text-theme-secondary bg-theme-info-bg hover:bg-theme-info-fg/80'
           )}
         >
           <History size={14} />
@@ -232,7 +232,7 @@ export const TeamExpandedView: React.FC<TeamExpandedViewProps> = ({
         </button>
         <button
           onClick={() => onDelete(team)}
-          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-danger bg-theme-error/10 rounded-md hover:bg-theme-error/20 transition-colors ml-auto"
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-danger-fg bg-theme-error-fg/10 rounded-md hover:bg-theme-error-fg/20 transition-colors ml-auto"
         >
           <Trash2 size={14} />
           Delete
@@ -241,9 +241,9 @@ export const TeamExpandedView: React.FC<TeamExpandedViewProps> = ({
 
       {/* Live Execution Diagram */}
       {isExecuting && (
-        <div className="bg-theme-background border border-theme-info/30 rounded-lg p-4">
+        <div className="bg-theme-background border border-theme-info-border/30 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Activity size={16} className="text-theme-info animate-pulse" />
+            <Activity size={16} className="text-theme-info-fg animate-pulse" />
             <h4 className="text-sm font-semibold text-theme-primary">Live Execution</h4>
           </div>
           <TeamExecutionDiagram

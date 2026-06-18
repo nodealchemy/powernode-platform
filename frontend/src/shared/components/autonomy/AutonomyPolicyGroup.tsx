@@ -62,7 +62,7 @@ export function AutonomyPolicyGroup({
               onDirty();
               e.target.value = '';
             }}
-            className="text-[10px] px-1.5 py-0.5 rounded border border-theme bg-theme-background text-theme-info w-[80px]"
+            className="text-[10px] px-1.5 py-0.5 rounded border border-theme bg-theme-background text-theme-info-fg w-[80px]"
           >
             <option value="">Set all</option>
             <option value="block">Disabled</option>

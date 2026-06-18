@@ -147,7 +147,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
 
   const ImportanceBar: React.FC<{ value: number }> = ({ value }) => {
     const pct = Math.round(value * 100);
-    const color = pct >= 70 ? 'bg-theme-success' : pct >= 40 ? 'bg-theme-warning' : 'bg-theme-error';
+    const color = pct >= 70 ? 'bg-theme-success-bg' : pct >= 40 ? 'bg-theme-warning-bg' : 'bg-theme-error-bg';
     return (
       <span className="inline-flex items-center gap-1.5">
         <span className="w-20 h-2.5 rounded-full bg-theme-surface-hover inline-block">
@@ -201,7 +201,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
                 onClick={() => handleSort(opt.value)}
                 className={`px-2 py-1 text-xs rounded transition-colors ${
                   sortBy === opt.value
-                    ? 'bg-theme-info/20 text-theme-info font-medium'
+                    ? 'bg-theme-info-fg/20 text-theme-info-fg font-medium'
                     : 'text-theme-tertiary hover:text-theme-primary hover:bg-theme-surface-hover'
                 }`}
               >
@@ -294,7 +294,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
                 <button
                   onClick={(e) => handleReinforce(e, learning.id)}
                   disabled={reinforcing === learning.id}
-                  className="shrink-0 p-2 rounded-md hover:bg-theme-surface-hover text-theme-tertiary hover:text-theme-success transition-colors disabled:opacity-50"
+                  className="shrink-0 p-2 rounded-md hover:bg-theme-surface-hover text-theme-tertiary hover:text-theme-success-fg transition-colors disabled:opacity-50"
                   title="Mark as useful"
                 >
                   <ThumbsUp className="w-4 h-4" />

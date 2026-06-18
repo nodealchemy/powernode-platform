@@ -109,7 +109,7 @@ export const InfrastructureBinding: React.FC<InfrastructureBindingProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-theme-primary">{host.name}</span>
                     <span className={`h-2 w-2 rounded-full ${
-                      host.status === 'connected' ? 'bg-theme-success' : 'bg-theme-danger'
+                      host.status === 'connected' ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'
                     }`} />
                   </div>
                   <span className="text-xs text-theme-secondary">{host.container_count} containers</span>
@@ -149,7 +149,7 @@ export const InfrastructureBinding: React.FC<InfrastructureBindingProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-theme-primary">{cluster.name}</span>
                     <span className={`h-2 w-2 rounded-full ${
-                      cluster.status === 'active' ? 'bg-theme-success' : 'bg-theme-danger'
+                      cluster.status === 'active' ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'
                     }`} />
                   </div>
                   <span className="text-xs text-theme-secondary">{cluster.service_count} services</span>

@@ -39,7 +39,7 @@ export const CardBasicFields: React.FC<CardBasicFieldsProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-theme-secondary mb-1">
-            Name <span className="text-theme-danger">*</span>
+            Name <span className="text-theme-danger-fg">*</span>
           </label>
           <Input
             value={name}

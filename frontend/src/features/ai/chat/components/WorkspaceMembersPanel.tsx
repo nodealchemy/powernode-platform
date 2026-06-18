@@ -188,7 +188,7 @@ export const WorkspaceMembersPanel: React.FC<WorkspaceMembersPanelProps> = ({
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <div className="h-1.5 w-1.5 rounded-full bg-theme-success shrink-0" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-theme-success-bg shrink-0" />
                       <EntityLink
                         type="ai_agent"
                         id={member.id}
@@ -208,7 +208,7 @@ export const WorkspaceMembersPanel: React.FC<WorkspaceMembersPanelProps> = ({
                       type="button"
                       onClick={() => handleRemove(member.id)}
                       disabled={removingId === member.id}
-                      className="p-1 rounded text-theme-tertiary hover:text-theme-danger hover:bg-theme-surface-hover transition-colors disabled:opacity-50 shrink-0"
+                      className="p-1 rounded text-theme-tertiary hover:text-theme-danger-fg hover:bg-theme-surface-hover transition-colors disabled:opacity-50 shrink-0"
                       title="Remove member"
                     >
                       {removingId === member.id ? (

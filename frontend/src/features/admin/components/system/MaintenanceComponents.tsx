@@ -97,12 +97,12 @@ export const MaintenanceModeControl: React.FC<MaintenanceModeControlProps> = ({ 
 
         {/* Active Maintenance Alert */}
         {status.mode && (
-          <div className="p-4 bg-theme-error border border-theme-error rounded-lg">
+          <div className="p-4 bg-theme-error-bg border border-theme-error-border rounded-lg">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-theme-error" />
-              <h4 className="font-medium text-theme-error">Maintenance Mode Active</h4>
+              <AlertTriangle className="w-5 h-5 text-theme-error-fg" />
+              <h4 className="font-medium text-theme-error-fg">Maintenance Mode Active</h4>
             </div>
-            <p className="text-sm text-theme-error mt-1">
+            <p className="text-sm text-theme-error-fg mt-1">
               Users cannot access the application. Only administrators can use the system.
             </p>
           </div>
@@ -110,13 +110,13 @@ export const MaintenanceModeControl: React.FC<MaintenanceModeControlProps> = ({ 
 
         {/* Scheduled Maintenance */}
         {(status.scheduled_start || scheduled) && (
-          <div className="p-4 bg-theme-info border border-theme-info rounded-lg">
+          <div className="p-4 bg-theme-info-bg border border-theme-info-border rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <Calendar className="w-5 h-5 text-theme-info" />
-              <h4 className="font-medium text-theme-info">Scheduled Maintenance</h4>
+              <Calendar className="w-5 h-5 text-theme-info-fg" />
+              <h4 className="font-medium text-theme-info-fg">Scheduled Maintenance</h4>
             </div>
             {status.scheduled_start && (
-              <p className="text-sm text-theme-info">
+              <p className="text-sm text-theme-info-fg">
                 Scheduled from {new Date(status.scheduled_start).toLocaleString()} 
                 to {status.scheduled_end ? new Date(status.scheduled_end).toLocaleString() : 'TBD'}
               </p>
@@ -190,9 +190,9 @@ interface SystemHealthProps {
 export const SystemHealthMonitor: React.FC<SystemHealthProps> = ({ health, metrics, onRefresh }) => {
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'healthy': return <CheckCircle className="w-5 h-5 text-theme-success" />;
-      case 'warning': return <AlertTriangle className="w-5 h-5 text-theme-warning" />;
-      case 'critical': return <AlertTriangle className="w-5 h-5 text-theme-error" />;
+      case 'healthy': return <CheckCircle className="w-5 h-5 text-theme-success-fg" />;
+      case 'warning': return <AlertTriangle className="w-5 h-5 text-theme-warning-fg" />;
+      case 'critical': return <AlertTriangle className="w-5 h-5 text-theme-error-fg" />;
       default: return <Info className="w-5 h-5 text-theme-secondary" />;
     }
   };
@@ -390,9 +390,9 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium text-theme-primary">Latest Backup</h4>
               <span className={`px-2 py-1 rounded text-xs font-medium ${
-                latestBackup.status === 'completed' ? 'bg-theme-success-background text-theme-success' :
-                latestBackup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning' :
-                'bg-theme-error text-theme-error'
+                latestBackup.status === 'completed' ? 'bg-theme-success-background text-theme-success-fg' :
+                latestBackup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning-fg' :
+                'bg-theme-error-bg text-theme-error-fg'
               }`}>
                 {latestBackup.status}
               </span>
@@ -450,9 +450,9 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-theme-primary">{backup.filename}</span>
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        backup.status === 'completed' ? 'bg-theme-success-background text-theme-success' :
-                        backup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning' :
-                        'bg-theme-error text-theme-error'
+                        backup.status === 'completed' ? 'bg-theme-success-background text-theme-success-fg' :
+                        backup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning-fg' :
+                        'bg-theme-error-bg text-theme-error-fg'
                       }`}>
                         {backup.status}
                       </span>
@@ -474,7 +474,7 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
                     <button
                       onClick={() => handleDeleteBackup(backup.id)}
                       disabled={loading}
-                      className="p-2 text-theme-error hover:text-theme-error-hover"
+                      className="p-2 text-theme-error-fg hover:text-theme-error-hover"
                       title="Delete backup"
                     >
                       <Trash2 className="w-4 h-4" />

@@ -122,14 +122,14 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
   const getStatusIcon = () => {
     switch (status) {
       case 'pending':
-        return <Clock className="w-5 h-5 text-theme-warning" />;
+        return <Clock className="w-5 h-5 text-theme-warning-fg" />;
       case 'in_progress':
         return <Loader className="w-5 h-5 text-theme-primary animate-spin" />;
       case 'completed':
-        return <CheckCircle className="w-5 h-5 text-theme-success" />;
+        return <CheckCircle className="w-5 h-5 text-theme-success-fg" />;
       case 'failed':
       case 'cancelled':
-        return <XCircle className="w-5 h-5 text-theme-error" />;
+        return <XCircle className="w-5 h-5 text-theme-error-fg" />;
       default:
         return <Clock className="w-5 h-5 text-theme-secondary" />;
     }
@@ -155,10 +155,10 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
   const getProgressColor = () => {
     switch (status) {
       case 'completed':
-        return 'bg-theme-success';
+        return 'bg-theme-success-bg';
       case 'failed':
       case 'cancelled':
-        return 'bg-theme-error';
+        return 'bg-theme-error-bg';
       case 'in_progress':
         return 'bg-theme-primary';
       default:
@@ -176,18 +176,18 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
             {result.validation && (
               <div>
                 <h4 className="font-medium text-theme-primary mb-2">Validation Results</h4>
-                <div className={`p-3 rounded-lg ${result.validation.valid ? 'bg-theme-success bg-opacity-10' : 'bg-theme-error bg-opacity-10'}`}>
+                <div className={`p-3 rounded-lg ${result.validation.valid ? 'bg-theme-success-bg' : 'bg-theme-error-bg'}`}>
                   <div className="flex items-center gap-2">
                     {result.validation.valid ? 
-                      <CheckCircle className="w-4 h-4 text-theme-success" /> : 
-                      <XCircle className="w-4 h-4 text-theme-error" />
+                      <CheckCircle className="w-4 h-4 text-theme-success-fg" /> : 
+                      <XCircle className="w-4 h-4 text-theme-error-fg" />
                     }
-                    <span className={result.validation.valid ? 'text-theme-success' : 'text-theme-error'}>
+                    <span className={result.validation.valid ? 'text-theme-success-fg' : 'text-theme-error-fg'}>
                       {result.validation.valid ? 'Configuration Valid' : 'Configuration Invalid'}
                     </span>
                   </div>
                   {(result.validation.errors?.length ?? 0) > 0 && (
-                    <ul className="mt-2 text-sm text-theme-error">
+                    <ul className="mt-2 text-sm text-theme-error-fg">
                       {result.validation.errors?.map((error: string, index: number) => (
                         <li key={index}>• {error}</li>
                       ))}
@@ -206,9 +206,9 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
                       <span className="font-medium">{serviceName}</span>
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-1 rounded text-xs ${
-                          serviceResult.status === 'healthy' ? 'bg-theme-success bg-opacity-20 text-theme-success' :
-                          serviceResult.status === 'unhealthy' ? 'bg-theme-warning bg-opacity-20 text-theme-warning' :
-                          'bg-theme-error bg-opacity-20 text-theme-error'
+                          serviceResult.status === 'healthy' ? 'bg-theme-success-bg text-theme-success-fg' :
+                          serviceResult.status === 'unhealthy' ? 'bg-theme-warning-bg text-theme-warning-fg' :
+                          'bg-theme-error-bg text-theme-error-fg'
                         }`}>
                           {serviceResult.status}
                         </span>
@@ -273,8 +273,8 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
                       </div>
                       <div className="text-right">
                         <span className={`px-2 py-1 rounded text-xs ${
-                          service.status === 'healthy' ? 'bg-theme-success bg-opacity-20 text-theme-success' :
-                          'bg-theme-warning bg-opacity-20 text-theme-warning'
+                          service.status === 'healthy' ? 'bg-theme-success-bg text-theme-success-fg' :
+                          'bg-theme-warning-bg text-theme-warning-fg'
                         }`}>
                           {service.status}
                         </span>
@@ -306,7 +306,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-theme-background bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-theme-background/50 flex items-center justify-center z-50">
       <div className="bg-theme-surface rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-theme">
           <h2 className="text-lg font-semibold text-theme-primary">{title}</h2>

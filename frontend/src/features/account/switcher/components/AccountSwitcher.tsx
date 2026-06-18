@@ -122,10 +122,10 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'owner':
-        return 'bg-theme-success/20 text-theme-success dark:bg-theme-success/30 dark:text-theme-success';
+        return 'bg-theme-success-fg/20 text-theme-success-fg dark:bg-theme-success-fg/30 dark:text-theme-success-fg';
       case 'delegated':
       case 'Admin':
-        return 'bg-theme-info/20 text-theme-info dark:bg-theme-info/30 dark:text-theme-info';
+        return 'bg-theme-info-fg/20 text-theme-info-fg dark:bg-theme-info-fg/30 dark:text-theme-info-fg';
       default:
         return 'bg-theme-surface text-theme-primary dark:bg-theme-background/30 dark:text-theme-secondary';
     }
@@ -139,18 +139,18 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
         className={`
           flex items-center space-x-2 px-3 py-2 rounded-lg border transition-all duration-200
           ${isOnDelegatedAccount
-            ? 'border-theme-warning bg-theme-warning/10 dark:bg-theme-warning/20 hover:bg-theme-warning/20 dark:hover:bg-theme-warning/30'
+            ? 'border-theme-warning-border bg-theme-warning-fg/10 dark:bg-theme-warning-fg/20 hover:bg-theme-warning-fg/20 dark:hover:bg-theme-warning-fg/30'
             : 'border-theme bg-theme-surface hover:bg-theme-surface-hover'
           }
         `}
       >
-        <BuildingOfficeIcon className={`h-5 w-5 ${isOnDelegatedAccount ? 'text-theme-warning' : 'text-theme-secondary'}`} />
+        <BuildingOfficeIcon className={`h-5 w-5 ${isOnDelegatedAccount ? 'text-theme-warning-fg' : 'text-theme-secondary'}`} />
         <div className="text-left hidden sm:block">
           <p className="text-sm font-medium text-theme-primary truncate max-w-[120px]">
             {currentAccount.name}
           </p>
           {isOnDelegatedAccount && (
-            <p className="text-xs text-theme-warning">
+            <p className="text-xs text-theme-warning-fg">
               Delegated Access
             </p>
           )}
@@ -200,14 +200,14 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
                       <div className={`
                         h-10 w-10 rounded-lg flex items-center justify-center
                         ${account.is_primary
-                          ? 'bg-theme-success/20 dark:bg-theme-success/30'
-                          : 'bg-theme-info/20 dark:bg-theme-info/30'
+                          ? 'bg-theme-success-fg/20 dark:bg-theme-success-fg/30'
+                          : 'bg-theme-info-fg/20 dark:bg-theme-info-fg/30'
                         }
                       `}>
                         {account.is_primary ? (
-                          <HomeIcon className="h-5 w-5 text-theme-success" />
+                          <HomeIcon className="h-5 w-5 text-theme-success-fg" />
                         ) : (
-                          <BuildingOfficeIcon className="h-5 w-5 text-theme-info" />
+                          <BuildingOfficeIcon className="h-5 w-5 text-theme-info-fg" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -226,7 +226,7 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
                             </span>
                           )}
                           {account.delegation?.expires_at && (
-                            <span className="text-xs text-theme-warning">
+                            <span className="text-xs text-theme-warning-fg">
                               Expires: {new Date(account.delegation.expires_at).toLocaleDateString()}
                             </span>
                           )}
@@ -234,7 +234,7 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
                       </div>
                     </div>
                     {account.is_current && (
-                      <CheckIcon className="h-5 w-5 text-theme-success" />
+                      <CheckIcon className="h-5 w-5 text-theme-success-fg" />
                     )}
                   </button>
                 ))}
@@ -250,8 +250,8 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
                 disabled={switching}
                 className="w-full px-4 py-3 flex items-center space-x-3 text-left hover:bg-theme-surface-hover transition-colors disabled:opacity-50"
               >
-                <div className="h-10 w-10 rounded-lg bg-theme-success/20 dark:bg-theme-success/30 flex items-center justify-center">
-                  <HomeIcon className="h-5 w-5 text-theme-success" />
+                <div className="h-10 w-10 rounded-lg bg-theme-success-fg/20 dark:bg-theme-success-fg/30 flex items-center justify-center">
+                  <HomeIcon className="h-5 w-5 text-theme-success-fg" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-theme-primary">Return to Primary Account</p>

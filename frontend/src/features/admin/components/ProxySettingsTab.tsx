@@ -209,7 +209,7 @@ export const ProxySettingsTab: React.FC = () => {
               <button
                 onClick={handleEnableToggle}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  config.enabled ? 'bg-theme-success' : 'bg-theme-background-secondary'
+                  config.enabled ? 'bg-theme-success-bg' : 'bg-theme-background-secondary'
                 }`}
               >
                 <span
@@ -331,8 +331,8 @@ export const ProxySettingsTab: React.FC = () => {
               </label>
             </div>
             {config.security.strict_mode && (
-              <div className="mt-3 p-3 bg-theme-warning/10 border border-theme-warning rounded-md">
-                <p className="text-sm text-theme-warning">
+              <div className="mt-3 p-3 bg-theme-warning-fg/10 border border-theme-warning-border rounded-md">
+                <p className="text-sm text-theme-warning-fg">
                   ⚠️ Strict mode enabled: Only trusted hosts will be allowed
                 </p>
               </div>

@@ -29,7 +29,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, acti
         <div>
           <span className="text-theme-tertiary text-xs">Replicas:</span>
           <span className={`ml-1 font-semibold ${
-            service.running_replicas >= service.desired_replicas ? 'text-theme-success' : 'text-theme-warning'
+            service.running_replicas >= service.desired_replicas ? 'text-theme-success-fg' : 'text-theme-warning-fg'
           }`}>
             {service.running_replicas}/{service.desired_replicas}
           </span>
@@ -43,9 +43,9 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, acti
       <div className="w-full h-1.5 bg-theme-surface rounded-full overflow-hidden mb-3">
         <div
           className={`h-full rounded-full transition-all ${
-            service.health_percentage >= 100 ? 'bg-theme-success' :
-            service.health_percentage >= 50 ? 'bg-theme-warning' :
-            'bg-theme-error'
+            service.health_percentage >= 100 ? 'bg-theme-success-bg' :
+            service.health_percentage >= 50 ? 'bg-theme-warning-bg' :
+            'bg-theme-error-bg'
           }`}
           style={{ width: `${healthWidth}%` }}
         />

@@ -169,7 +169,7 @@ const DevopsTemplateFormModal: React.FC<DevopsTemplateFormModalProps> = ({
         <div className="flex justify-between w-full">
           <div className="text-xs text-theme-secondary">
             {Object.keys(jsonErrors).length > 0 && (
-              <span className="text-theme-danger">Fix JSON errors before saving</span>
+              <span className="text-theme-danger-fg">Fix JSON errors before saving</span>
             )}
           </div>
           <div className="flex gap-3">
@@ -194,7 +194,7 @@ const DevopsTemplateFormModal: React.FC<DevopsTemplateFormModalProps> = ({
               onClick={() => setActiveFormTab(tab.id)}
               className={`px-3 py-1.5 text-xs font-medium border-b-2 whitespace-nowrap transition-colors ${
                 activeFormTab === tab.id
-                  ? 'border-theme-info text-theme-info'
+                  ? 'border-theme-info-border text-theme-info-fg'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >

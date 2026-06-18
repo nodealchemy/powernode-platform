@@ -112,7 +112,7 @@ export const ProviderFormFields: React.FC<ProviderFormFieldsProps> = ({
           onChange={(e) => onChange('description', e.target.value)}
           placeholder="Brief description of the AI provider..."
           rows={3}
-          className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-info focus:border-transparent"
+          className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-info-fg focus:border-transparent"
         />
       </div>
 
@@ -139,7 +139,7 @@ export const ProviderFormFields: React.FC<ProviderFormFieldsProps> = ({
                 type="checkbox"
                 checked={data.capabilities.includes(capability)}
                 onChange={(e) => onCapabilityChange(capability, e.target.checked)}
-                className="rounded border-theme-300 text-theme-info focus:ring-theme-info"
+                className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg"
               />
               <span className="text-sm text-theme-secondary capitalize">
                 {capability.replace('_', ' ')}

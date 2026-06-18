@@ -114,16 +114,16 @@ export const AdminSystemHealth: React.FC<AdminSystemHealthProps> = ({
     switch (status) {
       case 'operational':
       case 'healthy':
-        return <CheckCircle className="w-5 h-5 text-theme-success" />;
+        return <CheckCircle className="w-5 h-5 text-theme-success-fg" />;
       case 'degraded':
       case 'warning':
-        return <AlertTriangle className="w-5 h-5 text-theme-warning" />;
+        return <AlertTriangle className="w-5 h-5 text-theme-warning-fg" />;
       case 'partial_outage':
       case 'unhealthy':
-        return <AlertTriangle className="w-5 h-5 text-theme-error" />;
+        return <AlertTriangle className="w-5 h-5 text-theme-error-fg" />;
       case 'major_outage':
       case 'error':
-        return <XCircle className="w-5 h-5 text-theme-error" />;
+        return <XCircle className="w-5 h-5 text-theme-error-fg" />;
       default:
         return <Activity className="w-5 h-5 text-theme-secondary" />;
     }
@@ -131,15 +131,15 @@ export const AdminSystemHealth: React.FC<AdminSystemHealthProps> = ({
 
   const getStatusBadge = (status: string) => {
     const statusStyles: Record<string, string> = {
-      operational: 'bg-theme-success bg-opacity-10 text-theme-success',
-      healthy: 'bg-theme-success bg-opacity-10 text-theme-success',
-      degraded: 'bg-theme-warning bg-opacity-10 text-theme-warning',
-      warning: 'bg-theme-warning bg-opacity-10 text-theme-warning',
-      partial_outage: 'bg-theme-error bg-opacity-10 text-theme-error',
-      unhealthy: 'bg-theme-error bg-opacity-10 text-theme-error',
-      major_outage: 'bg-theme-error bg-opacity-10 text-theme-error',
-      error: 'bg-theme-error bg-opacity-10 text-theme-error',
-      no_data: 'bg-theme-surface bg-opacity-10 text-theme-secondary',
+      operational: 'bg-theme-success-bg text-theme-success-fg',
+      healthy: 'bg-theme-success-bg text-theme-success-fg',
+      degraded: 'bg-theme-warning-bg text-theme-warning-fg',
+      warning: 'bg-theme-warning-bg text-theme-warning-fg',
+      partial_outage: 'bg-theme-error-bg text-theme-error-fg',
+      unhealthy: 'bg-theme-error-bg text-theme-error-fg',
+      major_outage: 'bg-theme-error-bg text-theme-error-fg',
+      error: 'bg-theme-error-bg text-theme-error-fg',
+      no_data: 'bg-theme-surface/10 text-theme-secondary',
     };
 
     const style = statusStyles[status] || statusStyles.no_data;
@@ -157,22 +157,22 @@ export const AdminSystemHealth: React.FC<AdminSystemHealthProps> = ({
       case 'healthy':
         return {
           bg: 'bg-theme-success-background',
-          border: 'border-theme-success',
-          text: 'text-theme-success',
+          border: 'border-theme-success-border',
+          text: 'text-theme-success-fg',
           icon: CheckCircle,
         };
       case 'warning':
         return {
           bg: 'bg-theme-warning-background',
-          border: 'border-theme-warning',
-          text: 'text-theme-warning',
+          border: 'border-theme-warning-border',
+          text: 'text-theme-warning-fg',
           icon: AlertTriangle,
         };
       case 'error':
         return {
-          bg: 'bg-theme-error',
-          border: 'border-theme-error',
-          text: 'text-theme-error',
+          bg: 'bg-theme-error-bg',
+          border: 'border-theme-error-border',
+          text: 'text-theme-error-fg',
           icon: XCircle,
         };
       default:

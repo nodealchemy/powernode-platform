@@ -11,10 +11,10 @@ import type { DevopsPipeline, DevopsPipelineRun } from '@/types/devops-pipelines
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const config: Record<string, { color: string; icon: React.ElementType }> = {
-    success: { color: 'text-theme-success bg-theme-success/10', icon: CheckCircle },
-    failure: { color: 'text-theme-error bg-theme-error/10', icon: XCircle },
-    running: { color: 'text-theme-info bg-theme-info/10', icon: RefreshCw },
-    pending: { color: 'text-theme-warning bg-theme-warning/10', icon: Clock },
+    success: { color: 'text-theme-success-fg bg-theme-success-fg/10', icon: CheckCircle },
+    failure: { color: 'text-theme-error-fg bg-theme-error-fg/10', icon: XCircle },
+    running: { color: 'text-theme-info-fg bg-theme-info-fg/10', icon: RefreshCw },
+    pending: { color: 'text-theme-warning-fg bg-theme-warning-fg/10', icon: Clock },
     queued: { color: 'text-theme-secondary bg-theme-surface-hover', icon: Clock },
     cancelled: { color: 'text-theme-secondary bg-theme-surface-hover', icon: AlertCircle },
   };
@@ -224,7 +224,7 @@ export const PipelineDetailPage: React.FC = () => {
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="text-sm text-theme-secondary mb-1">Status</div>
             <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${pipeline.is_active ? 'bg-theme-success' : 'bg-theme-surface'}`} />
+              <span className={`w-2 h-2 rounded-full ${pipeline.is_active ? 'bg-theme-success-bg' : 'bg-theme-surface'}`} />
               <span className="font-medium text-theme-primary">
                 {pipeline.is_active ? 'Active' : 'Inactive'}
               </span>
@@ -257,7 +257,7 @@ export const PipelineDetailPage: React.FC = () => {
               <Download className="w-4 h-4 mr-2" />
               Export YAML
             </Button>
-            <Button variant="outline" size="sm" onClick={handleDelete} className="text-theme-error hover:bg-theme-error/10">
+            <Button variant="outline" size="sm" onClick={handleDelete} className="text-theme-error-fg hover:bg-theme-error-fg/10">
               <Trash2 className="w-4 h-4 mr-2" />
               Delete
             </Button>
@@ -284,7 +284,7 @@ export const PipelineDetailPage: React.FC = () => {
                     <div className="font-medium text-theme-primary">{step.name}</div>
                     <div className="text-sm text-theme-secondary">{step.step_type}</div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-xs ${step.is_active ? 'bg-theme-success/10 text-theme-success' : 'bg-theme-surface/10 text-theme-secondary'}`}>
+                  <span className={`px-2 py-0.5 rounded text-xs ${step.is_active ? 'bg-theme-success-fg/10 text-theme-success-fg' : 'bg-theme-surface/10 text-theme-secondary'}`}>
                     {step.is_active ? 'Active' : 'Disabled'}
                   </span>
                 </div>

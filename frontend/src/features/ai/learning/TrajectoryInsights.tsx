@@ -28,9 +28,9 @@ interface CacheMetrics {
 const TrendIcon: React.FC<{ trend: string }> = ({ trend }) => {
   switch (trend) {
     case 'improving':
-      return <TrendingUp className="w-4 h-4 text-theme-success" />;
+      return <TrendingUp className="w-4 h-4 text-theme-success-fg" />;
     case 'declining':
-      return <TrendingDown className="w-4 h-4 text-theme-error" />;
+      return <TrendingDown className="w-4 h-4 text-theme-error-fg" />;
     default:
       return <Minus className="w-4 h-4 text-theme-tertiary" />;
   }
@@ -77,11 +77,11 @@ export const TrajectoryInsights: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-theme-tertiary">Hits</p>
-                <p className="text-xl font-bold text-theme-success">{cacheMetrics.hits}</p>
+                <p className="text-xl font-bold text-theme-success-fg">{cacheMetrics.hits}</p>
               </div>
               <div>
                 <p className="text-sm text-theme-tertiary">Misses</p>
-                <p className="text-xl font-bold text-theme-warning">{cacheMetrics.misses}</p>
+                <p className="text-xl font-bold text-theme-warning-fg">{cacheMetrics.misses}</p>
               </div>
               <div>
                 <p className="text-sm text-theme-tertiary">Est. Savings</p>

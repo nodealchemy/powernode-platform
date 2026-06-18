@@ -302,8 +302,8 @@ describe('CreateAttestationModal', () => {
       await userEvent.click(createButton);
 
       const errorElement = screen.getByText('Subject name is required');
-      // ErrorAlert wraps the message in a container with bg-theme-error and bg-opacity-10
-      const alertContainer = errorElement.closest('.bg-theme-error');
+      // ErrorAlert wraps the message in a container with bg-theme-error-bg and bg-opacity-10
+      const alertContainer = errorElement.closest('.bg-theme-error-bg');
       expect(alertContainer).toBeInTheDocument();
     });
 

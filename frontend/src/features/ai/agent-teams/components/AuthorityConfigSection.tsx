@@ -95,7 +95,7 @@ export const AuthorityConfigSection: React.FC<AuthorityConfigSectionProps> = ({ 
               aria-checked={overrides[key]}
               onClick={() => handleToggle(key)}
               className={`relative flex-shrink-0 w-10 h-5 rounded-full transition-colors ${
-                overrides[key] ? 'bg-theme-primary' : 'bg-theme-info'
+                overrides[key] ? 'bg-theme-primary' : 'bg-theme-info-bg'
               }`}
             >
               <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${

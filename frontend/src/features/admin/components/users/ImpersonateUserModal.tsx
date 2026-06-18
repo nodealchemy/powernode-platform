@@ -102,13 +102,13 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
   const getRoleColor = (role: string): string => {
     switch (role.toLowerCase()) {
       case 'admin':
-        return 'bg-theme-error bg-opacity-10 text-theme-error';
+        return 'bg-theme-error-bg text-theme-error-fg';
       case 'manager':
-        return 'bg-theme-success bg-opacity-10 text-theme-success';
+        return 'bg-theme-success-bg text-theme-success-fg';
       case 'member':
-        return 'bg-theme-info bg-opacity-10 text-theme-info';
+        return 'bg-theme-info-bg text-theme-info-fg';
       default:
-        return 'bg-theme-info bg-opacity-10 text-theme-info';
+        return 'bg-theme-info-bg text-theme-info-fg';
     }
   };
 
@@ -116,8 +116,8 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
     <Modal isOpen={isOpen} onClose={handleClose} maxWidth="lg" title="Impersonate User">
       <div className="p-6">
 
-        <div className="mb-4 p-3 bg-theme-warning-background border border-theme-warning rounded-md">
-          <p className="text-sm text-theme-warning">
+        <div className="mb-4 p-3 bg-theme-warning-background border border-theme-warning-border rounded-md">
+          <p className="text-sm text-theme-warning-fg">
             <strong>Warning:</strong> Impersonation sessions are limited to 8 hours and all actions will be logged for audit purposes.
           </p>
         </div>
@@ -170,7 +170,7 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
                               </span>
                             ))
                           ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-theme-background-secondary bg-opacity-10 text-theme-tertiary">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-theme-background-secondary/10 text-theme-tertiary">
                               No Role
                             </span>
                           )}

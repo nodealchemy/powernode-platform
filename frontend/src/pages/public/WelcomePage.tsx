@@ -51,7 +51,7 @@ export const WelcomePage: React.FC = () => {
                   <span className="text-sm font-medium text-white/90">AI-Native</span>
                 </div>
                 <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
-                  <span className="w-2 h-2 bg-theme-info rounded-full" />
+                  <span className="w-2 h-2 bg-theme-info-bg rounded-full" />
                   <span className="text-sm font-medium text-white/90">Self-Hosted</span>
                 </div>
                 <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
@@ -111,25 +111,25 @@ export const WelcomePage: React.FC = () => {
         <section className="py-24 bg-white/[0.02]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <p className="text-theme-info font-semibold text-sm tracking-wider uppercase mb-3">Platform Capabilities</p>
+              <p className="text-theme-info-fg font-semibold text-sm tracking-wider uppercase mb-3">Platform Capabilities</p>
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Everything You Need to Orchestrate AI</h2>
               <p className="text-lg text-white/70 max-w-3xl mx-auto">From autonomous agents to knowledge graphs, Powernode provides the complete infrastructure for building, deploying, and managing intelligent systems.</p>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* AI Agents */}
-              <div className="group bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-theme-info/30 transition-all duration-300 hover:bg-white/[0.08]">
+              <div className="group bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-theme-info-border/30 transition-all duration-300 hover:bg-white/[0.08]">
                 <div className="w-14 h-14 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <svg className="w-7 h-7 text-theme-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-7 h-7 text-theme-info-fg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
                   </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-3">AI Agent Orchestration</h3>
                 <p className="text-white/60 leading-relaxed mb-4">Deploy autonomous agents with configurable trust tiers, memory systems, and goal-driven execution. Agents collaborate through teams, share knowledge, and learn from outcomes.</p>
                 <div className="flex flex-wrap gap-2">
-                  <span className="text-xs px-2.5 py-1 bg-theme-info/10 text-theme-info rounded-full">Multi-Provider</span>
-                  <span className="text-xs px-2.5 py-1 bg-theme-info/10 text-theme-info rounded-full">Trust Tiers</span>
-                  <span className="text-xs px-2.5 py-1 bg-theme-info/10 text-theme-info rounded-full">Goal System</span>
+                  <span className="text-xs px-2.5 py-1 bg-theme-info-fg/10 text-theme-info-fg rounded-full">Multi-Provider</span>
+                  <span className="text-xs px-2.5 py-1 bg-theme-info-fg/10 text-theme-info-fg rounded-full">Trust Tiers</span>
+                  <span className="text-xs px-2.5 py-1 bg-theme-info-fg/10 text-theme-info-fg rounded-full">Goal System</span>
                 </div>
               </div>
 
@@ -228,30 +228,30 @@ export const WelcomePage: React.FC = () => {
             <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
               <div className="bg-gradient-to-br from-white/5 to-white/[0.02] p-8 rounded-2xl border border-white/10">
                 <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-3">
-                  <span className="w-8 h-8 bg-theme-info/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-4 h-4 text-theme-info" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
+                  <span className="w-8 h-8 bg-theme-info-fg/20 rounded-lg flex items-center justify-center">
+                    <svg className="w-4 h-4 text-theme-info-fg" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
                   </span>
                   Technical Stack
                 </h3>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3 text-white/70">
-                    <span className="w-1.5 h-1.5 bg-theme-info rounded-full mt-2 shrink-0" />
+                    <span className="w-1.5 h-1.5 bg-theme-info-bg rounded-full mt-2 shrink-0" />
                     <span><strong className="text-white/90">Rails 8 API</strong> with JWT auth, UUIDv7 primary keys, and PostgreSQL</span>
                   </li>
                   <li className="flex items-start gap-3 text-white/70">
-                    <span className="w-1.5 h-1.5 bg-theme-info rounded-full mt-2 shrink-0" />
+                    <span className="w-1.5 h-1.5 bg-theme-info-bg rounded-full mt-2 shrink-0" />
                     <span><strong className="text-white/90">React + TypeScript</strong> frontend with theme system and Tailwind CSS</span>
                   </li>
                   <li className="flex items-start gap-3 text-white/70">
-                    <span className="w-1.5 h-1.5 bg-theme-info rounded-full mt-2 shrink-0" />
+                    <span className="w-1.5 h-1.5 bg-theme-info-bg rounded-full mt-2 shrink-0" />
                     <span><strong className="text-white/90">Sidekiq Worker</strong> for async AI execution, pipelines, and background jobs</span>
                   </li>
                   <li className="flex items-start gap-3 text-white/70">
-                    <span className="w-1.5 h-1.5 bg-theme-info rounded-full mt-2 shrink-0" />
+                    <span className="w-1.5 h-1.5 bg-theme-info-bg rounded-full mt-2 shrink-0" />
                     <span><strong className="text-white/90">pgvector + HNSW</strong> for vector similarity search with cosine distance</span>
                   </li>
                   <li className="flex items-start gap-3 text-white/70">
-                    <span className="w-1.5 h-1.5 bg-theme-info rounded-full mt-2 shrink-0" />
+                    <span className="w-1.5 h-1.5 bg-theme-info-bg rounded-full mt-2 shrink-0" />
                     <span><strong className="text-white/90">ActionCable WebSockets</strong> for real-time updates across 17+ channels</span>
                   </li>
                 </ul>
@@ -297,8 +297,8 @@ export const WelcomePage: React.FC = () => {
 
             <div className="grid md:grid-cols-4 gap-8 max-w-5xl mx-auto">
               <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-theme-info/20 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-theme-info">1</span>
+                <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-theme-info-border/20 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-theme-info-fg">1</span>
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Deploy</h3>
                 <p className="text-sm text-white/60">Self-host with systemd services or deploy to your infrastructure. One command setup.</p>

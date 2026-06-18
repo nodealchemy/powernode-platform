@@ -188,11 +188,11 @@ export const ModelRouterContent: React.FC = () => {
 
   const getRuleTypeColor = (type: string): string => {
     switch (type) {
-      case 'cost_based': return 'text-theme-success bg-theme-success/10';
-      case 'latency_based': return 'text-theme-warning bg-theme-warning/10';
-      case 'quality_based': return 'text-theme-info bg-theme-info/10';
-      case 'capability_based': return 'text-theme-info bg-theme-info/10';
-      case 'custom': return 'text-theme-danger bg-theme-danger/10';
+      case 'cost_based': return 'text-theme-success-fg bg-theme-success-fg/10';
+      case 'latency_based': return 'text-theme-warning-fg bg-theme-warning-fg/10';
+      case 'quality_based': return 'text-theme-info-fg bg-theme-info-fg/10';
+      case 'capability_based': return 'text-theme-info-fg bg-theme-info-fg/10';
+      case 'custom': return 'text-theme-danger-fg bg-theme-danger-fg/10';
       case 'ml_optimized': return 'text-theme-primary bg-theme-primary/10';
       default: return 'text-theme-secondary bg-theme-surface';
     }
@@ -200,9 +200,9 @@ export const ModelRouterContent: React.FC = () => {
 
   const getDecisionColor = (outcome: string): string => {
     switch (outcome) {
-      case 'success': return 'text-theme-success bg-theme-success/10';
-      case 'failure': return 'text-theme-danger bg-theme-danger/10';
-      case 'timeout': return 'text-theme-warning bg-theme-warning/10';
+      case 'success': return 'text-theme-success-fg bg-theme-success-fg/10';
+      case 'failure': return 'text-theme-danger-fg bg-theme-danger-fg/10';
+      case 'timeout': return 'text-theme-warning-fg bg-theme-warning-fg/10';
       default: return 'text-theme-secondary bg-theme-surface';
     }
   };
@@ -236,7 +236,7 @@ export const ModelRouterContent: React.FC = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                activeTab === tab.id ? 'border-theme-info text-theme-info' : 'border-transparent text-theme-secondary hover:text-theme-primary'
+                activeTab === tab.id ? 'border-theme-info-border text-theme-info-fg' : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
               <tab.icon size={16} />
@@ -249,7 +249,7 @@ export const ModelRouterContent: React.FC = () => {
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info-border border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading router data...</p>
         </div>
       ) : (
@@ -286,11 +286,11 @@ export const ModelRouterContent: React.FC = () => {
         onClose={() => setDeleteConfirmId(null)}
         title="Delete Routing Rule"
         maxWidth="sm"
-        icon={<Trash2 className="text-theme-danger" />}
+        icon={<Trash2 className="text-theme-danger-fg" />}
         footer={
           <div className="flex justify-end gap-3">
             <button onClick={() => setDeleteConfirmId(null)} className="btn-theme btn-theme-secondary">Cancel</button>
-            <button onClick={() => deleteConfirmId && handleDeleteRule(deleteConfirmId)} className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-theme-danger text-white hover:bg-theme-danger/90 transition-colors text-sm font-medium">
+            <button onClick={() => deleteConfirmId && handleDeleteRule(deleteConfirmId)} className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-theme-danger-bg text-white hover:bg-theme-danger-fg/90 transition-colors text-sm font-medium">
               <Trash2 size={14} /> Delete Rule
             </button>
           </div>

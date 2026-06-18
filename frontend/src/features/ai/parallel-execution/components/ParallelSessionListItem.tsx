@@ -2,11 +2,11 @@ import React from 'react';
 import type { ParallelSession, ParallelSessionStatus, MergeStrategy } from '../types';
 
 const STATUS_STYLES: Record<ParallelSessionStatus, { dot: string; pulse?: boolean }> = {
-  active: { dot: 'bg-theme-info', pulse: true },
-  provisioning: { dot: 'bg-theme-warning', pulse: true },
-  merging: { dot: 'bg-theme-warning' },
-  completed: { dot: 'bg-theme-success' },
-  failed: { dot: 'bg-theme-error' },
+  active: { dot: 'bg-theme-info-bg', pulse: true },
+  provisioning: { dot: 'bg-theme-warning-bg', pulse: true },
+  merging: { dot: 'bg-theme-warning-bg' },
+  completed: { dot: 'bg-theme-success-bg' },
+  failed: { dot: 'bg-theme-error-bg' },
   pending: { dot: 'bg-theme-surface' },
   cancelled: { dot: 'bg-theme-background-secondary' },
 };
@@ -78,7 +78,7 @@ export const ParallelSessionListItem: React.FC<ParallelSessionListItemProps> = (
         </span>
         <div className="flex-1 h-1 bg-theme-surface rounded-full overflow-hidden max-w-[80px]">
           <div
-            className="h-full bg-theme-info rounded-full transition-all"
+            className="h-full bg-theme-info-bg rounded-full transition-all"
             style={{ width: `${session.progress_percentage}%` }}
           />
         </div>

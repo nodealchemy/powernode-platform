@@ -14,14 +14,14 @@ const statusConfig: Record<
   { bg: string; text: string; icon: typeof CheckCircle; defaultLabel: string }
 > = {
   compliant: {
-    bg: 'bg-theme-success/10',
-    text: 'text-theme-success',
+    bg: 'bg-theme-success-fg/10',
+    text: 'text-theme-success-fg',
     icon: CheckCircle,
     defaultLabel: 'Compliant',
   },
   non_compliant: {
-    bg: 'bg-theme-error/10',
-    text: 'text-theme-error',
+    bg: 'bg-theme-error-fg/10',
+    text: 'text-theme-error-fg',
     icon: XCircle,
     defaultLabel: 'Non-Compliant',
   },
@@ -32,8 +32,8 @@ const statusConfig: Record<
     defaultLabel: 'Unknown',
   },
   pending: {
-    bg: 'bg-theme-info/10',
-    text: 'text-theme-info',
+    bg: 'bg-theme-info-fg/10',
+    text: 'text-theme-info-fg',
     icon: HelpCircle,
     defaultLabel: 'Pending',
   },

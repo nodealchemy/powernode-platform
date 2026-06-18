@@ -6,7 +6,7 @@ import { AutonomyConfigResponse } from '../services/agentTeamsApi';
 const BoolBadge: React.FC<{ value: boolean }> = ({ value }) => (
   <span className={cn(
     'text-xs font-medium px-1.5 py-0.5 rounded',
-    value ? 'bg-theme-success/10 text-theme-success' : 'bg-theme-info text-theme-secondary'
+    value ? 'bg-theme-success-fg/10 text-theme-success-fg' : 'bg-theme-info-bg text-theme-secondary'
   )}>
     {value ? 'Yes' : 'No'}
   </span>

@@ -260,7 +260,7 @@ export const MessageList = React.memo<MessageListProps>(({
             <div
               className={`rounded-2xl px-4 py-3 max-w-full shadow-sm ${
                 hasError
-                  ? 'bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 text-theme-danger dark:text-theme-danger'
+                  ? 'bg-theme-danger-fg/10 dark:bg-theme-danger-fg/20 border border-theme-danger-border/30 dark:border-theme-danger-border/50 text-theme-danger-fg dark:text-theme-danger-fg'
                   : isUser
                     ? 'bg-theme-primary/10 dark:bg-theme-primary/15 border border-theme-primary/20 text-theme-primary'
                     : 'bg-theme-surface border border-theme text-theme-primary'
@@ -332,7 +332,7 @@ export const MessageList = React.memo<MessageListProps>(({
                             href={href}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-theme-info hover:text-theme-info/80 underline"
+                            className="text-theme-info-fg hover:text-theme-info-fg/80 underline"
                           >
                             {children}
                           </a>
@@ -371,9 +371,9 @@ export const MessageList = React.memo<MessageListProps>(({
               )}
 
               {hasError && (
-                <div className="flex items-center gap-2 mt-2 p-2 bg-theme-danger/10 rounded border border-theme-danger/30">
-                  <AlertCircle className="h-4 w-4 text-theme-danger flex-shrink-0" />
-                  <span className="text-xs text-theme-danger">
+                <div className="flex items-center gap-2 mt-2 p-2 bg-theme-danger-fg/10 rounded border border-theme-danger-border/30">
+                  <AlertCircle className="h-4 w-4 text-theme-danger-fg flex-shrink-0" />
+                  <span className="text-xs text-theme-danger-fg">
                     {message.metadata?.error_message || 'An error occurred'}
                   </span>
                 </div>
@@ -474,7 +474,7 @@ export const MessageList = React.memo<MessageListProps>(({
                       variant="ghost"
                       size="xs"
                       onClick={() => onRate(message.id, 'thumbs_up')}
-                      className="h-7 w-7 p-0 hover:bg-theme-success/10 hover:text-theme-success dark:hover:bg-theme-success/20 rounded-full transition-all duration-200"
+                      className="h-7 w-7 p-0 hover:bg-theme-success-fg/10 hover:text-theme-success-fg dark:hover:bg-theme-success-fg/20 rounded-full transition-all duration-200"
                       title="Good response"
                       aria-label="Rate this response as helpful"
                     >
@@ -485,7 +485,7 @@ export const MessageList = React.memo<MessageListProps>(({
                       variant="ghost"
                       size="xs"
                       onClick={() => onRate(message.id, 'thumbs_down')}
-                      className="h-7 w-7 p-0 hover:bg-theme-danger/10 hover:text-theme-danger dark:hover:bg-theme-danger/20 rounded-full transition-all duration-200"
+                      className="h-7 w-7 p-0 hover:bg-theme-danger-fg/10 hover:text-theme-danger-fg dark:hover:bg-theme-danger-fg/20 rounded-full transition-all duration-200"
                       title="Poor response"
                       aria-label="Rate this response as not helpful"
                     >
@@ -632,9 +632,9 @@ export const MessageList = React.memo<MessageListProps>(({
         {aiThinking && (
           <div className="flex items-center gap-3 p-3 bg-theme-surface/70 backdrop-blur-md rounded-xl border border-theme/20 shadow-lg">
             <div className="flex gap-1">
-              <div className="w-2 h-2 bg-theme-info/80 rounded-full animate-bounce" />
-              <div className="w-2 h-2 bg-theme-info/80 rounded-full animate-bounce [animation-delay:100ms]" />
-              <div className="w-2 h-2 bg-theme-info/80 rounded-full animate-bounce [animation-delay:200ms]" />
+              <div className="w-2 h-2 bg-theme-info-fg/80 rounded-full animate-bounce" />
+              <div className="w-2 h-2 bg-theme-info-fg/80 rounded-full animate-bounce [animation-delay:100ms]" />
+              <div className="w-2 h-2 bg-theme-info-fg/80 rounded-full animate-bounce [animation-delay:200ms]" />
             </div>
             <span className="text-sm font-medium text-theme-secondary">
               {aiThinking} is thinking...

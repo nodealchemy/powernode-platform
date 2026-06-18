@@ -58,8 +58,8 @@ export const ExecuteTeamModal: React.FC<ExecuteTeamModalProps> = ({
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="flex items-center gap-3 p-3 bg-theme-info/10 border border-theme-info/20 rounded-lg">
-          <Play size={18} className="text-theme-info flex-shrink-0" />
+        <div className="flex items-center gap-3 p-3 bg-theme-info-fg/10 border border-theme-info-border/20 rounded-lg">
+          <Play size={18} className="text-theme-info-fg flex-shrink-0" />
           <div className="text-sm">
             <p className="font-medium text-theme-primary">{team.name}</p>
             <p className="text-theme-secondary">
@@ -79,7 +79,7 @@ export const ExecuteTeamModal: React.FC<ExecuteTeamModalProps> = ({
             placeholder="Describe the task for the team to execute..."
             rows={3}
             required
-            className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-info"
+            className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
           />
         </div>
 
@@ -93,7 +93,7 @@ export const ExecuteTeamModal: React.FC<ExecuteTeamModalProps> = ({
             onChange={(e) => setContext(e.target.value)}
             placeholder="Any additional context, constraints, or data for the agents..."
             rows={2}
-            className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-info"
+            className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
           />
         </div>
 
@@ -105,7 +105,7 @@ export const ExecuteTeamModal: React.FC<ExecuteTeamModalProps> = ({
             id="exec-priority"
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
+            className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
           >
             <option value="low">Low</option>
             <option value="normal">Normal</option>

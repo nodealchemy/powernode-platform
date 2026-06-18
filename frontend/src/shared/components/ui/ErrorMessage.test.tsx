@@ -40,13 +40,13 @@ describe('ErrorMessage', () => {
     it('has error background styling', () => {
       const { container } = render(<ErrorMessage message="Error" />);
 
-      expect(container.firstChild).toHaveClass('bg-theme-error', 'bg-opacity-10');
+      expect(container.firstChild).toHaveClass('bg-theme-error-bg', 'bg-opacity-10');
     });
 
     it('has border styling', () => {
       const { container } = render(<ErrorMessage message="Error" />);
 
-      expect(container.firstChild).toHaveClass('border', 'border-theme-error', 'rounded-lg');
+      expect(container.firstChild).toHaveClass('border', 'border-theme-error-border', 'rounded-lg');
     });
 
     it('has flex layout', () => {
@@ -59,7 +59,7 @@ describe('ErrorMessage', () => {
       render(<ErrorMessage title="Test Title" message="Test message" />);
 
       const title = screen.getByText('Test Title');
-      expect(title).toHaveClass('text-sm', 'font-medium', 'text-theme-error');
+      expect(title).toHaveClass('text-sm', 'font-medium', 'text-theme-error-fg');
     });
 
     it('message has secondary text color', () => {

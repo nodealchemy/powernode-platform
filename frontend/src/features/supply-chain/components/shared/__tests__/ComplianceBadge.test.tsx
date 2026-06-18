@@ -115,15 +115,15 @@ describe('ComplianceBadge', () => {
     it('applies success colors for compliant status', () => {
       const { container } = render(<ComplianceBadge status="compliant" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-success/10');
-      expect(badge).toHaveClass('text-theme-success');
+      expect(badge).toHaveClass('bg-theme-success-fg/10');
+      expect(badge).toHaveClass('text-theme-success-fg');
     });
 
     it('applies error colors for non_compliant status', () => {
       const { container } = render(<ComplianceBadge status="non_compliant" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-error/10');
-      expect(badge).toHaveClass('text-theme-error');
+      expect(badge).toHaveClass('bg-theme-error-fg/10');
+      expect(badge).toHaveClass('text-theme-error-fg');
     });
 
     it('applies muted colors for unknown status', () => {
@@ -136,8 +136,8 @@ describe('ComplianceBadge', () => {
     it('applies info colors for pending status', () => {
       const { container } = render(<ComplianceBadge status="pending" />);
       const badge = container.querySelector('span');
-      expect(badge).toHaveClass('bg-theme-info/10');
-      expect(badge).toHaveClass('text-theme-info');
+      expect(badge).toHaveClass('bg-theme-info-fg/10');
+      expect(badge).toHaveClass('text-theme-info-fg');
     });
   });
 
@@ -227,7 +227,7 @@ describe('ComplianceBadge', () => {
       const badge = container.querySelector('span');
       expect(badge).toHaveClass('px-1.5');
       expect(badge).toHaveClass('py-0.5');
-      expect(badge).toHaveClass('bg-theme-success/10');
+      expect(badge).toHaveClass('bg-theme-success-fg/10');
     });
 
     it('renders medium non-compliant badge with custom label', () => {
@@ -235,7 +235,7 @@ describe('ComplianceBadge', () => {
       const badge = container.querySelector('span');
       expect(badge).toHaveClass('px-2');
       expect(badge).toHaveClass('py-1');
-      expect(badge).toHaveClass('bg-theme-error/10');
+      expect(badge).toHaveClass('bg-theme-error-fg/10');
     });
 
     it('renders small pending badge with default label', () => {

@@ -224,8 +224,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
           transition-all duration-200
           ${isDragging
-            ? 'border-theme-info bg-theme-info/10 dark:bg-theme-info/20'
-            : 'border-theme bg-theme-surface hover:border-theme-info'
+            ? 'border-theme-info-border bg-theme-info-fg/10 dark:bg-theme-info-fg/20'
+            : 'border-theme bg-theme-surface hover:border-theme-info-border'
           }
         `}
       >
@@ -262,10 +262,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 {/* File Icon */}
                 <div className="flex-shrink-0">
                   {uploadingFile.status === 'success' && (
-                    <CheckCircle className="h-5 w-5 text-theme-success" />
+                    <CheckCircle className="h-5 w-5 text-theme-success-fg" />
                   )}
                   {(uploadingFile.status === 'error' || uploadingFile.status === 'cancelled') && (
-                    <AlertCircle className="h-5 w-5 text-theme-danger" />
+                    <AlertCircle className="h-5 w-5 text-theme-danger-fg" />
                   )}
                   {(uploadingFile.status === 'uploading' || uploadingFile.status === 'pending') && (
                     <File className="h-5 w-5 text-theme-secondary" />
@@ -291,7 +291,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       aria-valuemax={100}
                     >
                       <div
-                        className="bg-theme-info h-1.5 rounded-full transition-all duration-300"
+                        className="bg-theme-info-bg h-1.5 rounded-full transition-all duration-300"
                         style={{ width: `${uploadingFile.progress}%` }}
                       />
                     </div>
@@ -299,7 +299,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
                   {/* Error/Cancelled Message */}
                   {(uploadingFile.status === 'error' || uploadingFile.status === 'cancelled') && uploadingFile.error && (
-                    <p className="mt-1 text-xs text-theme-danger">{uploadingFile.error}</p>
+                    <p className="mt-1 text-xs text-theme-danger-fg">{uploadingFile.error}</p>
                   )}
                 </div>
 
@@ -323,7 +323,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       e.stopPropagation();
                       cancelUpload(uploadingFile.file);
                     }}
-                    className="flex-shrink-0 px-2 py-1 text-xs text-theme-danger hover:text-theme-danger/80"
+                    className="flex-shrink-0 px-2 py-1 text-xs text-theme-danger-fg hover:text-theme-danger-fg/80"
                     aria-label="Cancel upload"
                   >
                     Cancel

@@ -26,10 +26,10 @@ const severityIcons = {
 };
 
 const severityColors = {
-  critical: 'text-theme-error',
-  high: 'text-theme-warning',
-  medium: 'text-theme-info',
-  low: 'text-theme-success',
+  critical: 'text-theme-error-fg',
+  high: 'text-theme-warning-fg',
+  medium: 'text-theme-info-fg',
+  low: 'text-theme-success-fg',
 };
 
 export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onAlertClick, maxItems = 5 }) => {
@@ -40,7 +40,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onAlertClick, 
       <div className="bg-theme-surface border border-theme rounded-lg p-4">
         <h3 className="font-semibold text-theme-primary mb-3">Recent Alerts</h3>
         <div className="text-center py-4">
-          <CheckCircle className="w-8 h-8 text-theme-success mx-auto mb-2" />
+          <CheckCircle className="w-8 h-8 text-theme-success-fg mx-auto mb-2" />
           <p className="text-sm text-theme-secondary">No active alerts</p>
         </div>
       </div>

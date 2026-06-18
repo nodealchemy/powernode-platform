@@ -31,11 +31,11 @@ export const ContainerSandboxContent: React.FC<{ refreshKey?: number }> = ({ ref
   }, [loadStats, externalRefreshKey]);
 
   const statCards = [
-    { label: 'Total', value: stats?.total ?? 0, icon: Box, colorClass: 'text-theme-info', bgClass: 'bg-theme-info' },
-    { label: 'Running', value: stats?.running ?? 0, icon: Play, colorClass: 'text-theme-success', bgClass: 'bg-theme-success' },
-    { label: 'Paused', value: stats?.paused ?? 0, icon: Pause, colorClass: 'text-theme-warning', bgClass: 'bg-theme-warning' },
-    { label: 'Completed', value: stats?.completed ?? 0, icon: CheckCircle, colorClass: 'text-theme-info', bgClass: 'bg-theme-info' },
-    { label: 'Failed', value: stats?.failed ?? 0, icon: XCircle, colorClass: 'text-theme-error', bgClass: 'bg-theme-error' },
+    { label: 'Total', value: stats?.total ?? 0, icon: Box, colorClass: 'text-theme-info-fg', bgClass: 'bg-theme-info-bg' },
+    { label: 'Running', value: stats?.running ?? 0, icon: Play, colorClass: 'text-theme-success-fg', bgClass: 'bg-theme-success-bg' },
+    { label: 'Paused', value: stats?.paused ?? 0, icon: Pause, colorClass: 'text-theme-warning-fg', bgClass: 'bg-theme-warning-bg' },
+    { label: 'Completed', value: stats?.completed ?? 0, icon: CheckCircle, colorClass: 'text-theme-info-fg', bgClass: 'bg-theme-info-bg' },
+    { label: 'Failed', value: stats?.failed ?? 0, icon: XCircle, colorClass: 'text-theme-error-fg', bgClass: 'bg-theme-error-bg' },
   ];
 
   return (

@@ -49,7 +49,7 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-theme-surface rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden">
         <div className="p-6 border-b border-theme">
           <div className="flex items-center justify-between">
@@ -72,12 +72,12 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
           {action === 'review' && (
             <div className="space-y-6">
               {/* Request Information */}
-              <div className="bg-theme-warning bg-opacity-10 border border-theme-warning border-opacity-30 rounded-lg p-4">
+              <div className="bg-theme-warning-bg border border-theme-warning-border rounded-lg p-4">
                 <div className="flex items-start space-x-3">
-                  <span className="text-theme-warning text-xl">⚠️</span>
+                  <span className="text-theme-warning-fg text-xl">⚠️</span>
                   <div>
-                    <h3 className="font-medium text-theme-warning">Pending Approval</h3>
-                    <p className="text-sm text-theme-warning opacity-80 mt-1">
+                    <h3 className="font-medium text-theme-warning-fg">Pending Approval</h3>
+                    <p className="text-sm text-theme-warning-fg opacity-80 mt-1">
                       This delegation request requires your approval to grant access.
                     </p>
                   </div>
@@ -173,12 +173,12 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
 
           {action === 'approve' && (
             <div className="space-y-6">
-              <div className="bg-theme-success bg-opacity-10 border border-theme-success border-opacity-30 rounded-lg p-4">
+              <div className="bg-theme-success-bg border border-theme-success-border rounded-lg p-4">
                 <div className="flex items-start space-x-3">
-                  <span className="text-theme-success text-xl">✅</span>
+                  <span className="text-theme-success-fg text-xl">✅</span>
                   <div>
-                    <h3 className="font-medium text-theme-success">Approve Delegation Request</h3>
-                    <p className="text-sm text-theme-success opacity-80 mt-1">
+                    <h3 className="font-medium text-theme-success-fg">Approve Delegation Request</h3>
+                    <p className="text-sm text-theme-success-fg opacity-80 mt-1">
                       You are about to grant the requested access permissions.
                     </p>
                   </div>
@@ -202,12 +202,12 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
 
           {action === 'reject' && (
             <div className="space-y-6">
-              <div className="bg-theme-error bg-opacity-10 border border-theme-error border-opacity-30 rounded-lg p-4">
+              <div className="bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
                 <div className="flex items-start space-x-3">
-                  <span className="text-theme-error text-xl">❌</span>
+                  <span className="text-theme-error-fg text-xl">❌</span>
                   <div>
-                    <h3 className="font-medium text-theme-error">Reject Delegation Request</h3>
-                    <p className="text-sm text-theme-error opacity-80 mt-1">
+                    <h3 className="font-medium text-theme-error-fg">Reject Delegation Request</h3>
+                    <p className="text-sm text-theme-error-fg opacity-80 mt-1">
                       You are about to deny this access request.
                     </p>
                   </div>
@@ -216,7 +216,7 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
 
               <div>
                 <label className="block text-sm font-medium text-theme-primary mb-2">
-                  Rejection Reason <span className="text-theme-error">*</span>
+                  Rejection Reason <span className="text-theme-error-fg">*</span>
                 </label>
                 <textarea
                   value={rejectReason}
@@ -243,7 +243,7 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
               <div className="space-x-3">
                 <button
                   onClick={() => setAction('reject')}
-                  className="btn-theme btn-theme-secondary text-theme-error hover:bg-theme-error hover:text-white"
+                  className="btn-theme btn-theme-secondary text-theme-error-fg hover:bg-theme-error-bg hover:text-white"
                 >
                   Reject
                 </button>
@@ -285,7 +285,7 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
               <button
                 onClick={handleReject}
                 disabled={!rejectReason.trim()}
-                className="btn-theme btn-theme-primary bg-theme-error hover:bg-theme-error disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-theme btn-theme-primary bg-theme-error-bg hover:bg-theme-error-bg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Confirm Rejection
               </button>

@@ -9,23 +9,23 @@ interface RiskTierBadgeProps {
 
 const tierConfig: Record<RiskTier, { bg: string; text: string; label: string }> = {
   critical: {
-    bg: 'bg-theme-error/10',
-    text: 'text-theme-error',
+    bg: 'bg-theme-error-fg/10',
+    text: 'text-theme-error-fg',
     label: 'Critical Risk',
   },
   high: {
-    bg: 'bg-theme-warning/10',
-    text: 'text-theme-warning',
+    bg: 'bg-theme-warning-fg/10',
+    text: 'text-theme-warning-fg',
     label: 'High Risk',
   },
   medium: {
-    bg: 'bg-theme-info/10',
-    text: 'text-theme-info',
+    bg: 'bg-theme-info-fg/10',
+    text: 'text-theme-info-fg',
     label: 'Medium Risk',
   },
   low: {
-    bg: 'bg-theme-success/10',
-    text: 'text-theme-success',
+    bg: 'bg-theme-success-fg/10',
+    text: 'text-theme-success-fg',
     label: 'Low Risk',
   },
 };

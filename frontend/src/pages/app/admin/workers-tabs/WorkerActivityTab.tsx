@@ -66,7 +66,7 @@ export const WorkerActivityTab: React.FC<WorkerActivityTabProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="p-4 bg-theme-surface rounded-lg">
             <div className="text-sm text-theme-secondary mb-1">Active Workers</div>
-            <div className="text-2xl font-bold text-theme-success">
+            <div className="text-2xl font-bold text-theme-success-fg">
               {workers.filter(w => w.active_recently).length}
             </div>
           </div>
@@ -78,13 +78,13 @@ export const WorkerActivityTab: React.FC<WorkerActivityTabProps> = ({
           </div>
           <div className="p-4 bg-theme-surface rounded-lg">
             <div className="text-sm text-theme-secondary mb-1">Avg Requests/Worker</div>
-            <div className="text-2xl font-bold text-theme-info">
+            <div className="text-2xl font-bold text-theme-info-fg">
               {Math.round(workers.reduce((sum, w) => sum + w.request_count, 0) / workers.length) || 0}
             </div>
           </div>
           <div className="p-4 bg-theme-surface rounded-lg">
             <div className="text-sm text-theme-secondary mb-1">Health Score</div>
-            <div className="text-2xl font-bold text-theme-success">98%</div>
+            <div className="text-2xl font-bold text-theme-success-fg">98%</div>
           </div>
         </div>
       </Card>
@@ -100,13 +100,13 @@ export const WorkerActivityTab: React.FC<WorkerActivityTabProps> = ({
               <div
                 key={worker.name}
                 className={`p-4 border border-theme rounded-lg ${
-                  worker.isSystem ? 'bg-gradient-to-r from-theme-info/5 to-transparent border-theme-info/30' : ''
+                  worker.isSystem ? 'bg-gradient-to-r from-theme-info/5 to-transparent border-theme-info-border/30' : ''
                 }`}
               >
                 <FlexBetween>
                   <div className="flex items-center space-x-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                      worker.isSystem ? 'bg-theme-info/20 text-theme-info' : 'bg-theme-primary/10 text-theme-primary'
+                      worker.isSystem ? 'bg-theme-info-fg/20 text-theme-info-fg' : 'bg-theme-primary/10 text-theme-primary'
                     }`}>
                       {worker.isSystem ? '⚙️' : index + 1}
                     </div>
@@ -114,7 +114,7 @@ export const WorkerActivityTab: React.FC<WorkerActivityTabProps> = ({
                       <div className="font-medium text-theme-primary">
                         {worker.name}
                         {worker.isSystem && (
-                          <span className="ml-2 px-2 py-0.5 text-xs bg-theme-info/10 text-theme-info rounded-full">
+                          <span className="ml-2 px-2 py-0.5 text-xs bg-theme-info-fg/10 text-theme-info-fg rounded-full">
                             SYSTEM
                           </span>
                         )}

@@ -142,7 +142,7 @@ describe('Select', () => {
       render(<Select options={defaultOptions} error="Error" />);
 
       const select = screen.getByRole('combobox');
-      expect(select).toHaveClass('border-theme-error', 'focus:ring-theme-error');
+      expect(select).toHaveClass('border-theme-error-border', 'focus:ring-theme-error-fg');
     });
   });
 

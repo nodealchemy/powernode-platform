@@ -227,13 +227,13 @@ export const BriefCard: React.FC<BriefCardProps> = ({ brief, missingFields, clas
               key={key}
               data-testid={`brief-field-${key}`}
               className={`flex items-start justify-between gap-3 px-2 py-1.5 rounded transition-shadow ${
-                isPulsing ? 'ring-2 ring-theme-info bg-theme-info/10' : ''
+                isPulsing ? 'ring-2 ring-theme-info-fg bg-theme-info-fg/10' : ''
               }`}
             >
               <dt className="text-xs text-theme-secondary flex-shrink-0">
                 {label}
                 {isRequired && !value && (
-                  <span className="text-theme-danger ml-1" aria-label="required">*</span>
+                  <span className="text-theme-danger-fg ml-1" aria-label="required">*</span>
                 )}
               </dt>
               <dd
@@ -252,11 +252,11 @@ export const BriefCard: React.FC<BriefCardProps> = ({ brief, missingFields, clas
         <section
           data-testid="brief-app-code"
           className={`mt-3 pt-3 border-t border-theme transition-shadow ${
-            appCodePulsing ? 'ring-2 ring-theme-info bg-theme-info/10 rounded' : ''
+            appCodePulsing ? 'ring-2 ring-theme-info-fg bg-theme-info-fg/10 rounded' : ''
           }`}
         >
           <h5 className="flex items-center gap-1.5 text-xs font-semibold text-theme-secondary mb-2">
-            <GitBranch className="w-3 h-3 text-theme-info" aria-hidden="true" />
+            <GitBranch className="w-3 h-3 text-theme-info-fg" aria-hidden="true" />
             App code
           </h5>
           <dl className="space-y-1.5">
@@ -273,7 +273,7 @@ export const BriefCard: React.FC<BriefCardProps> = ({ brief, missingFields, clas
                         href={repoUrlParsed.toString()}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-theme-info hover:underline"
+                        className="text-theme-info-fg hover:underline"
                       >
                         {repoUrl}
                       </a>

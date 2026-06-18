@@ -35,7 +35,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
     text-theme-primary focus:ring-theme-primary focus:ring-2 focus:ring-offset-0
     bg-theme-surface 
     disabled:bg-theme-background disabled:text-theme-secondary
-    ${error ? 'border-theme-error focus:ring-theme-error' : ''}
+    ${error ? 'border-theme-error-border focus:ring-theme-error-fg' : ''}
     ${className}
   `.trim();
 
@@ -73,7 +73,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
             </p>
           )}
           {error && (
-            <p id={`${checkboxId}-error`} className="mt-1 text-sm text-theme-error" role="alert">
+            <p id={`${checkboxId}-error`} className="mt-1 text-sm text-theme-error-fg" role="alert">
               {error}
             </p>
           )}

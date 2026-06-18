@@ -11,9 +11,9 @@ interface CapabilityBadgeProps {
 }
 
 const categoryColors: Record<string, { bg: string; text: string }> = {
-  analysis: { bg: 'bg-theme-info/10', text: 'text-theme-info' },
-  generation: { bg: 'bg-theme-success/10', text: 'text-theme-success' },
-  transformation: { bg: 'bg-theme-warning/10', text: 'text-theme-warning' },
+  analysis: { bg: 'bg-theme-info-fg/10', text: 'text-theme-info-fg' },
+  generation: { bg: 'bg-theme-success-fg/10', text: 'text-theme-success-fg' },
+  transformation: { bg: 'bg-theme-warning-fg/10', text: 'text-theme-warning-fg' },
   communication: { bg: 'bg-theme-primary/10', text: 'text-theme-primary' },
   integration: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary' },
   default: { bg: 'bg-theme-background-secondary/10', text: 'text-theme-tertiary' },

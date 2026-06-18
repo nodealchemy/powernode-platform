@@ -19,15 +19,15 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
   const getStatusConfig = () => {
     if (isConnected) {
       return {
-        dotColor: 'bg-theme-success',
-        textColor: 'text-theme-success',
+        dotColor: 'bg-theme-success-bg',
+        textColor: 'text-theme-success-fg',
         label: 'Real-time',
         description: 'Real-time connection active'
       };
     } else if (error) {
       return {
-        dotColor: 'bg-theme-error',
-        textColor: 'text-theme-error',
+        dotColor: 'bg-theme-error-bg',
+        textColor: 'text-theme-error-fg',
         label: 'Error',
         description: error
       };
@@ -85,7 +85,7 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
         )}
 
         {error && (
-          <div className="mt-2 p-2 bg-theme-error border border-theme-error rounded text-xs text-theme-error">
+          <div className="mt-2 p-2 bg-theme-error-bg border border-theme-error-border rounded text-xs text-theme-error-fg">
             {error}
           </div>
         )}

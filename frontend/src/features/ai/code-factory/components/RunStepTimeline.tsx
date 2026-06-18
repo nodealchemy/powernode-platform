@@ -61,10 +61,10 @@ function buildTimeline(state: ReviewState): TimelineStep[] {
 }
 
 const statusIcons: Record<string, { icon: string; color: string }> = {
-  completed: { icon: '\u2713', color: 'text-theme-success bg-theme-success' },
-  active: { icon: '\u25CF', color: 'text-theme-info bg-theme-info/10' },
+  completed: { icon: '\u2713', color: 'text-theme-success-fg bg-theme-success-bg' },
+  active: { icon: '\u25CF', color: 'text-theme-info-fg bg-theme-info-fg/10' },
   pending: { icon: '\u25CB', color: 'text-theme-secondary bg-theme-surface-bg' },
-  failed: { icon: '\u2717', color: 'text-theme-error bg-theme-error' },
+  failed: { icon: '\u2717', color: 'text-theme-error-fg bg-theme-error-bg' },
 };
 
 export const RunStepTimeline: React.FC<Props> = ({ reviewState }) => {
@@ -85,7 +85,7 @@ export const RunStepTimeline: React.FC<Props> = ({ reviewState }) => {
                   {icon}
                 </span>
                 {idx < steps.length - 1 && (
-                  <div className={`w-px h-6 ${step.status === 'completed' ? 'bg-theme-success' : 'bg-theme-background-secondary'}`} />
+                  <div className={`w-px h-6 ${step.status === 'completed' ? 'bg-theme-success-bg' : 'bg-theme-background-secondary'}`} />
                 )}
               </div>
               <div className="flex-1 min-w-0 pb-1">

@@ -459,15 +459,15 @@ export const dockerApi = {
   getHostStatusColor(status: HostStatus): string {
     switch (status) {
       case 'connected':
-        return 'bg-theme-success bg-opacity-10 text-theme-success';
+        return 'bg-theme-success-bg text-theme-success-fg';
       case 'pending':
-        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+        return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'disconnected':
         return 'bg-theme-surface text-theme-tertiary';
       case 'error':
-        return 'bg-theme-error bg-opacity-10 text-theme-error';
+        return 'bg-theme-error-bg text-theme-error-fg';
       case 'maintenance':
-        return 'bg-theme-info bg-opacity-10 text-theme-info';
+        return 'bg-theme-info-bg text-theme-info-fg';
       default:
         return 'bg-theme-surface text-theme-secondary';
     }
@@ -476,19 +476,19 @@ export const dockerApi = {
   getContainerStateColor(state: ContainerState): string {
     switch (state) {
       case 'running':
-        return 'bg-theme-success bg-opacity-10 text-theme-success';
+        return 'bg-theme-success-bg text-theme-success-fg';
       case 'paused':
-        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+        return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'restarting':
-        return 'bg-theme-info bg-opacity-10 text-theme-info';
+        return 'bg-theme-info-bg text-theme-info-fg';
       case 'created':
-        return 'bg-theme-info bg-opacity-10 text-theme-info';
+        return 'bg-theme-info-bg text-theme-info-fg';
       case 'exited':
         return 'bg-theme-surface text-theme-tertiary';
       case 'removing':
-        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+        return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'dead':
-        return 'bg-theme-error bg-opacity-10 text-theme-error';
+        return 'bg-theme-error-bg text-theme-error-fg';
       default:
         return 'bg-theme-surface text-theme-secondary';
     }
@@ -497,13 +497,13 @@ export const dockerApi = {
   getActivityStatusColor(status: ActivityStatus): string {
     switch (status) {
       case 'completed':
-        return 'bg-theme-success bg-opacity-10 text-theme-success';
+        return 'bg-theme-success-bg text-theme-success-fg';
       case 'running':
-        return 'bg-theme-info bg-opacity-10 text-theme-info';
+        return 'bg-theme-info-bg text-theme-info-fg';
       case 'pending':
-        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+        return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'failed':
-        return 'bg-theme-error bg-opacity-10 text-theme-error';
+        return 'bg-theme-error-bg text-theme-error-fg';
       default:
         return 'bg-theme-surface text-theme-secondary';
     }
@@ -512,13 +512,13 @@ export const dockerApi = {
   getEventSeverityColor(severity: EventSeverity): string {
     switch (severity) {
       case 'critical':
-        return 'bg-theme-error bg-opacity-20 text-theme-error';
+        return 'bg-theme-error-bg text-theme-error-fg';
       case 'error':
-        return 'bg-theme-error bg-opacity-10 text-theme-error';
+        return 'bg-theme-error-bg text-theme-error-fg';
       case 'warning':
-        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+        return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'info':
-        return 'bg-theme-info bg-opacity-10 text-theme-info';
+        return 'bg-theme-info-bg text-theme-info-fg';
       default:
         return 'bg-theme-surface text-theme-secondary';
     }
