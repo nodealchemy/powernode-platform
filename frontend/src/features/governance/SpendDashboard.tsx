@@ -309,7 +309,7 @@ export const SpendDashboard: React.FC<SpendDashboardProps> = ({
             No mission spend recorded for this period.
           </div>
         ) : (
-          <ul className="divide-y divide-theme-light">
+          <ul className="divide-y divide-theme">
             {topMissions.slice(0, 5).map((mission) => (
               <li
                 key={mission.id}

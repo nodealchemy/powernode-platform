@@ -176,45 +176,16 @@
 /* Safelist equivalent - ensure these classes are always generated */
 @layer utilities {
   /* Theme interactive backgrounds */
-  .bg-theme-interactive-primary { background-color: var(--color-interactive-primary); }
   .hover\:bg-theme-interactive-primary-hover:hover { background-color: var(--color-interactive-primary-hover); }
-  .bg-theme-interactive-secondary { background-color: var(--color-interactive-secondary); }
   .hover\:bg-theme-interactive-secondary-hover:hover { background-color: var(--color-interactive-secondary-hover); }
 
   /* Theme text colors */
-  .text-theme-primary { color: var(--color-text-primary); }
-  .text-theme-secondary { color: var(--color-text-secondary); }
-  .text-theme-tertiary { color: var(--color-text-tertiary); }
-  .text-theme-link { color: var(--color-text-link); }
   .hover\:text-theme-link-hover:hover { color: var(--color-text-link-hover); }
-  .text-theme-success { color: var(--color-success); }
-  .text-theme-warning { color: var(--color-warning); }
-  .text-theme-error { color: var(--color-error); }
-  .text-theme-danger { color: var(--color-error); } /* Alias for theme-error */
-  .text-theme-info { color: var(--color-info); }
 
   /* Theme surface backgrounds */
-  .bg-theme-surface { background-color: var(--color-surface); }
   .hover\:bg-theme-surface-hover:hover { background-color: var(--color-surface-hover); }
-  .bg-theme-surface-selected { background-color: var(--color-surface-selected); }
-  .bg-theme-background-secondary { background-color: var(--color-background-secondary); }
-  .bg-theme-success { background-color: var(--color-success-background); }
-  .bg-theme-warning { background-color: var(--color-warning-background); }
-  .bg-theme-error { background-color: var(--color-error-background); }
-  .bg-theme-danger { background-color: var(--color-error-background); } /* Alias for theme-error */
-  .bg-theme-info { background-color: var(--color-info-background); }
 
   /* Theme borders */
-  .border-theme { border-color: var(--color-border); }
-  .border-theme-light { border-color: var(--color-border-light); }
-  .border-theme-strong { border-color: var(--color-border-strong); }
-  .border-theme-focus { border-color: var(--color-border-focus); }
-  .border-theme-success { border-color: var(--color-success-border); }
-  .border-theme-warning { border-color: var(--color-warning-border); }
-  .border-theme-error { border-color: var(--color-error-border); }
-  .border-theme-danger { border-color: var(--color-error-border); } /* Alias for theme-error */
-  .border-theme-info { border-color: var(--color-info-border); }
-  .divide-theme > :not([hidden]) { border-color: var(--color-divider); }
 
   /* Workflow handle backgrounds */
   .bg-handle-default { background-color: var(--handle-default); }
