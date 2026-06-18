@@ -254,7 +254,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                 required
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-opacity-20 outline-none"
+                className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-theme-interactive-primary/20 outline-none"
                 placeholder="e.g., Production API, Mobile App"
               />
             </div>
@@ -267,7 +267,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                 type="datetime-local"
                 value={formData.expires_at}
                 onChange={(e) => setFormData(prev => ({ ...prev, expires_at: e.target.value }))}
-                className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-opacity-20 outline-none"
+                className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-theme-interactive-primary/20 outline-none"
               />
             </div>
           </div>
@@ -280,7 +280,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               rows={3}
-              className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-opacity-20 outline-none"
+              className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-theme-interactive-primary/20 outline-none"
               placeholder="Optional description for this API key"
             />
           </div>
@@ -296,7 +296,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                 max="10000"
                 value={formData.rate_limit_per_hour}
                 onChange={(e) => setFormData(prev => ({ ...prev, rate_limit_per_hour: parseInt(e.target.value) || undefined }))}
-                className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-opacity-20 outline-none"
+                className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-theme-interactive-primary/20 outline-none"
                 placeholder="1000"
               />
             </div>
@@ -311,7 +311,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                 max="1000000"
                 value={formData.rate_limit_per_day}
                 onChange={(e) => setFormData(prev => ({ ...prev, rate_limit_per_day: parseInt(e.target.value) || undefined }))}
-                className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-opacity-20 outline-none"
+                className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-theme-interactive-primary/20 outline-none"
                 placeholder="10000"
               />
             </div>
@@ -328,7 +328,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                 ...prev, 
                 allowed_ips: e.target.value.split(',').map(ip => ip.trim()).filter(Boolean)
               }))}
-              className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-opacity-20 outline-none"
+              className="w-full px-4 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:border-theme-interactive-primary focus:ring-2 focus:ring-theme-interactive-primary focus:ring-theme-interactive-primary/20 outline-none"
               placeholder="192.168.1.1, 10.0.0.0/8"
             />
             <p className="text-sm text-theme-tertiary mt-1">

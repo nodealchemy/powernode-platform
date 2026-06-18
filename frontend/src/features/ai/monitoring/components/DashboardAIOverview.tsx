@@ -52,7 +52,7 @@ export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats,
     <div className="card-theme-elevated p-6">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${health.bg} bg-opacity-10`}>
+          <div className={`p-2 rounded-lg ${health.bg}`}>
             <Activity className={`h-5 w-5 ${health.color}`} />
           </div>
           <div>

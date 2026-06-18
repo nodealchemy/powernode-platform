@@ -218,7 +218,7 @@ const DashboardOverview: React.FC = () => {
             <h3 className="text-xl font-semibold text-theme-primary">
               Getting Started
             </h3>
-            <span className="bg-theme-info-bg text-theme-on-primary px-3 py-1 rounded-full text-xs font-medium bg-opacity-10 text-theme-info-fg">
+            <span className="bg-theme-info-bg text-theme-on-primary px-3 py-1 rounded-full text-xs font-medium bg-theme-info-bg/10 text-theme-info-fg">
               {`${completedCount} of ${totalTasks} complete`}
             </span>
           </div>

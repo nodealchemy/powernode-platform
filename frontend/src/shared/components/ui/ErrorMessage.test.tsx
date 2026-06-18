@@ -40,7 +40,7 @@ describe('ErrorMessage', () => {
     it('has error background styling', () => {
       const { container } = render(<ErrorMessage message="Error" />);
 
-      expect(container.firstChild).toHaveClass('bg-theme-error-bg', 'bg-opacity-10');
+      expect(container.firstChild).toHaveClass('bg-theme-error-bg');
     });
 
     it('has border styling', () => {

@@ -338,7 +338,7 @@ export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
                   <span>{value}</span>
                   <button
                     onClick={() => clearFilter(key as keyof FilterType)}
-                    className="ml-1 hover:bg-theme-interactive-primary hover:bg-opacity-20 rounded-full p-0.5 transition-colors duration-200"
+                    className="ml-1 hover:bg-theme-interactive-primary hover:bg-theme-interactive-primary/20 rounded-full p-0.5 transition-colors duration-200"
                   >
                     <X className="w-3 h-3" />
                   </button>

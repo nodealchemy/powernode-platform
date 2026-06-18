@@ -53,7 +53,7 @@ export const ContainerSandboxContent: React.FC<{ refreshKey?: number }> = ({ ref
                     <p className="text-sm text-theme-tertiary">{stat.label}</p>
                     <p className="text-2xl font-semibold text-theme-primary">{stat.value}</p>
                   </div>
-                  <div className={`h-10 w-10 ${stat.bgClass} bg-opacity-10 rounded-lg flex items-center justify-center`}>
+                  <div className={`h-10 w-10 ${stat.bgClass} rounded-lg flex items-center justify-center`}>
                     <Icon className={`h-5 w-5 ${stat.colorClass}`} />
                   </div>
                 </div>

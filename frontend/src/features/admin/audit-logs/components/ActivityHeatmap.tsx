@@ -94,7 +94,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data, loading 
                   return (
                     <div
                       key={`${day}-${hour}`}
-                      className={`h-4 rounded-sm cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-theme-interactive-primary hover:ring-opacity-50 ${
+                      className={`h-4 rounded-sm cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-theme-interactive-primary hover:ring-theme-interactive-primary/50 ${
                         getIntensityColor(dataPoint?.activity || 0)
                       }`}
                       title={`${day} ${hour}:00 - ${dataPoint?.activity || 0} events`}

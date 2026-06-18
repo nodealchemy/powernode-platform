@@ -294,7 +294,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
                   
                   <Button variant="outline" onClick={() => dismissAlert(alert.id)}
                     disabled={isDismissing}
-                    className={`p-2 rounded-lg transition-colors ${config.textColor} hover:bg-theme-surface hover:bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`p-2 rounded-lg transition-colors ${config.textColor} hover:bg-theme-surface hover:bg-theme-surface/20 disabled:opacity-50 disabled:cursor-not-allowed`}
                     title="Dismiss alert"
                   >
                     {isDismissing ? (

@@ -155,7 +155,7 @@ export function IntegrationCard({
             </Link>
             <button
               onClick={() => onDelete?.(instance.id)}
-              className="px-3 py-1.5 text-sm text-theme-error-fg hover:bg-theme-error-bg hover:bg-opacity-10 rounded transition-colors ml-auto"
+              className="px-3 py-1.5 text-sm text-theme-error-fg hover:bg-theme-error-bg hover:bg-theme-error-bg/10 rounded transition-colors ml-auto"
             >
               Delete
             </button>

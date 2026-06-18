@@ -25,7 +25,7 @@ describe('ErrorAlert', () => {
     renderWithProviders(<ErrorAlert message="Styled error" />);
     
     const container = screen.getByText('Styled error').closest('.bg-theme-error-bg');
-    expect(container).toHaveClass('bg-theme-error-bg', 'bg-opacity-10', 'border-theme-error-border');
+    expect(container).toHaveClass('bg-theme-error-bg', 'border-theme-error-border');
   });
 
   it('shows close button when onClose is provided', () => {

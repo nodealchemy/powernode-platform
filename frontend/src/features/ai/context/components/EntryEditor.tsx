@@ -351,7 +351,7 @@ export function EntryEditor({
             <button
               type="button"
               onClick={() => onDelete(entry.id)}
-              className="px-4 py-2 text-theme-error-fg hover:bg-theme-error-bg hover:bg-opacity-10 rounded-lg transition-colors"
+              className="px-4 py-2 text-theme-error-fg hover:bg-theme-error-bg hover:bg-theme-error-bg/10 rounded-lg transition-colors"
             >
               Delete
             </button>

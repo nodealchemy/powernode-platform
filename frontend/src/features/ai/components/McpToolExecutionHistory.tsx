@@ -259,7 +259,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
                       handleCancel(execution.id);
                     }}
                     disabled={isCancelling}
-                    className="text-theme-error-fg hover:bg-theme-error-bg hover:bg-opacity-10"
+                    className="text-theme-error-fg hover:bg-theme-error-bg hover:bg-theme-error-bg/10"
                     aria-label="Cancel execution"
                   >
                     {isCancelling ? (

@@ -47,7 +47,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon: Icon, iconColor
         <p className="text-sm text-theme-tertiary">{label}</p>
         <p className="text-2xl font-semibold text-theme-primary">{value}</p>
       </div>
-      <div className="h-10 w-10 bg-opacity-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--theme-bg-secondary)' }}>
+      <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--theme-bg-secondary)' }}>
         <Icon className={`h-5 w-5 ${iconColor}`} />
       </div>
     </div>

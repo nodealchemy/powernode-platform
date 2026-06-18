@@ -169,7 +169,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           mb-6 transition-all duration-300 ease-out
           ${lineHeight === 'tight' ? 'leading-snug' : lineHeight === 'relaxed' ? 'leading-relaxed' : 'leading-normal'}
           ${enableReadingMode ? 'max-w-prose' : ''}
-          ${variant === 'public' ? 'text-opacity-90' : ''}
         `}>
           {children}
         </p>

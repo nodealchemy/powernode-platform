@@ -43,7 +43,7 @@ describe('SuccessAlert', () => {
     it('has success background styling', () => {
       const { container } = render(<SuccessAlert message="Success" />);
 
-      expect(container.firstChild).toHaveClass('bg-theme-success-bg', 'bg-opacity-10');
+      expect(container.firstChild).toHaveClass('bg-theme-success-bg');
     });
 
     it('has border styling', () => {

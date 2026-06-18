@@ -207,7 +207,7 @@ describe('Sidebar', () => {
     it('shows mobile overlay when open', () => {
       const { container } = renderSidebar(defaultProps);
 
-      const overlay = container.querySelector('.bg-black.bg-opacity-50');
+      const overlay = container.querySelector('.bg-black\\/50');
       expect(overlay).toBeInTheDocument();
     });
 
@@ -216,7 +216,7 @@ describe('Sidebar', () => {
 
       const { container } = renderSidebar(props);
 
-      const overlay = container.querySelector('.bg-black.bg-opacity-50');
+      const overlay = container.querySelector('.bg-black\\/50');
       expect(overlay).not.toBeInTheDocument();
     });
   });
@@ -226,7 +226,7 @@ describe('Sidebar', () => {
       const onToggle = jest.fn();
       const { container } = renderSidebar({ ...defaultProps, onToggle });
 
-      const overlay = container.querySelector('.bg-black.bg-opacity-50');
+      const overlay = container.querySelector('.bg-black\\/50');
       if (overlay) {
         fireEvent.click(overlay);
         expect(onToggle).toHaveBeenCalledTimes(1);

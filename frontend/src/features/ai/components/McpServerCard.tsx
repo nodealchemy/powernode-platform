@@ -223,7 +223,7 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
                   e.stopPropagation();
                   onTestTool?.(tool);
                 }}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-theme-interactive-primary/10 text-theme-interactive-primary rounded hover:bg-opacity-20 transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-theme-interactive-primary/10 text-theme-interactive-primary rounded hover:bg-theme-interactive-primary/20 transition-colors"
                 title={tool.description || tool.name}
               >
                 <Zap className="h-3 w-3" />
@@ -301,7 +301,7 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
                 onDelete(server.id);
               }}
               title="Delete server"
-              className="text-theme-error-fg hover:bg-theme-error-bg hover:bg-opacity-10"
+              className="text-theme-error-fg hover:bg-theme-error-bg hover:bg-theme-error-bg/10"
             >
               <Trash2 className="h-4 w-4" />
             </Button>

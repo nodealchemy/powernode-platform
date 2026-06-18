@@ -272,7 +272,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
               >
                 <div className={`p-2 rounded-lg ${
                   categoryConfig
-                    ? `bg-theme-${categoryConfig.color} bg-opacity-10 text-theme-${categoryConfig.color}`
+                    ? `bg-theme-${categoryConfig.color} text-theme-${categoryConfig.color}`
                     : 'bg-theme-surface text-theme-secondary'
                 }`}>
                   {getFileIcon(file)}
@@ -315,7 +315,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
                   <button
                     onClick={() => handleDelete(file.id)}
                     disabled={deletingId === file.id}
-                    className="p-2 text-theme-secondary hover:text-theme-error-fg hover:bg-theme-error-bg hover:bg-opacity-10 rounded-lg transition-colors disabled:opacity-50"
+                    className="p-2 text-theme-secondary hover:text-theme-error-fg hover:bg-theme-error-bg hover:bg-theme-error-bg/10 rounded-lg transition-colors disabled:opacity-50"
                     title="Delete"
                   >
                     {deletingId === file.id ? (

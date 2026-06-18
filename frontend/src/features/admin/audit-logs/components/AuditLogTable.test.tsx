@@ -350,7 +350,7 @@ describe('AuditLogTable', () => {
 
       const rows = container.querySelectorAll('tbody tr');
       // The selected row has bg-theme-interactive-primary/5
-      expect(rows[0]).toHaveClass('bg-theme-interactive-primary', 'bg-opacity-5');
+      expect(rows[0]).toHaveClass('bg-theme-interactive-primary/5');
     });
   });
 
