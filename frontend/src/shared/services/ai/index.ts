@@ -155,22 +155,38 @@ export type {
   OptimizationStats,
 } from '@/shared/services/ai/ModelRouterApiService';
 
-// Re-export AIOps service (Phase 1 - Real-Time Operations)
+// Re-export AIOps service (Real-Time Operations)
 export { aiOpsApi };
 export type {
   AiOpsFilters,
+  TimeRangeInfo,
   AiOpsDashboard,
+  DashboardResponse,
+  HealthResponse,
   SystemHealth,
   ComponentHealth,
-  SystemOverview,
-  ProviderMetrics,
+  OverviewMetrics,
+  ExecutionMetrics,
+  PerformanceMetrics as AiOpsPerformanceMetrics,
+  CostMetrics,
+  LatencyAggregate,
+  ProviderMetricRow,
+  ProviderMetricValues,
+  AgentMetricRow,
+  AgentMetricValues,
+  CostAnalysis,
+  CostByProvider,
+  CostHourlyTrendPoint,
+  AiOpsAlert,
+  CircuitBreaker as AiOpsCircuitBreaker,
+  RealTimeMetrics,
+  AiOpsTrends,
+  TrendsResponse,
+  LatencyAggregateResponse,
+  RecentError,
+  RecentErrorsResponse,
   ProviderDetailMetrics,
   ProviderComparison,
-  AgentMetrics,
-  CostAnalysisData,
-  Alert as AiOpsAlert,
-  CircuitBreakerStatus,
-  RealTimeMetrics,
   RecordMetricsRequest,
 } from '@/shared/services/ai/AiOpsApiService';
 
