@@ -272,7 +272,11 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
               >
                 <div className={`p-2 rounded-lg ${
                   categoryConfig
-                    ? `bg-theme-${categoryConfig.color} text-theme-${categoryConfig.color}`
+                    ? categoryConfig.color === 'info'
+                      ? 'bg-theme-info-bg text-theme-info-fg'
+                      : categoryConfig.color === 'warning'
+                        ? 'bg-theme-warning-bg text-theme-warning-fg'
+                        : 'bg-theme-success-bg text-theme-success-fg'
                     : 'bg-theme-surface text-theme-secondary'
                 }`}>
                   {getFileIcon(file)}

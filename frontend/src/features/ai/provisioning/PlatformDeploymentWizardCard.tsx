@@ -619,7 +619,7 @@ const DoneCard: React.FC<{ payload: WizardDonePayload; className: string }> = ({
             <button
               type="button"
               onClick={handleCopyToken}
-              className="px-3 py-1.5 border border-theme rounded bg-theme-info-solid text-white text-xs inline-flex items-center gap-1 hover:opacity-90 transition-opacity"
+              className="px-3 py-1.5 border border-theme rounded bg-theme-info-fg text-white text-xs inline-flex items-center gap-1 hover:opacity-90 transition-opacity"
             >
               {tokenCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               {tokenCopied ? 'Copied' : 'Copy'}

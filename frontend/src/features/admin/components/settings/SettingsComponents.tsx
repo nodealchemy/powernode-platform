@@ -45,7 +45,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
         checked 
           ? getVariantClass()
           : 'bg-theme-surface-secondary border border-theme'
-      } focus:ring-${variant === 'primary' ? 'theme-interactive-primary' : `theme-${variant}`}`}
+      } ${variant === 'success' ? 'focus:ring-theme-success-fg' : variant === 'warning' ? 'focus:ring-theme-warning-fg' : variant === 'error' ? 'focus:ring-theme-error-fg' : 'focus:ring-theme-interactive-primary'}`}
     >
       <span
         className={`inline-block ${sizeClasses.thumb} transform rounded-full bg-theme-background shadow-lg transition-transform duration-200 ease-in-out ${

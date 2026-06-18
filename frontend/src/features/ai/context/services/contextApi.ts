@@ -445,17 +445,17 @@ export const contextApi = {
       case 'preference':
         return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'interaction':
-        return 'bg-theme-violet text-theme-violet';
+        return 'bg-theme-violet/15 text-theme-violet';
       case 'knowledge':
         return 'bg-theme-success-bg text-theme-success-fg';
       case 'skill':
         return 'bg-theme-info-bg text-theme-info-fg';
       case 'relationship':
-        return 'bg-theme-pink text-theme-pink';
+        return 'bg-theme-pink/15 text-theme-pink';
       case 'goal':
-        return 'bg-theme-rose text-theme-rose';
+        return 'bg-theme-rose/15 text-theme-rose';
       case 'constraint':
-        return 'bg-theme-orange text-theme-orange';
+        return 'bg-theme-orange/15 text-theme-orange';
       default:
         return 'bg-theme-surface text-theme-secondary';
     }

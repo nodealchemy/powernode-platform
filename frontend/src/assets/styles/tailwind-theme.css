@@ -160,6 +160,14 @@
   --color-theme-background-elevated: var(--color-background-elevated);
   --color-theme-background-muted: var(--color-background-muted);
   --color-theme-focus: var(--color-border-focus);
+  /* default + light border/divide color (backs border-theme / divide-theme[-light]) */
+  --color-theme: var(--color-border);
+  --color-theme-light: var(--color-border-light);
+  /* entry-type accent colors (AI context knowledge graph) */
+  --color-theme-violet: var(--color-violet-400);
+  --color-theme-pink: var(--color-pink-400);
+  --color-theme-rose: var(--color-rose-400);
+  --color-theme-orange: var(--color-orange-400);
 
   /* Font family */
   --font-sans: 'Inter', ui-sans-serif, system-ui;
