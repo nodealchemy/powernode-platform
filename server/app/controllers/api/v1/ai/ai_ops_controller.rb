@@ -18,7 +18,7 @@ module Api
         include AuditLogging
 
         before_action :validate_permissions
-        before_action :set_time_range, only: [ :dashboard, :providers, :agents, :cost_analysis ]
+        before_action :set_time_range, only: [ :dashboard, :providers, :agents, :cost_analysis, :trends, :latency_aggregate ]
 
         # ==========================================================================
         # DASHBOARD
@@ -145,6 +145,48 @@ module Api
         end
 
         # ==========================================================================
+        # TRENDS & GAP-FILL
+        # ==========================================================================
+
+        # GET /api/v1/ai/aiops/trends
+        # Zero-filled hourly operational trend series (latency, error rate,
+        # throughput, cost) with ISO8601 UTC bucket keys. Capped at 168 buckets.
+        def trends
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
+          render_success({
+            trends: service.aiops_trends(@time_range),
+            time_range: time_range_info
+          })
+        end
+
+        # GET /api/v1/ai/aiops/latency_aggregate
+        # Account-wide aggregate provider latency for the time window.
+        def latency_aggregate
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
+          render_success({
+            latency_aggregate: service.ops_aggregate_latency(@time_range),
+            time_range: time_range_info
+          })
+        end
+
+        # GET /api/v1/ai/aiops/recent_errors
+        # Most recent failed executions (newest first). Fixed 24h window;
+        # ?limit (default 20, capped at 100).
+        def recent_errors
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account, time_range: 24.hours)
+          limit = [ params[:limit].to_i, 100 ].min
+          limit = 20 if limit <= 0
+
+          errors = service.ops_recent_errors(limit: limit)
+
+          render_success({
+            recent_errors: errors,
+            count: errors.length,
+            timestamp: Time.current.iso8601
+          })
+        end
+
+        # ==========================================================================
         # ALERTS
         # ==========================================================================
 
@@ -224,8 +266,9 @@ module Api
 
           case action_name
           when "dashboard", "health", "overview", "providers", "provider_metrics",
-               "provider_comparison", "workflows", "agents", "cost_analysis",
-               "alerts", "circuit_breakers", "real_time"
+               "provider_comparison", "agents", "cost_analysis",
+               "alerts", "circuit_breakers", "real_time",
+               "trends", "latency_aggregate", "recent_errors"
             require_permission("ai.aiops.read")
             nil if performed?
           when "record_metrics"

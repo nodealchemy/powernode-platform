@@ -253,6 +253,143 @@ RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
     end
   end
 
+  describe 'GET /api/v1/ai/aiops/trends' do
+    let(:trends_data) do
+      {
+        time_range_seconds: 86_400,
+        bucket: 'hour',
+        bucket_count: 24,
+        latency: [],
+        error_rate: [],
+        throughput: [],
+        cost: []
+      }
+    end
+
+    before do
+      allow(service).to receive(:aiops_trends).and_return(trends_data)
+    end
+
+    context 'with permission' do
+      it 'returns trend series' do
+        get '/api/v1/ai/aiops/trends',
+            headers: headers
+
+        expect_success_response
+        data = json_response_data
+        expect(data).to have_key('trends')
+        expect(data).to have_key('time_range')
+      end
+
+      it 'accepts time_range parameter' do
+        get '/api/v1/ai/aiops/trends?time_range=7d',
+            headers: headers
+
+        expect_success_response
+      end
+    end
+
+    context 'without permission' do
+      it 'returns forbidden error' do
+        get '/api/v1/ai/aiops/trends',
+            headers: auth_headers_for(regular_user)
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+  end
+
+  describe 'GET /api/v1/ai/aiops/latency_aggregate' do
+    let(:latency_data) do
+      {
+        avg_ms: 120.0,
+        p95_ms: 300.0,
+        p99_ms: 450.0,
+        max_ms: 600.0,
+        sample_provider_count: 2
+      }
+    end
+
+    before do
+      allow(service).to receive(:ops_aggregate_latency).and_return(latency_data)
+    end
+
+    context 'with permission' do
+      it 'returns aggregate latency' do
+        get '/api/v1/ai/aiops/latency_aggregate',
+            headers: headers
+
+        expect_success_response
+        data = json_response_data
+        expect(data).to have_key('latency_aggregate')
+        expect(data).to have_key('time_range')
+      end
+
+      it 'accepts time_range parameter' do
+        get '/api/v1/ai/aiops/latency_aggregate?time_range=6h',
+            headers: headers
+
+        expect_success_response
+      end
+    end
+
+    context 'without permission' do
+      it 'returns forbidden error' do
+        get '/api/v1/ai/aiops/latency_aggregate',
+            headers: auth_headers_for(regular_user)
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+  end
+
+  describe 'GET /api/v1/ai/aiops/recent_errors' do
+    let(:errors_data) do
+      [
+        {
+          execution_id: SecureRandom.uuid,
+          agent_name: 'Test Agent',
+          error: 'Provider timeout occurred',
+          failed_at: Time.current.iso8601
+        }
+      ]
+    end
+
+    before do
+      allow(service).to receive(:ops_recent_errors).and_return(errors_data)
+    end
+
+    context 'with permission' do
+      it 'returns recent errors with a count' do
+        get '/api/v1/ai/aiops/recent_errors',
+            headers: headers
+
+        expect_success_response
+        data = json_response_data
+        expect(data).to have_key('recent_errors')
+        expect(data).to have_key('count')
+        expect(data).to have_key('timestamp')
+      end
+
+      it 'accepts a limit parameter' do
+        get '/api/v1/ai/aiops/recent_errors?limit=5',
+            headers: headers
+
+        expect_success_response
+        expect(service).to have_received(:ops_recent_errors).with(limit: 5)
+      end
+    end
+
+    context 'without permission' do
+      it 'returns forbidden error' do
+        get '/api/v1/ai/aiops/recent_errors',
+            headers: auth_headers_for(regular_user)
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+  end
+
   describe 'GET /api/v1/ai/aiops/alerts' do
     let(:alerts_data) do
       [

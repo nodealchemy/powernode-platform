@@ -3,27 +3,25 @@ import { BaseApiService, QueryFilters } from '@/shared/services/ai/BaseApiServic
 /**
  * AiOpsApiService - Real-Time AI Operations Dashboard API Client
  *
- * Provides access to the AIOps Controller endpoints for comprehensive
- * observability of AI workflows: latency, costs, errors, throughput,
- * and model performance monitoring.
+ * Client for the AIOps controller endpoints that power the operational
+ * observability dashboard: system health, provider/agent metrics, cost
+ * attribution, alerts, circuit breakers, and real-time throughput.
  *
- * Revenue Model: Monitoring tiers + alerting add-ons
- * - Basic monitoring: included in all plans
- * - Advanced analytics: $79/mo
- * - Custom dashboards + API: $199/mo
- * - Business (white-label + embedding): $499/mo
+ * The shapes below mirror the VERIFIED backend contract
+ * (`Ai::Analytics::DashboardService` + `Api::V1::Ai::AiOpsController`).
+ * `BaseApiService.get` unwraps the `{ data: ... }` envelope, so the typed
+ * return values describe the payload AFTER unwrapping.
  *
  * Endpoint structure:
- * - GET /api/v1/ai/aiops/dashboard - Main dashboard
- * - GET /api/v1/ai/aiops/health - System health
- * - GET /api/v1/ai/aiops/overview - Quick overview
- * - GET /api/v1/ai/aiops/providers - Provider metrics
- * - GET /api/v1/ai/aiops/workflows - Workflow metrics
- * - GET /api/v1/ai/aiops/agents - Agent metrics
- * - GET /api/v1/ai/aiops/cost_analysis - Cost analysis
- * - GET /api/v1/ai/aiops/alerts - Active alerts
- * - GET /api/v1/ai/aiops/circuit_breakers - Circuit breaker status
- * - GET /api/v1/ai/aiops/real_time - Real-time metrics
+ * - GET  /api/v1/ai/aiops/dashboard          -> { dashboard, time_range }
+ * - GET  /api/v1/ai/aiops/health             -> { health, timestamp }
+ * - GET  /api/v1/ai/aiops/real_time          -> RealTimeMetrics (unwrapped, no key)
+ * - GET  /api/v1/ai/aiops/trends             -> { trends, time_range }   (additive)
+ * - GET  /api/v1/ai/aiops/latency_aggregate  -> { latency_aggregate, time_range } (additive)
+ * - GET  /api/v1/ai/aiops/recent_errors      -> { recent_errors, count, timestamp } (additive)
+ * - GET  /api/v1/ai/aiops/providers/:id/metrics    -> ProviderDetailMetrics
+ * - GET  /api/v1/ai/aiops/providers/comparison     -> ProviderComparison
+ * - POST /api/v1/ai/aiops/record_metrics     -> { message, timestamp }
  */
 
 // ============================================================================
@@ -34,103 +32,268 @@ export interface AiOpsFilters extends QueryFilters {
   time_range?: '5m' | '15m' | '30m' | '1h' | '6h' | '24h' | '7d';
 }
 
-export interface AiOpsDashboard {
-  summary: {
-    total_requests: number;
-    successful_requests: number;
-    failed_requests: number;
-    success_rate: number;
-    total_cost_usd: number;
-    avg_latency_ms: number;
-    p95_latency_ms: number;
-    active_providers: number;
-    active_agents: number;
+export interface TimeRangeInfo {
+  start: string;
+  end: string;
+  period: string;
+  seconds: number;
+}
+
+// ---- Overview ----------------------------------------------------------------
+
+export interface ExecutionMetrics {
+  total: number;
+  successful: number;
+  failed: number;
+  /** Percentage, 0-100. */
+  success_rate: number;
+}
+
+export interface PerformanceMetrics {
+  avg_execution_duration_ms: number;
+  throughput_per_minute: number;
+}
+
+export interface CostMetrics {
+  total_execution_cost: number;
+  total_tokens: number;
+}
+
+export interface LatencyAggregate {
+  avg_ms: number;
+  p95_ms: number;
+  p99_ms: number;
+  max_ms: number;
+  sample_provider_count: number;
+}
+
+export interface OverviewMetrics {
+  time_range_seconds: number;
+  executions: ExecutionMetrics;
+  performance: PerformanceMetrics;
+  costs: CostMetrics;
+  /** Added by the additive latency stream; absent until the backend lands it. */
+  latency_aggregate?: LatencyAggregate;
+}
+
+// ---- Providers ---------------------------------------------------------------
+
+export interface ProviderMetricValues {
+  request_count: number;
+  success_count: number;
+  failure_count: number;
+  /** Percentage, 0-100. */
+  success_rate: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  total_tokens: number;
+  total_cost_usd: number;
+}
+
+export interface ProviderCircuitBreaker {
+  state: string;
+  consecutive_failures: number;
+}
+
+export interface ProviderMetricRow {
+  provider_id: string;
+  provider_name: string;
+  provider_type: string;
+  is_active: boolean;
+  health_status: string;
+  metrics: ProviderMetricValues;
+  circuit_breaker: ProviderCircuitBreaker;
+  error_breakdown: Record<string, number>;
+}
+
+// ---- Agents ------------------------------------------------------------------
+
+export interface AgentMetricValues {
+  total_executions: number;
+  successful: number;
+  failed: number;
+  /** Percentage, 0-100. */
+  success_rate: number;
+  avg_duration_ms: number;
+  total_tokens: number;
+  /** NOTE: agents report `total_cost`, not `total_cost_usd`. */
+  total_cost: number;
+}
+
+export interface AgentMetricRow {
+  agent_id: string;
+  agent_name: string;
+  agent_type: string;
+  status: string;
+  provider_name: string;
+  metrics: AgentMetricValues;
+  last_execution_at: string | null;
+}
+
+// ---- Cost analysis -----------------------------------------------------------
+
+export interface CostByProvider {
+  provider_id: string;
+  provider_name: string;
+  cost_usd: number;
+}
+
+export interface CostHourlyTrendPoint {
+  hour: string;
+  cost_usd: number;
+}
+
+export interface CostAnalysis {
+  time_range_seconds: number;
+  totals: {
+    agent_cost: number;
+    total_cost: number;
   };
-  trends: {
-    requests_trend: Array<{ timestamp: string; count: number }>;
-    latency_trend: Array<{ timestamp: string; avg_ms: number; p95_ms: number }>;
-    cost_trend: Array<{ timestamp: string; cost_usd: number }>;
-    error_trend: Array<{ timestamp: string; count: number; rate: number }>;
-  };
-  top_providers: Array<{
-    id: string;
-    name: string;
-    requests: number;
-    success_rate: number;
-    avg_latency_ms: number;
-    cost_usd: number;
-  }>;
-  recent_errors: Array<{
-    timestamp: string;
-    source_type: string;
-    source_name: string;
-    error_type: string;
-    message: string;
-  }>;
-  time_range: TimeRangeInfo;
+  by_category: Record<string, number>;
+  by_provider: CostByProvider[];
+  hourly_trend: CostHourlyTrendPoint[];
+  optimization_opportunities: Record<string, unknown>;
+}
+
+// ---- Alerts & circuit breakers ----------------------------------------------
+
+export interface AiOpsAlert {
+  type: string;
+  severity: 'critical' | 'warning' | 'info' | string;
+  provider_id: string;
+  provider_name: string;
+  message: string;
+  detected_at: string;
+}
+
+export interface CircuitBreaker {
+  provider_id: string;
+  provider_name: string;
+  state: string;
+  consecutive_failures: number;
+  last_failure_at: string | null;
+  last_success_at: string | null;
+}
+
+// ---- Real time ---------------------------------------------------------------
+
+export interface RealTimeMetrics {
+  timestamp: string;
+  current_requests_per_second: number;
+  current_avg_latency_ms: number;
+  /** Fraction, 0-1. */
+  current_error_rate: number;
+  active_connections: number;
+  queue_depth: number;
+}
+
+// ---- Health ------------------------------------------------------------------
+
+export interface ComponentHealth {
+  score: number;
+  status: 'healthy' | 'degraded' | 'critical' | string;
+  issues: string[];
 }
 
 export interface SystemHealth {
-  status: 'healthy' | 'degraded' | 'critical';
   overall_score: number;
+  status: 'healthy' | 'degraded' | 'critical' | string;
   components: {
     providers: ComponentHealth;
     agents: ComponentHealth;
     infrastructure: ComponentHealth;
   };
-  alerts_summary: {
-    critical: number;
-    warning: number;
-    info: number;
-  };
-  last_check_at: string;
+  last_incident: string | null;
+  uptime_percentage: number;
 }
 
-export interface ComponentHealth {
-  status: 'healthy' | 'degraded' | 'critical';
-  score: number;
-  active_count: number;
-  error_count: number;
-  issues: string[];
+// ---- Dashboard envelope ------------------------------------------------------
+
+export interface AiOpsDashboard {
+  health: SystemHealth;
+  overview: OverviewMetrics;
+  providers: ProviderMetricRow[];
+  agents: AgentMetricRow[];
+  cost_analysis: CostAnalysis;
+  alerts: AiOpsAlert[];
+  circuit_breakers: CircuitBreaker[];
+  real_time: RealTimeMetrics;
+  generated_at: string;
 }
 
-export interface SystemOverview {
-  active_executions: number;
-  queue_depth: number;
-  throughput_per_minute: number;
-  error_rate: number;
-  avg_response_time_ms: number;
-  provider_availability: number;
+export interface DashboardResponse {
+  dashboard: AiOpsDashboard;
+  time_range: TimeRangeInfo;
+}
+
+export interface HealthResponse {
+  health: SystemHealth;
   timestamp: string;
 }
 
-export interface ProviderMetrics {
-  providers: Array<{
-    id: string;
-    name: string;
-    provider_type: string;
-    status: 'healthy' | 'degraded' | 'unhealthy';
-    metrics: {
-      total_requests: number;
-      successful_requests: number;
-      failed_requests: number;
-      success_rate: number;
-      avg_latency_ms: number;
-      p50_latency_ms: number;
-      p95_latency_ms: number;
-      p99_latency_ms: number;
-      total_tokens: number;
-      total_cost_usd: number;
-      error_rate: number;
-    };
-    circuit_breaker?: {
-      state: 'closed' | 'open' | 'half_open';
-      failure_count: number;
-      last_failure_at?: string;
-    };
-  }>;
+// ---- Trends (additive / optional) -------------------------------------------
+
+export interface TrendLatencyPoint {
+  bucket: string;
+  avg_ms: number;
+  p95_ms: number;
+  p99_ms: number;
+}
+
+export interface TrendErrorRatePoint {
+  bucket: string;
+  /** Fraction, 0-1. */
+  error_rate: number;
+  request_count: number;
+}
+
+export interface TrendThroughputPoint {
+  bucket: string;
+  requests: number;
+  requests_per_minute: number;
+}
+
+export interface TrendCostPoint {
+  bucket: string;
+  cost_usd: number;
+}
+
+export interface AiOpsTrends {
+  time_range_seconds: number;
+  bucket: string;
+  bucket_count: number;
+  latency: TrendLatencyPoint[];
+  error_rate: TrendErrorRatePoint[];
+  throughput: TrendThroughputPoint[];
+  cost: TrendCostPoint[];
+}
+
+export interface TrendsResponse {
+  trends: AiOpsTrends;
   time_range: TimeRangeInfo;
 }
+
+export interface LatencyAggregateResponse {
+  latency_aggregate: LatencyAggregate;
+  time_range: TimeRangeInfo;
+}
+
+// ---- Recent errors (additive / optional) ------------------------------------
+
+export interface RecentError {
+  execution_id: string;
+  agent_name: string;
+  error: string;
+  failed_at: string;
+}
+
+export interface RecentErrorsResponse {
+  recent_errors: RecentError[];
+  count: number;
+  timestamp: string;
+}
+
+// ---- Drill-down endpoints (kept for future provider detail views) -----------
 
 export interface ProviderDetailMetrics {
   provider: {
@@ -172,100 +335,6 @@ export interface ProviderComparison {
   timestamp: string;
 }
 
-export interface AgentMetrics {
-  agents: Array<{
-    id: string;
-    name: string;
-    agent_type: string;
-    total_executions: number;
-    successful_executions: number;
-    failed_executions: number;
-    success_rate: number;
-    avg_duration_ms: number;
-    total_tokens: number;
-    total_cost_usd: number;
-    last_execution_at?: string;
-  }>;
-  time_range: TimeRangeInfo;
-}
-
-export interface CostAnalysisData {
-  total_cost_usd: number;
-  cost_by_provider: Record<string, number>;
-  cost_by_agent: Record<string, number>;
-  daily_costs: Array<{
-    date: string;
-    cost_usd: number;
-  }>;
-  cost_breakdown: {
-    input_tokens: number;
-    output_tokens: number;
-    other: number;
-  };
-  projections: {
-    daily_avg: number;
-    monthly_projected: number;
-    trend: 'increasing' | 'decreasing' | 'stable';
-  };
-  time_range: TimeRangeInfo;
-}
-
-export interface Alert {
-  id: string;
-  severity: 'critical' | 'warning' | 'info';
-  type: string;
-  title: string;
-  message: string;
-  source_type: string;
-  source_id?: string;
-  source_name?: string;
-  created_at: string;
-  acknowledged_at?: string;
-  resolved_at?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface CircuitBreakerStatus {
-  circuit_breakers: Array<{
-    provider_id: string;
-    provider_name: string;
-    state: 'closed' | 'open' | 'half_open';
-    failure_count: number;
-    success_count: number;
-    last_failure_at?: string;
-    last_success_at?: string;
-    open_until?: string;
-    config: {
-      failure_threshold: number;
-      reset_timeout_seconds: number;
-      half_open_max_calls: number;
-    };
-  }>;
-  timestamp: string;
-}
-
-export interface RealTimeMetrics {
-  current_requests_per_second: number;
-  current_error_rate: number;
-  current_avg_latency_ms: number;
-  active_connections: number;
-  queue_depth: number;
-  last_minute: {
-    total_requests: number;
-    successful_requests: number;
-    failed_requests: number;
-    total_cost_usd: number;
-  };
-  timestamp: string;
-}
-
-export interface TimeRangeInfo {
-  start: string;
-  end: string;
-  period: string;
-  seconds: number;
-}
-
 export interface RecordMetricsRequest {
   provider_id: string;
   success: boolean;
@@ -289,50 +358,71 @@ class AiOpsApiService extends BaseApiService {
   private basePath = '/ai/aiops';
 
   // ==========================================================================
-  // Dashboard & Overview
+  // Dashboard, health & real-time (the polled operational surface)
   // ==========================================================================
 
   /**
-   * Get main AIOps dashboard
+   * Get the full AIOps dashboard payload.
    * GET /api/v1/ai/aiops/dashboard
    */
-  async getDashboard(timeRange?: string): Promise<AiOpsDashboard> {
+  async getDashboard(timeRange?: string): Promise<DashboardResponse> {
     const queryString = timeRange ? `?time_range=${timeRange}` : '';
-    return this.get<AiOpsDashboard>(`${this.basePath}/dashboard${queryString}`);
+    return this.get<DashboardResponse>(`${this.basePath}/dashboard${queryString}`);
   }
 
   /**
-   * Get system health status
+   * Get system health snapshot.
    * GET /api/v1/ai/aiops/health
    */
-  async getHealth(): Promise<SystemHealth> {
-    return this.get<SystemHealth>(`${this.basePath}/health`);
+  async getHealth(): Promise<HealthResponse> {
+    return this.get<HealthResponse>(`${this.basePath}/health`);
   }
 
   /**
-   * Get quick system overview
-   * GET /api/v1/ai/aiops/overview
+   * Get real-time metrics (returned unwrapped, NOT under a key).
+   * GET /api/v1/ai/aiops/real_time
    */
-  async getOverview(timeRange?: number): Promise<SystemOverview> {
-    const queryString = timeRange ? `?time_range=${timeRange}` : '';
-    return this.get<SystemOverview>(`${this.basePath}/overview${queryString}`);
+  async getRealTimeMetrics(): Promise<RealTimeMetrics> {
+    return this.get<RealTimeMetrics>(`${this.basePath}/real_time`);
   }
 
   // ==========================================================================
-  // Provider Metrics
+  // Additive endpoints (optional — may not exist on older backends)
   // ==========================================================================
 
   /**
-   * Get all provider metrics
-   * GET /api/v1/ai/aiops/providers
+   * Get hourly trend buckets (latency / error_rate / throughput / cost).
+   * GET /api/v1/ai/aiops/trends
    */
-  async getProviderMetrics(timeRange?: string): Promise<ProviderMetrics> {
+  async getTrends(timeRange?: string): Promise<TrendsResponse> {
     const queryString = timeRange ? `?time_range=${timeRange}` : '';
-    return this.get<ProviderMetrics>(`${this.basePath}/providers${queryString}`);
+    return this.get<TrendsResponse>(`${this.basePath}/trends${queryString}`);
   }
 
   /**
-   * Get single provider metrics
+   * Get aggregate latency percentiles across providers.
+   * GET /api/v1/ai/aiops/latency_aggregate
+   */
+  async getLatencyAggregate(timeRange?: string): Promise<LatencyAggregateResponse> {
+    const queryString = timeRange ? `?time_range=${timeRange}` : '';
+    return this.get<LatencyAggregateResponse>(`${this.basePath}/latency_aggregate${queryString}`);
+  }
+
+  /**
+   * Get recent execution failures.
+   * GET /api/v1/ai/aiops/recent_errors
+   */
+  async getRecentErrors(limit?: number): Promise<RecentErrorsResponse> {
+    const queryString = limit ? `?limit=${limit}` : '';
+    return this.get<RecentErrorsResponse>(`${this.basePath}/recent_errors${queryString}`);
+  }
+
+  // ==========================================================================
+  // Drill-down (provider detail) — kept for future detail surfaces
+  // ==========================================================================
+
+  /**
+   * Get single provider time-series metrics.
    * GET /api/v1/ai/aiops/providers/:id/metrics
    */
   async getProviderDetailMetrics(providerId: string, timeRange?: number): Promise<ProviderDetailMetrics> {
@@ -341,7 +431,7 @@ class AiOpsApiService extends BaseApiService {
   }
 
   /**
-   * Get provider comparison
+   * Get provider comparison.
    * GET /api/v1/ai/aiops/providers/comparison
    */
   async getProviderComparison(timeRange?: number): Promise<ProviderComparison> {
@@ -350,65 +440,11 @@ class AiOpsApiService extends BaseApiService {
   }
 
   // ==========================================================================
-  // Workflow & Agent Metrics
+  // Metric ingestion (for workers)
   // ==========================================================================
 
   /**
-   * Get agent metrics
-   * GET /api/v1/ai/aiops/agents
-   */
-  async getAgentMetrics(timeRange?: string): Promise<AgentMetrics> {
-    const queryString = timeRange ? `?time_range=${timeRange}` : '';
-    return this.get<AgentMetrics>(`${this.basePath}/agents${queryString}`);
-  }
-
-  // ==========================================================================
-  // Cost Analysis
-  // ==========================================================================
-
-  /**
-   * Get cost analysis
-   * GET /api/v1/ai/aiops/cost_analysis
-   */
-  async getCostAnalysis(timeRange?: string): Promise<CostAnalysisData> {
-    const queryString = timeRange ? `?time_range=${timeRange}` : '';
-    return this.get<CostAnalysisData>(`${this.basePath}/cost_analysis${queryString}`);
-  }
-
-  // ==========================================================================
-  // Alerts & Circuit Breakers
-  // ==========================================================================
-
-  /**
-   * Get active alerts
-   * GET /api/v1/ai/aiops/alerts
-   */
-  async getAlerts(): Promise<{ alerts: Alert[]; count: number; timestamp: string }> {
-    return this.get<{ alerts: Alert[]; count: number; timestamp: string }>(`${this.basePath}/alerts`);
-  }
-
-  /**
-   * Get circuit breaker status
-   * GET /api/v1/ai/aiops/circuit_breakers
-   */
-  async getCircuitBreakers(): Promise<CircuitBreakerStatus> {
-    return this.get<CircuitBreakerStatus>(`${this.basePath}/circuit_breakers`);
-  }
-
-  // ==========================================================================
-  // Real-Time Metrics
-  // ==========================================================================
-
-  /**
-   * Get real-time metrics
-   * GET /api/v1/ai/aiops/real_time
-   */
-  async getRealTimeMetrics(): Promise<RealTimeMetrics> {
-    return this.get<RealTimeMetrics>(`${this.basePath}/real_time`);
-  }
-
-  /**
-   * Record execution metrics (for workers)
+   * Record execution metrics.
    * POST /api/v1/ai/aiops/record_metrics
    */
   async recordMetrics(request: RecordMetricsRequest): Promise<{ message: string; timestamp: string }> {

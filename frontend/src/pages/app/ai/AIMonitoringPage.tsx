@@ -43,6 +43,7 @@ import { SelfHealingContent } from '@/features/ai/self-healing/SelfHealingDashbo
 import { EvaluationContent } from '@/features/ai/evaluation/pages/EvaluationDashboardPage';
 import { AiBillingContent } from '@/pages/app/ai/AiBillingPage';
 import { AiOpsContent } from '@/features/ai/aiops/components/AiOpsDashboard';
+import { ReliabilitySection, CostSection } from '@/features/ai/aiops';
 
 export const AIMonitoringPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -517,7 +518,7 @@ export const AIMonitoringPage: React.FC = () => {
             <EvaluationContent />
           </TabPanel>
 
-          <TabPanel tabId="alerts" activeTab={activeTab}>
+          <TabPanel tabId="alerts" activeTab={activeTab} className="space-y-6">
             <AlertManagementCenter
               alerts={alerts}
               isLoading={isLoading}
@@ -551,10 +552,14 @@ export const AIMonitoringPage: React.FC = () => {
                 await refreshAllData();
               }}
             />
+            {/* AIOps provider reliability: circuit breakers + recent errors (self-fetching) */}
+            <ReliabilitySection />
           </TabPanel>
 
-          <TabPanel tabId="credits" activeTab={activeTab}>
+          <TabPanel tabId="credits" activeTab={activeTab} className="space-y-6">
             <AiBillingContent />
+            {/* AIOps cost analysis: spend KPIs + spend-over-time + by-provider (self-fetching) */}
+            <CostSection />
           </TabPanel>
         </TabContainer>
       </div>

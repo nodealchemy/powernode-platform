@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AIMonitoringPage } from './AIMonitoringPage';
 import { monitoringApi } from '@/shared/services/ai/MonitoringApiService';
 
@@ -344,12 +345,18 @@ describe('AIMonitoringPage', () => {
   });
 
   const renderComponent = () => {
+    // AiOpsContent + the mounted AiOps sections self-fetch via react-query, so the
+    // page now needs a QueryClient. Unmocked aiops endpoints degrade to the sections'
+    // own inline loading/error states (retry disabled) without crashing the page.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
-      <Provider store={store}>
-        <BrowserRouter>
-          <AIMonitoringPage />
-        </BrowserRouter>
-      </Provider>
+      <QueryClientProvider client={queryClient}>
+        <Provider store={store}>
+          <BrowserRouter>
+            <AIMonitoringPage />
+          </BrowserRouter>
+        </Provider>
+      </QueryClientProvider>
     );
   };
 
