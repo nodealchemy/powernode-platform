@@ -137,17 +137,17 @@ class AgentsApiService extends BaseApiService {
    * Test agent configuration
    * POST /api/v1/ai/agents/:id/test
    */
-  async testAgent(id: string, testInput?: Record<string, any>): Promise<any> {
-    return this.performAction<any>(this.resource, id, 'test', { test_input: testInput });
+  async testAgent(id: string, testInput?: Record<string, unknown>): Promise<unknown> {
+    return this.performAction<unknown>(this.resource, id, 'test', { test_input: testInput });
   }
 
   /**
    * Validate agent configuration
    * GET /api/v1/ai/agents/:id/validate
    */
-  async validateAgent(id: string): Promise<any> {
+  async validateAgent(id: string): Promise<unknown> {
     const path = this.buildPath(this.resource, id, undefined, undefined, 'validate');
-    return this.get<any>(path);
+    return this.get<unknown>(path);
   }
 
   /**
@@ -228,9 +228,9 @@ class AgentsApiService extends BaseApiService {
    * Get agent statistics (account-wide)
    * GET /api/v1/ai/agents/statistics
    */
-  async getStatistics(): Promise<any> {
+  async getStatistics(): Promise<unknown> {
     const path = this.buildPath(this.resource);
-    return this.get<any>(`${path}/statistics`);
+    return this.get<unknown>(`${path}/statistics`);
   }
 
   // ===================================================================
@@ -321,9 +321,9 @@ class AgentsApiService extends BaseApiService {
    * Get agent execution logs
    * GET /api/v1/ai/agents/:agent_id/executions/:id/logs
    */
-  async getExecutionLogs(agentId: string, executionId: string): Promise<any[]> {
+  async getExecutionLogs(agentId: string, executionId: string): Promise<unknown[]> {
     const path = this.buildPath(this.resource, agentId, 'executions', executionId, 'logs');
-    return this.get<any[]>(path);
+    return this.get<unknown[]>(path);
   }
 
   // ===================================================================
@@ -358,7 +358,7 @@ class AgentsApiService extends BaseApiService {
    */
   async createConversation(
     agentId: string,
-    data: { title?: string; metadata?: Record<string, any> }
+    data: { title?: string; metadata?: Record<string, unknown> }
   ): Promise<AiConversation> {
     return this.createNested<AiConversation>(this.resource, agentId, 'conversations', {
       conversation: data,
@@ -371,7 +371,7 @@ class AgentsApiService extends BaseApiService {
    */
   async startConversation(
     agentId: string,
-    data?: { title?: string; metadata?: Record<string, any> }
+    data?: { title?: string; metadata?: Record<string, unknown> }
   ): Promise<AiConversation> {
     return this.createConversation(agentId, data || {});
   }
@@ -521,9 +521,9 @@ class AgentsApiService extends BaseApiService {
    * Export conversation
    * GET /api/v1/ai/agents/:agent_id/conversations/:id/export
    */
-  async exportConversation(agentId: string, conversationId: string): Promise<any> {
+  async exportConversation(agentId: string, conversationId: string): Promise<{ download_url?: string }> {
     const path = this.buildPath(this.resource, agentId, 'conversations', conversationId, 'export');
-    return this.get<any>(path);
+    return this.get<{ download_url?: string }>(path);
   }
 
   // ===================================================================
