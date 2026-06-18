@@ -282,6 +282,12 @@ export interface TimeRangeInfo {
 class RoiApiService extends BaseApiService {
   private basePath = '/ai/roi';
 
+  // Metrics, projections, recommendations, comparison, and metric (re)calculation
+  // are served by RoiCalculationsController under the `roi/calculations` backend
+  // scope (see server/config/routes.rb). They are NOT under the base `roi` scope,
+  // so they must use this path — otherwise the requests 404.
+  private calculationsPath = '/ai/roi/calculations';
+
   // ==========================================================================
   // Dashboard & Summary
   // ==========================================================================
@@ -379,19 +385,19 @@ class RoiApiService extends BaseApiService {
 
   /**
    * Get ROI metrics list
-   * GET /api/v1/ai/roi/metrics
+   * GET /api/v1/ai/roi/calculations/metrics
    */
   async getMetrics(filters?: MetricFilters): Promise<PaginatedResponse<RoiMetric>> {
     const queryString = this.buildQueryString(filters);
-    return this.get<PaginatedResponse<RoiMetric>>(`${this.basePath}/metrics${queryString}`);
+    return this.get<PaginatedResponse<RoiMetric>>(`${this.calculationsPath}/metrics${queryString}`);
   }
 
   /**
    * Get single ROI metric
-   * GET /api/v1/ai/roi/metrics/:id
+   * GET /api/v1/ai/roi/calculations/metrics/:id
    */
   async getMetric(id: string): Promise<RoiMetric> {
-    return this.get<RoiMetric>(`${this.basePath}/metrics/${id}`);
+    return this.get<RoiMetric>(`${this.calculationsPath}/metrics/${id}`);
   }
 
   // ==========================================================================
@@ -400,20 +406,20 @@ class RoiApiService extends BaseApiService {
 
   /**
    * Get ROI projections
-   * GET /api/v1/ai/roi/projections
+   * GET /api/v1/ai/roi/calculations/projections
    */
   async getProjections(period?: number): Promise<RoiProjections> {
     const queryString = period ? `?period=${period}` : '';
-    return this.get<RoiProjections>(`${this.basePath}/projections${queryString}`);
+    return this.get<RoiProjections>(`${this.calculationsPath}/projections${queryString}`);
   }
 
   /**
    * Get optimization recommendations
-   * GET /api/v1/ai/roi/recommendations
+   * GET /api/v1/ai/roi/calculations/recommendations
    */
   async getRecommendations(period?: number): Promise<RoiRecommendation[]> {
     const queryString = period ? `?period=${period}` : '';
-    return this.get<RoiRecommendation[]>(`${this.basePath}/recommendations${queryString}`);
+    return this.get<RoiRecommendation[]>(`${this.calculationsPath}/recommendations${queryString}`);
   }
 
   // ==========================================================================
@@ -422,14 +428,14 @@ class RoiApiService extends BaseApiService {
 
   /**
    * Compare periods
-   * GET /api/v1/ai/roi/compare
+   * GET /api/v1/ai/roi/calculations/compare
    */
   async compare(currentPeriod?: number, previousPeriod?: number): Promise<PeriodComparison> {
     const params: string[] = [];
     if (currentPeriod) params.push(`current_period=${currentPeriod}`);
     if (previousPeriod) params.push(`previous_period=${previousPeriod}`);
     const queryString = params.length ? `?${params.join('&')}` : '';
-    return this.get<PeriodComparison>(`${this.basePath}/compare${queryString}`);
+    return this.get<PeriodComparison>(`${this.calculationsPath}/compare${queryString}`);
   }
 
   // ==========================================================================
@@ -438,7 +444,7 @@ class RoiApiService extends BaseApiService {
 
   /**
    * Calculate ROI metrics for a date or date range
-   * POST /api/v1/ai/roi/calculate
+   * POST /api/v1/ai/roi/calculations/calculate
    */
   async calculate(params: { date?: string; start_date?: string; end_date?: string }): Promise<{
     metric?: RoiMetric;
@@ -449,12 +455,12 @@ class RoiApiService extends BaseApiService {
       metric?: RoiMetric;
       metrics_calculated?: number;
       message: string;
-    }>(`${this.basePath}/calculate`, params);
+    }>(`${this.calculationsPath}/calculate`, params);
   }
 
   /**
    * Aggregate ROI metrics
-   * POST /api/v1/ai/roi/aggregate
+   * POST /api/v1/ai/roi/calculations/aggregate
    */
   async aggregate(periodType?: string, periodDate?: string): Promise<{
     aggregation: Record<string, unknown> | null;
@@ -463,7 +469,7 @@ class RoiApiService extends BaseApiService {
     return this.post<{
       aggregation: Record<string, unknown> | null;
       message: string;
-    }>(`${this.basePath}/aggregate`, {
+    }>(`${this.calculationsPath}/aggregate`, {
       period_type: periodType,
       period_date: periodDate
     });
