@@ -7,9 +7,12 @@ module Ai
         extend ActiveSupport::Concern
 
         def aiops_dashboard(ops_time_range: 1.hour)
+          overview = system_overview(ops_time_range)
+          overview[:latency_aggregate] = ops_aggregate_latency(ops_time_range)
+
           {
             health: system_health,
-            overview: system_overview(ops_time_range),
+            overview: overview,
             providers: ops_provider_metrics(ops_time_range),
             agents: ops_agent_metrics(ops_time_range),
             cost_analysis: ops_cost_analysis(ops_time_range),
@@ -277,7 +280,177 @@ module Ai
           )
         end
 
+        # Aggregate provider latency across the account for a time window.
+        # Single aggregate query over Ai::ProviderMetric (all granularities).
+        # @param ops_time_range [ActiveSupport::Duration]
+        # @return [Hash] { avg_ms:, p95_ms:, p99_ms:, max_ms:, sample_provider_count: }
+        def ops_aggregate_latency(ops_time_range = 1.hour)
+          metrics = ::Ai::ProviderMetric.for_account(account).recent(ops_time_range)
+
+          avg, p95, p99, max, sample = metrics.pluck(
+            Arel.sql("AVG(avg_latency_ms)"),
+            Arel.sql("MAX(p95_latency_ms)"),
+            Arel.sql("MAX(p99_latency_ms)"),
+            Arel.sql("MAX(max_latency_ms)"),
+            Arel.sql("COUNT(DISTINCT provider_id) FILTER (WHERE request_count > 0)")
+          ).first
+
+          {
+            avg_ms: avg.to_f.round(2),
+            p95_ms: p95.to_f.round(2),
+            p99_ms: p99.to_f.round(2),
+            max_ms: max.to_f.round(2),
+            sample_provider_count: sample.to_i
+          }
+        end
+
+        # Hourly operational trend series (latency, error rate, throughput, cost).
+        # Every series is zero-filled to the full ascending UTC hourly bucket list,
+        # so callers can chart without handling sparse/missing buckets. Bucket keys
+        # are ISO8601 UTC strings truncated to the hour. Capped at 168 buckets (7d).
+        #
+        # Latency / error / throughput source from Ai::ProviderMetric.hourly_metrics
+        # (the only place with real p95/p99). When the account has no hourly provider
+        # metrics in range, it falls back to a grouped query over the account-scoped
+        # agent executions (documented degradation: p95_ms == p99_ms == avg_ms). Cost
+        # always comes from the account-scoped executions for consistency.
+        #
+        # @param ops_time_range [ActiveSupport::Duration]
+        # @return [Hash]
+        def aiops_trends(ops_time_range = 24.hours)
+          buckets = ops_hourly_bucket_times(ops_time_range)
+          keys = buckets.map(&:iso8601)
+          start_time = buckets.first
+
+          metric_buckets = ops_trend_metric_buckets(start_time)
+          cost_buckets = ops_trend_cost_buckets(start_time)
+
+          {
+            time_range_seconds: ops_time_range.to_i,
+            bucket: "hour",
+            bucket_count: keys.length,
+            latency: keys.map do |k|
+              data = metric_buckets[k]
+              {
+                bucket: k,
+                avg_ms: data ? data[:avg_ms] : 0.0,
+                p95_ms: data ? data[:p95_ms] : 0.0,
+                p99_ms: data ? data[:p99_ms] : 0.0
+              }
+            end,
+            error_rate: keys.map do |k|
+              data = metric_buckets[k]
+              requests = data ? data[:request_count] : 0
+              failures = data ? data[:failure_count] : 0
+              {
+                bucket: k,
+                error_rate: requests.positive? ? (failures.to_f / requests).round(4) : 0.0,
+                request_count: requests
+              }
+            end,
+            throughput: keys.map do |k|
+              data = metric_buckets[k]
+              requests = data ? data[:request_count] : 0
+              {
+                bucket: k,
+                requests: requests,
+                requests_per_minute: requests / 60.0
+              }
+            end,
+            cost: keys.map do |k|
+              { bucket: k, cost_usd: (cost_buckets[k] || 0.0).round(4) }
+            end
+          }
+        end
+
+        # Recent failed executions for the account, newest first.
+        # Reuses TrendsAndHighlights#recent_failures over the service's time_range.
+        # @param limit [Integer]
+        # @return [Array<Hash>] [{ execution_id:, agent_name:, error:, failed_at: }]
+        def ops_recent_errors(limit: 20)
+          recent_failures(@time_range.ago, limit: limit)
+        end
+
         private
+
+        # Canonical ascending (oldest -> newest) list of UTC hourly bucket Times,
+        # ending at the current hour. Length capped at 168 (7d), floored at 1.
+        def ops_hourly_bucket_times(ops_time_range)
+          bucket_count = (ops_time_range / 1.hour).to_i
+          bucket_count = 168 if bucket_count > 168
+          bucket_count = 1 if bucket_count < 1
+
+          current_hour = Time.current.utc.change(min: 0, sec: 0, usec: 0)
+          (0...bucket_count).map { |i| current_hour - (bucket_count - 1 - i).hours }
+        end
+
+        # Normalize a grouped DATE_TRUNC('hour', ...) key (Time or String) to the
+        # canonical UTC hour ISO8601 string. DATE_TRUNC preserves the stored UTC
+        # wall-clock digits, so reconstruct the bucket from those digits as UTC
+        # regardless of the adapter's local-offset decoding.
+        def ops_hour_bucket_key(value)
+          time = value.is_a?(String) ? Time.parse(value) : value
+          Time.utc(time.year, time.month, time.day, time.hour).iso8601
+        end
+
+        # Per-hour latency/error/throughput buckets keyed by canonical UTC ISO key.
+        # Primary source: hourly provider metrics. Fallback: account-scoped agent
+        # executions (p95 == p99 == avg degradation).
+        def ops_trend_metric_buckets(start_time)
+          bucket_expr = Arel.sql("DATE_TRUNC('hour', recorded_at)")
+          hourly = ::Ai::ProviderMetric.for_account(account)
+                                       .hourly_metrics
+                                       .where("recorded_at >= ?", start_time)
+
+          if hourly.exists?
+            hourly.group(bucket_expr).pluck(
+              bucket_expr,
+              Arel.sql("AVG(avg_latency_ms)"),
+              Arel.sql("MAX(p95_latency_ms)"),
+              Arel.sql("MAX(p99_latency_ms)"),
+              Arel.sql("SUM(request_count)"),
+              Arel.sql("SUM(failure_count)")
+            ).each_with_object({}) do |(bucket, avg, p95, p99, requests, failures), result|
+              result[ops_hour_bucket_key(bucket)] = {
+                avg_ms: avg.to_f.round(2),
+                p95_ms: p95.to_f.round(2),
+                p99_ms: p99.to_f.round(2),
+                request_count: requests.to_i,
+                failure_count: failures.to_i
+              }
+            end
+          else
+            exec_bucket_expr = Arel.sql("DATE_TRUNC('hour', ai_agent_executions.created_at)")
+            agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
+                            .group(exec_bucket_expr).pluck(
+                              exec_bucket_expr,
+                              Arel.sql("AVG(ai_agent_executions.duration_ms) FILTER (WHERE ai_agent_executions.status = 'completed')"),
+                              Arel.sql("COUNT(*)"),
+                              Arel.sql("COUNT(*) FILTER (WHERE ai_agent_executions.status = 'failed')")
+                            ).each_with_object({}) do |(bucket, avg, requests, failures), result|
+              avg_ms = avg.to_f.round(2)
+              result[ops_hour_bucket_key(bucket)] = {
+                avg_ms: avg_ms,
+                p95_ms: avg_ms,
+                p99_ms: avg_ms,
+                request_count: requests.to_i,
+                failure_count: failures.to_i
+              }
+            end
+          end
+        end
+
+        # Per-hour cost buckets (USD) keyed by canonical UTC ISO key, sourced from
+        # the account-scoped agent executions (consistent with ops_hourly_cost_trend).
+        def ops_trend_cost_buckets(start_time)
+          bucket_expr = Arel.sql("DATE_TRUNC('hour', ai_agent_executions.created_at)")
+          agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
+                          .group(bucket_expr)
+                          .sum(:cost_usd)
+                          .each_with_object({}) do |(bucket, cost), result|
+            result[ops_hour_bucket_key(bucket)] = cost.to_f
+          end
+        end
 
         def calculate_providers_health
           providers = account.ai_providers.where(is_active: true)

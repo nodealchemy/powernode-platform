@@ -2420,6 +2420,11 @@ Rails.application.routes.draw do
           # Cost analysis
           get "cost_analysis", action: :cost_analysis
 
+          # Trends and gap-fill endpoints
+          get "trends", action: :trends
+          get "latency_aggregate", action: :latency_aggregate
+          get "recent_errors", action: :recent_errors
+
           # Alerts and circuit breakers
           get "alerts", action: :alerts
           get "circuit_breakers", action: :circuit_breakers

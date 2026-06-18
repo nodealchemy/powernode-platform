@@ -303,6 +303,203 @@ RSpec.describe Ai::Analytics::DashboardService do
 
       expect(result[:overview][:time_range_seconds]).to eq(24.hours.to_i)
     end
+
+    it "folds latency_aggregate into the overview" do
+      result = service.aiops_dashboard
+
+      expect(result[:overview]).to have_key(:latency_aggregate)
+      expect(result[:overview][:latency_aggregate].keys).to contain_exactly(
+        :avg_ms, :p95_ms, :p99_ms, :max_ms, :sample_provider_count
+      )
+    end
+  end
+
+  # =========================================================================
+  # #ops_aggregate_latency
+  # =========================================================================
+  describe "#ops_aggregate_latency" do
+    context "with metrics across multiple providers" do
+      let!(:provider_a) { create(:ai_provider, account: account) }
+      let!(:provider_b) { create(:ai_provider, account: account) }
+
+      before do
+        create(:ai_provider_metric,
+               provider: provider_a, account: account, recorded_at: 5.minutes.ago,
+               request_count: 5, success_count: 5, failure_count: 0,
+               avg_latency_ms: 100, p95_latency_ms: 200, p99_latency_ms: 300, max_latency_ms: 400)
+        create(:ai_provider_metric,
+               provider: provider_b, account: account, recorded_at: 5.minutes.ago,
+               request_count: 5, success_count: 5, failure_count: 0,
+               avg_latency_ms: 300, p95_latency_ms: 500, p99_latency_ms: 700, max_latency_ms: 900)
+      end
+
+      it "aggregates avg/p95/p99/max and counts sampled providers" do
+        result = service.ops_aggregate_latency(1.hour)
+
+        expect(result[:avg_ms]).to eq(200.0)
+        expect(result[:p95_ms]).to eq(500.0)
+        expect(result[:p99_ms]).to eq(700.0)
+        expect(result[:max_ms]).to eq(900.0)
+        expect(result[:sample_provider_count]).to eq(2)
+      end
+    end
+
+    context "with no metrics" do
+      it "returns all zeros and a zero sample count" do
+        result = service.ops_aggregate_latency
+
+        expect(result).to eq(
+          avg_ms: 0.0, p95_ms: 0.0, p99_ms: 0.0, max_ms: 0.0, sample_provider_count: 0
+        )
+      end
+    end
+  end
+
+  # =========================================================================
+  # #aiops_trends
+  # =========================================================================
+  describe "#aiops_trends" do
+    it "returns the expected envelope keys" do
+      result = service.aiops_trends(6.hours)
+
+      expect(result).to include(
+        :time_range_seconds, :bucket, :bucket_count,
+        :latency, :error_rate, :throughput, :cost
+      )
+      expect(result[:bucket]).to eq("hour")
+      expect(result[:time_range_seconds]).to eq(6.hours.to_i)
+    end
+
+    it "zero-fills every series to bucket_count == requested hours" do
+      result = service.aiops_trends(6.hours)
+
+      expect(result[:bucket_count]).to eq(6)
+      expect(result[:latency].size).to eq(6)
+      expect(result[:error_rate].size).to eq(6)
+      expect(result[:throughput].size).to eq(6)
+      expect(result[:cost].size).to eq(6)
+    end
+
+    it "uses ascending ISO8601 UTC bucket keys" do
+      result = service.aiops_trends(6.hours)
+      keys = result[:latency].map { |b| b[:bucket] }
+
+      expect(keys).to eq(keys.sort)
+      expect(keys).to all(end_with("Z"))
+      expect { Time.iso8601(keys.first) }.not_to raise_error
+      # Same bucket keys are shared across all series.
+      expect(result[:error_rate].map { |b| b[:bucket] }).to eq(keys)
+      expect(result[:throughput].map { |b| b[:bucket] }).to eq(keys)
+      expect(result[:cost].map { |b| b[:bucket] }).to eq(keys)
+    end
+
+    it "caps bucket_count at 168 for ranges beyond 7 days" do
+      result = service.aiops_trends(30.days)
+
+      expect(result[:bucket_count]).to eq(168)
+      expect(result[:latency].size).to eq(168)
+      expect(result[:error_rate].size).to eq(168)
+      expect(result[:throughput].size).to eq(168)
+      expect(result[:cost].size).to eq(168)
+    end
+
+    context "with hourly provider metrics (primary source)" do
+      before do
+        create(:ai_provider_metric, :hourly,
+               provider: provider, account: account,
+               recorded_at: Time.current.utc.beginning_of_hour,
+               request_count: 10, success_count: 9, failure_count: 1,
+               avg_latency_ms: 200, p95_latency_ms: 400, p99_latency_ms: 480)
+      end
+
+      it "sources latency p95/p99 from provider metrics" do
+        result = service.aiops_trends(2.hours)
+        current = result[:latency].last
+
+        expect(current[:avg_ms]).to eq(200.0)
+        expect(current[:p95_ms]).to eq(400.0)
+        expect(current[:p99_ms]).to eq(480.0)
+      end
+
+      it "computes error_rate as a 0.0-1.0 fraction per bucket" do
+        result = service.aiops_trends(2.hours)
+        current = result[:error_rate].last
+
+        expect(current[:request_count]).to eq(10)
+        expect(current[:error_rate]).to eq(0.1)
+      end
+
+      it "computes requests_per_minute as requests / 60.0" do
+        result = service.aiops_trends(2.hours)
+        current = result[:throughput].last
+
+        expect(current[:requests]).to eq(10)
+        expect(current[:requests_per_minute]).to eq(10 / 60.0)
+      end
+    end
+
+    context "with only agent executions (no hourly provider metrics)" do
+      let(:agent) { create(:ai_agent, account: account, provider: provider) }
+
+      before do
+        create(:ai_agent_execution, :completed,
+               agent: agent, account: account, provider: provider,
+               created_at: Time.current, duration_ms: 300)
+      end
+
+      it "falls back to executions with p95_ms == p99_ms == avg_ms" do
+        result = service.aiops_trends(2.hours)
+        current = result[:latency].last
+
+        expect(current[:avg_ms]).to be > 0
+        expect(current[:p95_ms]).to eq(current[:avg_ms])
+        expect(current[:p99_ms]).to eq(current[:avg_ms])
+      end
+    end
+  end
+
+  # =========================================================================
+  # #ops_recent_errors
+  # =========================================================================
+  describe "#ops_recent_errors" do
+    let(:svc) { described_class.new(account: account, time_range: 24.hours) }
+    let(:agent) { create(:ai_agent, account: account, provider: provider) }
+
+    context "with failures" do
+      let!(:older) do
+        create(:ai_agent_execution, :failed, agent: agent, account: account,
+               provider: provider, created_at: 3.hours.ago)
+      end
+      let!(:newer) do
+        create(:ai_agent_execution, :failed, agent: agent, account: account,
+               provider: provider, created_at: 1.hour.ago)
+      end
+
+      it "returns failures newest-first" do
+        result = svc.ops_recent_errors
+
+        expect(result.map { |e| e[:execution_id] }).to eq([ newer.id, older.id ])
+      end
+
+      it "respects the limit" do
+        result = svc.ops_recent_errors(limit: 1)
+
+        expect(result.length).to eq(1)
+        expect(result.first[:execution_id]).to eq(newer.id)
+      end
+
+      it "returns entries with the expected fields" do
+        result = svc.ops_recent_errors
+
+        expect(result.first).to include(:execution_id, :agent_name, :error, :failed_at)
+      end
+    end
+
+    context "with no failures" do
+      it "returns an empty array" do
+        expect(svc.ops_recent_errors).to eq([])
+      end
+    end
   end
 
   # =========================================================================
