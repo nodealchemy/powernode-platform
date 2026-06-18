@@ -7,7 +7,7 @@ export interface FormValidationRule {
   maxLength?: number;
   pattern?: RegExp;
    
-  custom?: (value: any) => string | null;
+  custom?: (value: unknown) => string | null;
 }
 
 export interface FormValidationRules {
@@ -16,7 +16,7 @@ export interface FormValidationRules {
 
 export interface FormField {
    
-  value: any;
+  value: unknown;
   error?: string;
   touched?: boolean;
 }
@@ -45,7 +45,7 @@ export interface UseFormReturn<T> {
   
   // Field methods
    
-  setValue: (field: keyof T, value: any) => void;
+  setValue: (field: keyof T, value: unknown) => void;
   setError: (field: keyof T, error: string) => void;
   clearError: (field: keyof T) => void;
   setTouched: (field: keyof T, touched?: boolean) => void;
@@ -62,7 +62,7 @@ export interface UseFormReturn<T> {
   getFieldProps: (field: keyof T) => {
     name: string;
      
-    value: any;
+    value: string | number | readonly string[];
     onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
     onBlur: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
     error?: string;
@@ -72,7 +72,7 @@ export interface UseFormReturn<T> {
 }
 
  
-export function useForm<T extends Record<string, any>>(
+export function useForm<T extends object>(
   options: UseFormOptions<T>
 ): UseFormReturn<T> {
   const { addNotification } = useNotifications();
@@ -198,7 +198,7 @@ export function useForm<T extends Record<string, any>>(
   // Set field value
   const setValue = useCallback(
      
-    (field: keyof T, value: any) => {
+    (field: keyof T, value: unknown) => {
       setFormState(prev => {
         // For real-time validation, we need to validate with the new value
         let error = prev[field as string]?.error;
@@ -386,7 +386,7 @@ export function useForm<T extends Record<string, any>>(
       const fieldState = formState[field as string];
       return {
         name: String(field),
-        value: fieldState?.value || '',
+        value: (fieldState?.value || '') as string | number | readonly string[],
         onChange: handleChange,
         onBlur: handleBlur,
         error: (fieldState?.touched || submitAttempted) ? fieldState?.error : undefined,
