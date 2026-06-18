@@ -147,10 +147,10 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
 
   const getRiskColor = (level: string) => {
     switch (level) {
-      case 'critical': return 'text-theme-status-error bg-theme-status-error-background border-theme-status-error';
-      case 'high': return 'text-theme-status-warning bg-theme-status-warning-background border-theme-status-warning';
-      case 'medium': return 'text-theme-status-warning bg-theme-status-warning-background border-theme-status-warning';
-      case 'low': return 'text-theme-status-success bg-theme-status-success-background border-theme-status-success';
+      case 'critical': return 'text-theme-status-error bg-theme-error-bg border-theme-status-error';
+      case 'high': return 'text-theme-status-warning bg-theme-warning-bg border-theme-status-warning';
+      case 'medium': return 'text-theme-status-warning bg-theme-warning-bg border-theme-status-warning';
+      case 'low': return 'text-theme-status-success bg-theme-success-bg border-theme-status-success';
       default: return 'text-theme-secondary bg-theme-surface border-theme';
     }
   };
@@ -293,7 +293,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Risk Mitigation Recommendations</h3>
         
         <div className="space-y-4">
-          <div className="flex items-start gap-3 p-4 bg-theme-status-error-background rounded-lg border border-theme-status-error">
+          <div className="flex items-start gap-3 p-4 bg-theme-error-bg rounded-lg border border-theme-status-error">
             <AlertTriangle className="w-5 h-5 text-theme-status-error mt-0.5" />
             <div>
               <div className="font-medium text-theme-status-error">Critical: Account Compromise Detection</div>
@@ -306,7 +306,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
             </div>
           </div>
           
-          <div className="flex items-start gap-3 p-4 bg-theme-status-warning-background rounded-lg border border-theme-status-warning">
+          <div className="flex items-start gap-3 p-4 bg-theme-warning-bg rounded-lg border border-theme-status-warning">
             <Shield className="w-5 h-5 text-theme-status-warning mt-0.5" />
             <div>
               <div className="font-medium text-theme-status-warning">High: Privilege Escalation Monitoring</div>
@@ -319,7 +319,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
             </div>
           </div>
           
-          <div className="flex items-start gap-3 p-4 bg-theme-status-warning-background rounded-lg border border-theme-status-warning">
+          <div className="flex items-start gap-3 p-4 bg-theme-warning-bg rounded-lg border border-theme-status-warning">
             <Eye className="w-5 h-5 text-theme-status-warning mt-0.5" />
             <div>
               <div className="font-medium text-theme-status-warning">Medium: Enhanced Monitoring</div>

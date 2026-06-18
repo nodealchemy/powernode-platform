@@ -32,7 +32,7 @@ interface SbomDiffViewerProps {
 const severityStyles: Record<Severity, string> = {
   critical: 'bg-theme-error-bg text-white',
   high: 'bg-theme-error-fg/80 text-white',
-  medium: 'bg-theme-warning-bg text-theme-on-warning',
+  medium: 'bg-theme-warning-bg text-theme-warning-fg',
   low: 'bg-theme-info-bg text-white',
 };
 

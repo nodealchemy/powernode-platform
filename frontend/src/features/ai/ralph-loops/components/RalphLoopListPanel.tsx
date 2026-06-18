@@ -169,7 +169,7 @@ export const RalphLoopListPanel: React.FC<RalphLoopListPanelProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search loops..."
-              className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-accent"
+              className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
             />
           </div>
         </div>
@@ -223,7 +223,7 @@ export const RalphLoopListPanel: React.FC<RalphLoopListPanelProps> = ({
           filteredLoops.map((loop, idx) => (
             <div
               key={loop.id}
-              className={focusIndex === idx ? 'ring-1 ring-inset ring-theme-accent/50' : ''}
+              className={focusIndex === idx ? 'ring-1 ring-inset ring-theme-interactive-primary/50' : ''}
             >
               <RalphLoopListItem
                 loop={loop}

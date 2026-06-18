@@ -216,7 +216,7 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
                 className={`h-2.5 w-2.5 shrink-0 fill-current ${getHealthStatusColor(dataSource.health_status)}`}
                 aria-label={`Health: ${dataSource.health_status}`}
               />
-              <h3 className="font-semibold text-theme-text-primary">
+              <h3 className="font-semibold text-theme-primary">
                 <EntityLink type="data_source" id={dataSource.id} label={dataSource.name} />
               </h3>
               {!dataSource.is_active && (
@@ -259,7 +259,7 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
       {/* Capabilities */}
       {(dataSource.capabilities ?? []).length > 0 && (
         <div className="mb-4">
-          <p className="text-xs font-medium text-theme-text-tertiary mb-2">CAPABILITIES</p>
+          <p className="text-xs font-medium text-theme-tertiary mb-2">CAPABILITIES</p>
           <div className="flex flex-wrap gap-1">
             {(dataSource.capabilities ?? []).slice(0, 4).map((capability) => (
               <Badge key={capability} variant="outline" size="xs">
@@ -278,20 +278,20 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
       {/* Stats Grid */}
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="text-center">
-          <p className="text-lg font-semibold text-theme-text-primary">{dataSource.credential_count ?? 0}</p>
-          <p className="text-xs text-theme-text-tertiary">Credentials</p>
+          <p className="text-lg font-semibold text-theme-primary">{dataSource.credential_count ?? 0}</p>
+          <p className="text-xs text-theme-tertiary">Credentials</p>
         </div>
 
         <div className="text-center">
-          <p className="text-lg font-semibold text-theme-text-primary">#{dataSource.priority_order ?? 0}</p>
-          <p className="text-xs text-theme-text-tertiary">Priority</p>
+          <p className="text-lg font-semibold text-theme-primary">#{dataSource.priority_order ?? 0}</p>
+          <p className="text-xs text-theme-tertiary">Priority</p>
         </div>
 
         <div className="text-center">
-          <p className="text-lg font-semibold text-theme-text-primary">
+          <p className="text-lg font-semibold text-theme-primary">
             {dataSource.requires_auth ? 'Yes' : 'No'}
           </p>
-          <p className="text-xs text-theme-text-tertiary">Auth Required</p>
+          <p className="text-xs text-theme-tertiary">Auth Required</p>
         </div>
       </div>
 
@@ -299,8 +299,8 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
       {maxUtilization !== null && maxUtilization > 0 && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs text-theme-text-tertiary">Quota Usage</p>
-            <p className="text-xs text-theme-text-tertiary">{Math.round(maxUtilization)}%</p>
+            <p className="text-xs text-theme-tertiary">Quota Usage</p>
+            <p className="text-xs text-theme-tertiary">{Math.round(maxUtilization)}%</p>
           </div>
           <div className="w-full bg-theme-surface-secondary rounded-full h-2">
             <div

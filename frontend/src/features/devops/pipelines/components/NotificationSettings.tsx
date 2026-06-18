@@ -140,7 +140,7 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
             {recipients.map((recipient, index) => (
               <div
                 key={`${recipient.type}-${recipient.value}`}
-                className="flex items-center justify-between bg-theme-surface-elevated rounded-lg px-3 py-2 border border-theme"
+                className="flex items-center justify-between bg-theme-background-elevated rounded-lg px-3 py-2 border border-theme"
               >
                 <div className="flex items-center gap-2">
                   {recipient.type === 'user_id' ? (

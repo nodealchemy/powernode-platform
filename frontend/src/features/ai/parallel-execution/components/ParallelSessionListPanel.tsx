@@ -120,7 +120,7 @@ export const ParallelSessionListPanel: React.FC<ParallelSessionListPanelProps> =
               placeholder="Search branches..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setFocusIndex(-1); }}
-              className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-background-secondary rounded border border-theme text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-accent"
+              className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-background-secondary rounded border border-theme text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
             />
           </div>
         </div>

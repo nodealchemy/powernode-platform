@@ -192,7 +192,7 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search agents..."
-            className="w-full pl-7 pr-2 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+            className="w-full pl-7 pr-2 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
           />
         </div>
       </div>
@@ -201,12 +201,12 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 text-theme-text-tertiary animate-spin" />
+            <Loader2 className="h-5 w-5 text-theme-tertiary animate-spin" />
           </div>
         ) : totalFiltered === 0 ? (
           <div className="text-center py-6 px-4">
-            <MessageSquare className="h-8 w-8 text-theme-text-tertiary mx-auto mb-2" />
-            <p className="text-xs text-theme-text-tertiary">
+            <MessageSquare className="h-8 w-8 text-theme-tertiary mx-auto mb-2" />
+            <p className="text-xs text-theme-tertiary">
               {search.trim() ? 'No matching agents' : 'No agents available'}
             </p>
           </div>
@@ -216,8 +216,8 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
             {groupedAgents.aiAgents.length > 0 && (
               <div>
                 <div className="px-4 py-1.5 flex items-center gap-1.5">
-                  <Sparkles className="h-3 w-3 text-theme-text-tertiary" />
-                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                  <Sparkles className="h-3 w-3 text-theme-tertiary" />
+                  <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                     AI Agents
                   </span>
                 </div>
@@ -232,8 +232,8 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
               <div>
                 {groupedAgents.aiAgents.length > 0 && <div className="border-t border-theme" />}
                 <div className="px-4 py-1.5 flex items-center gap-1.5">
-                  <Terminal className="h-3 w-3 text-theme-text-tertiary" />
-                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                  <Terminal className="h-3 w-3 text-theme-tertiary" />
+                  <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                     MCP Clients
                   </span>
                 </div>
@@ -250,7 +250,7 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
                   <div className="border-t border-theme" />
                 )}
                 <div className="px-4 py-1.5">
-                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                  <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                     Other
                   </span>
                 </div>

@@ -111,7 +111,7 @@ export const ImageRepoCreateModal: React.FC<ImageRepoCreateModalProps> = ({
         />
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-theme-text-primary">Variant Type</label>
+          <label className="text-sm font-medium text-theme-primary">Variant Type</label>
           <Select
             value={variantType}
             onChange={(value) => setVariantType(value as CreateImageRepoRequest['variant_type'])}
@@ -129,7 +129,7 @@ export const ImageRepoCreateModal: React.FC<ImageRepoCreateModalProps> = ({
 
         {variantType !== 'base' && (
           <div className="space-y-2">
-            <label className="text-sm font-medium text-theme-text-primary">
+            <label className="text-sm font-medium text-theme-primary">
               <GitBranch className="w-4 h-4 inline mr-1" />
               Parent Base Image
             </label>

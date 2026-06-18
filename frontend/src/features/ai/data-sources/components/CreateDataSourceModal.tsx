@@ -275,7 +275,7 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
               type="checkbox"
               checked={formData.requires_auth}
               onChange={(e) => handleInputChange('requires_auth', e.target.checked)}
-              className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg"
+              className="rounded border-theme text-theme-info-fg focus:ring-theme-info-fg"
             />
             <span className="text-sm text-theme-secondary">Requires Authentication</span>
           </label>
@@ -293,7 +293,7 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
               type="checkbox"
               checked={formData.respect_robots}
               onChange={(e) => handleInputChange('respect_robots', e.target.checked)}
-              className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg"
+              className="rounded border-theme text-theme-info-fg focus:ring-theme-info-fg"
             />
             <span className="text-sm text-theme-secondary">Respect robots.txt</span>
           </label>

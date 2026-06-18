@@ -109,7 +109,7 @@ function FileDiff({ file, defaultExpanded = true }: FileDiffProps) {
     <div className="border border-theme rounded-lg overflow-hidden mb-4">
       {/* File header */}
       <div
-        className="flex items-center justify-between px-4 py-3 bg-theme-surface-secondary cursor-pointer hover:bg-theme-surface-tertiary"
+        className="flex items-center justify-between px-4 py-3 bg-theme-surface-secondary cursor-pointer hover:bg-theme-background-tertiary"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3">

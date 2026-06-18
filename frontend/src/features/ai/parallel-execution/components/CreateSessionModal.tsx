@@ -74,7 +74,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
     >
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Repository Path *
           </label>
           <Input
@@ -85,7 +85,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Base Branch
           </label>
           <Input
@@ -96,7 +96,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Merge Strategy
           </label>
           <Select
@@ -110,7 +110,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Execution Mode
           </label>
           <Select
@@ -126,7 +126,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Max Parallel
           </label>
           <Input
@@ -139,7 +139,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Container Template ID (optional)
           </label>
           <Input
@@ -153,7 +153,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Timeout (seconds, optional)
           </label>
           <Input
@@ -166,7 +166,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Branch Suffixes (comma-separated) *
           </label>
           <Input

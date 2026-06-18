@@ -390,8 +390,8 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium text-theme-primary">Latest Backup</h4>
               <span className={`px-2 py-1 rounded text-xs font-medium ${
-                latestBackup.status === 'completed' ? 'bg-theme-success-background text-theme-success-fg' :
-                latestBackup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning-fg' :
+                latestBackup.status === 'completed' ? 'bg-theme-success-bg text-theme-success-fg' :
+                latestBackup.status === 'in_progress' ? 'bg-theme-warning-bg text-theme-warning-fg' :
                 'bg-theme-error-bg text-theme-error-fg'
               }`}>
                 {latestBackup.status}
@@ -450,8 +450,8 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-theme-primary">{backup.filename}</span>
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        backup.status === 'completed' ? 'bg-theme-success-background text-theme-success-fg' :
-                        backup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning-fg' :
+                        backup.status === 'completed' ? 'bg-theme-success-bg text-theme-success-fg' :
+                        backup.status === 'in_progress' ? 'bg-theme-warning-bg text-theme-warning-fg' :
                         'bg-theme-error-bg text-theme-error-fg'
                       }`}>
                         {backup.status}

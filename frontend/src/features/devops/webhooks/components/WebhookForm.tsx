@@ -308,7 +308,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
             </div>
 
             {form.values.event_types.length > 0 && (
-              <div className="mt-4 p-3 bg-theme-success-background rounded-lg">
+              <div className="mt-4 p-3 bg-theme-success-bg rounded-lg">
                 <p className="text-sm text-theme-success-fg">
                   <CheckCircle className="w-4 h-4 inline mr-2" />
                   {form.values.event_types.length} event type{form.values.event_types.length !== 1 ? 's' : ''} selected

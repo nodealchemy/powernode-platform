@@ -13,7 +13,7 @@ interface Props {
 }
 
 const severityColors: Record<string, string> = {
-  low: 'bg-theme-surface-bg text-theme-secondary',
+  low: 'bg-theme-surface text-theme-secondary',
   medium: 'bg-theme-warning-bg text-theme-warning-fg',
   high: 'bg-theme-error-bg text-theme-error-fg',
   critical: 'bg-theme-danger-fg/20 text-theme-danger-fg',
@@ -24,7 +24,7 @@ const statusColors: Record<string, string> = {
   in_progress: 'bg-theme-info-bg text-theme-info-fg',
   case_added: 'bg-theme-info-fg/10 text-theme-info-fg',
   verified: 'bg-theme-success-bg text-theme-success-fg',
-  closed: 'bg-theme-surface-bg text-theme-secondary',
+  closed: 'bg-theme-surface text-theme-secondary',
 };
 
 export const HarnessGapTracker: React.FC<Props> = ({
@@ -124,7 +124,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="text-xs bg-theme-surface-bg text-theme-primary border border-theme rounded px-2 py-1"
+          className="text-xs bg-theme-surface text-theme-primary border border-theme rounded px-2 py-1"
         >
           <option value="all">All Statuses</option>
           <option value="open">Open</option>
@@ -136,7 +136,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
         <select
           value={filterSeverity}
           onChange={(e) => setFilterSeverity(e.target.value)}
-          className="text-xs bg-theme-surface-bg text-theme-primary border border-theme rounded px-2 py-1"
+          className="text-xs bg-theme-surface text-theme-primary border border-theme rounded px-2 py-1"
         >
           <option value="all">All Severities</option>
           <option value="critical">Critical</option>
@@ -205,16 +205,16 @@ export const HarnessGapTracker: React.FC<Props> = ({
 
                     {/* Detail Grid */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <div className="bg-theme-surface-bg rounded p-2">
+                      <div className="bg-theme-surface rounded p-2">
                         <div className="text-[10px] text-theme-secondary">Source</div>
                         <div className="text-xs text-theme-primary capitalize">{gap.incident_source.replace(/_/g, ' ')}</div>
                       </div>
-                      <div className="bg-theme-surface-bg rounded p-2">
+                      <div className="bg-theme-surface rounded p-2">
                         <div className="text-[10px] text-theme-secondary">Created</div>
                         <div className="text-xs text-theme-primary">{new Date(gap.created_at).toLocaleDateString()}</div>
                       </div>
                       {gap.sla_deadline && (
-                        <div className={`rounded p-2 ${sla?.overdue ? 'bg-theme-error-bg' : 'bg-theme-surface-bg'}`}>
+                        <div className={`rounded p-2 ${sla?.overdue ? 'bg-theme-error-bg' : 'bg-theme-surface'}`}>
                           <div className="text-[10px] text-theme-secondary">SLA Deadline</div>
                           <div className={`text-xs ${sla?.overdue ? 'text-theme-error-fg font-medium' : 'text-theme-primary'}`}>
                             {new Date(gap.sla_deadline).toLocaleString()}
@@ -243,7 +243,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                     {gap.resolution_notes && (
                       <div>
                         <h5 className="text-xs font-semibold text-theme-secondary uppercase tracking-wider mb-1">Resolution</h5>
-                        <p className="text-sm text-theme-primary bg-theme-surface-bg rounded p-2">{gap.resolution_notes}</p>
+                        <p className="text-sm text-theme-primary bg-theme-surface rounded p-2">{gap.resolution_notes}</p>
                       </div>
                     )}
 
@@ -271,7 +271,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                               value={testRefInput}
                               onChange={(e) => setTestRefInput(e.target.value)}
                               placeholder="spec/features/example_spec.rb:42"
-                              className="flex-1 px-2 py-1 bg-theme-surface-bg rounded border border-theme text-xs text-theme-primary font-mono focus:outline-none focus:ring-1 focus:ring-theme-accent"
+                              className="flex-1 px-2 py-1 bg-theme-surface rounded border border-theme text-xs text-theme-primary font-mono focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
                               onClick={(e) => e.stopPropagation()}
                             />
                             <button
@@ -292,7 +292,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                               value={closeNotesInput}
                               onChange={(e) => setCloseNotesInput(e.target.value)}
                               placeholder="Resolution notes (optional)"
-                              className="flex-1 px-2 py-1 bg-theme-surface-bg rounded border border-theme text-xs text-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-accent"
+                              className="flex-1 px-2 py-1 bg-theme-surface rounded border border-theme text-xs text-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
                               onClick={(e) => e.stopPropagation()}
                             />
                             <button

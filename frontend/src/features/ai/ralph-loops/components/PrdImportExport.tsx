@@ -28,7 +28,7 @@ export const PrdImportExport: React.FC<PrdImportExportProps> = ({
   return (
     <div className={cn('space-y-4', className)}>
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-theme-text-primary">PRD JSON Editor</h3>
+        <h3 className="font-medium text-theme-primary">PRD JSON Editor</h3>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onCancel}>
             Cancel

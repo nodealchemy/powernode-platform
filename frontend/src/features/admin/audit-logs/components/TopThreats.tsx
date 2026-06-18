@@ -92,9 +92,9 @@ export const TopThreats: React.FC<TopThreatsProps> = ({ timeRange }) => {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'text-theme-error-fg bg-theme-error-bg border-theme-error-border';
-      case 'high': return 'text-theme-warning-fg bg-theme-warning-background border-theme-warning-border';
-      case 'medium': return 'text-theme-warning-fg bg-theme-warning-background border-theme-warning-border';
-      case 'low': return 'text-theme-success-fg bg-theme-success-background border-theme-success-border';
+      case 'high': return 'text-theme-warning-fg bg-theme-warning-bg border-theme-warning-border';
+      case 'medium': return 'text-theme-warning-fg bg-theme-warning-bg border-theme-warning-border';
+      case 'low': return 'text-theme-success-fg bg-theme-success-bg border-theme-success-border';
       default: return 'text-theme-secondary bg-theme-background-secondary border-theme';
     }
   };

@@ -38,8 +38,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       outline: iconOnly ? 'text-theme-interactive-primary hover:bg-theme-surface-hover' : 'btn-theme-outline',
       ghost: iconOnly ? 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover' : 'btn-theme-ghost',
       danger: iconOnly ? 'text-theme-error-fg hover:bg-theme-error-bg' : 'btn-theme-danger',
-      success: iconOnly ? 'text-theme-success-fg hover:bg-theme-success-background' : 'btn-theme-success',
-      warning: iconOnly ? 'text-theme-warning-fg hover:bg-theme-warning-background' : 'btn-theme-warning'
+      success: iconOnly ? 'text-theme-success-fg hover:bg-theme-success-bg' : 'btn-theme-success',
+      warning: iconOnly ? 'text-theme-warning-fg hover:bg-theme-warning-bg' : 'btn-theme-warning'
     };
     
     // Theme size classes

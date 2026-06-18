@@ -378,7 +378,7 @@ describe('ApiKeyDetailsModal', () => {
       render(<ApiKeyDetailsModal {...defaultProps} />);
 
       const successBadge = screen.getByText('200');
-      expect(successBadge).toHaveClass('bg-theme-success-background');
+      expect(successBadge).toHaveClass('bg-theme-success-bg');
     });
 
     it('applies warning style for 3xx status', () => {
@@ -391,7 +391,7 @@ describe('ApiKeyDetailsModal', () => {
       render(<ApiKeyDetailsModal {...defaultProps} apiKey={keyWith300} />);
 
       const warningBadge = screen.getByText('301');
-      expect(warningBadge).toHaveClass('bg-theme-warning-background');
+      expect(warningBadge).toHaveClass('bg-theme-warning-bg');
     });
 
     it('applies error style for 4xx status', () => {

@@ -177,8 +177,8 @@ export const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
                         <td className="py-2 text-sm text-theme-secondary">{usage.method}</td>
                         <td className="py-2">
                           <span className={`text-xs px-2 py-1 rounded ${
-                            usage.status_code < 300 ? 'bg-theme-success-background text-theme-success-fg' :
-                            usage.status_code < 400 ? 'bg-theme-warning-background text-theme-warning-fg' :
+                            usage.status_code < 300 ? 'bg-theme-success-bg text-theme-success-fg' :
+                            usage.status_code < 400 ? 'bg-theme-warning-bg text-theme-warning-fg' :
                             'bg-theme-error-bg text-theme-error-fg'
                           }`}>
                             {usage.status_code}

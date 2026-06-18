@@ -35,7 +35,7 @@ export const RalphTaskFiltersBar: React.FC<RalphTaskFiltersBarProps> = ({
 }) => {
   return (
     <div className="flex items-center justify-between">
-      <h3 className="font-medium text-theme-text-primary">Tasks</h3>
+      <h3 className="font-medium text-theme-primary">Tasks</h3>
       <div className="flex items-center gap-2">
         <Select
           value={statusFilter}

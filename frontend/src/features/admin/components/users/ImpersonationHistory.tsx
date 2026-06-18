@@ -65,9 +65,9 @@ export const ImpersonationHistory: React.FC = () => {
 
   const getStatusColor = (session: ImpersonationSession): string => {
     if (session.active && !session.expired) {
-      return 'bg-theme-success-background text-theme-success-fg';
+      return 'bg-theme-success-bg text-theme-success-fg';
     } else if (session.expired) {
-      return 'bg-theme-warning-background text-theme-warning-fg';
+      return 'bg-theme-warning-bg text-theme-warning-fg';
     } else {
       return 'bg-theme-error-bg text-theme-error-fg';
     }

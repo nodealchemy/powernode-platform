@@ -25,13 +25,13 @@ export const PerformanceMetricsCard: React.FC<PerformanceMetricsCardProps> = ({
   const statusConfig = {
     good: {
       border: 'border-theme-success-border',
-      background: 'bg-theme-success-background',
+      background: 'bg-theme-success-bg',
       text: 'text-theme-success-fg',
       iconBg: 'bg-theme-success-bg'
     },
     warning: {
       border: 'border-theme-warning-border',
-      background: 'bg-theme-warning-background', 
+      background: 'bg-theme-warning-bg', 
       text: 'text-theme-warning-fg',
       iconBg: 'bg-theme-warning-bg'
     },

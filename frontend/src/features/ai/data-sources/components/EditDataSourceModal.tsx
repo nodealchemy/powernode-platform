@@ -322,11 +322,11 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
 
         <div className="flex items-center gap-6">
           <label className="flex items-center space-x-2">
-            <input type="checkbox" checked={formData.requires_auth} onChange={(e) => handleInputChange('requires_auth', e.target.checked)} className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg" />
+            <input type="checkbox" checked={formData.requires_auth} onChange={(e) => handleInputChange('requires_auth', e.target.checked)} className="rounded border-theme text-theme-info-fg focus:ring-theme-info-fg" />
             <span className="text-sm text-theme-secondary">Requires Authentication</span>
           </label>
           <label className="flex items-center space-x-2">
-            <input type="checkbox" checked={formData.is_active} onChange={(e) => handleInputChange('is_active', e.target.checked)} className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg" />
+            <input type="checkbox" checked={formData.is_active} onChange={(e) => handleInputChange('is_active', e.target.checked)} className="rounded border-theme text-theme-info-fg focus:ring-theme-info-fg" />
             <span className="text-sm text-theme-secondary">Active</span>
           </label>
         </div>
@@ -338,7 +338,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
               type="checkbox"
               checked={formData.respect_robots}
               onChange={(e) => handleInputChange('respect_robots', e.target.checked)}
-              className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg"
+              className="rounded border-theme text-theme-info-fg focus:ring-theme-info-fg"
             />
             <span className="text-sm text-theme-secondary">Respect robots.txt</span>
           </label>

@@ -232,7 +232,7 @@ export const TwoFactorSettings: React.FC = () => {
             Are you sure you want to disable two-factor authentication? This will make your account less secure.
           </p>
           
-          <div className="p-3 bg-theme-warning-background border border-theme-warning-border rounded-md">
+          <div className="p-3 bg-theme-warning-bg border border-theme-warning-border rounded-md">
             <p className="text-theme-warning-fg text-sm">
               <strong>Warning:</strong> Disabling 2FA will remove the additional security layer from your account.
             </p>
@@ -292,7 +292,7 @@ export const TwoFactorSettings: React.FC = () => {
             </button>
           </div>
 
-          <div className="p-3 bg-theme-warning-background border border-theme-warning-border rounded-md">
+          <div className="p-3 bg-theme-warning-bg border border-theme-warning-border rounded-md">
             <p className="text-theme-warning-fg text-xs">
               <strong>Important:</strong> Store these codes in a safe place. If you regenerate codes, the old ones will no longer work.
             </p>

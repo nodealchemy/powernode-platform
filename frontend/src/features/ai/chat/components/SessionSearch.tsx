@@ -147,7 +147,7 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
           value={workspaceName}
           onChange={(e) => setWorkspaceName(e.target.value)}
           placeholder="My Workspace"
-          className="w-full px-2 py-1.5 text-sm bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+          className="w-full px-2 py-1.5 text-sm bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
           maxLength={100}
         />
       </div>
@@ -174,7 +174,7 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search agents..."
-            className="w-full pl-7 pr-2 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+            className="w-full pl-7 pr-2 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
           />
         </div>
       </div>
@@ -182,7 +182,7 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 text-theme-text-tertiary animate-spin" />
+            <Loader2 className="h-5 w-5 text-theme-tertiary animate-spin" />
           </div>
         ) : (
           <>
@@ -190,8 +190,8 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
             {filteredSessions.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 flex items-center gap-1.5">
-                  <Terminal className="h-3 w-3 text-theme-text-tertiary" />
-                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                  <Terminal className="h-3 w-3 text-theme-tertiary" />
+                  <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                     Active MCP Sessions
                   </span>
                 </div>
@@ -242,15 +242,15 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             {session.oauth_application && (
-                              <span className="text-[10px] text-theme-text-tertiary">
+                              <span className="text-[10px] text-theme-tertiary">
                                 {session.oauth_application.name}
                               </span>
                             )}
-                            <span className="text-[10px] text-theme-text-tertiary">
+                            <span className="text-[10px] text-theme-tertiary">
                               {session.user.name}
                             </span>
                           </div>
-                          <span className="text-[10px] text-theme-text-tertiary">
+                          <span className="text-[10px] text-theme-tertiary">
                             {formatTimestamp(session.last_activity_at || session.created_at)}
                           </span>
                         </div>
@@ -265,18 +265,18 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
             <div>
               {filteredSessions.length > 0 && <div className="border-t border-theme" />}
               <div className="px-3 py-1.5 flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3 text-theme-text-tertiary" />
-                <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                <Sparkles className="h-3 w-3 text-theme-tertiary" />
+                <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                   AI Agents
                 </span>
               </div>
               <div className="px-3 space-y-1.5 pb-2">
                 {loadingAgents ? (
                   <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-4 w-4 text-theme-text-tertiary animate-spin" />
+                    <Loader2 className="h-4 w-4 text-theme-tertiary animate-spin" />
                   </div>
                 ) : aiAgents.length === 0 ? (
-                  <p className="text-xs text-theme-text-tertiary py-2">
+                  <p className="text-xs text-theme-tertiary py-2">
                     {search.trim() ? 'No matching agents' : 'No AI agents available'}
                   </p>
                 ) : (
@@ -335,8 +335,8 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
             {/* Empty state when both lists are empty */}
             {filteredSessions.length === 0 && aiAgents.length === 0 && !loadingAgents && !loadingSessions && (
               <div className="text-center py-6 px-3">
-                <Users className="h-8 w-8 text-theme-text-tertiary mx-auto mb-2" />
-                <p className="text-xs text-theme-text-tertiary">
+                <Users className="h-8 w-8 text-theme-tertiary mx-auto mb-2" />
+                <p className="text-xs text-theme-tertiary">
                   {search.trim() ? 'No matching agents found.' : 'No agents available.'}
                 </p>
               </div>

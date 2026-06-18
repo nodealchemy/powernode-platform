@@ -348,7 +348,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               const kb = knowledgeBases.find(k => k.id === e.target.value);
               setSelectedKb(kb || null);
             }}
-            className="flex-1 max-w-md px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+            className="flex-1 max-w-md px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
           >
             {knowledgeBases.map(kb => (
               <option key={kb.id} value={kb.id}>
@@ -530,7 +530,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                         onChange={(e) => setQueryText(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
                         placeholder="Enter your query..."
-                        className="flex-1 px-4 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                        className="flex-1 px-4 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
                       />
                       <button
                         onClick={handleQuery}
@@ -692,7 +692,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               value={newKbName}
               onChange={(e) => setNewKbName(e.target.value)}
               placeholder="Knowledge base name"
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
           </div>
           <div>
@@ -702,7 +702,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               onChange={(e) => setNewKbDescription(e.target.value)}
               placeholder="Optional description"
               rows={3}
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
           </div>
         </div>
@@ -730,7 +730,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               value={newDocName}
               onChange={(e) => setNewDocName(e.target.value)}
               placeholder="Document name"
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
           </div>
           <div>
@@ -740,7 +740,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               onChange={(e) => setNewDocContent(e.target.value)}
               placeholder="Enter or paste document content..."
               rows={10}
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent font-mono text-sm"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary font-mono text-sm"
             />
           </div>
         </div>
@@ -768,7 +768,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               value={newConnectorName}
               onChange={(e) => setNewConnectorName(e.target.value)}
               placeholder="Connector name"
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
           </div>
           <div>
@@ -776,7 +776,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
             <select
               value={newConnectorType}
               onChange={(e) => setNewConnectorType(e.target.value)}
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             >
               <option value="notion">Notion</option>
               <option value="confluence">Confluence</option>
@@ -794,7 +794,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
             <select
               value={newConnectorFrequency}
               onChange={(e) => setNewConnectorFrequency(e.target.value)}
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             >
               <option value="manual">Manual</option>
               <option value="hourly">Hourly</option>

@@ -87,7 +87,7 @@ export const RalphPrdEditor: React.FC<RalphPrdEditorProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <h3 className="font-medium text-theme-text-primary">PRD Tasks</h3>
+          <h3 className="font-medium text-theme-primary">PRD Tasks</h3>
           <Badge variant="secondary" size="sm">
             {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
           </Badge>

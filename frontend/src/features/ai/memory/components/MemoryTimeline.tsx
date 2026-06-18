@@ -314,7 +314,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                                 </div>
 
                                 {isShowingRaw || isStructured ? (
-                                  <pre className="text-sm text-theme-secondary bg-theme-surface-dark rounded-lg p-3 overflow-x-auto max-h-96 overflow-y-auto">
+                                  <pre className="text-sm text-theme-secondary bg-theme-background-tertiary rounded-lg p-3 overflow-x-auto max-h-96 overflow-y-auto">
                                     <code>{entryText}</code>
                                   </pre>
                                 ) : (

@@ -15,8 +15,8 @@ const getHealthColor = (status: string) => {
 
 const getHealthBgColor = (status: string) => {
   switch (status) {
-    case 'healthy': return 'bg-theme-success-background';
-    case 'warning': return 'bg-theme-warning-background';
+    case 'healthy': return 'bg-theme-success-bg';
+    case 'warning': return 'bg-theme-warning-bg';
     case 'critical': return 'bg-theme-error-bg';
     default: return 'bg-theme-surface';
   }
@@ -88,7 +88,7 @@ export const MaintenanceOverviewTab: React.FC<MaintenanceOverviewTabProps> = ({
             </div>
           </div>
           {maintenanceStatus.mode && (
-            <span className="px-3 py-1 rounded-full bg-theme-warning-background text-theme-warning-fg text-sm font-medium">
+            <span className="px-3 py-1 rounded-full bg-theme-warning-bg text-theme-warning-fg text-sm font-medium">
               Maintenance Mode Active
             </span>
           )}
@@ -408,8 +408,8 @@ const RecentBackupsSection: React.FC<RecentBackupsSectionProps> = ({ backups, on
               </div>
             </div>
             <span className={`px-2 py-1 rounded text-xs font-medium ${
-              backup.status === 'completed' ? 'bg-theme-success-background text-theme-success-fg' :
-              backup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning-fg' :
+              backup.status === 'completed' ? 'bg-theme-success-bg text-theme-success-fg' :
+              backup.status === 'in_progress' ? 'bg-theme-warning-bg text-theme-warning-fg' :
               'bg-theme-error-bg text-theme-error-fg'
             }`}>
               {backup.status}
@@ -461,7 +461,7 @@ const ActiveSchedulesSection: React.FC<ActiveSchedulesSectionProps> = ({ schedul
                 {schedule.frequency} • Next: {new Date(schedule.next_run).toLocaleString()}
               </p>
             </div>
-            <span className="px-2 py-1 rounded text-xs font-medium bg-theme-success-background text-theme-success-fg">
+            <span className="px-2 py-1 rounded text-xs font-medium bg-theme-success-bg text-theme-success-fg">
               Active
             </span>
           </div>

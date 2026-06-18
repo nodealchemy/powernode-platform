@@ -290,7 +290,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
             />
             {showA2aJson && a2aJson && (
               <CardContent>
-                <pre className="bg-theme-surface-dark p-4 rounded-lg text-xs overflow-x-auto max-h-96">
+                <pre className="bg-theme-background-tertiary p-4 rounded-lg text-xs overflow-x-auto max-h-96">
                   <code className="text-theme-primary">
                     {JSON.stringify(a2aJson, null, 2)}
                   </code>

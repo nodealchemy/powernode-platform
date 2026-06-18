@@ -64,7 +64,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({
         className="w-full resize-none bg-theme-background border border-theme-interactive-primary rounded-md px-2.5 py-1.5 text-sm text-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary disabled:opacity-50"
       />
       <div className="flex items-center gap-1.5 justify-end">
-        <span className="text-[10px] text-theme-text-tertiary mr-auto">
+        <span className="text-[10px] text-theme-tertiary mr-auto">
           Ctrl+Enter to save, Esc to cancel
         </span>
         <Button

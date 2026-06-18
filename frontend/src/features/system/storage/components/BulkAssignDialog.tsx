@@ -68,7 +68,7 @@ export const BulkAssignDialog: React.FC<Props> = ({ storageId, providerType, onC
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-theme-overlay">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-theme-surface rounded-lg p-6 w-full max-w-2xl space-y-4">
         <h3 className="text-theme-primary text-lg font-semibold">Assign to instances</h3>
 
@@ -141,7 +141,7 @@ export const BulkAssignDialog: React.FC<Props> = ({ storageId, providerType, onC
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 rounded-md bg-theme-surface-muted text-theme-primary text-sm"
+            className="px-3 py-1.5 rounded-md bg-theme-background-muted text-theme-primary text-sm"
             disabled={submitting}
           >
             Cancel
@@ -150,7 +150,7 @@ export const BulkAssignDialog: React.FC<Props> = ({ storageId, providerType, onC
             type="button"
             onClick={handleSubmit}
             disabled={submitting || parsedIds.length === 0}
-            className="px-3 py-1.5 rounded-md bg-theme-accent text-theme-on-accent text-sm disabled:opacity-50"
+            className="px-3 py-1.5 rounded-md bg-theme-interactive-primary text-theme-interactive-primary text-sm disabled:opacity-50"
           >
             {submitting ? 'Assigning…' : `Assign to ${parsedIds.length}`}
           </button>

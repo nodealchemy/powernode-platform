@@ -42,13 +42,13 @@ export const QuotaProgress: React.FC<QuotaProgressProps> = ({ quotas }) => {
     }
     if (quota.at_warning) {
       return (
-        <span className="px-2 py-1 text-xs font-medium rounded bg-theme-warning-background text-theme-warning-fg">
+        <span className="px-2 py-1 text-xs font-medium rounded bg-theme-warning-bg text-theme-warning-fg">
           Warning
         </span>
       );
     }
     return (
-      <span className="px-2 py-1 text-xs font-medium rounded bg-theme-success-background text-theme-success-fg">
+      <span className="px-2 py-1 text-xs font-medium rounded bg-theme-success-bg text-theme-success-fg">
         OK
       </span>
     );

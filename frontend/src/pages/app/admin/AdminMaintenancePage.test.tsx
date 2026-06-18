@@ -29,7 +29,7 @@ jest.mock('@/shared/services/admin/maintenanceApi', () => ({
     formatBytes: jest.fn((bytes: number) => `${bytes} B`),
     formatUptime: jest.fn((seconds: number) => `${seconds}s`),
     getStatusColor: jest.fn(() => 'text-theme-success-fg'),
-    getStatusBgColor: jest.fn(() => 'bg-theme-success-background'),
+    getStatusBgColor: jest.fn(() => 'bg-theme-success-bg'),
     clearCache: jest.fn(),
     rebuildIndexes: jest.fn(),
     vacuumDatabase: jest.fn(),

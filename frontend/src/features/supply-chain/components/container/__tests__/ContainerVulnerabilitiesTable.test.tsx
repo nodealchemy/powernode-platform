@@ -190,7 +190,7 @@ describe('ContainerVulnerabilitiesTable', () => {
       );
 
       const mediumBadge = screen.getByText('MEDIUM');
-      expect(mediumBadge).toHaveClass('bg-theme-warning-bg', 'text-theme-on-warning');
+      expect(mediumBadge).toHaveClass('bg-theme-warning-bg', 'text-theme-warning-fg');
     });
 
     it('shows low severity badge with correct styling', () => {

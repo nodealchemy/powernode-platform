@@ -141,7 +141,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
       <CardContent className="space-y-4">
         {/* Scheduling Mode Selection */}
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-2">
+          <label className="block text-sm font-medium text-theme-primary mb-2">
             Scheduling Mode
           </label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -159,7 +159,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
                     'relative flex flex-col items-center p-3 rounded-lg border-2 transition-all',
                     'hover:border-theme-interactive-primary/50',
                     isSelected
-                      ? 'border-theme-interactive-primary bg-theme-interactive-primary/20 ring-2 ring-theme-brand-primary/30'
+                      ? 'border-theme-interactive-primary bg-theme-interactive-primary/20 ring-2 ring-theme-interactive-primary/30'
                       : 'border-theme-interactive-primary bg-theme-surface'
                   )}
                 >
@@ -174,7 +174,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
                   )} />
                   <span className={cn(
                     'text-xs font-medium',
-                    isSelected ? 'text-theme-interactive-primary' : 'text-theme-text-primary'
+                    isSelected ? 'text-theme-interactive-primary' : 'text-theme-primary'
                   )}>
                     {modeConfig.label}
                   </span>
@@ -191,7 +191,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
         {mode === 'scheduled' && (
           <div className="space-y-3 pt-3 border-t border-theme-interactive-primary">
             <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
+              <label className="block text-sm font-medium text-theme-primary mb-1">
                 Schedule Preset
               </label>
               <Select
@@ -208,7 +208,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
 
             {cronPreset === 'custom' && (
               <div>
-                <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                <label className="block text-sm font-medium text-theme-primary mb-1">
                   Cron Expression
                 </label>
                 <Input
@@ -226,12 +226,12 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
             {cronDescription && (
               <div className="flex items-center gap-2 p-2 rounded-lg bg-theme-background-secondary">
                 <Clock className="w-4 h-4 text-theme-secondary" />
-                <span className="text-sm text-theme-text-primary">{cronDescription}</span>
+                <span className="text-sm text-theme-primary">{cronDescription}</span>
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
+              <label className="block text-sm font-medium text-theme-primary mb-1">
                 Timezone
               </label>
               <Select
@@ -250,7 +250,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
         {mode === 'continuous' && (
           <div className="space-y-3 pt-3 border-t border-theme-interactive-primary">
             <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
+              <label className="block text-sm font-medium text-theme-primary mb-1">
                 Interval (seconds)
               </label>
               <Input
@@ -276,7 +276,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-theme-status-info mt-0.5" />
               <div>
-                <p className="text-sm text-theme-text-primary font-medium">
+                <p className="text-sm text-theme-primary font-medium">
                   Webhook URL will be generated
                 </p>
                 <p className="text-xs text-theme-secondary mt-1">
@@ -293,7 +293,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
           <div className="space-y-3 pt-3 border-t border-theme-interactive-primary">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                <label className="block text-sm font-medium text-theme-primary mb-1">
                   Start Date (Optional)
                 </label>
                 <Input
@@ -305,7 +305,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                <label className="block text-sm font-medium text-theme-primary mb-1">
                   End Date (Optional)
                 </label>
                 <Input
@@ -319,7 +319,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
+              <label className="block text-sm font-medium text-theme-primary mb-1">
                 Max Iterations Per Day
               </label>
               <Input
@@ -335,7 +335,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-theme-text-primary">
+              <label className="block text-sm font-medium text-theme-primary">
                 Failure Handling
               </label>
               <div className="space-y-2">
@@ -358,7 +358,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
 
             {config.retry_on_failure && (
               <div>
-                <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                <label className="block text-sm font-medium text-theme-primary mb-1">
                   Retry Delay (seconds)
                 </label>
                 <Input

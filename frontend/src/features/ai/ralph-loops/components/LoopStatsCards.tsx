@@ -25,7 +25,7 @@ export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
     <div className="grid grid-cols-4 gap-4">
       <Card>
         <CardContent className="p-4">
-          <div className="text-2xl font-bold text-theme-text-primary">
+          <div className="text-2xl font-bold text-theme-primary">
             {currentIteration}/{maxIterations}
           </div>
           <div className="text-sm text-theme-secondary">Iterations</div>
@@ -33,7 +33,7 @@ export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
       </Card>
       <Card>
         <CardContent className="p-4">
-          <div className="text-2xl font-bold text-theme-text-primary">
+          <div className="text-2xl font-bold text-theme-primary">
             {completedTaskCount}/{taskCount}
           </div>
           <div className="text-sm text-theme-secondary">Tasks Completed</div>
@@ -41,7 +41,7 @@ export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
       </Card>
       <Card>
         <CardContent className="p-4">
-          <div className="text-2xl font-bold text-theme-text-primary">
+          <div className="text-2xl font-bold text-theme-primary">
             {progressPercentage}%
           </div>
           <div className="text-sm text-theme-secondary">Progress</div>
@@ -49,7 +49,7 @@ export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
       </Card>
       <Card>
         <CardContent className="p-4">
-          <div className="text-2xl font-bold text-theme-text-primary truncate">
+          <div className="text-2xl font-bold text-theme-primary truncate">
             {defaultAgentName ? (
               <EntityLink type="agent" id={defaultAgentId} label={defaultAgentName} className="text-2xl font-bold" />
             ) : (

@@ -378,7 +378,7 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Section 1: Basic Information */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-theme-text-primary uppercase tracking-wider">
+            <h3 className="text-sm font-semibold text-theme-primary uppercase tracking-wider">
               Basic Information
             </h3>
             <div className="grid grid-cols-2 gap-4">
@@ -432,7 +432,7 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
 
           {/* Section 2: Resource Limits */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-theme-text-primary uppercase tracking-wider">
+            <h3 className="text-sm font-semibold text-theme-primary uppercase tracking-wider">
               Resource Limits
             </h3>
             <div className="grid grid-cols-3 gap-4">
@@ -468,7 +468,7 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
 
           {/* Section 3: Security & Network */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-theme-text-primary uppercase tracking-wider">
+            <h3 className="text-sm font-semibold text-theme-primary uppercase tracking-wider">
               Security & Network
             </h3>
             <div className="flex items-center gap-6">
@@ -477,18 +477,18 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
                   type="checkbox"
                   checked={formData.sandbox_mode}
                   onChange={(e) => handleChange('sandbox_mode', e.target.checked)}
-                  className="rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-brand-primary"
+                  className="rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-interactive-primary"
                 />
-                <span className="text-sm text-theme-text-primary">Sandbox Mode</span>
+                <span className="text-sm text-theme-primary">Sandbox Mode</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.network_access}
                   onChange={(e) => handleChange('network_access', e.target.checked)}
-                  className="rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-brand-primary"
+                  className="rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-interactive-primary"
                 />
-                <span className="text-sm text-theme-text-primary">Network Access</span>
+                <span className="text-sm text-theme-primary">Network Access</span>
               </label>
             </div>
             {formData.network_access && (
@@ -504,7 +504,7 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
 
           {/* Section 4: Environment Variables */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-theme-text-primary uppercase tracking-wider">
+            <h3 className="text-sm font-semibold text-theme-primary uppercase tracking-wider">
               Environment Variables
             </h3>
             <KeyValueEditor
@@ -521,7 +521,7 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 text-sm font-semibold text-theme-text-primary uppercase tracking-wider hover:text-theme-interactive-primary transition-colors"
+              className="flex items-center gap-2 text-sm font-semibold text-theme-primary uppercase tracking-wider hover:text-theme-interactive-primary transition-colors"
             >
               {showAdvanced ? (
                 <ChevronDown className="w-4 h-4" />

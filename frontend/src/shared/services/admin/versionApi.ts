@@ -143,15 +143,15 @@ export const versionApi = {
     const parsed = this.parseVersion(version);
     
     if (parsed.prerelease?.includes('dev')) {
-      return 'bg-theme-warning-background text-theme-warning-fg';
+      return 'bg-theme-warning-bg text-theme-warning-fg';
     } else if (parsed.prerelease?.includes('alpha')) {
       return 'bg-theme-error-bg text-theme-error-fg';
     } else if (parsed.prerelease?.includes('beta')) {
-      return 'bg-theme-warning-background text-theme-warning-fg';
+      return 'bg-theme-warning-bg text-theme-warning-fg';
     } else if (parsed.prerelease?.includes('rc')) {
       return 'bg-theme-info-bg text-theme-info-fg';
     } else {
-      return 'bg-theme-success-background text-theme-success-fg';
+      return 'bg-theme-success-bg text-theme-success-fg';
     }
   }
 };

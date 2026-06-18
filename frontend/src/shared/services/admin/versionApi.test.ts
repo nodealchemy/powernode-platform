@@ -440,12 +440,12 @@ describe('versionApi', () => {
   describe('getVersionBadgeColor', () => {
     it('returns success theme classes for a stable release', () => {
       const color = versionApi.getVersionBadgeColor('1.0.0');
-      expect(color).toBe('bg-theme-success-background text-theme-success-fg');
+      expect(color).toBe('bg-theme-success-bg text-theme-success-fg');
     });
 
     it('returns warning theme classes for a dev prerelease', () => {
       const color = versionApi.getVersionBadgeColor('1.0.0-dev');
-      expect(color).toBe('bg-theme-warning-background text-theme-warning-fg');
+      expect(color).toBe('bg-theme-warning-bg text-theme-warning-fg');
     });
 
     it('returns error theme classes for an alpha prerelease', () => {
@@ -455,7 +455,7 @@ describe('versionApi', () => {
 
     it('returns warning theme classes for a beta prerelease', () => {
       const color = versionApi.getVersionBadgeColor('1.0.0-beta.2');
-      expect(color).toBe('bg-theme-warning-background text-theme-warning-fg');
+      expect(color).toBe('bg-theme-warning-bg text-theme-warning-fg');
     });
 
     it('returns info theme classes for an rc prerelease', () => {
@@ -465,12 +465,12 @@ describe('versionApi', () => {
 
     it('returns success theme classes for a version with no prerelease', () => {
       const color = versionApi.getVersionBadgeColor('0.0.1');
-      expect(color).toBe('bg-theme-success-background text-theme-success-fg');
+      expect(color).toBe('bg-theme-success-bg text-theme-success-fg');
     });
 
     it('handles a pure "dev" prerelease string (no version suffix)', () => {
       const color = versionApi.getVersionBadgeColor('0.1.0-dev');
-      expect(color).toBe('bg-theme-warning-background text-theme-warning-fg');
+      expect(color).toBe('bg-theme-warning-bg text-theme-warning-fg');
     });
   });
 });

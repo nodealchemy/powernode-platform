@@ -79,15 +79,15 @@ const AttachmentItem: React.FC<{
 
   return (
     <div className="relative group flex items-center gap-2 px-2 py-1.5 bg-theme-surface-secondary rounded-md border border-theme max-w-[200px]">
-      <Icon className="h-4 w-4 flex-shrink-0 text-theme-text-tertiary" />
+      <Icon className="h-4 w-4 flex-shrink-0 text-theme-tertiary" />
       <div className="flex-1 min-w-0">
         <p className="text-xs text-theme-primary truncate">{attachment.name}</p>
-        <p className="text-[10px] text-theme-text-tertiary">{formatFileSize(attachment.size)}</p>
+        <p className="text-[10px] text-theme-tertiary">{formatFileSize(attachment.size)}</p>
       </div>
       {onRemove && (
         <button
           onClick={() => onRemove(index)}
-          className="flex-shrink-0 p-0.5 rounded hover:bg-theme-error-bg text-theme-text-tertiary hover:text-theme-error-fg transition-colors"
+          className="flex-shrink-0 p-0.5 rounded hover:bg-theme-error-bg text-theme-tertiary hover:text-theme-error-fg transition-colors"
         >
           <X className="h-3 w-3" />
         </button>
@@ -96,7 +96,7 @@ const AttachmentItem: React.FC<{
         <a
           href={attachment.url}
           download={attachment.name}
-          className="flex-shrink-0 p-0.5 rounded hover:bg-theme-surface-hover text-theme-text-tertiary transition-colors"
+          className="flex-shrink-0 p-0.5 rounded hover:bg-theme-surface-hover text-theme-tertiary transition-colors"
         >
           <Download className="h-3 w-3" />
         </a>

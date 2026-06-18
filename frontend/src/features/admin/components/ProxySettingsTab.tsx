@@ -292,7 +292,7 @@ export const ProxySettingsTab: React.FC = () => {
                   type="checkbox"
                   checked={config.security.enabled}
                   onChange={() => handleSecurityToggle('enabled')}
-                  className="h-4 w-4 text-theme-primary border-theme-muted rounded focus:ring-2 focus:ring-theme-primary"
+                  className="h-4 w-4 text-theme-primary border-theme-light rounded focus:ring-2 focus:ring-theme-primary"
                 />
                 <span className="ml-2 text-theme-primary">Enable security validation</span>
               </label>
@@ -301,7 +301,7 @@ export const ProxySettingsTab: React.FC = () => {
                   type="checkbox"
                   checked={config.security.strict_mode}
                   onChange={() => handleSecurityToggle('strict_mode')}
-                  className="h-4 w-4 text-theme-primary border-theme-muted rounded focus:ring-2 focus:ring-theme-primary"
+                  className="h-4 w-4 text-theme-primary border-theme-light rounded focus:ring-2 focus:ring-theme-primary"
                 />
                 <span className="ml-2 text-theme-primary">
                   Strict mode (block untrusted hosts)
@@ -312,7 +312,7 @@ export const ProxySettingsTab: React.FC = () => {
                   type="checkbox"
                   checked={config.security.validate_host_format}
                   onChange={() => handleSecurityToggle('validate_host_format')}
-                  className="h-4 w-4 text-theme-primary border-theme-muted rounded focus:ring-2 focus:ring-theme-primary"
+                  className="h-4 w-4 text-theme-primary border-theme-light rounded focus:ring-2 focus:ring-theme-primary"
                 />
                 <span className="ml-2 text-theme-primary">
                   Validate RFC-compliant hostnames
@@ -323,7 +323,7 @@ export const ProxySettingsTab: React.FC = () => {
                   type="checkbox"
                   checked={config.security.block_suspicious_patterns}
                   onChange={() => handleSecurityToggle('block_suspicious_patterns')}
-                  className="h-4 w-4 text-theme-primary border-theme-muted rounded focus:ring-2 focus:ring-theme-primary"
+                  className="h-4 w-4 text-theme-primary border-theme-light rounded focus:ring-2 focus:ring-theme-primary"
                 />
                 <span className="ml-2 text-theme-primary">
                   Block suspicious patterns (XSS, injection)

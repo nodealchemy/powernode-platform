@@ -100,7 +100,7 @@ export const PrdTaskRow: React.FC<PrdTaskRowProps> = ({
 
           <Badge variant="outline" size="sm" className="font-mono">{task.key}</Badge>
 
-          <span className="flex-1 text-sm text-theme-text-primary truncate">
+          <span className="flex-1 text-sm text-theme-primary truncate">
             {task.description || <span className="italic text-theme-secondary">No description</span>}
           </span>
 

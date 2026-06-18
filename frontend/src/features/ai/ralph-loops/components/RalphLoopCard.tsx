@@ -76,7 +76,7 @@ export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
               )} />
             </div>
             <div className="min-w-0">
-              <h3 className="font-medium text-theme-text-primary truncate">
+              <h3 className="font-medium text-theme-primary truncate">
                 {loop.name}
               </h3>
               <div className="flex items-center gap-2 text-xs text-theme-secondary">

@@ -21,14 +21,14 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ session 
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-theme-text-primary">Session Configuration</h3>
+      <h3 className="text-sm font-medium text-theme-primary">Session Configuration</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {configItems.map((item) => (
           <div key={item.label} className="flex items-start gap-3 p-3 bg-theme-surface border border-theme rounded-lg">
             <item.icon className="w-4 h-4 text-theme-secondary flex-shrink-0 mt-0.5" />
             <div className="min-w-0">
               <div className="text-xs text-theme-secondary">{item.label}</div>
-              <div className="text-sm text-theme-text-primary truncate">{item.value}</div>
+              <div className="text-sm text-theme-primary truncate">{item.value}</div>
             </div>
           </div>
         ))}

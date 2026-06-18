@@ -156,14 +156,14 @@ export const AdminSystemHealth: React.FC<AdminSystemHealthProps> = ({
     switch (systemHealth) {
       case 'healthy':
         return {
-          bg: 'bg-theme-success-background',
+          bg: 'bg-theme-success-bg',
           border: 'border-theme-success-border',
           text: 'text-theme-success-fg',
           icon: CheckCircle,
         };
       case 'warning':
         return {
-          bg: 'bg-theme-warning-background',
+          bg: 'bg-theme-warning-bg',
           border: 'border-theme-warning-border',
           text: 'text-theme-warning-fg',
           icon: AlertTriangle,

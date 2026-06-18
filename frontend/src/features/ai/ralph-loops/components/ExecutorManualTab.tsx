@@ -62,7 +62,7 @@ export const ExecutorManualTab: React.FC<ExecutorManualTabProps> = ({
       {showAdvanced && (
         <div className="space-y-3 pt-3 border-t border-theme-interactive-primary">
           <div>
-            <label className="block text-sm font-medium text-theme-text-primary mb-1">
+            <label className="block text-sm font-medium text-theme-primary mb-1">
               Timeout (seconds)
             </label>
             <Input
@@ -79,7 +79,7 @@ export const ExecutorManualTab: React.FC<ExecutorManualTabProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-theme-text-primary mb-1">
+            <label className="block text-sm font-medium text-theme-primary mb-1">
               Fallback Executor Type
             </label>
             <Select
@@ -98,7 +98,7 @@ export const ExecutorManualTab: React.FC<ExecutorManualTabProps> = ({
 
           {delegationConfig.fallback_executor_type && (
             <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
+              <label className="block text-sm font-medium text-theme-primary mb-1">
                 Fallback {executionTypeConfig[delegationConfig.fallback_executor_type]?.label}
               </label>
               {loadingFallbackExecutors ? (

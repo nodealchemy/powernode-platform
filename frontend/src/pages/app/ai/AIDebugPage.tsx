@@ -49,7 +49,7 @@ export const AIDebugPage: React.FC = () => {
             <div>
               <strong className="text-theme-primary">Permission Issues:</strong>
               <p className="text-theme-tertiary mt-1">
-                AI features require specific permissions like <code className="bg-theme-surface-elevated px-1 rounded">ai.providers.read</code>. 
+                AI features require specific permissions like <code className="bg-theme-background-elevated px-1 rounded">ai.providers.read</code>. 
                 System admins need to assign appropriate roles that include these permissions.
               </p>
             </div>

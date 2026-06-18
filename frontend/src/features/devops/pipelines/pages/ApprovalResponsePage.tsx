@@ -319,7 +319,7 @@ export const ApprovalResponsePage: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-theme-surface-elevated border-t border-theme text-center">
+        <div className="px-6 py-4 bg-theme-background-elevated border-t border-theme text-center">
           <p className="text-xs text-theme-tertiary">
             Powernode Platform - DevOps Pipeline Approval
           </p>

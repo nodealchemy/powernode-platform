@@ -6,7 +6,7 @@ interface Props {
 }
 
 const statusBadge: Record<string, string> = {
-  pending: 'bg-theme-surface-bg text-theme-secondary',
+  pending: 'bg-theme-surface text-theme-secondary',
   captured: 'bg-theme-info-bg text-theme-info-fg',
   verified: 'bg-theme-success-bg text-theme-success-fg',
   failed: 'bg-theme-error-bg text-theme-error-fg',
@@ -39,7 +39,7 @@ export const EvidenceViewer: React.FC<Props> = ({ reviewStates }) => {
         {allManifests.map((manifest) => (
           <div
             key={manifest.id}
-            className="card-theme p-4 cursor-pointer hover:ring-2 hover:ring-theme-accent/30 transition-all"
+            className="card-theme p-4 cursor-pointer hover:ring-2 hover:ring-theme-interactive-primary/30 transition-all"
             onClick={() => setSelectedManifest(manifest)}
           >
             <div className="flex items-center justify-between mb-2">
@@ -132,7 +132,7 @@ export const EvidenceViewer: React.FC<Props> = ({ reviewStates }) => {
           {Object.keys(selectedManifest.verification_result).length > 0 && (
             <div>
               <h4 className="text-xs font-medium text-theme-secondary mb-2">Verification Result</h4>
-              <pre className="text-xs text-theme-secondary bg-theme-surface-bg p-2 rounded overflow-x-auto">
+              <pre className="text-xs text-theme-secondary bg-theme-surface p-2 rounded overflow-x-auto">
                 {JSON.stringify(selectedManifest.verification_result, null, 2)}
               </pre>
             </div>

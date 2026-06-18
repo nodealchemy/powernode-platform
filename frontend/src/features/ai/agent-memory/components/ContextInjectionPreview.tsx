@@ -196,7 +196,7 @@ export const ContextInjectionPreview: React.FC<ContextInjectionPreviewProps> = (
 
             {/* Context preview */}
             <div className="relative">
-              <pre className="bg-theme-surface-dark p-4 rounded-lg text-xs overflow-x-auto max-h-64 whitespace-pre-wrap">
+              <pre className="bg-theme-background-tertiary p-4 rounded-lg text-xs overflow-x-auto max-h-64 whitespace-pre-wrap">
                 <code className="text-theme-primary">{response.context}</code>
               </pre>
             </div>

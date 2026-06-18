@@ -158,7 +158,7 @@ export const ExecuteContainerModal: React.FC<ExecuteContainerModalProps> = ({
             <div className="flex items-center gap-3">
               <FileCode className="w-5 h-5 text-theme-interactive-primary flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-theme-text-primary">{template.name}</h3>
+                <h3 className="font-medium text-theme-primary">{template.name}</h3>
                 {template.description && (
                   <p className="text-sm text-theme-secondary mt-0.5">{template.description}</p>
                 )}
@@ -204,7 +204,7 @@ export const ExecuteContainerModal: React.FC<ExecuteContainerModalProps> = ({
           {/* Input Schema Reference */}
           {templateDetails?.input_schema && Object.keys(templateDetails.input_schema).length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-theme-text-primary">Expected Parameters</h4>
+              <h4 className="text-sm font-medium text-theme-primary">Expected Parameters</h4>
               <div className="bg-theme-background-secondary rounded-lg p-3 text-xs font-mono text-theme-secondary overflow-auto max-h-32">
                 <pre>{JSON.stringify(templateDetails.input_schema, null, 2)}</pre>
               </div>

@@ -64,8 +64,8 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
   const getColorClasses = (color: string) => {
     switch (color) {
       case 'red': return 'bg-theme-error-bg text-theme-error-fg';
-      case 'yellow': return 'bg-theme-warning-background text-theme-warning-fg';
-      case 'orange': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'yellow': return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'orange': return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'purple': return 'bg-theme-info-bg text-theme-info-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
@@ -76,7 +76,7 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
       {/* Security Status Overview */}
       <div className="bg-theme-background rounded-lg border border-theme p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-theme-success-background rounded-lg">
+          <div className="p-2 bg-theme-success-bg rounded-lg">
             <Shield className="w-6 h-6 text-theme-success-fg" />
           </div>
           <div>
@@ -158,8 +158,8 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
               </div>
             </div>
             
-            <div className="flex items-start gap-3 p-3 bg-theme-warning-background rounded-lg border border-theme-warning-border">
-              <div className="p-1 bg-theme-warning-background rounded">
+            <div className="flex items-start gap-3 p-3 bg-theme-warning-bg rounded-lg border border-theme-warning-border">
+              <div className="p-1 bg-theme-warning-bg rounded">
                 <Eye className="w-3 h-3 text-theme-warning-fg" />
               </div>
               <div className="flex-1">

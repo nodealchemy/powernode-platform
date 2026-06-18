@@ -233,7 +233,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
               <div className="text-2xl font-bold text-theme-primary">{activityStats.successRate}%</div>
               <div className="text-sm text-theme-secondary">Success Rate</div>
             </div>
-            <div className="p-2 bg-theme-success-background rounded-lg">
+            <div className="p-2 bg-theme-success-bg rounded-lg">
               <CheckCircle className="w-5 h-5 text-theme-success-fg" />
             </div>
           </div>
@@ -250,7 +250,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
               <div className="text-2xl font-bold text-theme-primary">{activityStats.avgResponseTime}ms</div>
               <div className="text-sm text-theme-secondary">Avg Response</div>
             </div>
-            <div className="p-2 bg-theme-warning-background rounded-lg">
+            <div className="p-2 bg-theme-warning-bg rounded-lg">
               <Clock className="w-5 h-5 text-theme-warning-fg" />
             </div>
           </div>

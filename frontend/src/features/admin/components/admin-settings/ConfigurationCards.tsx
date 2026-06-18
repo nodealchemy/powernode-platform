@@ -26,8 +26,8 @@ const ConfigBadge: React.FC<{ value: boolean; trueLabel?: string; falseLabel?: s
 }) => (
   <span className={`text-xs px-2 py-1 rounded font-medium ${
     value
-      ? 'bg-theme-success-background text-theme-success-fg'
-      : 'bg-theme-warning-background text-theme-warning-fg'
+      ? 'bg-theme-success-bg text-theme-success-fg'
+      : 'bg-theme-warning-bg text-theme-warning-fg'
   }`}>
     {value ? trueLabel : falseLabel}
   </span>
@@ -83,8 +83,8 @@ export const BusinessConfigCard: React.FC<ConfigurationCardsProps> = ({ settings
         <span className="text-sm text-theme-secondary">Account Deletion</span>
         <span className={`text-xs px-2 py-1 rounded font-medium ${
           settingsSummary?.allow_account_deletion
-            ? 'bg-theme-warning-background text-theme-warning-fg'
-            : 'bg-theme-success-background text-theme-success-fg'
+            ? 'bg-theme-warning-bg text-theme-warning-fg'
+            : 'bg-theme-success-bg text-theme-success-fg'
         }`}>
           {settingsSummary?.allow_account_deletion ? 'Allowed' : 'Protected'}
         </span>
@@ -116,7 +116,7 @@ export const CommunicationConfigCard: React.FC<ConfigurationCardsProps> = ({ set
         <span className="text-sm text-theme-secondary">SMTP Host</span>
         <span className={`text-xs px-2 py-1 rounded font-medium ${
           settingsSummary?.smtp_settings?.host
-            ? 'bg-theme-success-background text-theme-success-fg'
+            ? 'bg-theme-success-bg text-theme-success-fg'
             : 'bg-theme-error-bg text-theme-error-fg'
         }`}>
           {settingsSummary?.smtp_settings?.host ? 'Configured' : 'Missing'}

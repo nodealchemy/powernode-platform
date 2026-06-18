@@ -186,7 +186,7 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
       {step === 'complete' && (
         <div className="space-y-6">
           <div className="text-center">
-            <div className="w-16 h-16 mx-auto bg-theme-success-background rounded-full flex items-center justify-center mb-4">
+            <div className="w-16 h-16 mx-auto bg-theme-success-bg rounded-full flex items-center justify-center mb-4">
               <svg className="w-8 h-8 text-theme-success-fg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
@@ -201,7 +201,7 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
 
           {backupCodes.length > 0 && (
             <div className="space-y-4">
-              <div className="p-4 bg-theme-warning-background border border-theme-warning-border rounded-md">
+              <div className="p-4 bg-theme-warning-bg border border-theme-warning-border rounded-md">
                 <p className="text-theme-warning-fg text-sm font-medium mb-2">
                   ⚠️ Save your backup codes
                 </p>

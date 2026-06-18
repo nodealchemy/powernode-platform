@@ -166,7 +166,7 @@ class AccountsApiService {
   getStatusColor(status: string): string {
     switch (status) {
       case 'active':
-        return 'text-theme-success-fg bg-theme-success-background border-theme-success-border';
+        return 'text-theme-success-fg bg-theme-success-bg border-theme-success-border';
       case 'suspended':
         return 'text-theme-error-fg bg-theme-error-bg border-theme-error-border';
       case 'cancelled':

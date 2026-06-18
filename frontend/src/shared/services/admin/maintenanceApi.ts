@@ -325,8 +325,8 @@ class MaintenanceApiService {
 
   getStatusBgColor(status: string): string {
     switch (status) {
-      case 'healthy': return 'bg-theme-success-background';
-      case 'warning': return 'bg-theme-warning-background';
+      case 'healthy': return 'bg-theme-success-bg';
+      case 'warning': return 'bg-theme-warning-bg';
       case 'critical': return 'bg-theme-error-bg';
       default: return 'bg-theme-background-secondary';
     }

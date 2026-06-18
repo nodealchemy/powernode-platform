@@ -319,11 +319,11 @@ export const ModelRouterContent: React.FC = () => {
         <div className="space-y-4 p-4">
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Name</label>
-            <input type="text" value={newRuleName} onChange={(e) => setNewRuleName(e.target.value)} placeholder="Rule name" className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent" />
+            <input type="text" value={newRuleName} onChange={(e) => setNewRuleName(e.target.value)} placeholder="Rule name" className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary" />
           </div>
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Type</label>
-            <select value={newRuleType} onChange={(e) => setNewRuleType(e.target.value)} className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent">
+            <select value={newRuleType} onChange={(e) => setNewRuleType(e.target.value)} className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary">
               <option value="cost_based">Cost Based</option>
               <option value="latency_based">Latency Based</option>
               <option value="quality_based">Quality Based</option>
@@ -334,7 +334,7 @@ export const ModelRouterContent: React.FC = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Description</label>
-            <textarea value={newRuleDescription} onChange={(e) => setNewRuleDescription(e.target.value)} placeholder="Optional description" rows={3} className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent" />
+            <textarea value={newRuleDescription} onChange={(e) => setNewRuleDescription(e.target.value)} placeholder="Optional description" rows={3} className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary" />
           </div>
         </div>
       </Modal>

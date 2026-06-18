@@ -171,7 +171,7 @@ export const StepApprovalSettings: React.FC<StepApprovalSettingsProps> = ({
                 {settings.notification_recipients.map((recipient, index) => (
                   <div
                     key={`${recipient.type}-${recipient.value}`}
-                    className="flex items-center justify-between bg-theme-surface-elevated rounded px-3 py-2 border border-theme"
+                    className="flex items-center justify-between bg-theme-background-elevated rounded px-3 py-2 border border-theme"
                   >
                     <div className="flex items-center gap-2">
                       <Mail className="w-4 h-4 text-theme-secondary" />

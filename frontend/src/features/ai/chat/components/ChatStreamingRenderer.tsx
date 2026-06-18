@@ -48,7 +48,7 @@ export const ChatStreamingRenderer: React.FC<ChatStreamingRendererProps> = ({
           <span className="w-1.5 h-1.5 bg-theme-interactive-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
           <span className="w-1.5 h-1.5 bg-theme-interactive-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
-        <span className="text-xs text-theme-text-tertiary">Thinking...</span>
+        <span className="text-xs text-theme-tertiary">Thinking...</span>
       </div>
     ) : null;
   }
@@ -66,18 +66,18 @@ export const ChatStreamingRenderer: React.FC<ChatStreamingRendererProps> = ({
       {isStreaming && (tokenCount || elapsedMs) && (
         <div className="flex items-center gap-3 mt-1.5 pt-1 border-t border-theme/30">
           {tokenCount !== undefined && tokenCount > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-theme-text-tertiary tabular-nums">
+            <span className="flex items-center gap-1 text-[10px] text-theme-tertiary tabular-nums">
               <span className="inline-block w-1.5 h-1.5 bg-theme-interactive-primary rounded-full animate-pulse" />
               {tokenCount} tokens
             </span>
           )}
           {elapsedMs !== undefined && elapsedMs > 0 && (
-            <span className="text-[10px] text-theme-text-tertiary tabular-nums">
+            <span className="text-[10px] text-theme-tertiary tabular-nums">
               {(elapsedMs / 1000).toFixed(1)}s
             </span>
           )}
           {cost !== undefined && cost > 0 && (
-            <span className="text-[10px] text-theme-text-tertiary tabular-nums">
+            <span className="text-[10px] text-theme-tertiary tabular-nums">
               ${cost.toFixed(4)}
             </span>
           )}

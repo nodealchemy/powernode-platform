@@ -92,7 +92,7 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
               )} />
             </div>
             <div className="min-w-0">
-              <h3 className="font-medium text-theme-text-primary truncate">
+              <h3 className="font-medium text-theme-primary truncate">
                 {container.image_name}
               </h3>
               <p className="text-xs text-theme-secondary truncate">

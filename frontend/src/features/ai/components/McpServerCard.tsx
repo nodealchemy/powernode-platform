@@ -119,7 +119,7 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
               {server.metadata?.icon || <Server className="h-6 w-6 text-theme-tertiary" />}
             </div>
             {/* Status dot */}
-            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-theme-bg ${getStatusColor()}`} />
+            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-theme ${getStatusColor()}`} />
           </div>
 
           {/* Server Info */}

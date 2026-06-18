@@ -102,7 +102,7 @@ export const RunMonitor: React.FC<Props> = ({ reviewState }) => {
                   className={`px-2 py-0.5 rounded text-xs ${
                     passed
                       ? 'bg-theme-success-bg text-theme-success-fg'
-                      : 'bg-theme-surface-bg text-theme-secondary'
+                      : 'bg-theme-surface text-theme-secondary'
                   }`}
                 >
                   {passed ? '\u2713' : '\u25CB'} {check}

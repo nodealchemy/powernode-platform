@@ -227,7 +227,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                           'absolute -left-2 w-4 h-4 rounded-full bg-theme-surface border-2',
                           memory.outcome_success === true && 'border-theme-success-border',
                           memory.outcome_success === false && 'border-theme-danger-border',
-                          memory.outcome_success === undefined && 'border-theme-muted'
+                          memory.outcome_success === undefined && 'border-theme-light'
                         )}
                       />
 

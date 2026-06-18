@@ -128,7 +128,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
         )}
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Name *
           </label>
           <Input
@@ -140,7 +140,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Description
           </label>
           <Input
@@ -151,7 +151,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Default Agent *
           </label>
           <Select
@@ -171,7 +171,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Max Iterations
           </label>
           <Input
@@ -187,7 +187,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Repository URL
           </label>
           <Input

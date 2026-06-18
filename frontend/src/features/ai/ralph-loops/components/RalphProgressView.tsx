@@ -65,7 +65,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
     <div className={cn('space-y-6', className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-theme-text-primary">Progress & Learnings</h3>
+        <h3 className="font-medium text-theme-primary">Progress & Learnings</h3>
         <Button variant="ghost" size="sm" onClick={loadProgress}>
           <RefreshCw className="w-4 h-4" />
         </Button>
@@ -78,7 +78,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
             <div className="flex items-start gap-3">
               <FileText className="w-5 h-5 text-theme-secondary flex-shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-medium text-theme-text-primary mb-2">Progress Log</h4>
+                <h4 className="font-medium text-theme-primary mb-2">Progress Log</h4>
                 <pre className="text-sm text-theme-secondary whitespace-pre-wrap font-mono bg-theme-background-secondary p-3 rounded">
                   {progress.progress_text}
                 </pre>
@@ -95,7 +95,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
             <div className="flex items-start gap-3">
               <Lightbulb className="w-5 h-5 text-theme-status-warning flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-medium text-theme-text-primary mb-3">Accumulated Learnings</h4>
+                <h4 className="font-medium text-theme-primary mb-3">Accumulated Learnings</h4>
                 <div className="space-y-2">
                   {progress.learnings.map((learning, idx) => (
                     <div
@@ -105,7 +105,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
                       <span className="text-xs font-medium text-theme-secondary min-w-6">
                         {idx + 1}.
                       </span>
-                      <p className="text-sm text-theme-text-primary">{typeof learning === 'string' ? learning : (learning as unknown as { text: string }).text}</p>
+                      <p className="text-sm text-theme-primary">{typeof learning === 'string' ? learning : (learning as unknown as { text: string }).text}</p>
                     </div>
                   ))}
                 </div>
@@ -122,7 +122,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
             <div className="flex items-start gap-3">
               <GitCommit className="w-5 h-5 text-theme-secondary flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-medium text-theme-text-primary mb-3">Recent Commits</h4>
+                <h4 className="font-medium text-theme-primary mb-3">Recent Commits</h4>
                 <div className="space-y-2">
                   {progress.recent_commits.map((commit, idx) => (
                     <div
@@ -132,7 +132,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
                       <span className="font-mono text-xs text-theme-status-info">
                         {commit.sha.slice(0, 7)}
                       </span>
-                      <p className="text-sm text-theme-text-primary flex-1">
+                      <p className="text-sm text-theme-primary flex-1">
                         {commit.message}
                       </p>
                       <span className="text-xs text-theme-secondary">

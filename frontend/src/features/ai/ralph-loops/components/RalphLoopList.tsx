@@ -131,7 +131,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-theme-text-primary">Ralph Loops</h2>
+          <h2 className="text-lg font-semibold text-theme-primary">Ralph Loops</h2>
           <p className="text-sm text-theme-secondary">
             {totalCount} loop{totalCount !== 1 ? 's' : ''}
           </p>

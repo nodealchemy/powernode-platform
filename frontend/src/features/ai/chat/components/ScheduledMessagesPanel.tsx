@@ -168,7 +168,7 @@ export const ScheduledMessagesPanel: React.FC<ScheduledMessagesPanelProps> = ({
             onChange={(e) => setContent(e.target.value)}
             placeholder="Message content..."
             rows={2}
-            className="w-full px-2.5 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary resize-none"
+            className="w-full px-2.5 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary resize-none"
           />
 
           {/* Schedule type selector */}
@@ -210,7 +210,7 @@ export const ScheduledMessagesPanel: React.FC<ScheduledMessagesPanelProps> = ({
               value={cronExpression}
               onChange={(e) => setCronExpression(e.target.value)}
               placeholder="Cron expression (e.g., 0 9 * * 1-5)"
-              className="w-full px-2.5 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+              className="w-full px-2.5 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
             />
           )}
 
@@ -221,7 +221,7 @@ export const ScheduledMessagesPanel: React.FC<ScheduledMessagesPanelProps> = ({
               onChange={(e) => setIntervalSeconds(e.target.value)}
               placeholder="Interval in seconds"
               min="60"
-              className="w-full px-2.5 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+              className="w-full px-2.5 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
             />
           )}
 
@@ -233,7 +233,7 @@ export const ScheduledMessagesPanel: React.FC<ScheduledMessagesPanelProps> = ({
               onChange={(e) => setMaxExecutions(e.target.value)}
               placeholder="Max executions (optional)"
               min="1"
-              className="w-full px-2.5 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+              className="w-full px-2.5 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
             />
           )}
 
@@ -285,12 +285,12 @@ export const ScheduledMessagesPanel: React.FC<ScheduledMessagesPanelProps> = ({
                         {msg.status}
                       </span>
                       {msg.next_execution_at && (
-                        <span className="text-[10px] text-theme-text-tertiary">
+                        <span className="text-[10px] text-theme-tertiary">
                           Next: {new Date(msg.next_execution_at).toLocaleString()}
                         </span>
                       )}
                       {msg.execution_count > 0 && (
-                        <span className="text-[10px] text-theme-text-tertiary">
+                        <span className="text-[10px] text-theme-tertiary">
                           Ran {msg.execution_count}x
                         </span>
                       )}

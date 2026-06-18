@@ -63,7 +63,7 @@ export const PrdTaskTemplates: React.FC<PrdTaskTemplatesProps> = ({
       {/* Template Dropdown */}
       {showTemplates && (
         <Card className="p-3">
-          <p className="text-sm font-medium text-theme-text-primary mb-3">Quick Add from Template</p>
+          <p className="text-sm font-medium text-theme-primary mb-3">Quick Add from Template</p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {TASK_TEMPLATES.map((template) => (
               <Button

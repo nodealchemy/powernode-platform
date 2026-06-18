@@ -130,7 +130,7 @@ export const StepTypeAndRepo: React.FC<StepTypeAndRepoProps> = ({
               onClick={() => onMissionTypeChange(t.value)}
               className={`p-3 rounded-lg border text-left transition-all ${
                 missionType === t.value
-                  ? 'border-theme-info-border bg-theme-info-fg/5 ring-1 ring-theme-accent/30'
+                  ? 'border-theme-info-border bg-theme-info-fg/5 ring-1 ring-theme-interactive-primary/30'
                   : 'border-theme bg-theme-surface hover:border-theme-info-border/50'
               }`}
             >

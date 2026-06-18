@@ -70,7 +70,7 @@ export const BuildHistoryPanel: React.FC<BuildHistoryPanelProps> = ({
           <ChevronDown className="w-4 h-4 text-theme-secondary" />
         )}
         <Hammer className="w-4 h-4 text-theme-secondary" />
-        <span className="text-sm font-medium text-theme-text-primary">
+        <span className="text-sm font-medium text-theme-primary">
           Build History ({builds.length})
         </span>
       </button>
@@ -136,19 +136,19 @@ export const BuildHistoryPanel: React.FC<BuildHistoryPanelProps> = ({
                     <div className="px-3 py-2 border-t border-theme-interactive-primary bg-theme-background-secondary">
                       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                         <dt className="text-theme-secondary">Image Tag</dt>
-                        <dd className="font-mono text-theme-text-primary">{build.image_tag || '-'}</dd>
+                        <dd className="font-mono text-theme-primary">{build.image_tag || '-'}</dd>
                         <dt className="text-theme-secondary">Started</dt>
-                        <dd className="text-theme-text-primary">
+                        <dd className="text-theme-primary">
                           {build.started_at ? new Date(build.started_at).toLocaleString() : '-'}
                         </dd>
                         <dt className="text-theme-secondary">Completed</dt>
-                        <dd className="text-theme-text-primary">
+                        <dd className="text-theme-primary">
                           {build.completed_at ? new Date(build.completed_at).toLocaleString() : '-'}
                         </dd>
                         {build.triggered_by_build_id && (
                           <>
                             <dt className="text-theme-secondary">Triggered by</dt>
-                            <dd className="font-mono text-theme-text-primary">
+                            <dd className="font-mono text-theme-primary">
                               {build.triggered_by_build_id.substring(0, 8)}...
                             </dd>
                           </>

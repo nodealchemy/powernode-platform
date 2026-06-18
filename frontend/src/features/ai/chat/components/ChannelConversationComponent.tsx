@@ -19,8 +19,8 @@ const MESSAGE_TYPE_COLORS: Record<string, string> = {
   question: 'bg-theme-warning-fg/10 text-theme-warning-fg',
   answer: 'bg-theme-success-fg/10 text-theme-success-fg',
   escalation: 'bg-theme-error-fg/10 text-theme-error-fg',
-  coordination: 'bg-theme-text-tertiary/10 text-theme-secondary',
-  broadcast: 'bg-theme-text-tertiary/10 text-theme-secondary',
+  coordination: 'bg-theme-tertiary/10 text-theme-secondary',
+  broadcast: 'bg-theme-tertiary/10 text-theme-secondary',
   human_input: 'bg-theme-interactive-primary/10 text-theme-interactive-primary',
 };
 
@@ -61,7 +61,7 @@ const ChannelMessage: React.FC<{ message: TeamChannelMessage }> = ({ message }) 
             {senderName}
           </span>
           {senderDetail && (
-            <span className="text-xs text-theme-text-tertiary">
+            <span className="text-xs text-theme-tertiary">
               ({senderDetail})
             </span>
           )}
@@ -77,14 +77,14 @@ const ChannelMessage: React.FC<{ message: TeamChannelMessage }> = ({ message }) 
               Awaiting response
             </span>
           )}
-          <span className="text-[10px] text-theme-text-tertiary ml-auto flex-shrink-0">
+          <span className="text-[10px] text-theme-tertiary ml-auto flex-shrink-0">
             {formatTime(message.created_at)}
           </span>
         </div>
 
         {/* Target role */}
         {message.to_role && (
-          <div className="text-[10px] text-theme-text-tertiary mt-0.5">
+          <div className="text-[10px] text-theme-tertiary mt-0.5">
             → {message.to_role.role_name}
             {message.to_role.agent_name && ` (${message.to_role.agent_name})`}
           </div>
@@ -138,7 +138,7 @@ export const ChannelConversationComponent: React.FC<ChannelConversationComponent
     <div className="flex flex-col h-full">
       {/* Channel header */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-theme bg-theme-surface">
-        <Hash className="h-4 w-4 text-theme-text-tertiary" />
+        <Hash className="h-4 w-4 text-theme-tertiary" />
         <span className="text-sm font-semibold text-theme-primary">
           {channelName || 'Channel'}
         </span>
@@ -151,7 +151,7 @@ export const ChannelConversationComponent: React.FC<ChannelConversationComponent
             <div className="h-5 w-5 border-2 border-theme-interactive-primary border-t-transparent rounded-full animate-spin" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-theme-text-tertiary">
+          <div className="flex flex-col items-center justify-center h-full text-theme-tertiary">
             <Hash className="h-8 w-8 mb-2 opacity-40" />
             <p className="text-sm">No messages yet</p>
             <p className="text-xs mt-1">Send a message to get started</p>
@@ -176,7 +176,7 @@ export const ChannelConversationComponent: React.FC<ChannelConversationComponent
             onKeyDown={handleKeyDown}
             placeholder="Send a message..."
             rows={1}
-            className="flex-1 px-3 py-2 text-sm bg-theme-background border border-theme rounded-lg text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary resize-none"
+            className="flex-1 px-3 py-2 text-sm bg-theme-background border border-theme rounded-lg text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary resize-none"
             style={{ maxHeight: '120px' }}
           />
           <button

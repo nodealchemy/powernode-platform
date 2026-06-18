@@ -93,7 +93,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Filter Type Selection */}
       <div>
-        <label className="block text-sm font-medium text-theme-text-primary mb-2">
+        <label className="block text-sm font-medium text-theme-primary mb-2">
           Branch Filter Type
         </label>
         <div className="space-y-2">
@@ -116,7 +116,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
                 className="mt-1 mr-3"
               />
               <div>
-                <span className="font-medium text-theme-text-primary">{option.label}</span>
+                <span className="font-medium text-theme-primary">{option.label}</span>
                 <p className="text-sm text-theme-secondary mt-0.5">{option.description}</p>
               </div>
             </label>
@@ -129,7 +129,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
         <div>
           <label
             htmlFor="filterPattern"
-            className="block text-sm font-medium text-theme-text-primary mb-1"
+            className="block text-sm font-medium text-theme-primary mb-1"
           >
             {filterType === 'exact' ? 'Branch Name' : 'Pattern'}
           </label>
@@ -146,7 +146,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
                   : 'e.g., ^(main|develop)$'
             }
             disabled={disabled}
-            className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-background-secondary text-theme-text-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent"
+            className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-background-secondary text-theme-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent"
           />
           {examples.length > 0 && (
             <div className="mt-2">
@@ -158,7 +158,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
                     type="button"
                     onClick={() => setFilterPattern(example)}
                     disabled={disabled}
-                    className="px-2 py-0.5 text-xs bg-theme-background-secondary text-theme-secondary rounded hover:bg-theme-surface-hover hover:text-theme-text-primary transition-colors"
+                    className="px-2 py-0.5 text-xs bg-theme-background-secondary text-theme-secondary rounded hover:bg-theme-surface-hover hover:text-theme-primary transition-colors"
                   >
                     {example}
                   </button>
@@ -172,7 +172,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
       {/* Preview */}
       {filterType !== 'none' && filterPattern && (
         <div className="p-3 bg-theme-background-secondary rounded-lg">
-          <div className="text-sm font-medium text-theme-text-primary mb-1">Preview</div>
+          <div className="text-sm font-medium text-theme-primary mb-1">Preview</div>
           <div className="text-sm text-theme-secondary">
             {filterType === 'exact' && (
               <>
@@ -206,7 +206,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-theme-secondary hover:text-theme-text-primary transition-colors"
+            className="px-4 py-2 text-sm font-medium text-theme-secondary hover:text-theme-primary transition-colors"
           >
             Cancel
           </button>

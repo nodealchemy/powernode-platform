@@ -124,7 +124,7 @@ export const AdminMetricsGrid: React.FC<AdminMetricsGridProps> = ({
         };
       case 'warning':
         return {
-          bg: 'bg-theme-warning-background',
+          bg: 'bg-theme-warning-bg',
           border: 'border-theme-warning-border',
           text: 'text-theme-warning-fg',
           iconBg: 'bg-theme-warning-bg',

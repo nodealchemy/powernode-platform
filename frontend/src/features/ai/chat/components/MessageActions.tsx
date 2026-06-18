@@ -68,7 +68,7 @@ export const MessageActions: React.FC<MessageActionsProps> = ({
           e.stopPropagation();
           setShowMenu(!showMenu);
         }}
-        className="p-1 rounded hover:bg-theme-surface-hover text-theme-text-tertiary transition-colors"
+        className="p-1 rounded hover:bg-theme-surface-hover text-theme-tertiary transition-colors"
         title="Message actions"
       >
         <MoreVertical className="h-3.5 w-3.5" />

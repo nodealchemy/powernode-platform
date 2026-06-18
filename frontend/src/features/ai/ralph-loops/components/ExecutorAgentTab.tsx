@@ -29,7 +29,7 @@ export const ExecutorAgentTab: React.FC<ExecutorAgentTabProps> = ({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-theme-text-primary mb-1">
+        <label className="block text-sm font-medium text-theme-primary mb-1">
           Task Key
         </label>
         <Input
@@ -44,7 +44,7 @@ export const ExecutorAgentTab: React.FC<ExecutorAgentTabProps> = ({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-theme-text-primary mb-1">
+        <label className="block text-sm font-medium text-theme-primary mb-1">
           Description
         </label>
         <Textarea
@@ -56,7 +56,7 @@ export const ExecutorAgentTab: React.FC<ExecutorAgentTabProps> = ({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-theme-text-primary mb-2">
+        <label className="block text-sm font-medium text-theme-primary mb-2">
           Dependencies
         </label>
         {availableTaskKeys.length > 0 ? (
@@ -75,9 +75,9 @@ export const ExecutorAgentTab: React.FC<ExecutorAgentTabProps> = ({
                       if (e.target.checked) onTaskDependenciesChange([...taskDependencies, key]);
                       else onTaskDependenciesChange(taskDependencies.filter(d => d !== key));
                     }}
-                    className="w-4 h-4 rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-brand-primary"
+                    className="w-4 h-4 rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-interactive-primary"
                   />
-                  <span className="font-mono text-sm text-theme-text-primary">{key}</span>
+                  <span className="font-mono text-sm text-theme-primary">{key}</span>
                 </label>
               ))}
             {availableTaskKeys.filter(key => key !== taskKey).length === 0 && (
@@ -102,7 +102,7 @@ export const ExecutorAgentTab: React.FC<ExecutorAgentTabProps> = ({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-theme-text-primary mb-1">
+        <label className="block text-sm font-medium text-theme-primary mb-1">
           Acceptance Criteria
         </label>
         <Textarea

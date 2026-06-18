@@ -71,7 +71,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
           id="team-status-filter"
           value={statusFilter}
           onChange={(e) => onStatusFilterChange(e.target.value)}
-          className="px-3 py-1 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+          className="px-3 py-1 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
         >
           <option value="all">All</option>
           <option value="active">Active</option>
@@ -86,7 +86,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
           id="team-type-filter"
           value={typeFilter}
           onChange={(e) => onTypeFilterChange(e.target.value)}
-          className="px-3 py-1 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+          className="px-3 py-1 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
         >
           <option value="all">All</option>
           <option value="hierarchical">Hierarchical</option>

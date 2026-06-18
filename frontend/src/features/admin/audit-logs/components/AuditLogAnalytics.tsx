@@ -313,7 +313,7 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
                 <div className="bg-theme-background rounded-lg border border-theme p-6">
                   <h3 className="text-lg font-semibold text-theme-primary mb-4">Risk Recommendations</h3>
                   <div className="space-y-3">
-                    <div className="flex items-start gap-3 p-3 bg-theme-status-warning-background rounded-lg border border-theme-status-warning">
+                    <div className="flex items-start gap-3 p-3 bg-theme-warning-bg rounded-lg border border-theme-status-warning">
                       <AlertTriangle className="w-4 h-4 text-theme-status-warning mt-0.5" />
                       <div>
                         <div className="text-sm font-medium text-theme-status-warning">High Failed Login Rate</div>
@@ -327,7 +327,7 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
                         <div className="text-xs text-theme-link">Review admin actions during unusual hours</div>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3 p-3 bg-theme-status-success-background rounded-lg border border-theme-status-success">
+                    <div className="flex items-start gap-3 p-3 bg-theme-success-bg rounded-lg border border-theme-status-success">
                       <Shield className="w-4 h-4 text-theme-status-success mt-0.5" />
                       <div>
                         <div className="text-sm font-medium text-theme-status-success">Security Posture Good</div>

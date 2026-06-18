@@ -346,7 +346,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       <div className="flex-1 overflow-y-auto">
         {loading && conversations.length === 0 && workspaceConversations.length === 0 && provisioningConversations.length === 0 ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 text-theme-text-tertiary animate-spin" />
+            <Loader2 className="h-5 w-5 text-theme-tertiary animate-spin" />
           </div>
         ) : conversations.length === 0 && workspaceConversations.length === 0 && provisioningConversations.length === 0 && channels.length === 0 ? (
           <EmptyState
@@ -366,7 +366,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             {conciergeConversations.length > 0 && (
               <div>
                 <div className="px-3 py-1.5">
-                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                  <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                     Assistant
                   </span>
                 </div>
@@ -385,12 +385,12 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   onClick={() => toggleSection('channels')}
                   className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-theme-surface-hover/50 transition-colors"
                 >
-                  <ChevronRight className={`h-3 w-3 text-theme-text-tertiary transition-transform ${collapsedSections.channels ? '' : 'rotate-90'}`} />
-                  <Hash className="h-3 w-3 text-theme-text-tertiary" />
-                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                  <ChevronRight className={`h-3 w-3 text-theme-tertiary transition-transform ${collapsedSections.channels ? '' : 'rotate-90'}`} />
+                  <Hash className="h-3 w-3 text-theme-tertiary" />
+                  <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                     Channels
                   </span>
-                  <span className="text-[9px] text-theme-text-tertiary ml-auto">{channels.length}</span>
+                  <span className="text-[9px] text-theme-tertiary ml-auto">{channels.length}</span>
                 </button>
                 {!collapsedSections.channels && channels.map((ch) => (
                   <ChannelListItem
@@ -414,12 +414,12 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   onClick={() => toggleSection('workspaces')}
                   className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-theme-surface-hover/50 transition-colors"
                 >
-                  <ChevronRight className={`h-3 w-3 text-theme-text-tertiary transition-transform ${collapsedSections.workspaces ? '' : 'rotate-90'}`} />
-                  <Users className="h-3 w-3 text-theme-text-tertiary" />
-                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                  <ChevronRight className={`h-3 w-3 text-theme-tertiary transition-transform ${collapsedSections.workspaces ? '' : 'rotate-90'}`} />
+                  <Users className="h-3 w-3 text-theme-tertiary" />
+                  <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                     Workspaces
                   </span>
-                  <span className="text-[9px] text-theme-text-tertiary ml-auto">{workspaceConversations.length}</span>
+                  <span className="text-[9px] text-theme-tertiary ml-auto">{workspaceConversations.length}</span>
                 </button>
                 {!collapsedSections.workspaces && workspaceConversations.map(renderConversationItem)}
               </div>
@@ -439,12 +439,12 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   onClick={() => toggleSection('provisioning')}
                   className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-theme-surface-hover/50 transition-colors"
                 >
-                  <ChevronRight className={`h-3 w-3 text-theme-text-tertiary transition-transform ${collapsedSections.provisioning ? '' : 'rotate-90'}`} />
-                  <Server className="h-3 w-3 text-theme-text-tertiary" />
-                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                  <ChevronRight className={`h-3 w-3 text-theme-tertiary transition-transform ${collapsedSections.provisioning ? '' : 'rotate-90'}`} />
+                  <Server className="h-3 w-3 text-theme-tertiary" />
+                  <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                     Provisioning
                   </span>
-                  <span className="text-[9px] text-theme-text-tertiary ml-auto">{provisioningConversations.length}</span>
+                  <span className="text-[9px] text-theme-tertiary ml-auto">{provisioningConversations.length}</span>
                 </button>
                 {!collapsedSections.provisioning && provisioningConversations.map(renderConversationItem)}
               </div>
@@ -461,12 +461,12 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   onClick={() => toggleSection('pinned')}
                   className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-theme-surface-hover/50 transition-colors"
                 >
-                  <ChevronRight className={`h-3 w-3 text-theme-text-tertiary transition-transform ${collapsedSections.pinned ? '' : 'rotate-90'}`} />
-                  <Pin className="h-3 w-3 text-theme-text-tertiary" />
-                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                  <ChevronRight className={`h-3 w-3 text-theme-tertiary transition-transform ${collapsedSections.pinned ? '' : 'rotate-90'}`} />
+                  <Pin className="h-3 w-3 text-theme-tertiary" />
+                  <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                     Pinned
                   </span>
-                  <span className="text-[9px] text-theme-text-tertiary ml-auto">{pinnedConversations.length}</span>
+                  <span className="text-[9px] text-theme-tertiary ml-auto">{pinnedConversations.length}</span>
                 </button>
                 {!collapsedSections.pinned && pinnedConversations.map(renderConversationItem)}
               </div>
@@ -483,11 +483,11 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   onClick={() => toggleSection('recent')}
                   className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-theme-surface-hover/50 transition-colors"
                 >
-                  <ChevronRight className={`h-3 w-3 text-theme-text-tertiary transition-transform ${collapsedSections.recent ? '' : 'rotate-90'}`} />
-                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                  <ChevronRight className={`h-3 w-3 text-theme-tertiary transition-transform ${collapsedSections.recent ? '' : 'rotate-90'}`} />
+                  <span className="text-[10px] font-semibold text-theme-tertiary uppercase tracking-wider">
                     Recent
                   </span>
-                  <span className="text-[9px] text-theme-text-tertiary ml-auto">{unpinnedConversations.length}</span>
+                  <span className="text-[9px] text-theme-tertiary ml-auto">{unpinnedConversations.length}</span>
                 </button>
                 {!collapsedSections.recent && unpinnedConversations.map(renderConversationItem)}
               </div>
@@ -508,7 +508,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                 setSelectedIds(new Set());
                 setSelectMode(false);
               }}
-              className="text-theme-text-tertiary hover:text-theme-primary"
+              className="text-theme-tertiary hover:text-theme-primary"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -526,7 +526,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   if (e.key === 'Escape') setBulkTagInput(false);
                 }}
                 placeholder="Tag name..."
-                className="flex-1 px-2 py-1 text-xs bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+                className="flex-1 px-2 py-1 text-xs bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
                 maxLength={20}
               />
               <Button variant="primary" size="xs" onClick={handleBulkTag} disabled={!bulkTagValue.trim()}>

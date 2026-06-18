@@ -36,7 +36,7 @@ export const SenderHeader: React.FC<SenderHeaderProps> = ({
         {formatFn(timestamp)}
       </span>
       {isEdited && (
-        <span className="text-[10px] text-theme-text-tertiary italic">(edited)</span>
+        <span className="text-[10px] text-theme-tertiary italic">(edited)</span>
       )}
     </div>
   );

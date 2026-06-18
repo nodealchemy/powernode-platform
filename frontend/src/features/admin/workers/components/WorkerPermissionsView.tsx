@@ -47,13 +47,13 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
       category: 'Billing & Subscriptions',
       permissions: ['billing.read', 'billing.update', 'billing.cancel', 'plans.read', 'plans.create', 'plans.manage', 'invoice.read', 'invoice.download'],
       description: 'Subscription management and billing',
-      color: 'bg-theme-warning-background text-theme-warning-fg'
+      color: 'bg-theme-warning-bg text-theme-warning-fg'
     },
     {
       category: 'Content & Pages',
       permissions: ['page.create', 'page.read', 'page.update', 'page.delete', 'page.publish'],
       description: 'Content creation and management',
-      color: 'bg-theme-success-background text-theme-success-fg'
+      color: 'bg-theme-success-bg text-theme-success-fg'
     },
     {
       category: 'Analytics & Reports',
@@ -71,7 +71,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
       category: 'Marketplace',
       permissions: ['app.read', 'app.create', 'app.update', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'listing.read', 'listing.create', 'subscription.read', 'subscription.create', 'review.read'],
       description: 'Marketplace apps and subscriptions',
-      color: 'bg-theme-success-background/50 text-theme-success-fg'
+      color: 'bg-theme-success-bg/50 text-theme-success-fg'
     },
     {
       category: 'Admin Operations',
@@ -255,7 +255,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
       case 'user':
         return { className: 'bg-theme-info-bg text-theme-info-fg', label: 'USER' };
       case 'admin':
-        return { className: 'bg-theme-warning-background text-theme-warning-fg', label: 'ADMIN' };
+        return { className: 'bg-theme-warning-bg text-theme-warning-fg', label: 'ADMIN' };
       case 'system':
         return { className: 'bg-theme-error-bg text-theme-error-fg', label: 'SYSTEM' };
       default:
@@ -426,7 +426,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
                             key={permission}
                             className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
                               status === 'inherited'
-                                ? 'border-theme-success-border bg-theme-success-background'
+                                ? 'border-theme-success-border bg-theme-success-bg'
                                 : 'border-theme bg-theme-background opacity-50'
                             }`}
                           >

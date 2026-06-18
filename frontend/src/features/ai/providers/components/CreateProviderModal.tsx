@@ -220,7 +220,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
                   type="checkbox"
                   checked={formData.capabilities.includes(capability)}
                   onChange={(e) => handleCapabilityChange(capability, e.target.checked)}
-                  className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg"
+                  className="rounded border-theme text-theme-info-fg focus:ring-theme-info-fg"
                 />
                 <span className="text-sm text-theme-secondary capitalize">
                   {capability.replace('_', ' ')}

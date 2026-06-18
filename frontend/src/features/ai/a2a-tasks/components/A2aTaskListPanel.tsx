@@ -131,7 +131,7 @@ export const A2aTaskListPanel: React.FC<A2aTaskListPanelProps> = ({
           placeholder="Search tasks..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-surface-dark border border-theme rounded text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:border-theme-interactive-primary"
+          className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-background-tertiary border border-theme rounded text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:border-theme-interactive-primary"
         />
       </div>
     </div>

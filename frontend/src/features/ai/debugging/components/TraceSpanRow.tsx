@@ -101,7 +101,7 @@ export const TraceSpanRow: React.FC<TraceSpanRowProps> = ({
       <div
         className={cn(
           'flex items-center gap-2 px-3 py-2 hover:bg-theme-surface cursor-pointer border-b border-theme transition-colors',
-          isSelected && 'bg-theme-primary-subtle'
+          isSelected && 'bg-theme-interactive-primary/10'
         )}
         onClick={() => onSelectSpan(span)}
         style={{ paddingLeft: `${depth * 24 + 12}px` }}

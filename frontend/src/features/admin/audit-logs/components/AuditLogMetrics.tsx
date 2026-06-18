@@ -12,9 +12,9 @@ interface AuditLogMetricsProps {
 
 const colorMap = {
   blue: 'text-theme-link bg-theme-info-bg',
-  green: 'text-theme-success-fg bg-theme-success-background',
+  green: 'text-theme-success-fg bg-theme-success-bg',
   red: 'text-theme-error-fg bg-theme-error-bg',
-  yellow: 'text-theme-warning-fg bg-theme-warning-background',
+  yellow: 'text-theme-warning-fg bg-theme-warning-bg',
   purple: 'text-theme-info-fg bg-theme-info-bg'
 };
 

@@ -143,8 +143,8 @@ export const AdminSettingsOverviewPage: React.FC = () => {
       {/* System Status Alert */}
       {systemStatus.status !== 'healthy' && (
         <div className={`p-4 rounded-xl border ${
-          systemStatus.status === 'maintenance' ? 'bg-theme-warning-background border-theme-warning-border' :
-          systemStatus.status === 'warning' ? 'bg-theme-warning-background border-theme-warning-border' :
+          systemStatus.status === 'maintenance' ? 'bg-theme-warning-bg border-theme-warning-border' :
+          systemStatus.status === 'warning' ? 'bg-theme-warning-bg border-theme-warning-border' :
           'bg-theme-error-bg border-theme-error-border'
         }`}>
           <div className="flex items-center gap-3">
@@ -335,9 +335,9 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                   </div>
                   <span className={`px-2 py-1 rounded text-xs font-medium ${
                     serviceData.status === 'healthy' 
-                      ? 'bg-theme-success-background text-theme-success-fg' 
+                      ? 'bg-theme-success-bg text-theme-success-fg' 
                       : serviceData.status === 'unhealthy'
-                      ? 'bg-theme-warning-background text-theme-warning-fg'
+                      ? 'bg-theme-warning-bg text-theme-warning-fg'
                       : 'bg-theme-error-bg text-theme-error-fg'
                   }`}>
                     {serviceData.status}
@@ -419,7 +419,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                 } shadow-sm`} />
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                   payment_gateways.stripe.connected 
-                    ? 'bg-theme-success-background text-theme-success-fg' 
+                    ? 'bg-theme-success-bg text-theme-success-fg' 
                     : 'bg-theme-error-bg text-theme-error-fg'
                 }`}>
                   {payment_gateways.stripe.connected ? '✓ Connected' : '✗ Disconnected'}
@@ -435,8 +435,8 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                 <span className="text-sm text-theme-secondary">Webhook Status</span>
                 <span className={`text-xs px-2 py-1 rounded font-medium ${
                   payment_gateways.stripe.webhook_status === 'healthy' 
-                    ? 'bg-theme-success-background text-theme-success-fg' 
-                    : 'bg-theme-warning-background text-theme-warning-fg'
+                    ? 'bg-theme-success-bg text-theme-success-fg' 
+                    : 'bg-theme-warning-bg text-theme-warning-fg'
                 }`}>
                   {payment_gateways.stripe.webhook_status}
                 </span>
@@ -466,7 +466,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                 } shadow-sm`} />
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                   payment_gateways.paypal.connected 
-                    ? 'bg-theme-success-background text-theme-success-fg' 
+                    ? 'bg-theme-success-bg text-theme-success-fg' 
                     : 'bg-theme-error-bg text-theme-error-fg'
                 }`}>
                   {payment_gateways.paypal.connected ? '✓ Connected' : '✗ Disconnected'}
@@ -482,8 +482,8 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                 <span className="text-sm text-theme-secondary">Webhook Status</span>
                 <span className={`text-xs px-2 py-1 rounded font-medium ${
                   payment_gateways.paypal.webhook_status === 'healthy' 
-                    ? 'bg-theme-success-background text-theme-success-fg' 
-                    : 'bg-theme-warning-background text-theme-warning-fg'
+                    ? 'bg-theme-success-bg text-theme-success-fg' 
+                    : 'bg-theme-warning-bg text-theme-warning-fg'
                 }`}>
                   {payment_gateways.paypal.webhook_status}
                 </span>
@@ -582,8 +582,8 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                           <p className="text-sm text-theme-secondary truncate">{account.owner?.email || 'No owner assigned'}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className={`text-xs px-2 py-1 rounded font-medium ${
-                              account.status === 'active' ? 'bg-theme-success-background text-theme-success-fg' :
-                              account.status === 'suspended' ? 'bg-theme-warning-background text-theme-warning-fg' :
+                              account.status === 'active' ? 'bg-theme-success-bg text-theme-success-fg' :
+                              account.status === 'suspended' ? 'bg-theme-warning-bg text-theme-warning-fg' :
                               'bg-theme-error-bg text-theme-error-fg'
                             }`}>
                               {account.status}
@@ -625,7 +625,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                       <div className="flex items-start gap-3">
                         <span className={`text-xs px-2 py-1 rounded font-medium flex-shrink-0 ${
                           log.level === 'error' ? 'bg-theme-error-bg text-theme-error-fg' :
-                          log.level === 'warning' ? 'bg-theme-warning-background text-theme-warning-fg' :
+                          log.level === 'warning' ? 'bg-theme-warning-bg text-theme-warning-fg' :
                           log.level === 'info' ? 'bg-theme-info-bg text-theme-info-fg' :
                           'bg-theme-surface text-theme-secondary'
                         }`}>

@@ -14,13 +14,13 @@ export interface SystemStatusCardProps {
 const statusConfig = {
   healthy: {
     color: 'text-theme-success-fg',
-    bgColor: 'bg-theme-success-background',
+    bgColor: 'bg-theme-success-bg',
     borderColor: 'border-theme-success-border',
     icon: '+'
   },
   warning: {
     color: 'text-theme-warning-fg',
-    bgColor: 'bg-theme-warning-background',
+    bgColor: 'bg-theme-warning-bg',
     borderColor: 'border-theme-warning-border',
     icon: '!'
   },
@@ -32,7 +32,7 @@ const statusConfig = {
   },
   maintenance: {
     color: 'text-theme-warning-fg',
-    bgColor: 'bg-theme-warning-background',
+    bgColor: 'bg-theme-warning-bg',
     borderColor: 'border-theme-warning-border',
     icon: 'M'
   }

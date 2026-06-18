@@ -59,7 +59,7 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-theme-interactive-primary" />
-            <span className="text-sm font-semibold text-theme-text-primary">Live Execution</span>
+            <span className="text-sm font-semibold text-theme-primary">Live Execution</span>
           </div>
           {isRunning && (
             <Badge variant="info" size="sm">
@@ -101,7 +101,7 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
                       {isSuccess && <CheckCircle2 className="w-4 h-4 text-theme-status-success" />}
                       {isFailed && <XCircle className="w-4 h-4 text-theme-status-error" />}
                       {!isSuccess && !isFailed && <Clock className="w-4 h-4 text-theme-secondary" />}
-                      <span className="text-sm font-medium text-theme-text-primary">
+                      <span className="text-sm font-medium text-theme-primary">
                         #{iteration.iteration_number}
                       </span>
                       {iteration.task_key && (

@@ -36,7 +36,7 @@ function FileChangeItem({ file, defaultExpanded = false }: { file: GitCommitFile
     <div className="border border-theme rounded-lg overflow-hidden">
       {/* File header */}
       <div
-        className={`flex items-center justify-between px-4 py-3 bg-theme-surface-secondary ${hasPatch ? 'cursor-pointer hover:bg-theme-surface-tertiary' : ''}`}
+        className={`flex items-center justify-between px-4 py-3 bg-theme-surface-secondary ${hasPatch ? 'cursor-pointer hover:bg-theme-background-tertiary' : ''}`}
         onClick={() => hasPatch && setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">

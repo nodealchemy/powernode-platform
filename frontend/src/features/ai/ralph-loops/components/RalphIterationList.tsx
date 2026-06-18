@@ -130,7 +130,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
       {/* Prompt */}
       {iteration.ai_prompt && (
         <ReportSection icon={MessageSquare} title="Prompt">
-          <pre className="text-xs text-theme-text-primary bg-theme-surface p-3 rounded overflow-x-auto max-h-40 whitespace-pre-wrap">
+          <pre className="text-xs text-theme-primary bg-theme-surface p-3 rounded overflow-x-auto max-h-40 whitespace-pre-wrap">
             {iteration.ai_prompt}
           </pre>
         </ReportSection>
@@ -139,7 +139,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
       {/* AI Output */}
       {iteration.ai_output && (
         <ReportSection icon={FileText} title="AI Output">
-          <pre className="text-xs text-theme-text-primary bg-theme-surface p-3 rounded overflow-x-auto max-h-64 whitespace-pre-wrap">
+          <pre className="text-xs text-theme-primary bg-theme-surface p-3 rounded overflow-x-auto max-h-64 whitespace-pre-wrap">
             {iteration.ai_output}
           </pre>
         </ReportSection>
@@ -166,7 +166,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
                     ) : (
                       <XCircle className="w-3.5 h-3.5 text-theme-status-error shrink-0" />
                     )}
-                    <span className="font-mono text-theme-text-primary flex-1">{check.command}</span>
+                    <span className="font-mono text-theme-primary flex-1">{check.command}</span>
                     {hasOutput && (
                       isOpen
                         ? <ChevronUp className="w-3 h-3 text-theme-secondary" />
@@ -192,7 +192,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
             {evidenceEntries.map(([key, value]) => (
               <div key={key} className="flex gap-2 text-xs p-2 rounded bg-theme-surface">
                 <span className="font-mono text-theme-secondary shrink-0">{key}</span>
-                <span className="text-theme-text-primary whitespace-pre-wrap break-words min-w-0">
+                <span className="text-theme-primary whitespace-pre-wrap break-words min-w-0">
                   {typeof value === 'string' ? value : JSON.stringify(value)}
                 </span>
               </div>
@@ -213,7 +213,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
       {/* Learning */}
       {iteration.learning_extracted && (
         <ReportSection icon={Lightbulb} title="Learning">
-          <p className="text-xs text-theme-text-primary bg-theme-status-success/5 border border-theme-status-success/20 p-3 rounded">
+          <p className="text-xs text-theme-primary bg-theme-status-success/5 border border-theme-status-success/20 p-3 rounded">
             {iteration.learning_extracted}
           </p>
         </ReportSection>
@@ -224,16 +224,16 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
         <div className="flex items-center gap-5 text-xs text-theme-secondary pt-1 border-t border-theme-interactive-primary">
           <Coins className="w-3.5 h-3.5" />
           {iteration.input_tokens != null && (
-            <span>In: <strong className="text-theme-text-primary">{iteration.input_tokens.toLocaleString()}</strong></span>
+            <span>In: <strong className="text-theme-primary">{iteration.input_tokens.toLocaleString()}</strong></span>
           )}
           {iteration.output_tokens != null && (
-            <span>Out: <strong className="text-theme-text-primary">{iteration.output_tokens.toLocaleString()}</strong></span>
+            <span>Out: <strong className="text-theme-primary">{iteration.output_tokens.toLocaleString()}</strong></span>
           )}
           {!iteration.input_tokens && !iteration.output_tokens && iteration.total_tokens != null && (
-            <span>Tokens: <strong className="text-theme-text-primary">{iteration.total_tokens.toLocaleString()}</strong></span>
+            <span>Tokens: <strong className="text-theme-primary">{iteration.total_tokens.toLocaleString()}</strong></span>
           )}
           {iteration.cost != null && (
-            <span>Cost: <strong className="text-theme-text-primary">${iteration.cost.toFixed(4)}</strong></span>
+            <span>Cost: <strong className="text-theme-primary">${iteration.cost.toFixed(4)}</strong></span>
           )}
         </div>
       )}
@@ -377,7 +377,7 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
     <div className={cn('space-y-4', className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-theme-text-primary">Iterations</h3>
+        <h3 className="font-medium text-theme-primary">Iterations</h3>
         <Button variant="ghost" size="sm" onClick={loadIterations} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
@@ -407,7 +407,7 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm font-medium text-theme-text-primary">
+                          <span className="font-mono text-sm font-medium text-theme-primary">
                             #{iteration.iteration_number}
                           </span>
                           <Badge variant={status.variant} size="sm">

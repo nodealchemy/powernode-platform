@@ -232,7 +232,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
 
         {/* System Role Warning */}
         {role?.system_role && (
-          <div className="bg-theme-warning-background border border-theme-warning-border rounded-lg p-4">
+          <div className="bg-theme-warning-bg border border-theme-warning-border rounded-lg p-4">
             <div className="flex items-start space-x-3">
               <Lock className="w-5 h-5 text-theme-warning-fg mt-0.5" />
               <div>

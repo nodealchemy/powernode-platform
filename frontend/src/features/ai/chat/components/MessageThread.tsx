@@ -66,11 +66,11 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
               {msg.sender_info?.name || (isUser ? 'You' : 'AI Assistant')}
             </span>
             {!isUser && <AgentBadge agentType={msg.sender_info?.agent_type} />}
-            <span className="text-[10px] text-theme-text-tertiary">
+            <span className="text-[10px] text-theme-tertiary">
               {formatTime(msg.created_at)}
             </span>
             {msg.is_edited && (
-              <span className="text-[10px] text-theme-text-tertiary italic">(edited)</span>
+              <span className="text-[10px] text-theme-tertiary italic">(edited)</span>
             )}
           </div>
 
@@ -95,19 +95,19 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-theme-surface-hover text-theme-text-tertiary"
+            className="p-1 rounded hover:bg-theme-surface-hover text-theme-tertiary"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
           <MessageSquareReply className="h-4 w-4 text-theme-interactive-primary" />
           <span className="text-sm font-semibold text-theme-primary">Thread</span>
-          <span className="text-xs text-theme-text-tertiary">
+          <span className="text-xs text-theme-tertiary">
             {threadMessages.length} {threadMessages.length === 1 ? 'reply' : 'replies'}
           </span>
         </div>
         <button
           onClick={onClose}
-          className="p-1 rounded hover:bg-theme-surface-hover text-theme-text-tertiary"
+          className="p-1 rounded hover:bg-theme-surface-hover text-theme-tertiary"
         >
           <X className="h-4 w-4" />
         </button>
@@ -120,7 +120,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
             {parentMessage.sender_info?.name || (parentMessage.sender_type === 'user' ? 'You' : 'AI Assistant')}
           </span>
           {parentMessage.sender_type !== 'user' && <AgentBadge agentType={parentMessage.sender_info?.agent_type} />}
-          <span className="text-[10px] text-theme-text-tertiary">
+          <span className="text-[10px] text-theme-tertiary">
             {formatTime(parentMessage.created_at)}
           </span>
         </div>
@@ -133,13 +133,13 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 text-theme-text-tertiary animate-spin" />
+            <Loader2 className="h-5 w-5 text-theme-tertiary animate-spin" />
           </div>
         ) : threadMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-            <MessageSquareReply className="h-8 w-8 text-theme-text-tertiary mb-2" />
+            <MessageSquareReply className="h-8 w-8 text-theme-tertiary mb-2" />
             <p className="text-sm text-theme-secondary">No replies yet</p>
-            <p className="text-xs text-theme-text-tertiary mt-1">Start a conversation in this thread</p>
+            <p className="text-xs text-theme-tertiary mt-1">Start a conversation in this thread</p>
           </div>
         ) : (
           <div className="divide-y divide-theme/30">

@@ -56,7 +56,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-medium text-theme-text-primary truncate">{agent.name}</h3>
+              <h3 className="font-medium text-theme-primary truncate">{agent.name}</h3>
               {agent.verified && (
                 <CheckCircle className="w-4 h-4 text-theme-status-success flex-shrink-0" />
               )}
@@ -109,7 +109,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-3 border-t border-theme-interactive-primary">
-          <span className="text-sm font-medium text-theme-text-primary">
+          <span className="text-sm font-medium text-theme-primary">
             {formatPrice(agent.pricing_model, agent.price_per_task)}
           </span>
           <Button

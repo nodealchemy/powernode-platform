@@ -23,7 +23,7 @@ export const AgentDetailStatsCards: React.FC<AgentDetailStatsCardsProps> = ({ st
     <div className="grid grid-cols-4 gap-4">
       <Card>
         <CardContent className="p-4">
-          <div className="text-2xl font-bold text-theme-text-primary">
+          <div className="text-2xl font-bold text-theme-primary">
             {stats.total_executions}
           </div>
           <div className="text-sm text-theme-secondary">Total Executions</div>
@@ -39,7 +39,7 @@ export const AgentDetailStatsCards: React.FC<AgentDetailStatsCardsProps> = ({ st
       </Card>
       <Card>
         <CardContent className="p-4">
-          <div className="text-2xl font-bold text-theme-text-primary">
+          <div className="text-2xl font-bold text-theme-primary">
             {formatDuration(stats.avg_execution_time)}
           </div>
           <div className="text-sm text-theme-secondary">Avg Time</div>

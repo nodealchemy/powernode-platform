@@ -172,7 +172,7 @@ export const AgentsIndexTable: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search agents..."
-            className="w-full pl-9 pr-3 py-2 text-sm bg-theme-background border border-theme rounded-lg text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-accent"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-theme-background border border-theme rounded-lg text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
           />
         </div>
 
@@ -198,7 +198,7 @@ export const AgentsIndexTable: React.FC = () => {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-1.5 text-xs bg-theme-background border border-theme rounded-md text-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-accent"
+          className="px-3 py-1.5 text-xs bg-theme-background border border-theme rounded-md text-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
         >
           <option value="">All types</option>
           {Object.entries(AGENT_TYPE_LABELS).map(([value, label]) => (

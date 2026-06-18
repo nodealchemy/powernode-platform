@@ -77,12 +77,12 @@ export const FederationPartnerCard: React.FC<FederationPartnerCardProps> = ({
               <Globe className="w-5 h-5 text-theme-secondary" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-medium text-theme-text-primary truncate">
+              <h3 className="font-medium text-theme-primary truncate">
                 <EntityLink
                   type="federation_partner"
                   id={partner.id}
                   label={partner.name || partner.organization_name}
-                  className="font-medium text-theme-text-primary"
+                  className="font-medium text-theme-primary"
                 />
               </h3>
               <div className="flex items-center gap-2 text-xs text-theme-secondary">

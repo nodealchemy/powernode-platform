@@ -71,7 +71,7 @@ export const ChannelListItem: React.FC<ChannelListItemProps> = ({
       }`}
     >
       <div className="flex-shrink-0 mt-0.5">
-        {CHANNEL_TYPE_ICONS[channel.channel_type] || <Hash className="h-3 w-3 text-theme-text-tertiary" />}
+        {CHANNEL_TYPE_ICONS[channel.channel_type] || <Hash className="h-3 w-3 text-theme-tertiary" />}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -81,7 +81,7 @@ export const ChannelListItem: React.FC<ChannelListItemProps> = ({
               {channel.name}
             </span>
           </div>
-          <span className="text-[10px] text-theme-text-tertiary whitespace-nowrap flex-shrink-0">
+          <span className="text-[10px] text-theme-tertiary whitespace-nowrap flex-shrink-0">
             {formatRelativeTime(channel.last_activity_at)}
           </span>
         </div>
@@ -114,14 +114,14 @@ export const ChannelListItem: React.FC<ChannelListItemProps> = ({
           {channel.linked_platforms.map((platform) => (
             <span
               key={platform}
-              className="text-[9px] font-medium px-1 py-0.5 rounded bg-theme-surface-secondary text-theme-text-tertiary"
+              className="text-[9px] font-medium px-1 py-0.5 rounded bg-theme-surface-secondary text-theme-tertiary"
               title={platform}
             >
               {PLATFORM_LABELS[platform] || platform}
             </span>
           ))}
           {channel.message_count > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px] text-theme-text-tertiary ml-auto flex-shrink-0">
+            <span className="flex items-center gap-0.5 text-[10px] text-theme-tertiary ml-auto flex-shrink-0">
               <MessageSquare className="h-2.5 w-2.5" />
               {channel.message_count}
             </span>

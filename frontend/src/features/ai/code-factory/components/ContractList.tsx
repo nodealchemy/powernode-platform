@@ -13,7 +13,7 @@ interface Props {
 }
 
 const statusColors: Record<string, string> = {
-  draft: 'bg-theme-surface-bg text-theme-secondary',
+  draft: 'bg-theme-surface text-theme-secondary',
   active: 'bg-theme-success-bg text-theme-success-fg',
   archived: 'bg-theme-warning-bg text-theme-warning-fg',
 };
@@ -162,7 +162,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                 {(contract.risk_tiers?.length ?? 0) > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {contract.risk_tiers.map((tier, i) => (
-                      <span key={i} className={`px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${tierColors[tier.tier] || 'text-theme-primary'} bg-theme-surface-bg`}>
+                      <span key={i} className={`px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${tierColors[tier.tier] || 'text-theme-primary'} bg-theme-surface`}>
                         {tier.tier}
                       </span>
                     ))}
@@ -235,7 +235,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      className="w-full px-3 py-2 bg-theme-surface-bg rounded border border-theme text-sm text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                      className="w-full px-3 py-2 bg-theme-surface rounded border border-theme text-sm text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
                     />
                   </div>
                 )}
@@ -250,7 +250,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                   </div>
                   <div className="space-y-2">
                     {tiers.map((tier, index) => (
-                      <div key={index} className="bg-theme-surface-bg rounded-lg p-3">
+                      <div key={index} className="bg-theme-surface rounded-lg p-3">
                         {isEditing ? (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -357,7 +357,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                       {Object.entries(contract.remediation_config).map(([tier, config]) => {
                         const cfg = config as Record<string, unknown>;
                         return (
-                          <div key={tier} className="bg-theme-surface-bg rounded p-2">
+                          <div key={tier} className="bg-theme-surface rounded p-2">
                             <span className={`text-xs font-medium capitalize ${tierColors[tier] || 'text-theme-primary'}`}>{tier}</span>
                             <div className="text-[10px] text-theme-secondary mt-0.5">
                               {cfg.auto_remediate ? 'Auto-remediate' : 'Manual approval'}

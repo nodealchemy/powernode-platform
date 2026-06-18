@@ -236,7 +236,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
                 )}
               </div>
               {showRaw || isStructured ? (
-                <pre className="bg-theme-surface-dark p-3 rounded-lg text-xs overflow-x-auto">
+                <pre className="bg-theme-background-tertiary p-3 rounded-lg text-xs overflow-x-auto">
                   <code className="text-theme-primary">
                     {isStructured ? contentText : JSON.stringify(memory.content, null, 2)}
                   </code>
@@ -252,7 +252,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
             {memory.task_context && Object.keys(memory.task_context).length > 0 && (
               <div>
                 <h4 className="text-xs font-medium text-theme-secondary mb-2">Task Context</h4>
-                <pre className="bg-theme-surface-dark p-3 rounded-lg text-xs overflow-x-auto">
+                <pre className="bg-theme-background-tertiary p-3 rounded-lg text-xs overflow-x-auto">
                   <code className="text-theme-primary">
                     {JSON.stringify(memory.task_context, null, 2)}
                   </code>
@@ -264,7 +264,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
             {memory.metadata && Object.keys(memory.metadata).length > 0 && (
               <div>
                 <h4 className="text-xs font-medium text-theme-secondary mb-2">Metadata</h4>
-                <pre className="bg-theme-surface-dark p-3 rounded-lg text-xs overflow-x-auto">
+                <pre className="bg-theme-background-tertiary p-3 rounded-lg text-xs overflow-x-auto">
                   <code className="text-theme-primary">
                     {JSON.stringify(memory.metadata, null, 2)}
                   </code>

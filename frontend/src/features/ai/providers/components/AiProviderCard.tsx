@@ -231,7 +231,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
           
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-theme-text-primary">{provider.name}</h3>
+              <h3 className="font-semibold text-theme-primary">{provider.name}</h3>
               {provider.priority_order <= 3 && (
                 <Star className="h-4 w-4 text-theme-warning-fg fill-current" />
               )}
@@ -260,7 +260,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
 
       {/* Capabilities */}
       <div className="mb-4">
-        <p className="text-xs font-medium text-theme-text-tertiary mb-2">CAPABILITIES</p>
+        <p className="text-xs font-medium text-theme-tertiary mb-2">CAPABILITIES</p>
         <div className="flex flex-wrap gap-1">
           {(provider.capabilities ?? []).slice(0, 4).map((capability) => (
             <Badge key={capability} variant="outline" size="xs">
@@ -278,18 +278,18 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       {/* Stats Grid */}
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="text-center">
-          <p className="text-lg font-semibold text-theme-text-primary">{provider.model_count ?? 0}</p>
-          <p className="text-xs text-theme-text-tertiary">Models</p>
+          <p className="text-lg font-semibold text-theme-primary">{provider.model_count ?? 0}</p>
+          <p className="text-xs text-theme-tertiary">Models</p>
         </div>
 
         <div className="text-center">
-          <p className="text-lg font-semibold text-theme-text-primary">{provider.credential_count ?? 0}</p>
-          <p className="text-xs text-theme-text-tertiary">Credentials</p>
+          <p className="text-lg font-semibold text-theme-primary">{provider.credential_count ?? 0}</p>
+          <p className="text-xs text-theme-tertiary">Credentials</p>
         </div>
 
         <div className="text-center">
-          <p className="text-lg font-semibold text-theme-text-primary">#{provider.priority_order ?? 0}</p>
-          <p className="text-xs text-theme-text-tertiary">Priority</p>
+          <p className="text-lg font-semibold text-theme-primary">#{provider.priority_order ?? 0}</p>
+          <p className="text-xs text-theme-tertiary">Priority</p>
         </div>
       </div>
 

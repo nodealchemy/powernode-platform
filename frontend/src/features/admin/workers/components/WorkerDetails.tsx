@@ -133,8 +133,8 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-theme-success-background text-theme-success-fg';
-      case 'suspended': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'active': return 'bg-theme-success-bg text-theme-success-fg';
+      case 'suspended': return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'revoked': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
@@ -245,7 +245,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                       {currentWorker.roles.map((role, index) => (
                         <span 
                           key={index}
-                          className="px-2 py-1 rounded-full text-xs font-medium bg-theme-warning-background text-theme-warning-fg"
+                          className="px-2 py-1 rounded-full text-xs font-medium bg-theme-warning-bg text-theme-warning-fg"
                         >
                           {role}
                         </span>
@@ -348,7 +348,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                   </button>
                   <button
                     onClick={handleTokenRegenerate}
-                    className="px-4 py-2 bg-theme-warning-background text-theme-warning-fg rounded hover:bg-theme-warning-background/80 transition-colors"
+                    className="px-4 py-2 bg-theme-warning-bg text-theme-warning-fg rounded hover:bg-theme-warning-bg/80 transition-colors"
                   >
                     Regenerate Token
                   </button>
@@ -384,7 +384,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                 {currentWorker.status === 'active' && (
                   <button
                     onClick={() => handleStatusChange('suspend')}
-                    className="px-4 py-2 bg-theme-warning-background text-theme-warning-fg rounded hover:bg-theme-warning-background/80 transition-colors"
+                    className="px-4 py-2 bg-theme-warning-bg text-theme-warning-fg rounded hover:bg-theme-warning-bg/80 transition-colors"
                   >
                     Suspend Worker
                   </button>
@@ -393,7 +393,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                 {currentWorker.status === 'suspended' && (
                   <button
                     onClick={() => handleStatusChange('activate')}
-                    className="px-4 py-2 bg-theme-success-background text-theme-success-fg rounded hover:bg-theme-success-background/80 transition-colors"
+                    className="px-4 py-2 bg-theme-success-bg text-theme-success-fg rounded hover:bg-theme-success-bg/80 transition-colors"
                   >
                     Activate Worker
                   </button>
@@ -483,9 +483,9 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                 <span className="text-theme-secondary">Overall Status:</span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   testResults.status === 'healthy' 
-                    ? 'bg-theme-success-background text-theme-success-fg'
+                    ? 'bg-theme-success-bg text-theme-success-fg'
                     : testResults.status === 'warning'
-                    ? 'bg-theme-warning-background text-theme-warning-fg'
+                    ? 'bg-theme-warning-bg text-theme-warning-fg'
                     : 'bg-theme-error-bg text-theme-error-fg'
                 }`}>
                   {testResults.status.toUpperCase()}
@@ -507,7 +507,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                     </span>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
                       status === 'pass'
-                        ? 'bg-theme-success-background text-theme-success-fg'
+                        ? 'bg-theme-success-bg text-theme-success-fg'
                         : 'bg-theme-error-bg text-theme-error-fg'
                     }`}>
                       {status.toUpperCase()}

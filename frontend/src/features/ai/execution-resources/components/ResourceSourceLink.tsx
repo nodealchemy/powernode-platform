@@ -20,7 +20,7 @@ export function ResourceSourceLink({ sourceType, sourceId: _sourceId }: Resource
   const route = SOURCE_ROUTES[sourceType];
 
   if (!route) {
-    return <span className="text-xs text-theme-text-tertiary">{sourceType.split('::').pop()}</span>;
+    return <span className="text-xs text-theme-tertiary">{sourceType.split('::').pop()}</span>;
   }
 
   return (

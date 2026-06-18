@@ -343,7 +343,7 @@ export const CreditsContent: React.FC = () => {
                     <div
                       key={pack.id}
                       className={`bg-theme-surface border rounded-lg p-6 transition-colors ${
-                        pack.is_featured ? 'border-theme-info-border ring-1 ring-theme-accent' : 'border-theme hover:border-theme-info-border/50'
+                        pack.is_featured ? 'border-theme-info-border ring-1 ring-theme-interactive-primary' : 'border-theme hover:border-theme-info-border/50'
                       }`}
                     >
                       {pack.is_featured && (
@@ -386,7 +386,7 @@ export const CreditsContent: React.FC = () => {
                     <input
                       type="search"
                       placeholder="Search transactions..."
-                      className="w-full pl-10 pr-4 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                      className="w-full pl-10 pr-4 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
                     />
                   </div>
                 </div>
@@ -395,7 +395,7 @@ export const CreditsContent: React.FC = () => {
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
-                    className="px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                    className="px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
                   >
                     <option value="all">All Types</option>
                     <option value="purchase">Purchase</option>

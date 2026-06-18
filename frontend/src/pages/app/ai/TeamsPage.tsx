@@ -117,11 +117,11 @@ const TeamsPage: React.FC = () => {
         <div className="space-y-4 p-4">
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Name</label>
-            <input type="text" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} placeholder="Team name" className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent" />
+            <input type="text" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} placeholder="Team name" className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary" />
           </div>
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Topology</label>
-            <select value={newTeamTopology} onChange={(e) => setNewTeamTopology(e.target.value)} className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent">
+            <select value={newTeamTopology} onChange={(e) => setNewTeamTopology(e.target.value)} className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary">
               <option value="hierarchical">Hierarchical</option>
               <option value="flat">Flat</option>
               <option value="mesh">Mesh</option>
@@ -131,7 +131,7 @@ const TeamsPage: React.FC = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Description</label>
-            <textarea value={newTeamDescription} onChange={(e) => setNewTeamDescription(e.target.value)} placeholder="Optional description" rows={3} className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent" />
+            <textarea value={newTeamDescription} onChange={(e) => setNewTeamDescription(e.target.value)} placeholder="Optional description" rows={3} className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary" />
           </div>
         </div>
       </Modal>
@@ -157,7 +157,7 @@ const TeamsPage: React.FC = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Objective</label>
-            <textarea value={executionObjective} onChange={(e) => setExecutionObjective(e.target.value)} placeholder="Describe the objective for this execution..." rows={4} className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent" />
+            <textarea value={executionObjective} onChange={(e) => setExecutionObjective(e.target.value)} placeholder="Describe the objective for this execution..." rows={4} className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary" />
           </div>
         </div>
       </Modal>

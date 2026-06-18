@@ -48,7 +48,7 @@ export const TeamAutonomyConfig: React.FC<TeamAutonomyConfigProps> = ({ config, 
               config.allow_agent_creation ? 'bg-theme-primary border-theme-primary' : 'bg-theme-background-secondary border-theme'
             }`}
           >
-            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-theme-surface shadow-sm ring-1 ring-theme-border transition-transform ${
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-theme-surface shadow-sm ring-1 ring-theme transition-transform ${
               config.allow_agent_creation ? 'translate-x-5' : ''
             }`} />
           </button>
@@ -65,7 +65,7 @@ export const TeamAutonomyConfig: React.FC<TeamAutonomyConfigProps> = ({ config, 
               config.allow_cross_team_operations ? 'bg-theme-primary border-theme-primary' : 'bg-theme-background-secondary border-theme'
             }`}
           >
-            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-theme-surface shadow-sm ring-1 ring-theme-border transition-transform ${
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-theme-surface shadow-sm ring-1 ring-theme transition-transform ${
               config.allow_cross_team_operations ? 'translate-x-5' : ''
             }`} />
           </button>
@@ -82,7 +82,7 @@ export const TeamAutonomyConfig: React.FC<TeamAutonomyConfigProps> = ({ config, 
               config.require_human_approval ? 'bg-theme-primary border-theme-primary' : 'bg-theme-background-secondary border-theme'
             }`}
           >
-            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-theme-surface shadow-sm ring-1 ring-theme-border transition-transform ${
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-theme-surface shadow-sm ring-1 ring-theme transition-transform ${
               config.require_human_approval ? 'translate-x-5' : ''
             }`} />
           </button>

@@ -49,7 +49,7 @@ export const TestWebSocket: React.FC = () => {
               <label className="text-sm font-medium text-theme-secondary">Access Token</label>
               <p className="mt-1">
                 <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                  access_token ? 'bg-theme-success-background text-theme-success-fg' : 'bg-theme-error-bg text-theme-error-fg'
+                  access_token ? 'bg-theme-success-bg text-theme-success-fg' : 'bg-theme-error-bg text-theme-error-fg'
                 }`}>
                   {access_token ? 'Present' : 'Missing'}
                 </span>
@@ -59,7 +59,7 @@ export const TestWebSocket: React.FC = () => {
               <label className="text-sm font-medium text-theme-secondary">Connection Status</label>
               <p className="mt-1">
                 <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                  isConnected ? 'bg-theme-success-background text-theme-success-fg' : 'bg-theme-error-bg text-theme-error-fg'
+                  isConnected ? 'bg-theme-success-bg text-theme-success-fg' : 'bg-theme-error-bg text-theme-error-fg'
                 }`}>
                   <span className={`w-2 h-2 rounded-full mr-1.5 ${
                     isConnected ? 'bg-theme-success-bg' : 'bg-theme-error-bg'

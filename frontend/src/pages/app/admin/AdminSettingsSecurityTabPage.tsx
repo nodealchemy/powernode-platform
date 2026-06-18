@@ -157,8 +157,8 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
   };
 
   const getScoreBgColor = (score: number) => {
-    if (score >= 90) return 'bg-theme-success-background';
-    if (score >= 70) return 'bg-theme-warning-background';
+    if (score >= 90) return 'bg-theme-success-bg';
+    if (score >= 70) return 'bg-theme-warning-bg';
     return 'bg-theme-error-bg';
   };
 

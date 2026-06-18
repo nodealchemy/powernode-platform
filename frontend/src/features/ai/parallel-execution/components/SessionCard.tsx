@@ -21,7 +21,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onClick }) =>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <GitBranch className="w-4 h-4 text-theme-secondary" />
-            <span className="font-medium text-theme-text-primary truncate max-w-[200px]">
+            <span className="font-medium text-theme-primary truncate max-w-[200px]">
               {session.base_branch}
             </span>
           </div>
@@ -60,7 +60,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onClick }) =>
         </div>
 
         {session.source_type && (
-          <div className="mt-2 text-xs text-theme-text-tertiary">
+          <div className="mt-2 text-xs text-theme-tertiary">
             Source: {session.source_type.replace('Ai::', '')}
           </div>
         )}

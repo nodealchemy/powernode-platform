@@ -53,10 +53,10 @@ export const MergeStatusPanel: React.FC<MergeStatusPanelProps> = ({
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex-shrink-0">
-                <span className="text-xs text-theme-text-tertiary">#{op.merge_order + 1}</span>
+                <span className="text-xs text-theme-tertiary">#{op.merge_order + 1}</span>
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-medium text-theme-text-primary truncate">
+                <div className="text-sm font-medium text-theme-primary truncate">
                   {op.source_branch} → {op.target_branch}
                 </div>
                 <div className="text-xs text-theme-secondary">
@@ -87,7 +87,7 @@ export const MergeStatusPanel: React.FC<MergeStatusPanelProps> = ({
       {/* Conflict details */}
       {hasConflicts && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-theme-text-primary">Conflict Files</h4>
+          <h4 className="text-sm font-medium text-theme-primary">Conflict Files</h4>
           {mergeOperations
             .filter((op) => op.has_conflicts && op.conflict_files.length > 0)
             .map((op) => (

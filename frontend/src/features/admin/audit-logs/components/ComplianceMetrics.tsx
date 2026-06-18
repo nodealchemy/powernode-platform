@@ -85,9 +85,9 @@ export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange 
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'compliant': return 'text-theme-status-success bg-theme-status-success-background';
-      case 'warning': return 'text-theme-status-warning bg-theme-status-warning-background';
-      case 'non-compliant': return 'text-theme-status-error bg-theme-status-error-background';
+      case 'compliant': return 'text-theme-status-success bg-theme-success-bg';
+      case 'warning': return 'text-theme-status-warning bg-theme-warning-bg';
+      case 'non-compliant': return 'text-theme-status-error bg-theme-error-bg';
       default: return 'text-theme-secondary bg-theme-surface';
     }
   };
@@ -111,7 +111,7 @@ export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange 
         <div className="bg-theme-background rounded-lg border border-theme p-6">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-medium text-theme-secondary">Overall Compliance Score</div>
-            <div className="p-1 bg-theme-status-success-background rounded">
+            <div className="p-1 bg-theme-success-bg rounded">
               <Shield className="w-4 h-4 text-theme-status-success" />
             </div>
           </div>

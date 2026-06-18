@@ -116,7 +116,7 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-theme-text-primary">Community Agents</h2>
+          <h2 className="text-lg font-semibold text-theme-primary">Community Agents</h2>
           <p className="text-sm text-theme-secondary">
             {totalCount} agent{totalCount !== 1 ? 's' : ''} available
           </p>

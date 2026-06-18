@@ -44,9 +44,9 @@ const realFormatUptime = (seconds: number): string => {
 const realGetStatusBgColor = (status: string): string => {
   switch (status) {
     case 'healthy':
-      return 'bg-theme-success-background';
+      return 'bg-theme-success-bg';
     case 'warning':
-      return 'bg-theme-warning-background';
+      return 'bg-theme-warning-bg';
     case 'critical':
       return 'bg-theme-error-bg';
     default:
@@ -297,7 +297,7 @@ describe('SystemHealthMonitor', () => {
         onRefresh={jest.fn()}
       />
     );
-    expect(container.querySelector('.bg-theme-warning-background')).toBeInTheDocument();
+    expect(container.querySelector('.bg-theme-warning-bg')).toBeInTheDocument();
   });
 
   it('invokes onRefresh when the refresh button is clicked', () => {

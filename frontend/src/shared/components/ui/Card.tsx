@@ -376,11 +376,11 @@ export const ActionCard: React.FC<ActionCardProps> = ({
   const getStatusClasses = (status: string) => {
     switch (status) {
       case 'warning':
-        return 'border-theme-warning-border bg-theme-warning-background';
+        return 'border-theme-warning-border bg-theme-warning-bg';
       case 'error':
         return 'border-theme-error-border bg-theme-error-bg';
       case 'success':
-        return 'border-theme-success-border bg-theme-success-background';
+        return 'border-theme-success-border bg-theme-success-bg';
       default:
         return '';
     }

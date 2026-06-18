@@ -26,7 +26,7 @@ export const AgentLane: React.FC<AgentLaneProps> = ({ worktree }) => {
             type="agent"
             id={worktree.ai_agent_id}
             label={worktree.agent_name || worktree.branch_name.split('/').pop()}
-            className="text-sm font-medium text-theme-text-primary truncate"
+            className="text-sm font-medium text-theme-primary truncate"
           />
         </div>
         <WorktreeStatusBadge status={worktree.status} type="worktree" size="sm" />
@@ -79,7 +79,7 @@ export const AgentLane: React.FC<AgentLaneProps> = ({ worktree }) => {
             <DollarSign className="w-3 h-3" />
             <span>{worktree.tokens_used.toLocaleString()} tokens</span>
             {worktree.estimated_cost_cents ? (
-              <span className="text-theme-text-tertiary">(${(worktree.estimated_cost_cents / 100).toFixed(2)})</span>
+              <span className="text-theme-tertiary">(${(worktree.estimated_cost_cents / 100).toFixed(2)})</span>
             ) : null}
           </div>
         )}

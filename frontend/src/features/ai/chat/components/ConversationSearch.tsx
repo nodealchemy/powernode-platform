@@ -87,18 +87,18 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({
     <div className="px-3 py-2 space-y-2">
       {/* Search input */}
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-text-tertiary" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-tertiary" />
         <input
           type="text"
           placeholder={searchMode === 'messages' ? 'Search messages...' : 'Search conversations...'}
           value={query}
           onChange={handleChange}
-          className="w-full pl-8 pr-8 py-1.5 text-sm bg-theme-surface border border-theme rounded-md text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+          className="w-full pl-8 pr-8 py-1.5 text-sm bg-theme-surface border border-theme rounded-md text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
         />
         {query && (
           <button
             onClick={clearSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-text-tertiary hover:text-theme-primary"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-tertiary hover:text-theme-primary"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -131,7 +131,7 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({
             className={`p-1 rounded transition-colors ${
               searchMode === 'messages'
                 ? 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
-                : 'text-theme-text-tertiary hover:text-theme-primary'
+                : 'text-theme-tertiary hover:text-theme-primary'
             }`}
             title={searchMode === 'messages' ? 'Search messages (active)' : 'Search titles only'}
           >
@@ -148,7 +148,7 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({
           <div ref={sortRef} className="relative">
             <button
               onClick={() => setShowSort(!showSort)}
-              className="p-1 rounded text-theme-text-tertiary hover:text-theme-primary transition-colors"
+              className="p-1 rounded text-theme-tertiary hover:text-theme-primary transition-colors"
               title="Sort conversations"
             >
               <ArrowUpDown className="h-3.5 w-3.5" />

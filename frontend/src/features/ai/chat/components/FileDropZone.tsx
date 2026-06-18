@@ -89,7 +89,7 @@ export const FileDropZone: React.FC<FileDropZoneProps> = ({
           <div className="flex flex-col items-center gap-2 p-4 bg-theme-surface rounded-lg shadow-lg">
             <Upload className="h-8 w-8 text-theme-interactive-primary" />
             <p className="text-sm font-medium text-theme-primary">Drop files here</p>
-            <p className="text-xs text-theme-text-tertiary">Max {maxSizeMb}MB per file</p>
+            <p className="text-xs text-theme-tertiary">Max {maxSizeMb}MB per file</p>
           </div>
         </div>
       )}

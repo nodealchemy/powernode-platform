@@ -148,10 +148,10 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
 
   const getRiskColor = (level: string) => {
     switch (level) {
-      case 'critical': return 'text-theme-status-error bg-theme-status-error-background border-theme-status-error';
-      case 'high': return 'text-theme-status-warning bg-theme-status-warning-background border-theme-status-warning';
-      case 'medium': return 'text-theme-status-warning bg-theme-status-warning-background border-theme-status-warning';
-      case 'low': return 'text-theme-status-success bg-theme-status-success-background border-theme-status-success';
+      case 'critical': return 'text-theme-status-error bg-theme-error-bg border-theme-status-error';
+      case 'high': return 'text-theme-status-warning bg-theme-warning-bg border-theme-status-warning';
+      case 'medium': return 'text-theme-status-warning bg-theme-warning-bg border-theme-status-warning';
+      case 'low': return 'text-theme-status-success bg-theme-success-bg border-theme-status-success';
       default: return 'text-theme-secondary bg-theme-surface border-theme';
     }
   };
@@ -303,7 +303,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
             })
             .map((factor, index) => {
               const isCritical = factor.level === 'critical';
-              const bgColor = isCritical ? 'bg-theme-status-error-background' : 'bg-theme-status-warning-background';
+              const bgColor = isCritical ? 'bg-theme-error-bg' : 'bg-theme-warning-bg';
               const borderColor = isCritical ? 'border-theme-status-error' : 'border-theme-status-warning';
               const textColor = isCritical ? 'text-theme-status-error' : 'text-theme-status-warning';
               
@@ -380,7 +380,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
           
           {/* Show default message if no high-risk factors */}
           {riskFactors.filter(factor => factor.level === 'critical' || factor.level === 'high').length === 0 && (
-            <div className="flex items-start gap-3 p-4 bg-theme-status-success-background rounded-lg border border-theme-status-success">
+            <div className="flex items-start gap-3 p-4 bg-theme-success-bg rounded-lg border border-theme-status-success">
               <Shield className="w-5 h-5 text-theme-status-success mt-0.5" />
               <div>
                 <div className="font-medium text-theme-status-success">Security Status: Good</div>

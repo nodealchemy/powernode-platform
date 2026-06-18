@@ -381,7 +381,7 @@ describe('AuditLogTable', () => {
       const mediumLog = [{ ...mockLogs[0], level: 'medium' as any, status: 'success' as const }];
       const { container } = render(<AuditLogTable logs={mediumLog} />);
 
-      expect(container.querySelector('.bg-theme-warning-background')).toBeInTheDocument();
+      expect(container.querySelector('.bg-theme-warning-bg')).toBeInTheDocument();
     });
 
     it('applies success style for low severity', () => {
@@ -391,7 +391,7 @@ describe('AuditLogTable', () => {
       const { container } = render(<AuditLogTable logs={lowLog} />);
 
       // Both Status (error) and Risk (low) columns have styled badges
-      expect(container.querySelector('.bg-theme-success-background')).toBeInTheDocument();
+      expect(container.querySelector('.bg-theme-success-bg')).toBeInTheDocument();
     });
 
     it('applies default style for unrecognized severity', () => {
@@ -408,7 +408,7 @@ describe('AuditLogTable', () => {
       render(<AuditLogTable {...defaultProps} />);
 
       const successBadges = screen.getAllByText('success');
-      expect(successBadges[0].closest('span')).toHaveClass('bg-theme-success-background');
+      expect(successBadges[0].closest('span')).toHaveClass('bg-theme-success-bg');
     });
 
     it('applies error style for error status', () => {
@@ -422,7 +422,7 @@ describe('AuditLogTable', () => {
       render(<AuditLogTable {...defaultProps} />);
 
       const warningBadges = screen.getAllByText('warning');
-      expect(warningBadges[0].closest('span')).toHaveClass('bg-theme-warning-background');
+      expect(warningBadges[0].closest('span')).toHaveClass('bg-theme-warning-bg');
     });
   });
 

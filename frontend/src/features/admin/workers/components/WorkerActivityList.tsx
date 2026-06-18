@@ -89,7 +89,7 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
   const getStatusBadge = (activity: WorkerActivity) => {
     if (activity.successful) {
       return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-success-background text-theme-success-fg">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-success-bg text-theme-success-fg">
           Success
         </span>
       );
@@ -289,10 +289,10 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
                 {activity.response_status && (
                   <div className={`px-2 py-1 rounded text-xs font-mono ${
                     activity.response_status >= 200 && activity.response_status < 300
-                      ? 'bg-theme-success-background text-theme-success-fg'
+                      ? 'bg-theme-success-bg text-theme-success-fg'
                       : activity.response_status >= 400
                       ? 'bg-theme-error-bg text-theme-error-fg'
-                      : 'bg-theme-warning-background text-theme-warning-fg'
+                      : 'bg-theme-warning-bg text-theme-warning-fg'
                   }`}>
                     {activity.response_status}
                   </div>

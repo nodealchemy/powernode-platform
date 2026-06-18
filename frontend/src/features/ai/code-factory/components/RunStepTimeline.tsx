@@ -63,7 +63,7 @@ function buildTimeline(state: ReviewState): TimelineStep[] {
 const statusIcons: Record<string, { icon: string; color: string }> = {
   completed: { icon: '\u2713', color: 'text-theme-success-fg bg-theme-success-bg' },
   active: { icon: '\u25CF', color: 'text-theme-info-fg bg-theme-info-fg/10' },
-  pending: { icon: '\u25CB', color: 'text-theme-secondary bg-theme-surface-bg' },
+  pending: { icon: '\u25CB', color: 'text-theme-secondary bg-theme-surface' },
   failed: { icon: '\u2717', color: 'text-theme-error-fg bg-theme-error-bg' },
 };
 

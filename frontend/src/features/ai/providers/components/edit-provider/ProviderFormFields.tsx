@@ -139,7 +139,7 @@ export const ProviderFormFields: React.FC<ProviderFormFieldsProps> = ({
                 type="checkbox"
                 checked={data.capabilities.includes(capability)}
                 onChange={(e) => onCapabilityChange(capability, e.target.checked)}
-                className="rounded border-theme-300 text-theme-info-fg focus:ring-theme-info-fg"
+                className="rounded border-theme text-theme-info-fg focus:ring-theme-info-fg"
               />
               <span className="text-sm text-theme-secondary capitalize">
                 {capability.replace('_', ' ')}

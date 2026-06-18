@@ -33,14 +33,14 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
       label: 'Activate Workers',
       icon: Play,
       description: 'Activate selected workers',
-      color: 'text-theme-success-fg hover:bg-theme-success-background'
+      color: 'text-theme-success-fg hover:bg-theme-success-bg'
     },
     {
       id: 'suspend',
       label: 'Suspend Workers',
       icon: Pause,
       description: 'Suspend selected workers',
-      color: 'text-theme-warning-fg hover:bg-theme-warning-background'
+      color: 'text-theme-warning-fg hover:bg-theme-warning-bg'
     },
     {
       id: 'export',

@@ -121,7 +121,7 @@ export const TeamsIndexTable: React.FC<TeamsIndexTableProps> = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search teams..."
-            className="w-full pl-9 pr-3 py-2 text-sm bg-theme-background border border-theme rounded-lg text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-accent"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-theme-background border border-theme rounded-lg text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
           />
         </div>
 

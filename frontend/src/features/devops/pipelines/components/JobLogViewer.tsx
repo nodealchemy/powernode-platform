@@ -194,7 +194,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
 
   if (loading && !logs) {
     return (
-      <div className="bg-theme-surface-inset rounded-lg p-4 h-96 flex items-center justify-center">
+      <div className="bg-theme-background-secondary rounded-lg p-4 h-96 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-6 h-6 text-theme-secondary animate-spin mx-auto mb-2" />
           <p className="text-sm text-theme-tertiary">
@@ -207,7 +207,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
 
   if (error && !logs) {
     return (
-      <div className="bg-theme-surface-inset rounded-lg p-4 h-96 flex items-center justify-center">
+      <div className="bg-theme-background-secondary rounded-lg p-4 h-96 flex items-center justify-center">
         <div className="text-center">
           <p className="text-theme-error-fg mb-2">{error}</p>
           <Button onClick={handleRefresh} variant="secondary" size="sm">
@@ -219,7 +219,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
   }
 
   return (
-    <div className="bg-theme-surface-inset rounded-lg overflow-hidden">
+    <div className="bg-theme-background-secondary rounded-lg overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-theme-surface border-b border-theme">
         <div className="flex items-center gap-2">
@@ -289,7 +289,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
       {/* Log Content */}
       <div
         ref={logContainerRef}
-        className="h-96 overflow-auto font-mono text-sm bg-theme-surface-inset"
+        className="h-96 overflow-auto font-mono text-sm bg-theme-background-secondary"
         onScroll={(e) => {
           const target = e.target as HTMLDivElement;
           const isAtBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 50;

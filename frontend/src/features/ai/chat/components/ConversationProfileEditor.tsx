@@ -114,9 +114,9 @@ export const ConversationProfileEditor: React.FC<ConversationProfileEditorProps>
           placeholder="Add any specific instructions for how the agent should respond..."
           rows={3}
           maxLength={1000}
-          className="w-full px-2.5 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary resize-none"
+          className="w-full px-2.5 py-1.5 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary resize-none"
         />
-        <div className="text-right text-[10px] text-theme-text-tertiary mt-0.5">
+        <div className="text-right text-[10px] text-theme-tertiary mt-0.5">
           {profile.custom_instructions.length}/1000
         </div>
       </div>

@@ -367,7 +367,7 @@ export default function KnowledgeBaseAdminPage() {
 
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="flex items-center">
-              <div className="h-8 w-8 bg-theme-surface0 rounded-lg flex items-center justify-center">
+              <div className="h-8 w-8 bg-theme-surface rounded-lg flex items-center justify-center">
                 <span className="text-white text-sm font-bold">A</span>
               </div>
               <div className="ml-3">

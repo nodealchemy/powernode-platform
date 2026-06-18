@@ -64,7 +64,7 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
                 tabIndex={onPhaseClick ? 0 : undefined}
                 onKeyDown={onPhaseClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onPhaseClick(selectedPhase === phase ? null : phase); } : undefined}
               >
-                <div className={`mb-1 ${selectedPhase === phase ? 'ring-2 ring-theme-accent ring-offset-1 ring-offset-theme-bg-surface rounded-full' : ''}`}>
+                <div className={`mb-1 ${selectedPhase === phase ? 'ring-2 ring-theme-interactive-primary ring-offset-1 ring-offset-theme-bg-surface rounded-full' : ''}`}>
                   {state === 'completed' && (
                     <CheckCircle2 className="w-5 h-5 text-theme-success-fg" />
                   )}

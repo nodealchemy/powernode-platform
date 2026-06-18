@@ -19,13 +19,13 @@ interface Props {
 }
 
 const STATUS_TONE: Record<StorageAssignmentStatus, string> = {
-  pending: 'bg-theme-warning-bg text-theme-on-warning',
-  provisioning: 'bg-theme-warning-bg text-theme-on-warning',
-  mounted: 'bg-theme-success-bg text-theme-on-success',
-  degraded: 'bg-theme-warning-bg text-theme-on-warning',
-  unmounting: 'bg-theme-info-bg text-theme-on-info',
-  failed: 'bg-theme-danger-bg text-theme-on-danger',
-  disabled: 'bg-theme-surface-muted text-theme-secondary',
+  pending: 'bg-theme-warning-bg text-theme-warning-fg',
+  provisioning: 'bg-theme-warning-bg text-theme-warning-fg',
+  mounted: 'bg-theme-success-bg text-theme-success-fg',
+  degraded: 'bg-theme-warning-bg text-theme-warning-fg',
+  unmounting: 'bg-theme-info-bg text-theme-info-fg',
+  failed: 'bg-theme-danger-bg text-theme-error-fg',
+  disabled: 'bg-theme-background-muted text-theme-secondary',
 };
 
 export const StorageProviderAssignmentsTab: React.FC<Props> = ({ storageId, providerType }) => {
@@ -63,7 +63,7 @@ export const StorageProviderAssignmentsTab: React.FC<Props> = ({ storageId, prov
           <button
             type="button"
             onClick={() => setShowBulkDialog(true)}
-            className="px-3 py-1.5 rounded-md bg-theme-accent text-theme-on-accent text-sm"
+            className="px-3 py-1.5 rounded-md bg-theme-interactive-primary text-theme-interactive-primary text-sm"
           >
             Assign to instances
           </button>
@@ -124,7 +124,7 @@ const AssignmentRow: React.FC<{
   onChange: () => void;
 }> = ({ assignment, canRotate, canDelete, onChange }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const tone = STATUS_TONE[assignment.status] || 'bg-theme-surface-muted text-theme-secondary';
+  const tone = STATUS_TONE[assignment.status] || 'bg-theme-background-muted text-theme-secondary';
 
   const handleRotate = async () => {
     try {
@@ -164,7 +164,7 @@ const AssignmentRow: React.FC<{
           <button
             type="button"
             onClick={handleRotate}
-            className="text-theme-accent text-xs underline"
+            className="text-theme-interactive-primary text-xs underline"
           >
             Rotate
           </button>

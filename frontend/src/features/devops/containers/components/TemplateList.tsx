@@ -109,7 +109,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-theme-text-primary">Container Templates</h2>
+          <h2 className="text-lg font-semibold text-theme-primary">Container Templates</h2>
           <p className="text-sm text-theme-secondary">
             {totalCount} template{totalCount !== 1 ? 's' : ''} available
           </p>
@@ -184,7 +184,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <FileCode className="w-5 h-5 text-theme-secondary flex-shrink-0" />
-                        <h3 className="font-medium text-theme-text-primary truncate">
+                        <h3 className="font-medium text-theme-primary truncate">
                           {template.name}
                         </h3>
                       </div>

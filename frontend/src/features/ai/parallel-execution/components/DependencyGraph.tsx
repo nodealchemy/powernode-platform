@@ -73,7 +73,7 @@ export const DependencyGraph: React.FC<DependencyGraphProps> = ({ worktrees }) =
                 textAnchor="middle"
                 fontSize={10}
                 fill="currentColor"
-                className="text-theme-text-primary"
+                className="text-theme-primary"
               >
                 {label.length > 14 ? label.substring(0, 14) + '...' : label}
               </text>

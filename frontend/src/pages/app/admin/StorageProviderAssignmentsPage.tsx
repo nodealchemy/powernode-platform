@@ -52,7 +52,7 @@ const StorageProviderAssignmentsPage: React.FC = () => {
   if (!storageId || !provider) {
     return (
       <PageContainer title="Storage not found">
-        <Link to="/admin/storage" className="text-theme-accent inline-flex items-center">
+        <Link to="/admin/storage" className="text-theme-interactive-primary inline-flex items-center">
           <ArrowLeft size={16} className="mr-1" />
           Back to storage providers
         </Link>
@@ -65,7 +65,7 @@ const StorageProviderAssignmentsPage: React.FC = () => {
       <div className="mb-4">
         <Link
           to="/admin/storage"
-          className="text-theme-accent inline-flex items-center text-sm"
+          className="text-theme-interactive-primary inline-flex items-center text-sm"
         >
           <ArrowLeft size={16} className="mr-1" />
           Back to storage providers

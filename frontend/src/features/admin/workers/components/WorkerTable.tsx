@@ -68,8 +68,8 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-theme-success-background text-theme-success-fg';
-      case 'suspended': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'active': return 'bg-theme-success-bg text-theme-success-fg';
+      case 'suspended': return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'revoked': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
@@ -231,11 +231,11 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
                         {getStatusIcon(worker.status)} {worker.status}
                       </span>
                       {worker.active_recently ? (
-                        <span className="px-2 py-1 bg-theme-success-background text-theme-success-fg text-xs rounded-full font-medium">
+                        <span className="px-2 py-1 bg-theme-success-bg text-theme-success-fg text-xs rounded-full font-medium">
                           🟢 Online
                         </span>
                       ) : (
-                        <span className="px-2 py-1 bg-theme-surface-background text-theme-secondary text-xs rounded-full font-medium">
+                        <span className="px-2 py-1 bg-theme-surface text-theme-secondary text-xs rounded-full font-medium">
                           ⚫ Offline
                         </span>
                       )}
@@ -256,7 +256,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
                       {worker.roles.slice(0, 2).map((role, index) => (
                         <span
                           key={index}
-                          className="px-2 py-1 bg-theme-warning-background text-theme-warning-fg text-xs rounded-full"
+                          className="px-2 py-1 bg-theme-warning-bg text-theme-warning-fg text-xs rounded-full"
                         >
                           {role}
                         </span>

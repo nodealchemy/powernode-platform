@@ -40,7 +40,7 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-theme-text-primary mb-2">
+        <label className="block text-sm font-medium text-theme-primary mb-2">
           Required Skills
         </label>
 
@@ -88,9 +88,9 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
                           if (e.target.checked) onCapabilitiesChange([...capabilities, skill.slug]);
                           else onCapabilitiesChange(capabilities.filter(c => c !== skill.slug));
                         }}
-                        className="w-4 h-4 rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-brand-primary"
+                        className="w-4 h-4 rounded border-theme-interactive-primary text-theme-interactive-primary focus:ring-theme-interactive-primary"
                       />
-                      <span className="text-theme-text-primary truncate" title={skill.name}>
+                      <span className="text-theme-primary truncate" title={skill.name}>
                         {skill.name}
                       </span>
                     </label>
@@ -137,7 +137,7 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
       {/* Capability Match Strategy */}
       {capabilities.length > 0 && (
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary mb-1">
+          <label className="block text-sm font-medium text-theme-primary mb-1">
             Match Strategy
           </label>
           <Select

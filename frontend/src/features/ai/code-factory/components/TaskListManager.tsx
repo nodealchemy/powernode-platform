@@ -27,7 +27,7 @@ const statusColors: Record<string, string> = {
 };
 
 const tierColors: Record<string, string> = {
-  low: 'bg-theme-surface-bg text-theme-secondary',
+  low: 'bg-theme-surface text-theme-secondary',
   standard: 'bg-theme-info-bg text-theme-info-fg',
   high: 'bg-theme-warning-bg text-theme-warning-fg',
   critical: 'bg-theme-error-bg text-theme-error-fg',
@@ -59,7 +59,7 @@ export const TaskListManager: React.FC<Props> = ({ tasks = [] }) => {
           </span>
           <span className="text-xs text-theme-secondary">{progress.toFixed(0)}%</span>
         </div>
-        <div className="h-2 bg-theme-surface-bg rounded-full overflow-hidden">
+        <div className="h-2 bg-theme-surface rounded-full overflow-hidden">
           <div
             className="h-full bg-theme-success-bg rounded-full transition-all"
             style={{ width: `${progress}%` }}
@@ -76,7 +76,7 @@ export const TaskListManager: React.FC<Props> = ({ tasks = [] }) => {
             className={`px-3 py-1 text-xs rounded-full transition-colors ${
               filter === f
                 ? 'bg-theme-info-bg text-theme-on-primary'
-                : 'bg-theme-surface-bg text-theme-secondary hover:text-theme-primary'
+                : 'bg-theme-surface text-theme-secondary hover:text-theme-primary'
             }`}
           >
             {f === 'all' ? 'All' : f.replace(/_/g, ' ')}

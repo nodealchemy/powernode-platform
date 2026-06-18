@@ -87,7 +87,7 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
             <Check className="h-3.5 w-3.5" />
             Action Confirmed
             {actionContext.resolved_at && (
-              <span className="text-theme-text-tertiary ml-1">
+              <span className="text-theme-tertiary ml-1">
                 {new Date(actionContext.resolved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -98,7 +98,7 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
             <X className="h-3.5 w-3.5" />
             Action Rejected
             {actionContext.resolved_at && (
-              <span className="text-theme-text-tertiary ml-1">
+              <span className="text-theme-tertiary ml-1">
                 {new Date(actionContext.resolved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -142,7 +142,7 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
               {loading && action.type === 'confirm' ? 'Confirming...' : action.label}
             </button>
           ))}
-          <span className="inline-flex items-center gap-1 text-xs text-theme-text-tertiary ml-2">
+          <span className="inline-flex items-center gap-1 text-xs text-theme-tertiary ml-2">
             <Clock className="h-3 w-3" />
             Awaiting confirmation
           </span>
@@ -153,7 +153,7 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
             value={modifyText}
             onChange={(e) => setModifyText(e.target.value)}
             placeholder="Describe what you'd like to change..."
-            className="w-full px-3 py-2 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary resize-none"
+            className="w-full px-3 py-2 text-sm bg-theme-background border border-theme rounded-md text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary resize-none"
             rows={3}
             autoFocus
           />

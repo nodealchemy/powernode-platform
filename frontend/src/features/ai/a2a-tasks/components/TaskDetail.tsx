@@ -322,7 +322,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                 {getMessageData() && (
                   <div>
                     <p className="text-xs text-theme-tertiary mb-2">Data:</p>
-                    <pre className="bg-theme-surface-dark p-4 rounded-lg text-xs overflow-x-auto max-h-64">
+                    <pre className="bg-theme-background-tertiary p-4 rounded-lg text-xs overflow-x-auto max-h-64">
                       <code className="text-theme-primary">
                         {JSON.stringify(getMessageData(), null, 2)}
                       </code>
@@ -354,7 +354,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               />
               {showOutput && (
                 <CardContent>
-                  <pre className="bg-theme-surface-dark p-4 rounded-lg text-xs overflow-x-auto max-h-64">
+                  <pre className="bg-theme-background-tertiary p-4 rounded-lg text-xs overflow-x-auto max-h-64">
                     <code className="text-theme-primary">
                       {JSON.stringify(task.history, null, 2)}
                     </code>

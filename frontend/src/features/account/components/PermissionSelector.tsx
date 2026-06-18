@@ -103,11 +103,11 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
   const getActionColor = (action: string) => {
     switch (action) {
       case 'read': return 'text-theme-info-fg bg-theme-info-bg';
-      case 'create': return 'text-theme-success-fg bg-theme-success-background';
-      case 'update': return 'text-theme-warning-fg bg-theme-warning-background';
+      case 'create': return 'text-theme-success-fg bg-theme-success-bg';
+      case 'update': return 'text-theme-warning-fg bg-theme-warning-bg';
       case 'delete': return 'text-theme-error-fg bg-theme-error-bg';
       case 'export': return 'text-theme-info-fg bg-theme-info-bg';
-      case 'global': return 'text-theme-warning-fg bg-theme-warning-background';
+      case 'global': return 'text-theme-warning-fg bg-theme-warning-bg';
       default: return 'text-theme-secondary bg-theme-background-secondary';
     }
   };
@@ -267,7 +267,7 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
           )}
 
           {mode === 'both' && selectedPermissionIds.length === 0 && !selectedRoleId && (
-            <div className="mt-4 p-3 bg-theme-warning-background border border-theme-warning-border rounded-lg">
+            <div className="mt-4 p-3 bg-theme-warning-bg border border-theme-warning-border rounded-lg">
               <p className="text-sm text-theme-warning-fg">
                 <strong>Note:</strong> Please select either a role or specific permissions to create the delegation.
               </p>

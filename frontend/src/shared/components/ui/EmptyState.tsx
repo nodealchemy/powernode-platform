@@ -20,11 +20,11 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     <div className={`flex flex-col items-center justify-center text-center py-12 px-4 ${className}`}>
       {Icon && (
         <div className="h-16 w-16 bg-theme-surface-secondary rounded-full flex items-center justify-center mb-4">
-          <Icon className="h-8 w-8 text-theme-text-tertiary" />
+          <Icon className="h-8 w-8 text-theme-tertiary" />
         </div>
       )}
       
-      <h3 className="text-lg font-semibold text-theme-text-primary mb-2">
+      <h3 className="text-lg font-semibold text-theme-primary mb-2">
         {title}
       </h3>
       

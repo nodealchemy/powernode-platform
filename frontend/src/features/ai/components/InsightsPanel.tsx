@@ -40,7 +40,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
                   insight.severity === 'critical'
                     ? 'bg-theme-error-bg border-theme-error-border'
                     : insight.severity === 'warning'
-                    ? 'bg-theme-warning-background border-theme-warning-border'
+                    ? 'bg-theme-warning-bg border-theme-warning-border'
                     : 'bg-theme-surface border-theme'
                 }`}
               >

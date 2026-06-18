@@ -313,7 +313,7 @@ export const RateLimitingSettings: React.FC = () => {
         </div>
 
         {/* Global Enable/Disable */}
-        <div className="flex items-center justify-between p-4 bg-theme-surface-subtle rounded-lg mb-6">
+        <div className="flex items-center justify-between p-4 bg-theme-background-secondary rounded-lg mb-6">
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${config.enabled ? 'bg-theme-success-bg' : 'bg-theme-danger-bg'}`}></div>
             <div>
@@ -343,7 +343,7 @@ export const RateLimitingSettings: React.FC = () => {
         {/* Quick Stats */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="p-4 bg-theme-surface-subtle rounded-lg">
+            <div className="p-4 bg-theme-background-secondary rounded-lg">
               <div className="flex items-center gap-3">
                 <Activity className="w-5 h-5 text-theme-info-fg" />
                 <div>
@@ -352,7 +352,7 @@ export const RateLimitingSettings: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="p-4 bg-theme-surface-subtle rounded-lg">
+            <div className="p-4 bg-theme-background-secondary rounded-lg">
               <div className="flex items-center gap-3">
                 <AlertTriangle className={`w-5 h-5 ${stats.current_violations > 0 ? 'text-theme-danger-fg' : 'text-theme-success-fg'}`} />
                 <div>
@@ -363,7 +363,7 @@ export const RateLimitingSettings: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="p-4 bg-theme-surface-subtle rounded-lg">
+            <div className="p-4 bg-theme-background-secondary rounded-lg">
               <div className="flex items-center gap-3">
                 <CheckCircle className="w-5 h-5 text-theme-success-fg" />
                 <div>
@@ -385,9 +385,9 @@ export const RateLimitingSettings: React.FC = () => {
           
           {/* Emergency Controls */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div className="p-4 border border-theme bg-theme-warning-background rounded-lg">
+            <div className="p-4 border border-theme bg-theme-warning-bg rounded-lg">
               <h4 className="font-medium text-theme-warning-fg mb-2">Temporarily Disable</h4>
-              <p className="text-sm text-theme-warning-dark mb-3">Disable rate limiting for maintenance or emergency</p>
+              <p className="text-sm text-theme-warning-fg mb-3">Disable rate limiting for maintenance or emergency</p>
               <div className="flex items-center gap-3">
                 <input
                   type="number"
@@ -397,7 +397,7 @@ export const RateLimitingSettings: React.FC = () => {
                   max="480"
                   className="w-20 px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-warning-fg focus:border-theme-warning-border text-sm font-medium"
                 />
-                <span className="text-sm text-theme-warning-dark font-medium">minutes</span>
+                <span className="text-sm text-theme-warning-fg font-medium">minutes</span>
                 <Button
                   onClick={temporarilyDisableRateLimit}
                   variant="warning"
@@ -410,9 +410,9 @@ export const RateLimitingSettings: React.FC = () => {
               </div>
             </div>
             
-            <div className="p-4 border border-theme bg-theme-success-background rounded-lg">
+            <div className="p-4 border border-theme bg-theme-success-bg rounded-lg">
               <h4 className="font-medium text-theme-success-fg mb-2">Re-enable Protection</h4>
-              <p className="text-sm text-theme-success-dark mb-3">Immediately restore rate limiting</p>
+              <p className="text-sm text-theme-success-fg mb-3">Immediately restore rate limiting</p>
               <Button
                 onClick={reEnableRateLimit}
                 variant="success"

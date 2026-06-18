@@ -102,7 +102,7 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <label className="block text-sm font-medium text-theme-text-primary">Custom Headers</label>
+          <label className="block text-sm font-medium text-theme-primary">Custom Headers</label>
           <p className="text-xs text-theme-secondary mt-0.5">
             Add custom HTTP headers to include with webhook deliveries ({headers.filter((h) => h.key.trim()).length}/{maxHeaders})
           </p>
@@ -126,7 +126,7 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
             <div className="flex-1 grid grid-cols-2 gap-2">
               <div>
                 {index === 0 && (
-                  <label className="block text-xs text-theme-text-tertiary mb-1">Header Name</label>
+                  <label className="block text-xs text-theme-tertiary mb-1">Header Name</label>
                 )}
                 <input
                   type="text"
@@ -134,12 +134,12 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
                   onChange={(e) => handleHeaderChange(header.id, 'key', e.target.value)}
                   placeholder="X-Custom-Header"
                   disabled={disabled}
-                  className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-background-secondary text-theme-text-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent disabled:opacity-50"
+                  className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-background-secondary text-theme-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent disabled:opacity-50"
                 />
               </div>
               <div>
                 {index === 0 && (
-                  <label className="block text-xs text-theme-text-tertiary mb-1">Value</label>
+                  <label className="block text-xs text-theme-tertiary mb-1">Value</label>
                 )}
                 <input
                   type="text"
@@ -147,7 +147,7 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
                   onChange={(e) => handleHeaderChange(header.id, 'value', e.target.value)}
                   placeholder="header-value"
                   disabled={disabled}
-                  className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-background-secondary text-theme-text-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent disabled:opacity-50"
+                  className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-background-secondary text-theme-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent disabled:opacity-50"
                 />
               </div>
             </div>
@@ -155,7 +155,7 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
               type="button"
               onClick={() => handleRemoveHeader(header.id)}
               disabled={disabled || (headers.length === 1 && !header.key && !header.value)}
-              className={`p-2 text-theme-text-tertiary hover:text-theme-danger-fg hover:bg-theme-danger-fg/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${index === 0 ? 'mt-5' : ''}`}
+              className={`p-2 text-theme-tertiary hover:text-theme-danger-fg hover:bg-theme-danger-fg/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${index === 0 ? 'mt-5' : ''}`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
@@ -183,9 +183,9 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
             {headers
               .filter((h) => h.key.trim())
               .map((h) => (
-                <div key={h.id} className="text-theme-text-primary">
+                <div key={h.id} className="text-theme-primary">
                   <span className="text-theme-primary">{h.key}</span>
-                  <span className="text-theme-text-tertiary">: </span>
+                  <span className="text-theme-tertiary">: </span>
                   <span>{h.value || '(empty)'}</span>
                 </div>
               ))}
@@ -193,7 +193,7 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
         </div>
       )}
 
-      <div className="text-xs text-theme-text-tertiary">
+      <div className="text-xs text-theme-tertiary">
         <strong>Note:</strong> Reserved headers like Content-Type, Authorization, and Host cannot be
         overridden.
       </div>

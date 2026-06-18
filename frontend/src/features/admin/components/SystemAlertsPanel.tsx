@@ -94,7 +94,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
         };
       case 'medium':
         return {
-          color: 'border-theme-warning-border bg-theme-warning-background',
+          color: 'border-theme-warning-border bg-theme-warning-bg',
           textColor: 'text-theme-warning-fg',
           icon: AlertCircle,
           iconColor: 'text-theme-warning-fg'

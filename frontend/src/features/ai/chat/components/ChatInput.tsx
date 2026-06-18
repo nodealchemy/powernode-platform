@@ -143,7 +143,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <button
           onClick={handleFileSelect}
           disabled={disabled}
-          className="p-2 rounded-lg text-theme-text-tertiary hover:text-theme-primary hover:bg-theme-surface-hover transition-colors disabled:opacity-50"
+          className="p-2 rounded-lg text-theme-tertiary hover:text-theme-primary hover:bg-theme-surface-hover transition-colors disabled:opacity-50"
           title="Attach file"
         >
           <Paperclip className="h-4 w-4" />
@@ -158,7 +158,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
-          className="flex-1 resize-none bg-theme-background border border-theme rounded-lg px-3 py-2 text-sm text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary disabled:opacity-50"
+          className="flex-1 resize-none bg-theme-background border border-theme rounded-lg px-3 py-2 text-sm text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary disabled:opacity-50"
         />
         <Button
           variant="primary"

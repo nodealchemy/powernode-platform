@@ -168,7 +168,7 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
                 {title}
               </span>
             </div>
-            <span className="text-[10px] text-theme-text-tertiary whitespace-nowrap flex-shrink-0">
+            <span className="text-[10px] text-theme-tertiary whitespace-nowrap flex-shrink-0">
               {timeStr}
             </span>
           </div>
@@ -194,7 +194,7 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
               </span>
             )}
             {conversation.message_count > 0 && (
-              <span className="flex items-center gap-0.5 text-[10px] text-theme-text-tertiary flex-shrink-0">
+              <span className="flex items-center gap-0.5 text-[10px] text-theme-tertiary flex-shrink-0">
                 <MessageSquare className="h-3 w-3" />
                 {conversation.message_count}
               </span>
@@ -237,7 +237,7 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
                 onKeyDown={handleTagKeyDown}
                 onBlur={handleAddTag}
                 placeholder="Tag name..."
-                className="w-full px-1.5 py-0.5 text-[10px] bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+                className="w-full px-1.5 py-0.5 text-[10px] bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
                 maxLength={20}
               />
             </div>
@@ -253,9 +253,9 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
               e.stopPropagation();
               setShowMenu(!showMenu);
             }}
-            className="p-0.5 rounded text-theme-text-tertiary hover:bg-theme-surface-hover hover:text-theme-secondary transition-colors"
+            className="p-0.5 rounded text-theme-tertiary hover:bg-theme-surface-hover hover:text-theme-secondary transition-colors"
           >
-            <MoreVertical className="h-3.5 w-3.5 text-theme-text-tertiary" />
+            <MoreVertical className="h-3.5 w-3.5 text-theme-tertiary" />
           </button>
 
           {showMenu && (

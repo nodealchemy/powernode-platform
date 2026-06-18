@@ -112,7 +112,7 @@ export const AgentChatPage: React.FC = () => {
                 No conversations yet
               </div>
             ) : (
-              <div className="divide-y divide-theme-border">
+              <div className="divide-y divide-theme">
                 {conversations.map((conv) => (
                   <button
                     key={conv.id}
@@ -123,7 +123,7 @@ export const AgentChatPage: React.FC = () => {
                     onClick={() => setActiveConversation(conv)}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="text-sm font-medium text-theme-text-primary truncate">
+                      <span className="text-sm font-medium text-theme-primary truncate">
                         {conv.title}
                       </span>
                       <Badge

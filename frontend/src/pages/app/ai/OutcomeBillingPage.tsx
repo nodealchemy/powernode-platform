@@ -790,7 +790,7 @@ export const OutcomeBillingContent: React.FC = () => {
               value={newDefName}
               onChange={(e) => setNewDefName(e.target.value)}
               placeholder="Outcome definition name"
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
           </div>
           <div>
@@ -798,7 +798,7 @@ export const OutcomeBillingContent: React.FC = () => {
             <select
               value={newDefType}
               onChange={(e) => setNewDefType(e.target.value)}
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             >
               <option value="ai_completion">AI Completion</option>
               <option value="code_generation">Code Generation</option>
@@ -816,7 +816,7 @@ export const OutcomeBillingContent: React.FC = () => {
               onChange={(e) => setNewDefBasePrice(e.target.value)}
               step="0.01"
               min="0"
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
           </div>
           <div>
@@ -826,7 +826,7 @@ export const OutcomeBillingContent: React.FC = () => {
               onChange={(e) => setNewDefDescription(e.target.value)}
               placeholder="Optional description"
               rows={3}
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
           </div>
         </div>
@@ -854,7 +854,7 @@ export const OutcomeBillingContent: React.FC = () => {
               value={newContractName}
               onChange={(e) => setNewContractName(e.target.value)}
               placeholder="SLA contract name"
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
           </div>
           <div>
@@ -866,7 +866,7 @@ export const OutcomeBillingContent: React.FC = () => {
               step="0.1"
               min="0"
               max="100"
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
           </div>
           <div>
@@ -878,7 +878,7 @@ export const OutcomeBillingContent: React.FC = () => {
               step="1"
               min="0"
               max="100"
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
           </div>
         </div>

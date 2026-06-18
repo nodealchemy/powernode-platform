@@ -20,7 +20,7 @@ const STATUS_ORDER: Record<string, number> = {
 const STEPS = ['Preflight', 'Review', 'Remediation', 'Verify', 'Evidence', 'Complete'];
 
 const severityColors: Record<string, string> = {
-  low: 'bg-theme-surface-bg text-theme-secondary',
+  low: 'bg-theme-surface text-theme-secondary',
   medium: 'bg-theme-warning-bg text-theme-warning-fg',
   high: 'bg-theme-error-bg text-theme-error-fg',
   critical: 'bg-theme-danger-fg/20 text-theme-danger-fg',
@@ -73,7 +73,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Active Contracts */}
         <div
-          className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all"
+          className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-interactive-primary/30 transition-all"
           onClick={() => toggleExpand('contracts')}
         >
           <div className="text-2xl font-bold text-theme-info-fg">{activeContracts.length}</div>
@@ -85,7 +85,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
 
         {/* Active Runs */}
         <div
-          className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all"
+          className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-interactive-primary/30 transition-all"
           onClick={() => toggleExpand('runs')}
         >
           <div className="text-2xl font-bold text-theme-info-fg">{activeRuns.length}</div>
@@ -97,7 +97,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
 
         {/* Clean Reviews */}
         <div
-          className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all"
+          className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-interactive-primary/30 transition-all"
           onClick={() => onNavigateTab?.('runs')}
         >
           <div className="text-2xl font-bold text-theme-success-fg">{cleanReviews.length}</div>
@@ -106,7 +106,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
 
         {/* Dirty Reviews */}
         <div
-          className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all"
+          className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-interactive-primary/30 transition-all"
           onClick={() => onNavigateTab?.('runs')}
         >
           <div className="text-2xl font-bold text-theme-error-fg">{dirtyReviews.length}</div>
@@ -115,7 +115,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
 
         {/* SLA Compliance */}
         <div
-          className={`card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all ${
+          className={`card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-interactive-primary/30 transition-all ${
             slaRate < 80 ? 'border-l-2 border-theme-error-border' : ''
           }`}
           onClick={() => toggleExpand('sla')}
@@ -128,7 +128,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
 
         {/* Open Gaps */}
         <div
-          className={`card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all ${
+          className={`card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-interactive-primary/30 transition-all ${
             criticalGaps.length > 0 ? 'border-l-2 border-theme-error-border' : ''
           }`}
           onClick={() => toggleExpand('gaps')}
@@ -155,14 +155,14 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           ) : (
             <div className="space-y-2">
               {contracts.slice(0, 5).map((contract) => (
-                <div key={contract.id} className="flex items-center justify-between bg-theme-surface-bg rounded-lg px-3 py-2">
+                <div key={contract.id} className="flex items-center justify-between bg-theme-surface rounded-lg px-3 py-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-sm text-theme-primary truncate">{contract.name}</span>
                     <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                       contract.status === 'active'
                         ? 'bg-theme-success-bg text-theme-success-fg'
                         : contract.status === 'draft'
-                        ? 'bg-theme-surface-bg text-theme-secondary border border-theme'
+                        ? 'bg-theme-surface text-theme-secondary border border-theme'
                         : 'bg-theme-warning-bg text-theme-warning-fg'
                     }`}>
                       {contract.status}
@@ -194,7 +194,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           ) : (
             <div className="space-y-2">
               {activeRuns.slice(0, 5).map((run) => (
-                <div key={run.id} className="bg-theme-surface-bg rounded-lg px-3 py-2 space-y-1.5">
+                <div key={run.id} className="bg-theme-surface rounded-lg px-3 py-2 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-theme-primary">PR #{run.pr_number}</span>
@@ -331,7 +331,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                     : null;
 
                   return (
-                    <div key={gap.id} className="flex items-center gap-2 bg-theme-surface-bg rounded px-3 py-2">
+                    <div key={gap.id} className="flex items-center gap-2 bg-theme-surface rounded px-3 py-2">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${severityColors[gap.severity] || ''}`}>
                         {gap.severity}
                       </span>

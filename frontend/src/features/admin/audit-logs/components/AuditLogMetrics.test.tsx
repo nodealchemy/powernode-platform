@@ -156,7 +156,7 @@ describe('AuditLogMetrics', () => {
       const { container } = render(<AuditLogMetrics {...defaultProps} color="green" />);
 
       expect(container.querySelector('.text-theme-success-fg')).toBeInTheDocument();
-      expect(container.querySelector('.bg-theme-success-background')).toBeInTheDocument();
+      expect(container.querySelector('.bg-theme-success-bg')).toBeInTheDocument();
     });
 
     it('applies red color classes', () => {
@@ -170,7 +170,7 @@ describe('AuditLogMetrics', () => {
       const { container } = render(<AuditLogMetrics {...defaultProps} color="yellow" />);
 
       expect(container.querySelector('.text-theme-warning-fg')).toBeInTheDocument();
-      expect(container.querySelector('.bg-theme-warning-background')).toBeInTheDocument();
+      expect(container.querySelector('.bg-theme-warning-bg')).toBeInTheDocument();
     });
 
     it('applies purple color classes', () => {

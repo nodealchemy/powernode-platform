@@ -145,7 +145,7 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
         onChange={(value: string) => onFormChange('phone', value)}
       />
 
-      <div className="bg-theme-warning-background border border-theme-warning-border rounded-lg p-4">
+      <div className="bg-theme-warning-bg border border-theme-warning-border rounded-lg p-4">
         <div className="flex items-center space-x-3">
           <Settings className="h-5 w-5 text-theme-warning-fg flex-shrink-0" />
           <div>

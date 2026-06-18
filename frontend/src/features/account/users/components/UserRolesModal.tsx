@@ -317,7 +317,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
             return role?.canAssign === false;
           }) && (
             <div className="mt-4 pt-3 border-t border-theme">
-              <div className="bg-theme-warning-background border border-theme-warning-border rounded-lg p-3">
+              <div className="bg-theme-warning-bg border border-theme-warning-border rounded-lg p-3">
                 <div className="flex items-start space-x-2">
                   <Lock className="w-4 h-4 text-theme-warning-fg mt-0.5 flex-shrink-0" />
                   <div>

@@ -33,7 +33,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({ messages, conversa
           key={message.id}
           className={`p-3 rounded-lg border ${
             message.sender_type === 'user'
-              ? 'bg-theme-primary-subtle border-theme-primary/20'
+              ? 'bg-theme-interactive-primary/10 border-theme-primary/20'
               : 'bg-theme-surface border-theme/20'
           }`}
         >

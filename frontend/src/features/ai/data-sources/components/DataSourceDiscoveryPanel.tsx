@@ -123,7 +123,7 @@ export const DataSourceDiscoveryPanel: React.FC<DataSourceDiscoveryPanelProps> =
     <Card variant="outlined" padding="md" className="mb-6">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-4 w-4 text-theme-info-fg" />
-        <h3 className="text-sm font-semibold text-theme-text-primary">Discover Data Sources</h3>
+        <h3 className="text-sm font-semibold text-theme-primary">Discover Data Sources</h3>
       </div>
       <p className="text-xs text-theme-tertiary mb-3">
         Describe the data you need in plain language. Sources are ranked by semantic match blended
@@ -173,7 +173,7 @@ export const DataSourceDiscoveryPanel: React.FC<DataSourceDiscoveryPanelProps> =
 
       {!searching && results.length > 0 && (
         <div className="mt-4 space-y-2">
-          <p className="text-xs font-medium text-theme-text-tertiary">
+          <p className="text-xs font-medium text-theme-tertiary">
             {results.length} ranked {results.length === 1 ? 'source' : 'sources'} for &ldquo;
             {lastQuery}&rdquo;
           </p>
@@ -187,7 +187,7 @@ export const DataSourceDiscoveryPanel: React.FC<DataSourceDiscoveryPanelProps> =
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono text-theme-tertiary">#{index + 1}</span>
-                    <span className="font-medium text-theme-text-primary truncate">
+                    <span className="font-medium text-theme-primary truncate">
                       <EntityLink type="data_source" id={result.id} label={result.name} />
                     </span>
                     {!result.is_active && (
@@ -243,7 +243,7 @@ export const DataSourceDiscoveryPanel: React.FC<DataSourceDiscoveryPanelProps> =
                     <p className={`text-lg font-semibold ${getScoreTone(result.score ?? 0)}`}>
                       {scorePct}%
                     </p>
-                    <p className="text-xs text-theme-text-tertiary">score</p>
+                    <p className="text-xs text-theme-tertiary">score</p>
                   </div>
                   {onSelectDataSource && (
                     <Button

@@ -91,7 +91,7 @@ export const TeamActivityMessage: React.FC<TeamActivityMessageProps> = ({ messag
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-theme-tertiary">
                 {config.label}
               </span>
               {agentName && (
@@ -99,7 +99,7 @@ export const TeamActivityMessage: React.FC<TeamActivityMessageProps> = ({ messag
                   {agentName}
                 </span>
               )}
-              <span className="text-[10px] text-theme-text-tertiary ml-auto flex-shrink-0">
+              <span className="text-[10px] text-theme-tertiary ml-auto flex-shrink-0">
                 {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>

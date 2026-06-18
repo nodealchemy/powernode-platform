@@ -46,16 +46,16 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
     switch (severity) {
       case 'critical': return 'bg-theme-error-bg text-theme-error-fg';
       case 'high': return 'bg-theme-error-bg text-theme-error-fg';
-      case 'medium': return 'bg-theme-warning-background text-theme-warning-fg';
-      case 'low': return 'bg-theme-success-background text-theme-success-fg';
+      case 'medium': return 'bg-theme-warning-bg text-theme-warning-fg';
+      case 'low': return 'bg-theme-success-bg text-theme-success-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'success': return 'bg-theme-success-background text-theme-success-fg';
-      case 'warning': return 'bg-theme-warning-background text-theme-warning-fg';
+      case 'success': return 'bg-theme-success-bg text-theme-success-fg';
+      case 'warning': return 'bg-theme-warning-bg text-theme-warning-fg';
       case 'error': return 'bg-theme-error-bg text-theme-error-fg';
       default: return 'bg-theme-surface text-theme-secondary';
     }

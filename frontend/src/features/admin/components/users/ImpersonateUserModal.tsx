@@ -116,7 +116,7 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
     <Modal isOpen={isOpen} onClose={handleClose} maxWidth="lg" title="Impersonate User">
       <div className="p-6">
 
-        <div className="mb-4 p-3 bg-theme-warning-background border border-theme-warning-border rounded-md">
+        <div className="mb-4 p-3 bg-theme-warning-bg border border-theme-warning-border rounded-md">
           <p className="text-sm text-theme-warning-fg">
             <strong>Warning:</strong> Impersonation sessions are limited to 8 hours and all actions will be logged for audit purposes.
           </p>

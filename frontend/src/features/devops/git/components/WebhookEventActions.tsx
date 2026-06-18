@@ -140,7 +140,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
         {showRedeliverConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="bg-theme-surface rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold text-theme-text-primary mb-2">
+              <h3 className="text-lg font-semibold text-theme-primary mb-2">
                 Redeliver Webhook Event?
               </h3>
               <p className="text-sm text-theme-secondary mb-4">
@@ -150,7 +150,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setShowRedeliverConfirm(false)}
-                  className="px-4 py-2 text-sm font-medium text-theme-secondary hover:text-theme-text-primary transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-theme-secondary hover:text-theme-primary transition-colors"
                 >
                   Cancel
                 </button>
@@ -266,7 +266,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
           {showRedeliverConfirm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
               <div className="bg-theme-surface rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-                <h3 className="text-lg font-semibold text-theme-text-primary mb-2">
+                <h3 className="text-lg font-semibold text-theme-primary mb-2">
                   Redeliver Webhook Event?
                 </h3>
                 <p className="text-sm text-theme-secondary mb-4">
@@ -274,9 +274,9 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
                   processing. The original event will remain unchanged.
                 </p>
                 <div className="p-3 bg-theme-background-secondary rounded-lg mb-4">
-                  <div className="text-xs text-theme-text-tertiary mb-1">Event Details</div>
+                  <div className="text-xs text-theme-tertiary mb-1">Event Details</div>
                   <div className="text-sm">
-                    <span className="font-medium text-theme-text-primary">{event.event_type}</span>
+                    <span className="font-medium text-theme-primary">{event.event_type}</span>
                     {event.action && (
                       <span className="text-theme-secondary"> ({event.action})</span>
                     )}
@@ -290,7 +290,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={() => setShowRedeliverConfirm(false)}
-                    className="px-4 py-2 text-sm font-medium text-theme-secondary hover:text-theme-text-primary transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-theme-secondary hover:text-theme-primary transition-colors"
                   >
                     Cancel
                   </button>

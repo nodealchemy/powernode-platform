@@ -64,9 +64,9 @@ export const UsageChart: React.FC<UsageChartProps> = ({ trends, title = 'Usage T
               />
 
               {/* Tooltip */}
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-theme-inverse text-theme-inverse-primary text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-theme-inverse text-theme-inverse text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
                 <p className="font-medium">{formatNumber(point.value)}</p>
-                <p className="text-theme-inverse-tertiary">{formatDate(point.date)}</p>
+                <p className="text-theme-inverse">{formatDate(point.date)}</p>
               </div>
 
               {/* X-axis labels (show every 5th) */}

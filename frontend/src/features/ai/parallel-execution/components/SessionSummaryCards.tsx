@@ -31,7 +31,7 @@ export const SessionSummaryCards: React.FC<SessionSummaryCardsProps> = ({ sessio
       {stats.map((stat) => (
         <Card key={stat.label}>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-theme-text-primary">{stat.value}</div>
+            <div className="text-2xl font-bold text-theme-primary">{stat.value}</div>
             <div className="text-sm text-theme-secondary">{stat.label}</div>
           </CardContent>
         </Card>
