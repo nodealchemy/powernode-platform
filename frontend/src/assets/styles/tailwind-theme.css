@@ -116,6 +116,51 @@
   --color-bg-theme-danger: var(--color-error-background); /* Alias for theme-error */
   --color-bg-theme-info: var(--color-info-background);
 
+  /* ============================================================
+   * v4 token redesign — explicit fg/bg/border triad + aliases.
+   * Additive (Stage 1): the legacy names above are kept until the
+   * Stage 4 cleanup. Every token resolves through the same base
+   * --color-* vars, so rendering is preserved across all 4 theme
+   * variants (light / dark / prefers-contrast / forced-colors).
+   * ============================================================ */
+
+  /* Semantic triad: -fg (saturated; the slash base) / -bg (tint) / -border */
+  --color-theme-success-fg: var(--color-success);
+  --color-theme-success-bg: var(--color-success-background);
+  --color-theme-success-border: var(--color-success-border);
+  --color-theme-warning-fg: var(--color-warning);
+  --color-theme-warning-bg: var(--color-warning-background);
+  --color-theme-warning-border: var(--color-warning-border);
+  --color-theme-error-fg: var(--color-error);
+  --color-theme-error-bg: var(--color-error-background);
+  --color-theme-error-border: var(--color-error-border);
+  --color-theme-danger-fg: var(--color-error);
+  --color-theme-danger-bg: var(--color-error-background);
+  --color-theme-danger-border: var(--color-error-border);
+  --color-theme-info-fg: var(--color-info);
+  --color-theme-info-bg: var(--color-info-background);
+  --color-theme-info-border: var(--color-info-border);
+
+  /* status-* aliases (previously-inert orphans) -> fg */
+  --color-theme-status-success: var(--color-success);
+  --color-theme-status-warning: var(--color-warning);
+  --color-theme-status-error: var(--color-error);
+  --color-theme-status-info: var(--color-info);
+
+  /* Single-variant families currently served only by static utilities,
+   * registered here so the Stage 4 static-utility deletion is safe */
+  --color-theme-quaternary: var(--color-text-quaternary);
+  --color-theme-inverse: var(--color-text-inverse);
+  --color-theme-on-primary: var(--color-text-on-primary);
+  --color-theme-surface-pressed: var(--color-surface-pressed);
+  --color-theme-surface-disabled: var(--color-surface-disabled);
+  --color-theme-surface-secondary: var(--color-background-secondary);
+  --color-theme-background: var(--color-background);
+  --color-theme-background-tertiary: var(--color-background-tertiary);
+  --color-theme-background-elevated: var(--color-background-elevated);
+  --color-theme-background-muted: var(--color-background-muted);
+  --color-theme-focus: var(--color-border-focus);
+
   /* Font family */
   --font-sans: 'Inter', ui-sans-serif, system-ui;
 }
