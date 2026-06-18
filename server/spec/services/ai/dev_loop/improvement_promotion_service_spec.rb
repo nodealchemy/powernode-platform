@@ -56,5 +56,23 @@ RSpec.describe Ai::DevLoop::ImprovementPromotionService do
       expect { described_class.new(recommendation: recommendation).call }
         .to raise_error(ArgumentError, /approved/)
     end
+
+    # Regression: task_key_for truncated the de-hyphenated fingerprint to its first
+    # 12 chars, so every same-recommendation_type finding collapsed to one key
+    # (e.g. "IMP-convention_a") and the 2nd promotion silently reused the 1st task.
+    it "derives distinct task_keys for distinct findings of the same recommendation_type" do
+      rec_a = create(:ai_improvement_recommendation, account: account, recommendation_type: "convention_adherence",
+                     status: "approved", target_type: "Account", target_id: account.id,
+                     evidence: { "fingerprint" => "convention_adherence|frontend/a.tsx|hardcoded-colors", "title" => "A" })
+      rec_b = create(:ai_improvement_recommendation, account: account, recommendation_type: "convention_adherence",
+                     status: "approved", target_type: "Account", target_id: account.id,
+                     evidence: { "fingerprint" => "convention_adherence|frontend/b.tsx|no-any", "title" => "B" })
+
+      result_a = described_class.new(recommendation: rec_a).call
+      result_b = described_class.new(recommendation: rec_b).call
+
+      expect(result_a.ralph_task.task_key).not_to eq(result_b.ralph_task.task_key)
+      expect(result_b.created).to be true # a distinct finding must create its own task
+    end
   end
 end

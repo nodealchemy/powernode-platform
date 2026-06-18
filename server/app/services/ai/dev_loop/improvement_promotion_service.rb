@@ -69,8 +69,12 @@ module Ai
 
       def task_key_for(rec)
         fingerprint = rec.evidence.is_a?(Hash) ? rec.evidence["fingerprint"] : nil
-        suffix = (fingerprint.presence || rec.id).to_s.delete("-")[0, 12]
-        "IMP-#{suffix}"
+        # Hash the fingerprint so distinct findings get distinct keys — the raw
+        # first-12-chars truncation collided on the shared recommendation_type
+        # prefix (every convention_adherence finding -> "IMP-convention_a"). Stable
+        # for the same fingerprint, so re-promotion stays idempotent.
+        basis = (fingerprint.presence || rec.id).to_s
+        "IMP-#{Digest::SHA256.hexdigest(basis)[0, 12]}"
       end
 
       def task_attributes(rec)
