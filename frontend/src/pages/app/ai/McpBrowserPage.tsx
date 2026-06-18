@@ -330,8 +330,8 @@ export const McpBrowserContent: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-theme-interactive-primary bg-opacity-10 rounded-lg flex items-center justify-center">
-                <Server className="h-6 w-6 text-theme-interactive-primary" />
+              <div className="w-12 h-12 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
+                <Server className="h-6 w-6 text-theme-info" />
               </div>
               <div>
                 <p className="text-xs text-theme-tertiary mb-1">Total Servers</p>
