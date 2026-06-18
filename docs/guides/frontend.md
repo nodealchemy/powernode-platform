@@ -84,14 +84,14 @@ flowchart TB
 | Pattern | Rule |
 |---|---|
 | **Colors** | Theme classes only: `bg-theme-*`, `text-theme-*` — never raw Tailwind colors |
-| **Navigation** | Flat structure — no submenus |
+| **Navigation** | Flat sidebar — no submenus. Deep hubs use an in-page vertical sub-rail (`SubNavRail`), not nested horizontal tabs. See [AI Navigation IA](../concepts/ai-navigation-ia.md). |
 | **Actions** | ALL page actions in `PageContainer` header — none in page content |
 | **State** | Global notifications only — no local success/error toasts |
 | **Imports** | Path aliases (`@/shared/`, `@/features/`) for cross-feature; relative within a feature |
 | **Logging** | `import { logger } from '@/shared/utils/logger'` — never `console.log` in production |
 | **Types** | No `any`. No `as` casts. Proper TypeScript types required. |
 | **Access control** | Permissions only — `currentUser?.permissions?.includes('users.manage')`. Never roles. |
-| **Tabs** | Per-segment URL paths (`/compute/nodes`) — never `?tab=` query params, never internal state |
+| **Tabs** | Per-segment URL paths via `PathTabs` (`/compute/nodes`) — never `?tab=` query params, never internal state. Tab/sub-nav selection updates the URL **and** the `PageContainer` breadcrumb. |
 | **Lists** | Infinite scroll (`useInfiniteResourceList` + sentinel) — never Previous/Next pagination |
 | **Submitting changes** | Run `cd frontend && npx tsc --noEmit` before commit |
 

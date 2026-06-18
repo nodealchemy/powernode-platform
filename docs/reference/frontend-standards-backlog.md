@@ -64,7 +64,9 @@ Define response-envelope interfaces per endpoint, export for reuse. No runtime c
 Extract into feature services extending `BaseApiService`. Priority: `ai/provisioning/*` (→ one `provisioningApi`), `governance/SpendDashboard`, `onboarding/*`. Often combine with the notification batch for the same feature.
 
 ### Tab-component standardization
-Two competing implementations: `layout/TabContainer` (state-based) vs the **canonical path-based** pattern (per-tab URL). `TabNavigation`/`BreadcrumbAwareTabNavigation` have near-zero importers. **Decision:** path-based tabs are canonical (deep-linkable; matches platform convention + dated user correction). Migrate `FinOpsPage`'s state-based tabs to path-based; `@deprecated`-tag `ui/TabContainer`, `TabNavigation`, `BreadcrumbAwareTabNavigation`; delete once importer count hits zero.
+Two competing implementations: `layout/TabContainer` (state-based) vs the **canonical path-based** pattern (per-tab URL). `TabNavigation`/`BreadcrumbAwareTabNavigation` have near-zero importers. **Decision:** path-based tabs are canonical (deep-linkable; matches platform convention + dated user correction). `@deprecated`-tag `ui/TabContainer`, `TabNavigation`, `BreadcrumbAwareTabNavigation`; delete once importer count hits zero.
+
+**Progress (AI IA refactor):** `FinOpsPage`, `CreditsContent`, and `OutcomeBillingContent` migrated state→path tabs; `AIMonitoringPage` (TabContainer) split into `ObservabilityPage` + `OperationsPage` on `PathTabs`. New canonical vertical sub-nav primitive `shared/components/navigation/SubNavRail.tsx` (path-based, permission-gated) for deep hubs — first consumer: `CostPage`. Remaining `TabContainer` importers should migrate next.
 
 ---
 

@@ -25,16 +25,20 @@ aggregates `Ai::AgentExecution`, `Ai::ProviderMetric`, cost attribution, and cir
 state — all account-scoped. It is **read-only**: it surfaces live operational data, it does not
 mutate fleet state.
 
-AIOps does **not** have its own page or nested tabs. To keep navigation flat (one level of tabs
-per page), its sections are **distributed across the existing AI Observability page**
-(`AIMonitoringPage`, `/app/ai/observability/*`), inside an `AiErrorBoundary`:
+AIOps lives on the dedicated **Operations** hub (`OperationsPage`, `/app/ai/operations/*`),
+inside an `AiErrorBoundary`. It is path-based (canonical `PathTabs`, one URL segment per tab):
 
-- **Operations** tab — the operational core: KPIs + system health + an active-provider-alerts
+- **AIOps** tab — the operational core: KPIs + system health + an active-provider-alerts
   callout, trend charts, providers table, agents table. Body component: `AiOpsContent`
   (`frontend/src/features/ai/aiops/components/AiOpsDashboard.tsx`).
-- **Alerts** tab — adds provider reliability (circuit breakers + recent errors) beside the
-  existing alert center.
-- **Credits & FinOps** tab — adds AIOps cost analysis beside billing.
+- **Alerts** tab — the alert-management center plus provider reliability (circuit breakers +
+  recent errors) via `ReliabilitySection`.
+- **Execution Traces** tab — the distributed-trace viewer (`ExecutionTracesContent`).
+
+AIOps cost analysis is part of the **Cost** domain (`/app/ai/cost`), not Operations. The
+monitoring-only **Observability** hub (`/app/ai/observability`: Health · Systems ·
+Conversations · Evaluation) is a separate sidebar item. See
+[AI Navigation IA](ai-navigation-ia.md).
 
 Backend: `Api::V1::Ai::AiOpsController` under `scope :aiops` — all reads gated by the
 `ai.aiops.read` permission (`record_metrics` is the only writer, gated by `ai.aiops.write`
@@ -47,13 +51,14 @@ fetch regardless of which tab renders them.
 
 ## Where the data surfaces
 
-The rebuilt sections fold into the existing Observability tabs (no new tabs):
+The sections render across the **Operations** hub tabs:
 
-| Observability tab | AIOps content | Source |
+| Operations tab | AIOps content | Source |
 |---|---|---|
-| **Operations** | execution / latency / cost KPIs, system-health components, active-provider-alerts callout, hourly trend charts, providers table, agents table | `dashboard.overview`, `dashboard.health`, `dashboard.alerts[]`, `/trends`, `dashboard.providers[]`, `dashboard.agents[]` |
-| **Alerts** | provider reliability: circuit-breaker status + recent execution errors (beside the existing alert center) | `dashboard.circuit_breakers[]`, `/recent_errors` |
-| **Credits & FinOps** | cost analysis: total/agent cost KPIs, hourly cost area chart, cost by provider (beside billing) | `dashboard.cost_analysis` |
+| **AIOps** | execution / latency / cost KPIs, system-health components, active-provider-alerts callout, hourly trend charts, providers table, agents table | `dashboard.overview`, `dashboard.health`, `dashboard.alerts[]`, `/trends`, `dashboard.providers[]`, `dashboard.agents[]` |
+| **Alerts** | alert-management center + provider reliability: circuit-breaker status + recent execution errors | `dashboard.circuit_breakers[]`, `/recent_errors` |
+
+AIOps `cost_analysis` data surfaces in the **Cost** domain (`/app/ai/cost`), not Operations.
 
 ## API contract
 
