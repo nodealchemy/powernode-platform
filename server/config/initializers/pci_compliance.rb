@@ -68,9 +68,15 @@ Rails.application.configure do
 
   # Rate limiting configuration (if using rack-attack)
   if defined?(Rack::Attack) && !Rails.env.test?
-    # Throttle payment endpoints more aggressively
+    # Throttle payment MUTATIONS aggressively (card-testing / repeated-charge
+    # abuse). Scoped to mutating requests on payment paths only — NOT read-only
+    # billing dashboard/overview/list reads, which previously matched the broad
+    # "/api/v1/billing" prefix and rate-limited normal page loads to 10/min
+    # (made worse by req.ip being the shared proxy IP behind the reverse proxy).
     Rack::Attack.throttle("payment_api", limit: 10, period: 1.minute) do |req|
-      req.ip if req.path.start_with?("/api/v1/payment", "/api/v1/billing")
+      mutation = %w[POST PUT PATCH DELETE].include?(req.request_method)
+      payment_path = req.path.start_with?("/api/v1/payment", "/api/v1/billing/payment")
+      req.ip if mutation && payment_path
     end
 
     # Block requests from known malicious IPs
