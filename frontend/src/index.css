@@ -1,6 +1,13 @@
 /* Tailwind CSS 4 import */
 @import "tailwindcss";
 
+/* Scan extension frontends for Tailwind utilities. Extensions live at
+   ../extensions (outside this project root), so v4 automatic content detection
+   misses them — without this, any utility class used only by an extension (and
+   not also by the parent app) is never generated, silently breaking it. */
+@source "../../extensions/*/frontend/src/**/*.{ts,tsx}";
+@source "../../extensions/private/*/frontend/src/**/*.{ts,tsx}";
+
 /* Theme CSS variables and utility classes */
 @import './assets/styles/themes.css';
 
