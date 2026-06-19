@@ -127,39 +127,41 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
     <div className="flex-1 overflow-y-auto p-6">
       <div className="space-y-6">
         {/* Status Badge + actions */}
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <Badge variant={status.variant} className="whitespace-nowrap flex-shrink-0">
-            {isRunning && <RotateCcw className="w-3 h-3 mr-1 animate-spin" />}
-            {status.label}
-          </Badge>
-          {loop.configuration?.workload && (
-            <Badge variant="outline" size="sm" data-testid="ralph-loop-workload-badge" className="whitespace-nowrap flex-shrink-0">
-              <GitFork className="w-3 h-3 mr-1" />
-              {loop.configuration.workload}
+        <div className="flex items-start justify-between gap-2 mb-4">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <Badge variant={status.variant} className="whitespace-nowrap flex-shrink-0">
+              {isRunning && <RotateCcw className="w-3 h-3 mr-1 animate-spin" />}
+              {status.label}
             </Badge>
-          )}
-          {(isRunning || loop.status === 'paused') && (
-            <Badge variant={wsConnected ? 'success' : 'warning'} size="sm" className="whitespace-nowrap flex-shrink-0">
-              {wsConnected ? (
-                <>
-                  <Wifi className="w-3 h-3 mr-1" />
-                  Live
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 mr-1" />
-                  Connecting...
-                </>
-              )}
-            </Badge>
-          )}
+            {loop.configuration?.workload && (
+              <Badge variant="outline" size="sm" data-testid="ralph-loop-workload-badge" className="whitespace-nowrap flex-shrink-0">
+                <GitFork className="w-3 h-3 mr-1" />
+                {loop.configuration.workload}
+              </Badge>
+            )}
+            {(isRunning || loop.status === 'paused') && (
+              <Badge variant={wsConnected ? 'success' : 'warning'} size="sm" className="whitespace-nowrap flex-shrink-0">
+                {wsConnected ? (
+                  <>
+                    <Wifi className="w-3 h-3 mr-1" />
+                    Live
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-3 h-3 mr-1" />
+                    Connecting...
+                  </>
+                )}
+              </Badge>
+            )}
+          </div>
           {isCancellable && (
             <Button
               variant="ghost"
               size="sm"
               onClick={onCancelLoop}
               disabled={cancelLoading}
-              className="ml-auto text-theme-status-error hover:bg-theme-status-error/10"
+              className="flex-shrink-0 text-theme-status-error hover:bg-theme-status-error/10"
               data-testid="ralph-loop-cancel-btn"
             >
               {cancelLoading ? (
