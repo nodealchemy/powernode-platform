@@ -5,7 +5,7 @@ Pull the next task from a platform Ralph Loop queue (via the `dev_loop` MCP brid
 ## Usage
 
 ```
-/dev-loop                      # default loop: dev-audit-fleet-substrate
+/dev-loop                      # default loop: dev-improve
 /dev-loop <loop-name-or-id>    # any other claude_code Ralph Loop
 ```
 
@@ -30,7 +30,7 @@ Findings rot. Before changing anything, confirm the task's claim against current
 
 Identify the affected repo(s) from `task.metadata.files` (`extensions/system/...` vs `server/...` etc.). In each affected repo:
 - `git rev-parse --show-toplevel` to confirm where you are (CLAUDE.md submodule safety).
-- Check out the loop branch (`loop.branch`, e.g. `dev-loop/dev-audit`); create it from the current HEAD if it doesn't exist. Leave it checked out for subsequent iterations in the same run.
+- Check out the loop branch (`loop.branch`, e.g. `dev-loop/dev-improve`); create it from the current HEAD if it doesn't exist. Leave it checked out for subsequent iterations in the same run.
 
 ### 4. Test-first
 
