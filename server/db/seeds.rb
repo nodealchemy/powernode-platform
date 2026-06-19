@@ -1065,7 +1065,7 @@ puts "\n🔧 Creating default site settings..."
 
 # Site information
 SiteSetting.set('site_name', 'Powernode', description: 'Name of the site', setting_type: 'string', is_public: true)
-SiteSetting.set('footer_description', 'Powerful subscription management platform designed to help businesses grow. Trusted by thousands of companies worldwide.', description: 'Footer description text', setting_type: 'text', is_public: true)
+SiteSetting.set('footer_description', 'Powerful AI management platform for orchestrating production agent fleets. Built for teams shipping with AI.', description: 'Footer description text', setting_type: 'text', is_public: true)
 
 # Copyright information
 SiteSetting.set('copyright_text', 'Everett C. Haimes III', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
@@ -1086,8 +1086,8 @@ SiteSetting.set('social_youtube', '', description: 'YouTube channel URL', settin
 # Admin-only settings
 SiteSetting.set('maintenance_mode', 'false', description: 'Enable maintenance mode', setting_type: 'boolean', is_public: false)
 SiteSetting.set('analytics_tracking_id', '', description: 'Google Analytics tracking ID', setting_type: 'string', is_public: false)
-SiteSetting.set('seo_default_title', 'Powernode - Subscription Management Platform', description: 'Default SEO title', setting_type: 'string', is_public: false)
-SiteSetting.set('seo_default_description', 'Streamline your subscription business with automated billing, analytics, and customer lifecycle management.', description: 'Default SEO description', setting_type: 'text', is_public: false)
+SiteSetting.set('seo_default_title', 'Powernode - AI Management Platform', description: 'Default SEO title', setting_type: 'string', is_public: false)
+SiteSetting.set('seo_default_description', 'Manage production AI agent fleets — knowledge graph, governance, swarm coordination, and an MCP-native runtime.', description: 'Default SEO description', setting_type: 'text', is_public: false)
 
 # Footer caching
 SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for footer data to improve performance', setting_type: 'boolean', is_public: false)
