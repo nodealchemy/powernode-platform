@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_17_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_18_210000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -7857,6 +7857,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_17_000003) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'confirmed'::character varying, 'unsubscribed'::character varying]::text[])", name: "marketing_waitlist_signups_status_check"
   end
 
+  create_table "marketplace_listings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "approved_at"
+    t.datetime "created_at", null: false
+    t.boolean "is_published", default: false, null: false
+    t.uuid "listable_id", null: false
+    t.string "listable_type", null: false
+    t.text "rejection_reason"
+    t.string "status", default: "draft", null: false
+    t.datetime "submitted_at"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_marketplace_listings_on_account_id"
+    t.index ["listable_type", "listable_id"], name: "idx_marketplace_listings_listable", unique: true
+    t.index ["status", "is_published"], name: "index_marketplace_listings_on_status_and_is_published"
+  end
+
   create_table "marketplace_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.text "content"
@@ -14138,6 +14154,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_17_000003) do
   add_foreign_key "marketing_social_media_accounts", "users", column: "connected_by_id"
   add_foreign_key "marketing_waitlist_signups", "accounts", column: "converted_account_id", on_delete: :nullify
   add_foreign_key "marketing_waitlist_signups", "marketing_email_subscribers", column: "email_subscriber_id", on_delete: :nullify
+  add_foreign_key "marketplace_listings", "accounts"
   add_foreign_key "marketplace_reviews", "accounts"
   add_foreign_key "marketplace_reviews", "users"
   add_foreign_key "marketplace_subscriptions", "accounts"

@@ -3,7 +3,6 @@
 module SupplyChain
   class ScanTemplate < ApplicationRecord
     include Auditable
-    include MarketplacePublishable
 
     self.table_name = "supply_chain_scan_templates"
 
