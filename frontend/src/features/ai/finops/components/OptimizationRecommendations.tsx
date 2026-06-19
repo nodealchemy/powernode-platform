@@ -34,7 +34,7 @@ export const OptimizationRecommendations: React.FC = () => {
     return <LoadingSpinner size="sm" className="py-8" />;
   }
 
-  if (!optimization || optimization.recommendations.length === 0) {
+  if (!optimization || !optimization.recommendations?.length) {
     return (
       <EmptyState
         icon={Lightbulb}

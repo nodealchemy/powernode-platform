@@ -30,7 +30,12 @@ export const BudgetUtilizationPanel: React.FC = () => {
     return <LoadingSpinner size="sm" className="py-8" />;
   }
 
-  if (!budgets || budgets.length === 0) {
+  // Guard on Array.isArray, not just truthiness: the /ai/finops/budget_utilization
+  // endpoint currently returns a structured object ({ budget, enforcement,
+  // agent_budgets, time_range }), not a BudgetUtilization[]. Until that contract
+  // is reconciled (tracked separately), degrade to the empty state rather than
+  // letting `[...budgets]` throw "budgets is not iterable" and white-screen the tab.
+  if (!Array.isArray(budgets) || budgets.length === 0) {
     return (
       <EmptyState
         icon={Wallet}
