@@ -56,10 +56,6 @@ FactoryBot.define do
       content { "Generate documentation for:\n\n{{ subject }}" }
     end
 
-    trait :for_ai_workflow do
-      domain { "ai_workflow" }
-    end
-
     trait :for_cicd do
       domain { "cicd" }
     end

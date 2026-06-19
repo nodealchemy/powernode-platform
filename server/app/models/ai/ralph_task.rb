@@ -289,8 +289,6 @@ module Ai
       case execution_type
       when "agent"
         find_matching_agent
-      when "workflow"
-        find_matching_workflow
       when "a2a_task"
         find_via_a2a_discovery
       when "community"
@@ -441,11 +439,6 @@ module Ai
       else
         agents.with_any_skills(required).first
       end
-    end
-
-    def find_matching_workflow
-      # Ai::Workflow models have been removed
-      nil
     end
 
     def find_matching_pipeline

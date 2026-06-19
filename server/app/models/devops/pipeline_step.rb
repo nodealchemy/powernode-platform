@@ -9,7 +9,6 @@ module Devops
     STEP_TYPES = %w[
       checkout
       claude_execute
-      ai_workflow
       post_comment
       create_pr
       create_branch

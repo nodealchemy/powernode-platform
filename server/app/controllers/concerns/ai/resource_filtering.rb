@@ -8,14 +8,13 @@
 # - Pagination using Kaminari
 #
 # Usage:
-#   class WorkflowsController < ApplicationController
+#   class TemplatesController < ApplicationController
 #     include Ai::ResourceFiltering
 #
 #     def index
-#       workflows = apply_workflow_filters(base_scope)
-#       workflows = apply_sorting(workflows, workflow_sort_fields)
-#       workflows = apply_pagination(workflows)
-#       render_success(items: workflows, pagination: pagination_data(workflows))
+#       items = apply_sorting(base_scope, template_sort_fields)
+#       items = apply_pagination(items)
+#       render_success(items: items, pagination: pagination_data(items))
 #     end
 #   end
 #
@@ -85,60 +84,6 @@ module Ai
       else
         collection.order("#{sort_field} #{sort_direction}")
       end
-    end
-
-    # =============================================================================
-    # WORKFLOW FILTERS
-    # =============================================================================
-
-    # Apply common filters to workflow queries
-    # @param workflows [ActiveRecord::Relation] Base workflow query
-    # @return [ActiveRecord::Relation] Filtered workflows
-    def apply_workflow_filters(workflows)
-      workflows = workflows.where(status: params[:status]) if params[:status].present?
-      workflows = workflows.where(visibility: params[:visibility]) if params[:visibility].present?
-      workflows = workflows.search_by_text(params[:search]) if params[:search].present? && workflows.respond_to?(:search_by_text)
-
-      # Filter by is_template - only apply if explicitly set
-      if params[:is_template].present?
-        is_template_value = ActiveModel::Type::Boolean.new.cast(params[:is_template])
-        workflows = workflows.where(is_template: is_template_value)
-      end
-
-      workflows
-    end
-
-    # =============================================================================
-    # WORKFLOW RUN FILTERS
-    # =============================================================================
-
-    # Apply common filters to workflow run queries
-    # @param runs [ActiveRecord::Relation] Base workflow run query
-    # @return [ActiveRecord::Relation] Filtered runs
-    def apply_run_filters(runs)
-      runs = runs.where(ai_workflow_id: params[:workflow_id]) if params[:workflow_id].present?
-      runs = runs.where(status: params[:status]) if params[:status].present?
-      runs = runs.where(triggered_by_user_id: params[:user_id]) if params[:user_id].present?
-
-      # Date range filters
-      if params[:start_date].present?
-        runs = runs.where("created_at >= ?", Date.parse(params[:start_date]))
-      end
-
-      if params[:end_date].present?
-        runs = runs.where("created_at <= ?", Date.parse(params[:end_date]))
-      end
-
-      # ISO8601 timestamp filtering (used by worker cleanup jobs)
-      if params[:before].present?
-        runs = runs.where("created_at < ?", Time.parse(params[:before]))
-      end
-
-      if params[:limit].present?
-        runs = runs.limit(params[:limit].to_i)
-      end
-
-      runs
     end
 
     # =============================================================================

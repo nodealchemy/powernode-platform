@@ -284,8 +284,8 @@ const DashboardOverview: React.FC = () => {
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">🤖</span>
                 <div className="text-left">
-                  <p className="font-medium text-theme-primary">AI Workflows</p>
-                  <p className="text-xs text-theme-tertiary">Manage AI agents and workflows</p>
+                  <p className="font-medium text-theme-primary">AI Agents</p>
+                  <p className="text-xs text-theme-tertiary">Manage AI agents and fleets</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
@@ -334,7 +334,7 @@ const DashboardOverview: React.FC = () => {
           <div>
             <h4 className="font-medium text-theme-success-fg">Powernode Platform Ready</h4>
             <p className="text-sm text-theme-success-fg mt-1">
-              Your self-hosted platform is set up and ready. Start by connecting AI providers and setting up your first workflow!
+              Your self-hosted platform is set up and ready. Start by connecting AI providers and configuring your AI infrastructure.
             </p>
           </div>
         </div>

@@ -173,7 +173,7 @@ class Ai::DebuggingService
     end
 
     def fetch_application_logs(_execution)
-      # Application logs were sourced from the removed Ai::WorkflowRun#workflow_run_logs.
+      # Application logs previously came from a per-run log source that has been removed.
       # No mission-level equivalent exists yet; return empty until a new source is wired.
       []
     end

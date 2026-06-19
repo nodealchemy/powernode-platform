@@ -64,7 +64,7 @@ module Api
         def create
           template = prompt_templates_scope.new(prompt_template_params)
           template.created_by = current_user
-          template.domain ||= "ai_workflow" # Default domain for AI templates
+          template.domain ||= "general" # Default domain
 
           if template.save
             render_success({

@@ -82,7 +82,7 @@ module Devops
                         StepHandlers::RunCommandHandler
                       when "create_branch"
                         StepHandlers::CheckoutHandler
-                      when "notify", "custom", "ai_workflow", "download_artifact", "code_factory_gate"
+                      when "notify", "custom", "download_artifact", "code_factory_gate"
                         StepHandlers::GenericHandler
                       else
                         StepHandlers::GenericHandler

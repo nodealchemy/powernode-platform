@@ -54,15 +54,6 @@ cd server
 bundle exec rails runner ../examples/ollama/02-simple-ralph-loop.rb
 ```
 
-### 03-simple-workflow.rb
-
-Creates and executes a simple workflow: start -> ai_agent -> end.
-
-```bash
-cd server
-bundle exec rails runner ../examples/ollama/03-simple-workflow.rb
-```
-
 ## Configuration
 
 The examples use these defaults:

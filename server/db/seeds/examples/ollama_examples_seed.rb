@@ -181,123 +181,6 @@ else
 end
 
 # =============================================================================
-# 6. Create Sample Workflow
-# =============================================================================
-
-puts "\n6. Setting up sample workflow..."
-
-unless creator
-  puts "   WARNING: No user found, skipping workflow creation"
-else
-  workflow = Ai::Workflow.find_by(account: account, name: "Ollama Example Workflow")
-
-  if workflow
-    puts "   Using existing workflow: #{workflow.name}"
-  else
-    workflow = Ai::Workflow.create!(
-      account: account,
-      creator: creator,
-      name: "Ollama Example Workflow",
-      description: "A simple workflow demonstrating Ollama-based AI processing",
-      status: "active",
-      version: "1.0.0",
-      mcp_input_schema: {
-        "type" => "object",
-        "properties" => {
-          "text" => { "type" => "string", "description" => "Text to summarize" }
-        },
-        "required" => [ "text" ]
-      },
-      configuration: {
-        "execution_mode" => "sequential",
-        "max_execution_time" => 300
-      },
-      metadata: {
-        "auto_created" => true,
-        "source" => "ollama_examples_seed"
-      }
-    )
-
-    # Create nodes
-    start_node = workflow.workflow_nodes.create!(
-      node_id: "start_1",
-      node_type: "start",
-      name: "Start",
-      position: { "x" => 100, "y" => 200 },
-      is_start_node: true,
-      configuration: {}
-    )
-
-    # Only create agent node if agent exists
-    if agent
-      ai_node = workflow.workflow_nodes.create!(
-        node_id: "ai_summarize",
-        node_type: "ai_agent",
-        name: "Summarize Text",
-        position: { "x" => 300, "y" => 200 },
-        configuration: {
-          "agent_id" => agent.id,
-          "prompt_template" => "Please summarize the following text in 2-3 sentences:\n\n{{input.text}}",
-          "input_mapping" => { "text" => "$.input.text" },
-          "output_key" => "summary"
-        }
-      )
-    end
-
-    transform_node = workflow.workflow_nodes.create!(
-      node_id: "transform_1",
-      node_type: "data_transform",
-      name: "Format Output",
-      position: { "x" => 500, "y" => 200 },
-      configuration: {
-        "transform_type" => "jmespath",
-        "expression" => "{ summary: ai_summarize.summary, original_length: length(input.text), timestamp: `now` }",
-        "output_key" => "result"
-      }
-    )
-
-    end_node = workflow.workflow_nodes.create!(
-      node_id: "end_1",
-      node_type: "end",
-      name: "End",
-      position: { "x" => 700, "y" => 200 },
-      is_end_node: true,
-      configuration: {}
-    )
-
-    # Create edges
-    if agent
-      workflow.workflow_edges.create!(
-        edge_id: "edge_1",
-        source_node_id: "start_1",
-        target_node_id: "ai_summarize"
-      )
-
-      workflow.workflow_edges.create!(
-        edge_id: "edge_2",
-        source_node_id: "ai_summarize",
-        target_node_id: "transform_1"
-      )
-    else
-      # Skip AI node if no agent
-      workflow.workflow_edges.create!(
-        edge_id: "edge_1",
-        source_node_id: "start_1",
-        target_node_id: "transform_1"
-      )
-    end
-
-    workflow.workflow_edges.create!(
-      edge_id: "edge_3",
-      source_node_id: "transform_1",
-      target_node_id: "end_1"
-    )
-
-    puts "   Created workflow: #{workflow.name} with #{workflow.workflow_nodes.count} nodes"
-  end
-end
-
-# =============================================================================
 # Summary
 # =============================================================================
 
@@ -310,10 +193,8 @@ puts "  - AI Provider: #{ollama_provider.name}"
 puts "  - Credential: #{credential&.name || 'N/A'}"
 puts "  - AI Agent: #{agent&.name || 'N/A (no user in account)'}"
 puts "  - Ralph Loop: #{ralph_loop&.name || 'N/A'}"
-puts "  - Workflow: #{workflow&.name || 'N/A (no user in account)'}"
 puts "\nTo run the examples:"
 puts "  cd server"
 puts "  bundle exec rails runner ../examples/ollama/01-basic-chat.rb"
 puts "  bundle exec rails runner ../examples/ollama/02-simple-ralph-loop.rb"
-puts "  bundle exec rails runner ../examples/ollama/03-simple-workflow.rb"
 puts "=" * 60
