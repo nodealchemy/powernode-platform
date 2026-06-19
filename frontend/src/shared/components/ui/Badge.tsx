@@ -98,22 +98,12 @@ export const Badge: React.FC<BadgeProps> = ({
           {pulse && (
             <span className={`
               ${selectedDotSizeClasses}
-              badge-dot-pulse absolute inline-flex h-full w-full opacity-75
-              ${variant === 'success' ? 'bg-theme-success-bg' :
-                variant === 'warning' ? 'bg-theme-warning-bg' :
-                variant === 'danger' ? 'bg-theme-error-bg' :
-                variant === 'info' ? 'bg-theme-info-bg' :
-                'bg-theme-interactive-primary'}
+              badge-dot-pulse absolute inline-flex h-full w-full opacity-75 bg-current
             `} />
           )}
           <span className={`
             ${selectedDotSizeClasses}
-            relative inline-flex
-            ${variant === 'success' ? 'bg-theme-success-bg' :
-              variant === 'warning' ? 'bg-theme-warning-bg' :
-              variant === 'danger' ? 'bg-theme-error-bg' :
-              variant === 'info' ? 'bg-theme-info-bg' :
-              'bg-theme-interactive-primary'}
+            relative inline-flex bg-current
           `} />
         </span>
       )}
