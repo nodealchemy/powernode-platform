@@ -87,7 +87,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
   };
 
    
-  const handleJobComplete = (result: any) => {
+  const handleJobComplete = (result: unknown) => {
     const discoveryResult = result as { services?: DiscoveredService[]; services_count?: number };
     if (discoveryResult && discoveryResult.services) {
       setDiscoveredServices(discoveryResult.services);
@@ -118,7 +118,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
   };
 
    
-  const updateNestedConfig = (section: keyof ServiceDiscoveryConfig, field: string, value: any) => {
+  const updateNestedConfig = (section: keyof ServiceDiscoveryConfig, field: string, value: unknown) => {
     setFormConfig(prev => ({
       ...prev,
       [section]: {
