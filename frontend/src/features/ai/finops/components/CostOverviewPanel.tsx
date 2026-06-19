@@ -4,17 +4,19 @@ import { Card } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useFinOpsOverview, useOptimizationScore, useTokenAnalytics } from '../api/finopsApi';
 
-const formatCost = (cost: number): string => {
-  if (cost <= 0) return '$0.00';
-  if (cost < 0.01) return `$${cost.toFixed(4)}`;
-  if (cost >= 1000) return `$${(cost / 1000).toFixed(1)}K`;
-  return `$${cost.toFixed(2)}`;
+const formatCost = (cost: number | undefined | null): string => {
+  const value = cost ?? 0;
+  if (value <= 0) return '$0.00';
+  if (value < 0.01) return `$${value.toFixed(4)}`;
+  if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`;
+  return `$${value.toFixed(2)}`;
 };
 
-const formatTokens = (tokens: number): string => {
-  if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
-  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
-  return tokens.toString();
+const formatTokens = (tokens: number | undefined | null): string => {
+  const value = tokens ?? 0;
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+  return value.toString();
 };
 
 const formatChangePercent = (pct: number): string => {
@@ -155,7 +157,7 @@ export const CostOverviewPanel: React.FC = () => {
                 {formatCost(optimization.potential_savings)}
               </p>
               <p className="text-xs text-theme-success-fg">
-                {optimization.potential_savings_pct.toFixed(1)}% reduction
+                {(optimization.potential_savings_pct ?? 0).toFixed(1)}% reduction
               </p>
             </div>
           </div>
