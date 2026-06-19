@@ -369,3 +369,6 @@ config/extensions_state.json
 
 # Worker-generated report artifacts (regenerable; may contain PII in real deployments)
 worker/storage/
+
+# ui-smoke generated reports (regenerated each run)
+scripts/ui-smoke/last-report.*
