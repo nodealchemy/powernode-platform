@@ -1,13 +1,6 @@
 /* Tailwind CSS 4 import */
 @import "tailwindcss";
 
-/* Scan extension frontends for Tailwind utilities. Extensions live at
-   ../extensions (outside this project root), so v4 automatic content detection
-   misses them — without this, any utility class used only by an extension (and
-   not also by the parent app) is never generated, silently breaking it. */
-@source "../../extensions/*/frontend/src/**/*.{ts,tsx}";
-@source "../../extensions/private/*/frontend/src/**/*.{ts,tsx}";
-
 /* Theme CSS variables and utility classes */
 @import './assets/styles/themes.css';
 
@@ -19,6 +12,19 @@
 @import './assets/styles/ms-high-contrast-fix.css';
 @import 'highlight.js/styles/github.css';
 @import './assets/styles/markdown-preview.css';
+
+/* Scan extension frontends for Tailwind utilities. Extensions live at
+   ../extensions (outside this project root), so v4 automatic content detection
+   misses them — without this, any utility class used only by an extension (and
+   not also by the parent app) is never generated, silently breaking it.
+
+   IMPORTANT: these @source lines MUST stay after every @import above. CSS
+   requires @import to precede all other rules (except @charset/@layer); a
+   @source placed between imports silently invalidates every @import after it,
+   dropping themes.css (theme CSS vars, the .dark block, .card-theme/.input-theme)
+   and leaving the app stuck in light mode. Keep @source at the very end. */
+@source "../../extensions/*/frontend/src/**/*.{ts,tsx}";
+@source "../../extensions/private/*/frontend/src/**/*.{ts,tsx}";
 
 body {
   margin: 0;
