@@ -4,8 +4,6 @@
 export { GitProviderCard } from './components/GitProviderCard';
 export { CredentialModal } from './components/CredentialModal';
 export { RepositoryList } from './components/RepositoryList';
-export { PipelineList } from './components/PipelineList';
-export { DiffViewer } from './components/DiffViewer';
 export { CommitDetailModal } from './components/CommitDetailModal';
 export { BranchFilterForm } from './components/BranchFilterForm';
 export { WebhookEventActions } from './components/WebhookEventActions';

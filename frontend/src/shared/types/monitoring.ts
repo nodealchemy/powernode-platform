@@ -347,13 +347,6 @@ export interface ResourcesSummary {
 
 // WebSocket event types
 
-export interface ComponentTestResult {
-  success: boolean;
-  response_time: number;
-  error?: string;
-  details: Record<string, unknown>;
-}
-
 // Filter types
 export interface AlertFilters {
   severity?: 'low' | 'medium' | 'high' | 'critical';
@@ -370,14 +363,5 @@ export interface TimeRange {
   end_time: string;
 }
 
-export type MonitoringComponent =
-  | 'system'
-  | 'providers'
-  | 'agents'
-  | 'workflows'
-  | 'conversations'
-  | 'costs'
-  | 'alerts'
-  | 'resources';
 export type HealthStatus = 'excellent' | 'good' | 'fair' | 'degraded' | 'critical';
 // Callback interfaces for monitoring service

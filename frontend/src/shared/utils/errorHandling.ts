@@ -16,16 +16,6 @@ export interface ErrorWithResponse {
   message: string;
 }
 
-/**
- * Structured API error with status code and details
- */
-export interface ApiErrorDetails {
-  message: string;
-  status?: number;
-  errors?: string[];
-  originalError?: unknown;
-}
-
 // Type guard to check if error has message property
 export function isErrorWithMessage(error: unknown): error is ErrorWithMessage {
   return (
@@ -111,16 +101,6 @@ export function getErrorStatus(error: unknown): number | undefined {
 }
 
 /**
- * Extracts validation errors array from API error response
- */
-export function getValidationErrors(error: unknown): string[] {
-  if (isErrorWithResponse(error) && error.response?.data?.errors) {
-    return error.response.data.errors;
-  }
-  return [];
-}
-
-/**
  * Checks if error is a network error (no response)
  */
 export function isNetworkError(error: unknown): boolean {
@@ -138,33 +118,4 @@ export function isNetworkError(error: unknown): boolean {
  */
 export function isAuthError(error: unknown): boolean {
   return getErrorStatus(error) === 401;
-}
-
-/**
- * Checks if error is a forbidden error (403)
- */
-export function isForbiddenError(error: unknown): boolean {
-  return getErrorStatus(error) === 403;
-}
-
-/**
- * Checks if error is a not found error (404)
- */
-export function isNotFoundError(error: unknown): boolean {
-  return getErrorStatus(error) === 404;
-}
-
-/**
- * Checks if error is a validation error (422)
- */
-export function isValidationError(error: unknown): boolean {
-  return getErrorStatus(error) === 422;
-}
-
-/**
- * Checks if error is a server error (5xx)
- */
-export function isServerError(error: unknown): boolean {
-  const status = getErrorStatus(error);
-  return status !== undefined && status >= 500 && status < 600;
 }

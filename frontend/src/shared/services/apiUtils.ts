@@ -6,7 +6,6 @@
  */
 
 import { APIResponse, PaginatedResponse } from '@/shared/types';
-import { getErrorMessage } from '@/shared/utils/errorHandling';
 
 // Re-export types for convenience
 export type { APIResponse, PaginatedResponse };
@@ -19,38 +18,6 @@ export interface PaginationInfo {
   perPage: number;
   total: number;
   totalPages: number;
-}
-
-/**
- * Standardized list response with data and pagination
- */
-export interface ListResponse<T> {
-  success: boolean;
-  data: T[];
-  pagination: PaginationInfo;
-  error?: string;
-}
-
-/**
- * Wraps data in a successful APIResponse
- */
-export function wrapSuccess<T>(data: T, message?: string): APIResponse<T> {
-  return {
-    success: true,
-    data,
-    ...(message && { message }),
-  };
-}
-
-/**
- * Creates an error APIResponse
- */
-export function wrapError<T = never>(error: string | unknown): APIResponse<T> {
-  const errorMessage = typeof error === 'string' ? error : getErrorMessage(error);
-  return {
-    success: false,
-    error: errorMessage,
-  };
 }
 
 /**

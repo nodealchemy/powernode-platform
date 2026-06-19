@@ -345,24 +345,6 @@ export interface ExecuteAgentRequest {
 // Provider Test Results
 // Analytics and Usage Types
 
-export interface SystemHealthStatus {
-  overall_health: 'healthy' | 'degraded' | 'unhealthy';
-  active_executions: number;
-  total_providers: number;
-  healthy_providers: number;
-  recent_errors: number;
-  system_load: string | number;
-}
-
-export interface AccountMetrics {
-  executions_today: number;
-  successful_executions: number;
-  failed_executions: number;
-  active_conversations: number;
-  total_tokens_used: number;
-  estimated_cost: number;
-}
-
 // WebSocket Message Types
 export interface ConversationChannelMessage {
   type: 'subscription_confirmed' | 'message_created' | 'message_updated' | 'ai_response_streaming' | 'ai_response_complete' | 'ai_thinking' | 'processing_status' | 'typing_indicator' | 'message_read' | 'conversation_status' | 'error';
@@ -835,13 +817,6 @@ export interface DataSourceQualityResult {
   detail: string;
 }
 
-// The QualityService#evaluate result shape (weighted score + per-rule outcomes).
-export interface DataSourceQualityEvaluation {
-  quality_score: number;
-  passed: boolean;
-  results: DataSourceQualityResult[];
-  anomalies: string[];
-}
 
 // The latest persisted quality outcome for an endpoint, distilled from the most
 // recent quality-evaluated query-log row. All optional: an endpoint that has

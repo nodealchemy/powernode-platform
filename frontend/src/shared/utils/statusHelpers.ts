@@ -231,38 +231,6 @@ export function getStatusText(status: string, domain?: 'invoice' | 'customer' | 
 }
 
 /**
- * Converts status color to Tailwind background class
- */
-export function getStatusBgClass(color: StatusColor): string {
-  const bgClasses: Record<StatusColor, string> = {
-    green: 'bg-theme-success-fg/10',
-    yellow: 'bg-theme-warning-fg/10',
-    red: 'bg-theme-danger-fg/10',
-    blue: 'bg-theme-info-fg/10',
-    gray: 'bg-theme-surface',
-    purple: 'bg-theme-info-fg/10',
-    orange: 'bg-theme-warning-fg/10',
-  };
-  return bgClasses[color];
-}
-
-/**
- * Converts status color to Tailwind text class
- */
-export function getStatusTextClass(color: StatusColor): string {
-  const textClasses: Record<StatusColor, string> = {
-    green: 'text-theme-success-fg',
-    yellow: 'text-theme-warning-fg',
-    red: 'text-theme-danger-fg',
-    blue: 'text-theme-info-fg',
-    gray: 'text-theme-secondary',
-    purple: 'text-theme-info-fg',
-    orange: 'text-theme-warning-fg',
-  };
-  return textClasses[color];
-}
-
-/**
  * Converts status color to Tailwind border class
  */
 export function getStatusBorderClass(color: StatusColor): string {

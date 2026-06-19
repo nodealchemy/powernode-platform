@@ -28,13 +28,6 @@ export const SUGGESTED_SOURCE_TYPE_OPTIONS = Object.entries(SOURCE_TYPE_LABELS).
 );
 
 /**
- * @deprecated Source types are free-form; prefer SUGGESTED_SOURCE_TYPE_OPTIONS
- * for combobox hints and {@link humanizeSourceType} for rendering. Retained as an
- * alias so existing imports keep compiling.
- */
-export const SOURCE_TYPE_OPTIONS = SUGGESTED_SOURCE_TYPE_OPTIONS;
-
-/**
  * Render a source type for display. Known types use their curated label;
  * unknown (free-form) tokens are humanized gracefully —
  * `crypto_coingecko` -> `Crypto Coingecko`, `sec-edgar` -> `Sec Edgar`.

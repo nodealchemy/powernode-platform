@@ -59,13 +59,6 @@ export const hasAdminAccess = (user: User | null): boolean => {
 };
 
 /**
- * Check if user can manage their account's team
- */
-export const hasTeamManagementAccess = (user: User | null): boolean => {
-  return hasPermissions(user, ['team.invite']) || hasPermissions(user, ['team.assign_roles']) || hasPermissions(user, ['admin.user.update']);
-};
-
-/**
  * Check if user has account management permissions
  */
 export const isAccountManager = (user: User | null): boolean => {
@@ -73,62 +66,6 @@ export const isAccountManager = (user: User | null): boolean => {
   return hasPermissions(user, ['team.assign_roles']) || hasPermissions(user, ['admin.user.update']);
 };
 
-/**
- * Check if user can access billing features
- */
-export const hasBillingAccess = (user: User | null): boolean => {
-  return hasPermissions(user, ['billing.read']);
-};
-
-/**
- * Check if user can access analytics features
- */
-export const hasAnalyticsAccess = (user: User | null): boolean => {
-  return hasPermissions(user, ['analytics.read']);
-};
-
-/**
- * Check if user can view knowledge base
- */
-export const hasKnowledgeBaseAccess = (user: User | null): boolean => {
-  return hasPermissions(user, ['kb.read']);
-};
-/**
- * Check if user can manage knowledge base
- */
-export const canManageKnowledgeBase = (user: User | null): boolean => {
-  return hasPermissions(user, ['kb.create', 'kb.update', 'kb.publish']);
-};
-/**
- * Check if user has permission for a specific action on a resource
- * @param user The current user
- * @param resource The resource name (e.g., 'users', 'billing')
- * @param action The action name (e.g., 'create', 'read', 'update', 'delete')
- */
-export const canPerformAction = (
-  user: User | null,
-  resource: string,
-  action: string
-): boolean => {
-  if (!user) return false;
-  
-  const permission = `${resource}.${action}`;
-  return hasPermissions(user, [permission]);
-};
-
-/**
- * Get all permissions for a specific resource
- */
-export const getResourcePermissions = (
-  user: User | null,
-  resource: string
-): string[] => {
-  if (!user || !user.permissions) return [];
-  
-  return user.permissions.filter(permission => {
-    return permission.startsWith(`${resource}.`) || permission === `${resource}.*`;
-  });
-};
 // ========================================
 // Enhanced Permission Utilities with Constants
 // ========================================

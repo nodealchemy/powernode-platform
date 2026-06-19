@@ -13,8 +13,6 @@ import type {
   ShadowExecution,
   TelemetryEvent,
   DelegationPolicy,
-  BudgetCheckResponse,
-  BudgetAlertItem,
   PaginatedTransactions,
   KillSwitchStatus,
   KillSwitchEvent,
@@ -272,26 +270,6 @@ export function useBudgetTransactions(budgetId: string, page = 1, perPage = 25) 
   });
 }
 
-export function useBudgetCheck(budgetId: string) {
-  return useQuery({
-    queryKey: AUTONOMY_KEYS.budgetCheck(budgetId),
-    queryFn: async () => {
-      const response = await apiClient.get(`/ai/autonomy/budgets/${budgetId}/check`);
-      return (response.data?.data ?? null) as BudgetCheckResponse;
-    },
-    enabled: !!budgetId,
-  });
-}
-
-export function useBudgetAlerts() {
-  return useQuery({
-    queryKey: AUTONOMY_KEYS.budgetAlerts(),
-    queryFn: async () => {
-      const response = await apiClient.get('/ai/autonomy/budgets/alerts');
-      return (response.data?.data ?? []) as BudgetAlertItem[];
-    },
-  });
-}
 
 // ===== Write Mutations =====
 

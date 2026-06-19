@@ -9,7 +9,6 @@ export {
   GitProviderCard,
   CredentialModal,
   RepositoryList,
-  DiffViewer,
   CommitDetailModal,
   gitProvidersApi,
   useGitProviders,

@@ -188,22 +188,6 @@ export interface BudgetTransaction {
   created_at: string;
 }
 
-export interface BudgetCheckResponse {
-  allowed: boolean;
-  remaining_cents: number;
-  utilization_ratio: number;
-}
-
-export interface BudgetAlertItem {
-  budget_id: string;
-  agent_id: string;
-  agent_name: string;
-  level: 'warning' | 'danger' | 'exhausted';
-  utilization_pct: number;
-  remaining_cents: number;
-  total_budget_cents: number;
-}
-
 export interface PaginatedTransactions {
   transactions: BudgetTransaction[];
   pagination: {
