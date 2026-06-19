@@ -225,6 +225,8 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
           <RalphLiveExecutionPanel
             iterations={liveIterations}
             isRunning={isRunning}
+            taskCount={loop.task_count}
+            completedTaskCount={loop.completed_task_count}
           />
         )}
 

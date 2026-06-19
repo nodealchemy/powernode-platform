@@ -7,11 +7,17 @@ import type { RalphIteration } from '@/shared/services/ai/types/ralph-types';
 interface RalphLiveExecutionPanelProps {
   iterations: RalphIteration[];
   isRunning: boolean;
+  /** Total tasks in the loop queue — drives the idle/drained sub-state. */
+  taskCount?: number;
+  /** Tasks that have reached a terminal "done" state. */
+  completedTaskCount?: number;
 }
 
 export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = ({
   iterations,
   isRunning,
+  taskCount,
+  completedTaskCount,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -51,7 +57,18 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
     return text.substring(0, maxLength) + '...';
   };
 
-  if (iterations.length === 0 && !isRunning) return null;
+  // The live feed is empty whenever no iteration is mid-flight. Distinguish a
+  // genuine pre-iteration wait (work still queued) from an idle loop that has
+  // drained its queue: a running loop whose every task is complete is idle, not
+  // "about to produce results".
+  const noLiveActivity = iterations.length === 0;
+  const queueDrained =
+    isRunning &&
+    noLiveActivity &&
+    (taskCount ?? 0) > 0 &&
+    (completedTaskCount ?? 0) >= (taskCount ?? 0);
+
+  if (noLiveActivity && !isRunning) return null;
 
   return (
     <Card>
@@ -61,12 +78,17 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
             <Activity className="w-4 h-4 text-theme-interactive-primary" />
             <span className="text-sm font-semibold text-theme-primary">Live Execution</span>
           </div>
-          {isRunning && (
+          {queueDrained ? (
+            <Badge variant="outline" size="sm">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Idle
+            </Badge>
+          ) : isRunning ? (
             <Badge variant="info" size="sm">
               <span className="inline-block w-2 h-2 rounded-full bg-current mr-1.5 animate-pulse" />
               Running
             </Badge>
-          )}
+          ) : null}
           {!isRunning && iterations.length > 0 && (
             <Badge variant="outline" size="sm">
               {iterations.length} iteration{iterations.length !== 1 ? 's' : ''}
@@ -74,10 +96,17 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
           )}
         </div>
 
-        {iterations.length === 0 ? (
-          <div className="text-sm text-theme-secondary py-2">
-            Waiting for iteration results...
-          </div>
+        {noLiveActivity ? (
+          queueDrained ? (
+            <div className="text-sm text-theme-secondary py-2" data-testid="ralph-live-idle">
+              Idle — queue drained · {completedTaskCount}/{taskCount} tasks complete.
+              {' '}Awaiting the next discovery.
+            </div>
+          ) : (
+            <div className="text-sm text-theme-secondary py-2">
+              Waiting for iteration results...
+            </div>
+          )
         ) : (
           <div
             ref={scrollRef}
