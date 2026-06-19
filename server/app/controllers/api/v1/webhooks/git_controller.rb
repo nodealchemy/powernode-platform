@@ -41,7 +41,9 @@ module Api
         rescue StandardError => e
           Rails.logger.error "Git webhook error: #{e.message}"
           Rails.logger.error e.backtrace.first(10).join("\n")
-          render_error("Processing error", status: :internal_server_error)
+          # Inbound webhooks must acknowledge with 2xx even on processing failure — a 5xx
+          # triggers provider retry storms. Log and ack; the worker reconciles from state.
+          render_success({ received: true, status: "error_logged" })
         end
 
         private

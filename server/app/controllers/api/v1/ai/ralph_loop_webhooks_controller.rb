@@ -65,7 +65,8 @@ module Api
           end
         rescue StandardError => e
           Rails.logger.error("Ralph Loop webhook trigger failed: #{e.message}")
-          render_error("Webhook trigger failed: #{e.message}", status: :internal_server_error)
+          # Webhook receivers must return 2xx even on failure to avoid trigger/retry storms.
+          render_success({ received: true, triggered: false, error: e.message })
         end
 
         # GET /api/v1/ai/ralph_loops/webhook/:token/status

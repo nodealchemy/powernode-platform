@@ -43,7 +43,8 @@ module Api
           render_error("Invalid webhook token", status: :not_found)
         rescue StandardError => e
           Rails.logger.error "Chat webhook error: #{e.message}"
-          render_error("Internal error", status: :internal_server_error)
+          # Acknowledge with 2xx even on processing failure to avoid platform retry storms.
+          render_success({ received: true, status: "error_logged" })
         end
 
         # GET /api/v1/chat/webhooks/:token/verify
