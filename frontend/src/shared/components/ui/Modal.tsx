@@ -192,23 +192,23 @@ export const Modal: React.FC<ModalProps> = ({
           `.replace(/\s+/g, ' ').trim()}
         >
           {/* Enhanced Header */}
-          <div className="relative bg-gradient-to-b from-theme-surface to-theme-background px-6 pt-6 pb-4">
+          <div className="relative bg-gradient-to-b from-theme-surface to-theme-background px-5 pt-4 pb-3">
             {/* Decorative top border */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-theme-interactive-primary via-theme-interactive-secondary to-theme-interactive-primary" />
-            
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3 min-w-0">
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-theme-interactive-primary via-theme-interactive-secondary to-theme-interactive-primary" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
                 {icon && (
-                  <div className="flex-shrink-0 w-12 h-12 bg-theme-interactive-primary/10 rounded-xl flex items-center justify-center text-theme-interactive-primary text-xl">
+                  <div className="flex-shrink-0 w-9 h-9 bg-theme-interactive-primary/10 rounded-lg flex items-center justify-center text-theme-interactive-primary text-base">
                     {icon}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h3 className="text-xl font-bold text-theme-primary break-words" id="modal-title">
+                  <h3 className="text-lg font-semibold text-theme-primary break-words" id="modal-title">
                     {title}
                   </h3>
                   {subtitle && (
-                    <div className="text-sm text-theme-secondary mt-1 break-words">
+                    <div className="text-xs text-theme-secondary mt-0.5 break-words">
                       {subtitle}
                     </div>
                   )}

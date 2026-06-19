@@ -161,12 +161,8 @@ export const TeamDetailModal: React.FC = () => {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-theme-info-bg rounded-lg flex items-center justify-center">
-              <Users className="h-5 w-5 text-theme-info-fg" />
-            </div>
             <div>
-              <h2 className="text-lg font-semibold text-theme-primary">{team.name}</h2>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2">
                 <Badge variant={statusConfig.variant} size="sm">{statusConfig.label}</Badge>
                 <Badge variant="outline" size="xs">{TOPOLOGY_LABELS[team.team_topology] || team.team_topology}</Badge>
                 {team.roles_count != null && (
@@ -242,7 +238,8 @@ export const TeamDetailModal: React.FC = () => {
       <Modal
         isOpen={isOpen}
         onClose={closeTeam}
-        title=""
+        title={team?.name ?? 'Team'}
+        icon={<Users className="w-6 h-6" />}
         maxWidth="5xl"
         variant="centered"
         disableContentScroll
