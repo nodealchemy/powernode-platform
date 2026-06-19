@@ -1,0 +1,86 @@
+{
+  "summary": {
+    "base": "https://dev.powernode.org",
+    "routes_crawled": 142,
+    "routes_with_findings": 8,
+    "by_severity": {
+      "high": 7,
+      "low": 1
+    },
+    "detail_pages_dropped": 156
+  },
+  "findings": [
+    {
+      "route": "/app/ai/cost/finops/budget",
+      "pageerrors": [
+        "budgets is not iterable"
+      ],
+      "consoleErrors": [],
+      "http": [],
+      "severity": "high"
+    },
+    {
+      "route": "/app/ai/cost/finops/cost-explorer",
+      "pageerrors": [
+        "Cannot read properties of undefined (reading 'length')"
+      ],
+      "consoleErrors": [],
+      "http": [],
+      "severity": "high"
+    },
+    {
+      "route": "/app/marketing/analytics",
+      "pageerrors": [
+        "channels.map is not a function"
+      ],
+      "consoleErrors": [],
+      "http": [],
+      "severity": "high"
+    },
+    {
+      "route": "/app/marketing/calendar",
+      "pageerrors": [
+        "Cannot read properties of undefined (reading 'forEach')"
+      ],
+      "consoleErrors": [],
+      "http": [],
+      "severity": "high"
+    },
+    {
+      "route": "/app/marketing/campaigns",
+      "pageerrors": [
+        "Cannot read properties of undefined (reading 'filter')"
+      ],
+      "consoleErrors": [],
+      "http": [],
+      "severity": "high"
+    },
+    {
+      "route": "/app/marketing/email-lists",
+      "pageerrors": [
+        "Cannot read properties of undefined (reading 'length')"
+      ],
+      "consoleErrors": [],
+      "http": [],
+      "severity": "high"
+    },
+    {
+      "route": "/app/marketing/social",
+      "pageerrors": [
+        "Cannot read properties of undefined (reading 'length')"
+      ],
+      "consoleErrors": [],
+      "http": [],
+      "severity": "high"
+    },
+    {
+      "route": "/app/ai",
+      "pageerrors": [],
+      "consoleErrors": [
+        "AI Orchestration monitor error: Event"
+      ],
+      "http": [],
+      "severity": "low"
+    }
+  ]
+}
