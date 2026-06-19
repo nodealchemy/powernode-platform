@@ -6,7 +6,7 @@ import {
   HardDrive, Workflow, Server, GitBranch,
   Plug, BookOpen, UserCog, Activity, ShieldCheck,
   Container, Boxes,
-  Play, Rocket, DollarSign, Code2, Gauge
+  Play, Rocket, DollarSign, Code2, Gauge, Building2, CreditCard
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -177,7 +177,37 @@ export const defaultNavigationConfig: NavigationConfig = {
     {
       id: 'account',
       name: 'Account',
+      // Items mirror the Profile page tabs (pages/app/account/ProfilePage.tsx),
+      // so the sidebar and the in-page tabs stay in lockstep. Each links to the
+      // matching /app/profile/* tab route.
       items: [
+        {
+          id: 'profile',
+          name: 'My Profile',
+          href: '/app/profile',
+          icon: User,
+          description: 'Your personal information',
+          permissions: [],
+          order: 1
+        },
+        {
+          id: 'account',
+          name: 'Account',
+          href: '/app/profile/account',
+          icon: Building2,
+          description: 'Account details and status',
+          permissions: [],
+          order: 2
+        },
+        {
+          id: 'subscription',
+          name: 'Subscription',
+          href: '/app/profile/subscription',
+          icon: CreditCard,
+          description: 'Your subscription and plan',
+          permissions: ['billing.read', 'billing.manage'],
+          order: 3
+        },
         {
           id: 'users',
           name: 'Users',
@@ -185,28 +215,38 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Users,
           description: 'Manage your team members',
           permissions: ['team.read'],
-          order: 2
+          order: 5
+        },
+        {
+          id: 'preferences',
+          name: 'Preferences',
+          href: '/app/profile/preferences',
+          icon: Settings,
+          description: 'Customize your experience',
+          permissions: [],
+          order: 6
         },
         {
           id: 'notifications',
           name: 'Notifications',
-          href: '/app/notifications',
+          href: '/app/profile/notifications',
           icon: Bell,
-          description: 'View and manage your notifications',
+          description: 'Notification preferences',
           permissions: [],
-          order: 3
+          order: 7
         },
         {
-          id: 'profile',
-          name: 'My Profile',
-          href: '/app/profile',
-          icon: User,
-          description: 'Personal information and preferences',
+          id: 'security',
+          name: 'Security',
+          href: '/app/profile/security',
+          icon: ShieldCheck,
+          description: 'Password, SSH keys, and security status',
           permissions: [],
-          order: 1
+          order: 8
         }
         // 'Billing' (order 4) is registered by the business extension via
-        // featureRegistry.registerNavItems('business', [{ section: 'account', ... }]).
+        // featureRegistry.registerNavItems('business', [{ section: 'account', ... }]),
+        // slotting in after Subscription.
       ],
       collapsible: true,
       defaultExpanded: true,
