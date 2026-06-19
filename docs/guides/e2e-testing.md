@@ -179,7 +179,6 @@ Available fixtures in `e2e/fixtures/test-data.ts`:
 | `TEST_PROVIDER` | Provider creation payload |
 | `TEST_AGENT` | Agent creation payload |
 | `TEST_CONVERSATION` | Conversation seed data |
-| `TEST_WORKFLOW` | Workflow definition |
 | `TEST_AGENT_TEAM` | Team composition |
 | `TEST_CONTEXT` | Context/memory entries |
 | `ROUTES` | Frontend route map |

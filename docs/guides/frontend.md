@@ -629,31 +629,6 @@ const { data } = useWidgets({ ...filters });
 
 Filters live in URL query params so reloads preserve state and the filter URL is shareable.
 
-## Reliability UI components
-
-The reliability surface exposes retry configuration, checkpoint history, circuit-breaker state, and recovery operations to operators.
-
-| Component | Purpose |
-|---|---|
-| `RetryConfigurationPanel` | Configure exponential / linear / fixed / custom retry strategies with visual schedule preview, jitter toggle, retryable error types, and workflow-default override |
-| `CheckpointHistoryViewer` | Browse workflow execution checkpoints with diff view and replay-from-here action |
-| `CircuitBreakerDashboard` | Live status per breaker (closed/open/half-open) with manual reset, with metrics: failure rate, time-in-state, last error |
-| `RecoveryActionPanel` | Trigger replay, skip, abort recovery for failed workflow runs |
-| `WorkflowExecutionTimeline` | Per-node timeline with retry attempts visualized, latency bars, error overlay |
-
-### Integration with workflow editor
-
-Retry configuration is exposed at two levels:
-
-1. **Workflow default** — set on the workflow itself, inherited by all nodes
-2. **Node override** — per-node retry config that overrides the workflow default
-
-The panel highlights when a node is using the workflow default vs. an override, and a "Reset to workflow default" button clears the override.
-
-### Real-time updates
-
-The reliability surfaces consume `useWorkflowExecutionChannel` for live updates as nodes retry, recover, or trip breakers. Backend broadcasts state transitions; the UI reflects them within ~100ms.
-
 ## Accessibility, theming, and i18n
 
 ### Accessibility

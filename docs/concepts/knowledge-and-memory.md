@@ -54,7 +54,6 @@ flowchart TB
 | `Ai::AgentShortTermMemory` | Short-term | TTL-based per-agent session entries (default 1 hour TTL) |
 | `Ai::PersistentContext` + `Ai::ContextEntry` | Long-term | Long-lived containers with pgvector embeddings and access logs |
 | `Ai::MemoryPool` | Shared | Cross-agent collaborative pools |
-| `Ai::SharedContextPool` | Shared (workflow) | Workflow-scoped pools for multi-node data exchange |
 
 ### Short-term memory
 
@@ -227,7 +226,7 @@ This section zooms in on the **shared memory** tier — the `Ai::MemoryPool` mod
 | `access_control` | JSON | `{ "agents": [...uuids], "public": true|false }` |
 | `data_size_bytes` | integer | Auto-calculated on save; underpins quota enforcement |
 
-`persist_across_executions` (boolean) flips a pool into the `persistent` scope filter so workflow ticks can rebind to long-lived state. Versioning is automatic — `before_save` increments `version` whenever `data` changes.
+`persist_across_executions` (boolean) flips a pool into the `persistent` scope filter so later executions can rebind to long-lived state. Versioning is automatic — `before_save` increments `version` whenever `data` changes.
 
 ### Example 1 — create a pool via MCP
 

@@ -20,7 +20,7 @@
 
 ## What this concept covers
 
-Powernode runs two intertwined real-time systems: a **multi-platform chat** that bridges external messaging platforms (WhatsApp, Telegram, Discord, Slack, Mattermost) to AI agents, and an **ActionCable layer** that pushes execution updates from missions, Ralph Loops, workflows, agents, and pipelines to the React frontend.
+Powernode runs two intertwined real-time systems: a **multi-platform chat** that bridges external messaging platforms (WhatsApp, Telegram, Discord, Slack, Mattermost) to AI agents, and an **ActionCable layer** that pushes execution updates from missions, Ralph Loops, agents, and pipelines to the React frontend.
 
 The chat system is operator-facing: messages flow inbound through platform webhooks, get sanitized and routed to AI agents, then flow outbound back to the platform with delivery tracking. The ActionCable layer is engineer-facing: every long-running operation broadcasts status changes, progress updates, streaming tokens, and completion events.
 
@@ -399,27 +399,17 @@ The channel accepts a `type` param identifying the subscription scope:
 | `circuit_breaker` | Circuit breaker state changes |
 | `ralph_loop` | Per-Ralph-Loop events |
 | `worktree_session` | Per-worktree session events |
-| `workflow` | Workflow-level events |
-| `workflow_run` | Run-level events |
+
+The full set of valid subscription types is `account agent monitoring system circuit_breaker circuit_breaker_service ralph_loop worktree_session` (see `valid_subscription_type?` in `AiOrchestrationChannel`).
 
 ### Multi-stream broadcasting
 
 Single events broadcast to multiple stream levels so all UI components receive updates:
 
-1. `ai_orchestration:workflow_run:{run_id}` — Run-specific updates
-2. `ai_orchestration:workflow:{workflow_id}` — Workflow-level updates
-3. `ai_orchestration:account:{account_id}` — Account-wide monitoring
+1. `ai_orchestration:ralph_loop:{loop_id}` — Resource-specific updates
+2. `ai_orchestration:account:{account_id}` — Account-wide monitoring
 
 ### Event types
-
-**Workflow lifecycle:**
-
-```
-workflow.run.created
-workflow.run.status.changed
-workflow.run.completed
-workflow.node.execution.updated
-```
 
 **Mission lifecycle (`MissionChannel`):**
 
@@ -467,34 +457,13 @@ workflow.node.execution.updated
 
 ```json
 {
-  "event": "workflow.run.status.changed",
-  "resource_type": "workflow_run",
-  "resource_id": "run-id",
+  "event": "ralph_loop.status_changed",
+  "resource_type": "ralph_loop",
+  "resource_id": "loop-id",
   "payload": {
-    "workflow_run": { "..." : "..." },
-    "workflow_stats": { "..." : "..." }
+    "ralph_loop": { "..." : "..." }
   },
   "timestamp": "2025-10-11T21:07:00Z"
-}
-```
-
-### Node execution update example
-
-```json
-{
-  "event": "workflow.node.execution.updated",
-  "resource_type": "node_execution",
-  "resource_id": "execution-id",
-  "payload": {
-    "id": "execution-id",
-    "execution_id": "execution-id",
-    "status": "completed",
-    "node_name": "Start",
-    "node_type": "start",
-    "started_at": "2025-10-11T21:07:00Z",
-    "completed_at": "2025-10-11T21:07:01Z",
-    "duration_ms": 1000
-  }
 }
 ```
 
@@ -503,18 +472,18 @@ WebSocket payloads MUST match API response format exactly. Missing fields break 
 ### Frontend integration
 
 ```typescript
-// Workflow-level
+// Ralph-Loop-level
 subscribe({
   channel: 'AiOrchestrationChannel',
-  params: { type: 'workflow', id: workflowId },
-  onMessage: handleWorkflowUpdate
+  params: { type: 'ralph_loop', id: ralphLoopId },
+  onMessage: handleRalphLoopUpdate
 });
 
-// Run-level
+// Worktree-session-level
 subscribe({
   channel: 'AiOrchestrationChannel',
-  params: { type: 'workflow_run', id: runId },
-  onMessage: handleRunUpdate
+  params: { type: 'worktree_session', id: sessionId },
+  onMessage: handleSessionUpdate
 });
 ```
 
@@ -617,7 +586,7 @@ The frontend chat interface is built as part of the AI feature module.
 
 ```bash
 # Tail broadcast logs
-journalctl -u powernode-backend@default -f | grep -E "Broadcasting|workflow.run|node.execution"
+journalctl -u powernode-backend@default -f | grep -E "Broadcasting|execution"
 ```
 
 ### Browser DevTools snippet
@@ -637,44 +606,6 @@ WebSocket.prototype.onmessage = function(event) {
 };
 ```
 
-### Workflow test expectations
-
-When executing a workflow:
-
-- New run appears immediately in history
-- Status badges update: `pending` → `running` → `completed`
-- Node badges change: pending → running → completed
-- Progress bar fills as nodes complete
-
-Expected console output:
-
-```
-WORKFLOW RUN UPDATE
-  event: "workflow.run.status.changed"
-  status: "running"
-  progress: "0/5"
-
-NODE EXECUTION UPDATE
-  nodeId: "start_1"
-  nodeName: "Start"
-  status: "running"
-
-NODE EXECUTION UPDATE
-  nodeId: "start_1"
-  status: "completed"
-```
-
-Expected backend logs:
-
-```
-[STATE_MACHINE] Broadcasting status change: pending -> initializing
-[STATE_MACHINE] Broadcasting status change: initializing -> running
-BROADCASTING STATUS CHANGE: [execution-id] pending -> running
-Broadcasting node status change: [node-id] -> running (Start)
-[ActionCable] Broadcasting to ai_orchestration:workflow_run:[id]
-[ActionCable] Broadcasting to ai_orchestration:workflow:[id]
-```
-
 ### Single-connection verification
 
 ```javascript
@@ -692,17 +623,11 @@ window.WebSocket = function(...args) {
 
 ## Troubleshooting
 
-### Node badges not updating
+### Events not updating
 
 1. **Check WebSocket connection** — `wsDebugSummary()` should show `Active Connections: 1` with status `OPEN`
-2. **Verify subscription** — Look for `SUBSCRIPTION CONFIRMED`; channel must be `AiOrchestrationChannel`; params must include workflow ID
-3. **Check backend broadcasts** — Logs should show `Broadcasting node status change`; if missing, check `ai_workflow_node_execution.rb` callbacks
-4. **Verify frontend handler** — `WorkflowExecutionDetails.tsx` should handle `workflow.node.execution.updated`
-
-### Execution history not updating
-
-1. **Check workflow-level subscription** — Should use `{ type: 'workflow', id: workflowId }`, NOT `workflow_${id}` (old format)
-2. **Verify broadcast stream** — Backend should broadcast to `ai_orchestration:workflow:[id]`
+2. **Verify subscription** — Look for `SUBSCRIPTION CONFIRMED`; channel must be a real channel class (e.g. `AiOrchestrationChannel`)
+3. **Check backend broadcasts** — Logs should show `Broadcasting`; if missing, check the model callbacks that emit events
 
 ### Common issues
 
@@ -710,8 +635,6 @@ window.WebSocket = function(...args) {
 |---------|--------------|-----|
 | No WebSocket messages | Not subscribed | Refresh page, check subscription |
 | Broadcasts sent but not received | Wrong channel/params | Verify `AiOrchestrationChannel` |
-| Node badges static | Missing `id` in payload | Check `serialize_node_execution` |
-| History list static | Wrong subscription format | Use `AiOrchestrationChannel` |
 | "Connection lost unexpectedly" | Network issue | Check backend, CORS errors |
 | "Session expired" | Token refresh failed | Re-login |
 | Messages not received | Wrong channel name | Verify matches backend |
@@ -720,15 +643,14 @@ window.WebSocket = function(...args) {
 
 1. **Channel class requirement** — Clients MUST subscribe to actual channel classes (`AiOrchestrationChannel`), not arbitrary stream names
 2. **Payload consistency** — WebSocket payloads MUST match API response format exactly
-3. **Multi-stream strategy** — Broadcasting to multiple stream levels (run, workflow, account) ensures all UI components receive updates
-4. **Event unification** — Consistent event names (`workflow.run.*`) reduces complexity
-5. **Manual broadcast requirement** — When using `update_columns` to bypass callbacks, manual broadcasting is essential
+3. **Multi-stream strategy** — Broadcasting to multiple stream levels (e.g. resource and account) ensures all UI components receive updates
+4. **Manual broadcast requirement** — When using `update_columns` to bypass callbacks, manual broadcasting is essential
 
 ## Related concepts
 
 - [`concepts/agents-and-autonomy.md`](./agents-and-autonomy.md) — what generates events on these channels
 - [`concepts/architecture.md`](./architecture.md) — process model and Redis layout
-- [`concepts/mcp-and-tools.md`](./mcp-and-tools.md) — workflow engine that drives many of these events
+- [`concepts/mcp-and-tools.md`](./mcp-and-tools.md) — MCP tool registry that drives many of these events
 - [`reference/api/websocket.md`](../reference/api/websocket.md) — full per-channel reference
 - [`guides/frontend.md`](../guides/frontend.md) — frontend WebSocket integration patterns
 

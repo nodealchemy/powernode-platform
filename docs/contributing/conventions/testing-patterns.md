@@ -27,7 +27,7 @@ cd frontend && CI=true npm test                      # Frontend (always CI=true)
 | Response Helpers | `json_response`, `json_response_data`, `expect_success_response(data)`, `expect_error_response(msg, status)` |
 | Shared Examples | `include_examples 'requires authentication'`, `'requires permission'`, `'scopes to current account'` — see `spec/support/shared_examples/` |
 | AI Matchers | `be_a_valid_ai_response`, `have_execution_status(:status)`, `create_audit_log(:action)` — see `spec/support/ai_matchers.rb` |
-| AI Helpers | `ProviderHelpers`, `AgentHelpers`, `WorkflowHelpers`, `SecurityHelpers` — see `spec/support/ai_test_helpers.rb` |
+| AI Helpers | `ProviderHelpers`, `AgentHelpers`, `ConversationHelpers`, `SecurityHelpers` — see `spec/support/ai_test_helpers.rb` |
 | E2E Pages | Page objects in `e2e/pages/` — always reuse; check `e2e/pages/ai/` for AI features |
 | E2E Selectors | `data-testid` first, then `class*="pattern"`, then `getByRole` — add `data-testid` to new components |
 | E2E Guards | `page.on('pageerror', () => {})` in beforeEach, `if (await el.count() > 0)` for optional elements |

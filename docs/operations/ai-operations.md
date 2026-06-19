@@ -40,7 +40,7 @@
 
 ```
         ┌──────────────┐
-        │  E2E Tests   │   ~10% — Mission/workflow execution scenarios
+        │  E2E Tests   │   ~10% — Mission execution scenarios
         │  Playwright  │
         ├──────────────┤
         │ Integration  │   ~30% — API + DB + WebSocket

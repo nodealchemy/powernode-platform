@@ -18,7 +18,7 @@
     "docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md": "docs/guides/extensions.md",
     "docs/backend/DATABASE_SCHEMA_REFERENCE.md": "docs/reference/database-schema.md",
     "docs/backend/DATA_MODELER_SPECIALIST.md": "docs/guides/backend.md",
-    "docs/backend/NODE_EXECUTOR_REFERENCE.md": "docs/reference/node-executors.md",
+    "docs/backend/NODE_EXECUTOR_REFERENCE.md": null,
     "docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md": "docs/guides/extensions.md",
     "docs/backend/RAILS_ARCHITECT_SPECIALIST.md": "docs/guides/backend.md",
     "docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md": "docs/guides/frontend.md",

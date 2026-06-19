@@ -81,7 +81,6 @@ The extension system ships with public examples (system, supply-chain, marketing
 ### AI & Automation
 - **AI Agents** — Create, deploy, and manage agents with trust scoring and autonomy tiers
 - **Agent Teams** — Multi-agent orchestration (manager-led, consensus, auction, round-robin, priority-based strategies)
-- **AI Workflows** — Visual builder with many node types and circuit breakers
 - **AI Autonomy** — Kill switch, goals, proposals, escalations, feedback, intervention policies, observations, duty cycle
 - **Code Factory** — PRD generation, automated code review, remediation loops
 - **Ralph Loops** — Recursive agent learning with multi-round tool calling
@@ -121,7 +120,7 @@ The extension system ships with public examples (system, supply-chain, marketing
 ### Worker System
 - **Standalone Sidekiq 8** — Fully isolated, API-only communication with backend
 - **Priority tiers** — critical, standard, and background work separated by weight
-- **Circuit Breakers** — long timeouts for AI workflows, shorter ones for backend API calls
+- **Circuit Breakers** — long timeouts for long-running AI executions, shorter ones for backend API calls
 - **Scheduled jobs** — maintenance, decay, consolidation, health checks, autonomy
 
 ### Architecture Overview

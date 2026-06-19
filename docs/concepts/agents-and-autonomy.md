@@ -221,7 +221,7 @@ Full endpoint list in [`reference/api/ai.md`](../reference/api/ai.md).
 
 ## Ralph Loops
 
-Ralph (Recursive Agent Learning & Planning Harness) is the core agentic execution engine. A Ralph Loop takes a PRD, decomposes it into tasks, and executes each task using agents, workflows, pipelines, or human reviewers. Each iteration produces learnings that feed back into the system.
+Ralph (Recursive Agent Learning & Planning Harness) is the core agentic execution engine. A Ralph Loop takes a PRD, decomposes it into tasks, and executes each task using agents, pipelines, or human reviewers. Each iteration produces learnings that feed back into the system.
 
 ```mermaid
 flowchart TB
@@ -261,14 +261,13 @@ Tasks route to executors by `execution_type`:
 | Type | Executor | Description |
 |------|----------|-------------|
 | `agent` | `AgenticLoop` | Tool-calling agent with git + MCP tools |
-| `workflow` | `WorkflowRun` | Creates and enqueues workflow execution |
 | `pipeline` | `PipelineExecution` | Triggers CI/CD pipeline |
 | `a2a_task` | `A2A::Service` | Agent-to-agent task submission |
 | `container` | `ContainerOrchestrationService` | Container-based execution |
 | `human` | Notification | Creates notification for human review |
 | `community` | A2A external | External agent federation |
 
-> **Status: not yet implemented** — `workflow` is not wired through `RalphTask` yet: it is absent from `RalphTask::EXECUTION_TYPES` (`agent pipeline a2a_task container human community`) so a task with `execution_type: "workflow"` fails model validation, and `TaskExecutor` has no `workflow` dispatch branch (it falls through to "Unknown execution type"). The other six rows are live; `workflow` routing is planned.
+The six execution types map to `RalphTask::EXECUTION_TYPES` (`agent pipeline a2a_task container human community`).
 
 ### AgenticLoop
 
@@ -1049,7 +1048,7 @@ Used for: evaluating newly promoted agents before granting full autonomy, testin
 
 `AiSelfHealingMonitorJob` runs on `ai_orchestration` queue, checking for:
 
-1. **Stuck workflows** — workflows that haven't progressed in expected timeframe
+1. **Stuck executions** — agent executions stuck in `running` past the expected timeframe
 2. **Degraded providers** — providers with elevated error rates
 3. **Orphaned executions** — executions without active workers
 4. **Anomalies** — behavioral fingerprint anomalies across agents
