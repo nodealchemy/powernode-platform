@@ -76,7 +76,7 @@ Rails.application.configure do
     Rack::Attack.throttle("payment_api", limit: 10, period: 1.minute) do |req|
       mutation = %w[POST PUT PATCH DELETE].include?(req.request_method)
       payment_path = req.path.start_with?("/api/v1/payment", "/api/v1/billing/payment")
-      req.ip if mutation && payment_path
+      Rack::Attack.client_ip(req) if mutation && payment_path
     end
 
     # Block requests from known malicious IPs

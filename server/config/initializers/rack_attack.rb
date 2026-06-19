@@ -31,7 +31,10 @@ class Rack::Attack
 
     token = auth_header.split(" ")[1]
     decoded = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256")
-    user_id = decoded[0]["user_id"]
+    # The access token carries the user id in the standard "sub" claim; older
+    # tokens used "user_id". Without reading "sub", every authenticated request
+    # resolves to no user → no account → the strict anonymous throttles apply.
+    user_id = decoded[0]["sub"] || decoded[0]["user_id"]
     User.find_by(id: user_id) if user_id
   rescue JWT::DecodeError, ActiveRecord::RecordNotFound
     nil
@@ -51,6 +54,19 @@ class Rack::Attack
     end
 
     nil
+  end
+
+  # Real client IP. ActionDispatch::RemoteIp runs before Rack::Attack in the
+  # middleware stack and resolves the client from X-Forwarded-For (honoring
+  # trusted proxies), so IP-keyed throttles key on the actual client rather than
+  # the reverse proxy's shared address. Falls back to the Rack peer IP.
+  def self.client_ip(request)
+    # .to_s lazily resolves the IP and can raise IpSpoofAttackError on a
+    # mismatched forwarded-header chain; fall back to the peer IP rather than
+    # letting a throttle discriminator error the request.
+    request.env["action_dispatch.remote_ip"]&.to_s.presence || request.ip
+  rescue StandardError
+    request.ip
   end
 
   # Get tier-based limit for an account
@@ -78,7 +94,7 @@ class Rack::Attack
   # the claim endpoint never trip it — the throttle spec opts in by
   # stubbing get_rate_limit.
   throttle("system_node_claim_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("node_claim_attempts_per_minute", Rails.env.test? ? 999_999 : 20) : 999_999 }, period: 1.minute) do |request|
-    request.ip if request.path == "/api/v1/system/node_api/claim" && request.post?
+    client_ip(request) if request.path == "/api/v1/system/node_api/claim" && request.post?
   end
 
   unless Rails.env.test?
@@ -89,7 +105,7 @@ class Rack::Attack
     # Login attempts - IP-based
     throttle("auth_login_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("login_attempts_per_hour", 10) : 999_999 }, period: 1.hour) do |request|
       if request.path == "/api/v1/auth/login" && request.post?
-        request.ip
+        client_ip(request)
       end
     end
 
@@ -109,28 +125,28 @@ class Rack::Attack
     # Registration attempts - IP-based
     throttle("auth_register_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("registration_attempts_per_hour", 5) : 999_999 }, period: 1.hour) do |request|
       if request.path == "/api/v1/auth/register" && request.post?
-        request.ip
+        client_ip(request)
       end
     end
 
     # Password reset requests - IP-based
     throttle("auth_password_reset_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("password_reset_attempts_per_hour", 3) : 999_999 }, period: 1.hour) do |request|
       if (request.path == "/api/v1/auth/forgot-password" || request.path == "/api/v1/auth/reset-password") && request.post?
-        request.ip
+        client_ip(request)
       end
     end
 
     # Email verification attempts - IP-based
     throttle("auth_email_verification_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("email_verification_attempts_per_hour", 10) : 999_999 }, period: 1.hour) do |request|
       if request.path.include?("/verify-email") || request.path.include?("/resend-verification")
-        request.ip
+        client_ip(request)
       end
     end
 
     # 2FA attempts - stricter limits
     throttle("auth_2fa_by_ip", limit: proc { rate_limiting_enabled? ? 5 : 999_999 }, period: 15.minutes) do |request|
       if request.path.include?("/two_factor") && request.post?
-        request.ip
+        client_ip(request)
       end
     end
 
@@ -211,7 +227,7 @@ class Rack::Attack
     # Incoming webhook throttling by IP (external services calling us)
     throttle("incoming_webhooks_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("webhook_requests_per_minute", 100) : 999_999 }, period: 1.minute) do |request|
       if request.path.start_with?("/webhooks/")
-        request.ip
+        client_ip(request)
       end
     end
 
@@ -233,7 +249,7 @@ class Rack::Attack
     # WebSocket by IP (fallback for unauthenticated)
     throttle("websocket_connections_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("websocket_connections_per_minute", Rails.env.development? ? 30 : 10) : 999_999 }, period: 1.minute) do |request|
       if request.path == "/cable" && request.get_header("HTTP_UPGRADE")&.downcase == "websocket"
-        request.ip
+        client_ip(request)
       end
     end
 
@@ -243,7 +259,7 @@ class Rack::Attack
 
     throttle("admin_impersonation_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("impersonation_attempts_per_hour", Rails.env.development? ? 50 : 5) : 999_999 }, period: 1.hour) do |request|
       if request.path.include?("/impersonation") || request.path.include?("/admin/users")
-        request.ip
+        client_ip(request)
       end
     end
 
@@ -260,7 +276,7 @@ class Rack::Attack
 
     throttle("api_requests_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("api_requests_per_minute", Rails.env.development? ? 1000 : 300) : 999_999 }, period: 15.minutes) do |request|
       if request.path.start_with?("/api/") && !extract_account_from_request(request)
-        request.ip
+        client_ip(request)
       end
     end
 
@@ -270,13 +286,13 @@ class Rack::Attack
 
     throttle("oauth_token_requests", limit: proc { rate_limiting_enabled? ? 100 : 999_999 }, period: 1.hour) do |request|
       if request.path == "/oauth/token" && request.post?
-        request.ip
+        client_ip(request)
       end
     end
 
     throttle("oauth_authorize_requests", limit: proc { rate_limiting_enabled? ? 50 : 999_999 }, period: 1.hour) do |request|
       if request.path == "/oauth/authorize"
-        request.ip
+        client_ip(request)
       end
     end
   end
@@ -310,7 +326,23 @@ class Rack::Attack
   # Safelist trusted internal services
   safelist("internal_services") do |request|
     # Allow requests from localhost in development
-    Rails.env.development? && [ "127.0.0.1", "::1" ].include?(request.ip)
+    Rails.env.development? && [ "127.0.0.1", "::1" ].include?(client_ip(request))
+  end
+
+  # Safelist platform operators (system.admin). A compromised system.admin token
+  # already implies full access, so throttling it adds little; and on a
+  # self-hosted single-user instance the owner IS system.admin — customer tier
+  # limits must not apply to them. Cached to avoid a permission lookup per
+  # request; rescued so it can never error a request.
+  safelist("admin_users") do |request|
+    user = extract_user_from_request(request)
+    next false unless user
+
+    Rails.cache.fetch("rack_attack:admin:#{user.id}", expires_in: 5.minutes) do
+      user.has_permission?("system.admin")
+    end
+  rescue StandardError
+    false
   end
 
   # Safelist on-node agent traffic. /api/v1/system/node_api/* is gated by
@@ -415,7 +447,7 @@ ActiveSupport::Notifications.subscribe("rack.attack") do |_name, _start, _finish
     when :throttle
       Rails.logger.warn(
         "[RateLimit] Throttled: " \
-        "IP=#{request.ip} " \
+        "IP=#{client_ip(request)} " \
         "Path=#{request.path} " \
         "Rule=#{request.env['rack.attack.matched']} " \
         "Count=#{match_data[:count]}/#{match_data[:limit]} " \
@@ -424,7 +456,7 @@ ActiveSupport::Notifications.subscribe("rack.attack") do |_name, _start, _finish
     when :blocklist
       Rails.logger.error(
         "[RateLimit] Blocked: " \
-        "IP=#{request.ip} " \
+        "IP=#{client_ip(request)} " \
         "Path=#{request.path} " \
         "Rule=#{request.env['rack.attack.matched']}"
       )
