@@ -130,7 +130,7 @@ class APIClient {
         const url: string = originalRequest?.url ?? '';
         const isAuthEndpoint = /\/auth\/(login|refresh|logout|register|forgot-password|reset-password|verify-2fa|verify-email)$/.test(url);
 
-        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint && !isSilentAuth) {
           const state = store.getState();
 
           // If we're impersonating and get 401, the impersonation session is invalid
