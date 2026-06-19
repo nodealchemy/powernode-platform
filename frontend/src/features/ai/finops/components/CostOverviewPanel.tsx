@@ -75,7 +75,10 @@ export const CostOverviewPanel: React.FC = () => {
     },
     {
       label: 'Optimization Score',
-      value: optimization ? `${optimization.score}/${optimization.max_score}` : '--',
+      value:
+        optimization?.score != null && optimization?.max_score != null
+          ? `${optimization.score}/${optimization.max_score}`
+          : '--',
       icon: TrendingUp,
       colorClass: 'text-theme-success-fg',
       bgClass: 'bg-theme-success-bg',

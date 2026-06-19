@@ -116,7 +116,7 @@ export const RoiDashboardContent: React.FC = () => {
     return <LoadingSpinner className="py-12" />;
   }
 
-  if (!dashboardData) {
+  if (!dashboardData?.summary) {
     return (
       <div className="text-center py-12">
         <Target className="h-12 w-12 text-theme-warning-fg mx-auto mb-4" />
