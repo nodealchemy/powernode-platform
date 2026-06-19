@@ -127,19 +127,19 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
     <div className="flex-1 overflow-y-auto p-6">
       <div className="space-y-6">
         {/* Status Badge + actions */}
-        <div className="flex items-center gap-3 mb-4">
-          <Badge variant={status.variant}>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <Badge variant={status.variant} className="whitespace-nowrap flex-shrink-0">
             {isRunning && <RotateCcw className="w-3 h-3 mr-1 animate-spin" />}
             {status.label}
           </Badge>
           {loop.configuration?.workload && (
-            <Badge variant="outline" size="sm" data-testid="ralph-loop-workload-badge">
+            <Badge variant="outline" size="sm" data-testid="ralph-loop-workload-badge" className="whitespace-nowrap flex-shrink-0">
               <GitFork className="w-3 h-3 mr-1" />
               {loop.configuration.workload}
             </Badge>
           )}
           {(isRunning || loop.status === 'paused') && (
-            <Badge variant={wsConnected ? 'success' : 'warning'} size="sm">
+            <Badge variant={wsConnected ? 'success' : 'warning'} size="sm" className="whitespace-nowrap flex-shrink-0">
               {wsConnected ? (
                 <>
                   <Wifi className="w-3 h-3 mr-1" />
