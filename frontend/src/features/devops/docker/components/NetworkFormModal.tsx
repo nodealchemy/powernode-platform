@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Network } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import type { NetworkFormData } from '../types';
 
@@ -57,6 +58,7 @@ export const NetworkFormModal: React.FC<NetworkFormModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title="Create Network"
+      icon={<Network className="w-6 h-6" />}
       size="lg"
       footer={
         <>

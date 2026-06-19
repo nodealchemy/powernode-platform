@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Settings } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import type { ConfigFormData } from '../types';
@@ -23,7 +24,7 @@ export const ConfigFormModal: React.FC<ConfigFormModalProps> = ({ isOpen, onClos
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create Config" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Create Config" icon={<Settings className="w-6 h-6" />} size="md">
       <div className="p-4 space-y-4">
         <div>
           <label className="block text-sm font-medium text-theme-primary mb-1">Config Name</label>

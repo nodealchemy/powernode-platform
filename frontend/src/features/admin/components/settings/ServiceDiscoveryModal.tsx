@@ -181,6 +181,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title="Service Discovery & Health Monitoring"
+        icon={<Search className="w-6 h-6" />}
         maxWidth="2xl"
       >
       <div className="space-y-6">

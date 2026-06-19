@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Plug } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -172,6 +173,7 @@ export const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={isEditing ? 'Edit MCP Server' : 'Add MCP Server'}
+      icon={<Plug className="w-6 h-6" />}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-6">

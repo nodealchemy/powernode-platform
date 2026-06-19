@@ -275,6 +275,7 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
           isOpen={true}
           onClose={closeModal}
           title={`${actionType === 'acknowledge' ? 'Acknowledge' : 'Resolve'} Alert`}
+          icon={<Bell className="w-6 h-6" />}
         >
           <div className="space-y-4">
             <div className="p-4 bg-theme-surface rounded border border-theme">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Box } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { dockerApi } from '../services/dockerApi';
 import { useHostContext } from '../hooks/useHostContext';
@@ -57,6 +58,7 @@ export const ImagePullModal: React.FC<ImagePullModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title="Pull Image"
+      icon={<Box className="w-6 h-6" />}
       size="lg"
       footer={
         <>

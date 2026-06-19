@@ -112,7 +112,7 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
 
   if (loading) {
     return (
-      <Modal title={`Users with ${role.name} Role`} isOpen={true} onClose={onClose} maxWidth="lg">
+      <Modal title={`Users with ${role.name} Role`} icon={<Users className="w-6 h-6" />} isOpen={true} onClose={onClose} maxWidth="lg">
         <div className="flex justify-center items-center h-64">
           <LoadingSpinner size="lg" />
         </div>
@@ -121,9 +121,10 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
   }
 
   return (
-    <Modal 
-      title={`Users with ${role.name} Role`} 
-      isOpen={true} 
+    <Modal
+      title={`Users with ${role.name} Role`}
+      icon={<Users className="w-6 h-6" />}
+      isOpen={true}
       onClose={onClose} 
       maxWidth="lg"
     >

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Scaling } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 
@@ -27,7 +28,7 @@ export const ServiceScaleModal: React.FC<ServiceScaleModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Scale ${serviceName}`} size="sm">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Scale ${serviceName}`} icon={<Scaling className="w-6 h-6" />} size="sm">
       <div className="p-4 space-y-4">
         <p className="text-sm text-theme-secondary">
           Current replicas: <span className="font-semibold text-theme-primary">{currentReplicas}</span>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { HardDrive } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import type { VolumeFormData } from '../types';
 
@@ -51,6 +52,7 @@ export const VolumeFormModal: React.FC<VolumeFormModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title="Create Volume"
+      icon={<HardDrive className="w-6 h-6" />}
       size="lg"
       footer={
         <>

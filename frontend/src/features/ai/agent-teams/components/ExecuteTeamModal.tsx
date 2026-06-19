@@ -55,6 +55,7 @@ export const ExecuteTeamModal: React.FC<ExecuteTeamModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title={`Execute: ${team.name}`}
+      icon={<Play className="w-6 h-6" />}
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-5">

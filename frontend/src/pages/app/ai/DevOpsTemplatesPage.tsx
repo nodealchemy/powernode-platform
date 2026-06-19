@@ -1,6 +1,6 @@
 // DevOps Templates Page - AI Pipeline Templates for CI/CD
 import React, { useState, useEffect } from 'react';
-import { Plus, GitBranch, Play, Search, Filter, Code, AlertTriangle, CheckCircle, BarChart3, RefreshCw, Pencil, Trash2, Tag, Shield, Clock, Download, Star } from 'lucide-react';
+import { Plus, GitBranch, Play, Search, Filter, Code, AlertTriangle, CheckCircle, BarChart3, RefreshCw, Pencil, Trash2, Tag, Shield, Clock, Download, Star, FileText } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
@@ -644,6 +644,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
         isOpen={detailModal.isOpen}
         onClose={() => setDetailModal({ isOpen: false, template: null, loading: false })}
         title={detailModal.template?.name || 'Template Details'}
+        icon={<FileText className="w-6 h-6" />}
         maxWidth="2xl"
         footer={
           <div className="flex justify-between w-full">

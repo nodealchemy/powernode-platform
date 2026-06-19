@@ -1,4 +1,5 @@
 import React from 'react';
+import { FileText } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useEntityModal } from '@/shared/hooks/useEntityModal';
 import { usePermissions } from '@/shared/hooks/usePermissions';
@@ -41,7 +42,7 @@ export const EntityReferenceHost: React.FC = () => {
     const Component = def.component;
     const objectProp = def.objectProp;
     const wrap = (node: React.ReactNode): React.ReactNode => (
-      <Modal isOpen onClose={closeEntity} title={def.label} maxWidth="2xl" variant="centered">
+      <Modal isOpen onClose={closeEntity} title={def.label} icon={<FileText className="w-6 h-6" />} maxWidth="2xl" variant="centered">
         {node}
       </Modal>
     );

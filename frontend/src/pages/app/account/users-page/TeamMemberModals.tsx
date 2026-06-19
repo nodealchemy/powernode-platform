@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, UserPlus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -18,6 +18,7 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
     isOpen={isOpen}
     onClose={onClose}
     title="Create New User"
+    icon={<UserPlus className="w-6 h-6" />}
     maxWidth="md"
   >
     <div className="space-y-4">
@@ -108,6 +109,7 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
     isOpen={isOpen}
     onClose={onClose}
     title="Edit User"
+    icon={<Pencil className="w-6 h-6" />}
     maxWidth="md"
   >
     <div className="space-y-4">
@@ -180,6 +182,7 @@ export const DeleteTeamMemberModal: React.FC<DeleteTeamMemberModalProps> = ({
     isOpen={isOpen}
     onClose={onClose}
     title="Delete User"
+    icon={<Trash2 className="w-6 h-6" />}
     maxWidth="sm"
   >
     <div className="text-theme-primary">

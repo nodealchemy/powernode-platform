@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Play, Loader2, CheckCircle2, XCircle, Copy, Code, FileText, History } from 'lucide-react';
+import { Play, Loader2, CheckCircle2, XCircle, Copy, Code, FileText, History, FlaskConical } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -285,6 +285,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`Test Tool: ${tool.name}`}
+      icon={<FlaskConical className="w-6 h-6" />}
       size="lg"
     >
       <div className="space-y-6">

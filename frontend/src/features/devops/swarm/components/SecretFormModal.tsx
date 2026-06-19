@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Key } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import type { SecretFormData } from '../types';
@@ -23,7 +24,7 @@ export const SecretFormModal: React.FC<SecretFormModalProps> = ({ isOpen, onClos
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create Secret" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Create Secret" icon={<Key className="w-6 h-6" />} size="md">
       <div className="p-4 space-y-4">
         <div>
           <label className="block text-sm font-medium text-theme-primary mb-1">Secret Name</label>

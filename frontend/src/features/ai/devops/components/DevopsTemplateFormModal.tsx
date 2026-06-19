@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FileText } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { DevopsTemplate } from '@/shared/services/ai/DevopsApiService';
 import { BasicInfoTab } from './BasicInfoTab';
@@ -164,6 +165,7 @@ const DevopsTemplateFormModal: React.FC<DevopsTemplateFormModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={mode === 'create' ? 'Create Template' : 'Edit Template'}
+      icon={<FileText className="w-6 h-6" />}
       maxWidth="3xl"
       footer={
         <div className="flex justify-between w-full">

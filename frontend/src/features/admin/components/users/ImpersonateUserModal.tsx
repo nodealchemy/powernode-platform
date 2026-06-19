@@ -7,6 +7,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { UserCog } from 'lucide-react';
 
 interface ImpersonateUserModalProps {
   isOpen: boolean;
@@ -113,7 +114,7 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} maxWidth="lg" title="Impersonate User">
+    <Modal isOpen={isOpen} onClose={handleClose} maxWidth="lg" title="Impersonate User" icon={<UserCog className="w-6 h-6" />}>
       <div className="p-6">
 
         <div className="mb-4 p-3 bg-theme-warning-bg border border-theme-warning-border rounded-md">

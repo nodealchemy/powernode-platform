@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Container } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import type { ContainerCreateData } from '../types';
 
@@ -64,6 +65,7 @@ export const ContainerCreateModal: React.FC<ContainerCreateModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title="Create Container"
+      icon={<Container className="w-6 h-6" />}
       size="2xl"
       footer={
         <>

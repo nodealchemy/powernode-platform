@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Upload } from 'lucide-react';
 import { swarmApi } from '../services/swarmApi';
 import type { AvailableSwarmService } from '../types';
 
@@ -80,7 +80,7 @@ export const ServiceImportModal: React.FC<ServiceImportModalProps> = ({
   const unimportedCount = available.filter((s) => !s.already_imported).length;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Import Services" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title="Import Services" icon={<Upload className="w-6 h-6" />} size="lg">
       <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
         <p className="text-sm text-theme-secondary">
           Select services from the Swarm cluster to import for management. Already imported services are shown but cannot be re-imported.

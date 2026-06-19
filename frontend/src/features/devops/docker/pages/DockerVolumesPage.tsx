@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, HardDrive } from 'lucide-react';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -127,7 +127,7 @@ export const DockerVolumesPage: React.FC<DockerVolumesPageProps> = ({ onActionsR
         )}
       </div>
 
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Volume" size="md">
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Volume" icon={<HardDrive className="w-6 h-6" />} size="md">
         <div className="space-y-4 p-4">
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Name</label>

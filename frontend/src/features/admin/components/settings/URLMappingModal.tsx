@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { Route } from 'lucide-react';
 import { URLMapping } from '../../services/servicesApi';
 
 interface URLMappingModalProps {
@@ -109,6 +110,7 @@ export const URLMappingModal: React.FC<URLMappingModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`${mapping ? 'Edit' : 'Create'} URL Mapping`}
+      icon={<Route className="w-6 h-6" />}
       maxWidth="lg"
     >
       <div className="space-y-4">

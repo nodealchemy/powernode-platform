@@ -65,7 +65,7 @@ export function ResearchModal({ isOpen, onClose, onProposalCreated }: ResearchMo
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleReset} title="Skill Research" maxWidth="3xl">
+    <Modal isOpen={isOpen} onClose={handleReset} title="Skill Research" icon={<Search className="w-6 h-6" />} maxWidth="3xl">
       {phase === 'input' && (
         <div className="space-y-5">
           <div>

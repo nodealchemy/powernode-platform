@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Key } from 'lucide-react';
 import { Card, Button, Badge, Modal, LoadingSpinner } from '@/shared/components/ui';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -209,6 +210,7 @@ export const ApiKeyManager: React.FC = () => {
         isOpen={isCreateModalOpen}
         onClose={handleCloseCreateModal}
         title={newKey ? 'API Key Created' : 'Create API Key'}
+        icon={<Key className="w-6 h-6" />}
       >
         {newKey ? (
           <div className="space-y-4">

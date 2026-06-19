@@ -1,4 +1,5 @@
 import React from 'react';
+import { FileText } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { entityRegistry, type EntityDefinition } from '@/shared/services/entityRegistry';
 import { EntityDetailLoader } from './EntityDetailLoader';
@@ -40,7 +41,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({ def, id, i
   if (!fetchById) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={def.label} maxWidth="2xl" variant="centered">
+    <Modal isOpen={isOpen} onClose={onClose} title={def.label} icon={<FileText className="w-6 h-6" />} maxWidth="2xl" variant="centered">
       <EntityDetailLoader id={isOpen ? id : null} fetchById={fetchById}>
         {(data) => {
           const obj = (data ?? {}) as Record<string, unknown>;

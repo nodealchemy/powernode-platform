@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Upload } from 'lucide-react';
 
 interface AvailableResource {
   id: string;
@@ -88,7 +88,7 @@ export const ResourceImportModal: React.FC<ResourceImportModalProps> = ({
   const unimportedCount = available.filter((r) => !r.already_imported).length;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={title} icon={<Upload className="w-6 h-6" />} size="lg">
       <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
         <p className="text-sm text-theme-secondary">{description}</p>
 

@@ -78,6 +78,7 @@ export const AddServiceModal: React.FC<AddServiceModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title="Add New Service"
+      icon={<Plus className="w-6 h-6" />}
       maxWidth="lg"
     >
       <div className="space-y-6">

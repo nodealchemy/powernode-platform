@@ -8,7 +8,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
-import { UserPlus, RefreshCw, Filter, Download, Copy, Check } from 'lucide-react';
+import { UserPlus, RefreshCw, Filter, Download, Copy, Check, Key } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { UserRolesModal } from '@/features/account/users/components/UserRolesModal';
 import {
@@ -661,6 +661,7 @@ const AdminUsersPage: React.FC = () => {
             isOpen={!!tempPassword}
             onClose={() => setTempPassword(null)}
             title="Password Reset Successful"
+            icon={<Key className="w-6 h-6" />}
             maxWidth="sm"
           >
             <div className="space-y-4">

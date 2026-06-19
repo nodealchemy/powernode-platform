@@ -112,6 +112,7 @@ export const ExportConfigurationModal: React.FC<ExportConfigurationModalProps> =
         isOpen={isOpen}
         onClose={handleClose}
         title="Export Services Configuration"
+        icon={<Download className="w-6 h-6" />}
         maxWidth="xl"
       >
         <div className="space-y-6">

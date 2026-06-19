@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ArrowRightLeft } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Select } from '@/shared/components/ui/Select';
@@ -74,6 +74,7 @@ export const SessionTransferModal: React.FC<SessionTransferModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Transfer Session"
+      icon={<ArrowRightLeft className="w-6 h-6" />}
       maxWidth="md"
       footer={
         <div className="flex justify-end gap-2">

@@ -1,5 +1,5 @@
 
-import { CheckCircle, XCircle, AlertCircle, Clock, Zap } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, Clock, Zap, FlaskConical } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { StorageConnectionTestResult } from '@/shared/types/storage';
 
@@ -23,6 +23,7 @@ export const ConnectionTestModal: React.FC<ConnectionTestModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`Connection Test - ${providerName}`}
+      icon={<FlaskConical className="w-6 h-6" />}
       maxWidth="md"
     >
       <div className="space-y-4">

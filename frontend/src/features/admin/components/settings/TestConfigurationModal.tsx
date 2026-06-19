@@ -59,6 +59,7 @@ export const TestConfigurationModal: React.FC<TestConfigurationModalProps> = ({
         isOpen={isOpen && !showProgress}
         onClose={onClose}
         title="Test Configuration"
+        icon={<TestTube className="w-6 h-6" />}
         maxWidth="md"
       >
         <div className="space-y-6">

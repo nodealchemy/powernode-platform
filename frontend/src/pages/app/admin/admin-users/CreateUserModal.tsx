@@ -1,4 +1,5 @@
 import React from 'react';
+import { UserPlus } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { CreateUserModalProps } from './types';
@@ -19,6 +20,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     isOpen={isOpen}
     onClose={onClose}
     title="Create New User"
+    icon={<UserPlus className="w-6 h-6" />}
     maxWidth="md"
   >
     <div className="space-y-6 p-1">

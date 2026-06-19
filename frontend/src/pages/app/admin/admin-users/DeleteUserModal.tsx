@@ -1,4 +1,5 @@
 import React from 'react';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { DeleteUserModalProps } from './types';
@@ -14,6 +15,7 @@ export const DeleteUserModal: React.FC<DeleteUserModalProps> = ({
     isOpen={isOpen}
     onClose={onClose}
     title="Delete User"
+    icon={<Trash2 className="w-6 h-6" />}
     maxWidth="sm"
   >
     <div className="text-theme-primary">

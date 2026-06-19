@@ -25,7 +25,7 @@ export const ServiceRollbackModal: React.FC<ServiceRollbackModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Rollback Service" size="sm">
+    <Modal isOpen={isOpen} onClose={onClose} title="Rollback Service" icon={<RotateCcw className="w-6 h-6" />} size="sm">
       <div className="p-4 space-y-4">
         <div className="flex items-center gap-3 p-3 rounded-lg bg-theme-warning-bg">
           <RotateCcw className="w-5 h-5 text-theme-warning-fg flex-shrink-0" />

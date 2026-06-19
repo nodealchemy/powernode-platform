@@ -908,6 +908,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
           isOpen={showDetails}
           onClose={() => setShowDetails(false)}
           title="Item Details"
+          icon={<Package className="w-6 h-6" />}
           maxWidth="lg"
         >
           <div className="space-y-4">
@@ -1003,6 +1004,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
             setRejectReason('');
           }}
           title="Reject Template"
+          icon={<XCircle className="w-6 h-6" />}
           maxWidth="md"
         >
           <div className="space-y-4">

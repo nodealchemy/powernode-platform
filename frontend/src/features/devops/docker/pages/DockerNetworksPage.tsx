@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Network } from 'lucide-react';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -128,7 +128,7 @@ export const DockerNetworksPage: React.FC<DockerNetworksPageProps> = ({ onAction
         )}
       </div>
 
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Network" size="md">
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Network" icon={<Network className="w-6 h-6" />} size="md">
         <div className="space-y-4 p-4">
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Name</label>

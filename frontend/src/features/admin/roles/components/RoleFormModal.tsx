@@ -5,7 +5,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { FormField } from '@/shared/components/ui/FormField';
 import { rolesApi, Role, Permission, RoleFormData } from '../services/rolesApi';
 import { useForm, FormValidationRules } from '@/shared/hooks/useForm';
-import { Save, X, Shield, Lock, CheckCircle } from 'lucide-react';
+import { Save, X, Shield, ShieldCheck, Lock, CheckCircle } from 'lucide-react';
 
 interface RoleFormModalProps {
   role?: Role;
@@ -115,6 +115,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
   return (
     <Modal
       title={role ? 'Edit Role' : 'Create New Role'}
+      icon={<ShieldCheck className="w-6 h-6" />}
       isOpen={true}
       onClose={onClose}
       maxWidth="xl"

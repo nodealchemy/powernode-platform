@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RefreshCw, Play, Square, RotateCcw, Trash2, Download } from 'lucide-react';
+import { Plus, RefreshCw, Play, Square, RotateCcw, Trash2, Download, Container } from 'lucide-react';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -156,7 +156,7 @@ export const DockerContainersPage: React.FC<DockerContainersPageProps> = ({ onAc
         )}
       </div>
 
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Container" size="lg">
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Container" icon={<Container className="w-6 h-6" />} size="lg">
         <div className="space-y-4 p-4">
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Name</label>

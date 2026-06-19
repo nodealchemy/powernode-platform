@@ -521,6 +521,7 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
           {isEditMode ? 'Edit Storage Provider' : 'Add Storage Provider'}
         </div>
       }
+      icon={<Database className="w-6 h-6" />}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">

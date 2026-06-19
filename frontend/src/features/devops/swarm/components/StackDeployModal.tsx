@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Layers } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { StackComposeEditor } from './StackComposeEditor';
@@ -23,7 +24,7 @@ export const StackDeployModal: React.FC<StackDeployModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Deploy Stack" size="2xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="Deploy Stack" icon={<Layers className="w-6 h-6" />} size="2xl">
       <div className="p-4 space-y-4">
         <div>
           <label className="block text-sm font-medium text-theme-primary mb-1">Stack Name</label>

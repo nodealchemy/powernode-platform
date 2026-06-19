@@ -1,5 +1,6 @@
 // Team Builder Modal - Create or edit agent teams
 import React, { useState, useEffect } from 'react';
+import { Users } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
@@ -149,6 +150,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={team ? 'Edit Agent Team' : 'Create Agent Team'}
+      icon={<Users className="w-6 h-6" />}
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-6">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, RefreshCw, Trash2, FolderInput } from 'lucide-react';
+import { Download, RefreshCw, Trash2, FolderInput, Box } from 'lucide-react';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -138,7 +138,7 @@ export const DockerImagesPage: React.FC<DockerImagesPageProps> = ({ onActionsRea
         )}
       </div>
 
-      <Modal isOpen={showPull} onClose={() => setShowPull(false)} title="Pull Image" size="md">
+      <Modal isOpen={showPull} onClose={() => setShowPull(false)} title="Pull Image" icon={<Box className="w-6 h-6" />} size="md">
         <div className="space-y-4 p-4">
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Image</label>

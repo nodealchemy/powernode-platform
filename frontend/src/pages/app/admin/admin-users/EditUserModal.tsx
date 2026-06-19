@@ -1,4 +1,5 @@
 import React from 'react';
+import { Pencil } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { EditUserModalProps } from './types';
@@ -16,6 +17,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
     isOpen={isOpen}
     onClose={onClose}
     title="Edit User Profile"
+    icon={<Pencil className="w-6 h-6" />}
     maxWidth="4xl"
     variant="centered"
   >

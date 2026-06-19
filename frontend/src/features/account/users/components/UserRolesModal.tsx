@@ -7,7 +7,7 @@ import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { usersApi, User } from '../services/usersApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { EntityLink } from '@/shared/components/entity';
-import { Shield, Users, UserCheck, UserX, Plus, Minus, Lock } from 'lucide-react';
+import { Shield, ShieldCheck, Users, UserCheck, UserX, Plus, Minus, Lock } from 'lucide-react';
 
 interface UserRolesModalProps {
   user: User | null;
@@ -243,6 +243,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
         onClose();
       }}
       title={`Manage Roles - ${user.name}`}
+      icon={<ShieldCheck className="w-6 h-6" />}
       maxWidth="3xl"
     >
       <div className="space-y-6">

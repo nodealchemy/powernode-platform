@@ -162,7 +162,7 @@ export const SwarmClustersPage: React.FC<{ onActionsReady?: (actions: PageAction
         </div>
       )}
 
-      <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); resetForm(); }} title={editingCluster ? 'Edit Cluster' : 'Add Cluster'} size="lg">
+      <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); resetForm(); }} title={editingCluster ? 'Edit Cluster' : 'Add Cluster'} icon={<Server className="w-6 h-6" />} size="lg">
         <div className="space-y-4 p-4">
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Name</label>

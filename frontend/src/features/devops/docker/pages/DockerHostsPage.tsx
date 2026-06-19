@@ -214,7 +214,7 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
         )}
       </div>
 
-      <Modal isOpen={showModal} onClose={() => { setShowModal(false); resetForm(); }} title={editingId ? 'Edit Host' : 'Add Host'} size="lg">
+      <Modal isOpen={showModal} onClose={() => { setShowModal(false); resetForm(); }} title={editingId ? 'Edit Host' : 'Add Host'} icon={<Server className="w-6 h-6" />} size="lg">
         <div className="space-y-4 p-4">
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Name</label>

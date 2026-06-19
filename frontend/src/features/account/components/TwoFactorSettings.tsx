@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ShieldCheck, ShieldOff, Key } from 'lucide-react';
 import { twoFactorApi } from '@/shared/services/account/twoFactorApi';
 import { TwoFactorSetup } from '@/features/account/auth/components/TwoFactorSetup';
 import Modal from '@/shared/components/ui/Modal';
@@ -210,6 +211,7 @@ export const TwoFactorSettings: React.FC = () => {
         isOpen={showSetup}
         onClose={() => setShowSetup(false)}
         title="Enable Two-Factor Authentication"
+        icon={<ShieldCheck className="w-6 h-6" />}
         maxWidth="lg"
       >
         <TwoFactorSetup
@@ -226,6 +228,7 @@ export const TwoFactorSettings: React.FC = () => {
         isOpen={showDisableConfirm}
         onClose={() => setShowDisableConfirm(false)}
         title="Disable Two-Factor Authentication"
+        icon={<ShieldOff className="w-6 h-6" />}
       >
         <div className="space-y-4">
           <p className="text-theme-secondary">
@@ -262,6 +265,7 @@ export const TwoFactorSettings: React.FC = () => {
         isOpen={showBackupCodes}
         onClose={() => setShowBackupCodes(false)}
         title="Backup Codes"
+        icon={<Key className="w-6 h-6" />}
       >
         <div className="space-y-4">
           <p className="text-theme-secondary text-sm">

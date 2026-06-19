@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Share2, Trash2, Tag, Copy, Check } from 'lucide-react';
+import { Download, Share2, Trash2, Tag, Copy, Check, FileText } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
 import { filesApi, FileObject } from '../services/filesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -89,7 +89,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={file.filename}>
+    <Modal isOpen={isOpen} onClose={onClose} title={file.filename} icon={<FileText className="w-6 h-6" />}>
       <div className="space-y-6">
         {/* Tabs */}
         <div className="flex gap-4 border-b border-theme">

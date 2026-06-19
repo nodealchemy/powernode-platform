@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Route } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { PlusIcon } from '@heroicons/react/24/outline';
@@ -89,6 +90,7 @@ export function ApprovalChainEditor({ isOpen, chain, onClose, onSave }: Approval
       variant="centered"
       size="2xl"
       title={chain ? `Edit Chain: ${chain.name}` : 'New Approval Chain'}
+      icon={<Route className="w-6 h-6" />}
       footer={
         <div className="flex items-center justify-between w-full">
           <span className="text-xs text-theme-tertiary">
