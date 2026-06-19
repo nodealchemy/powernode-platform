@@ -226,12 +226,12 @@
       queue: devops_default
       description: 'Sync Docker host container and image state'
 
-    # Git Runner health check - every 10 minutes
+    # Git Runner status reconcile against provider (authoritative) - every 10 minutes
     git_runner_health_check:
       every: '10m'
       class: Git::RunnerHealthCheckJob
       queue: devops_default
-      description: 'Check Git runner health and mark stale runners offline'
+      description: 'Reconcile Git runner statuses from the provider; mark offline only runners the provider no longer reports'
 
     # Docker Host health check - every 10 minutes
     docker_health_check:

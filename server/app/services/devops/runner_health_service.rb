@@ -40,6 +40,45 @@ module Devops
       synced
     end
 
+    # Reconcile runner statuses against the provider (the authoritative liveness
+    # source). For each credential it syncs every runner the provider reports —
+    # refreshing status + last_seen_at — then marks offline ONLY those local
+    # "online" runners the provider no longer returns (deregistered/gone).
+    #
+    # This replaces timeout-based offline detection (#check_health): liveness
+    # comes from the provider, not the local last_seen_at clock, so a healthy
+    # idle runner is never falsely marked offline. If a credential's sync returns
+    # no runners (transient provider error, or a genuinely empty fleet) its
+    # runners are left untouched, so a provider outage can't offline everything.
+    def reconcile_runner_statuses
+      synced = 0
+      marked_offline = 0
+
+      credentials_scope.active.each do |credential|
+        sync_started = Time.current
+        lifecycle = RunnerLifecycleService.new(account: credential.account)
+        count = lifecycle.sync_runners(credential_id: credential.id)
+        synced += count
+
+        # Only reconcile-to-offline when the provider actually returned runners,
+        # so a failed/empty sync never marks the whole fleet offline. Any still
+        # "online" runner whose last_seen_at was not refreshed by this sync was
+        # not returned by the provider -> it is genuinely gone.
+        next unless count.positive?
+
+        Devops::GitRunner.for_credential(credential.id).online
+          .where("last_seen_at IS NULL OR last_seen_at < ?", sync_started)
+          .find_each do |runner|
+            runner.mark_offline!
+            marked_offline += 1
+          end
+      rescue StandardError => e
+        Rails.logger.error "[RunnerHealth] Failed to reconcile runners for credential #{credential.id}: #{e.message}"
+      end
+
+      { synced: synced, marked_offline: marked_offline }
+    end
+
     # Compute capacity summary
     def capacity_summary
       runners = runners_scope

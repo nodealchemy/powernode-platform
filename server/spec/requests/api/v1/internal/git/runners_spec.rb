@@ -283,4 +283,28 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
       end
     end
   end
+
+  describe 'POST /api/v1/internal/git/runners/reconcile' do
+    it 'reconciles runner statuses from the provider and returns counts' do
+      allow_any_instance_of(::Devops::RunnerHealthService)
+        .to receive(:reconcile_runner_statuses)
+        .and_return({ synced: 3, marked_offline: 1 })
+
+      post reconcile_api_v1_internal_git_runners_path, headers: internal_headers
+
+      expect(response).to have_http_status(:ok)
+      json = JSON.parse(response.body)
+      expect(json['success']).to be true
+      expect(json.dig('data', 'synced')).to eq(3)
+      expect(json.dig('data', 'marked_offline')).to eq(1)
+    end
+
+    context 'without authentication' do
+      it 'returns unauthorized' do
+        post reconcile_api_v1_internal_git_runners_path
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+  end
 end

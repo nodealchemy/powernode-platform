@@ -75,6 +75,18 @@ module Api
             render_not_found("Runner")
           end
 
+          # POST /api/v1/internal/git/runners/reconcile
+          # Reconcile runner statuses against providers (the authoritative liveness
+          # source). Replaces timeout-based offline detection so healthy idle
+          # runners are never falsely marked offline. Called by the scheduled
+          # RunnerHealthCheckJob.
+          def reconcile
+            result = ::Devops::RunnerHealthService.new.reconcile_runner_statuses
+            render_success(result)
+          rescue StandardError => e
+            render_internal_error("Failed to reconcile runners", exception: e)
+          end
+
           private
 
           def serialize_runner(runner)

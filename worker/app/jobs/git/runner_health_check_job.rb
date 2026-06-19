@@ -4,48 +4,24 @@ module Git
   class RunnerHealthCheckJob < BaseJob
     sidekiq_options queue: "devops_default", retry: 2
 
-    STALE_THRESHOLD_MINUTES = 5
-
+    # Reconcile Git runner statuses against the provider (the authoritative
+    # liveness source) on the server. This replaces the previous local-timeout
+    # logic, which marked healthy *idle* runners offline whenever their
+    # last_seen_at went stale — but last_seen_at reflects when we last polled the
+    # provider, not a runner heartbeat, so idle-but-alive runners were falsely
+    # taken offline and had to be manually re-synced.
+    #
+    # The server now syncs each runner from the provider (refreshing status +
+    # last_seen_at) and marks offline only those the provider no longer reports.
+    # See Devops::RunnerHealthService#reconcile_runner_statuses.
     def execute
-      log_info "Starting Git runner health checks"
+      log_info "Starting Git runner health reconcile"
 
-      runners = fetch_online_runners
-      log_info "Found online runners for health check", count: runners.size
+      response = api_client.post("/api/v1/internal/git/runners/reconcile")
+      data = response.is_a?(Hash) ? (response["data"] || {}) : {}
 
-      marked_offline = 0
-
-      runners.each do |runner|
-        next unless runner_is_stale?(runner)
-
-        mark_runner_offline(runner)
-        marked_offline += 1
-      rescue StandardError => e
-        log_error "Failed to check runner", e, runner_id: runner["id"]
-      end
-
-      log_info "Runner health check completed", checked: runners.size, marked_offline: marked_offline
-    end
-
-    private
-
-    def fetch_online_runners
-      response = api_client.get("/api/v1/internal/git/runners", { status: "online" })
-      response.dig("data", "runners") || []
-    end
-
-    def runner_is_stale?(runner)
-      return true if runner["last_seen_at"].nil?
-
-      Time.parse(runner["last_seen_at"]) < STALE_THRESHOLD_MINUTES.minutes.ago
-    end
-
-    def mark_runner_offline(runner)
-      api_client.put("/api/v1/internal/git/runners/#{runner['id']}/status", {
-        status: "offline",
-        busy: false,
-        last_seen_at: Time.current.iso8601
-      })
-      log_info "Marked runner offline (stale)", runner_id: runner["id"], name: runner["name"]
+      log_info "Runner health reconcile completed",
+               synced: data["synced"], marked_offline: data["marked_offline"]
     end
   end
 end

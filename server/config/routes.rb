@@ -312,6 +312,7 @@ Rails.application.routes.draw do
           resources :runners, only: [ :index ] do
             collection do
               post :sync
+              post :reconcile
             end
             member do
               put :status, action: :update_status
