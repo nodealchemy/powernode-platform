@@ -20,7 +20,9 @@ import './login-commands';
 import './navigation-commands';
 import './form-commands';
 import './testing-commands';
-import './supply-chain-commands';
+// Extension-contributed support commands (e.g. supply-chain) are assembled into
+// cypress/support/ at test time and aggregated here. Generated, do not edit.
+import './_extensions';
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')

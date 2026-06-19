@@ -14,6 +14,13 @@
 /cypress/downloads
 /cypress/fixtures/test-credentials.json
 
+# Assembled extension cypress tests/support — source-of-truth lives in
+# extensions/*/frontend/cypress/; written at test time by
+# cypress/assemble-extensions.cjs. Never commit these.
+/cypress/e2e/extensions/
+/cypress/support/extensions/
+/cypress/support/_extensions.ts
+
 # production
 /build
 

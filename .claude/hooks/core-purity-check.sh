@@ -29,6 +29,41 @@ esac
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/opt/powernode}"
 
+# --- Extension-isolation (placement gate): a CORE frontend/src file must not
+# live inside a subtree named after an extension (e.g. features/<slug>/,
+# shared/services/<slug>/). Such code belongs IN that extension's frontend tree,
+# not core. Files under extensions/ were already exempted above. 'system' is
+# allowlisted: core legitimately hosts a distinct features/system/storage
+# subfeature that merely shares the name of the public 'system' extension.
+# Covers committed core frontend/src AND frontend/cypress; assembled extension
+# e2e copies under cypress/ are gitignored, so check-ignore exempts them.
+if [[ "$FILE_PATH" == *"/frontend/src/"* || "$FILE_PATH" == *"/frontend/cypress/"* ]] \
+   && ! git -C "$PROJECT_DIR" check-ignore -q "$FILE_PATH" 2>/dev/null; then
+  shopt -s nullglob
+  iso_slugs=()
+  for d in "$PROJECT_DIR"/extensions/*/; do
+    b="$(basename "$d")"
+    [[ "$b" == "private" || "$b" == "system" ]] && continue
+    iso_slugs+=("$b")
+  done
+  for d in "$PROJECT_DIR"/extensions/private/*/; do
+    iso_slugs+=("$(basename "$d")")
+  done
+  shopt -u nullglob
+  for slug in "${iso_slugs[@]}"; do
+    if [[ "$FILE_PATH" == *"/${slug}/"* ]]; then
+      {
+        echo "BLOCKED (core-purity / gate #9): $FILE_PATH is a CORE file in a '${slug}/' subtree."
+        echo "  '${slug}' is an extension — this code belongs in that extension, not core."
+        echo "  Move it under extensions/.../${slug}/frontend/ (commit inside the submodule)."
+        echo "  Extension app code self-registers via the feature registry; e2e specs are"
+        echo "  assembled into core cypress/ at test time by cypress/assemble-extensions.cjs."
+      } >&2
+      exit 2
+    fi
+  done
+fi
+
 # Derive private-extension names dynamically — never hardcode them here.
 shopt -s nullglob
 priv_names=()
