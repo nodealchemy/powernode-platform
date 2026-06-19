@@ -147,7 +147,7 @@ export const CostOverviewPanel: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-theme-primary">Potential Savings</p>
               <p className="text-xs text-theme-tertiary mt-0.5">
-                Based on {optimization.recommendations.length} optimization recommendation{optimization.recommendations.length !== 1 ? 's' : ''}
+                Based on {optimization.recommendations?.length ?? 0} optimization recommendation{(optimization.recommendations?.length ?? 0) !== 1 ? 's' : ''}
               </p>
             </div>
             <div className="text-right">

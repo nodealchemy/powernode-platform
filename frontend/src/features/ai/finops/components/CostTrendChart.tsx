@@ -29,7 +29,7 @@ export const CostTrendChart: React.FC = () => {
     return <LoadingSpinner size="sm" className="py-8" />;
   }
 
-  if (!trends || trends.data.length === 0) {
+  if (!trends?.data || trends.data.length === 0) {
     return (
       <EmptyState
         icon={TrendingUp}
