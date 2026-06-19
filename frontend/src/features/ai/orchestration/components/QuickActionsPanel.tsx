@@ -30,7 +30,7 @@ export const QuickActionsPanel: React.FC = () => {
   return (
     <div className="card-theme p-5">
       <h3 className="text-sm font-semibold text-theme-primary mb-3">Quick Actions</h3>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
         {quickActions.map((action) => {
           const Icon = action.icon;
           return (

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, Bot, Zap, ArrowRight } from 'lucide-react';
+import { Settings, Bot, Zap, MessageSquare, ArrowRight } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Progress } from '@/shared/components/ui/Progress';
 import type { OverviewStats } from './useOverviewData';
@@ -105,6 +105,34 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
           <div className="flex items-center justify-between text-sm">
             <span className="text-theme-secondary">Avg Response</span>
             <span className="font-medium">{stats?.executions.avg_response_time || 0}ms</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Conversations Card */}
+      <div className={`card-theme p-6 hover:shadow-lg transition-all cursor-pointer ${
+        recentUpdates.includes('conversations') ? 'ring-2 ring-theme-success-fg/50 bg-theme-success-fg/5' : ''
+      }`} onClick={() => navigate('/app/ai/communication')}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-theme-accent/10 rounded-lg">
+              <MessageSquare className="h-5 w-5 text-theme-accent" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-theme-primary">{stats?.conversations.total || 0}</div>
+              <div className="text-sm text-theme-secondary">Conversations</div>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-theme-tertiary" />
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-theme-secondary">Active</span>
+            <span className="font-medium">{stats?.conversations.active || 0}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-theme-secondary">Today</span>
+            <span className="font-medium">{stats?.conversations.today || 0}</span>
           </div>
         </div>
       </div>

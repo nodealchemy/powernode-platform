@@ -11,8 +11,6 @@ import { TeamActivityCard } from './TeamActivityCard';
 
 export interface EnhancedAIOverviewHandle {
   refresh: () => void;
-  toggleLiveUpdates: () => void;
-  isLiveUpdateActive: boolean;
   isRefreshing: boolean;
 }
 
@@ -21,16 +19,14 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
   useNotifications();
 
   const {
-    stats, loading, error, isRefreshing, isLiveUpdateActive, recentUpdates,
-    loadOverviewData, handleRefresh, toggleLiveUpdates,
+    stats, loading, error, isRefreshing, recentUpdates,
+    loadOverviewData, handleRefresh,
   } = useOverviewData();
 
   useImperativeHandle(ref, () => ({
     refresh: handleRefresh,
-    toggleLiveUpdates,
-    isLiveUpdateActive,
     isRefreshing,
-  }), [handleRefresh, toggleLiveUpdates, isLiveUpdateActive, isRefreshing]);
+  }), [handleRefresh, isRefreshing]);
 
   if (loading) {
     return (
@@ -65,19 +61,16 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
       {/* Stats Row — compact metrics */}
       <OverviewStatsGrid stats={stats} recentUpdates={recentUpdates} />
 
-      {/* Main Content — Missions hero + sidebar */}
+      {/* Missions hero + Teams — equal-height columns (Teams stretches to match) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Missions (2/3 width) */}
         <div className="lg:col-span-2">
           <MissionsDashboardPanel />
         </div>
-
-        {/* Right: Teams + Quick Actions (1/3 width) */}
-        <div className="space-y-6">
-          <TeamActivityCard />
-          <QuickActionsPanel />
-        </div>
+        <TeamActivityCard />
       </div>
+
+      {/* Quick Actions — full-width bar */}
+      <QuickActionsPanel />
 
       {/* Activity Feed */}
       <ActiveExecutionsPanel />

@@ -78,7 +78,9 @@ export function useOverviewData() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isLiveUpdateActive, setIsLiveUpdateActive] = useState(false);
+  // Live updates on by default: the WebSocket subscription is always active, and
+  // this enables the 30s fallback poll whenever the socket is down.
+  const [isLiveUpdateActive, setIsLiveUpdateActive] = useState(true);
   const [recentUpdates, setRecentUpdates] = useState<string[]>([]);
   const [, setHasConnectionAttempted] = useState(false);
 
