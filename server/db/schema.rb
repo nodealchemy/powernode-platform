@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_18_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_18_210001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -6203,12 +6203,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_18_210000) do
     t.string "integration_type", null: false
     t.boolean "is_active", default: true
     t.boolean "is_featured", default: false
-    t.boolean "is_marketplace_published", default: false
     t.boolean "is_public", default: false
-    t.datetime "marketplace_approved_at"
-    t.text "marketplace_rejection_reason"
-    t.string "marketplace_status"
-    t.datetime "marketplace_submitted_at"
     t.jsonb "metadata", default: {}
     t.string "name", null: false
     t.jsonb "output_schema", default: {}
@@ -6222,7 +6217,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_18_210000) do
     t.index ["integration_type"], name: "index_devops_integration_templates_on_integration_type"
     t.index ["is_active"], name: "index_devops_integration_templates_on_is_active"
     t.index ["is_featured"], name: "index_devops_integration_templates_on_is_featured"
-    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_integration_templates_marketplace"
     t.index ["is_public", "is_active"], name: "idx_templates_public_active"
     t.index ["is_public"], name: "index_devops_integration_templates_on_is_public"
     t.index ["slug"], name: "index_devops_integration_templates_on_slug", unique: true
@@ -6353,13 +6347,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_18_210000) do
     t.string "icon_url"
     t.integer "install_count", default: 0
     t.boolean "is_featured", default: false
-    t.boolean "is_marketplace_published", default: false
     t.boolean "is_public", default: false
     t.boolean "is_system", default: false
-    t.datetime "marketplace_approved_at"
-    t.text "marketplace_rejection_reason"
-    t.string "marketplace_status"
-    t.datetime "marketplace_submitted_at"
     t.jsonb "metadata", default: {}
     t.string "name", null: false
     t.jsonb "pipeline_definition", default: {}
@@ -6379,7 +6368,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_18_210000) do
     t.index ["category"], name: "index_devops_pipeline_templates_on_category"
     t.index ["created_by_user_id"], name: "index_devops_pipeline_templates_on_created_by_user_id"
     t.index ["is_featured"], name: "index_devops_pipeline_templates_on_is_featured"
-    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_cicd_pipeline_templates_marketplace"
     t.index ["is_public"], name: "index_devops_pipeline_templates_on_is_public"
     t.index ["slug"], name: "index_devops_pipeline_templates_on_slug", unique: true
     t.index ["source_pipeline_id"], name: "index_devops_pipeline_templates_on_source_pipeline_id"
@@ -9355,12 +9343,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_18_210000) do
     t.text "description"
     t.string "domain", default: "general", null: false
     t.boolean "is_active", default: true, null: false
-    t.boolean "is_marketplace_published", default: false
     t.boolean "is_system", default: false, null: false
-    t.datetime "marketplace_approved_at"
-    t.text "marketplace_rejection_reason"
-    t.string "marketplace_status"
-    t.datetime "marketplace_submitted_at"
     t.jsonb "metadata", default: {}, null: false
     t.string "name", null: false
     t.uuid "parent_template_id"
@@ -9374,7 +9357,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_18_210000) do
     t.index ["account_id", "domain"], name: "index_shared_prompt_templates_on_account_id_and_domain"
     t.index ["account_id", "slug"], name: "index_shared_prompt_templates_on_account_id_and_slug", unique: true
     t.index ["is_active"], name: "index_shared_prompt_templates_on_is_active"
-    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_shared_prompt_templates_marketplace"
     t.index ["is_system"], name: "index_shared_prompt_templates_on_is_system"
     t.index ["parent_template_id"], name: "index_shared_prompt_templates_on_parent_template_id"
   end
