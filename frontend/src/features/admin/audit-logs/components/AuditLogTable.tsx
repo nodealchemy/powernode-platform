@@ -13,6 +13,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { AuditLog } from '@/features/admin/audit-logs/services/auditLogsApi';
+import { Badge, type BadgeProps } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EntityLink } from '@/shared/components/entity';
 import { resolveCoreEntityType } from '@/shared/entity/registerCoreEntities';
@@ -42,22 +43,22 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
     setExpandedRows(newExpanded);
   };
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityVariant = (severity: string): BadgeProps['variant'] => {
     switch (severity) {
-      case 'critical': return 'bg-theme-error-bg text-theme-error-fg';
-      case 'high': return 'bg-theme-error-bg text-theme-error-fg';
-      case 'medium': return 'bg-theme-warning-bg text-theme-warning-fg';
-      case 'low': return 'bg-theme-success-bg text-theme-success-fg';
-      default: return 'bg-theme-surface text-theme-secondary';
+      case 'critical':
+      case 'high': return 'danger';
+      case 'medium': return 'warning';
+      case 'low': return 'success';
+      default: return 'secondary';
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string): BadgeProps['variant'] => {
     switch (status) {
-      case 'success': return 'bg-theme-success-bg text-theme-success-fg';
-      case 'warning': return 'bg-theme-warning-bg text-theme-warning-fg';
-      case 'error': return 'bg-theme-error-bg text-theme-error-fg';
-      default: return 'bg-theme-surface text-theme-secondary';
+      case 'success': return 'success';
+      case 'warning': return 'warning';
+      case 'error': return 'danger';
+      default: return 'secondary';
     }
   };
 
@@ -235,21 +236,21 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                     </td>
                     
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-theme-background text-theme-primary">
+                      <Badge variant="secondary" size="xs" className="flex-shrink-0 whitespace-nowrap">
                         {log.source}
-                      </span>
+                      </Badge>
                     </td>
                     
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
+                      <Badge variant={getStatusVariant(log.status)} size="xs" className="flex-shrink-0 whitespace-nowrap">
                         {log.status}
-                      </span>
+                      </Badge>
                     </td>
                     
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(log.level)}`}>
+                      <Badge variant={getSeverityVariant(log.level)} size="xs" className="flex-shrink-0 whitespace-nowrap">
                         {log.level}
-                      </span>
+                      </Badge>
                     </td>
                     
                     <td className="px-4 py-3">

@@ -362,8 +362,7 @@ describe('AuditLogTable', () => {
       const criticalLog = [{ ...mockLogs[0], level: 'critical' as any, status: 'success' as const }];
       const { container } = render(<AuditLogTable logs={criticalLog} />);
 
-      // The Risk column badge should have error background
-      expect(container.querySelector('.bg-theme-error-bg')).toBeInTheDocument();
+      expect(container.querySelector('.badge-theme-danger')).toBeInTheDocument();
     });
 
     it('applies error style for high severity', () => {
@@ -372,7 +371,7 @@ describe('AuditLogTable', () => {
       const highLog = [{ ...mockLogs[0], level: 'high' as any, status: 'success' as const }];
       const { container } = render(<AuditLogTable logs={highLog} />);
 
-      expect(container.querySelector('.bg-theme-error-bg')).toBeInTheDocument();
+      expect(container.querySelector('.badge-theme-danger')).toBeInTheDocument();
     });
 
     it('applies warning style for medium severity', () => {
@@ -381,7 +380,7 @@ describe('AuditLogTable', () => {
       const mediumLog = [{ ...mockLogs[0], level: 'medium' as any, status: 'success' as const }];
       const { container } = render(<AuditLogTable logs={mediumLog} />);
 
-      expect(container.querySelector('.bg-theme-warning-bg')).toBeInTheDocument();
+      expect(container.querySelector('.badge-theme-warning')).toBeInTheDocument();
     });
 
     it('applies success style for low severity', () => {
@@ -390,8 +389,7 @@ describe('AuditLogTable', () => {
       const lowLog = [{ ...mockLogs[0], level: 'low', status: 'error' }] as any;
       const { container } = render(<AuditLogTable logs={lowLog} />);
 
-      // Both Status (error) and Risk (low) columns have styled badges
-      expect(container.querySelector('.bg-theme-success-bg')).toBeInTheDocument();
+      expect(container.querySelector('.badge-theme-success')).toBeInTheDocument();
     });
 
     it('applies default style for unrecognized severity', () => {
@@ -399,7 +397,7 @@ describe('AuditLogTable', () => {
 
       // log-1 has level='info' which falls through to default in getSeverityColor
       const infoBadges = screen.getAllByText('info');
-      expect(infoBadges[0].closest('span')).toHaveClass('bg-theme-surface');
+      expect(infoBadges[0].closest('.badge-theme')).toHaveClass('badge-theme-secondary');
     });
   });
 
@@ -408,21 +406,21 @@ describe('AuditLogTable', () => {
       render(<AuditLogTable {...defaultProps} />);
 
       const successBadges = screen.getAllByText('success');
-      expect(successBadges[0].closest('span')).toHaveClass('bg-theme-success-bg');
+      expect(successBadges[0].closest('.badge-theme')).toHaveClass('badge-theme-success');
     });
 
     it('applies error style for error status', () => {
       render(<AuditLogTable {...defaultProps} />);
 
       const errorBadges = screen.getAllByText('error');
-      expect(errorBadges[0].closest('span')).toHaveClass('bg-theme-error-bg');
+      expect(errorBadges[0].closest('.badge-theme')).toHaveClass('badge-theme-danger');
     });
 
     it('applies warning style for warning status', () => {
       render(<AuditLogTable {...defaultProps} />);
 
       const warningBadges = screen.getAllByText('warning');
-      expect(warningBadges[0].closest('span')).toHaveClass('bg-theme-warning-bg');
+      expect(warningBadges[0].closest('.badge-theme')).toHaveClass('badge-theme-warning');
     });
   });
 
