@@ -25,7 +25,7 @@ export const useAnalyticsWebSocket = ({
 
   // Type guard for WebSocket message data
    
-  const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
+  const isWebSocketMessage = (data: unknown): data is { type: string; data?: unknown; message?: string } => {
     return typeof data === 'object' && data !== null && 'type' in data;
   };
 
