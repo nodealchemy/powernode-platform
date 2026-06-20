@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { WizardProgress } from '@/shared/components/wizard/WizardProgress';
 import { logger } from '@/shared/utils/logger';
 import { onboardingApi } from '@/features/onboarding/services/onboardingApi';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 import { SchemaStepForm } from './SchemaStepForm';
 import { ExtensionSelectionStep } from './steps/ExtensionSelectionStep';
 import { SeedStep } from './steps/SeedStep';
@@ -229,7 +230,16 @@ export const SetupWizard: React.FC = () => {
       const values = state.values[step.key] ?? {};
       dispatchLocal({ type: 'SUBMIT_START' });
       try {
-        await setupApi.submitStep(step.key, values);
+        if (step.owner !== 'core') {
+          // Extension step: schema steps POST to their own endpoint; every extension
+          // step marks the extension configured (component steps self-persist).
+          if (step.schema && step.schema.length > 0 && step.endpoint) {
+            await setupApi.submitExtensionStep(step.endpoint, values);
+          }
+          await setupApi.markExtensionConfigured(step.owner);
+        } else {
+          await setupApi.submitStep(step.key, values);
+        }
         const steps = await setupApi.getSteps();
         const nextIdx = Math.min(state.index + 1, steps.length);
         dispatchLocal({ type: 'REPLACE_STEPS', steps, index: nextIdx });
@@ -288,6 +298,11 @@ export const SetupWizard: React.FC = () => {
   const isProviderStep = currentStep?.completion === 'provider_credentials';
   const stepValid = currentStep ? Boolean(state.valid[currentStep.key]) : false;
   const adminBlockedNoToken = isAdminStep && !token;
+  // Resolve a component step: core/* from the static map, extension ids from the
+  // featureRegistry (registered by extensions' register.ts).
+  const stepComponent = currentStep?.component
+    ? STEP_COMPONENTS[currentStep.component] ?? featureRegistry.getSetupStepComponent(currentStep.component)
+    : undefined;
 
   return (
     <div
@@ -344,8 +359,12 @@ export const SetupWizard: React.FC = () => {
                     idPrefix={`setup-${currentStep.key}`}
                     disabled={state.submitting || adminBlockedNoToken}
                   />
-                ) : currentStep.component && STEP_COMPONENTS[currentStep.component] ? (
-                  React.createElement(STEP_COMPONENTS[currentStep.component], { step: currentStep })
+                ) : stepComponent ? (
+                  <React.Suspense fallback={<LoadingSpinner message="Loading step…" />}>
+                    {React.createElement(stepComponent as React.ComponentType<SetupStepComponentProps>, {
+                      step: currentStep,
+                    })}
+                  </React.Suspense>
                 ) : (
                   <p className="text-sm text-theme-secondary">
                     This step is configured elsewhere and has no fields here.

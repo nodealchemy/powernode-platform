@@ -11,8 +11,12 @@ jest.mock('./services/setupApi', () => ({
     createAdmin: jest.fn(),
     getExtensions: jest.fn(),
     setExtension: jest.fn(),
+    submitExtensionStep: jest.fn(),
+    markExtensionConfigured: jest.fn(),
   },
 }));
+
+import { featureRegistry } from '@/shared/services/featureRegistry';
 
 // The post-admin session restore reuses these thunks; stub them so dispatch(...)
 // .unwrap() resolves without hitting the network.
@@ -165,5 +169,35 @@ describe('SetupWizard', () => {
     await waitFor(() => expect(screen.getByTestId('setup-ai-step')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('setup-continue-btn'));
     await waitFor(() => expect(onboardingApi.complete).toHaveBeenCalled());
+  });
+
+  it('renders an extension component step via featureRegistry and marks it configured', async () => {
+    const ExtFoo = () => <div data-testid="ext-foo-step">ext foo</div>;
+    featureRegistry.registerSetupStepComponents({ '@ext/testext/Foo': ExtFoo });
+
+    setUrl('/setup');
+    mockGetSteps.mockResolvedValue([
+      {
+        key: 'testext.foo',
+        title: 'Foo',
+        order: 50,
+        owner: 'testext',
+        required: false,
+        component: '@ext/testext/Foo',
+        endpoint: '/api/v1/setup/extensions/testext/foo',
+        completed: false,
+        completed_at: null,
+      },
+    ]);
+
+    renderWithProviders(<SetupWizard />, {
+      preloadedState: { auth: { isAuthenticated: true, user: { id: '1' }, isLoading: false } },
+    });
+
+    await waitFor(() => expect(screen.getByTestId('ext-foo-step')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('setup-save-btn'));
+    await waitFor(() =>
+      expect(setupApi.markExtensionConfigured).toHaveBeenCalledWith('testext')
+    );
   });
 });

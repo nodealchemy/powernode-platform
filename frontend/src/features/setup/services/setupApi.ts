@@ -39,6 +39,8 @@ export interface SetupStep {
 export interface SetupStatus {
   bootstrap_complete: boolean;
   pending: Array<{ owner: string; steps: SetupStep[] }>;
+  /** Slugs of extensions with pending steps — drives the non-blocking prompt. */
+  extensions_pending?: string[];
 }
 
 /** An extension present in this build, with its current enabled state. */
@@ -104,6 +106,20 @@ export const setupApi = {
   async setExtension(slug: string, enabled: boolean): Promise<SetupExtension> {
     const response = await apiClient.post<Envelope<SetupExtension>>(`/setup/extensions/${slug}`, { enabled });
     return inner<SetupExtension>(response.data);
+  },
+
+  /**
+   * POST an extension step's own endpoint. Step endpoints are full `/api/v1/...`
+   * paths from the manifest; apiClient already prefixes `/api/v1`, so strip it.
+   */
+  async submitExtensionStep(endpoint: string, payload: Record<string, string>): Promise<void> {
+    const path = endpoint.replace(/^\/api\/v1/, '');
+    await apiClient.post(path, payload);
+  },
+
+  /** POST /setup/extensions/:slug/configured — stamp an extension's setup as done (Phase 4). */
+  async markExtensionConfigured(slug: string): Promise<void> {
+    await apiClient.post(`/setup/extensions/${slug}/configured`, {});
   },
 
   /** POST /setup/seed — run the idempotent seed wrapper (no-op in builds with no seeder). */

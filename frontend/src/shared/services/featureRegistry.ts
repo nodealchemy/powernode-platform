@@ -59,6 +59,11 @@ export interface FeatureHeaderWidget {
   permission?: string;
 }
 
+/** A setup-wizard step component an extension contributes, keyed by the step's
+ *  `component` id (e.g. "@ext/system/setup/VirtualizationHostsStep"). Rendered by
+ *  SetupWizard for component-based extension steps; keyed by id, never by core. */
+type SetupStepComponent = LazyExoticComponent<ComponentType<unknown>> | ComponentType<unknown>;
+
 interface FeatureRegistryState {
   routes: Map<string, FeatureRoute[]>;
   publicRoutes: Map<string, FeatureRoute[]>;
@@ -66,6 +71,7 @@ interface FeatureRegistryState {
   navSections: Map<string, FeatureNavSection[]>;
   settingsTabs: Map<string, FeatureSettingsTab[]>;
   headerWidgets: Map<string, FeatureHeaderWidget[]>;
+  setupStepComponents: Map<string, SetupStepComponent>;
   version: number;
   listeners: Set<() => void>;
 }
@@ -77,6 +83,7 @@ const state: FeatureRegistryState = {
   navSections: new Map(),
   settingsTabs: new Map(),
   headerWidgets: new Map(),
+  setupStepComponents: new Map(),
   version: 0,
   listeners: new Set(),
 };
@@ -104,6 +111,23 @@ export const featureRegistry = {
       return state.routes.get(namespace) || [];
     }
     return Array.from(state.routes.values()).flat();
+  },
+
+  /**
+   * Register setup-wizard step components, keyed by the step's `component` id.
+   * Extensions call this from register.ts for component-based setup steps; the
+   * SetupWizard resolves the id to render it.
+   */
+  registerSetupStepComponents(components: Record<string, SetupStepComponent>): void {
+    Object.entries(components).forEach(([id, component]) => {
+      state.setupStepComponents.set(id, component);
+    });
+    notifyListeners();
+  },
+
+  /** Resolve a setup-step component by its `component` id, or undefined. */
+  getSetupStepComponent(id: string): SetupStepComponent | undefined {
+    return state.setupStepComponents.get(id);
   },
 
   /**
