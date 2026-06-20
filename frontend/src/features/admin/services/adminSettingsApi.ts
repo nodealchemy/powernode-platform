@@ -194,6 +194,37 @@ export interface RedisConnectionStatus {
  *
  * This is the primary owner of /admin_settings/* endpoints.
  */
+export interface VaultStatus {
+  connected: boolean;
+  sealed: boolean | null;
+  initialized: boolean | null;
+  version: string | null;
+  cluster_name: string | null;
+}
+
+export interface VaultConfigData {
+  status: VaultStatus;
+  config: {
+    vault_addr: string;
+    vault_role_id: string;
+    vault_secret_id: string;
+    configured: boolean;
+  };
+  keys: {
+    secured_count: number;
+    recent_operations: unknown[];
+  };
+}
+
+export interface VaultConnectionTestData {
+  connected: boolean;
+  sealed?: boolean;
+  initialized?: boolean;
+  version?: string;
+  latency_ms?: number;
+  error?: string;
+}
+
 class AdminSettingsApi {
   // Get admin overview data
   async getOverview(): Promise<{ success: boolean; data?: AdminOverviewData; error?: string }> {
@@ -482,8 +513,7 @@ class AdminSettingsApi {
   }
 
   // Vault Configuration
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async getVaultConfig(): Promise<{ success: boolean; data?: any; error?: string }> {
+  async getVaultConfig(): Promise<{ success: boolean; data?: VaultConfigData; error?: string }> {
     try {
       const response = await api.get('/admin_settings/vault');
       const responseData = response.data;
@@ -508,8 +538,7 @@ class AdminSettingsApi {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async testVaultConnection(): Promise<{ success: boolean; data?: any; error?: string }> {
+  async testVaultConnection(): Promise<{ success: boolean; data?: VaultConnectionTestData; error?: string }> {
     try {
       const response = await api.post('/admin_settings/vault/test');
       return response.data;
