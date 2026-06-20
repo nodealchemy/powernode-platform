@@ -226,7 +226,7 @@ Each phase is independently shippable and testable.
    access but keeps all data; re-enabling restores it (§7).
 3. **Secret storage** — secrets go to **Vault by default**, but Vault is itself globally
    toggleable with a DB-encrypted fallback and bidirectional migration — designed separately in
-   [credential-storage-backends-design.md](credential-storage-backends-design.md); the wizard exposes the
+   [secret-storage-backends-design.md](secret-storage-backends-design.md); the wizard exposes the
    toggle + migration trigger as a settings step.
 4. **Headless CLI** — **included**: `rails setup:run` over a YAML answer file, sharing the same
    `Setup::StepRegistry` (§3); Phase 1 ships the seam, coverage grows with each phase.
