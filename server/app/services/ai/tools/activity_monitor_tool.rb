@@ -240,8 +240,8 @@ module Ai
         error_rate = total_events_24h > 0 ? (error_events_24h.to_f / total_events_24h * 100).round(1) : 0.0
 
         # Provider status
-        providers = Ai::Provider.where(account_id: account.id).map do |p|
-          credential = p.provider_credentials.where(is_active: true, account_id: account.id).first
+        providers = Ai::Provider.where(account_id: account.id).includes(:provider_credentials).map do |p|
+          credential = p.provider_credentials.find { |c| c.is_active? && c.account_id == account.id }
           {
             name: p.name,
             provider_type: p.provider_type,

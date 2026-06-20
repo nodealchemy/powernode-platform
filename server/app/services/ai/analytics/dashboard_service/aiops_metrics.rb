@@ -124,7 +124,7 @@ module Ai
         def ops_agent_metrics(ops_time_range = 1.hour)
           start_time = ops_time_range.ago
 
-          account.ai_agents.where(status: "active").limit(20).map do |agent|
+          account.ai_agents.where(status: "active").includes(:provider).limit(20).map do |agent|
             executions = agent.executions.where("created_at >= ?", start_time)
             total = executions.count
             successful = executions.where(status: "completed").count

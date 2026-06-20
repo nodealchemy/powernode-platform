@@ -163,13 +163,13 @@ module Ai
       end
 
       def detailed_provider_health
-        account.ai_providers.where(is_active: true).map do |provider|
+        account.ai_providers.where(is_active: true).includes(:provider_credentials).map do |provider|
           {
             id: provider.id,
             name: provider.name,
             provider_type: provider.provider_type,
             status: provider.is_active ? "active" : "inactive",
-            credentials_count: provider.provider_credentials.where(is_active: true).count,
+            credentials_count: provider.provider_credentials.select(&:is_active?).size,
             recent_executions: ::Ai::AgentExecution.where(agent: ::Ai::Agent.where(provider: provider))
                                                 .where("created_at >= ?", 24.hours.ago)
                                                 .count

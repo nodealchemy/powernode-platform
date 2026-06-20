@@ -49,12 +49,12 @@ module Ai
       end
 
       def test_provider_connections
-        account.ai_providers.where(is_active: true).map do |provider|
+        account.ai_providers.where(is_active: true).includes(:provider_credentials).map do |provider|
           {
             provider_id: provider.id,
             name: provider.name,
             type: provider.provider_type,
-            has_credentials: provider.provider_credentials.where(is_active: true).exists?,
+            has_credentials: provider.provider_credentials.any?(&:is_active?),
             status: provider.is_active ? "configured" : "inactive"
           }
         end

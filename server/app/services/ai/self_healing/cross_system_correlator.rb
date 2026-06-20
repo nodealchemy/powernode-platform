@@ -66,7 +66,7 @@ module Ai
         events = []
 
         Devops::PipelineRun.where("devops_pipeline_runs.created_at >= ?", time_range.ago)
-                           .joins(:pipeline)
+                           .eager_load(:pipeline)
                            .where(devops_pipelines: { account_id: @account.id })
                            .each do |run|
           events << {
@@ -145,7 +145,7 @@ module Ai
       end
 
       def git_provider_connectivity
-        Devops::GitProviderCredential.where(account: @account).active.map do |cred|
+        Devops::GitProviderCredential.where(account: @account).active.includes(:provider).map do |cred|
           {
             provider: cred.provider&.name,
             healthy: cred.healthy?,
@@ -160,7 +160,7 @@ module Ai
       end
 
       def recent_deployments
-        Devops::PipelineRun.joins(:pipeline)
+        Devops::PipelineRun.eager_load(:pipeline)
                            .where(devops_pipelines: { account_id: @account.id })
                            .where(trigger_type: %w[push release])
                            .where("devops_pipeline_runs.created_at >= ?", 24.hours.ago)
