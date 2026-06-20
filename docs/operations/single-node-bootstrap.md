@@ -2,7 +2,7 @@
 
 > Status: active
 >
-> When to use this runbook: deploying Powernode to a fresh Linux host as the **systemd-managed installation** — backend, worker, worker-web, frontend, and reverse-proxy as native services with apt-installed PostgreSQL + Redis underneath. This is the path used by `dev.ipnode.net`, the `ops` control plane, and (with `--production`) the first Vultr cutover before the modular self-host migration.
+> When to use this runbook: deploying Powernode to a fresh Linux host as the **systemd-managed installation** — backend, worker, worker-web, frontend, and reverse-proxy as native services with apt-installed PostgreSQL + Redis underneath. This is the path used by `dev.ipnode.us`, the `ops` control plane, and (with `--production`) the first Vultr cutover before the modular self-host migration.
 >
 > This runbook covers the base install. For production operations around it (storage, backups, monitoring, scaling, rollback, readiness), see [`production-deployment.md`](production-deployment.md). If you want the long-term modular self-host path via the Go agent + System modules, that's a separate runbook (see [Golden Eclipse M3+](../../extensions/system/docs/CONTAINER_RUNTIMES.md)).
 
@@ -363,7 +363,7 @@ Trigger first cert issuance. `Acme::CertificateManager#issue!` takes a single `c
 ```ruby
 cert = System::AcmeCertificate.create!(
   account: Account.first,
-  common_name: "ops.ipnode.net",
+  common_name: "ops.ipnode.us",
   dns_credential: cred,
   challenge_type: "dns-01",            # one of AcmeCertificate::CHALLENGE_TYPES
   issuer: "letsencrypt-prod",          # one of AcmeCertificate::ISSUERS

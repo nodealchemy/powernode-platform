@@ -297,7 +297,7 @@ module ServiceConfiguration
         host.sub(/:\d+\z/, "") : host
 
       # Look for a different-port entry for the same hostname in trusted hosts
-      # (e.g., dev.ipnode.net:3001 paired with dev.ipnode.net:3000)
+      # (e.g., dev.ipnode.us:3001 paired with dev.ipnode.us:3000)
       config = reverse_proxy_url_config
       trusted = config[:trusted_hosts] || []
       backend_port = request.headers["X-Forwarded-Port"]&.to_i || request.port

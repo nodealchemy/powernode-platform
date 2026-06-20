@@ -110,8 +110,8 @@ Rails.application.configure do
     /ws:\/\/[^\/]+\.local:300[0-9]/,
     /ws:\/\/[^\/]+\.test:300[0-9]/,
     # Custom development domains
-    /http:\/\/[^\/]+\.ipnode\.net(:\d+)?/,
-    /ws:\/\/[^\/]+\.ipnode\.net(:\d+)?/
+    /http:\/\/[^\/]+\.(ipnode\.(us|org)|powernode\.org)(:\d+)?/,
+    /ws:\/\/[^\/]+\.(ipnode\.(us|org)|powernode\.org)(:\d+)?/
   ]
 
   # Raise error when a before_action's only/except options reference missing actions.
