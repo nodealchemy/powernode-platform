@@ -227,6 +227,31 @@ check_pattern "Forbidden submenu navigation (should be empty)" \
     "empty"
 
 echo ""
+echo -e "${BLUE}## Schema Isolation${NC}"
+# Leak guard: the committed PUBLIC db/schema.rb must contain NO table owned by a
+# PRIVATE extension. Forbidden prefixes are derived dynamically from
+# extensions/private/* (no slug hardcoded — generic, mirrors core-purity-check.sh).
+# The enforcement is the SchemaDumper prepend (config/initializers/schema_dump_isolation.rb);
+# this is the belt-and-suspenders scan backstop.
+priv_prefixes=$(ls -d extensions/private/*/ 2>/dev/null | xargs -r -n1 basename | paste -sd'|')
+total_checks=$((total_checks + 1))
+echo -n "Checking: No private-extension table refs in public schema.rb (leak guard)... "
+if [ -z "$priv_prefixes" ]; then
+    leak_count=0
+else
+    # Any quoted private-table reference (create_table, add_foreign_key both args, add_index).
+    # Safe: core has no business_/trading_-prefixed COLUMNS (FK columns are publisher_id, etc.).
+    leak_count=$(grep -cE "\"(${priv_prefixes})_" server/db/schema.rb 2>/dev/null || echo 0)
+fi
+if [ "$leak_count" -eq 0 ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Found $leak_count private-table refs in public schema.rb: $(grep -oE "\"(${priv_prefixes})_[a-z0-9_]*\"" server/db/schema.rb 2>/dev/null | sort -u | tr '\n' ' '))"
+    failed_checks=$((failed_checks + 1))
+fi
+
+echo ""
 echo -e "${BLUE}=== AUDIT SUMMARY ===${NC}"
 echo "Total Checks: $total_checks"
 echo -e "Passed: ${GREEN}$passed_checks${NC}"
