@@ -11,6 +11,7 @@ import { logger } from '@/shared/utils/logger';
 import { SchemaStepForm } from './SchemaStepForm';
 import { ExtensionSelectionStep } from './steps/ExtensionSelectionStep';
 import { SeedStep } from './steps/SeedStep';
+import { ProviderStep } from './steps/ProviderStep';
 import type { SetupStepComponentProps } from './steps/types';
 import { setupApi, type SetupStep } from './services/setupApi';
 
@@ -20,6 +21,9 @@ import { setupApi, type SetupStep } from './services/setupApi';
 const STEP_COMPONENTS: Record<string, React.FC<SetupStepComponentProps>> = {
   'core/extension_selection': ExtensionSelectionStep,
   'core/seed': SeedStep,
+  'core/ai_provider': ProviderStep,
+  'core/cloud_provider': ProviderStep,
+  'core/git_provider': ProviderStep,
 };
 
 // Where to land once bootstrap is complete — flows into the existing provider
@@ -267,6 +271,9 @@ export const SetupWizard: React.FC = () => {
 
   const isAdminStep = currentStep?.key === 'admin';
   const isSchemaStep = Boolean(currentStep?.schema && currentStep.schema.length > 0);
+  // Provider steps (ai/cloud/git) self-persist via ProviderStep; their completion
+  // is credential presence, so the footer just advances (no submitStep stamp).
+  const isProviderStep = currentStep?.completion === 'provider_credentials';
   const stepValid = currentStep ? Boolean(state.valid[currentStep.key]) : false;
   const adminBlockedNoToken = isAdminStep && !token;
 
@@ -347,7 +354,7 @@ export const SetupWizard: React.FC = () => {
           </section>
 
           <div className="flex items-center justify-end gap-2" data-testid="setup-wizard-footer">
-            {currentStep && !currentStep.required && !isAdminStep && (
+            {currentStep && !currentStep.required && !isAdminStep && !isProviderStep && (
               <Button
                 type="button"
                 variant="ghost"
@@ -373,6 +380,17 @@ export const SetupWizard: React.FC = () => {
                 data-testid="setup-admin-create-btn"
               >
                 Create administrator
+                <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Button>
+            ) : isProviderStep ? (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={skipStep}
+                disabled={state.submitting}
+                data-testid="setup-continue-btn"
+              >
+                Continue
                 <ArrowRight className="ml-1.5 h-4 w-4" />
               </Button>
             ) : (

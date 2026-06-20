@@ -30,6 +30,8 @@ export interface SetupStep {
   schema?: SetupFieldDef[];
   /** Client component id for rich steps (Phase 3+); absent for schema steps. */
   component?: string;
+  /** Provider category for provider steps (ai/cloud/git); drives ProviderStep. */
+  category?: string;
   completed: boolean;
   completed_at: string | null;
 }
