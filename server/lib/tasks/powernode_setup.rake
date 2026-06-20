@@ -75,41 +75,34 @@ namespace :powernode do
       next
     end
 
-    ActiveRecord::Base.transaction do
-      account = Account.create!(
-        name: admin_name.presence || "Powernode",
-        subdomain: "admin"
+    # Identity creation (account + admin user + super_admin role) is shared with
+    # the web bootstrap endpoint via Setup::FirstAdminService — one definition of
+    # "first admin" for both the CLI and the wizard.
+    result = Setup::FirstAdminService.call(
+      email: admin_email,
+      password: admin_password,
+      name: admin_name
+    )
+    account = result.account
+    user = result.user
+
+    # Create active subscription (enterprise mode only)
+    if plan && defined?(Billing::Subscription)
+      account.create_subscription!(
+        plan: plan,
+        status: "active",
+        quantity: 1,
+        current_period_start: Time.current,
+        current_period_end: 100.years.from_now
       )
-
-      user = account.users.create!(
-        name: admin_name.presence || "Admin",
-        email: admin_email,
-        password: admin_password,
-        email_verified_at: Time.current
-      )
-
-      # Assign super_admin role
-      super_admin = Role.find_by(name: "super_admin")
-      user.roles << super_admin if super_admin && !user.roles.include?(super_admin)
-
-      # Create active subscription (enterprise mode only)
-      if plan && defined?(Billing::Subscription)
-        account.create_subscription!(
-          plan: plan,
-          status: "active",
-          quantity: 1,
-          current_period_start: Time.current,
-          current_period_end: 100.years.from_now
-        )
-      end
-
-      puts ""
-      puts "Setup complete!"
-      puts "  Account: #{account.name}"
-      puts "  Email:   #{user.email}"
-      puts "  Plan:    #{plan&.name || 'Core (all features unlocked)'}"
-      puts ""
-      puts "You can now log in at your Powernode instance."
     end
+
+    puts ""
+    puts "Setup complete!"
+    puts "  Account: #{account.name}"
+    puts "  Email:   #{user.email}"
+    puts "  Plan:    #{plan&.name || 'Core (all features unlocked)'}"
+    puts ""
+    puts "You can now log in at your Powernode instance."
   end
 end

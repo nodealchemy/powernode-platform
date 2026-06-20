@@ -363,6 +363,40 @@ class Account < ApplicationRecord
     save!
   end
 
+  # Setup-wizard state (superset of onboarding). Per-step completion is tracked
+  # under metadata["setup"]["steps"][<key>]["completed_at"] so the registry-driven
+  # wizard (Setup::StepRegistry) can resume by skipping completed steps. Only the
+  # completion *stamp* is stored here — never the step's payload, which may carry
+  # secrets (those go to their owning settings/Vault via the step's endpoint).
+  def setup_state
+    return {} unless metadata.is_a?(Hash)
+
+    metadata["setup"].is_a?(Hash) ? metadata["setup"] : {}
+  end
+
+  def setup_step_completed?(key)
+    setup_state.dig("steps", key.to_s, "completed_at").present?
+  end
+
+  def setup_step_completed_at(key)
+    raw = setup_state.dig("steps", key.to_s, "completed_at")
+    return nil if raw.blank?
+
+    Time.iso8601(raw) rescue Time.parse(raw) rescue nil
+  end
+
+  def mark_setup_step!(key, at: Time.current)
+    base  = metadata.is_a?(Hash) ? metadata.deep_dup : {}
+    setup = base["setup"].is_a?(Hash) ? base["setup"] : {}
+    steps = setup["steps"].is_a?(Hash) ? setup["steps"] : {}
+
+    steps[key.to_s] = { "completed_at" => at.iso8601 }
+    setup["steps"]  = steps
+    base["setup"]   = setup
+    self.metadata   = base
+    save!
+  end
+
   private
 
   def normalize_subdomain
