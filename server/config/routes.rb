@@ -83,9 +83,10 @@ Rails.application.routes.draw do
       get  "setup/steps",           to: "setup#steps"
       post "setup/steps/:key",      to: "setup#submit_step"
       post "setup/admin",           to: "setup#admin"
-      get  "setup/extensions",      to: "setup#extensions"
-      post "setup/extensions/:slug", to: "setup#set_extension"
-      post "setup/seed",            to: "setup#seed"
+      get  "setup/extensions",                 to: "setup#extensions"
+      post "setup/extensions/:slug/configured", to: "setup#set_extension_configured"
+      post "setup/extensions/:slug",            to: "setup#set_extension"
+      post "setup/seed",                        to: "setup#seed"
 
       # Configuration endpoints (no authentication required)
       get :config, to: "config#index"

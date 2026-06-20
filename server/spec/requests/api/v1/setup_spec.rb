@@ -240,5 +240,35 @@ RSpec.describe "Api::V1::Setup", type: :request do
         expect(response).to have_http_status(403)
       end
     end
+
+    describe "POST /api/v1/setup/extensions/:slug/configured" do
+      it "stamps the extension as configured" do
+        # 'system' is a real public extension present in the worktree.
+        post "/api/v1/setup/extensions/system/configured", headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+        expect(account.reload.extension_configured?("system")).to be(true)
+      end
+
+      it "404s an extension with no manifest" do
+        post "/api/v1/setup/extensions/does-not-exist/configured", headers: auth_headers_for(admin), as: :json
+        expect(response).to have_http_status(404)
+      end
+
+      it "forbids a user without system.admin" do
+        post "/api/v1/setup/extensions/system/configured", headers: auth_headers_for(regular), as: :json
+        expect(response).to have_http_status(403)
+      end
+    end
+
+    describe "GET /api/v1/setup/status — Phase 4 fields" do
+      it "includes extensions_pending" do
+        get "/api/v1/setup/status", headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+        expect(json_response_data).to have_key("extensions_pending")
+        expect(json_response_data["extensions_pending"]).to be_an(Array)
+      end
+    end
   end
 end

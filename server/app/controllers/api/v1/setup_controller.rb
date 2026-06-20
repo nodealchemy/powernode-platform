@@ -14,18 +14,21 @@ class Api::V1::SetupController < ApplicationController
   # public wizard knows whether to show the admin step).
   skip_before_action :authenticate_request, only: [ :admin, :status ]
   before_action :authenticate_optional, only: [ :status ]
-  before_action :require_setup_admin!, only: [ :steps, :submit_step, :extensions, :set_extension, :seed ]
+  before_action :require_setup_admin!, only: [ :steps, :submit_step, :extensions, :set_extension, :set_extension_configured, :seed ]
 
   # GET /api/v1/setup/status
   def status
     if current_account
       render_success(data: {
         bootstrap_complete: Setup::StepRegistry.bootstrap_complete?(current_account),
-        pending: Setup::StepRegistry.pending(current_account)
+        pending: Setup::StepRegistry.pending(current_account),
+        # Extensions with pending steps — drive the non-blocking "configure X" prompt
+        # once bootstrap is complete (Phase 4 incremental config).
+        extensions_pending: Setup::StepRegistry.pending_extension_slugs(current_account)
       })
     else
       # Anonymous first-run probe: expose only the global bootstrap fact.
-      render_success(data: { bootstrap_complete: User.exists?, pending: [] })
+      render_success(data: { bootstrap_complete: User.exists?, pending: [], extensions_pending: [] })
     end
   end
 
@@ -65,6 +68,17 @@ class Api::V1::SetupController < ApplicationController
     enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
     new_state = Shared::FeatureGateService.set_extension_enabled!(slug, enabled)
     render_success(data: { slug: slug, enabled: new_state })
+  end
+
+  # POST /api/v1/setup/extensions/:slug/configured — stamp an extension's setup as
+  # done (Phase 4). The extension persists its own data via its step endpoint; this
+  # records per-extension completion so its steps stop showing pending.
+  def set_extension_configured
+    slug = params[:slug].to_s
+    return render_not_found("Extension") unless Shared::FeatureGateService.extension_manifest_present?(slug)
+
+    current_account.mark_extension_configured!(slug)
+    render_success(data: { slug: slug, configured_at: current_account.extension_configured_at(slug)&.iso8601 })
   end
 
   # POST /api/v1/setup/seed — run the idempotent seed wrapper and stamp the step.

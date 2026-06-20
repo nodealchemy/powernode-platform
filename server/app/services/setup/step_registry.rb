@@ -149,6 +149,12 @@ module Setup
         end
       end
 
+      # Slugs of extensions with pending (incomplete) steps — drives the
+      # non-blocking "configure X" prompt once bootstrap is complete (Phase 4).
+      def pending_extension_slugs(account)
+        steps_for(account).reject { |s| s[:completed] || s[:owner] == "core" }.map { |s| s[:owner] }.uniq
+      end
+
       # Merge per-account completion state onto a single step definition.
       def annotate(step, account)
         completed = step_completed?(step, account)
@@ -165,6 +171,11 @@ module Setup
       end
 
       def step_completed?(step, account)
+        # Extension steps complete together per-extension (Phase 4 configured_at).
+        unless step[:owner] == "core"
+          return account.respond_to?(:extension_configured?) && account.extension_configured?(step[:owner])
+        end
+
         case step[:completion]
         when :user_exists
           users_exist?(account)
@@ -184,6 +195,9 @@ module Setup
       end
 
       def completed_at(step, account)
+        unless step[:owner] == "core"
+          return account.respond_to?(:extension_configured_at) ? account.extension_configured_at(step[:owner]) : nil
+        end
         return nil if step[:completion] == :user_exists
         return nil unless account.respond_to?(:setup_step_completed_at)
 

@@ -397,6 +397,33 @@ class Account < ApplicationRecord
     save!
   end
 
+  # Incremental per-extension configuration (Phase 4): an extension's setup steps
+  # are tracked together under metadata["setup"]["extensions"][<slug>]["configured_at"],
+  # so a newly-added/enabled extension surfaces a non-blocking "configure X" prompt
+  # until stamped. Re-enabling a previously-configured extension keeps its stamp.
+  def extension_configured?(slug)
+    setup_state.dig("extensions", slug.to_s, "configured_at").present?
+  end
+
+  def extension_configured_at(slug)
+    raw = setup_state.dig("extensions", slug.to_s, "configured_at")
+    return nil if raw.blank?
+
+    Time.iso8601(raw) rescue Time.parse(raw) rescue nil
+  end
+
+  def mark_extension_configured!(slug, at: Time.current)
+    base  = metadata.is_a?(Hash) ? metadata.deep_dup : {}
+    setup = base["setup"].is_a?(Hash) ? base["setup"] : {}
+    exts  = setup["extensions"].is_a?(Hash) ? setup["extensions"] : {}
+
+    exts[slug.to_s]   = { "configured_at" => at.iso8601 }
+    setup["extensions"] = exts
+    base["setup"]     = setup
+    self.metadata     = base
+    save!
+  end
+
   private
 
   def normalize_subdomain

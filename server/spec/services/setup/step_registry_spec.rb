@@ -60,6 +60,40 @@ RSpec.describe Setup::StepRegistry do
     end
   end
 
+  describe "extension-step completion (Phase 4)" do
+    let(:ext_step) do
+      {
+        key: "testext.foo", title: "Foo", description: "Configure foo.", order: 50,
+        required: false, owner: "testext", component: "@ext/testext/Foo",
+        endpoint: "/api/v1/setup/extensions/testext/foo"
+      }
+    end
+
+    before { allow(described_class).to receive(:extension_steps).and_return([ext_step]) }
+
+    it "is incomplete until the extension is configured, then complete with a timestamp" do
+      step = described_class.steps_for(account).find { |s| s[:key] == "testext.foo" }
+      expect(step[:completed]).to be(false)
+
+      account.mark_extension_configured!("testext")
+      step = described_class.steps_for(account).find { |s| s[:key] == "testext.foo" }
+      expect(step[:completed]).to be(true)
+      expect(step[:completed_at]).to be_present
+    end
+
+    it "lists the extension in pending_extension_slugs until configured" do
+      expect(described_class.pending_extension_slugs(account)).to include("testext")
+      account.mark_extension_configured!("testext")
+      expect(described_class.pending_extension_slugs(account)).not_to include("testext")
+    end
+
+    it "does not let pending extension steps block bootstrap" do
+      # admin exists => required core steps done => bootstrap complete regardless of ext.
+      create(:user, account: account)
+      expect(described_class.bootstrap_complete?(account)).to be(true)
+    end
+  end
+
   describe ".bootstrap_complete?" do
     it "is false with no users and true once an admin exists" do
       expect(described_class.bootstrap_complete?(account)).to be(false)
