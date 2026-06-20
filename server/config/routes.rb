@@ -342,6 +342,13 @@ Rails.application.routes.draw do
           resources :pipeline_runs, only: [ :show, :update ]
           resources :step_executions, only: [ :show, :create, :update ]
 
+          # Integration execution running for the worker service (async runner)
+          resources :integration_executions, only: [] do
+            member do
+              post :run
+            end
+          end
+
           # Approval token management for worker service
           resources :approval_tokens, only: [] do
             collection do

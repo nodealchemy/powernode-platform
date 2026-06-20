@@ -10,7 +10,9 @@ module Devops
     self.table_name = "devops_integration_executions"
 
     # ==================== Constants ====================
-    STATUSES = %w[pending running completed failed cancelled].freeze
+    # "queued" = created by execute_async and enqueued to the worker, not yet
+    # running (the worker calls back to run it via run_queued).
+    STATUSES = %w[pending queued running completed failed cancelled].freeze
     TRIGGER_TYPES = %w[manual webhook scheduled workflow api].freeze
 
     # ==================== Associations ====================
@@ -35,6 +37,7 @@ module Devops
 
     # ==================== Scopes ====================
     scope :pending, -> { where(status: "pending") }
+    scope :queued, -> { where(status: "queued") }
     scope :running, -> { where(status: "running") }
     scope :completed, -> { where(status: "completed") }
     scope :failed, -> { where(status: "failed") }

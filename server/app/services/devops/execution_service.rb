@@ -72,6 +72,38 @@ module Devops
         }
       end
 
+      # Run an already-created (queued) execution — the async counterpart of
+      # #execute. execute_async pre-creates a "queued" execution and enqueues the
+      # worker; the worker calls back here so the integration runs off the request
+      # thread. The server-side executor owns the status lifecycle (start! ->
+      # completed/failed via record_success/record_failure), so the worker does
+      # not manage execution status itself.
+      def run_queued(execution:, context: {})
+        instance = execution.instance
+        raise InvalidInstanceError, "Execution #{execution.id} has no integration instance" unless instance
+
+        execution.start! if execution.status.in?(%w[queued pending])
+
+        begin
+          executor = build_executor(instance, execution: execution, context: context)
+          result = executor.execute(execution.input_data || {})
+
+          {
+            success: true,
+            execution_id: execution.id,
+            result: result,
+            duration_ms: execution.reload.duration_ms
+          }
+        rescue Devops::BaseExecutor::ExecutionError => e
+          {
+            success: false,
+            execution_id: execution.id,
+            error: e.message,
+            error_class: e.class.name
+          }
+        end
+      end
+
       # Test connection for an instance
       def test_connection(instance:)
         validate_instance!(instance)
