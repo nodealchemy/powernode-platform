@@ -73,7 +73,7 @@ class Api::V1::WorkersController < ApplicationController
     recent_activities = @worker.worker_activities
                               .order(occurred_at: :desc)
                               .limit(10)
-                              .map { |activity| activity_json(activity) }
+                              .map { |activity| ActivitySerializer.serialize(activity) }
 
     render_success({
       worker: worker_details(@worker),
@@ -523,22 +523,7 @@ class Api::V1::WorkersController < ApplicationController
   end
 
 
-  def activity_json(activity)
-    {
-      id: activity.id,
-      action: activity.activity_type,
-      performed_at: activity.occurred_at.iso8601,
-      ip_address: activity.details["ip_address"],
-      user_agent: activity.details["user_agent"],
-      successful: activity.successful?,
-      failed: activity.failed?,
-      duration: activity.duration,
-      response_status: activity.response_status,
-      request_path: activity.request_path,
-      error_message: activity.error_message,
-      details: activity.details
-    }
-  end
+  # activity serialization extracted to ActivitySerializer
 
   def fetch_worker_stats
     # Fetch Sidekiq stats from worker service

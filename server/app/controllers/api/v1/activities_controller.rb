@@ -31,7 +31,7 @@ class Api::V1::ActivitiesController < ApplicationController
       summary = generate_activity_summary(@worker, @worker.worker_activities)
 
       render_success({
-        activities: @activities.map { |activity| activity_json(activity) },
+        activities: @activities.map { |activity| ActivitySerializer.serialize(activity) },
         pagination: {
           page: page,
           per_page: per_page,
@@ -54,7 +54,7 @@ class Api::V1::ActivitiesController < ApplicationController
   # GET /api/v1/workers/:worker_id/activities/:id
   def show
     render_success({
-      activity: activity_json(@activity),
+      activity: ActivitySerializer.serialize(@activity),
       worker: {
         id: @worker.id,
         name: @worker.name
@@ -229,20 +229,5 @@ class Api::V1::ActivitiesController < ApplicationController
       .map { |endpoint, count| { endpoint: endpoint, count: count } }
   end
 
-  def activity_json(activity)
-    {
-      id: activity.id,
-      action: activity.activity_type,
-      performed_at: activity.occurred_at.iso8601,
-      ip_address: activity.details["ip_address"],
-      user_agent: activity.details["user_agent"],
-      successful: activity.successful?,
-      failed: activity.failed?,
-      duration: activity.duration,
-      response_status: activity.response_status,
-      request_path: activity.request_path,
-      error_message: activity.error_message,
-      details: activity.details
-    }
-  end
+  # activity serialization extracted to ActivitySerializer
 end

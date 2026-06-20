@@ -13,23 +13,7 @@ class Api::V1::PagesController < ApplicationController
       return
     end
 
-    render_success({
-      id: @page.id,
-      title: @page.title,
-      slug: @page.slug,
-      content: @page.content,
-      rendered_content: @page.rendered_content,
-      meta_description: @page.meta_description,
-      meta_keywords: @page.meta_keywords,
-      published_at: @page.published_at,
-      word_count: @page.word_count,
-      estimated_read_time: @page.estimated_read_time,
-      seo: {
-        title: @page.seo_title,
-        description: @page.seo_description,
-        keywords: @page.seo_keywords_array
-      }
-    })
+    render_success(PageSerializer.serialize(@page))
   end
 
   # GET /api/v1/pages (public index for published pages)
