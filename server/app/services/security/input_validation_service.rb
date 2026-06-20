@@ -25,12 +25,11 @@ module Security
 
     # Path traversal patterns
     PATH_TRAVERSAL_PATTERNS = [
-      /\.\.[\/\\]/,               # Parent directory
-      /\.{2,}/,                   # Multiple dots
-      /%2e%2e/i,                  # URL encoded dots
-      /%252e/i,                   # Double URL encoded
-      /\.%00/,                    # Null byte injection
-      /\x00/                      # Null bytes
+      %r{(?:\A|[/\\]|%2f|%5c)\.\.(?:[/\\]|%2f|%5c|\z)}i, # ".." bordered by a literal OR URL-encoded separator (catches ..%2f / ..%5c), not dots within a name
+      /%2e%2e/i,                       # URL-encoded ".."
+      /%252e/i,                        # Double URL-encoded ".."
+      /%00/i,                          # URL-encoded null byte (anywhere, not only ".%00")
+      /\x00/                           # Literal null byte
     ].freeze
 
     # SQL injection patterns (basic protection - use parameterized queries)
@@ -86,6 +85,16 @@ module Security
           )
         end
 
+        # Reject NUL and other C0 control characters (tab/newline/CR stay allowed).
+        # Applies regardless of allow_html — control bytes are never legitimate text.
+        if value.match?(/[\x00-\x08\x0b\x0c\x0e-\x1f]/)
+          raise ValidationError.new(
+            field: field,
+            violation_type: "control_characters",
+            message: "#{field} contains disallowed control characters"
+          )
+        end
+
         unless allow_html
           check_xss!(value, field: field)
         end
@@ -96,6 +105,16 @@ module Security
       # Validate path/filename input
       def validate_path!(value, field:)
         return if value.blank?
+
+        # Absolute paths (unix root, UNC, or Windows drive) are never valid for a
+        # sandboxed relative filename — reject before the traversal pattern checks.
+        if value.match?(%r{\A[/\\]}) || value.match?(/\A[a-z]:[\/\\]/i)
+          raise ValidationError.new(
+            field: field,
+            violation_type: "absolute_path",
+            message: "#{field} must be a relative path"
+          )
+        end
 
         PATH_TRAVERSAL_PATTERNS.each do |pattern|
           if value.match?(pattern)
@@ -167,6 +186,15 @@ module Security
             field: field,
             violation_type: "invalid_uuid",
             message: "#{field} must be a valid UUID"
+          )
+        end
+
+        # Reject the nil (all-zeros) UUID — structurally valid but never a real id.
+        if value.delete("-").match?(/\A0+\z/)
+          raise ValidationError.new(
+            field: field,
+            violation_type: "invalid_uuid",
+            message: "#{field} must not be the nil UUID"
           )
         end
 

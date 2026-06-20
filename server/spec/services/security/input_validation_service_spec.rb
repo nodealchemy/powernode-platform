@@ -84,11 +84,14 @@ RSpec.describe Security::InputValidationService do
       expect(described_class.validate_text!(payload, field: "bio", allow_html: true)).to eq(payload)
     end
 
-    # CHARACTERIZATION / GAP: validate_text! has NO control-character or null-byte
-    # screening. A NUL byte (or other control chars) embedded in otherwise-plain
-    # text passes through untouched. This is pinned as current behavior, not endorsed.
-    it "does NOT reject embedded null bytes / control characters (current behavior)" do
+    it "rejects embedded null bytes / control characters as control_characters" do
       payload = "harmless\x00text\x07here"
+      expect { described_class.validate_text!(payload, field: "bio") }
+        .to raise_error(error_class) { |e| expect(e.violation_type).to eq("control_characters") }
+    end
+
+    it "still allows ordinary whitespace (tab, newline, carriage return)" do
+      payload = "line one\tcol\nline two\r\n"
       expect(described_class.validate_text!(payload, field: "bio")).to eq(payload)
     end
   end
@@ -114,8 +117,8 @@ RSpec.describe Security::InputValidationService do
       end
     end
 
-    it "raises path_traversal for URL-encoded and double-encoded dot traversal" do
-      ["%2e%2e/etc/passwd", "%252e%252e/secret"].each do |payload|
+    it "raises path_traversal for URL-encoded dot and URL-encoded separator traversal" do
+      ["%2e%2e/etc/passwd", "%252e%252e/secret", "..%2fetc%2fpasswd", "..%5cwindows"].each do |payload|
         expect { described_class.validate_path!(payload, field: "path") }
           .to raise_error(error_class) { |e| expect(e.violation_type).to eq("path_traversal") },
               "expected #{payload.inspect} to be rejected"
@@ -127,27 +130,25 @@ RSpec.describe Security::InputValidationService do
         .to raise_error(error_class) { |e| expect(e.violation_type).to eq("path_traversal") }
     end
 
-    # CHARACTERIZATION: the /\.{2,}/ pattern is broad — ANY run of 2+ dots trips
-    # it, including benign filenames. Pinned as current (over-eager) behavior.
-    it "also raises on any filename containing two or more consecutive dots (broad pattern)" do
-      expect { described_class.validate_path!("quarterly..report.pdf", field: "path") }
+    it "passes a benign filename with consecutive dots (no false positive)" do
+      expect(described_class.validate_path!("quarterly..report.pdf", field: "path"))
+        .to eq("quarterly..report.pdf")
+    end
+
+    it "passes a run of dots that is not a '..' segment (intentional de-broadening)" do
+      expect(described_class.validate_path!("....//notes", field: "path")).to eq("....//notes")
+    end
+
+    it "raises absolute_path for a dot-free absolute path (unix and windows drive)" do
+      ["/etc/passwd", "/var/lib/secrets/key", "\\\\server\\share", "C:\\Windows\\System32"].each do |payload|
+        expect { described_class.validate_path!(payload, field: "path") }
+          .to raise_error(error_class) { |e| expect(e.violation_type).to eq("absolute_path") }
+      end
+    end
+
+    it "raises path_traversal for a URL-encoded null byte lacking a leading dot" do
+      expect { described_class.validate_path!("file%00.txt", field: "path") }
         .to raise_error(error_class) { |e| expect(e.violation_type).to eq("path_traversal") }
-    end
-
-    # CHARACTERIZATION / BYPASS: there is NO absolute-path pattern. A dot-free
-    # absolute path is NOT treated as traversal and passes through. This is a gap
-    # versus the apparent intent (absolute paths should arguably be rejected).
-    it "does NOT reject a dot-free absolute path (current BYPASS)" do
-      expect(described_class.validate_path!("/etc/passwd", field: "path")).to eq("/etc/passwd")
-      expect(described_class.validate_path!("/var/lib/secrets/key", field: "path"))
-        .to eq("/var/lib/secrets/key")
-    end
-
-    # CHARACTERIZATION / BYPASS: %00 alone (without a preceding dot) is not the
-    # /\.%00/ pattern, and the URL-encoded NUL is not the literal /\x00/ byte, so
-    # an encoded null byte without a leading dot slips through.
-    it "does NOT reject a URL-encoded null byte that lacks a leading dot (current BYPASS)" do
-      expect(described_class.validate_path!("file%00.txt", field: "path")).to eq("file%00.txt")
     end
   end
 
@@ -311,12 +312,10 @@ RSpec.describe Security::InputValidationService do
       end
     end
 
-    # CHARACTERIZATION: the regex is purely structural (8-4-4-4-12 hex). It does
-    # NOT enforce RFC version/variant nibbles, so e.g. a "version 0 / variant 0"
-    # UUID-shaped string passes.
-    it "accepts any 8-4-4-4-12 hex string regardless of version/variant nibbles" do
+    it "rejects the nil (all-zeros) UUID as invalid_uuid" do
       structural = "00000000-0000-0000-0000-000000000000"
-      expect(described_class.validate_uuid!(structural, field: "id")).to eq(structural)
+      expect { described_class.validate_uuid!(structural, field: "id") }
+        .to raise_error(error_class) { |e| expect(e.violation_type).to eq("invalid_uuid") }
     end
   end
 
