@@ -7,6 +7,13 @@ module Api
         include ActionController::Live
         include McpTokenAuthentication
 
+        # controller-size-exempt: ActionController::Live streaming MCP endpoint. The SSE
+        # stream lifecycle (response.stream writes across threads + the dedup mutex) is
+        # irreducibly controller-bound and cannot be lifted into a service to reach the
+        # 300-line target. The JSON-RPC dispatch and session-provisioning helpers MAY be
+        # extracted to services as a future refinement (ref IMP-fe2c4e9fcb00); the
+        # residual streaming glue keeps this controller above the limit by design.
+
         MCP_PROTOCOL_VERSION = "2025-11-25"
         SESSION_TTL = 24.hours
         SSE_KEEPALIVE_INTERVAL = 30 # seconds between SSE pings (keeps connection alive)

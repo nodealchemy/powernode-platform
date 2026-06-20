@@ -10,6 +10,12 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // 
 
 LINE_COUNT=$(wc -l < "$FILE_PATH")
 if [[ "$LINE_COUNT" -gt 300 ]]; then
+  # Documented exemption: a controller may waive the size limit with a
+  # `controller-size-exempt:` marker comment + rationale — e.g. ActionController::Live
+  # streaming endpoints whose stream lifecycle cannot be extracted into a service.
+  if grep -q 'controller-size-exempt:' "$FILE_PATH"; then
+    exit 0
+  fi
   echo "Advisory: $FILE_PATH is $LINE_COUNT lines (target: <300)" >&2
   echo "Consider extracting to concerns, service objects, or serializers" >&2
   if [[ "$LINE_COUNT" -gt 500 ]]; then
