@@ -79,10 +79,12 @@ Rails.application.routes.draw do
       # /setup/admin is UNAUTHENTICATED + one-time-token-gated (runs before any
       # user exists, then self-disables); the rest are authenticated super_admin
       # routes the wizard driver reads/writes once an admin is logged in.
-      get  "setup/status",     to: "setup#status"
-      get  "setup/steps",      to: "setup#steps"
-      post "setup/steps/:key", to: "setup#submit_step"
-      post "setup/admin",      to: "setup#admin"
+      get  "setup/status",          to: "setup#status"
+      get  "setup/steps",           to: "setup#steps"
+      post "setup/steps/:key",      to: "setup#submit_step"
+      post "setup/admin",           to: "setup#admin"
+      get  "setup/extensions",      to: "setup#extensions"
+      post "setup/extensions/:slug", to: "setup#set_extension"
 
       # Configuration endpoints (no authentication required)
       get :config, to: "config#index"

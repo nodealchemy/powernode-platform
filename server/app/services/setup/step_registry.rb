@@ -40,6 +40,29 @@ module Setup
         schema: [
           { key: "domain", label: "Domain", type: "text", required: true, placeholder: "powernode.example.com" }
         ]
+      },
+      {
+        key: "general_settings",
+        title: "General settings",
+        description: "Basic identity for this instance.",
+        order: 30,
+        required: false,
+        owner: "core",
+        endpoint: "/api/v1/setup/steps/general_settings",
+        schema: [
+          { key: "site_name",     label: "Site name",     type: "text", required: false, placeholder: "Powernode" },
+          { key: "support_email", label: "Support email", type: "text", required: false, placeholder: "support@example.com" }
+        ]
+      },
+      {
+        key: "extension_selection",
+        title: "Extensions",
+        description: "Enable or disable the extensions installed in this build. Disabling is non-destructive — data is retained.",
+        order: 40,
+        required: false,
+        owner: "core",
+        component: "core/extension_selection",
+        endpoint: "/api/v1/setup/steps/extension_selection"
       }
     ].freeze
 

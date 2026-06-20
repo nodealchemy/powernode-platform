@@ -10,8 +10,9 @@ RSpec.describe Setup::StepRegistry do
       steps = described_class.steps_for(account)
       keys = steps.map { |s| s[:key] }
 
-      expect(keys).to include("admin", "domain")
+      expect(keys).to include("admin", "domain", "general_settings")
       expect(keys.index("admin")).to be < keys.index("domain")
+      expect(keys.index("domain")).to be < keys.index("general_settings")
       expect(steps.find { |s| s[:key] == "domain" }[:completed]).to be(false)
     end
 
@@ -26,6 +27,14 @@ RSpec.describe Setup::StepRegistry do
       domain = described_class.steps_for(account).find { |s| s[:key] == "domain" }
       expect(domain[:completed]).to be(true)
       expect(domain[:completed_at]).to be_present
+    end
+  end
+
+  describe "component-based steps" do
+    it "includes the extension_selection step with a component and no schema" do
+      ext = described_class.steps_for(account).find { |s| s[:key] == "extension_selection" }
+      expect(ext[:component]).to eq("core/extension_selection")
+      expect(ext[:schema]).to be_nil
     end
   end
 

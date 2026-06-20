@@ -14,7 +14,7 @@ class Api::V1::SetupController < ApplicationController
   # public wizard knows whether to show the admin step).
   skip_before_action :authenticate_request, only: [ :admin, :status ]
   before_action :authenticate_optional, only: [ :status ]
-  before_action :require_setup_admin!, only: [ :steps, :submit_step ]
+  before_action :require_setup_admin!, only: [ :steps, :submit_step, :extensions, :set_extension ]
 
   # GET /api/v1/setup/status
   def status
@@ -49,6 +49,22 @@ class Api::V1::SetupController < ApplicationController
 
     current_account.mark_setup_step!(step[:key])
     render_success(data: { step: Setup::StepRegistry.annotate(step, current_account) })
+  end
+
+  # GET /api/v1/setup/extensions — list extensions present in this build + enabled state.
+  def extensions
+    render_success(data: { extensions: Shared::FeatureGateService.loaded_extensions })
+  end
+
+  # POST /api/v1/setup/extensions/:slug — toggle one extension { enabled: bool }.
+  # Non-destructive: disabling gates the extension off but retains its data.
+  def set_extension
+    slug = params[:slug].to_s
+    return render_not_found("Extension") unless Shared::FeatureGateService.extension_loaded?(slug)
+
+    enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
+    new_state = Shared::FeatureGateService.set_extension_enabled!(slug, enabled)
+    render_success(data: { slug: slug, enabled: new_state })
   end
 
   # POST /api/v1/setup/admin — UNAUTHENTICATED, bootstrap-token-gated, one-shot.
@@ -125,6 +141,16 @@ class Api::V1::SetupController < ApplicationController
       return "Domain is required" if domain.blank?
 
       SiteSetting.set("domain", domain, description: "Public domain for this instance", is_public: true)
+      nil
+    when "general_settings"
+      # Optional step — persist whichever fields were provided, blanks allowed.
+      site_name = (params[:site_name] || params.dig(:payload, :site_name)).to_s.strip
+      support_email = (params[:support_email] || params.dig(:payload, :support_email)).to_s.strip
+      SiteSetting.set("site_name", site_name, description: "Display name for this instance", is_public: true) if site_name.present?
+      SiteSetting.set("support_email", support_email, description: "Support contact email", is_public: true) if support_email.present?
+      nil
+    when "extension_selection"
+      # Toggling happens live via /setup/extensions; submitting just stamps completion.
       nil
     else
       "No handler for setup step '#{key}'"

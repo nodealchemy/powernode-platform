@@ -141,6 +141,24 @@ RSpec.describe "Api::V1::Setup", type: :request do
         expect(response).to have_http_status(422)
       end
 
+      it "persists the general_settings step" do
+        post "/api/v1/setup/steps/general_settings",
+             params: { site_name: "My Fleet", support_email: "ops@example.com" },
+             headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+        expect(SiteSetting.get("site_name")).to eq("My Fleet")
+        expect(SiteSetting.get("support_email")).to eq("ops@example.com")
+        expect(account.reload.setup_step_completed?("general_settings")).to be(true)
+      end
+
+      it "allows general_settings to be submitted blank (optional)" do
+        post "/api/v1/setup/steps/general_settings",
+             params: {}, headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+      end
+
       it "404s an unknown step" do
         post "/api/v1/setup/steps/nope",
              params: {}, headers: auth_headers_for(admin), as: :json
@@ -151,6 +169,36 @@ RSpec.describe "Api::V1::Setup", type: :request do
         post "/api/v1/setup/steps/admin",
              params: {}, headers: auth_headers_for(admin), as: :json
         expect(response).to have_http_status(422)
+      end
+
+      it "stamps the component-based extension_selection step" do
+        post "/api/v1/setup/steps/extension_selection",
+             params: {}, headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+        expect(account.reload.setup_step_completed?("extension_selection")).to be(true)
+      end
+    end
+
+    describe "GET /api/v1/setup/extensions" do
+      it "lists extensions for a system admin" do
+        get "/api/v1/setup/extensions", headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+        expect(json_response_data["extensions"]).to be_an(Array)
+      end
+
+      it "forbids a user without system.admin" do
+        get "/api/v1/setup/extensions", headers: auth_headers_for(regular), as: :json
+        expect(response).to have_http_status(403)
+      end
+    end
+
+    describe "POST /api/v1/setup/extensions/:slug" do
+      it "404s an extension that is not loaded in this build" do
+        post "/api/v1/setup/extensions/does-not-exist",
+             params: { enabled: false }, headers: auth_headers_for(admin), as: :json
+        expect(response).to have_http_status(404)
       end
     end
   end
