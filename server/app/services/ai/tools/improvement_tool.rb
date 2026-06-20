@@ -139,7 +139,14 @@ module Ai
                     "code_find_duplicates as needed). For EACH finding: verify it still reproduces on HEAD " \
                     "(use code_blast_radius before proposing a deletion), then call create_improvement with a " \
                     "stable fingerprint and verifier_evidence. Findings under extensions/private/* are tagged to " \
-                    "the extension automatically — never offer them as core/global.",
+                    "the extension automatically — never offer them as core/global. " \
+                    "TRUST pattern-validation.sh's PASS/FAIL results — do NOT hand-roll an ad-hoc regex that " \
+                    "re-flags a check the script reports as PASS (e.g. its color-on-color badge check). A " \
+                    "regex-derived 'N files affected' count is a HYPOTHESIS, not ground truth: re-derive it with a " \
+                    "precise pattern before offering, because it can be almost entirely false positives. Specifically, " \
+                    "a Tailwind/theme '\\b' word-boundary also matches the position before a '-bg'/'-fg'/'-border' " \
+                    "suffix, so 'bg-theme-<c>\\b.*text-theme-<c>' wrongly flags the CORRECT fg/bg triad " \
+                    "('bg-theme-<c>-bg' / 'text-theme-<c>-fg') — anchor with '(?![-a-z])' as that check does.",
           code_types: CODE_TYPES
         )
       end
