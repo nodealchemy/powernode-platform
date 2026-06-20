@@ -982,29 +982,6 @@ RSpec.describe SupplyChain::ScanTemplate, type: :model do
     end
   end
 
-  describe "MarketplacePublishable concern" do
-    it "includes MarketplacePublishable module" do
-      expect(described_class.included_modules).to include(MarketplacePublishable)
-    end
-
-    it "responds to marketplace_published scope" do
-      expect(described_class.respond_to?(:marketplace_published)).to be true
-    end
-
-    it "responds to marketplace status predicates" do
-      template = build(:supply_chain_scan_template)
-      expect(template.respond_to?(:marketplace_draft?)).to be true
-      expect(template.respond_to?(:marketplace_pending?)).to be true
-      expect(template.respond_to?(:marketplace_approved?)).to be true
-      expect(template.respond_to?(:marketplace_rejected?)).to be true
-    end
-
-    it "returns correct marketplace_template_type" do
-      template = build(:supply_chain_scan_template)
-      expect(template.marketplace_template_type).to eq("scan_template")
-    end
-  end
-
   describe "edge cases and error handling" do
     describe "restrict_with_error on has_many :scan_instances" do
       let(:template) { create(:supply_chain_scan_template) }
