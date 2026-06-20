@@ -201,5 +201,20 @@ RSpec.describe "Api::V1::Setup", type: :request do
         expect(response).to have_http_status(404)
       end
     end
+
+    describe "POST /api/v1/setup/seed" do
+      it "runs the seed wrapper and stamps the seed step" do
+        post "/api/v1/setup/seed", headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+        expect(json_response_data).to have_key("seeded")
+        expect(account.reload.setup_step_completed?("seed")).to be(true)
+      end
+
+      it "forbids a user without system.admin" do
+        post "/api/v1/setup/seed", headers: auth_headers_for(regular), as: :json
+        expect(response).to have_http_status(403)
+      end
+    end
   end
 end

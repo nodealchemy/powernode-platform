@@ -63,6 +63,16 @@ module Setup
         owner: "core",
         component: "core/extension_selection",
         endpoint: "/api/v1/setup/steps/extension_selection"
+      },
+      {
+        key: "seed",
+        title: "Example data",
+        description: "Optionally seed example data so the platform has something to work with.",
+        order: 90,
+        required: false,
+        owner: "core",
+        component: "core/seed",
+        endpoint: "/api/v1/setup/steps/seed"
       }
     ].freeze
 
