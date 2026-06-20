@@ -30,11 +30,11 @@ export const BudgetUtilizationPanel: React.FC = () => {
     return <LoadingSpinner size="sm" className="py-8" />;
   }
 
-  // Guard on Array.isArray, not just truthiness: the /ai/finops/budget_utilization
-  // endpoint currently returns a structured object ({ budget, enforcement,
-  // agent_budgets, time_range }), not a BudgetUtilization[]. Until that contract
-  // is reconciled (tracked separately), degrade to the empty state rather than
-  // letting `[...budgets]` throw "budgets is not iterable" and white-screen the tab.
+  // The /ai/finops/budget_utilization contract is now reconciled in the hook
+  // (useBudgetUtilization maps the backend's agent_budgets object into a
+  // BudgetUtilization[]), so an empty array here means there are genuinely no
+  // budgets for the selected entity type. Keep the Array.isArray guard as a
+  // defensive belt-and-suspenders against a malformed payload.
   if (!Array.isArray(budgets) || budgets.length === 0) {
     return (
       <EmptyState
@@ -122,9 +122,11 @@ export const BudgetUtilizationPanel: React.FC = () => {
                   <span>
                     {formatCost(budget.current_spend)} / {formatCost(budget.budget_limit)}
                   </span>
-                  <span>
-                    Projected: {formatCost(budget.projected_spend)}
-                  </span>
+                  {budget.projected_spend !== undefined && (
+                    <span>
+                      Projected: {formatCost(budget.projected_spend)}
+                    </span>
+                  )}
                 </div>
               </div>
             );

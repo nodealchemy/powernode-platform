@@ -53,7 +53,7 @@ export interface BudgetUtilization {
   budget_limit: number;
   current_spend: number;
   utilization_pct: number;
-  projected_spend: number;
+  projected_spend?: number;
   period: string;
   alert_threshold: number;
   is_over_budget: boolean;

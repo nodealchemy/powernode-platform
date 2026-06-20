@@ -66,12 +66,46 @@ export function useCostTrends(params?: TrendParams) {
   });
 }
 
+// Raw per-agent budget row as returned by finops#budget_utilization
+// (agent_budget_summary). The backend only emits agent-scoped budgets and
+// reports cents + a 0–100 utilization percentage (Ai::AgentBudget#utilization_percentage).
+interface RawAgentBudget {
+  agent_id: string;
+  agent_name?: string | null;
+  total_budget_cents?: number | null;
+  spent_cents?: number | null;
+  utilization?: number | null;
+  period_type?: string | null;
+  exceeded?: boolean | null;
+}
+
 export function useBudgetUtilization(params?: BudgetParams) {
   return useQuery({
     queryKey: FINOPS_KEYS.budgetUtilization(params),
     queryFn: async () => {
       const response = await apiClient.get('/ai/finops/budget_utilization', { params });
-      return response.data?.data as BudgetUtilization[];
+      // Backend (finops#budget_utilization) returns an OBJECT
+      // { budget, enforcement, agent_budgets, time_range } — the budget rows live
+      // under `agent_budgets`, not at the top level. Map them into BudgetUtilization[]
+      // here so the panel can consume a flat array (contract lives in one place).
+      const rawBudgets: RawAgentBudget[] = response.data?.data?.agent_budgets ?? [];
+      const mapped: BudgetUtilization[] = rawBudgets.map((b) => ({
+        id: b.agent_id,
+        name: b.agent_name ?? b.agent_id,
+        entity_type: 'agent', // backend only provides agent budgets
+        budget_limit: (b.total_budget_cents ?? 0) / 100, // cents → dollars (panel formats dollars)
+        current_spend: (b.spent_cents ?? 0) / 100, // cents → dollars
+        utilization_pct: b.utilization ?? 0, // already a 0–100 percentage
+        period: b.period_type ?? '',
+        alert_threshold: 80, // sensible default; backend provides none
+        is_over_budget: Boolean(b.exceeded),
+        // projected_spend intentionally omitted — backend computes no projections
+      }));
+
+      // Client-side filter to the requested entity_type. The backend only has
+      // agent budgets, so requesting team/account yields [] (honest empty state).
+      const wanted = params?.entity_type;
+      return mapped.filter((b) => !wanted || b.entity_type === wanted);
     },
   });
 }
