@@ -51,9 +51,21 @@ session.key
 encryption.key
 *session*.key
 
-# API keys and tokens
-*secret*
-!**/secret_manager.rb
+# Secret material — match by file SHAPE, not any path containing the substring
+# "secret". Source code named "secret*" (e.g. Security::SecretStore, SecretFormModal)
+# is NOT a secret and must stay tracked. Real secret files are caught here by shape
+# and by the specific rules above/below (.env*, *.key, *.pem, credentials.yml.enc,
+# .kamal/secrets, tmp/*secret*). .gitleaks.toml is the content-based backstop.
+*.secret
+*secret*.key
+*secret*.pem
+*secret*.pfx
+*secret*.p12
+*secret*.enc
+*secret*.env
+*secret*.yml
+*secret*.yaml
+secrets.json
 *private*
 *.token
 *.tokens

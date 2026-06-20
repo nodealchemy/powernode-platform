@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_18_210001) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_20_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9334,6 +9334,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_18_210001) do
     t.index ["state"], name: "index_sdwan_virtual_ips_on_state"
   end
 
+  create_table "security_secrets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "key", null: false
+    t.string "scope", null: false
+    t.datetime "updated_at", null: false
+    t.text "value"
+    t.index ["account_id", "scope", "key"], name: "idx_security_secrets_on_account_scope_key", unique: true
+    t.index ["account_id"], name: "index_security_secrets_on_account_id"
+  end
+
   create_table "shared_prompt_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "category", null: false
@@ -14254,6 +14265,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_18_210001) do
   add_foreign_key "sdwan_virtual_ip_assignments", "sdwan_virtual_ips"
   add_foreign_key "sdwan_virtual_ips", "accounts"
   add_foreign_key "sdwan_virtual_ips", "sdwan_networks"
+  add_foreign_key "security_secrets", "accounts"
   add_foreign_key "shared_prompt_templates", "accounts", on_delete: :cascade
   add_foreign_key "shared_prompt_templates", "shared_prompt_templates", column: "parent_template_id", on_delete: :nullify
   add_foreign_key "shared_prompt_templates", "users", column: "created_by_id", on_delete: :nullify
