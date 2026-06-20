@@ -104,6 +104,12 @@ export const setupApi = {
     return inner<SetupExtension>(response.data);
   },
 
+  /** POST /setup/seed — run the idempotent seed wrapper (no-op in builds with no seeder). */
+  async seed(): Promise<{ seeded: boolean; reason?: string }> {
+    const response = await apiClient.post<Envelope<{ seeded: boolean; reason?: string }>>('/setup/seed', {});
+    return inner<{ seeded: boolean; reason?: string }>(response.data);
+  },
+
   /**
    * POST /setup/admin — UNAUTHENTICATED, one-time-token-gated. Creates the first
    * admin and establishes a session (server sets the refresh cookie); the caller

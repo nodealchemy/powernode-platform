@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { logger } from '@/shared/utils/logger';
-import { setupApi, type SetupExtension, type SetupStep } from '../services/setupApi';
-
-/** Contract for component-based setup steps (rich UI instead of a field schema). */
-export interface SetupStepComponentProps {
-  step: SetupStep;
-}
+import { setupApi, type SetupExtension } from '../services/setupApi';
+import type { SetupStepComponentProps } from './types';
 
 /**
  * Extension-selection step — lists the extensions present in this build and lets

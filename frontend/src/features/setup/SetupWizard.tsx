@@ -9,14 +9,17 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { WizardProgress } from '@/shared/components/wizard/WizardProgress';
 import { logger } from '@/shared/utils/logger';
 import { SchemaStepForm } from './SchemaStepForm';
-import { ExtensionSelectionStep, type SetupStepComponentProps } from './steps/ExtensionSelectionStep';
+import { ExtensionSelectionStep } from './steps/ExtensionSelectionStep';
+import { SeedStep } from './steps/SeedStep';
+import type { SetupStepComponentProps } from './steps/types';
 import { setupApi, type SetupStep } from './services/setupApi';
 
-// Resolver for component-based steps (rich UI instead of a field schema). An
-// extension's step id (e.g. "core/extension_selection") maps to its renderer;
-// unknown ids fall through to a generic notice.
+// Resolver for component-based steps (rich UI instead of a field schema). A
+// step id (e.g. "core/extension_selection") maps to its renderer; unknown ids
+// fall through to a generic notice.
 const STEP_COMPONENTS: Record<string, React.FC<SetupStepComponentProps>> = {
   'core/extension_selection': ExtensionSelectionStep,
+  'core/seed': SeedStep,
 };
 
 // Where to land once bootstrap is complete — flows into the existing provider
