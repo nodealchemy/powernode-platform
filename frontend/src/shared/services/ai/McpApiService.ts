@@ -60,6 +60,9 @@ class McpApiService extends BaseApiService {
       protocol_version: s.config?.protocol_version || '2025-06-18',
       status: s.status,
       connection_type: s.connection_type,
+      command: s.command,
+      args: s.args,
+      url: s.url,
       capabilities: s.config?.capabilities || {
         tools: true,
         resources: false,
@@ -118,6 +121,9 @@ class McpApiService extends BaseApiService {
       protocol_version: s.config?.protocol_version || '2025-06-18',
       status: s.status,
       connection_type: s.connection_type,
+      command: s.command,
+      args: s.args,
+      url: s.url,
       capabilities: s.config?.capabilities || {
         tools: true,
         resources: false,

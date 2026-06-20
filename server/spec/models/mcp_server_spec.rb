@@ -17,6 +17,34 @@ RSpec.describe McpServer, type: :model do
     it { should validate_presence_of(:connection_type) }
     it { should validate_inclusion_of(:connection_type).in_array(%w[stdio websocket http]).with_message('must be stdio, websocket, or http') }
 
+    context 'connection-target preservation (http/websocket)' do
+      let(:account) { create(:account) }
+
+      it 'rejects clearing a previously-set command/URL on an http server (edit-form data-loss guard)' do
+        server = create(:mcp_server, account: account, connection_type: 'http', command: 'https://example.com/mcp')
+        server.command = ''
+        expect(server).not_to be_valid
+        expect(server.errors[:command]).to be_present
+      end
+
+      it 'rejects clearing the URL on a websocket server' do
+        server = create(:mcp_server, account: account, connection_type: 'websocket', command: 'wss://example.com/mcp')
+        server.command = ''
+        expect(server).not_to be_valid
+      end
+
+      it 'allows creating an http server with a blank command (create stays lenient)' do
+        server = build(:mcp_server, account: account, connection_type: 'http', command: '')
+        expect(server).to be_valid
+      end
+
+      it 'does not flag an http server whose command is unchanged (status-only update)' do
+        server = create(:mcp_server, account: account, connection_type: 'http', command: 'https://example.com/mcp')
+        server.status = 'connected'
+        expect(server).to be_valid
+      end
+    end
+
     context 'name uniqueness' do
       let(:account) { create(:account) }
       let!(:existing_server) { create(:mcp_server, name: 'Test Server', account: account) }

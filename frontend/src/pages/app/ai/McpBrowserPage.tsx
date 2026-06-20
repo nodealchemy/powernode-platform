@@ -20,6 +20,11 @@ export interface McpServer {
   protocol_version: string;
   status: 'connected' | 'disconnected' | 'connecting' | 'error';
   connection_type: 'stdio' | 'sse' | 'websocket' | 'http';
+  // Connection config (stdio: command/args; http/websocket: url, also mirrored
+  // into command). Surfaced so the edit form can pre-fill instead of wiping them.
+  command?: string;
+  args?: string[];
+  url?: string;
   capabilities: {
     tools?: boolean;
     resources?: boolean;

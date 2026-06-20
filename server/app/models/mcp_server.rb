@@ -347,8 +347,13 @@ class McpServer < ApplicationRecord
         errors.add(:command, "is required for stdio connection")
       end
     when "websocket", "http"
-      # URL would typically be in configuration
-      # Validation can be added based on your implementation
+      # The connection URL for http/websocket is stored in `command`. Guard
+      # against an update silently clearing a previously-set URL (the edit-form
+      # data-loss path). Creation stays lenient (a blank URL on create is allowed);
+      # only blanking an already-set URL on update is rejected.
+      if persisted? && command_changed? && command.blank? && command_was.present?
+        errors.add(:command, "cannot be cleared for #{connection_type} connection")
+      end
     end
   end
 

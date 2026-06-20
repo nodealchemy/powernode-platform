@@ -32,6 +32,9 @@ export interface McpServerRawResponse {
   tools_count?: number;
   last_connected_at?: string;
   last_error?: string;
+  command?: string;
+  args?: string[];
+  url?: string;
   config?: {
     version?: string;
     protocol_version?: string;
@@ -93,6 +96,11 @@ export interface McpServer {
   status: 'connected' | 'disconnected' | 'connecting' | 'error';
   connection_type: 'stdio' | 'sse' | 'websocket' | 'http';
   auth_type?: 'none' | 'api_key' | 'oauth2';
+  // Connection config surfaced so the edit form can pre-fill it (stdio:
+  // command/args; http/websocket: url, also mirrored into command).
+  command?: string;
+  args?: string[];
+  url?: string;
   capabilities: {
     tools?: boolean;
     resources?: boolean;

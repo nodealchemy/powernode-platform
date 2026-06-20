@@ -65,8 +65,13 @@ export const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
       setName(server.name);
       setDescription(server.description || '');
       setConnectionType(server.connection_type as 'stdio' | 'websocket' | 'http');
-      setCommand('');
-      setArgs([]);
+      // Pre-fill the stored connection config so a round-trip edit does not wipe
+      // it. `command` holds the stdio command and (for http/websocket) the URL.
+      setCommand(server.command || server.url || '');
+      setArgs(server.args || []);
+      // env is intentionally not exposed by the API (it can hold secrets), so it
+      // cannot be pre-filled. It is left untouched on save (the update endpoint
+      // does not permit env), so it is preserved rather than wiped.
       setEnvVars([]);
       setOauthConfig({
         authType: (server as McpServer & { auth_type?: string }).auth_type as 'none' | 'api_key' | 'oauth2' || 'none',
