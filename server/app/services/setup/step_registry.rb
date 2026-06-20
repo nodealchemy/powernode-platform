@@ -81,6 +81,39 @@ module Setup
         endpoint: "/api/v1/setup/steps/extension_selection"
       },
       {
+        key: "ai_provider",
+        title: "AI provider",
+        description: "Connect an AI provider — powers the concierge agent and provisioning chat.",
+        order: 50,
+        required: false,
+        owner: "core",
+        component: "core/ai_provider",
+        completion: :provider_credentials,
+        category: "ai"
+      },
+      {
+        key: "cloud_provider",
+        title: "Cloud provider",
+        description: "Where the AI provisions compute on your behalf.",
+        order: 60,
+        required: false,
+        owner: "core",
+        component: "core/cloud_provider",
+        completion: :provider_credentials,
+        category: "cloud"
+      },
+      {
+        key: "git_provider",
+        title: "Git provider",
+        description: "Where source code lives for the deploy_app_code skill (optional).",
+        order: 70,
+        required: false,
+        owner: "core",
+        component: "core/git_provider",
+        completion: :provider_credentials,
+        category: "git"
+      },
+      {
         key: "seed",
         title: "Example data",
         description: "Optionally seed example data so the platform has something to work with.",
@@ -132,11 +165,22 @@ module Setup
       end
 
       def step_completed?(step, account)
-        if step[:completion] == :user_exists
+        case step[:completion]
+        when :user_exists
           users_exist?(account)
+        when :provider_credentials
+          provider_credentials_present?(account, step[:category])
         else
           account.respond_to?(:setup_step_completed?) && account.setup_step_completed?(step[:key])
         end
+      end
+
+      # Provider steps (ai/cloud/git) are "done" once the account has a credential
+      # in that category — resolved via the same service the onboarding status uses.
+      def provider_credentials_present?(account, category)
+        return false unless account && category
+
+        Shared::ProviderCredentialState.has_credentials?(account, category)
       end
 
       def completed_at(step, account)

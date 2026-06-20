@@ -39,6 +39,27 @@ RSpec.describe Setup::StepRegistry do
     end
   end
 
+  describe "provider steps (2d)" do
+    it "includes ai/cloud/git component steps ordered after extensions, before seed" do
+      keys = described_class.steps_for(account).map { |s| s[:key] }
+
+      expect(keys).to include("ai_provider", "cloud_provider", "git_provider")
+      expect(keys.index("extension_selection")).to be < keys.index("ai_provider")
+      expect(keys.index("ai_provider")).to be < keys.index("cloud_provider")
+      expect(keys.index("cloud_provider")).to be < keys.index("git_provider")
+      expect(keys.index("git_provider")).to be < keys.index("seed")
+    end
+
+    it "resolves provider-step completion from credential presence (per category)" do
+      allow(Shared::ProviderCredentialState).to receive(:has_credentials?).and_return(false)
+      allow(Shared::ProviderCredentialState).to receive(:has_credentials?).with(account, "ai").and_return(true)
+
+      steps = described_class.steps_for(account)
+      expect(steps.find { |s| s[:key] == "ai_provider" }[:completed]).to be(true)
+      expect(steps.find { |s| s[:key] == "cloud_provider" }[:completed]).to be(false)
+    end
+  end
+
   describe ".bootstrap_complete?" do
     it "is false with no users and true once an admin exists" do
       expect(described_class.bootstrap_complete?(account)).to be(false)
