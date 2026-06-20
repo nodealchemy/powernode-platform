@@ -39,6 +39,13 @@ export interface SetupStatus {
   pending: Array<{ owner: string; steps: SetupStep[] }>;
 }
 
+/** An extension present in this build, with its current enabled state. */
+export interface SetupExtension {
+  slug: string;
+  version: string | null;
+  enabled: boolean;
+}
+
 export interface CreateAdminParams {
   token: string;
   name?: string;
@@ -83,6 +90,18 @@ export const setupApi = {
   async submitStep(key: string, payload: Record<string, string>): Promise<SetupStep> {
     const response = await apiClient.post<Envelope<{ step: SetupStep }>>(`/setup/steps/${key}`, payload);
     return inner<{ step: SetupStep }>(response.data).step;
+  },
+
+  /** GET /setup/extensions — extensions present in this build + enabled state. */
+  async getExtensions(): Promise<SetupExtension[]> {
+    const response = await apiClient.get<Envelope<{ extensions: SetupExtension[] }>>('/setup/extensions');
+    return inner<{ extensions: SetupExtension[] }>(response.data).extensions ?? [];
+  },
+
+  /** POST /setup/extensions/:slug — toggle one extension (non-destructive). */
+  async setExtension(slug: string, enabled: boolean): Promise<SetupExtension> {
+    const response = await apiClient.post<Envelope<SetupExtension>>(`/setup/extensions/${slug}`, { enabled });
+    return inner<SetupExtension>(response.data);
   },
 
   /**

@@ -9,7 +9,15 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { WizardProgress } from '@/shared/components/wizard/WizardProgress';
 import { logger } from '@/shared/utils/logger';
 import { SchemaStepForm } from './SchemaStepForm';
+import { ExtensionSelectionStep, type SetupStepComponentProps } from './steps/ExtensionSelectionStep';
 import { setupApi, type SetupStep } from './services/setupApi';
+
+// Resolver for component-based steps (rich UI instead of a field schema). An
+// extension's step id (e.g. "core/extension_selection") maps to its renderer;
+// unknown ids fall through to a generic notice.
+const STEP_COMPONENTS: Record<string, React.FC<SetupStepComponentProps>> = {
+  'core/extension_selection': ExtensionSelectionStep,
+};
 
 // Where to land once bootstrap is complete — flows into the existing provider
 // onboarding (OnboardingGate) for AI/cloud/git, which Phase 2 folds into the registry.
@@ -255,6 +263,7 @@ export const SetupWizard: React.FC = () => {
   }
 
   const isAdminStep = currentStep?.key === 'admin';
+  const isSchemaStep = Boolean(currentStep?.schema && currentStep.schema.length > 0);
   const stepValid = currentStep ? Boolean(state.valid[currentStep.key]) : false;
   const adminBlockedNoToken = isAdminStep && !token;
 
@@ -305,7 +314,7 @@ export const SetupWizard: React.FC = () => {
                   </p>
                 )}
 
-                {currentStep.schema && currentStep.schema.length > 0 ? (
+                {isSchemaStep && currentStep.schema ? (
                   <SchemaStepForm
                     fields={currentStep.schema}
                     values={state.values[currentStep.key] ?? {}}
@@ -313,6 +322,8 @@ export const SetupWizard: React.FC = () => {
                     idPrefix={`setup-${currentStep.key}`}
                     disabled={state.submitting || adminBlockedNoToken}
                   />
+                ) : currentStep.component && STEP_COMPONENTS[currentStep.component] ? (
+                  React.createElement(STEP_COMPONENTS[currentStep.component], { step: currentStep })
                 ) : (
                   <p className="text-sm text-theme-secondary">
                     This step is configured elsewhere and has no fields here.
@@ -369,11 +380,11 @@ export const SetupWizard: React.FC = () => {
                   onClick={() => {
                     void submitStep(currentStep);
                   }}
-                  disabled={state.submitting || !stepValid}
+                  disabled={state.submitting || (isSchemaStep && !stepValid)}
                   loading={state.submitting}
                   data-testid="setup-save-btn"
                 >
-                  Save &amp; continue
+                  {isSchemaStep ? 'Save & continue' : 'Continue'}
                   <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Button>
               )

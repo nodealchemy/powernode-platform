@@ -9,6 +9,8 @@ jest.mock('./services/setupApi', () => ({
     getSteps: jest.fn(),
     submitStep: jest.fn(),
     createAdmin: jest.fn(),
+    getExtensions: jest.fn(),
+    setExtension: jest.fn(),
   },
 }));
 
@@ -24,6 +26,7 @@ import { setupApi } from './services/setupApi';
 const mockGetStatus = setupApi.getStatus as jest.Mock;
 const mockGetSteps = setupApi.getSteps as jest.Mock;
 const mockCreateAdmin = setupApi.createAdmin as jest.Mock;
+const mockGetExtensions = setupApi.getExtensions as jest.Mock;
 
 const setUrl = (path: string) => window.history.replaceState({}, '', path);
 
@@ -37,6 +40,7 @@ describe('SetupWizard', () => {
     mockGetStatus.mockReset();
     mockGetSteps.mockReset();
     mockCreateAdmin.mockReset();
+    mockGetExtensions.mockReset();
   });
 
   it('shows the admin step and gates the create button on email + password', async () => {
@@ -94,5 +98,30 @@ describe('SetupWizard', () => {
         expect.objectContaining({ token: 'tok-xyz', email: 'ada@b.co', password: 'Sup3r$ecretX!' })
       )
     );
+  });
+
+  it('renders the extension-selection component step for an authenticated admin', async () => {
+    setUrl('/setup');
+    mockGetSteps.mockResolvedValue([
+      {
+        key: 'extension_selection',
+        title: 'Extensions',
+        description: 'Toggle extensions.',
+        order: 40,
+        owner: 'core',
+        required: false,
+        component: 'core/extension_selection',
+        completed: false,
+        completed_at: null,
+      },
+    ]);
+    mockGetExtensions.mockResolvedValue([{ slug: 'system', version: '1.0', enabled: true }]);
+
+    renderWithProviders(<SetupWizard />, {
+      preloadedState: { auth: { isAuthenticated: true, user: { id: '1' }, isLoading: false } },
+    });
+
+    await waitFor(() => expect(screen.getByTestId('setup-extension-list')).toBeInTheDocument());
+    expect(screen.getByTestId('setup-ext-toggle-system')).toHaveTextContent('Enabled');
   });
 });
