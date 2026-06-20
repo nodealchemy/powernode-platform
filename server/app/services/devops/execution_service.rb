@@ -28,7 +28,7 @@ module Devops
             success: true,
             execution_id: execution.id,
             result: result,
-            execution_time_ms: execution.reload.execution_time_ms
+            duration_ms: execution.reload.duration_ms
           }
         rescue Devops::BaseExecutor::ExecutionError => e
           {
@@ -61,7 +61,7 @@ module Devops
         rescue WorkerJobService::WorkerServiceError => e
           Rails.logger.warn "Worker service unavailable for integration execution: #{e.message}"
           job_queued = false
-          execution.update!(status: "failed", error_message: "Worker service unavailable")
+          execution.update!(status: "failed", error_details: { "message" => "Worker service unavailable" })
         end
 
         {
@@ -152,9 +152,9 @@ module Devops
         new_execution = create_execution_record(
           instance,
           execution.input_data,
-          execution.triggered_by,
+          execution.triggered_by_user,
           parent_execution_id: execution.id,
-          retry_count: execution.retry_count + 1
+          attempt_number: execution.attempt_number + 1
         )
 
         begin
@@ -187,7 +187,7 @@ module Devops
         execution.update!(
           status: "cancelled",
           completed_at: Time.current,
-          error_message: "Cancelled by user"
+          error_details: { "message" => "Cancelled by user" }
         )
 
         {
@@ -199,7 +199,7 @@ module Devops
 
       # Get execution history for an instance
       def execution_history(instance:, filters: {}, page: 1, per_page: 20)
-        scope = Devops::IntegrationExecution.where(devops_integration_instance_id: instance.id)
+        scope = Devops::IntegrationExecution.where(integration_instance_id: instance.id)
 
         scope = scope.where(status: filters[:status]) if filters[:status].present?
         scope = scope.where("created_at >= ?", filters[:since]) if filters[:since].present?
@@ -213,7 +213,7 @@ module Devops
       # Get execution statistics for an instance
       def execution_stats(instance:, period: 30.days)
         executions = Devops::IntegrationExecution
-          .where(devops_integration_instance_id: instance.id)
+          .where(integration_instance_id: instance.id)
           .where("created_at >= ?", period.ago)
 
         {
@@ -221,7 +221,7 @@ module Devops
           successful: executions.where(status: "completed").count,
           failed: executions.where(status: "failed").count,
           cancelled: executions.where(status: "cancelled").count,
-          avg_execution_time_ms: executions.where(status: "completed").average(:execution_time_ms)&.round(2),
+          avg_execution_time_ms: executions.where(status: "completed").average(:duration_ms)&.round(2),
           success_rate: calculate_success_rate(executions),
           period_days: period.to_i / 1.day.to_i
         }
@@ -252,27 +252,24 @@ module Devops
 
       def create_execution_record(instance, input, triggered_by, options = {})
         Devops::IntegrationExecution.create!(
-          devops_integration_instance_id: instance.id,
+          integration_instance_id: instance.id,
           account: instance.account,
           status: options[:status] || "running",
           input_data: input,
-          triggered_by: triggered_by_string(triggered_by),
+          triggered_by_user_id: triggered_by_user_id_for(triggered_by),
           started_at: Time.current,
           parent_execution_id: options[:parent_execution_id],
-          retry_count: options[:retry_count] || 0
+          attempt_number: options[:attempt_number] || 1
         )
       end
 
-      def triggered_by_string(triggered_by)
+      # The execution records its triggering user via the triggered_by_user_id FK.
+      # Non-user triggers (webhook / scheduled / system) carry no user; their
+      # provenance lives in trigger_type / trigger_source / trigger_metadata.
+      def triggered_by_user_id_for(triggered_by)
         case triggered_by
-        when User
-          "user:#{triggered_by.id}"
-        when String
-          triggered_by
-        when Hash
-          "#{triggered_by[:type]}:#{triggered_by[:id]}"
-        else
-          "system"
+        when User then triggered_by.id
+        when Hash then (triggered_by[:type].to_s == "user" ? triggered_by[:id] : nil)
         end
       end
 

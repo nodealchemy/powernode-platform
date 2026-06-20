@@ -142,9 +142,15 @@ module Devops
       end
 
       if duration_ms
-        # Calculate running average
-        total_duration = (average_duration_ms || 0) * (execution_count - 1) + duration_ms
-        updates[:average_duration_ms] = total_duration / execution_count
+        # Running average INCLUDING this execution. `execution_count` here is still
+        # the pre-increment value (the +1 lives in `updates` and is not yet
+        # persisted), so the prior sample count IS execution_count and the new
+        # count is execution_count + 1 — never zero. The previous code divided by
+        # `execution_count` (0 on the first execution), producing an infinite value
+        # that overflowed the decimal(10,2) column (PG::NumericValueOutOfRange).
+        prior_count = execution_count
+        total_duration = (average_duration_ms || 0) * prior_count + duration_ms
+        updates[:average_duration_ms] = (total_duration.to_f / (prior_count + 1)).round(2)
       end
 
       update!(updates)

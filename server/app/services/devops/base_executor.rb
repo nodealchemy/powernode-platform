@@ -205,16 +205,14 @@ module Devops
 
       execution_time = Time.current - @start_time
 
-      execution.update!(
-        status: "completed",
-        completed_at: Time.current,
-        execution_time_ms: (execution_time * 1000).round,
-        output_data: sanitize_output(result),
-        response_code: result[:status_code],
-        response_size_bytes: result.to_json.bytesize
-      )
+      # complete! writes the real columns (duration_ms, output_data) and triggers
+      # IntegrationExecution#update_instance_stats -> instance.record_execution!,
+      # which owns the durable instance counters and running-duration average. The
+      # HTTP status code (when present) already rides along inside the result hash,
+      # so it is preserved in output_data via sanitize_output.
+      execution.complete!(sanitize_output(result))
 
-      update_instance_metrics(success: true, execution_time: execution_time)
+      record_health_telemetry(success: true, execution_time: execution_time)
     end
 
     def record_failure(error)
@@ -222,36 +220,26 @@ module Devops
 
       execution_time = @start_time ? Time.current - @start_time : 0
 
-      execution.update!(
-        status: "failed",
-        completed_at: Time.current,
-        execution_time_ms: (execution_time * 1000).round,
-        error_message: error.message,
-        error_class: error.class.name
-      )
+      # fail! writes error_details (the real jsonb column); record_execution! reads
+      # error_details["message"] for the instance's last_error.
+      execution.fail!("message" => error.message, "class" => error.class.name)
 
-      update_instance_metrics(success: false, execution_time: execution_time)
+      record_health_telemetry(success: false, execution_time: execution_time)
     end
 
-    def update_instance_metrics(success:, execution_time:)
-      instance.increment!(:execution_count)
-
-      if success
-        instance.increment!(:success_count)
-      else
-        instance.increment!(:failure_count)
-      end
-
-      # Update health metrics
+    # Transient per-instance health telemetry surfaced to the UI
+    # (last_execution_success is consumed by the integrations frontend). The
+    # durable counters (execution/success/failure) and the running-duration
+    # average are owned by IntegrationExecution#update_instance_stats ->
+    # record_execution!, so this no longer increments them — doing so
+    # double-counted every execution.
+    def record_health_telemetry(success:, execution_time:)
       metrics = instance.health_metrics || {}
       metrics["last_execution_time_ms"] = (execution_time * 1000).round
       metrics["last_execution_at"] = Time.current.iso8601
       metrics["last_execution_success"] = success
 
-      instance.update!(
-        health_metrics: metrics,
-        last_executed_at: Time.current
-      )
+      instance.update!(health_metrics: metrics)
     end
 
     def sanitize_output(result)
@@ -281,14 +269,14 @@ module Devops
 
     def calculate_avg_response_time
       recent_executions = Devops::IntegrationExecution
-        .where(devops_integration_instance_id: instance.id)
+        .where(integration_instance_id: instance.id)
         .where(status: "completed")
         .order(created_at: :desc)
         .limit(100)
 
       return nil if recent_executions.empty?
 
-      recent_executions.average(:execution_time_ms)&.round(2)
+      recent_executions.average(:duration_ms)&.round(2)
     end
 
     # Logging helpers

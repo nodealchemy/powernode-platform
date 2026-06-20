@@ -49,4 +49,60 @@ RSpec.describe Devops::ExecutionService, type: :service do
       end.to raise_error(Devops::ExecutionService::InvalidInstanceError)
     end
   end
+
+  describe ".execute_async" do
+    let(:instance) { create(:devops_integration_instance) } # status "active"
+
+    before do
+      allow(WorkerJobService).to receive(:enqueue_job).and_return(true)
+    end
+
+    # Regression: create_execution_record wrote `devops_integration_instance_id`,
+    # which is not a column (the real FK is `integration_instance_id`), so every
+    # async dispatch raised UnknownAttributeError before this point.
+    it "creates a queued execution wired to the real FK and enqueues the worker job" do
+      result = described_class.execute_async(instance: instance, input: { "k" => "v" })
+
+      expect(result).to include(success: true, status: "queued")
+
+      execution = Devops::IntegrationExecution.find(result[:execution_id])
+      expect(execution.status).to eq("queued")
+      expect(execution.integration_instance_id).to eq(instance.id)
+      expect(execution.instance).to eq(instance)
+
+      expect(WorkerJobService).to have_received(:enqueue_job)
+        .with("Devops::IntegrationExecutionJob", hash_including(queue: "integrations"))
+    end
+  end
+
+  describe ".retry_execution" do
+    let(:instance) { create(:devops_integration_instance) }
+    let(:user) { create(:user) }
+    let(:failed_execution) do
+      create(:devops_integration_execution, :failed, instance: instance, account: instance.account,
+                                                      triggered_by_user: user, attempt_number: 1, max_attempts: 3)
+    end
+    let(:executor) { instance_double(Devops::BaseExecutor) }
+
+    before do
+      allow(described_class).to receive(:build_executor).and_return(executor)
+      allow(executor).to receive(:execute).and_return({ ok: true })
+    end
+
+    # Regression: retry_execution read execution.triggered_by / execution.retry_count
+    # and wrote retry_count: — none of which are columns (the real ones are
+    # triggered_by_user_id / attempt_number), so retrying always raised.
+    it "creates a child execution with an incremented attempt_number and the same trigger user" do
+      result = described_class.retry_execution(execution: failed_execution)
+
+      expect(result[:success]).to be(true)
+
+      retry_exec = Devops::IntegrationExecution.find(result[:execution_id])
+      expect(retry_exec.id).not_to eq(failed_execution.id)
+      expect(retry_exec.attempt_number).to eq(2)
+      expect(retry_exec.parent_execution_id).to eq(failed_execution.id)
+      expect(retry_exec.triggered_by_user_id).to eq(user.id)
+      expect(retry_exec.integration_instance_id).to eq(instance.id)
+    end
+  end
 end
