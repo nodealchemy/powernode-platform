@@ -156,6 +156,17 @@ class Api::V1::SetupController < ApplicationController
       SiteSetting.set("site_name", site_name, description: "Display name for this instance", is_public: true) if site_name.present?
       SiteSetting.set("support_email", support_email, description: "Support contact email", is_public: true) if support_email.present?
       nil
+    when "email"
+      # Non-secret SMTP fields → AdminSetting (the keys the worker already reads).
+      %w[smtp_host smtp_port smtp_username smtp_from_address].each do |field|
+        value = (params[field] || params.dig(:payload, field)).to_s.strip
+        AdminSetting.set(field, value) if value.present?
+      end
+      # The secret is routed through Security::SecretStore (Vault or DB-encrypted,
+      # per the global toggle) — never AdminSetting, never logged.
+      password = (params[:smtp_password] || params.dig(:payload, :smtp_password)).to_s
+      Security::SecretStore.write(account: current_account, scope: "email", key: "smtp_password", value: password) if password.present?
+      nil
     when "extension_selection", "seed"
       # Component steps: the action happens via their own endpoint (live toggle /
       # POST /setup/seed); submitting the step just stamps completion.

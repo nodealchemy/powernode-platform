@@ -10,9 +10,10 @@ RSpec.describe Setup::StepRegistry do
       steps = described_class.steps_for(account)
       keys = steps.map { |s| s[:key] }
 
-      expect(keys).to include("admin", "domain", "general_settings")
+      expect(keys).to include("admin", "domain", "email", "general_settings")
       expect(keys.index("admin")).to be < keys.index("domain")
-      expect(keys.index("domain")).to be < keys.index("general_settings")
+      expect(keys.index("domain")).to be < keys.index("email")
+      expect(keys.index("email")).to be < keys.index("general_settings")
       expect(steps.find { |s| s[:key] == "domain" }[:completed]).to be(false)
     end
 

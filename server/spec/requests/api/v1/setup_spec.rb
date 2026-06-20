@@ -159,6 +159,30 @@ RSpec.describe "Api::V1::Setup", type: :request do
         expect_success_response
       end
 
+      it "persists the email step — non-secret to AdminSetting, password to SecretStore" do
+        post "/api/v1/setup/steps/email",
+             params: {
+               smtp_host: "smtp.example.com", smtp_port: "587", smtp_username: "mailer",
+               smtp_password: "Sup3r$ecretX!", smtp_from_address: "noreply@example.com"
+             },
+             headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+        expect(AdminSetting.get("smtp_host")).to eq("smtp.example.com")
+        expect(AdminSetting.get("smtp_username")).to eq("mailer")
+        expect(Security::SecretStore.read(account: account, scope: "email", key: "smtp_password")).to eq("Sup3r$ecretX!")
+        expect(account.reload.setup_step_completed?("email")).to be(true)
+      end
+
+      it "never stores the SMTP password in AdminSetting" do
+        post "/api/v1/setup/steps/email",
+             params: { smtp_host: "smtp.example.com", smtp_password: "Sup3r$ecretX!" },
+             headers: auth_headers_for(admin), as: :json
+
+        expect(AdminSetting.get("smtp_password")).to be_nil
+        expect(AdminSetting.get("smtp_password_encrypted")).to be_nil
+      end
+
       it "404s an unknown step" do
         post "/api/v1/setup/steps/nope",
              params: {}, headers: auth_headers_for(admin), as: :json

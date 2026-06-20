@@ -42,6 +42,22 @@ module Setup
         ]
       },
       {
+        key: "email",
+        title: "Email (SMTP)",
+        description: "Outbound email server. The password is stored in the active secret backend (Vault or DB-encrypted).",
+        order: 20,
+        required: false,
+        owner: "core",
+        endpoint: "/api/v1/setup/steps/email",
+        schema: [
+          { key: "smtp_host",         label: "SMTP host",    type: "text",     required: false, placeholder: "smtp.example.com" },
+          { key: "smtp_port",         label: "SMTP port",    type: "text",     required: false, placeholder: "587" },
+          { key: "smtp_username",     label: "Username",     type: "text",     required: false },
+          { key: "smtp_password",     label: "Password",     type: "password", required: false },
+          { key: "smtp_from_address", label: "From address", type: "text",     required: false, placeholder: "noreply@example.com" }
+        ]
+      },
+      {
         key: "general_settings",
         title: "General settings",
         description: "Basic identity for this instance.",
