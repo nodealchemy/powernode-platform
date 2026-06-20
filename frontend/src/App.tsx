@@ -50,6 +50,9 @@ const ProvisioningPage = React.lazy(() => import('@/pages/ProvisioningPage'));
 const FirstRunWizard = React.lazy(() =>
   import('@/features/onboarding/FirstRunWizard').then((m) => ({ default: m.FirstRunWizard }))
 );
+const SetupWizard = React.lazy(() =>
+  import('@/features/setup/SetupWizard').then((m) => ({ default: m.SetupWizard }))
+);
 import apiClient from '@/shared/services/apiClient';
 import { logger } from '@/shared/utils/logger';
 
@@ -340,6 +343,19 @@ const AppContent: React.FC = () => {
           <Route
             path="/app/oauth/authorize"
             element={<OAuthConsentPage />}
+          />
+
+          {/* First-run setup wizard (PUBLIC, token-gated admin step). Registered
+              before /app/* and outside ProtectedRoute so it renders standalone
+              before any user exists. Reached via the one-time setup URL printed
+              to the service console at first boot; self-disables once an admin exists. */}
+          <Route
+            path="/setup"
+            element={
+              <React.Suspense fallback={<LoadingSpinner message="Loading setup…" />}>
+                <SetupWizard />
+              </React.Suspense>
+            }
           />
 
           {/* First-run onboarding wizard. Registered before /app/* so it

@@ -15,6 +15,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
+import { WizardProgress } from '@/shared/components/wizard/WizardProgress';
 import { logger } from '@/shared/utils/logger';
 import { onboardingApi } from './services/onboardingApi';
 import {
@@ -662,49 +663,17 @@ interface StepProgressProps {
 
 const StepProgress: React.FC<StepProgressProps> = ({ current, categories }) => {
   const currentIdx = stepIndex(current);
-  return (
-    <ol className="flex items-center gap-2" data-testid="first-run-step-progress">
-      {STEP_KEYS.map((key, idx) => {
-        const reached = idx <= currentIdx;
-        const category = CATEGORY_FOR_STEP[key];
-        const skipped = category && categories[category].saveStatus === 'skipped';
-        const preExisting = category && categories[category].preExisting;
-        return (
-          <li key={key} className="flex flex-1 items-center gap-2">
-            <span
-              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                reached
-                  ? 'bg-theme-interactive-primary text-white'
-                  : 'bg-theme-background-secondary text-theme-tertiary'
-              }`}
-              aria-current={idx === currentIdx ? 'step' : undefined}
-            >
-              {idx + 1}
-            </span>
-            <span
-              className={`hidden text-xs sm:inline ${
-                reached ? 'text-theme-primary' : 'text-theme-tertiary'
-              }`}
-            >
-              {STEP_LABELS[key]}
-              {(skipped || preExisting) && (
-                <span className="ml-1 text-theme-tertiary">{preExisting ? '(configured)' : '(skipped)'}</span>
-              )}
-            </span>
-            {idx < STEP_KEYS.length - 1 && (
-              <span
-                className={`h-0.5 flex-1 rounded-full ${
-                  idx < currentIdx
-                    ? 'bg-theme-interactive-primary'
-                    : 'bg-theme-background-secondary'
-                }`}
-              />
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
+  // Map the wizard's category state onto the shared WizardProgress contract
+  // (the "extract & share" seam reused by SetupWizard). Annotation mirrors the
+  // prior inline "(configured)"/"(skipped)" badges.
+  const steps = STEP_KEYS.map((key) => {
+    const category = CATEGORY_FOR_STEP[key];
+    const skipped = category && categories[category].saveStatus === 'skipped';
+    const preExisting = category && categories[category].preExisting;
+    const annotation = preExisting ? '(configured)' : skipped ? '(skipped)' : undefined;
+    return { key, label: STEP_LABELS[key], annotation };
+  });
+  return <WizardProgress steps={steps} currentIndex={currentIdx} testId="first-run-step-progress" />;
 };
 
 const WelcomeStep: React.FC = () => (
