@@ -20,8 +20,8 @@ export interface SubscriptionHistoryEvent {
 }
 
 export interface SubscriptionHistoryResponse {
-   
-  current_subscription: any | null;
+  // Shape not pinned in core (no field-level consumers); an opaque object or null.
+  current_subscription: Record<string, unknown> | null;
   history: SubscriptionHistoryEvent[];
   total_events: number;
 }

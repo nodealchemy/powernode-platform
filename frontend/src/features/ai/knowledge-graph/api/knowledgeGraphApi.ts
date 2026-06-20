@@ -31,10 +31,10 @@ const KG_KEYS = {
   statistics: () => [...KG_KEYS.all, 'statistics'] as const,
 };
 
-// Unwrap { success, data } envelope from render_success responses
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function unwrap(responseData: any): any {
-  return responseData?.data ?? responseData;
+// Unwrap the { success, data } envelope from render_success responses. Returns
+// `unknown`; each caller asserts the concrete body shape it expects.
+function unwrap(responseData: unknown): unknown {
+  return (responseData as { data?: unknown } | null)?.data ?? responseData;
 }
 
 export function useKnowledgeNodes(params?: NodeListParams, enabled = true) {
@@ -42,7 +42,7 @@ export function useKnowledgeNodes(params?: NodeListParams, enabled = true) {
     queryKey: KG_KEYS.nodes(params),
     queryFn: async (): Promise<PaginatedResponse<KnowledgeNode>> => {
       const response = await apiClient.get('/ai/knowledge_graph/nodes', { params });
-      const body = unwrap(response.data);
+      const body = unwrap(response.data) as { nodes?: KnowledgeNode[]; total_count?: number };
       const nodes = body?.nodes || [];
       const totalCount = body?.total_count || nodes.length;
       return {
@@ -64,7 +64,7 @@ export function useKnowledgeNodeDetail(id: string, enabled = true) {
     queryKey: KG_KEYS.nodeDetail(id),
     queryFn: async () => {
       const response = await apiClient.get(`/ai/knowledge_graph/nodes/${id}`);
-      const body = unwrap(response.data);
+      const body = unwrap(response.data) as { node?: NodeDetail };
       return (body?.node || body) as NodeDetail;
     },
     enabled: enabled && !!id,
@@ -76,7 +76,7 @@ export function useKnowledgeEdges(params?: EdgeListParams, enabled = true) {
     queryKey: KG_KEYS.edges(params),
     queryFn: async (): Promise<PaginatedResponse<KnowledgeEdge>> => {
       const response = await apiClient.get('/ai/knowledge_graph/edges', { params });
-      const body = unwrap(response.data);
+      const body = unwrap(response.data) as { edges?: KnowledgeEdge[] };
       const edges = body?.edges || [];
       return {
         data: edges,
@@ -97,7 +97,7 @@ export function useNodeNeighbors(id: string, enabled = true) {
     queryKey: KG_KEYS.neighbors(id),
     queryFn: async () => {
       const response = await apiClient.get(`/ai/knowledge_graph/nodes/${id}/neighbors`);
-      const body = unwrap(response.data);
+      const body = unwrap(response.data) as { neighbors?: KnowledgeNode[] };
       return (body?.neighbors || body) as KnowledgeNode[];
     },
     enabled: enabled && !!id,
@@ -136,7 +136,7 @@ export function useHybridSearch(params: SearchParams, enabled = true) {
         top_k: params.limit || 20,
         entity_type: params.entity_type,
       });
-      const body = unwrap(response.data);
+      const body = unwrap(response.data) as { results?: HybridSearchRawResult[] };
       const rawResults: HybridSearchRawResult[] = body?.results || [];
 
       return rawResults.map((r): HybridSearchResult => ({
@@ -177,7 +177,7 @@ export function useCreateNode() {
   return useMutation({
     mutationFn: async (params: CreateNodeParams) => {
       const response = await apiClient.post('/ai/knowledge_graph/nodes', { node: params });
-      const body = unwrap(response.data);
+      const body = unwrap(response.data) as { node?: KnowledgeNode };
       return (body?.node || body) as KnowledgeNode;
     },
     onSuccess: () => {
@@ -193,7 +193,7 @@ export function useCreateEdge() {
   return useMutation({
     mutationFn: async (params: CreateEdgeParams) => {
       const response = await apiClient.post('/ai/knowledge_graph/edges', { edge: params });
-      const body = unwrap(response.data);
+      const body = unwrap(response.data) as { edge?: KnowledgeEdge };
       return (body?.edge || body) as KnowledgeEdge;
     },
     onSuccess: () => {
