@@ -21,6 +21,22 @@ jest.mock('@/shared/services/slices/authSlice', () => {
   return { __esModule: true, refreshAccessToken: thunk, getCurrentUser: thunk };
 });
 
+// onboardingApi backs the provider steps (ProviderStep) and the finish-completion call.
+jest.mock('@/features/onboarding/services/onboardingApi', () => ({
+  __esModule: true,
+  onboardingApi: {
+    complete: jest.fn().mockResolvedValue(undefined),
+    testCredentials: jest.fn(),
+    createCloudCredential: jest.fn(),
+    createAiProvider: jest.fn(),
+    createAiCredential: jest.fn(),
+    createGitProvider: jest.fn(),
+    createGitCredential: jest.fn(),
+  },
+}));
+
+import { onboardingApi } from '@/features/onboarding/services/onboardingApi';
+
 import { setupApi } from './services/setupApi';
 
 const mockGetStatus = setupApi.getStatus as jest.Mock;
@@ -123,5 +139,31 @@ describe('SetupWizard', () => {
 
     await waitFor(() => expect(screen.getByTestId('setup-extension-list')).toBeInTheDocument());
     expect(screen.getByTestId('setup-ext-toggle-system')).toHaveTextContent('Enabled');
+  });
+
+  it('renders a provider step and finishes setup (marks onboarding complete) on Continue', async () => {
+    setUrl('/setup');
+    mockGetSteps.mockResolvedValue([
+      {
+        key: 'ai_provider',
+        title: 'AI provider',
+        order: 50,
+        owner: 'core',
+        required: false,
+        component: 'core/ai_provider',
+        category: 'ai',
+        completion: 'provider_credentials',
+        completed: false,
+        completed_at: null,
+      },
+    ]);
+
+    renderWithProviders(<SetupWizard />, {
+      preloadedState: { auth: { isAuthenticated: true, user: { id: '1' }, isLoading: false } },
+    });
+
+    await waitFor(() => expect(screen.getByTestId('setup-ai-step')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('setup-continue-btn'));
+    await waitFor(() => expect(onboardingApi.complete).toHaveBeenCalled());
   });
 });

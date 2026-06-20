@@ -8,6 +8,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { WizardProgress } from '@/shared/components/wizard/WizardProgress';
 import { logger } from '@/shared/utils/logger';
+import { onboardingApi } from '@/features/onboarding/services/onboardingApi';
 import { SchemaStepForm } from './SchemaStepForm';
 import { ExtensionSelectionStep } from './steps/ExtensionSelectionStep';
 import { SeedStep } from './steps/SeedStep';
@@ -212,6 +213,17 @@ export const SetupWizard: React.FC = () => {
     }
   }, [state.values, token, dispatch, navigate]);
 
+  // Finishing the wizard stamps onboarding_completed_at (and seeds templates) via the
+  // existing endpoint, so OnboardingGate clears even when provider steps were skipped.
+  const finishSetup = useCallback(async () => {
+    try {
+      await onboardingApi.complete({ providerCredentialId: null, providerType: null });
+    } catch (err) {
+      logger.error('SetupWizard: onboarding completion failed (continuing)', err);
+    }
+    navigate(POST_SETUP_PATH, { replace: true });
+  }, [navigate]);
+
   const submitStep = useCallback(
     async (step: SetupStep) => {
       const values = state.values[step.key] ?? {};
@@ -222,23 +234,23 @@ export const SetupWizard: React.FC = () => {
         const nextIdx = Math.min(state.index + 1, steps.length);
         dispatchLocal({ type: 'REPLACE_STEPS', steps, index: nextIdx });
         if (nextIdx >= steps.length) {
-          navigate(POST_SETUP_PATH, { replace: true });
+          void finishSetup();
         }
       } catch (err) {
         dispatchLocal({ type: 'SUBMIT_ERROR', error: errorMessage(err, 'Failed to save this step.') });
       }
     },
-    [state.values, state.index, navigate]
+    [state.values, state.index, finishSetup]
   );
 
   const skipStep = useCallback(() => {
     const nextIdx = state.index + 1;
     if (nextIdx >= state.steps.length) {
-      navigate(POST_SETUP_PATH, { replace: true });
+      void finishSetup();
     } else {
       dispatchLocal({ type: 'ADVANCE' });
     }
-  }, [state.index, state.steps.length, navigate]);
+  }, [state.index, state.steps.length, finishSetup]);
 
   const progressSteps = useMemo(
     () =>

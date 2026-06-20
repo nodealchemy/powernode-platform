@@ -47,9 +47,6 @@ import { StatusPage } from '@/pages/public/StatusPage';
 import { ApprovalResponsePage } from '@/features/devops/pipelines/pages/ApprovalResponsePage';
 import { DetachedChatPage } from '@/features/ai/chat/pages/DetachedChatPage';
 const ProvisioningPage = React.lazy(() => import('@/pages/ProvisioningPage'));
-const FirstRunWizard = React.lazy(() =>
-  import('@/features/onboarding/FirstRunWizard').then((m) => ({ default: m.FirstRunWizard }))
-);
 const SetupWizard = React.lazy(() =>
   import('@/features/setup/SetupWizard').then((m) => ({ default: m.SetupWizard }))
 );
@@ -103,7 +100,7 @@ const OnboardingGate: React.FC<{ children: React.ReactElement }> = ({ children }
     return <LoadingSpinner message="Checking setup…" />;
   }
   if (status === 'redirect') {
-    return <Navigate to="/app/onboarding" replace />;
+    return <Navigate to="/setup" replace />;
   }
   return children;
 };
@@ -358,20 +355,10 @@ const AppContent: React.FC = () => {
             }
           />
 
-          {/* First-run onboarding wizard. Registered before /app/* so it
-              renders standalone (no DashboardPage shell) — the wizard is
-              its own full-screen flow. Reachable from OnboardingGate or
-              directly when an operator wants to re-run setup. */}
-          <Route
-            path="/app/onboarding"
-            element={
-              <ProtectedRoute requireEmailVerification>
-                <React.Suspense fallback={<LoadingSpinner message="Loading setup…" />}>
-                  <FirstRunWizard />
-                </React.Suspense>
-              </ProtectedRoute>
-            }
-          />
+          {/* Legacy onboarding path — unified into the registry-driven /setup
+              wizard (which now drives the provider steps too). Redirect any stale
+              links/redirects there. */}
+          <Route path="/app/onboarding" element={<Navigate to="/setup" replace />} />
 
           {/* AI provisioning chat (System extension). Registered before
               /app/* so it renders standalone with its own layout. */}
