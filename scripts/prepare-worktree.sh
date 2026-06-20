@@ -3,9 +3,10 @@
 # prepare-worktree.sh — make a git worktree a faithful, runnable peer of the main checkout.
 #
 # A fresh `git worktree add` does NOT populate the extension submodules, does NOT
-# include the remote-only private extensions, and does NOT bring the maintainer's
-# gitignored runtime configs. The result: the bundle can't resolve (the public
-# extension path-gems silently vanish from the lockfile) and Rails can't boot.
+# include the remote-only private extensions, does NOT bring the maintainer's
+# gitignored runtime configs, and does NOT install JS deps. The result: the bundle
+# can't resolve (the public extension path-gems silently vanish from the lockfile)
+# and Rails can't boot, AND tsc/jest/vite can't run (no node_modules).
 # This script fixes all of that, OFFLINE and idempotently:
 #
 #   1. PUBLIC extensions (tracked submodules): checked out from the main checkout's
@@ -15,7 +16,10 @@
 #      checkout (files-only, excluding .git) — isolated and invisible to git.
 #   3. CONFIGS: the gitignored runtime files (database.yml / master.key /
 #      credentials.yml.enc / .env) are symlinked from the main checkout.
-#   4. Verifies `bundle` resolves for server/ and worker/ (and the private bundle).
+#   4. JS DEPS: node_modules is symlinked from main for each JS package (gitignored,
+#      so a fresh worktree has none) when its package.json matches main's; a diverged
+#      manifest is left for `npm install` instead. Lets tsc/jest/vite run.
+#   5. Verifies `bundle` resolves for server/ and worker/ (and the private bundle).
 #
 # It NEVER runs `git submodule sync`/`update` against the submodules — `sync`
 # rewrites their remotes (dropping the private upstream; see CLAUDE.md), and
@@ -170,7 +174,37 @@ for rel in "${CONFIGS[@]}"; do
   ln -s "$src" "$dst"; ok "$rel"
 done
 
-# ---------- 4. verify bundles resolve ----------
+# ---------- 4. gitignored JS deps (node_modules symlinked from main) ----------
+# A fresh worktree checks out package.json but NOT node_modules (gitignored), so
+# tsc / jest / vite can't run. node_modules is a content-addressed dependency cache
+# keyed by the lockfile, not source — so when the worktree's package.json matches
+# main's we symlink main's tree (OFFLINE, no install). A DIVERGED manifest means the
+# deps may differ, so we DON'T link it (a stale link would be wrong) and tell the
+# operator to `npm install`, which creates a real node_modules in the worktree.
+# Package dirs are discovered dynamically (repo root + each immediate subdir with a
+# package.json) — nothing is hardcoded.
+info "JS dependencies (node_modules symlinked from main)"
+js_any=0
+js_pkgs=()
+[ -f "$MAIN/package.json" ] && js_pkgs+=("$MAIN/package.json")
+for d in "$MAIN"/*/; do [ -f "${d}package.json" ] && js_pkgs+=("${d}package.json"); done
+for pkg in "${js_pkgs[@]}"; do
+  dir="$(dirname "$pkg")"
+  rel="${dir#"$MAIN"/}"; [ "$dir" = "$MAIN" ] && rel="."
+  [ -d "$dir/node_modules" ] || { skip "$rel (no node_modules in main — run 'npm install')"; continue; }
+  js_any=1
+  dst="$TARGET/$rel/node_modules"
+  if [ -e "$dst" ] || [ -L "$dst" ]; then
+    skip "$rel/node_modules (already present)"
+  elif [ -f "$TARGET/$rel/package.json" ] && ! cmp -s "$dir/package.json" "$TARGET/$rel/package.json"; then
+    warn "$rel/package.json differs from main — run 'cd $rel && npm install' (not symlinking; deps may differ)"
+  else
+    ln -s "$dir/node_modules" "$dst"; ok "$rel/node_modules"
+  fi
+done
+[ "$js_any" -eq 1 ] || skip "no JS packages with installed deps in main"
+
+# ---------- 5. verify bundles resolve ----------
 info "bundle resolution"
 for app in server worker; do
   [ -f "$TARGET/$app/Gemfile" ] || continue
