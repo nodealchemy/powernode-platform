@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Private-mode bundle: core + public + PRIVATE extensions (business, trading).
+# Private-mode bundle: core + public + private extensions (discovered from extensions/private/*).
 # Maintainer/private-mode counterpart to the committed, public-only Gemfile/Gemfile.lock.
 #
 # Select it explicitly — never the default:
