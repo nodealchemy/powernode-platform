@@ -7,6 +7,9 @@ module Security
   class Security::JwtBlacklistService
     REDIS_KEY_PREFIX = "jwt_blacklist:"
     CLEANUP_BATCH_SIZE = 1000
+    # How long a user-level blacklist marker stays in force. Tokens issued before
+    # the marker was (re)written are revoked for this window.
+    USER_BLACKLIST_TTL = 1.year
 
     class << self
       # Blacklist a JWT token by its JTI
@@ -30,19 +33,31 @@ module Security
         false
       end
 
-      # Check if a JWT token is blacklisted
-      def blacklisted?(jti)
+      # Check if a JWT token is blacklisted.
+      #
+      # Pass the token's `user_id` (sub) and `issued_at` (iat) so the check also
+      # honors a user-level blacklist (see blacklist_user_tokens): every token the
+      # user held that was issued BEFORE their tokens were blacklisted is treated
+      # as revoked, while tokens issued afterwards (e.g. a fresh login) stay valid.
+      # Without that context only the per-jti entry is consulted.
+      def blacklisted?(jti, user_id: nil, issued_at: nil)
         return false unless jti.present?
 
         if redis_available?
-          blacklisted_in_redis?(jti)
+          return true if blacklisted_in_redis?(jti)
+
+          user_tokens_revoked_redis?(user_id, issued_at)
         else
-          blacklisted_in_database?(jti)
+          return true if blacklisted_in_database?(jti)
+
+          user_tokens_revoked_database?(user_id, issued_at)
         end
       rescue StandardError => e
         Rails.logger.error "Error checking JWT blacklist for #{jti}: #{e.message}"
-        # Fail open - if we can't check blacklist, allow the token
-        false
+        # Fail closed: a revocation check that cannot positively confirm the token
+        # is NOT blacklisted must DENY it. Returning false here would let a revoked
+        # token through whenever the backing store is unreachable (auth bypass).
+        true
       end
 
       # Blacklist all tokens for a user (e.g., on account suspension)
@@ -117,15 +132,17 @@ module Security
       end
 
       def blacklist_user_tokens_redis(user_id, reason)
-        # Set a user-level blacklist flag
+        # Set a user-level blacklist marker. `blacklisted_at` is the cutoff: tokens
+        # issued before it are revoked. setex overwrites on re-blacklist, so the
+        # cutoff always reflects the most recent event.
         user_key = "#{REDIS_KEY_PREFIX}user:#{user_id}"
         value = {
           reason: reason,
           blacklisted_at: Time.current.iso8601,
-          expires_at: (Time.current + 1.year).iso8601 # Long TTL for user blacklist
+          expires_at: USER_BLACKLIST_TTL.from_now.iso8601
         }.to_json
 
-        redis.setex(user_key, 1.year.to_i, value)
+        redis.setex(user_key, USER_BLACKLIST_TTL.to_i, value)
       end
 
       def cleanup_expired_redis
@@ -134,8 +151,9 @@ module Security
         cleaned = 0
 
         keys.each_slice(CLEANUP_BATCH_SIZE) do |batch|
-          # Redis handles expiration automatically, just count existing keys
-          cleaned += batch.count { |key| redis.exists?(key) == 0 }
+          # redis-rb 5.x `exists?` returns a Boolean, so a key that scan_each
+          # enumerated but that now reports false has been auto-expired by Redis.
+          cleaned += batch.count { |key| !redis.exists?(key) }
         end
 
         Rails.logger.info "Redis JWT blacklist cleanup: #{cleaned} expired entries found"
@@ -177,21 +195,63 @@ module Security
         JwtBlacklist.where(jti: jti).where("expires_at > ?", Time.current).exists?
       end
 
+      # User-level blacklist (redis): an active marker key revokes every token the
+      # user held that was issued before its `blacklisted_at` cutoff.
+      def user_tokens_revoked_redis?(user_id, issued_at)
+        return false if user_id.blank?
+
+        raw = redis.get("#{REDIS_KEY_PREFIX}user:#{user_id}")
+        return false if raw.blank?
+
+        token_predates_cutoff?(issued_at, extract_blacklisted_at(raw))
+      end
+
+      # User-level blacklist (database): the active marker row's cutoff is its
+      # `updated_at` — the exact instant of the most recent (re)blacklist, which
+      # save! stamps on every upsert. (Reconstructing it from expires_at would be
+      # skewed by calendar-aware `1.year` math, which does not round-trip.)
+      def user_tokens_revoked_database?(user_id, issued_at)
+        return false if user_id.blank?
+        return false unless defined?(JwtBlacklist)
+
+        marker = JwtBlacklist.where(jti: "user_blacklist_#{user_id}", user_blacklist: true)
+                             .where("expires_at > ?", Time.current)
+                             .first
+        return false unless marker
+
+        token_predates_cutoff?(issued_at, marker.updated_at)
+      end
+
+      # A user marker is present; decide whether THIS token predates the cutoff.
+      # An unparseable cutoff or a missing issued_at means we cannot prove the
+      # token was issued after the user was blacklisted, so we revoke (fail safe).
+      def token_predates_cutoff?(issued_at, cutoff)
+        return true if cutoff.nil?
+        return true if issued_at.blank?
+
+        issued_at.to_i < cutoff.to_i
+      end
+
+      def extract_blacklisted_at(raw)
+        ts = JSON.parse(raw)["blacklisted_at"]
+        ts.present? ? Time.iso8601(ts) : nil
+      rescue JSON::ParserError, ArgumentError
+        nil
+      end
+
       def blacklist_user_tokens_database(user_id, reason)
         return unless defined?(JwtBlacklist)
 
-        # Mark user as having all tokens blacklisted
-        expires_at = 1.year.from_now
-        JwtBlacklist.create!(
-          jti: "user_blacklist_#{user_id}",
-          expires_at: expires_at,
+        # Upsert the per-user marker so re-blacklisting refreshes the cutoff
+        # (expires_at) instead of being swallowed as a duplicate jti.
+        marker = JwtBlacklist.find_or_initialize_by(jti: "user_blacklist_#{user_id}")
+        marker.assign_attributes(
           reason: reason,
           user_id: user_id,
-          user_blacklist: true
+          user_blacklist: true,
+          expires_at: USER_BLACKLIST_TTL.from_now
         )
-      rescue ActiveRecord::RecordInvalid
-        # Already exists
-        true
+        marker.save!
       end
 
       def cleanup_expired_database

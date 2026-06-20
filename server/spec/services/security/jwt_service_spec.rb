@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Security::JwtService do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, password: TestUsers::PASSWORD) }
 
@@ -158,6 +160,30 @@ RSpec.describe Security::JwtService do
       result = described_class.blacklist_token(token, reason: "cleanup")
 
       expect(result).to be_truthy
+    end
+  end
+
+  describe "user-level blacklist enforcement" do
+    # Proves the decode path threads sub/iat into JwtBlacklistService so that
+    # blacklist_user_tokens actually revokes the user's outstanding tokens.
+    it "rejects a still-valid token issued before the user's tokens were blacklisted" do
+      token = travel_to(5.minutes.ago) do
+        described_class.encode({ sub: user.id, account_id: account.id })
+      end
+
+      described_class.blacklist_user_tokens(user.id, reason: "account_suspended")
+
+      expect {
+        described_class.decode(token)
+      }.to raise_error(StandardError, /blacklisted/)
+    end
+
+    it "accepts a token issued after the user's tokens were blacklisted (reinstatement)" do
+      described_class.blacklist_user_tokens(user.id, reason: "account_suspended")
+      token = described_class.encode({ sub: user.id, account_id: account.id })
+
+      payload = described_class.decode(token)
+      expect(payload[:sub]).to eq(user.id)
     end
   end
 

@@ -94,9 +94,9 @@ module Security
             if raw_payload[:iat] && raw_payload[:iat] < grace_cutoff
               Rails.logger.warn "JWT grace period: allowing token without iss/aud claims (issued: #{Time.at(raw_payload[:iat])})"
 
-              # Check blacklist
+              # Check blacklist (jti-level and user-level via sub/iat)
               jti = raw_payload[:jti]
-              if jti && JwtBlacklistService.blacklisted?(jti)
+              if jti && JwtBlacklistService.blacklisted?(jti, user_id: raw_payload[:sub] || raw_payload[:user_id], issued_at: raw_payload[:iat])
                 raise StandardError, "Invalid token: Token has been blacklisted"
               end
 
@@ -109,9 +109,9 @@ module Security
           end
         end
 
-        # Check if token is blacklisted using JTI
+        # Check if token is blacklisted (jti-level and user-level via sub/iat)
         jti = payload[:jti]
-        if jti && JwtBlacklistService.blacklisted?(jti)
+        if jti && JwtBlacklistService.blacklisted?(jti, user_id: payload[:sub] || payload[:user_id], issued_at: payload[:iat])
           raise StandardError, "Invalid token: Token has been blacklisted"
         end
 
@@ -252,7 +252,7 @@ module Security
 
           return false unless jti
 
-          JwtBlacklistService.blacklisted?(jti)
+          JwtBlacklistService.blacklisted?(jti, user_id: decoded["sub"] || decoded["user_id"], issued_at: decoded["iat"])
         rescue JWT::DecodeError
           false # Invalid tokens are not "blacklisted", they're just invalid
         end

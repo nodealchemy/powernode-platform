@@ -2,12 +2,17 @@
 
 require "rails_helper"
 
-# Characterization spec for Security::JwtBlacklistService.
+# Behavioral spec for Security::JwtBlacklistService.
 #
-# This documents the CURRENT behavior of the service (it pins existing behavior;
-# it does not assert what the behavior *should* be). Where the current behavior
-# looks security-relevant or buggy, it is called out in a comment next to the
-# example so the pin is not mistaken for an endorsement.
+# This file pins the service's intended security behavior. The three
+# security-relevant examples that earlier characterized bugs now assert the
+# corrected behavior (and are labelled SECURITY where relevant):
+#   * blacklisted? FAILS CLOSED (denies) when the backing store is unreachable;
+#   * a user-level blacklist actually revokes that user's individual tokens that
+#     were issued before the blacklist (via the optional user_id/issued_at
+#     context), while leaving tokens issued afterwards valid;
+#   * cleanup_expired_redis counts keys correctly under redis-rb 5.x Boolean
+#     `exists?` semantics.
 #
 # Redis strategy
 # --------------
@@ -23,9 +28,11 @@ require "rails_helper"
 #   and `redis`) so they round-trip through an `instance_double(Redis)`. This
 #   matches the repo's existing convention of stubbing a `Redis` double
 #   (see spec/services/ai/provider_circuit_breaker_service_spec.rb) and never
-#   touches a real Redis server. The double's `exists?` is wired to return a
-#   Boolean to mirror redis-rb 5.x semantics faithfully.
+#   touches a real Redis server. The double's `exists?` returns a Boolean to
+#   mirror redis-rb 5.x semantics faithfully.
 RSpec.describe Security::JwtBlacklistService, type: :service do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:jti) { SecureRandom.uuid }
   let(:future_expiry) { 1.hour.from_now }
   let(:user) { create(:user) }
@@ -121,22 +128,73 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
         expect(marker.expires_at).to be > 11.months.from_now
       end
 
-      it "is idempotent for the same user (duplicate marker is swallowed)" do
+      it "upserts rather than duplicating, and refreshes the cutoff, when re-blacklisting" do
         described_class.blacklist_user_tokens(user.id)
-        expect do
-          described_class.blacklist_user_tokens(user.id)
-        end.not_to change(JwtBlacklist, :count)
+        original_expiry = JwtBlacklist.find_by(jti: "user_blacklist_#{user.id}").expires_at
+
+        travel_to(2.hours.from_now) do
+          expect do
+            described_class.blacklist_user_tokens(user.id)
+          end.not_to change(JwtBlacklist, :count)
+        end
+
+        refreshed_expiry = JwtBlacklist.find_by(jti: "user_blacklist_#{user.id}").expires_at
+        expect(refreshed_expiry).to be > original_expiry
       end
 
-      # CHARACTERIZATION OF A GAP: blacklisting a user's tokens records only a
-      # per-user marker row keyed by "user_blacklist_<id>". blacklisted?(jti)
-      # looks up the *jti* directly and never consults that marker, so an
-      # ordinary token jti for a fully-blacklisted user is still reported as
-      # NOT blacklisted. (Pinned as current behavior, not endorsed.)
-      it "does NOT make an individual token jti blacklisted? for a user-blacklisted user" do
+      # SECURITY: blacklisting a user's tokens now actually revokes the individual
+      # tokens they were holding. blacklisted? consults the per-user marker when
+      # given the token's user_id + issued_at, comparing the token's iat against
+      # the blacklist cutoff.
+      it "revokes an individual token issued BEFORE the user was blacklisted" do
         described_class.blacklist_user_tokens(user.id)
-        some_token_jti = SecureRandom.uuid
-        expect(described_class.blacklisted?(some_token_jti)).to be(false)
+        token_jti = SecureRandom.uuid
+        issued_before = 1.hour.ago.to_i
+
+        expect(described_class.blacklisted?(token_jti, user_id: user.id, issued_at: issued_before)).to be(true)
+      end
+
+      it "leaves a token issued AFTER the user was blacklisted valid (reinstatement)" do
+        described_class.blacklist_user_tokens(user.id)
+        token_jti = SecureRandom.uuid
+        issued_after = 1.hour.from_now.to_i
+
+        expect(described_class.blacklisted?(token_jti, user_id: user.id, issued_at: issued_after)).to be(false)
+      end
+
+      # SECURITY regression: the cutoff must be the exact blacklist instant, not a
+      # value reconstructed from expires_at. Calendar-aware `1.year` math does not
+      # round-trip across a Feb-29 boundary ((T + 1.year) - 1.year lands a day
+      # early), which would fail OPEN — letting a token issued before a leap-day
+      # blacklist slip through. Pinned on a leap day to lock the cutoff source.
+      it "revokes a pre-blacklist token even across a leap-day boundary (no cutoff drift)" do
+        travel_to(Time.utc(2028, 2, 29, 12, 0, 0)) do
+          described_class.blacklist_user_tokens(user.id)
+          issued_before = 2.hours.ago.to_i # before the blacklist, within the would-be drift window
+
+          expect(described_class.blacklisted?(SecureRandom.uuid, user_id: user.id, issued_at: issued_before)).to be(true)
+        end
+      end
+
+      it "revokes conservatively when the user is blacklisted but issued_at is unknown" do
+        described_class.blacklist_user_tokens(user.id)
+        # Without an iat we cannot prove the token post-dates the blacklist, so the
+        # marker's presence alone denies it (fail safe).
+        expect(described_class.blacklisted?(SecureRandom.uuid, user_id: user.id, issued_at: nil)).to be(true)
+      end
+
+      it "does not consult the user marker when no user_id context is supplied" do
+        described_class.blacklist_user_tokens(user.id)
+        # The plain single-arg form is unchanged: it only checks the jti itself.
+        expect(described_class.blacklisted?(SecureRandom.uuid)).to be(false)
+      end
+
+      it "ignores a user marker for a DIFFERENT user" do
+        described_class.blacklist_user_tokens(user.id)
+        other_user = create(:user)
+        expect(
+          described_class.blacklisted?(SecureRandom.uuid, user_id: other_user.id, issued_at: 1.hour.ago.to_i)
+        ).to be(false)
       end
     end
 
@@ -181,8 +239,8 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
     let(:redis) { instance_double(Redis) }
     let(:prefix) { Security::JwtBlacklistService::REDIS_KEY_PREFIX }
     # An in-memory store that mirrors just enough of the Redis surface this
-    # service touches: setex (store), exists? (Boolean per redis-rb 5.x), and
-    # scan_each (key iteration).
+    # service touches: setex (store), get (read marker JSON), exists? (Boolean
+    # per redis-rb 5.x), and scan_each (key iteration).
     let(:store) { {} }
 
     before do
@@ -190,6 +248,7 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
       allow(described_class).to receive(:redis).and_return(redis)
 
       allow(redis).to receive(:setex) { |key, _ttl, value| store[key] = value }
+      allow(redis).to receive(:get) { |key| store[key] }
       # redis-rb 5.x `exists?` returns a Boolean, not an integer.
       allow(redis).to receive(:exists?) { |key| store.key?(key) }
       allow(redis).to receive(:scan_each) do |match:|
@@ -235,11 +294,17 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
         expect(JSON.parse(store[user_key])).to include("reason" => "account_suspended")
       end
 
-      # Same gap as the DB path: blacklisted?(jti) does not consult the per-user
-      # key, so an individual token jti is still reported as not blacklisted.
-      it "does NOT make an individual token jti blacklisted? for a user-blacklisted user" do
+      # SECURITY: same enforcement as the DB path. The per-user marker stores a
+      # blacklisted_at cutoff; tokens issued before it are revoked, tokens issued
+      # after it are allowed.
+      it "revokes a token issued before blacklisted_at and allows one issued after" do
         described_class.blacklist_user_tokens(user.id)
-        expect(described_class.blacklisted?(SecureRandom.uuid)).to be(false)
+
+        revoked = described_class.blacklisted?(SecureRandom.uuid, user_id: user.id, issued_at: 1.hour.ago.to_i)
+        allowed = described_class.blacklisted?(SecureRandom.uuid, user_id: user.id, issued_at: 1.hour.from_now.to_i)
+
+        expect(revoked).to be(true)
+        expect(allowed).to be(false)
       end
     end
 
@@ -258,11 +323,18 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
     end
 
     describe ".cleanup_expired" do
-      # CHARACTERIZATION OF A LATENT BUG: cleanup_expired_redis counts keys where
-      # `redis.exists?(key) == 0`. Under redis-rb 5.x, `exists?` returns a Boolean
-      # (true/false), never the integer 0, so `false == 0` is always false and the
-      # method reports 0 cleaned entries regardless of state. Pinned as-is.
-      it "returns 0 (relies on Redis TTL auto-expiry; the integer comparison never matches)" do
+      # redis-rb 5.x `exists?` returns a Boolean. cleanup counts keys that were
+      # enumerated by scan_each but have since been auto-expired by Redis (i.e.
+      # `exists?` now reports false).
+      it "counts keys that Redis auto-expired between the scan and the existence check" do
+        described_class.blacklist(jti, future_expiry) # one key enumerated by scan_each
+        # Simulate Redis expiring that key right after it was scanned.
+        allow(redis).to receive(:exists?).and_return(false)
+
+        expect(described_class.cleanup_expired).to eq(1)
+      end
+
+      it "counts 0 when every scanned key still exists" do
         described_class.blacklist(jti, future_expiry)
         expect(described_class.cleanup_expired).to eq(0)
       end
@@ -285,14 +357,12 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
       expect(described_class.blacklist(jti, future_expiry)).to be(false)
     end
 
-    # SECURITY CONCERN (fail-OPEN): if blacklisted? cannot reach Redis it rescues
-    # and returns false, i.e. a token whose jti may well be blacklisted is treated
-    # as NOT blacklisted and allowed through. The impl comments this explicitly as
-    # "Fail open - if we can't check blacklist, allow the token". Pinned here so a
-    # change to fail-closed shows up as a deliberate behavior change.
-    it "blacklisted? FAILS OPEN (returns false) when the underlying store raises" do
+    # SECURITY (fail-CLOSED): if blacklisted? cannot reach the store it must DENY
+    # the token rather than allow it. A revoked token must not slip through during
+    # a store outage. Returning true here is the secure default.
+    it "blacklisted? FAILS CLOSED (returns true) when the underlying store raises" do
       allow(redis).to receive(:exists?).and_raise(StandardError, "redis down")
-      expect(described_class.blacklisted?(jti)).to be(false)
+      expect(described_class.blacklisted?(jti)).to be(true)
     end
 
     it "blacklist_user_tokens returns false when the underlying store raises" do
