@@ -75,6 +75,19 @@ Rails.application.routes.draw do
       get  "onboarding/status",   to: "onboarding#status"
       post "onboarding/complete", to: "onboarding#complete"
 
+      # First-run / incremental setup wizard (Setup::StepRegistry-driven).
+      # /setup/admin is UNAUTHENTICATED + one-time-token-gated (runs before any
+      # user exists, then self-disables); the rest are authenticated super_admin
+      # routes the wizard driver reads/writes once an admin is logged in.
+      get  "setup/status",          to: "setup#status"
+      get  "setup/steps",           to: "setup#steps"
+      post "setup/steps/:key",      to: "setup#submit_step"
+      post "setup/admin",           to: "setup#admin"
+      get  "setup/extensions",                 to: "setup#extensions"
+      post "setup/extensions/:slug/configured", to: "setup#set_extension_configured"
+      post "setup/extensions/:slug",            to: "setup#set_extension"
+      post "setup/seed",                        to: "setup#seed"
+
       # Configuration endpoints (no authentication required)
       get :config, to: "config#index"
       get "config/allowed_hosts", to: "config#allowed_hosts"

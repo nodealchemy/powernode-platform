@@ -47,10 +47,11 @@ import { StatusPage } from '@/pages/public/StatusPage';
 import { ApprovalResponsePage } from '@/features/devops/pipelines/pages/ApprovalResponsePage';
 import { DetachedChatPage } from '@/features/ai/chat/pages/DetachedChatPage';
 const ProvisioningPage = React.lazy(() => import('@/pages/ProvisioningPage'));
-const FirstRunWizard = React.lazy(() =>
-  import('@/features/onboarding/FirstRunWizard').then((m) => ({ default: m.FirstRunWizard }))
+const SetupWizard = React.lazy(() =>
+  import('@/features/setup/SetupWizard').then((m) => ({ default: m.SetupWizard }))
 );
 import apiClient from '@/shared/services/apiClient';
+import { SetupPendingBanner } from '@/features/setup/SetupPendingBanner';
 import { logger } from '@/shared/utils/logger';
 
 interface OnboardingStatusResponse {
@@ -100,7 +101,7 @@ const OnboardingGate: React.FC<{ children: React.ReactElement }> = ({ children }
     return <LoadingSpinner message="Checking setup…" />;
   }
   if (status === 'redirect') {
-    return <Navigate to="/app/onboarding" replace />;
+    return <Navigate to="/setup" replace />;
   }
   return children;
 };
@@ -342,20 +343,23 @@ const AppContent: React.FC = () => {
             element={<OAuthConsentPage />}
           />
 
-          {/* First-run onboarding wizard. Registered before /app/* so it
-              renders standalone (no DashboardPage shell) — the wizard is
-              its own full-screen flow. Reachable from OnboardingGate or
-              directly when an operator wants to re-run setup. */}
+          {/* First-run setup wizard (PUBLIC, token-gated admin step). Registered
+              before /app/* and outside ProtectedRoute so it renders standalone
+              before any user exists. Reached via the one-time setup URL printed
+              to the service console at first boot; self-disables once an admin exists. */}
           <Route
-            path="/app/onboarding"
+            path="/setup"
             element={
-              <ProtectedRoute requireEmailVerification>
-                <React.Suspense fallback={<LoadingSpinner message="Loading setup…" />}>
-                  <FirstRunWizard />
-                </React.Suspense>
-              </ProtectedRoute>
+              <React.Suspense fallback={<LoadingSpinner message="Loading setup…" />}>
+                <SetupWizard />
+              </React.Suspense>
             }
           />
+
+          {/* Legacy onboarding path — unified into the registry-driven /setup
+              wizard (which now drives the provider steps too). Redirect any stale
+              links/redirects there. */}
+          <Route path="/app/onboarding" element={<Navigate to="/setup" replace />} />
 
           {/* AI provisioning chat (System extension). Registered before
               /app/* so it renders standalone with its own layout. */}
@@ -382,7 +386,10 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute requireEmailVerification>
                 <OnboardingGate>
-                  <DashboardPage />
+                  <>
+                    <SetupPendingBanner />
+                    <DashboardPage />
+                  </>
                 </OnboardingGate>
               </ProtectedRoute>
             }

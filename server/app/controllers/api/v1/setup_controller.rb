@@ -1,0 +1,192 @@
+# frozen_string_literal: true
+
+# First-run / incremental setup wizard, driven by Setup::StepRegistry.
+#
+# All actions are authenticated `system.admin` routes EXCEPT #admin, which runs
+# before any user exists and therefore cannot use JWT — it is gated by a one-time
+# bootstrap token (Setup::BootstrapToken) and self-disables once an admin exists.
+class Api::V1::SetupController < ApplicationController
+  include RefreshTokenCookie
+
+  # /setup/admin and /setup/status are reachable before any user exists. status
+  # uses optional auth: a logged-in admin gets full per-account detail, while an
+  # anonymous first-run visitor still learns whether bootstrap is needed (so the
+  # public wizard knows whether to show the admin step).
+  skip_before_action :authenticate_request, only: [ :admin, :status ]
+  before_action :authenticate_optional, only: [ :status ]
+  before_action :require_setup_admin!, only: [ :steps, :submit_step, :extensions, :set_extension, :set_extension_configured, :seed ]
+
+  # GET /api/v1/setup/status
+  def status
+    if current_account
+      render_success(data: {
+        bootstrap_complete: Setup::StepRegistry.bootstrap_complete?(current_account),
+        pending: Setup::StepRegistry.pending(current_account),
+        # Extensions with pending steps — drive the non-blocking "configure X" prompt
+        # once bootstrap is complete (Phase 4 incremental config).
+        extensions_pending: Setup::StepRegistry.pending_extension_slugs(current_account)
+      })
+    else
+      # Anonymous first-run probe: expose only the global bootstrap fact.
+      render_success(data: { bootstrap_complete: User.exists?, pending: [], extensions_pending: [] })
+    end
+  end
+
+  # GET /api/v1/setup/steps
+  def steps
+    render_success(data: { steps: Setup::StepRegistry.steps_for(current_account) })
+  end
+
+  # POST /api/v1/setup/steps/:key — persist one core step and stamp completion.
+  def submit_step
+    step = Setup::StepRegistry.find(params[:key])
+    return render_not_found("Setup step") if step.nil?
+
+    # Extension steps POST to their own endpoint; the admin step has /setup/admin.
+    unless step[:owner] == "core" && step[:key] != "admin"
+      return render_error("Step is not submittable here", :unprocessable_content, code: "invalid_setup_step")
+    end
+
+    error = persist_core_step(step[:key])
+    return render_error(error, :unprocessable_content, code: "invalid_setup_step") if error
+
+    current_account.mark_setup_step!(step[:key])
+    render_success(data: { step: Setup::StepRegistry.annotate(step, current_account) })
+  end
+
+  # GET /api/v1/setup/extensions — list extensions present in this build + enabled state.
+  def extensions
+    render_success(data: { extensions: Shared::FeatureGateService.loaded_extensions })
+  end
+
+  # POST /api/v1/setup/extensions/:slug — toggle one extension { enabled: bool }.
+  # Non-destructive: disabling gates the extension off but retains its data.
+  def set_extension
+    slug = params[:slug].to_s
+    return render_not_found("Extension") unless Shared::FeatureGateService.extension_loaded?(slug)
+
+    enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
+    new_state = Shared::FeatureGateService.set_extension_enabled!(slug, enabled)
+    render_success(data: { slug: slug, enabled: new_state })
+  end
+
+  # POST /api/v1/setup/extensions/:slug/configured — stamp an extension's setup as
+  # done (Phase 4). The extension persists its own data via its step endpoint; this
+  # records per-extension completion so its steps stop showing pending.
+  def set_extension_configured
+    slug = params[:slug].to_s
+    return render_not_found("Extension") unless Shared::FeatureGateService.extension_manifest_present?(slug)
+
+    current_account.mark_extension_configured!(slug)
+    render_success(data: { slug: slug, configured_at: current_account.extension_configured_at(slug)&.iso8601 })
+  end
+
+  # POST /api/v1/setup/seed — run the idempotent seed wrapper and stamp the step.
+  def seed
+    result = Setup::SeedService.run!(current_account)
+    current_account.mark_setup_step!("seed")
+    render_success(data: result)
+  end
+
+  # POST /api/v1/setup/admin — UNAUTHENTICATED, bootstrap-token-gated, one-shot.
+  def admin
+    return already_bootstrapped if User.exists?
+    return render_unauthorized("Invalid or missing setup token") unless Setup::BootstrapToken.verify(params[:token])
+
+    result = Setup::FirstAdminService.call(
+      email: admin_params[:email],
+      password: admin_params[:password],
+      name: admin_params[:name]
+    )
+
+    Setup::BootstrapToken.clear!
+
+    # Billing seam: the business extension subscribes to this and provisions a
+    # subscription. Core never creates billing records.
+    ActiveSupport::Notifications.instrument(
+      "powernode.user.registered",
+      account_id: result.account.id,
+      user_id: result.user.id,
+      plan_id: nil
+    )
+
+    tokens = Security::JwtService.generate_user_tokens(result.user)
+    # Establish a full session so the wizard can continue into authenticated
+    # steps (domain, …) via the standard refresh-cookie path — same as registration.
+    set_refresh_cookie(tokens[:refresh_token])
+    render_success(
+      status: :created,
+      message: "Administrator created",
+      data: {
+        user: { id: result.user.id, email: result.user.email, name: result.user.name },
+        account: { id: result.account.id, name: result.account.name },
+        access_token: tokens[:access_token],
+        expires_at: tokens[:expires_at]
+      }
+    )
+  rescue Setup::FirstAdminService::AlreadyBootstrapped
+    already_bootstrapped
+  rescue ActiveRecord::RecordInvalid => e
+    render_error(
+      e.record.errors.full_messages.first || "Administrator creation failed",
+      :unprocessable_content,
+      details: e.record.errors.full_messages
+    )
+  end
+
+  private
+
+  def already_bootstrapped
+    render_error("An administrator already exists", :conflict, code: "already_bootstrapped")
+  end
+
+  def require_setup_admin!
+    require_permission("system.admin")
+  end
+
+  def admin_params
+    {
+      name: params[:name] || params.dig(:admin, :name),
+      email: params[:email] || params.dig(:admin, :email),
+      password: params[:password] || params.dig(:admin, :password)
+    }
+  end
+
+  # Persist one core step's payload to its owning core setting, returning an error
+  # message string on validation failure (nil on success). Phase 1 owns the domain
+  # step; other core config steps (email, general settings) land here in Phase 2.
+  def persist_core_step(key)
+    case key
+    when "domain"
+      domain = (params[:domain] || params.dig(:payload, :domain)).to_s.strip
+      return "Domain is required" if domain.blank?
+
+      SiteSetting.set("domain", domain, description: "Public domain for this instance", is_public: true)
+      nil
+    when "general_settings"
+      # Optional step — persist whichever fields were provided, blanks allowed.
+      site_name = (params[:site_name] || params.dig(:payload, :site_name)).to_s.strip
+      support_email = (params[:support_email] || params.dig(:payload, :support_email)).to_s.strip
+      SiteSetting.set("site_name", site_name, description: "Display name for this instance", is_public: true) if site_name.present?
+      SiteSetting.set("support_email", support_email, description: "Support contact email", is_public: true) if support_email.present?
+      nil
+    when "email"
+      # Non-secret SMTP fields → AdminSetting (the keys the worker already reads).
+      %w[smtp_host smtp_port smtp_username smtp_from_address].each do |field|
+        value = (params[field] || params.dig(:payload, field)).to_s.strip
+        AdminSetting.set(field, value) if value.present?
+      end
+      # The secret is routed through Security::SecretStore (Vault or DB-encrypted,
+      # per the global toggle) — never AdminSetting, never logged.
+      password = (params[:smtp_password] || params.dig(:payload, :smtp_password)).to_s
+      Security::SecretStore.write(account: current_account, scope: "email", key: "smtp_password", value: password) if password.present?
+      nil
+    when "extension_selection", "seed"
+      # Component steps: the action happens via their own endpoint (live toggle /
+      # POST /setup/seed); submitting the step just stamps completion.
+      nil
+    else
+      "No handler for setup step '#{key}'"
+    end
+  end
+end
