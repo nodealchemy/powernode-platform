@@ -43,6 +43,41 @@ export interface CircuitBreakerEvent {
   stats?: Record<string, unknown>;
 }
 
+// Raw inbound WebSocket payloads. A single channel multiplexes several event
+// `type`s (the workflow-run channel carries retry + checkpoint events; the
+// monitoring channel carries circuit-breaker events), so the typed
+// RetryStatusUpdate / CheckpointEvent / CircuitBreakerEvent values are built
+// from these after discriminating on `type`.
+interface WorkflowRunInboundMessage {
+  type: RetryStatusUpdate['type'] | CheckpointEvent['type'];
+  node_id: string;
+  node_execution_id: string;
+  retry_attempt: number;
+  max_retries: number;
+  delay_ms: number;
+  scheduled_at: string;
+  error_type?: string;
+  retry_stats?: RetryStatusUpdate['retry_stats'];
+  checkpoint_id: string;
+  checkpoint_type: CheckpointEvent['checkpoint_type'];
+  sequence_number: number;
+  progress_percentage: number;
+  metadata?: Record<string, unknown>;
+  timestamp?: string;
+}
+
+interface MonitoringInboundMessage {
+  type: CircuitBreakerEvent['type'];
+  service?: string;
+  services?: string[];
+  old_state?: CircuitBreakerEvent['old_state'];
+  new_state?: CircuitBreakerEvent['new_state'];
+  severity?: CircuitBreakerEvent['severity'];
+  message?: string;
+  stats?: Record<string, unknown>;
+  timestamp?: string;
+}
+
 export interface UseRetryStatusUpdatesOptions {
   workflowRunId?: string;
   onRetryUpdate?: (update: RetryStatusUpdate) => void;
@@ -72,12 +107,12 @@ export const useRetryStatusUpdates = ({
 
     const unsubscribe = subscribe({
       channel: `ai_workflow_run_${workflowRunId}`,
-       
-      onMessage: (message: any) => {
+      onMessage: (data: unknown) => {
+        const message = data as WorkflowRunInboundMessage;
         // Handle retry status updates (including exhausted retries)
         if (message.type?.includes('retry') || message.type === 'retries_exhausted') {
           const update: RetryStatusUpdate = {
-            type: message.type,
+            type: message.type as RetryStatusUpdate['type'],
             node_id: message.node_id,
             node_execution_id: message.node_execution_id,
             retry_attempt: message.retry_attempt,
@@ -97,7 +132,7 @@ export const useRetryStatusUpdates = ({
         // Handle checkpoint events
         if (message.type?.includes('checkpoint')) {
           const event: CheckpointEvent = {
-            type: message.type,
+            type: message.type as CheckpointEvent['type'],
             checkpoint_id: message.checkpoint_id,
             checkpoint_type: message.checkpoint_type,
             node_id: message.node_id,
@@ -122,12 +157,12 @@ export const useRetryStatusUpdates = ({
 
     const unsubscribe = subscribe({
       channel: 'ai_monitoring_channel',
-       
-      onMessage: (message: any) => {
+      onMessage: (data: unknown) => {
+        const message = data as MonitoringInboundMessage;
         if (message.type?.includes('circuit_breaker')) {
           const event: CircuitBreakerEvent = {
             type: message.type,
-            service: message.service || message.services?.[0],
+            service: message.service || message.services?.[0] || '',
             old_state: message.old_state,
             new_state: message.new_state,
             severity: message.severity,
