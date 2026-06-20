@@ -139,6 +139,18 @@ check_pattern "Forbidden hardcoded colors (should be minimal)" \
     "grep -r 'bg-red-\|bg-white\|text-black\|border-gray-' frontend/src/ | grep -v 'text-white' | wc -l" \
     "5"
 
+# Color-on-color anti-pattern: text-theme-<c> on bg-theme-<c> of the SAME full
+# color renders the text invisible on its own background. The fix is the fg/bg
+# triad: bg-theme-<c>-bg text-theme-<c>-fg.
+# IMPORTANT: the (?![-a-z]) lookahead is REQUIRED. A plain \b word-boundary also
+# matches the position before -bg/-fg, so `bg-theme-<c>\b.*text-theme-<c>\b` wrongly
+# flags the CORRECT triad bg-theme-<c>-bg / text-theme-<c>-fg — which produced a wave
+# of false-positive "badge standardization" findings (true count is 0). Scan core +
+# extension frontends.
+check_pattern "Forbidden color-on-color badges (should be empty)" \
+    "grep -rlP 'bg-theme-(success|error|warning|info|danger)(?![-a-z])[^\"]*text-theme-\\1(?![-a-z])' frontend/src/ extensions/*/frontend/src extensions/private/*/frontend/src 2>/dev/null | wc -l" \
+    "empty"
+
 # Component Structure
 check_pattern "React component forwardRef usage" \
     "grep -r 'forwardRef' frontend/src/ | wc -l" \
