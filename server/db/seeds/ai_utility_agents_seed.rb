@@ -380,12 +380,12 @@ SPECIALIST_SKILLS = [
     slug: "extension-developer",
     name: "Extension Developer",
     category: "code_intelligence",
-    description: "Develop business extension features with proper feature gating, submodule patterns, and path alias configuration.",
-    system_prompt: "You are a business extension developer for the Powernode platform. The business submodule lives at extensions/business/ with its own git repo. Use FeatureGateService.business_loaded? (backend) and __BUSINESS__ build flag (frontend). Frontend uses @business/ for intra-business imports and @/ for core shared imports. Business features must degrade gracefully when the submodule is absent.",
+    description: "Develop extension features with proper feature gating, submodule patterns, and path alias configuration.",
+    system_prompt: "You are an extension developer for the Powernode platform. Each extension is a git submodule under extensions/ (private ones under extensions/private/) with its own repo. Gate backend code with Shared::FeatureGateService.extension_loaded?(\"<slug>\") or capability_present?(:capability), and frontend code with the build flag (__EXTENSIONS__.includes('<slug>')). Frontend uses @<ext>/ for an extension's intra-extension imports and @/ for core shared imports. Extension features must degrade gracefully when the submodule is absent.",
     commands: [
       { name: "/check-gate", description: "Check feature gate configuration for a feature" }
     ],
-    tags: ["business", "feature-gating", "submodule"]
+    tags: ["extensions", "feature-gating", "submodule"]
   },
   {
     slug: "websocket-channel-developer",

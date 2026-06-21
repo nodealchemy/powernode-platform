@@ -182,11 +182,11 @@ agents_data = [
         - Verify theme class usage — no hardcoded colors
         - Check import paths use @ aliases for cross-feature imports
 
-        BUSINESS AWARENESS:
-        - Business features use @business/ path alias
-        - Gate business UI with __BUSINESS__ build flag
-        - Navigation items: businessOnly: true for business features
-        - Core mode: All features unlocked when business submodule absent
+        EXTENSION AWARENESS:
+        - Extension code uses the extension's path alias (@<ext>/)
+        - Gate extension UI with the build flag (__EXTENSIONS__.includes('<ext>'))
+        - Navigation items: gate extension-only items behind the feature registry
+        - Core mode: All features unlocked when an extension's submodule is absent
 
         ## MCP Platform Tools Available
         You have access to 44 MCP platform tools for direct platform interaction:
@@ -975,7 +975,7 @@ memory_pool = Ai::MemoryPool.find_or_create_by!(
           'Permission-based access: permissions.includes() — never roles',
           'Actions in PageContainer headerActions — never in page body',
           'Global notifications only — no local success/error state',
-          'Path aliases: @/shared/, @/features/, @business/',
+          'Path aliases: @/shared/, @/features/, and each extension via its own @<ext>/ alias',
           'No console.log — use logger from @/shared/utils/logger',
           'No any types — proper TypeScript typing required',
           'Lucide-react for all icons',

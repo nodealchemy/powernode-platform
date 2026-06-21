@@ -11,6 +11,16 @@ RSpec.describe "discover_extension_gems" do
   let(:project_root) { File.expand_path("../..", __dir__) }
   let(:state_file) { File.join(project_root, "config", "extensions_state.json") }
 
+  # Slug-agnostic: the slug of some private extension that is present on disk and
+  # NOT in the disabled list, or nil if none. Derived from extensions/private/*
+  # so this spec never hardcodes a private-extension name (core-purity seam).
+  def a_present_enabled_private_slug(disabled: [])
+    Dir.glob(File.join(project_root, "extensions", "private", "*", "extension.json"))
+       .map { |p| File.basename(File.dirname(p)) }
+       .reject { |slug| disabled.include?(slug) }
+       .min
+  end
+
   describe "respects config/extensions_state.json disabled list" do
     around do |example|
       original = File.exist?(state_file) ? File.read(state_file) : nil
@@ -36,10 +46,11 @@ RSpec.describe "discover_extension_gems" do
       FileUtils.mkdir_p(File.dirname(state_file))
       File.write(state_file, JSON.generate("disabled" => ["trading"]))
 
-      # Business and supply-chain are present in this checkout; only trading is filtered
+      # Only "trading" is filtered; any other present, enabled extension still shows.
       slugs = discover_extension_gems.map(&:first)
 
-      expect(slugs).to include("business") if File.exist?(File.join(project_root, "extensions/private/business/extension.json"))
+      present_private = a_present_enabled_private_slug(disabled: ["trading"])
+      expect(slugs).to include(present_private) if present_private
       expect(slugs).to include("supply-chain") if File.exist?(File.join(project_root, "extensions/supply-chain/extension.json"))
     end
 
@@ -48,7 +59,8 @@ RSpec.describe "discover_extension_gems" do
 
       slugs = discover_extension_gems.map(&:first)
 
-      expect(slugs).to include("business") if File.exist?(File.join(project_root, "extensions/private/business/extension.json"))
+      present_private = a_present_enabled_private_slug
+      expect(slugs).to include(present_private) if present_private
     end
 
     it "treats malformed state file as empty disabled list" do

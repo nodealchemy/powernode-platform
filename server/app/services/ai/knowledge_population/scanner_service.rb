@@ -41,11 +41,10 @@ module Ai
           Rails.logger.warn("[KnowledgePopulation] Partial eager load (#{e.class}): #{e.message}")
         end
 
-        # Fallback: resolve each model file via constantize (triggers Zeitwerk per-file)
-        model_dirs = [
-          @server_root.join("app/models"),
-          @project_root.join("extensions/private/business/server/app/models")
-        ]
+        # Fallback: resolve each model file via constantize (triggers Zeitwerk per-file).
+        # Core models + the model dir of every LOADED extension, derived from the
+        # registry — never names a specific extension (core-purity seam).
+        model_dirs = [@server_root.join("app/models")] + extension_model_dirs
 
         model_dirs.each do |dir|
           next unless Dir.exist?(dir)
@@ -62,6 +61,24 @@ module Ai
             end
           end
         end
+      end
+
+      # Model directories of every loaded extension, derived from the registry so
+      # no specific extension is named here. Each extension engine's root is its
+      # `server/` dir, so its models live at `<engine_root>/app/models`.
+      def extension_model_dirs
+        return [] unless defined?(Powernode::ExtensionRegistry)
+
+        dirs = []
+        Powernode::ExtensionRegistry.each do |_slug, ext|
+          engine = ext[:engine]
+          root = engine.respond_to?(:root) ? engine.root : nil
+          dirs << root.join("app/models") if root
+        end
+        dirs
+      rescue StandardError => e
+        Rails.logger.warn("[KnowledgePopulation] extension_model_dirs failed (#{e.class}): #{e.message}")
+        []
       end
 
       def scan_models

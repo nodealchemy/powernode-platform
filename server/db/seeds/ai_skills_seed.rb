@@ -597,16 +597,16 @@ skills_data = [
       - trigger_pipeline / list_pipelines / get_pipeline_status
       - create_gitea_repository / dispatch_to_runner
 
-      ## Business feature gating
-      - Backend: Shared::FeatureGateService.business_loaded?
-      - Frontend: __BUSINESS__ build flag; businessOnly: true on nav items
-      - Core mode (business absent): single-account, multi-user self-hosted, all features unlocked
+      ## Extension feature gating
+      - Backend: Shared::FeatureGateService.extension_loaded?("<slug>") / capability_present?(:capability)
+      - Frontend: build flag __EXTENSIONS__.includes('<slug>'); gate nav items via the feature registry
+      - Core mode (no extensions loaded): single-account, multi-user self-hosted, all features unlocked
 
       ## Git & commits
       - Branches: develop → feature/* → release/* → master
       - Tags: no "v" prefix (0.2.0, not v0.2.0)
       - Stage commits by concern (models, services, controllers, frontend, tests, config)
-      - Submodule: commit inside extensions/business/ first, then bump the parent pointer
+      - Submodule: commit inside the extension's submodule (extensions/.../<slug>/) first, then bump the parent pointer
     PROMPT
     commands: [
       { "name" => "check-patterns", "description" => "Verify code against Powernode conventions", "argument_hint" => "<file or directory>",
