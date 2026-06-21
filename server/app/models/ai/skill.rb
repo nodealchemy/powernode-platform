@@ -2,6 +2,8 @@
 
 module Ai
   class Skill < ApplicationRecord
+    include GloballyScopable
+
     self.table_name = "ai_skills"
 
     # ==========================================

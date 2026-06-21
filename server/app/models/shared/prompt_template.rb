@@ -10,6 +10,8 @@ module Shared
   #   - general: Templates available to all systems
   #
   class PromptTemplate < ApplicationRecord
+    include GloballyScopable
+
     self.table_name = "shared_prompt_templates"
 
     # ============================================
@@ -21,7 +23,7 @@ module Shared
     # ============================================
     # Associations
     # ============================================
-    belongs_to :account
+    belongs_to :account, optional: true
     belongs_to :created_by, class_name: "User", optional: true
     belongs_to :parent_template, class_name: "Shared::PromptTemplate", optional: true
 

@@ -2,6 +2,8 @@
 
 module Ai
   class MissionTemplate < ApplicationRecord
+    include GloballyScopable
+
     self.table_name = "ai_mission_templates"
 
     TEMPLATE_TYPES = %w[system account community].freeze

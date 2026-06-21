@@ -2,9 +2,12 @@
 
 module Ai
   class AgentTemplate < ApplicationRecord
+    include GloballyScopable
+
     self.table_name = "ai_agent_templates"
 
     # Associations
+    belongs_to :account, optional: true
     belongs_to :source_agent, class_name: "Ai::Agent", foreign_key: "source_agent_id", optional: true
 
     has_many :installations, class_name: "Ai::AgentInstallation", foreign_key: :agent_template_id, dependent: :destroy

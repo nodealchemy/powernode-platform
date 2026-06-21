@@ -2,6 +2,8 @@
 
 module Ai
   class TeamTemplate < ApplicationRecord
+    include GloballyScopable
+
     self.table_name = "ai_team_templates"
 
     TOPOLOGIES = %w[hierarchical flat mesh pipeline hybrid].freeze

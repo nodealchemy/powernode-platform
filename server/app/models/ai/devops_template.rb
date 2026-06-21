@@ -2,6 +2,8 @@
 
 module Ai
   class DevopsTemplate < ApplicationRecord
+    include GloballyScopable
+
     self.table_name = "ai_devops_templates"
 
     # Associations

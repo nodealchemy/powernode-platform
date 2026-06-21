@@ -7,10 +7,12 @@ module KnowledgeBase
     # Concerns
     include Auditable
     include Searchable
+    include GloballyScopable
 
     # Associations
+    belongs_to :account, optional: true
     belongs_to :category, class_name: "KnowledgeBase::Category"
-    belongs_to :author, class_name: "User"
+    belongs_to :author, class_name: "User", optional: true
     has_many :article_tags, class_name: "KnowledgeBase::ArticleTag", foreign_key: "article_id", dependent: :destroy
     has_many :tags, class_name: "KnowledgeBase::Tag", through: :article_tags
     has_many :attachments, class_name: "KnowledgeBase::Attachment", foreign_key: "article_id", dependent: :destroy
