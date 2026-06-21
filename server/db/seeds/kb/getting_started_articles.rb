@@ -12,18 +12,11 @@ author = User.find_by!(email: "admin@powernode.org")
 welcome_content = <<~MARKDOWN
 # Welcome to Powernode Platform
 
-Welcome to Powernode, your comprehensive subscription lifecycle management platform with enterprise-grade AI orchestration, DevOps integration, and supply chain security.
-
-## What You'll Learn
-
-- Core platform components and capabilities
-- Getting started checklist
-- Common use cases
-- Best practices for success
+Powernode is a subscription lifecycle management platform with enterprise-grade AI orchestration, DevOps integration, and supply chain security. This guide covers the core components, a getting-started checklist, common use cases, and best practices.
 
 ## Platform Overview
 
-Powernode is designed for modern subscription businesses, combining:
+Powernode combines five capabilities for modern subscription businesses:
 
 - **Subscription Management** - Complete billing and customer lifecycle
 - **AI Orchestration** - Enterprise AI with multi-provider support
@@ -71,24 +64,18 @@ Powernode is designed for modern subscription businesses, combining:
 ## Use Cases
 
 ### SaaS Subscription Business
-
-Manage software subscriptions with:
 - Tiered pricing plans
 - Usage-based billing
 - Customer self-service
 - Automated renewals
 
 ### Digital Services
-
-Handle recurring service delivery:
 - Service packages
 - Add-on management
 - Customer portals
 - Invoice generation
 
 ### Enterprise Platform
-
-Scale with confidence:
 - Multi-tenant architecture
 - Role-based access
 - Audit logging
@@ -96,20 +83,9 @@ Scale with confidence:
 
 ## Best Practices
 
-### Start Simple
-- Begin with basic subscription plans
-- Add complexity gradually
-- Test thoroughly before launch
-
-### Automate Early
-- Set up payment automation
-- Configure email notifications
-- Enable AI-powered support
-
-### Monitor Continuously
-- Track key metrics daily
-- Review analytics weekly
-- Optimize based on data
+- **Start simple** - Begin with basic plans, add complexity gradually, test before launch.
+- **Automate early** - Set up payment automation, email notifications, and AI-powered support.
+- **Monitor continuously** - Track metrics daily, review analytics weekly, optimize based on data.
 
 ## Platform Navigation
 
@@ -150,15 +126,9 @@ Access key metrics and quick actions from the home dashboard.
 
 ## Next Steps
 
-Ready to dive deeper? Explore these guides:
-
 1. [Quick Start Guide](/kb/quick-start-guide) - Your first 30 minutes
 2. [Understanding the Dashboard](/kb/understanding-dashboard) - Navigation guide
 3. [User Roles and Permissions](/kb/user-roles-permissions) - Access control
-
----
-
-Welcome aboard! We're excited to help you succeed with Powernode.
 MARKDOWN
 
 KnowledgeBase::Article.find_or_create_by!(slug: "welcome-to-powernode-platform") do |article|
@@ -181,11 +151,10 @@ puts "    ✅ Welcome to Powernode Platform"
 quick_start_content = <<~MARKDOWN
 # Quick Start Guide - Your First 30 Minutes
 
-Get up and running with Powernode in 30 minutes or less with this hands-on quickstart guide.
+Get up and running with Powernode in 30 minutes with this hands-on guide.
 
 ## Prerequisites
 
-Before starting:
 - Valid email address
 - Payment gateway credentials (Stripe or PayPal)
 - Basic understanding of subscription models
@@ -336,10 +305,6 @@ Navigate to **Settings > Team**:
 | Success | 4242 4242 4242 4242 |
 | Decline | 4000 0000 0000 0002 |
 | 3D Secure | 4000 0027 6000 3184 |
-
----
-
-Congratulations! You've completed the quick start. Explore the Knowledge Base for detailed guides on each feature.
 MARKDOWN
 
 KnowledgeBase::Article.find_or_create_by!(slug: "quick-start-guide") do |article|
@@ -362,7 +327,7 @@ puts "    ✅ Quick Start Guide"
 dashboard_content = <<~MARKDOWN
 # Understanding the Dashboard
 
-Master Powernode's dashboard to monitor your business, access features quickly, and make data-driven decisions.
+Use Powernode's dashboard to monitor your business, access features quickly, and make data-driven decisions.
 
 ## Dashboard Layout
 
@@ -428,8 +393,6 @@ Master Powernode's dashboard to monitor your business, access features quickly, 
 | **LTV** | Customer Lifetime Value |
 
 ## Quick Actions
-
-Access common tasks instantly:
 
 - **Create Plan** - New subscription plan
 - **Add Customer** - Manual customer creation
@@ -504,10 +467,6 @@ The dashboard adapts to different screen sizes:
 | `⌘/Ctrl + N` | New item |
 | `⌘/Ctrl + /` | Help |
 | `Esc` | Close modal |
-
----
-
-Master the dashboard to get the most out of Powernode. For detailed guides on specific features, browse the Knowledge Base.
 MARKDOWN
 
 KnowledgeBase::Article.find_or_create_by!(slug: "understanding-dashboard") do |article|
@@ -530,7 +489,7 @@ puts "    ✅ Understanding the Dashboard"
 roles_permissions_content = <<~MARKDOWN
 # User Roles and Permissions Overview
 
-Understand Powernode's permission-based access control system to secure your account and enable team collaboration.
+Powernode's permission-based access control secures your account and enables team collaboration.
 
 ## Permission-Based System
 
@@ -652,12 +611,7 @@ Permissions:
 4. Check/uncheck permissions
 5. Save changes
 
-### Permission Effects
-
-Changes take effect immediately:
-- User may need to refresh page
-- Active sessions updated
-- Audit log entry created
+Changes take effect immediately. The user may need to refresh the page; active sessions are updated and an audit log entry is created.
 
 ## Best Practices
 
@@ -670,10 +624,7 @@ Grant only necessary permissions:
 
 ### Regular Audits
 
-Review permissions quarterly:
-- Remove unused access
-- Verify role alignment
-- Check for privilege creep
+Review permissions quarterly: remove unused access, verify role alignment, and check for privilege creep.
 
 ### Separation of Duties
 
@@ -684,19 +635,8 @@ Separate sensitive functions:
 
 ## Checking Permissions
 
-### Your Permissions
-
-View your own access:
-1. Click profile menu
-2. Select "My Permissions"
-3. Review granted permissions
-
-### Team Permissions
-
-As an admin:
-1. Go to **Settings > Team**
-2. View permission matrix
-3. Export for auditing
+- **Your permissions**: Profile menu → "My Permissions".
+- **Team permissions** (admin): **Settings > Team** → view the permission matrix, export for auditing.
 
 ## Troubleshooting
 
@@ -709,10 +649,7 @@ As an admin:
 
 ### Features Not Visible
 
-Missing permissions cause features to hide:
-- Request needed permissions
-- Contact team admin
-- Review permission requirements
+Missing permissions hide features. Request the needed permissions or contact your team admin.
 
 ---
 

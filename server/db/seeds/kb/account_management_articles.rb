@@ -40,7 +40,6 @@ Profile Fields:
 
 ### Avatar Upload
 
-Upload a profile image:
 - Supported: JPEG, PNG, GIF
 - Max size: 5MB
 - Recommended: 200×200px minimum
@@ -73,7 +72,6 @@ Display Preferences:
 
 ### Theme Preferences
 
-Switch between themes:
 - **Light Mode** - Clean, bright interface
 - **Dark Mode** - Reduced eye strain
 - **System** - Follows OS preference
@@ -89,11 +87,7 @@ Change your password:
 4. Enter new password (twice)
 5. Save changes
 
-Password requirements:
-- Minimum 12 characters
-- Mixed case letters
-- Numbers
-- Special characters
+Requirements: minimum 12 characters, mixed case, numbers, and special characters.
 
 ### Two-Factor Authentication
 
@@ -105,19 +99,11 @@ Enable 2FA for enhanced security:
 4. Enter verification code
 5. Save backup codes securely
 
-Supported apps:
-- Google Authenticator
-- Authy
-- 1Password
-- Microsoft Authenticator
+Supported apps: Google Authenticator, Authy, 1Password, Microsoft Authenticator.
 
 ### Backup Codes
 
-Store backup codes safely:
-- Generated during 2FA setup
-- Use if phone unavailable
-- Each code works once
-- Regenerate if depleted
+Generated during 2FA setup. Store them safely for when your phone is unavailable; each code works once, and you can regenerate when depleted.
 
 ### Session Management
 
@@ -148,6 +134,7 @@ Active Sessions:
 
 ### Configuring Notifications
 
+
 ```yaml
 Notification Settings:
   Security Alerts:
@@ -169,10 +156,7 @@ Notification Settings:
 
 ### OAuth Connections
 
-View connected services:
-- Google (SSO)
-- GitHub (DevOps)
-- Slack (Notifications)
+Connected services include Google (SSO), GitHub (DevOps), and Slack (Notifications).
 
 ### Managing Connections
 
@@ -186,7 +170,6 @@ Disconnect services:
 
 ### Export Your Data
 
-Request data export:
 1. Go to **Settings > Privacy**
 2. Click **Export My Data**
 3. Choose format (JSON/CSV)
@@ -194,11 +177,7 @@ Request data export:
 
 ### Delete Account
 
-Account deletion:
-- Contact support for deletion
-- 30-day grace period
-- Irreversible after period
-- Data permanently removed
+Contact support to delete your account. A 30-day grace period applies; after it, deletion is irreversible and data is permanently removed.
 
 ---
 
@@ -271,28 +250,18 @@ Send Invitation → Email Delivered → User Clicks Link → Creates Account →
 
 ### Pending Invitations
 
-Manage outstanding invitations:
-- View pending invites
-- Resend if needed
-- Revoke if invalid
-- Track expiration
+Manage outstanding invitations: view pending invites, resend if needed, revoke if invalid, and track expiration.
 
 ## Managing Team Members
 
 ### Editing Members
 
-For existing members:
 1. Click member name
 2. Edit permissions
 3. Update details
 4. Save changes
 
-### Permissions Update
-
-Changes take effect immediately:
-- User may need to refresh
-- Active sessions updated
-- Audit log entry created
+Permission changes take effect immediately. The user may need to refresh; active sessions are updated and an audit log entry is created.
 
 ### Suspending Members
 
@@ -300,11 +269,9 @@ Temporarily disable access:
 1. Select member
 2. Click **Suspend**
 3. Confirm action
-4. Member cannot access
 
 ### Removing Members
 
-Remove team member:
 1. Select member
 2. Click **Remove**
 3. Transfer ownership (if needed)
@@ -339,19 +306,11 @@ Update multiple members:
 
 ### Activity Log
 
-View team actions:
-- Login events
-- Permission changes
-- Feature usage
-- Configuration changes
+View team actions: login events, permission changes, feature usage, and configuration changes.
 
 ### Audit Trail
 
-For compliance:
-- Who did what
-- When it happened
-- What changed
-- IP address
+For compliance, the audit trail records who did what, when it happened, what changed, and the IP address.
 
 ---
 
@@ -378,13 +337,12 @@ puts "    ✅ Team Management and Invitations"
 security_content = <<~MARKDOWN
 # Account Security Best Practices
 
-Protect your Powernode account with security best practices and configuration recommendations.
+Protect your Powernode account with these security practices and configuration recommendations.
 
 ## Password Security
 
 ### Strong Password Requirements
 
-Create secure passwords:
 - **Length**: 12+ characters minimum
 - **Complexity**: Mix of upper, lower, numbers, symbols
 - **Uniqueness**: Different from other accounts
@@ -392,27 +350,13 @@ Create secure passwords:
 
 ### Password Managers
 
-Recommended tools:
-- 1Password
-- LastPass
-- Bitwarden
-- Dashlane
-
-Benefits:
-- Generate strong passwords
-- Secure storage
-- Auto-fill convenience
-- Cross-device sync
+Recommended tools (1Password, LastPass, Bitwarden, Dashlane) generate strong passwords, store them securely, auto-fill, and sync across devices.
 
 ## Two-Factor Authentication
 
 ### Why Enable 2FA
 
-Additional security layer:
-- Protects against password theft
-- Blocks unauthorized access
-- Required for sensitive operations
-- Industry best practice
+2FA adds a security layer that protects against password theft, blocks unauthorized access, and is required for sensitive operations.
 
 ### Setting Up 2FA
 
@@ -426,21 +370,13 @@ Additional security layer:
 
 ### Backup Codes
 
-Handle backup codes carefully:
-- Print and store securely
-- Don't store digitally
-- Each code is single-use
-- Regenerate when needed
+Print and store backup codes securely (not digitally). Each code is single-use; regenerate when needed.
 
 ## Session Security
 
 ### Session Management
 
-Control active sessions:
-- View all logged-in devices
-- Revoke suspicious sessions
-- Set session timeout
-- Monitor login locations
+Control active sessions: view all logged-in devices, revoke suspicious sessions, set session timeout, and monitor login locations.
 
 ### Automatic Logout
 
@@ -456,19 +392,11 @@ Session Settings:
 
 ### Login Alerts
 
-Enable notifications for:
-- New device logins
-- Unusual locations
-- Failed login attempts
-- Password changes
+Enable notifications for new device logins, unusual locations, failed login attempts, and password changes.
 
 ### Audit Logs
 
-Review security events:
-- All login attempts
-- Permission changes
-- API key usage
-- Configuration changes
+Review security events: all login attempts, permission changes, API key usage, and configuration changes.
 
 ## API Key Security
 
@@ -481,7 +409,6 @@ Review security events:
 
 ### Key Rotation
 
-Rotate API keys:
 1. Generate new key
 2. Update applications
 3. Verify functionality
@@ -491,19 +418,11 @@ Rotate API keys:
 
 ### IP Restrictions
 
-For enterprise accounts:
-- Whitelist allowed IPs
-- Block unauthorized locations
-- VPN requirements
-- Geo-restrictions
+For enterprise accounts: whitelist allowed IPs, block unauthorized locations, require VPN, and apply geo-restrictions.
 
 ### HTTPS Only
 
-All connections secured:
-- TLS 1.2+ required
-- Certificate validation
-- HSTS enabled
-- Secure cookies
+All connections are secured with TLS 1.2+, certificate validation, HSTS, and secure cookies.
 
 ## Security Checklist
 
@@ -527,7 +446,6 @@ All connections secured:
 
 ### If You Suspect Compromise
 
-Immediate actions:
 1. Change password immediately
 2. Revoke all sessions
 3. Rotate API keys
@@ -536,11 +454,7 @@ Immediate actions:
 
 ### Reporting Security Issues
 
-Report to: security@powernode.org
-- Describe the issue
-- Include timestamps
-- Preserve evidence
-- Don't share publicly
+Report to security@powernode.org. Describe the issue, include timestamps, preserve evidence, and don't share publicly.
 
 ---
 

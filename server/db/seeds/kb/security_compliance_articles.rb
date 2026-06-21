@@ -194,8 +194,6 @@ Manage privacy settings and data protection for GDPR, CCPA, and other regulatory
 
 ## Privacy Dashboard
 
-### Overview
-
 Navigate to **Settings > Privacy**:
 - Consent management
 - Data subject requests

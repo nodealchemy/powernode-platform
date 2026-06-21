@@ -12,7 +12,7 @@ author = User.find_by!(email: "admin@powernode.org")
 devops_overview_content = <<~MARKDOWN
 # DevOps Overview
 
-Powernode's DevOps integration provides comprehensive tools for modern software development workflows, enabling teams to connect repositories, automate builds, and streamline deployments from a unified platform.
+Powernode's DevOps integration gives teams a unified platform to connect repositories, automate builds, and streamline deployments.
 
 ## What You'll Learn
 
@@ -284,13 +284,13 @@ puts "    ✅ DevOps Overview"
 git_providers_content = <<~MARKDOWN
 # Configuring Git Providers
 
-Connect your code repositories to Powernode for seamless integration with CI/CD pipelines, activity tracking, and automated workflows.
+Connect your code repositories to Powernode for integration with CI/CD pipelines, activity tracking, and automated workflows.
 
 ## Supported Providers
 
 ### GitHub
 
-GitHub is the most popular Git hosting service, offering extensive API support and OAuth integration.
+The most popular Git hosting service, with extensive API support and OAuth integration.
 
 **Features:**
 - Repository sync and mirroring
@@ -321,7 +321,7 @@ curl -X GET https://api.powernode.org/api/v1/devops/providers \\
 
 ### GitLab
 
-GitLab offers both cloud and self-hosted options with comprehensive DevOps features.
+Cloud and self-hosted options with comprehensive DevOps features.
 
 **Features:**
 - Self-hosted and GitLab.com support
@@ -355,7 +355,7 @@ GitLab Self-Hosted Setup:
 
 ### Gitea
 
-Gitea is a lightweight, self-hosted Git service ideal for smaller teams.
+A lightweight, self-hosted Git service ideal for smaller teams.
 
 **Features:**
 - Minimal resource requirements
@@ -383,7 +383,7 @@ Required Permissions:
 
 ### Bitbucket
 
-Bitbucket integrates with the Atlassian ecosystem for comprehensive project management.
+Integrates with the Atlassian ecosystem for comprehensive project management.
 
 **Features:**
 - Jira integration
@@ -404,7 +404,7 @@ Bitbucket integrates with the Atlassian ecosystem for comprehensive project mana
 
 ### Sync Configuration
 
-Control how repositories sync with Powernode:
+Control how repositories sync:
 
 ```yaml
 Sync Settings:
@@ -462,7 +462,7 @@ Track commit activity across repositories:
 
 ### Automatic Webhooks
 
-Powernode automatically configures webhooks when connecting providers:
+Powernode configures webhooks automatically when connecting providers:
 
 ```yaml
 Webhook Events (Auto-configured):
@@ -627,7 +627,7 @@ puts "    ✅ Configuring Git Providers"
 cicd_pipelines_content = <<~MARKDOWN
 # Creating CI/CD Pipelines
 
-Build automated pipelines to continuously integrate, test, and deploy your applications with Powernode's visual pipeline builder and YAML configuration.
+Build automated pipelines to continuously integrate, test, and deploy your applications with Powernode's visual builder and YAML configuration.
 
 ## Pipeline Concepts
 
@@ -1146,13 +1146,13 @@ puts "    ✅ Creating CI/CD Pipelines"
 webhook_content = <<~MARKDOWN
 # Webhook and Integration Management
 
-Configure webhook endpoints to receive real-time events and integrate Powernode with external services for automated workflows.
+Configure webhook endpoints to receive real-time events and integrate Powernode with external services.
 
 ## Understanding Webhooks
 
 ### What Are Webhooks?
 
-Webhooks are HTTP callbacks that notify your applications when events occur in Powernode. Instead of polling for changes, webhooks push data to your endpoints in real-time.
+Webhooks are HTTP callbacks that notify your applications when events occur in Powernode. Instead of polling for changes, they push data to your endpoints in real-time.
 
 ### Webhook Architecture
 
@@ -1289,7 +1289,7 @@ curl -X POST https://api.powernode.org/api/v1/webhooks \\
 
 ### Signature Verification
 
-Powernode signs all webhook payloads using HMAC-SHA256:
+Powernode signs all webhook payloads with HMAC-SHA256:
 
 ```
 X-Powernode-Signature: sha256=abc123...
@@ -1383,7 +1383,7 @@ function isTimestampValid(timestamp) {
 
 ### Automatic Retries
 
-Powernode automatically retries failed webhook deliveries:
+Powernode retries failed webhook deliveries automatically:
 
 ```yaml
 Retry Schedule:
@@ -1576,7 +1576,7 @@ puts "    ✅ Webhook and Integration Management"
 runners_content = <<~MARKDOWN
 # Managing Pipeline Runners
 
-Configure and manage self-hosted runners for CI/CD pipeline execution with full control over your build environment.
+Configure and manage self-hosted runners for CI/CD pipeline execution, with full control over your build environment.
 
 ## What Are Runners?
 
@@ -1692,7 +1692,7 @@ sudo ./powernode-runner service start
 
 ### Docker Installation
 
-Run runner as Docker container:
+Run the runner as a Docker container:
 
 ```bash
 docker run -d \\
@@ -1708,7 +1708,7 @@ docker run -d \\
 
 ### Kubernetes Installation
 
-Deploy runners in Kubernetes:
+Deploy runners on Kubernetes:
 
 ```yaml
 # runner-deployment.yaml

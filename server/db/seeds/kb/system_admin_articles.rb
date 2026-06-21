@@ -16,8 +16,6 @@ Monitor and manage Powernode's system services for optimal performance and relia
 
 ## Services Dashboard
 
-### Overview
-
 Navigate to **Settings > System > Services**:
 
 ```
@@ -99,7 +97,7 @@ REDIS_URL=redis://localhost:6379
 
 ### Health Checks
 
-Automatic health monitoring:
+Automatic monitoring covers:
 - Service availability
 - Response times
 - Error rates
@@ -207,12 +205,7 @@ All significant events:
 - API access
 - Security events
 
-### Accessing Logs
-
-Navigate to **Settings > Audit Logs**:
-- Filterable log list
-- Detailed event view
-- Export capabilities
+Navigate to **Settings > Audit Logs** for a filterable log list, detailed event view, and export capabilities.
 
 ## Log Structure
 
@@ -398,21 +391,13 @@ Monitor and manage background workers that process asynchronous tasks like email
 
 ## Workers Overview
 
-### What Are Background Workers?
-
 Background workers handle:
 - **Asynchronous Processing** - Tasks that don't need immediate response
 - **Scheduled Jobs** - Recurring tasks on schedules
 - **Queue Processing** - Managing work queues
 - **Long-Running Tasks** - Operations taking seconds to minutes
 
-### Accessing Workers
-
-Navigate to **System > Workers** to:
-- View worker status
-- Monitor job queues
-- Manage job execution
-- Review job history
+Navigate to **System > Workers** to view worker status, monitor job queues, manage job execution, and review job history.
 
 ## Workers Dashboard
 
@@ -736,32 +721,14 @@ Debug Options:
 
 ### Job Design
 
-1. **Keep Jobs Small**
-   - Break large tasks into smaller jobs
-   - Use job chaining for sequences
-   - Implement checkpointing for long jobs
-
-2. **Make Jobs Idempotent**
-   - Safe to retry without side effects
-   - Check for existing results
-   - Use unique identifiers
-
-3. **Handle Failures Gracefully**
-   - Implement proper error handling
-   - Use exponential backoff
-   - Set reasonable retry limits
+1. **Keep Jobs Small** - Break large tasks into smaller jobs, use job chaining for sequences, and checkpoint long jobs.
+2. **Make Jobs Idempotent** - Safe to retry without side effects; check for existing results and use unique identifiers.
+3. **Handle Failures Gracefully** - Implement proper error handling, use exponential backoff, and set reasonable retry limits.
 
 ### Operations
 
-1. **Monitor Continuously**
-   - Watch queue depths
-   - Track failure rates
-   - Set up alerts
-
-2. **Scale Appropriately**
-   - Add workers for high load
-   - Use queue priorities
-   - Plan for peak times
+1. **Monitor Continuously** - Watch queue depths, track failure rates, and set up alerts.
+2. **Scale Appropriately** - Add workers for high load, use queue priorities, and plan for peak times.
 
 ## Related Articles
 
@@ -798,13 +765,7 @@ Enable maintenance mode to safely perform system updates, migrations, and mainte
 
 ## Maintenance Overview
 
-### What is Maintenance Mode?
-
-Maintenance mode:
-- **Restricts Access** to the platform temporarily
-- **Displays Message** to inform users
-- **Allows Admins** to continue working
-- **Protects Data** during updates
+Maintenance mode temporarily restricts access, displays a message to inform users, lets admins continue working, and protects data during updates.
 
 ### When to Use
 
@@ -818,11 +779,7 @@ Maintenance mode:
 
 ## Accessing Maintenance Settings
 
-Navigate to **Administration > Maintenance** to:
-- Enable/disable maintenance mode
-- Configure maintenance message
-- Set allowed IP addresses
-- Schedule maintenance windows
+Navigate to **Administration > Maintenance** to enable/disable maintenance mode, configure the message, set allowed IP addresses, and schedule maintenance windows.
 
 ## Maintenance Dashboard
 
@@ -1148,37 +1105,15 @@ Emergency Maintenance:
 
 ### Planning
 
-1. **Schedule Wisely**
-   - Choose low-traffic times
-   - Avoid business-critical periods
-   - Consider timezone impacts
-
-2. **Communicate Early**
-   - Give adequate notice
-   - Be clear about impact
-   - Provide alternatives if possible
-
-3. **Test First**
-   - Rehearse in staging
-   - Verify rollback works
-   - Time the maintenance tasks
+1. **Schedule Wisely** - Choose low-traffic times, avoid business-critical periods, and consider timezone impacts.
+2. **Communicate Early** - Give adequate notice, be clear about impact, and provide alternatives if possible.
+3. **Test First** - Rehearse in staging, verify rollback works, and time the maintenance tasks.
 
 ### Execution
 
-1. **Be Prepared**
-   - Have scripts ready
-   - Document all steps
-   - Assign clear roles
-
-2. **Monitor Closely**
-   - Watch for errors
-   - Track progress
-   - Be ready to rollback
-
-3. **Communicate Progress**
-   - Update status regularly
-   - Notify of any delays
-   - Confirm completion
+1. **Be Prepared** - Have scripts ready, document all steps, and assign clear roles.
+2. **Monitor Closely** - Watch for errors, track progress, and be ready to roll back.
+3. **Communicate Progress** - Update status regularly, notify of any delays, and confirm completion.
 
 ## Related Articles
 
@@ -1215,28 +1150,17 @@ Securely impersonate users to debug issues, provide support, and understand thei
 
 ## Impersonation Overview
 
-### What is User Impersonation?
-
-User impersonation allows administrators to:
+User impersonation lets administrators:
 - **View the platform** as a specific user sees it
 - **Debug issues** in the user's context
 - **Test permissions** and access levels
 - **Provide support** more effectively
 
-### Security Considerations
-
-Impersonation is a powerful feature requiring:
-- Strict access controls
-- Complete audit logging
-- Clear user notification
-- Time-limited sessions
+As a powerful feature, it requires strict access controls, complete audit logging, clear user notification, and time-limited sessions.
 
 ## Accessing Impersonation
 
-Navigate to **Administration > Impersonation** to:
-- Search for users to impersonate
-- View active impersonation sessions
-- Review impersonation history
+Navigate to **Administration > Impersonation** to search for users to impersonate, view active sessions, and review impersonation history.
 
 ## Impersonation Dashboard
 
@@ -1526,20 +1450,9 @@ Always Document:
 
 ### Security Guidelines
 
-1. **Minimize Duration**
-   - End session when done
-   - Don't leave sessions open
-   - Use shortest needed time
-
-2. **Minimize Access**
-   - Use read-only when possible
-   - Only request write when necessary
-   - Don't access unrelated data
-
-3. **Maintain Audit Trail**
-   - Always provide reason
-   - Document findings
-   - Report any concerns
+1. **Minimize Duration** - End the session when done, don't leave sessions open, and use the shortest time needed.
+2. **Minimize Access** - Use read-only when possible, only request write when necessary, and don't access unrelated data.
+3. **Maintain Audit Trail** - Always provide a reason, document findings, and report any concerns.
 
 ## Troubleshooting
 

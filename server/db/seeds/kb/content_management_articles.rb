@@ -26,11 +26,7 @@ Create and manage public-facing pages for your Powernode platform.
 
 ### Page List
 
-Navigate to **Content > Pages**:
-- View all pages
-- Filter by status
-- Search by title
-- Sort by date
+Navigate to **Content > Pages** to view all pages, filter by status, search by title, and sort by date.
 
 ## Creating Pages
 
@@ -94,11 +90,7 @@ SEO Settings:
 
 ### Version History
 
-Track page changes:
-- View revision history
-- Compare versions
-- Restore previous versions
-- See who made changes
+Track page changes: view revision history, compare versions, restore previous versions, and see who made changes.
 
 ### Restore Version
 
@@ -155,13 +147,7 @@ Upload, organize, and manage files with Powernode's file storage system.
 
 ## My Files Dashboard
 
-### Overview
-
-Navigate to **Content > My Files**:
-- View uploaded files
-- Organize in folders
-- Search and filter
-- Manage storage
+Navigate to **Content > My Files** to view uploaded files, organize them in folders, search and filter, and manage storage.
 
 ### File List
 
@@ -203,7 +189,6 @@ Upload Limits:
 
 ### Folders
 
-Create folder structure:
 1. Click **New Folder**
 2. Enter folder name
 3. Move files into folder
@@ -211,9 +196,7 @@ Create folder structure:
 
 ### Moving Files
 
-- Drag to folder
-- Use move action
-- Bulk move selected
+Drag to a folder, use the move action, or bulk-move selected files.
 
 ## Storage Configuration
 
@@ -270,11 +253,7 @@ Generate shareable links:
 
 ### Monitoring Usage
 
-View storage usage:
-- Total used
-- Available space
-- Usage by folder
-- Large files
+View storage usage: total used, available space, usage by folder, and large files.
 
 ---
 
@@ -321,11 +300,7 @@ Knowledge Base
 
 ### Dashboard
 
-Navigate to **Content > Knowledge Base**:
-- Total articles
-- Articles by status
-- Recent views
-- Search analytics
+Navigate to **Content > Knowledge Base** for total articles, articles by status, recent views, and search analytics.
 
 ## Category Management
 
@@ -347,10 +322,7 @@ Category Settings:
 
 ### Reordering
 
-Drag categories to reorder:
-- Affects navigation display
-- Updates sort order
-- Saves automatically
+Drag categories to reorder. This affects the navigation display, updates sort order, and saves automatically.
 
 ## Article Management
 
@@ -383,19 +355,13 @@ Author   Editor   Public
 
 ### Featured Articles
 
-Mark important articles:
-- Appear on homepage
-- Highlighted in search
-- Shown in category headers
+Mark important articles to surface them on the homepage, highlight them in search, and show them in category headers.
 
 ## Search Optimization
 
 ### Tags
 
-Add relevant tags:
-- Improve searchability
-- Enable filtering
-- Group related content
+Relevant tags improve searchability, enable filtering, and group related content.
 
 ### SEO Settings
 
@@ -408,44 +374,22 @@ Article SEO:
 
 ### Search Analytics
 
-Track search behavior:
-- Top search terms
-- No-result queries
-- Article click-through
-- Search success rate
+Track search behavior: top search terms, no-result queries, article click-through, and search success rate.
 
 ## Article Analytics
 
 ### View Tracking
 
-Monitor article performance:
-- View count
-- Unique viewers
-- Average time on page
-- Exit rate
+Monitor article performance: view count, unique viewers, average time on page, and exit rate.
 
 ### Feedback
 
-Collect article feedback:
-- Helpful/not helpful ratings
-- Comments (if enabled)
-- Improvement suggestions
+Collect helpful/not-helpful ratings, comments (if enabled), and improvement suggestions.
 
 ## Best Practices
 
-### Content Quality
-
-- Clear, concise writing
-- Step-by-step instructions
-- Screenshots where helpful
-- Regular updates
-
-### Organization
-
-- Logical category structure
-- Consistent naming
-- Cross-linking articles
-- Featured important content
+- **Content quality**: Clear, concise writing; step-by-step instructions; screenshots where helpful; regular updates.
+- **Organization**: Logical category structure, consistent naming, cross-linked articles, featured important content.
 
 ---
 

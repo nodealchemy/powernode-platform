@@ -13,11 +13,11 @@ author = User.find_by!(email: "admin@powernode.org")
 a2a_protocol_content = <<~MARKDOWN
   # A2A Protocol: Agent-to-Agent Communication
 
-  The Agent-to-Agent (A2A) protocol enables structured inter-agent communication within Powernode's AI orchestration platform. Built on the JSON-RPC 2.0 specification, A2A provides a standardized way for agents to discover each other, exchange tasks, and coordinate work across team and account boundaries.
+  The Agent-to-Agent (A2A) protocol enables structured inter-agent communication within Powernode. Built on JSON-RPC 2.0, it provides a standardized way for agents to discover each other, exchange tasks, and coordinate work across team and account boundaries.
 
   ## Overview
 
-  A2A addresses the fundamental challenge of multi-agent systems: how do independent agents communicate reliably? Rather than building point-to-point integrations, A2A provides a protocol layer that handles discovery, task routing, and lifecycle management.
+  A2A solves the core problem of multi-agent systems — reliable communication between independent agents — with a protocol layer that handles discovery, task routing, and lifecycle management, rather than point-to-point integrations.
 
   ### Key Capabilities
 
@@ -32,7 +32,7 @@ a2a_protocol_content = <<~MARKDOWN
 
   ## Agent Cards and Discovery
 
-  Every agent in the system publishes an **Agent Card** — a structured description of its capabilities, accepted input formats, and communication preferences.
+  Every agent publishes an **Agent Card** — a structured description of its capabilities, accepted input formats, and communication preferences.
 
   ### Discovery Endpoint
 
@@ -74,7 +74,7 @@ a2a_protocol_content = <<~MARKDOWN
 
   ## Task Lifecycle
 
-  A2A tasks follow a well-defined lifecycle: **created → submitted → working → completed/failed/cancelled**.
+  A2A tasks follow the lifecycle **created → submitted → working → completed/failed/cancelled**.
 
   ### Sending a Task
 
@@ -109,11 +109,11 @@ a2a_protocol_content = <<~MARKDOWN
   Authorization: Bearer <jwt_token>
   ```
 
-  Cancellation is best-effort — if the agent has already completed the task, the cancellation is a no-op.
+  Cancellation is best-effort — if the agent has already completed the task, it is a no-op.
 
   ## JSON-RPC Dispatch
 
-  For more advanced interactions, A2A provides a full JSON-RPC 2.0 dispatch endpoint.
+  For advanced interactions, A2A provides a full JSON-RPC 2.0 dispatch endpoint.
 
   ```
   POST /api/v1/ai/a2a/jsonrpc
@@ -146,7 +146,7 @@ a2a_protocol_content = <<~MARKDOWN
 
   ## Federation
 
-  A2A supports federation with external agent systems, allowing Powernode agents to communicate with agents running on other platforms.
+  Federation lets Powernode agents communicate with agents running on other platforms.
 
   ### How Federation Works
 
@@ -164,11 +164,11 @@ a2a_protocol_content = <<~MARKDOWN
 
   ## Push Notifications
 
-  For long-running tasks, A2A supports push notifications so the requesting agent does not need to poll for status updates.
+  For long-running tasks, push notifications let the requesting agent avoid polling for status updates.
 
   ### Subscribing to Updates
 
-  When sending a task, include a `callback_url` in the request body. The A2A protocol service will POST status updates to this URL as the task progresses.
+  Include a `callback_url` in the task request body. The protocol service POSTs status updates to this URL as the task progresses.
 
   **Notification Payload:**
 
@@ -235,11 +235,11 @@ puts "    ✅ A2A Protocol: Agent-to-Agent Communication"
 trust_autonomy_content = <<~MARKDOWN
   # Trust & Autonomy System
 
-  Powernode's Trust & Autonomy system provides a graduated framework for controlling how much independence AI agents have. Agents start with minimal autonomy and earn greater freedom as they demonstrate reliability across multiple trust dimensions.
+  The Trust & Autonomy system is a graduated framework for controlling how much independence AI agents have. Agents start with minimal autonomy and earn freedom as they demonstrate reliability across multiple trust dimensions.
 
   ## Trust Tiers
 
-  The system defines four trust tiers, each with specific thresholds and capabilities:
+  Four trust tiers, each with specific thresholds and capabilities:
 
   | Tier | Threshold Range | Description |
   |------|----------------|-------------|
@@ -289,7 +289,7 @@ trust_autonomy_content = <<~MARKDOWN
 
   ## TrustEngineService
 
-  The `TrustEngineService` is the core service that calculates and manages agent trust scores.
+  `TrustEngineService` calculates and manages agent trust scores.
 
   ### Score Calculation
 
@@ -338,7 +338,7 @@ trust_autonomy_content = <<~MARKDOWN
 
   ## AgentBudget Controls
 
-  Each trust tier has associated budget controls managed through the `AgentBudget` model:
+  Each trust tier has budget controls managed through the `AgentBudget` model:
 
   | Control | Supervised | Monitored | Trusted | Autonomous |
   |---------|-----------|-----------|---------|------------|
@@ -347,15 +347,15 @@ trust_autonomy_content = <<~MARKDOWN
   | **Max concurrent tasks** | 1 | 3 | 10 | 50 |
   | **Tool execution limit/hr** | 10 | 50 | 200 | Unlimited |
 
-  Budget limits are enforced in real-time. When an agent reaches its limit, execution is paused until the next budget period or until an administrator manually increases the budget.
+  Limits are enforced in real-time. When an agent reaches its limit, execution pauses until the next budget period or until an administrator raises the budget.
 
   ### Budget Overrides
 
-  Administrators can override default budget limits for specific agents. Overrides persist across trust tier changes but are capped at the next tier's defaults.
+  Administrators can override default limits for specific agents. Overrides persist across tier changes but are capped at the next tier's defaults.
 
   ## AgentTrustScore Model
 
-  The `AgentTrustScore` model maintains the historical record of an agent's trust scores:
+  The `AgentTrustScore` model maintains an agent's historical trust scores:
 
   ```ruby
   # Key fields
@@ -368,7 +368,7 @@ trust_autonomy_content = <<~MARKDOWN
   demoted_at        # When the agent was last demoted
   ```
 
-  Historical scores are retained for auditing and trend analysis. The system uses this history to calculate the stability requirement for promotion.
+  Historical scores are retained for auditing and trend analysis, and used to calculate the stability requirement for promotion.
 
   ## Best Practices
 
@@ -411,7 +411,7 @@ puts "    ✅ Trust & Autonomy System"
 memory_tiers_content = <<~MARKDOWN
   # Memory Tiers & Knowledge Management
 
-  Powernode's AI memory system organizes agent knowledge across four tiers, each optimized for different access patterns, retention periods, and search capabilities. This tiered architecture ensures agents have fast access to recent context while maintaining long-term knowledge through vector embeddings.
+  The AI memory system organizes agent knowledge across four tiers, each optimized for different access patterns, retention periods, and search capabilities. Agents get fast access to recent context while retaining long-term knowledge through vector embeddings.
 
   ## Memory Architecture Overview
 
@@ -442,7 +442,7 @@ memory_tiers_content = <<~MARKDOWN
 
   ### Working Memory (Redis)
 
-  Working memory is the agent's immediate context — the scratchpad for the current task.
+  The agent's immediate context — a scratchpad for the current task.
 
   - **Storage**: Redis key-value store
   - **Lifetime**: Expires when the agent session ends
@@ -452,7 +452,7 @@ memory_tiers_content = <<~MARKDOWN
 
   ### Short Term Memory (PostgreSQL with TTL)
 
-  Short-term memory persists beyond a single session but has a finite lifetime.
+  Persists beyond a single session but has a finite lifetime.
 
   - **Storage**: PostgreSQL `ai_agent_short_term_memories` table
   - **Lifetime**: Configurable TTL (default: 7 days)
@@ -469,7 +469,7 @@ memory_tiers_content = <<~MARKDOWN
 
   ### Long Term Memory (pgvector Embeddings)
 
-  Long-term memory stores knowledge that the agent has learned over time, indexed for semantic search.
+  Stores knowledge the agent has learned over time, indexed for semantic search.
 
   - **Storage**: PostgreSQL with pgvector extension
   - **Lifetime**: Permanent (subject to decay scoring)
@@ -487,7 +487,7 @@ memory_tiers_content = <<~MARKDOWN
 
   ### Shared Memory (pgvector + ACL)
 
-  Shared memory is team-wide knowledge accessible to multiple agents, governed by access control lists.
+  Team-wide knowledge accessible to multiple agents, governed by access control lists.
 
   - **Storage**: PostgreSQL with pgvector extension
   - **Lifetime**: Permanent
@@ -497,7 +497,7 @@ memory_tiers_content = <<~MARKDOWN
 
   ## MemoryRouterService
 
-  The `MemoryRouterService` is the central routing layer that determines where memories should be stored and retrieved from.
+  `MemoryRouterService` is the central layer that determines where memories are stored and retrieved.
 
   ### Routing Logic
 
@@ -520,11 +520,11 @@ memory_tiers_content = <<~MARKDOWN
   3. **Long-term memory** — Semantic search for relevant knowledge
   4. **Shared memory** — Team knowledge matching the query (ACL-filtered)
 
-  Results are merged, deduplicated, and ranked by relevance before being injected into the agent's context window.
+  Results are merged, deduplicated, and ranked by relevance before injection into the agent's context window.
 
   ## ConsolidationService
 
-  The `ConsolidationService` promotes important memories up the tier hierarchy.
+  `ConsolidationService` promotes important memories up the tier hierarchy.
 
   ### Promotion Rules
 
@@ -544,7 +544,7 @@ memory_tiers_content = <<~MARKDOWN
 
   ## DecayService
 
-  The `DecayService` applies temporal decay to memories, ensuring that stale knowledge does not pollute agent context.
+  `DecayService` applies temporal decay so stale knowledge does not pollute agent context.
 
   ### Decay Algorithm
 
@@ -563,16 +563,16 @@ memory_tiers_content = <<~MARKDOWN
 
   ## IntegrityService
 
-  Per OWASP ASI05 guidelines, the `IntegrityService` ensures memory integrity using SHA-256 checksums.
+  Per OWASP ASI05 guidelines, `IntegrityService` ensures memory integrity using SHA-256 checksums.
 
   - Every memory entry has a SHA-256 hash of its content
-  - On retrieval, the hash is verified before the memory is used
-  - Hash mismatches trigger an alert and the memory is quarantined
-  - Prevents tampering with agent knowledge by malicious inputs
+  - On retrieval, the hash is verified before use
+  - Mismatches trigger an alert and quarantine the memory
+  - Prevents malicious inputs from tampering with agent knowledge
 
   ## SharedKnowledgeService
 
-  The `SharedKnowledgeService` manages team-wide knowledge with ACL-based access control.
+  `SharedKnowledgeService` manages team-wide knowledge with ACL-based access control.
 
   ### Access Control
 
@@ -640,7 +640,7 @@ puts "    ✅ Memory Tiers & Knowledge Management"
 compound_learning_content = <<~MARKDOWN
   # Compound Learning System
 
-  The Compound Learning system enables AI agents to accumulate knowledge over time, transforming individual task outcomes into reusable insights that improve future performance. Rather than starting from scratch each session, agents leverage a growing library of proven strategies, failure patterns, and domain-specific knowledge.
+  The Compound Learning system lets AI agents accumulate knowledge over time, turning individual task outcomes into reusable insights that improve future performance. Instead of starting from scratch each session, agents draw on a growing library of proven strategies, failure patterns, and domain knowledge.
 
   ## How It Works
 
@@ -666,7 +666,7 @@ compound_learning_content = <<~MARKDOWN
 
   ## AutoExtractorService
 
-  The `AutoExtractorService` is the entry point for the compound learning pipeline. It monitors four types of events and extracts learnings from each.
+  `AutoExtractorService` is the entry point for the pipeline. It monitors four event types and extracts learnings from each.
 
   ### Event Types
 
@@ -689,11 +689,11 @@ compound_learning_content = <<~MARKDOWN
 
   ## CompoundLearningService
 
-  The `CompoundLearningService` orchestrates the full lifecycle of compound learnings.
+  `CompoundLearningService` orchestrates the full lifecycle of compound learnings.
 
   ### Extraction
 
-  Extraction is always active — it runs regardless of feature flags. Every task outcome is processed for potential learnings.
+  Extraction is always active, regardless of feature flags. Every task outcome is processed for potential learnings.
 
   ```ruby
   CompoundLearningService.extract(
@@ -705,7 +705,7 @@ compound_learning_content = <<~MARKDOWN
 
   ### Deduplication
 
-  Before storing a new learning, the service checks for existing duplicates using cosine similarity on the embedding vectors:
+  Before storing a new learning, the service checks for duplicates via cosine similarity on the embedding vectors:
 
   - **Similarity >= 0.92** → Duplicate detected, the existing learning's metadata is updated (access count, last seen)
   - **Similarity 0.80 – 0.91** → Related but distinct, stored as a new learning with a cross-reference
@@ -715,7 +715,7 @@ compound_learning_content = <<~MARKDOWN
 
   ### Context Injection
 
-  When enabled via the `:compound_learning_injection` feature flag, relevant learnings are injected into an agent's context before task execution.
+  When enabled via the `:compound_learning_injection` feature flag, relevant learnings are injected into an agent's context before execution.
 
   ```ruby
   # Injection retrieves top-k relevant learnings
@@ -733,7 +733,7 @@ compound_learning_content = <<~MARKDOWN
 
   ### Cross-Team Promotion
 
-  When a learning proves valuable across multiple agents, it can be promoted to team-wide or organization-wide scope.
+  A learning that proves valuable across multiple agents can be promoted to team-wide or organization-wide scope.
 
   **Feature flag**: `:compound_learning_promotion`
   - **Enabled**: High-effectiveness learnings are automatically promoted
@@ -838,7 +838,7 @@ puts "    ✅ Compound Learning System"
 worktree_sandboxes_content = <<~MARKDOWN
   # Worktree Sandboxes & Git Integration
 
-  Powernode provides isolated execution environments for AI agents through Git worktree-based sandboxes. This approach gives each agent its own working copy of the repository without the overhead of full clones, enabling safe parallel code modifications with structured merge strategies.
+  Git worktree-based sandboxes give AI agents isolated execution environments. Each agent gets its own working copy of the repository without the overhead of full clones, enabling safe parallel code modifications with structured merge strategies.
 
   ## Architecture Overview
 
@@ -855,11 +855,11 @@ worktree_sandboxes_content = <<~MARKDOWN
              └── Agent C writing test coverage
   ```
 
-  Git worktrees share the same `.git` directory but have independent working directories and branches. This means agents can work on different branches simultaneously without conflicts.
+  Git worktrees share one `.git` directory but have independent working directories and branches, so agents can work on different branches simultaneously without conflicts.
 
   ## WorktreeSandboxIntegrationService
 
-  The `WorktreeSandboxIntegrationService` manages the full lifecycle of worktree-based sandboxes.
+  `WorktreeSandboxIntegrationService` manages the full lifecycle of worktree-based sandboxes.
 
   ### Session Lifecycle
 
@@ -901,7 +901,7 @@ worktree_sandboxes_content = <<~MARKDOWN
 
   ### Config Auto-Copy
 
-  When a worktree is created, the service automatically copies essential configuration files from the main working directory:
+  On worktree creation, the service copies essential configuration files from the main working directory:
 
   | File | Purpose |
   |------|---------|
@@ -911,7 +911,7 @@ worktree_sandboxes_content = <<~MARKDOWN
   | `.ruby-version` | Ruby version specification |
   | `.node-version` | Node.js version specification |
 
-  This ensures the agent's working environment matches the project configuration without requiring manual setup.
+  This matches the agent's working environment to the project configuration without manual setup.
 
   ## Merge Strategies
 
@@ -982,7 +982,7 @@ worktree_sandboxes_content = <<~MARKDOWN
 
   ## Container Sandboxes (Docker)
 
-  For workloads that require more isolation than Git worktrees provide, the `SandboxManagerService` offers Docker container-based sandboxes.
+  For workloads needing more isolation than Git worktrees provide, `SandboxManagerService` offers Docker container-based sandboxes.
 
   ### When to Use Containers
 
@@ -1007,7 +1007,7 @@ worktree_sandboxes_content = <<~MARKDOWN
 
   ## AgentWorkspaceService
 
-  The `AgentWorkspaceService` coordinates both worktree and container approaches, providing a unified interface for agent workspace management.
+  `AgentWorkspaceService` coordinates both worktree and container approaches behind a unified workspace-management interface.
 
   ### Workspace Selection
 
@@ -1022,7 +1022,7 @@ worktree_sandboxes_content = <<~MARKDOWN
   )
   ```
 
-  The service selects the appropriate sandbox type based on the requested isolation level and task requirements.
+  The service selects the sandbox type from the requested isolation level and task requirements.
 
   ## Best Practices
 
@@ -1065,17 +1065,17 @@ puts "    ✅ Worktree Sandboxes & Git Integration"
 review_workflows_content = <<~MARKDOWN
   # Review Workflows
 
-  Powernode's Review Workflow system provides structured quality gates for AI agent outputs. Whether you need mandatory human approval before deployment or advisory feedback that does not block execution, the review system adapts to your governance requirements.
+  The Review Workflow system provides structured quality gates for AI agent outputs — from mandatory human approval before deployment to advisory feedback that does not block execution.
 
   ## Overview
 
-  The `ReviewWorkflowService` manages the complete review lifecycle, supporting two distinct modes that can be configured per team or per agent.
+  `ReviewWorkflowService` manages the complete review lifecycle, supporting two modes configurable per team or per agent.
 
   ## Review Modes
 
   ### Blocking Mode
 
-  In blocking mode, execution halts until a reviewer (human or agent) explicitly approves or rejects the output.
+  Execution halts until a reviewer (human or agent) explicitly approves or rejects the output.
 
   ```
   Agent Output → Review Created → ⏸ Execution Paused
@@ -1096,7 +1096,7 @@ review_workflows_content = <<~MARKDOWN
 
   ### Shadow Mode
 
-  In shadow mode, reviews happen in parallel with continued execution. The review is advisory — it does not block the agent's workflow.
+  Reviews run in parallel with continued execution. The review is advisory — it does not block the agent's workflow.
 
   ```
   Agent Output → Review Created → Execution Continues
@@ -1133,7 +1133,7 @@ review_workflows_content = <<~MARKDOWN
 
   ## Review Findings
 
-  Findings are structured observations from the review process, each with a severity level and category.
+  Findings are structured observations from the review, each with a severity level and category.
 
   ### Severity Levels
 
@@ -1173,7 +1173,7 @@ review_workflows_content = <<~MARKDOWN
 
   ## Completeness Checks
 
-  The review system verifies that reviews cover all required areas before accepting them as complete.
+  The system verifies that reviews cover all required areas before accepting them as complete.
 
   ### Default Completeness Areas
 
@@ -1197,13 +1197,13 @@ review_workflows_content = <<~MARKDOWN
   }
   ```
 
-  If the completeness score is below the minimum threshold, the review is flagged as incomplete and the reviewer is prompted to cover missing areas.
+  If the completeness score is below the minimum threshold, the review is flagged incomplete and the reviewer is prompted to cover missing areas.
 
   ## Frontend Components
 
   ### ReviewPanel
 
-  The `ReviewPanel` component provides a unified interface for viewing and managing reviews:
+  `ReviewPanel` is a unified interface for viewing and managing reviews:
 
   - **Review Status** — Current status with color-coded severity indicators
   - **Findings List** — All findings grouped by category with severity badges
@@ -1213,7 +1213,7 @@ review_workflows_content = <<~MARKDOWN
 
   ### ReviewConfigSection
 
-  The `ReviewConfigSection` component allows team-level review configuration:
+  `ReviewConfigSection` handles team-level review configuration:
 
   - **Default Mode** — Set the default review mode (blocking or shadow) for the team
   - **Auto-Assignment** — Configure rules for automatic reviewer assignment
@@ -1288,11 +1288,11 @@ puts "    ✅ Review Workflows"
 role_profiles_content = <<~MARKDOWN
   # Role Profiles
 
-  Role Profiles define the behavioral blueprint for AI agents — what they are good at, how they communicate, and what tools they can access. Powernode ships with six system profiles covering common agent roles, and supports custom profiles for organization-specific needs.
+  Role Profiles define an AI agent's behavioral blueprint — what it is good at, how it communicates, and which tools it can access. Powernode ships with six system profiles for common roles and supports custom profiles for organization-specific needs.
 
   ## System Profiles
 
-  The platform includes six pre-seeded system profiles that cannot be deleted:
+  Six pre-seeded system profiles that cannot be deleted:
 
   | Profile | Slug | Primary Purpose |
   |---------|------|----------------|
@@ -1305,7 +1305,7 @@ role_profiles_content = <<~MARKDOWN
 
   ## Ai::RoleProfile Model
 
-  Each role profile is stored in the `ai_role_profiles` table with the following structure:
+  Each profile is stored in the `ai_role_profiles` table:
 
   | Field | Type | Description |
   |-------|------|-------------|
@@ -1321,7 +1321,7 @@ role_profiles_content = <<~MARKDOWN
 
   ## Prompt Templates
 
-  Each profile includes a `prompt_template` that defines the agent's base behavior. This template is prepended to the agent's system prompt during execution.
+  Each profile's `prompt_template` defines the agent's base behavior and is prepended to the system prompt during execution.
 
   ### Developer Profile Template (Example)
 
@@ -1424,11 +1424,11 @@ role_profiles_content = <<~MARKDOWN
   }
   ```
 
-  Tool access is enforced at the MCP layer — even if an agent attempts to use a denied tool, the request is rejected before execution.
+  Tool access is enforced at the MCP layer — a denied tool is rejected before execution even if the agent attempts it.
 
   ## Custom Profiles
 
-  Organizations can create custom profiles tailored to their specific workflows.
+  Organizations can create custom profiles tailored to their workflows.
 
   ### Creating a Custom Profile
 
@@ -1463,7 +1463,7 @@ role_profiles_content = <<~MARKDOWN
 
   ## RoleProfileSelector Component
 
-  The `RoleProfileSelector` is a frontend component for assigning profiles to agents within a team.
+  `RoleProfileSelector` is the frontend component for assigning profiles to agents within a team.
 
   ### Features
 
@@ -1475,7 +1475,7 @@ role_profiles_content = <<~MARKDOWN
 
   ## Profile Assignment
 
-  Profiles are assigned to agents through their team role. The assignment is stored in the `TeamRole` metadata:
+  Profiles are assigned through an agent's team role, stored in the `TeamRole` metadata:
 
   ```ruby
   team_role = Ai::TeamRole.find(role_id)
@@ -1483,7 +1483,7 @@ role_profiles_content = <<~MARKDOWN
   team_role.save!
   ```
 
-  When an agent is activated, the system loads its assigned profile and applies the prompt template, quality checks, and tool access controls.
+  On activation, the system loads the agent's assigned profile and applies its prompt template, quality checks, and tool access controls.
 
   ## Best Practices
 
@@ -1526,13 +1526,13 @@ puts "    ✅ Role Profiles"
 agent_trajectories_content = <<~MARKDOWN
   # Agent Trajectories
 
-  A trajectory is the complete execution trace of an AI agent's work — from the moment a task is assigned to the final outcome. Trajectories provide full observability into what an agent did, why it made certain decisions, and how well it performed.
+  A trajectory is the complete execution trace of an AI agent's work, from task assignment to final outcome. Trajectories give full observability into what an agent did, why it decided as it did, and how well it performed.
 
   ## Core Concepts
 
   ### What Is a Trajectory?
 
-  A trajectory captures the entire execution flow of an agent working on a task. Unlike simple logs that record individual events, trajectories organize execution into logical chapters with quality scoring and outcome tracking.
+  A trajectory captures an agent's entire execution flow on a task. Unlike plain logs of individual events, trajectories organize execution into logical chapters with quality scoring and outcome tracking.
 
   ```
   Trajectory: "Implement user authentication"
@@ -1587,7 +1587,7 @@ agent_trajectories_content = <<~MARKDOWN
 
   ## TrajectoryService
 
-  The `TrajectoryService` is the primary interface for recording and analyzing trajectories.
+  `TrajectoryService` is the primary interface for recording and analyzing trajectories.
 
   ### Recording Events
 
@@ -1633,7 +1633,7 @@ agent_trajectories_content = <<~MARKDOWN
 
   ### Quality Scoring
 
-  The service calculates quality scores based on four factors:
+  Quality scores are calculated from four factors:
 
   | Factor | Weight | Measurement |
   |--------|--------|------------|
@@ -1664,7 +1664,7 @@ agent_trajectories_content = <<~MARKDOWN
 
   ### TrajectoryViewer
 
-  The `TrajectoryViewer` component provides a rich visualization of a single trajectory:
+  `TrajectoryViewer` provides a rich visualization of a single trajectory:
 
   - **Timeline View** — Chronological display of chapters and events
   - **Chapter Cards** — Expandable cards for each chapter with summary and events
@@ -1675,7 +1675,7 @@ agent_trajectories_content = <<~MARKDOWN
 
   ### TrajectoryList
 
-  The `TrajectoryList` component provides a browsable list of past trajectories:
+  `TrajectoryList` provides a browsable list of past trajectories:
 
   - **Filtering** — By agent, team, outcome, date range, quality score
   - **Sorting** — By date, quality score, cost, duration
@@ -1756,13 +1756,13 @@ puts "    ✅ Agent Trajectories"
 team_orchestration_content = <<~MARKDOWN
   # Team Orchestration Patterns
 
-  Powernode supports multiple team structures and coordination strategies for multi-agent orchestration. Choosing the right combination of team type and coordination strategy is critical for effective agent collaboration.
+  Powernode supports multiple team structures and coordination strategies for multi-agent orchestration. The right combination of team type and coordination strategy is critical for effective collaboration.
 
   ## Team Types
 
   ### Functional Teams
 
-  A functional team consists of agents with the **same skill set** working together on related tasks.
+  Agents with the **same skill set** working together on related tasks.
 
   ```
   Functional Team: "Backend Dev Squad"
@@ -1781,7 +1781,7 @@ team_orchestration_content = <<~MARKDOWN
 
   ### Cross-Functional Teams
 
-  A cross-functional team combines agents with **different skill sets** to cover all aspects of a deliverable.
+  Agents with **different skill sets** combined to cover all aspects of a deliverable.
 
   ```
   Cross-Functional Team: "Feature Team"
@@ -1801,7 +1801,7 @@ team_orchestration_content = <<~MARKDOWN
 
   ### Hierarchical Teams
 
-  A hierarchical team has a **lead agent** that plans work and delegates to subordinate agents.
+  A **lead agent** plans work and delegates to subordinate agents.
 
   ```
   Hierarchical Team: "Architecture Team"
@@ -1821,7 +1821,7 @@ team_orchestration_content = <<~MARKDOWN
 
   ### Swarm Teams
 
-  A swarm team is **dynamic and self-organizing** — agents claim tasks based on availability and capability.
+  **Dynamic and self-organizing** — agents claim tasks based on availability and capability.
 
   ```
   Swarm Team: "Incident Response"
@@ -1843,7 +1843,7 @@ team_orchestration_content = <<~MARKDOWN
 
   ### Round Robin
 
-  Tasks are distributed evenly to agents in rotation, ensuring balanced workload.
+  Tasks are distributed to agents in rotation for a balanced workload.
 
   ```
   Tasks: [T1, T2, T3, T4, T5, T6]
@@ -1874,7 +1874,7 @@ team_orchestration_content = <<~MARKDOWN
 
   ### Sequential (Pipeline)
 
-  Each agent's output feeds into the next agent's input, forming a processing pipeline.
+  Each agent's output feeds the next agent's input, forming a processing pipeline.
 
   ```
   Agent A (Researcher) → Research findings
@@ -1912,7 +1912,7 @@ team_orchestration_content = <<~MARKDOWN
 
   ### Consensus
 
-  All agents contribute to a decision, and the outcome is determined by majority agreement or weighted voting.
+  All agents contribute to a decision; the outcome is determined by majority agreement or weighted voting.
 
   ```
   Question: "Should we refactor the payment module?"
@@ -1928,7 +1928,7 @@ team_orchestration_content = <<~MARKDOWN
 
   ## TeamChannel Communication
 
-  Teams communicate through `TeamChannel`, a persistent messaging system that supports multiple message types:
+  Teams communicate through `TeamChannel`, a persistent messaging system supporting multiple message types:
 
   | Channel Type | Purpose | Visibility |
   |-------------|---------|------------|
@@ -1992,7 +1992,7 @@ team_orchestration_content = <<~MARKDOWN
 
   ## Composition Guardrails
 
-  The `validate_team_composition` validation ensures teams have the required structure:
+  The `validate_team_composition` validation ensures the required structure:
 
   - **Minimum members** — Teams must have at least 2 agents
   - **Role coverage** — Cross-functional teams must cover required roles
@@ -2063,13 +2063,13 @@ puts "    ✅ Team Orchestration Patterns"
 cicd_pipeline_content = <<~MARKDOWN
   # CI/CD Pipeline Integration
 
-  Powernode's AI orchestration platform integrates with CI/CD pipelines to automate testing, security scanning, and deployment workflows triggered by agent code changes. The platform supports both GitHub Actions and Gitea Actions runners, with AI-powered analysis layered on top of traditional pipeline tools.
+  Powernode integrates with CI/CD pipelines to automate testing, security scanning, and deployment triggered by agent code changes. It supports both GitHub Actions and Gitea Actions runners, with AI-powered analysis layered on top of traditional pipeline tools.
 
   ## Runner Support
 
   ### RunnerDispatchService
 
-  The `RunnerDispatchService` abstracts the differences between CI/CD platforms, providing a unified interface for dispatching and monitoring pipeline runs.
+  `RunnerDispatchService` abstracts the differences between CI/CD platforms behind a unified interface for dispatching and monitoring pipeline runs.
 
   ```ruby
   RunnerDispatchService.dispatch(
@@ -2113,7 +2113,7 @@ cicd_pipeline_content = <<~MARKDOWN
 
   ### Gitea Actions Integration
 
-  Gitea Actions provides a GitHub Actions-compatible workflow engine for self-hosted Gitea instances.
+  Gitea Actions is a GitHub Actions-compatible workflow engine for self-hosted Gitea instances.
 
   | Feature | Support |
   |---------|---------|
@@ -2131,7 +2131,7 @@ cicd_pipeline_content = <<~MARKDOWN
 
   ## PipelineIntelligenceService
 
-  The `PipelineIntelligenceService` applies AI analysis to pipeline data, providing optimization recommendations and predictive insights.
+  `PipelineIntelligenceService` applies AI analysis to pipeline data for optimization recommendations and predictive insights.
 
   ### Analysis Capabilities
 
@@ -2178,7 +2178,7 @@ cicd_pipeline_content = <<~MARKDOWN
 
   ## Security Scanning Integration
 
-  AI agents can trigger and analyze security scans as part of the CI/CD pipeline.
+  AI agents can trigger and analyze security scans within the CI/CD pipeline.
 
   ### Automated Security Workflow
 
@@ -2206,7 +2206,7 @@ cicd_pipeline_content = <<~MARKDOWN
 
   ### SupplyChainAnalysisService
 
-  The `SupplyChainAnalysisService` specifically focuses on dependency security:
+  `SupplyChainAnalysisService` focuses on dependency security:
 
   - **Dependency Tree Analysis** — Maps the full dependency tree and identifies transitive risks
   - **CVE Matching** — Cross-references dependencies against known vulnerability databases
@@ -2378,11 +2378,11 @@ puts "    ✅ CI/CD Pipeline Integration"
 team_conversations_content = <<~MARKDOWN
   # Team Conversations & Chat
 
-  Team conversations provide a real-time collaboration interface between users and AI agent teams, enabling natural language interaction with multi-agent systems.
+  Team conversations are a real-time collaboration interface between users and AI agent teams, enabling natural language interaction with multi-agent systems.
 
   ## Overview
 
-  When a team has `coordinator_enabled: true`, user messages in the team conversation are routed through a Coordinator Service that decides whether to:
+  When a team has `coordinator_enabled: true`, user messages are routed through a Coordinator Service that decides whether to:
   - **RESPOND** directly with the lead agent
   - **DELEGATE** the task to the full team for execution
   - **CLARIFY** by asking the user for more information
@@ -2580,7 +2580,7 @@ puts "    ✅ MCP Platform Tools Reference"
 coordinator_service_content = <<~MARKDOWN
   # Coordinator Service
 
-  The Coordinator Service is the intelligence layer that routes user messages in team conversations to the appropriate handling mechanism.
+  The Coordinator Service is the intelligence layer that routes user messages in team conversations to the right handling mechanism.
 
   ## How It Works
 
@@ -2650,7 +2650,7 @@ puts "    ✅ Coordinator Service"
 agent_profiles_content = <<~MARKDOWN
   # Agent Conversation Profiles
 
-  Conversation profiles configure how AI agents present themselves and interact in chat conversations, controlling tone, verbosity, greeting behavior, and response style.
+  Conversation profiles configure how AI agents present themselves in chat, controlling tone, verbosity, greeting behavior, and response style.
 
   ## Profile Structure
 

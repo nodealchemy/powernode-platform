@@ -12,24 +12,20 @@ author = User.find_by!(email: "admin@powernode.org")
 ai_overview_content = <<~MARKDOWN
 # AI Orchestration Overview
 
-Powernode's AI Orchestration platform enables you to integrate, manage, and deploy AI capabilities across your organization with enterprise-grade security, multi-agent collaboration, and intelligent cost optimization.
+Powernode's AI Orchestration platform integrates, manages, and deploys AI capabilities across your organization with enterprise-grade security, multi-agent collaboration, and cost optimization.
 
 ## What You'll Learn
 
-- Core AI capabilities in Powernode
-- Key concepts: Providers, Agents, Teams, Workflows, MCP
+- Core capabilities: Providers, Agents, Teams, Workflows, MCP
 - Agent-to-Agent (A2A) protocol and federation
 - Compound learning and memory tiers
 - Worktree sandboxes for safe code execution
 - Trust and autonomy system
-- Getting started with AI features
-- Governance and cost management
+- Getting started, governance, and cost management
 
 ## Platform Capabilities
 
 ### Multi-Provider Support
-
-Connect to leading AI providers:
 
 | Provider | Models | Best For | Cost Tier |
 |----------|--------|----------|-----------|
@@ -64,15 +60,13 @@ Coordinate multiple agents for complex projects:
 
 ### A2A Protocol
 
-Agent-to-Agent communication using JSON-RPC 2.0:
+Agent-to-Agent communication over JSON-RPC 2.0:
 - Agent discovery and capability cards
 - Task lifecycle management (send, get, cancel)
 - Federation with external agent systems
 - Push notifications for async updates
 
 ### Memory Tiers
-
-Four-tier memory architecture:
 
 | Tier | Storage | Purpose | Retention |
 |------|---------|---------|-----------|
@@ -103,7 +97,7 @@ Four-tier trust system controls agent autonomy:
 
 ### Worktree Sandboxes
 
-Git worktree-based isolation for safe agent code execution:
+Git worktree isolation for safe agent code execution:
 - Branch naming: `ai/session-{id}/{suffix}`
 - Config auto-copy (.env, .tool-versions)
 - Merge strategies: integration_branch, sequential, manual
@@ -111,7 +105,7 @@ Git worktree-based isolation for safe agent code execution:
 
 ### Model Context Protocol (MCP)
 
-Extend agent capabilities with external tools:
+Extend agents with external tools:
 - Database queries and file system access
 - Web browsing and API integrations
 - Custom tool servers
@@ -212,8 +206,6 @@ Built-in protections following OWASP guidelines:
 
 ## Next Steps
 
-Explore detailed guides:
-
 1. [Configuring AI Providers](/kb/configuring-ai-providers)
 2. [Creating and Managing AI Agents](/kb/creating-managing-ai-agents)
 3. [Agent Teams and Multi-Agent Orchestration](/kb/agent-teams-multi-agent)
@@ -248,7 +240,7 @@ puts "    ✅ AI Orchestration Overview"
 ai_providers_content = <<~MARKDOWN
 # Configuring AI Providers
 
-Connect and manage AI service providers in Powernode to power your agents and workflows with the latest language models.
+Connect and manage AI service providers to power your agents and workflows.
 
 ## Supported Providers
 
@@ -284,7 +276,7 @@ Settings:
 
 ### OpenAI
 
-Broad model ecosystem with vision, reasoning, and embedding capabilities.
+Broad model ecosystem with vision, reasoning, and embeddings.
 
 **Available Models:**
 | Model | Context | Best For | Cost/1K Input | Cost/1K Output |
@@ -321,7 +313,7 @@ Real-time information access with X platform integration.
 
 ### Ollama (Self-Hosted)
 
-Run open-source models locally for zero-cost operation and data privacy.
+Run open-source models locally for zero cost and data privacy.
 
 **Available Models (seeded):**
 | Model | Parameters | Context | Best For |
@@ -371,11 +363,7 @@ To use a remote Ollama instance (e.g., on a GPU server):
 1. Navigate to **AI > Providers**
 2. Click **Add Provider**
 3. Select provider type
-4. Enter configuration:
-   - Name (descriptive identifier)
-   - API credentials
-   - Default model
-   - Rate limits
+4. Enter configuration: name, API credentials, default model, rate limits
 5. Click **Test Connection**
 6. Save configuration
 
@@ -404,7 +392,7 @@ curl -X POST https://api.powernode.org/api/v1/ai/providers \\
 
 ### Rate Limiting
 
-Configure limits to prevent API quota exhaustion:
+Prevent API quota exhaustion:
 
 ```yaml
 Rate Limit Configuration:
@@ -430,7 +418,7 @@ Rate Limit Configuration:
 
 ### Fallback Configuration
 
-Set up automatic failover:
+Automatic failover:
 
 ```yaml
 Fallback Chain:
@@ -448,8 +436,6 @@ Fallback Chain:
 ```
 
 ### Cost Tracking
-
-Monitor spending per provider:
 
 ```yaml
 Cost Configuration:
@@ -471,8 +457,6 @@ Cost Configuration:
 ## Testing Providers
 
 ### Connection Test
-
-Verify provider connectivity:
 
 ```bash
 curl -X POST https://api.powernode.org/api/v1/ai/providers/{id}/test \\
@@ -560,8 +544,6 @@ Test models interactively:
 
 ### Provider Status
 
-Monitor provider health:
-
 - [OpenAI Status](https://status.openai.com)
 - [Anthropic Status](https://status.anthropic.com)
 - [xAI Status](https://status.x.ai)
@@ -598,7 +580,7 @@ puts "    ✅ Configuring AI Providers"
 ai_agents_content = <<~MARKDOWN
 # Creating and Managing AI Agents
 
-Build intelligent AI agents that automate tasks, assist users, and integrate with your business processes.
+Build AI agents that automate tasks, assist users, and integrate with your business processes.
 
 ## What Are AI Agents?
 
@@ -626,8 +608,6 @@ Basic Configuration:
 
 ### Step 2: Model Selection
 
-Choose the AI model:
-
 ```yaml
 Model Configuration:
   Provider: openai-production
@@ -648,8 +628,6 @@ Model Configuration:
 | Data extraction | 0.0 |
 
 ### Step 3: System Prompt
-
-Define agent behavior:
 
 ```markdown
 # Customer Support Agent
@@ -727,8 +705,6 @@ Test in the playground before deployment:
 
 ### Memory and Context
 
-Configure how agents remember conversations:
-
 ```yaml
 Memory Configuration:
   Type: conversation  # or 'persistent', 'none'
@@ -743,8 +719,6 @@ Memory Configuration:
 ```
 
 ### Input/Output Processing
-
-Control data handling:
 
 ```yaml
 Processing:
@@ -762,8 +736,6 @@ Processing:
 ```
 
 ### Rate Limiting
-
-Prevent abuse:
 
 ```yaml
 Rate Limits:
@@ -890,8 +862,6 @@ Agent: Research Assistant
 
 ### Agent Versioning
 
-Track changes over time:
-
 ```yaml
 Version History:
   v3 (current):
@@ -912,8 +882,6 @@ Version History:
 
 ### A/B Testing
 
-Compare agent configurations:
-
 ```yaml
 A/B Test Configuration:
   Name: Temperature Comparison
@@ -933,8 +901,6 @@ A/B Test Configuration:
 ```
 
 ### Performance Analytics
-
-Monitor agent effectiveness:
 
 ```yaml
 Agent Metrics:
@@ -958,8 +924,6 @@ Agent Metrics:
 
 ### Deployment
 
-Control agent availability:
-
 ```yaml
 Deployment Settings:
   Status: active  # or 'inactive', 'testing'
@@ -977,8 +941,6 @@ Deployment Settings:
 
 ### Access Control
 
-Manage who can use agents:
-
 ```yaml
 Access Control:
   Users:
@@ -993,8 +955,6 @@ Access Control:
 ```
 
 ### Monitoring
-
-Set up alerts and monitoring:
 
 ```yaml
 Monitoring:
@@ -1043,37 +1003,15 @@ Monitoring:
 
 ### Tool Design
 
-1. **Clear Descriptions**
-   - Explain when to use each tool
-   - Document parameters clearly
-   - Provide examples
-
-2. **Error Handling**
-   - Return meaningful error messages
-   - Include retry logic
-   - Log failures
-
-3. **Security**
-   - Validate inputs
-   - Check permissions
-   - Audit tool usage
+- **Clear descriptions** — explain when to use each tool, document parameters, provide examples.
+- **Error handling** — return meaningful messages, include retry logic, log failures.
+- **Security** — validate inputs, check permissions, audit tool usage.
 
 ### Testing
 
-1. **Unit Tests**
-   - Test individual prompts
-   - Verify tool execution
-   - Check edge cases
-
-2. **Integration Tests**
-   - Full conversation flows
-   - Multi-tool scenarios
-   - Error recovery
-
-3. **User Testing**
-   - Beta testing with real users
-   - Gather feedback
-   - Iterate on design
+- **Unit tests** — individual prompts, tool execution, edge cases.
+- **Integration tests** — full conversation flows, multi-tool scenarios, error recovery.
+- **User testing** — beta with real users, gather feedback, iterate.
 
 ## Troubleshooting
 
@@ -1136,7 +1074,7 @@ Extend AI agent capabilities with Model Context Protocol (MCP) servers and manag
 
 ### What is MCP?
 
-Model Context Protocol (MCP) is an open standard that allows AI models to interact with external tools and data sources:
+Model Context Protocol (MCP) is an open standard letting AI models interact with external tools and data sources:
 
 - **Tools** - Functions agents can call (APIs, databases, etc.)
 - **Resources** - Data sources agents can read
@@ -1198,8 +1136,6 @@ curl -X POST https://api.powernode.org/api/v1/ai/mcp-servers \\
 
 ### Database Tools
 
-Query and modify databases:
-
 ```yaml
 Tools:
   - name: db_query
@@ -1227,8 +1163,6 @@ Tools:
 
 ### File System Tools
 
-Access and manage files:
-
 ```yaml
 Tools:
   - name: read_file
@@ -1252,8 +1186,6 @@ Tools:
 ```
 
 ### Web Tools
-
-Interact with web services:
 
 ```yaml
 Tools:
@@ -1326,7 +1258,7 @@ server.connect();
 
 ### What Are Contexts?
 
-Contexts provide agents with relevant background information:
+Contexts provide agents with relevant background:
 
 - **Documents** - Text files, PDFs, documentation
 - **Databases** - Structured data queries
@@ -1543,38 +1475,15 @@ Debugging:
 
 ### MCP Servers
 
-1. **Security**
-   - Use minimal permissions
-   - Validate all inputs
-   - Log tool usage
-   - Rotate credentials
-
-2. **Performance**
-   - Implement caching
-   - Set appropriate timeouts
-   - Handle errors gracefully
-
-3. **Monitoring**
-   - Track tool usage
-   - Monitor error rates
-   - Alert on failures
+- **Security** — minimal permissions, validate inputs, log usage, rotate credentials.
+- **Performance** — implement caching, set timeouts, handle errors gracefully.
+- **Monitoring** — track usage, monitor error rates, alert on failures.
 
 ### Context Management
 
-1. **Data Quality**
-   - Keep sources updated
-   - Remove outdated content
-   - Verify accuracy
-
-2. **Organization**
-   - Use meaningful categories
-   - Add rich metadata
-   - Maintain consistent formatting
-
-3. **Optimization**
-   - Right-size chunks
-   - Balance coverage vs. relevance
-   - Regular reindexing
+- **Data quality** — keep sources updated, remove outdated content, verify accuracy.
+- **Organization** — meaningful categories, rich metadata, consistent formatting.
+- **Optimization** — right-size chunks, balance coverage vs. relevance, reindex regularly.
 
 ## Related Articles
 
@@ -1607,7 +1516,7 @@ puts "    ✅ MCP Servers and Context Management"
 agent_teams_content = <<~MARKDOWN
 # Agent Teams and Multi-Agent Orchestration
 
-Coordinate multiple AI agents to tackle complex tasks through collaboration, delegation, and specialized roles using Powernode's team orchestration system.
+Coordinate multiple AI agents to tackle complex tasks through collaboration, delegation, and specialized roles.
 
 ## Team Types
 
@@ -1943,8 +1852,6 @@ Task Delegation Message:
 
 ### Team Dashboard
 
-Monitor team performance:
-
 ```yaml
 Team Metrics:
   Content Team:
@@ -1970,8 +1877,6 @@ Team Metrics:
 ```
 
 ### Conversation History
-
-Track agent interactions:
 
 ```yaml
 Team Conversation: Task #12345
@@ -2005,54 +1910,21 @@ Team Conversation: Task #12345
 
 ### Team Design
 
-1. **Clear Role Definition**
-   - Specific responsibilities
-   - Non-overlapping expertise
-   - Defined handoff points
-
-2. **Appropriate Team Size**
-   - Start small (3-5 agents)
-   - Add specialists as needed
-   - Avoid over-engineering
-
-3. **Efficient Communication**
-   - Structured message formats
-   - Relevant context only
-   - Clear success criteria
+- **Clear role definition** — specific responsibilities, non-overlapping expertise, defined handoff points.
+- **Appropriate team size** — start small (3-5 agents), add specialists as needed, avoid over-engineering.
+- **Efficient communication** — structured message formats, relevant context only, clear success criteria.
 
 ### Coordination
 
-1. **Coordinator Selection**
-   - Strong reasoning capability
-   - Good task decomposition
-   - Effective delegation
-
-2. **Error Handling**
-   - Retry mechanisms
-   - Fallback agents
-   - Escalation paths
-
-3. **Quality Control**
-   - Review checkpoints
-   - Feedback loops
-   - Quality metrics
+- **Coordinator selection** — strong reasoning, good task decomposition, effective delegation.
+- **Error handling** — retry mechanisms, fallback agents, escalation paths.
+- **Quality control** — review checkpoints, feedback loops, quality metrics.
 
 ### Performance
 
-1. **Parallel Where Possible**
-   - Independent subtasks
-   - Resource availability
-   - Coordination overhead
-
-2. **Caching**
-   - Shared research
-   - Common context
-   - Repeated queries
-
-3. **Monitoring**
-   - Track completion times
-   - Measure quality
-   - Identify bottlenecks
+- **Parallel where possible** — independent subtasks, resource availability, coordination overhead.
+- **Caching** — shared research, common context, repeated queries.
+- **Monitoring** — track completion times, measure quality, identify bottlenecks.
 
 ## Example: Customer Support Team
 
@@ -2132,13 +2004,13 @@ puts "    ✅ Agent Teams and Multi-Agent Orchestration"
 ai_conversations_content = <<~MARKDOWN
 # AI Conversations Guide
 
-Use Powernode's AI conversation interface to interact with agents, test prompts, and build conversational experiences.
+Use the AI conversation interface to interact with agents, test prompts, and build conversational experiences.
 
 ## Conversations Overview
 
 ### What Are AI Conversations?
 
-AI Conversations provide an interactive chat interface to:
+An interactive chat interface to:
 - Communicate with configured AI agents
 - Test and refine prompts
 - Build conversational workflows
@@ -2233,8 +2105,6 @@ Conversation Settings:
 ```
 
 ### Context Injection
-
-Add context to conversations:
 
 ```yaml
 Context Options:
@@ -2408,32 +2278,14 @@ Embed AI chat in your applications:
 
 ### Effective Conversations
 
-1. **Be Specific**
-   - Clear, focused questions
-   - Provide relevant context
-   - One topic at a time
-
-2. **Use Context**
-   - Upload relevant documents
-   - Reference previous messages
-   - Set system context
-
-3. **Iterate**
-   - Refine based on responses
-   - Use regenerate for alternatives
-   - Branch to explore options
+- **Be specific** — clear, focused questions; relevant context; one topic at a time.
+- **Use context** — upload relevant documents, reference previous messages, set system context.
+- **Iterate** — refine based on responses, regenerate for alternatives, branch to explore options.
 
 ### Agent Configuration
 
-1. **Match Agent to Task**
-   - Use specialized agents
-   - Configure appropriate tools
-   - Set suitable temperature
-
-2. **Optimize Context**
-   - Limit history for performance
-   - Provide relevant context only
-   - Update system prompts
+- **Match agent to task** — use specialized agents, configure appropriate tools, set suitable temperature.
+- **Optimize context** — limit history for performance, provide relevant context only, update system prompts.
 
 ## Related Articles
 
@@ -2466,11 +2318,11 @@ puts "    ✅ AI Conversations Guide"
 prompt_templates_content = <<~MARKDOWN
 # Managing Prompt Templates
 
-Create, organize, and reuse prompt templates to standardize AI interactions and improve agent consistency.
+Create, organize, and reuse prompt templates to standardize AI interactions and improve consistency.
 
 ## What Are Prompt Templates?
 
-Prompt templates are reusable text patterns that:
+Reusable text patterns that:
 - Standardize interactions with AI agents
 - Include variable placeholders for dynamic content
 - Enable consistent outputs across users
@@ -2700,8 +2552,6 @@ Variables:
 
 ### Version Management
 
-Track template changes:
-
 ```yaml
 Version History:
   v3 (current):
@@ -2755,36 +2605,15 @@ Access shared templates:
 
 ### Template Design
 
-1. **Clear Instructions**
-   - Explicit requirements
-   - Output format specification
-   - Constraints and limits
-
-2. **Appropriate Variables**
-   - Meaningful names
-   - Helpful descriptions
-   - Sensible defaults
-
-3. **Tested Thoroughly**
-   - Multiple test cases
-   - Edge cases
-   - Various inputs
+- **Clear instructions** — explicit requirements, output format, constraints and limits.
+- **Appropriate variables** — meaningful names, helpful descriptions, sensible defaults.
+- **Tested thoroughly** — multiple test cases, edge cases, various inputs.
 
 ### Organization
 
-1. **Consistent Naming**
-   - Category-Purpose-Version
-   - Example: `support-response-v2`
-
-2. **Documentation**
-   - Usage examples
-   - Variable explanations
-   - Expected outputs
-
-3. **Regular Review**
-   - Update outdated templates
-   - Remove unused templates
-   - Improve based on feedback
+- **Consistent naming** — Category-Purpose-Version, e.g. `support-response-v2`.
+- **Documentation** — usage examples, variable explanations, expected outputs.
+- **Regular review** — update outdated templates, remove unused ones, improve from feedback.
 
 ## Troubleshooting
 
@@ -2906,8 +2735,6 @@ Token Metrics (Last 24 Hours):
 
 ### Provider Status
 
-Monitor each AI provider:
-
 ```yaml
 Provider Health:
   OpenAI:
@@ -2948,8 +2775,6 @@ Rate Limits:
 
 ### Agent Performance
 
-Track individual agent metrics:
-
 ```yaml
 Agent: Support Agent
   Total Requests: 5,234
@@ -2980,8 +2805,6 @@ Agent: Support Agent
 ## Workflow Monitoring
 
 ### Workflow Execution
-
-Track workflow performance:
 
 ```yaml
 Workflow: Customer Feedback Pipeline
@@ -3018,8 +2841,6 @@ Recent Failures:
 ## Alerting
 
 ### Alert Configuration
-
-Set up monitoring alerts:
 
 ```yaml
 Alert Rules:
@@ -3096,16 +2917,12 @@ Budget Configuration:
 
 ### Trend Analysis
 
-View historical patterns:
-
 - Daily/weekly/monthly comparisons
 - Seasonal patterns
 - Growth trends
 - Anomaly detection
 
 ### Report Generation
-
-Generate custom reports:
 
 ```yaml
 Report Configuration:
@@ -3125,8 +2942,6 @@ Report Configuration:
 ## Debugging Tools
 
 ### Request Inspector
-
-Examine individual requests:
 
 ```yaml
 Request Details:
@@ -3154,8 +2969,6 @@ Request Details:
 
 ### Log Viewer
 
-Access detailed logs:
-
 ```yaml
 Log Filters:
   - Time range
@@ -3174,20 +2987,9 @@ Log Entry:
 
 ### Monitoring Setup
 
-1. **Baseline Metrics**
-   - Establish normal ranges
-   - Document expected values
-   - Set appropriate thresholds
-
-2. **Alert Tuning**
-   - Start conservative
-   - Reduce noise over time
-   - Prioritize actionable alerts
-
-3. **Regular Review**
-   - Weekly metric review
-   - Monthly trend analysis
-   - Quarterly optimization
+- **Baseline metrics** — establish normal ranges, document expected values, set thresholds.
+- **Alert tuning** — start conservative, reduce noise over time, prioritize actionable alerts.
+- **Regular review** — weekly metrics, monthly trends, quarterly optimization.
 
 ## Related Articles
 
@@ -3226,7 +3028,7 @@ Implement responsible AI practices with governance policies, compliance controls
 
 ### Why AI Governance?
 
-AI governance ensures:
+Governance ensures:
 - **Safety** - Prevent harmful outputs
 - **Compliance** - Meet regulatory requirements
 - **Consistency** - Standardized AI behavior
@@ -3245,8 +3047,6 @@ Navigate to **AI > Governance** to manage:
 ## Policy Configuration
 
 ### Usage Policies
-
-Define how AI can be used:
 
 ```yaml
 Usage Policy: Production AI Policy
@@ -3271,8 +3071,6 @@ Usage Policy: Production AI Policy
 ```
 
 ### Content Policies
-
-Configure content filtering:
 
 ```yaml
 Content Policy:
@@ -3329,8 +3127,6 @@ Permission Matrix:
 
 ### Agent Access Controls
 
-Restrict who can use specific agents:
-
 ```yaml
 Agent: Financial Analysis Agent
   Access Control:
@@ -3349,8 +3145,6 @@ Agent: Financial Analysis Agent
 ## Safety Guardrails
 
 ### Input Guardrails
-
-Protect against malicious inputs:
 
 ```yaml
 Input Guardrails:
@@ -3436,8 +3230,6 @@ Compliance Configuration:
 ```
 
 ### Compliance Reports
-
-Generate compliance documentation:
 
 | Report | Frequency | Contents |
 |--------|-----------|----------|
@@ -3536,8 +3328,6 @@ Incident Workflow:
 
 ### Model Registry
 
-Track approved models:
-
 ```yaml
 Approved Models:
   Production:
@@ -3572,38 +3362,15 @@ Model Review:
 
 ### Policy Development
 
-1. **Start with Principles**
-   - Define core values
-   - Align with company ethics
-   - Consider stakeholders
-
-2. **Involve Stakeholders**
-   - Legal/compliance team
-   - Security team
-   - Business users
-   - Technical team
-
-3. **Iterate and Improve**
-   - Regular policy reviews
-   - Incident-driven updates
-   - Industry benchmarking
+- **Start with principles** — define core values, align with company ethics, consider stakeholders.
+- **Involve stakeholders** — legal/compliance, security, business users, technical team.
+- **Iterate and improve** — regular reviews, incident-driven updates, industry benchmarking.
 
 ### Implementation
 
-1. **Gradual Rollout**
-   - Pilot with low-risk use cases
-   - Expand based on learnings
-   - Monitor continuously
-
-2. **Training**
-   - User education
-   - Developer guidelines
-   - Compliance training
-
-3. **Measurement**
-   - Define success metrics
-   - Track policy effectiveness
-   - Report to stakeholders
+- **Gradual rollout** — pilot with low-risk use cases, expand based on learnings, monitor continuously.
+- **Training** — user education, developer guidelines, compliance training.
+- **Measurement** — define success metrics, track effectiveness, report to stakeholders.
 
 ## Related Articles
 
@@ -3646,7 +3413,7 @@ The AI Sandbox provides:
 - **Isolated environment** for testing
 - **Safe experimentation** without production impact
 - **Development tools** for building agents
-- **Debugging capabilities** for troubleshooting
+- **Debugging** for troubleshooting
 
 ### Accessing the Sandbox
 
@@ -3733,8 +3500,6 @@ Test Configuration:
 
 ### Test Scenarios
 
-Create reusable test cases:
-
 ```yaml
 Test Scenario: Billing Inquiry
   Description: Test agent handling of billing questions
@@ -3790,8 +3555,6 @@ Debug Mode:
 ```
 
 ### Data Inspection
-
-Examine data at each step:
 
 ```yaml
 Node: sentiment_analysis
@@ -3893,8 +3656,6 @@ A/B Test Configuration:
 
 ### MCP Tool Validation
 
-Test tool integrations:
-
 ```yaml
 Tool Test: customer_lookup
   Input:
@@ -3912,8 +3673,6 @@ Tool Test: customer_lookup
 ```
 
 ### Mock Responses
-
-Configure mock tool responses:
 
 ```yaml
 Mock Configuration:
@@ -3936,8 +3695,6 @@ Mock Configuration:
 ## Debugging
 
 ### Debug Console
-
-Access detailed debugging:
 
 ```yaml
 Debug Output:
@@ -3984,7 +3741,7 @@ Error Analysis:
 
 ## Worktree Sandboxes
 
-For code-generating agents, Powernode provides git worktree-based isolation that allows agents to work on code without affecting the main working tree.
+For code-generating agents, Powernode provides git worktree isolation so agents can work on code without affecting the main working tree.
 
 ### How Worktree Sandboxes Work
 
@@ -4079,20 +3836,9 @@ Production Readiness:
 
 ### Sandbox Usage
 
-1. **Isolate Experiments**
-   - Use sandbox for all development
-   - Never test with production data
-   - Reset between experiments
-
-2. **Document Findings**
-   - Record test results
-   - Note configuration changes
-   - Share learnings
-
-3. **Systematic Testing**
-   - Define test cases upfront
-   - Cover edge cases
-   - Automate where possible
+- **Isolate experiments** — use sandbox for all development, never test with production data, reset between experiments.
+- **Document findings** — record test results, note configuration changes, share learnings.
+- **Systematic testing** — define test cases upfront, cover edge cases, automate where possible.
 
 ## Related Articles
 
@@ -4133,7 +3879,7 @@ Browse, install, and manage pre-built AI agents from the Agent Marketplace to ac
 
 ### What is the Agent Marketplace?
 
-The Agent Marketplace offers:
+The marketplace offers:
 - **Pre-built agents** ready to deploy
 - **Community contributions** from other users
 - **Verified solutions** from trusted publishers
@@ -4325,8 +4071,6 @@ Update Available:
 
 ### Customizing Agents
 
-Modify installed agents:
-
 ```yaml
 Customization Options:
   System Prompt:
@@ -4431,44 +4175,19 @@ Listing Configuration:
 
 ### Choosing Agents
 
-1. **Match Your Needs**
-   - Review features carefully
-   - Check compatibility
-   - Read user reviews
-
-2. **Start with Verified**
-   - Lower risk
-   - Better support
-   - Regular updates
-
-3. **Test Before Production**
-   - Use sandbox mode
-   - Run test scenarios
-   - Verify performance
+- **Match your needs** — review features carefully, check compatibility, read user reviews.
+- **Start with verified** — lower risk, better support, regular updates.
+- **Test before production** — use sandbox mode, run test scenarios, verify performance.
 
 ### Customization
 
-1. **Minimal Changes First**
-   - Start with defaults
-   - Add customization gradually
-   - Document changes
-
-2. **Test Thoroughly**
-   - After any customization
-   - With real scenarios
-   - Monitor performance
+- **Minimal changes first** — start with defaults, customize gradually, document changes.
+- **Test thoroughly** — after any customization, with real scenarios, monitoring performance.
 
 ### Publishing
 
-1. **Quality First**
-   - Extensive testing
-   - Clear documentation
-   - Responsive support
-
-2. **Listen to Feedback**
-   - Monitor reviews
-   - Address issues promptly
-   - Iterate and improve
+- **Quality first** — extensive testing, clear documentation, responsive support.
+- **Listen to feedback** — monitor reviews, address issues promptly, iterate and improve.
 
 ## Related Articles
 
@@ -4511,7 +4230,7 @@ DevOps AI Templates provide:
 - **Ready-to-use workflows** for common tasks
 - **AI-powered automation** for DevOps processes
 - **Customizable configurations** for your needs
-- **Best practices** built-in
+- **Best practices** built in
 
 ### Accessing Templates
 
@@ -4701,8 +4420,6 @@ Deployment Configuration:
 ```
 
 ### Customizing Templates
-
-Modify templates for your needs:
 
 ```yaml
 Customization Options:
@@ -4949,39 +4666,18 @@ jobs:
 
 ### Template Selection
 
-1. **Match Your Needs**
-   - Review features
-   - Check requirements
-   - Consider customization needs
-
-2. **Start Simple**
-   - Begin with one template
-   - Learn the patterns
-   - Expand gradually
+- **Match your needs** — review features, check requirements, consider customization needs.
+- **Start simple** — begin with one template, learn the patterns, expand gradually.
 
 ### Customization
 
-1. **Incremental Changes**
-   - Start with defaults
-   - Add customizations gradually
-   - Test each change
-
-2. **Document Changes**
-   - Record modifications
-   - Explain rationale
-   - Share with team
+- **Incremental changes** — start with defaults, customize gradually, test each change.
+- **Document changes** — record modifications, explain rationale, share with team.
 
 ### Monitoring
 
-1. **Track Performance**
-   - Monitor execution times
-   - Review AI outputs
-   - Gather feedback
-
-2. **Iterate**
-   - Refine based on results
-   - Update prompts
-   - Improve automation
+- **Track performance** — monitor execution times, review AI outputs, gather feedback.
+- **Iterate** — refine based on results, update prompts, improve automation.
 
 ## Related Articles
 

@@ -166,16 +166,8 @@ Resolution:
 
 ### Dashboard Loading Slowly
 
-**Browser Steps**
-1. Clear browser cache
-2. Disable extensions
-3. Try different browser
-4. Use incognito mode
-
-**Account Steps**
-- Reduce date ranges
-- Use filters
-- Check internet speed
+**Browser**: Clear cache, disable extensions, try a different browser, or use incognito mode.
+**Account**: Reduce date ranges, use filters, and check internet speed.
 
 ### Reports Not Generating
 
@@ -200,7 +192,7 @@ Resolution:
 - Enable JavaScript
 - Enable cookies
 - Disable ad blockers for Powernode
-- Update to latest version
+- Update to the latest version
 
 ---
 
@@ -256,7 +248,7 @@ Available for Business and Enterprise plans:
 
 ### Help Desk
 
-Submit tickets through dashboard:
+Submit tickets through the dashboard:
 1. Navigate to **Help > Support Tickets**
 2. Click **New Ticket**
 3. Describe issue
@@ -330,28 +322,17 @@ Try these first:
 
 ### Status Page
 
-Monitor system status:
-- **URL**: status.powernode.org
-- Subscribe for updates
-- Check incident history
+Monitor system status at status.powernode.org. Subscribe for updates and check incident history.
 
 ## Community Resources
 
 ### Community Forum
 
-Join discussions:
-- Ask questions
-- Share solutions
-- Connect with users
-- Feature discussions
+Ask questions, share solutions, connect with users, and join feature discussions.
 
 ### Developer Resources
 
-For technical questions:
-- API documentation
-- GitHub discussions
-- Developer Slack
-- Stack Overflow tag
+For technical questions: API documentation, GitHub discussions, Developer Slack, and the Stack Overflow tag.
 
 ## Emergency Contacts
 
@@ -368,10 +349,6 @@ For emergencies (data breach, complete outage):
 - Complete service outage
 - Data loss
 - Payment system down
-
----
-
-We're here to help! Contact us anytime through your preferred channel.
 MARKDOWN
 
 KnowledgeBase::Article.find_or_create_by!(slug: "contacting-support") do |article|

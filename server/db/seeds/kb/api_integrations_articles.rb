@@ -382,7 +382,7 @@ X-Powernode-Event-ID: evt_01HQ7EXAMPLE
 
 ## Handling Webhooks
 
-### Best Practices
+Best practices:
 
 1. **Respond Quickly** - Return 200 within 30 seconds
 2. **Process Async** - Queue for background processing
@@ -431,7 +431,6 @@ Retry Schedule:
 
 ### Test Mode
 
-Send test events:
 1. Go to webhook settings
 2. Click **Send Test**
 3. Select event type
