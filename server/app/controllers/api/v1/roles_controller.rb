@@ -9,9 +9,9 @@ class Api::V1::RolesController < ApplicationController
   before_action :find_role, only: [ :show, :update, :destroy, :users ]
   before_action :find_user, only: [ :assign_to_user, :remove_from_user ]
 
-  # GET /api/v1/roles
+  # GET /api/v1/roles — global (code-defined) roles + this account's custom roles
   def index
-    roles = Role.includes(:permissions).order(:name)
+    roles = visible_roles.order(:account_id, :name)
 
     render_success(roles.map { |role| role_data(role) })
   end
@@ -28,59 +28,50 @@ class Api::V1::RolesController < ApplicationController
     render_success(users.map { |user| user_with_roles(user) })
   end
 
-  # POST /api/v1/roles
+  # POST /api/v1/roles — creates an ACCOUNT-SCOPED custom role (global roles are code-defined)
   def create
-    # Only allow custom roles to be created (not system roles)
     @role = Role.new(role_params)
-    @role.role_type = "user" # Set as user role (non-system role)
+    @role.account_id = current_user.account_id # custom roles belong to the acting account
+    @role.role_type = "user"
     @role.is_system = false
 
-    if @role.save
-      # Assign permissions to the role
-      if params[:permission_ids].present?
-        permissions = Permission.where(id: params[:permission_ids])
-        @role.permissions = permissions
-      end
-
-      render_success(role_data(@role), status: :created)
-    else
-      render_validation_error(@role)
+    unless @role.save
+      return render_validation_error(@role)
     end
+
+    if params[:permission_names].present?
+      ok, error = apply_permission_names(@role, params[:permission_names])
+      unless ok
+        @role.destroy
+        return render_error(error, status: :forbidden)
+      end
+    end
+
+    render_success(role_data(@role.reload), status: :created)
   end
 
-  # PATCH/PUT /api/v1/roles/:id
+  # PATCH/PUT /api/v1/roles/:id — only account-scoped custom roles are editable
   def update
-    # Don't allow updating system roles
-    if @role.system_role?
-      render_error("System roles cannot be modified", status: :forbidden)
-      return
+    return render_error("Global roles are code-defined and read-only", status: :forbidden) if @role.account_id.nil?
+
+    unless @role.update(role_params)
+      return render_validation_error(@role)
     end
 
-    if @role.update(role_params)
-      # Update permissions if provided
-      if params[:permission_ids].present?
-        permissions = Permission.where(id: params[:permission_ids])
-        @role.permissions = permissions
-      end
-
-      render_success(role_data(@role))
-    else
-      render_validation_error(@role)
+    if params.key?(:permission_names)
+      ok, error = apply_permission_names(@role, params[:permission_names])
+      return render_error(error, status: :forbidden) unless ok
     end
+
+    render_success(role_data(@role.reload))
   end
 
-  # DELETE /api/v1/roles/:id
+  # DELETE /api/v1/roles/:id — only account-scoped custom roles can be deleted
   def destroy
-    # Don't allow deleting system roles
-    if @role.system_role?
-      render_error("System roles cannot be deleted", status: :forbidden)
-      return
-    end
+    return render_error("Global roles are code-defined and cannot be deleted", status: :forbidden) if @role.account_id.nil?
 
-    # Check if role is in use
     if @role.users.any?
-      render_error("Cannot delete role that is assigned to users", status: :conflict)
-      return
+      return render_error("Cannot delete role that is assigned to users", status: :conflict)
     end
 
     if @role.destroy
@@ -90,22 +81,16 @@ class Api::V1::RolesController < ApplicationController
     end
   end
 
-  # GET /api/v1/roles/assignable
-  # Returns only roles that the current user has permission to assign
+  # GET /api/v1/roles/assignable — roles the current user may assign
   def assignable
-    # Start with all non-system roles (role_type != 'system')
-    assignable_roles = Role.where.not(role_type: "system").includes(:permissions)
+    assignable_roles = visible_roles.where.not(role_type: "system")
 
-    # System admins and regular admins can assign all roles
+    # System/regular admins can assign any visible role; others only roles whose
+    # effective permissions are a subset of their own (no privilege escalation).
     unless current_user.has_permission?("system.admin") || current_user.has_permission?("admin.access")
-      # For non-admin users, filter roles based on permissions
-      # Users can only assign roles that have permissions they also have
       user_permissions = current_user.permission_names
-
       assignable_roles = assignable_roles.select do |role|
-        role_permissions = role.permissions.pluck(:name)
-        # User can assign this role if they have all the permissions that the role grants
-        role_permissions.all? { |perm| user_permissions.include?(perm) }
+        role.permission_names.all? { |perm| user_permissions.include?(perm) }
       end
     end
 
@@ -114,40 +99,42 @@ class Api::V1::RolesController < ApplicationController
 
   # POST /api/v1/roles/:role_id/assign_to_user/:user_id
   def assign_to_user
-    role = Role.find(params[:role_id])
+    role = visible_roles.find(params[:role_id])
 
-    # Validate that current user can assign this role
     unless can_assign_role?(role)
-      render_error("You do not have permission to assign this role", status: :forbidden)
-      return
+      return render_error("You do not have permission to assign this role", status: :forbidden)
     end
 
-    begin
-      @user.assign_role(role, assigned_by: current_user)
-
-      render_success(user_with_roles(@user))
-    rescue StandardError => e
-      render_error("Failed to assign role: #{e.message}", status: :unprocessable_content)
-    end
+    @user.assign_role(role, assigned_by: current_user)
+    render_success(user_with_roles(@user))
+  rescue ActiveRecord::RecordNotFound
+    render_error("Role not found", status: :not_found)
+  rescue StandardError => e
+    render_error("Failed to assign role: #{e.message}", status: :unprocessable_content)
   end
 
   # DELETE /api/v1/roles/:role_id/remove_from_user/:user_id
   def remove_from_user
-    role = Role.find(params[:role_id])
+    role = visible_roles.find(params[:role_id])
 
-    begin
-      @user.remove_role(role)
-
-      render_success(user_with_roles(@user))
-    rescue StandardError => e
-      render_error("Failed to remove role: #{e.message}", status: :unprocessable_content)
-    end
+    @user.remove_role(role)
+    render_success(user_with_roles(@user))
+  rescue ActiveRecord::RecordNotFound
+    render_error("Role not found", status: :not_found)
+  rescue StandardError => e
+    render_error("Failed to remove role: #{e.message}", status: :unprocessable_content)
   end
 
   private
 
+  # Global roles (account_id nil) + the acting account's custom roles. This is
+  # the isolation boundary — a user never sees another account's custom roles.
+  def visible_roles
+    Role.for_account(current_user.account_id)
+  end
+
   def find_role
-    @role = Role.find(params[:id])
+    @role = visible_roles.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     render_error("Role not found", status: :not_found)
   end
@@ -159,27 +146,66 @@ class Api::V1::RolesController < ApplicationController
   end
 
   def role_params
-    params.require(:role).permit(:name, :description)
+    params.require(:role).permit(:name, :display_name, :description)
+  end
+
+  # Reconcile a custom role's grants to `names`, enforcing the escalation guard:
+  # every name must be a catalog permission the current user is allowed to grant
+  # (held by them, never system-tier). Returns [ok, error_message].
+  def apply_permission_names(role, names)
+    names = Array(names).map(&:to_s).uniq
+
+    unknown = names.reject { |n| Permissions.permission_exists?(n) }
+    return [ false, "Unknown permissions: #{unknown.join(', ')}" ] if unknown.any?
+
+    ungrantable = names.reject { |n| current_user.can_grant_permission?(n) }
+    if ungrantable.any?
+      return [ false, "You cannot grant permissions you do not hold (or system-tier permissions): #{ungrantable.join(', ')}" ]
+    end
+
+    current = role.role_permissions.pluck(:permission_name)
+    (current - names).each { |n| role.remove_permission(n) }
+    (names - current).each { |n| role.add_permission(n) }
+    [ true, nil ]
+  end
+
+  # Check if the current user can assign a specific role to a user
+  def can_assign_role?(role)
+    return true if current_user.has_permission?("system.admin") || current_user.has_permission?("admin.access")
+    return false if role.system_role?
+
+    # Non-admins may only assign roles whose effective permissions they all hold
+    user_permissions = current_user.permission_names
+    role.permission_names.all? { |perm| user_permissions.include?(perm) }
   end
 
   def role_data(role)
     {
       id: role.id,
       name: role.name,
+      display_name: role.display_name,
       description: role.description,
+      account_id: role.account_id,
+      scope: role.account_id ? "account" : "global",
+      editable: role.account_id.present? && role.account_id == current_user.account_id,
       system_role: role.system_role?,
-      permissions: role.permissions.map { |p|
-        {
-          id: p.id,
-          name: "#{p.resource}.#{p.action}",
-          resource: p.resource,
-          action: p.action,
-          description: p.description
-        }
-      },
+      # Literal grants (not the system.admin-expanded set) for display
+      permissions: role.role_permissions.pluck(:permission_name).sort.map { |name| permission_brief(name) },
       users_count: role.users.count,
       created_at: role.created_at,
       updated_at: role.updated_at
+    }
+  end
+
+  # Builds permission display data from a catalog name (no Permission row exists).
+  def permission_brief(name)
+    parts = name.split(".")
+    {
+      id: name,
+      name: name,
+      resource: parts[0..-2].join("."),
+      action: parts.last,
+      description: Permissions.permission_description(name)
     }
   end
 
@@ -190,10 +216,7 @@ class Api::V1::RolesController < ApplicationController
       name: user.name,
       full_name: user.full_name,
       status: user.status,
-      account: user.account ? {
-        id: user.account.id,
-        name: user.account.name
-      } : nil,
+      account: user.account ? { id: user.account.id, name: user.account.name } : nil,
       roles: user.role_names || [],
       permissions: user.permission_names || [],
       created_at: user.created_at,
@@ -201,33 +224,17 @@ class Api::V1::RolesController < ApplicationController
     }
   end
 
-  private
-
-  # Check if current user can assign a specific role
-  def can_assign_role?(role)
-    # System admins and regular admins can assign any role
-    return true if current_user.has_permission?("system.admin") || current_user.has_permission?("admin.access")
-
-    # System roles cannot be assigned by non-admin users
-    return false if role.system_role?
-
-    # Non-admin users can only assign roles that have permissions they also have
-    user_permissions = current_user.permission_names
-    role_permissions = role.permissions.pluck(:name)
-
-    role_permissions.all? { |perm| user_permissions.include?(perm) }
-  end
-
-  # Simplified role data for assignment purposes
+  # Simplified role data for assignment pickers
   def assignable_role_data(role)
     {
       id: role.id,
       name: role.name,
-      value: role.name, # For compatibility with frontend
+      value: role.name,
       label: role.name.split(".").map(&:titleize).join(" "),
       description: role.description,
+      scope: role.account_id ? "account" : "global",
       system_role: role.system_role?,
-      permission_count: role.permissions.count,
+      permission_count: role.role_permissions.count,
       users_count: role.users.count
     }
   end

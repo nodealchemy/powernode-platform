@@ -10,7 +10,7 @@ class Api::V1::DelegationsController < ApplicationController
   # GET /api/v1/accounts/:account_id/delegations
   def index
     @delegations = @account.account_delegations
-                          .includes(:delegated_user, :delegated_by, :role, :revoked_by, :permissions, :delegation_permissions)
+                          .includes(:delegated_user, :delegated_by, :role, :revoked_by, :delegation_permissions)
                           .order(:created_at)
 
     # Filter by status if provided
@@ -45,7 +45,7 @@ class Api::V1::DelegationsController < ApplicationController
     result = delegation_service.create_delegation(
       delegated_user_email: delegation_params[:delegated_user_email],
       role_id: delegation_params[:role_id],
-      permission_ids: delegation_params[:permission_ids],
+      permission_names: delegation_params[:permission_names],
       expires_at: delegation_params[:expires_at],
       notes: delegation_params[:notes]
     )
@@ -67,7 +67,7 @@ class Api::V1::DelegationsController < ApplicationController
     result = delegation_service.update_delegation(
       delegation: @delegation,
       role_id: delegation_params[:role_id],
-      permission_ids: delegation_params[:permission_ids],
+      permission_names: delegation_params[:permission_names],
       expires_at: delegation_params[:expires_at],
       notes: delegation_params[:notes]
     )
@@ -144,11 +144,11 @@ class Api::V1::DelegationsController < ApplicationController
     delegation_service = Accounts::DelegationService.new(current_user, @account)
     role_id = params[:role_id]
 
-    permissions = delegation_service.list_available_permissions_for_delegation(role_id: role_id)
+    permission_names = delegation_service.list_available_permissions_for_delegation(role_id: role_id)
 
     render_success(
       {
-        permissions: permissions.map { |permission| permission_json(permission) },
+        permissions: permission_names.map { |name| permission_json(name) },
         role_id: role_id
       }
     )
@@ -160,7 +160,7 @@ class Api::V1::DelegationsController < ApplicationController
 
     result = delegation_service.add_permission_to_delegation(
       delegation: @delegation,
-      permission_id: params[:permission_id]
+      permission_name: params[:permission_name]
     )
 
     if result[:success]
@@ -172,13 +172,13 @@ class Api::V1::DelegationsController < ApplicationController
     end
   end
 
-  # DELETE /api/v1/accounts/:account_id/delegations/:id/permissions/:permission_id
+  # DELETE /api/v1/accounts/:account_id/delegations/:id/permissions/:permission_name
   def remove_permission
     delegation_service = Accounts::DelegationService.new(current_user, @account)
 
     result = delegation_service.remove_permission_from_delegation(
       delegation: @delegation,
-      permission_id: params[:permission_id]
+      permission_name: params[:permission_name]
     )
 
     if result[:success]
@@ -218,7 +218,7 @@ class Api::V1::DelegationsController < ApplicationController
   end
 
   def delegation_params
-    params.require(:delegation).permit(:delegated_user_email, :role_id, :expires_at, :notes, permission_ids: [])
+    params.require(:delegation).permit(:delegated_user_email, :role_id, :expires_at, :notes, permission_names: [])
   end
 
   def delegation_json(delegation)
@@ -244,7 +244,7 @@ class Api::V1::DelegationsController < ApplicationController
         name: delegation.role.name,
         description: delegation.role.description
       } : nil,
-      permissions: delegation.permissions.map { |permission| permission_json(permission) },
+      permissions: delegation.permission_names.map { |name| permission_json(name) },
       permission_source: delegation.permission_source,
       permissions_summary: delegation.permissions_summary,
       status: delegation.status,
@@ -263,13 +263,17 @@ class Api::V1::DelegationsController < ApplicationController
     }
   end
 
-  def permission_json(permission)
+  # Permissions are code-defined and identified by NAME. `permission_name` is the
+  # canonical identifier; resource/action are derived from the dotted name for
+  # display/back-compat.
+  def permission_json(permission_name)
+    parts = permission_name.to_s.split(".")
     {
-      id: permission.id,
-      resource: permission.resource,
-      action: permission.action,
-      description: permission.description,
-      key: "#{permission.resource}.#{permission.action}"
+      name: permission_name,
+      key: permission_name,
+      resource: parts[0..-2].join("."),
+      action: parts.last,
+      description: Permissions.permission_description(permission_name)
     }
   end
 end

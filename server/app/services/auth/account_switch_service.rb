@@ -107,9 +107,10 @@ module Auth
     end
 
     def generate_switched_tokens(target_account, delegation, metadata)
-      # Build the effective permissions for the user in the target account
+      # Build the effective permissions for the user in the target account.
+      # effective_permissions already returns dotted permission NAME strings.
       permissions = if delegation
-        delegation.effective_permissions.map { |p| "#{p.resource}.#{p.action}" }
+        delegation.effective_permissions
       else
         @user.permission_names
       end

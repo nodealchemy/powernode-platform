@@ -315,7 +315,7 @@ class Api::V1::Admin::UsersController < ApplicationController
 
     # Non-admin users can only assign roles that have permissions they also have
     user_permissions = current_user.permission_names
-    role_permissions = role.permissions.pluck(:name)
+    role_permissions = role.permission_names
 
     role_permissions.all? { |perm| user_permissions.include?(perm) }
   end

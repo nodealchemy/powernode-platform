@@ -54,7 +54,7 @@ module Setup
     def self.ensure_permissions_and_roles!
       return if Role.exists?(name: "super_admin")
 
-      Permission.sync_from_config!
+      # Permissions are code-defined; only roles + their grants are seeded.
       Role.sync_from_config!
     end
 

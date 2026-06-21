@@ -779,7 +779,10 @@ Rails.application.routes.draw do
             patch :deactivate
             patch :revoke
             post :permissions, to: "delegations#add_permission"
-            delete "permissions/:permission_id", to: "delegations#remove_permission"
+            # permission_name is a dotted catalog key (e.g. "users.read"); the
+            # constraint keeps the dots from being parsed as a format suffix.
+            delete "permissions/:permission_name", to: "delegations#remove_permission",
+                   constraints: { permission_name: %r{[^/]+} }
           end
         end
       end
@@ -833,7 +836,10 @@ Rails.application.routes.draw do
           delete "remove_from_user/:user_id", action: :remove_from_user
         end
       end
-      resources :permissions, only: [ :index, :show ]
+      # :id is a dotted catalog permission name (e.g. "users.read"); the
+      # constraint keeps the trailing ".read" from being parsed as a format
+      # suffix so params[:id] receives the full catalog key.
+      resources :permissions, only: [ :index, :show ], constraints: { id: %r{[^/]+} }
 
       # Plans management is in business/server/config/routes.rb
 

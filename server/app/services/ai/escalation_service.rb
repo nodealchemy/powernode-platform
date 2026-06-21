@@ -81,9 +81,9 @@ module Ai
       end
 
       # 2. Users with ai.escalations.resolve permission
-      resolver_ids = User.joins(user_roles: { role: :permissions })
+      resolver_ids = User.joins(user_roles: { role: :role_permissions })
         .where(account_id: account.id)
-        .where(permissions: { name: "ai.escalations.resolve" })
+        .where(role_permissions: { permission_name: "ai.escalations.resolve" })
         .where.not(id: chain.map { |c| c["user_id"] })
         .distinct
         .pluck(:id)

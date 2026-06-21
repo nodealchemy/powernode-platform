@@ -27,7 +27,7 @@ module Entitlements
         available_roles = plan&.metadata&.dig("available_roles") || []
         return [] if available_roles.empty?
 
-        Role.where(name: available_roles).includes(:permissions)
+        Role.where(name: available_roles).includes(:role_permissions)
       end
 
       # Get the default roles that should be assigned to new users in this plan
@@ -174,7 +174,7 @@ module Entitlements
         return core_mode_feature_report(user) unless provider
 
         plan = provider.plan_for(user.account)
-        user_roles = user.roles.includes(:permissions)
+        user_roles = user.roles.includes(:role_permissions)
         user_permissions = user.permission_names
 
         {
@@ -196,7 +196,7 @@ module Entitlements
           current_roles: user_roles.map { |role|
             {
               name: role.name,
-              permissions: role.permissions.pluck(:name)
+              permissions: role.permission_names
             }
           },
           total_permissions: user_permissions.count,
@@ -240,8 +240,8 @@ module Entitlements
           user: { id: user.id, name: user.full_name, email: user.email },
           account: { id: user.account.id, name: user.account.name },
           plan: nil,
-          current_roles: user.roles.includes(:permissions).map { |role|
-            { name: role.name, permissions: role.permissions.pluck(:name) }
+          current_roles: user.roles.map { |role|
+            { name: role.name, permissions: role.permission_names }
           },
           total_permissions: user.permission_names.count,
           feature_access: {

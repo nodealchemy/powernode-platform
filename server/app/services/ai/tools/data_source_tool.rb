@@ -1334,10 +1334,10 @@ module Ai
         return true unless agent
         return true unless account
 
-        Permission.joins(roles: :user_roles)
-                  .where(user_roles: { user_id: account.users.select(:id) })
-                  .where(name: permission_name)
-                  .exists?
+        RolePermission.joins(role: :user_roles)
+                      .where(user_roles: { user_id: account.users.select(:id) })
+                      .where(permission_name: permission_name)
+                      .exists?
       rescue StandardError
         # Fail open like BaseTool.permitted? — execution is already gated upstream.
         true
