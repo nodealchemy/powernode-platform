@@ -1,5 +1,4 @@
 import { User } from '@/shared/services/slices/authSlice';
-import { PERMISSIONS } from '@/shared/constants/permissions';
 
 /**
  * Check if a user has specific permissions using the new permission-based system
@@ -64,34 +63,4 @@ export const hasAdminAccess = (user: User | null): boolean => {
 export const isAccountManager = (user: User | null): boolean => {
   if (!user) return false;
   return hasPermissions(user, ['team.assign_roles']) || hasPermissions(user, ['admin.user.update']);
-};
-
-// ========================================
-// Enhanced Permission Utilities with Constants
-// ========================================
-
-/**
- * Check if user can manage users (create, update, delete)
- */
-export const canManageUsers = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.ADMIN_USER.CREATE]);
-};
-
-/**
- * Check if user can manage team (invite, remove, manage roles)
- */
-export const canManageTeam = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.TEAM.INVITE]);
-};
-/**
- * Check if user can manage billing
- */
-export const canManageBilling = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.BILLING.UPDATE]);
-};
-/**
- * Check if user can export analytics
- */
-export const canExportAnalytics = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.ANALYTICS.EXPORT]);
 };
