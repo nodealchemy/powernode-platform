@@ -30,7 +30,7 @@ module Ai
     # Scopes
     scope :active, -> { where(status: "active") }
     scope :public_bases, -> { where(is_public: true) }
-    scope :for_account, ->(account_id) { where(account_id: account_id) }
+    # for_account (global + account) comes from GloballyScopable — do not shadow it.
 
     # Status transitions
     def start_indexing!

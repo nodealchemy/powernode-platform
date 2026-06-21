@@ -144,7 +144,7 @@ module Ai
         tags: tags,
         usage_count: usage_count,
         version: version
-      }
+      }.merge(self.scope_attributes)
     end
 
     def skill_details
@@ -157,7 +157,7 @@ module Ai
         connectors: mcp_servers.map { |s| { id: s.id, name: s.name, status: s.status } },
         created_at: created_at,
         updated_at: updated_at
-      )
+      ).merge(self.scope_attributes)
     end
 
     def command_definitions

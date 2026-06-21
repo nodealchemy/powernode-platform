@@ -30,6 +30,19 @@ module GloballyScopable
     cloned_from_id.present?
   end
 
+  # Scope/provenance fields for API serialization so the UI can show global vs
+  # account, read-only state, and clone/rebase availability. Merge into each
+  # content serializer's hash.
+  def scope_attributes
+    {
+      account_id:     account_id,
+      global:         global?,
+      cloned_from_id: cloned_from_id,
+      source_key:     source_key,
+      source_version: source_version
+    }
+  end
+
   # Identity/provenance/scoping columns — excluded from cloning + the snapshot.
   CLONE_INFRA = %w[id created_at updated_at account_id cloned_from_id
                    source_key source_version source_snapshot].freeze
@@ -55,6 +68,7 @@ module GloballyScopable
     copy.is_system       = false if copy.respond_to?(:is_system=)
     copy.assign_attributes(overrides)
     copy.slug = unique_clone_slug(copy.slug, acct_id) if copy.respond_to?(:slug) && copy.slug.present?
+    copy.name = unique_clone_name(copy.name, acct_id) if copy.respond_to?(:name) && copy.name.present?
     copy.save!
     copy
   end
@@ -115,6 +129,19 @@ module GloballyScopable
                     .where("account_id = :a OR account_id IS NULL", a: acct_id).exists?
       n += 1
       candidate = "#{base_slug}-copy-#{n}"
+    end
+    candidate
+  end
+
+  # An account-unique name for a clone (models validate name uniqueness per
+  # account); suffix "(Copy)" so it's distinct from the origin + any sibling.
+  def unique_clone_name(base_name, acct_id)
+    candidate = "#{base_name} (Copy)"
+    n = 1
+    while self.class.where(name: candidate)
+                    .where("account_id = :a OR account_id IS NULL", a: acct_id).exists?
+      n += 1
+      candidate = "#{base_name} (Copy #{n})"
     end
     candidate
   end
