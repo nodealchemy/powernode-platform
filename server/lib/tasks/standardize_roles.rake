@@ -119,7 +119,7 @@ namespace :roles do
     Role.order(:role_type, :name).each do |role|
       user_count = role.users.count
       worker_count = role.workers.count
-      permission_count = role.permissions.count
+      permission_count = role.role_permissions.count
 
       puts "  • #{role.name} (#{role.display_name})"
       puts "    Type: #{role.role_type}, Users: #{user_count}, Workers: #{worker_count}, Permissions: #{permission_count}"
@@ -139,7 +139,7 @@ namespace :roles do
     puts "\nDatabase Roles:"
     Role.order(:role_type, :name).each do |role|
       puts "  #{role.name.ljust(20)} - #{role.display_name.ljust(25)} (#{role.role_type})"
-      puts "    Users: #{role.users.count}, Workers: #{role.workers.count}, Permissions: #{role.permissions.count}"
+      puts "    Users: #{role.users.count}, Workers: #{role.workers.count}, Permissions: #{role.role_permissions.count}"
     end
 
     # Show configured roles

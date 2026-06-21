@@ -5,10 +5,29 @@
 
 puts "🌱 Seeding Powernode platform..."
 
-# Sync permissions and roles from configuration
-puts "📝 Creating permissions and roles from configuration..."
-Permission.sync_from_config!
-puts "✅ Created #{Permission.count} permissions"
+# Core vs demo gate. CORE data (permissions, roles, system worker, KB categories,
+# site settings) ALWAYS seeds — it's account-independent and production-safe.
+# DEMO/account-scoped data (test accounts, public pages, KB articles, AI agents)
+# seeds only when Powernode::Seeds.demo? — POWERNODE_SEED_DEMO=true, or (default)
+# development/test, or SEED_ADMIN_USERS=true. In core/prod, account-scoped data is
+# created by the setup wizard (Setup::SeedService), not here. A module method (not
+# a local) so files pulled in via `load` can call it.
+module Powernode
+  module Seeds
+    def self.demo?
+      return true if ENV["SEED_ADMIN_USERS"] == "true"
+
+      ENV.fetch("POWERNODE_SEED_DEMO") { (Rails.env.development? || Rails.env.test?).to_s }.to_s == "true"
+    end
+  end
+end
+puts(Powernode::Seeds.demo? ? "   mode: CORE + DEMO data" : "   mode: CORE data only (POWERNODE_SEED_DEMO=true to include demo)")
+
+# Permissions are code-defined (the Permissions catalog is the source of truth);
+# there is no permissions table to seed. Roles + their grants are seeded from the
+# catalog. Global roles only — account-scoped roles are created at runtime.
+puts "📝 Seeding global roles from the permission catalog..."
+puts "✅ Catalog defines #{Permissions.all_permissions.size} permissions"
 
 Role.sync_from_config!
 puts "✅ Created #{Role.count} roles"
@@ -23,19 +42,18 @@ if super_admin_role.nil?
   validation_issues << "Critical: super_admin role not found!"
 else
   # Verify super_admin has system.admin permission
-  unless super_admin_role.permissions.exists?(name: 'system.admin')
+  unless super_admin_role.has_permission?('system.admin')
     validation_issues << "Critical: super_admin role missing system.admin permission!"
   end
 end
 
-# Check for system.admin permission
-system_admin_perm = Permission.find_by(name: 'system.admin')
-if system_admin_perm.nil?
-  validation_issues << "Critical: system.admin permission not found!"
+# Check for system.admin permission in the catalog
+unless Permissions.permission_exists?('system.admin')
+  validation_issues << "Critical: system.admin permission not defined in catalog!"
 end
 
 # Check permission categories
-permission_categories = Permission.pluck(:name).map { |name| name.split('.').first }.uniq
+permission_categories = Permissions.all_permissions.keys.map { |name| name.split('.').first }.uniq
 expected_categories = [ 'users', 'admin', 'billing', 'system', 'analytics', 'pages', 'storage' ]
 missing_categories = expected_categories - permission_categories
 
@@ -46,7 +64,7 @@ end
 # Report validation results
 if validation_issues.empty?
   puts "✅ Permission system validation passed"
-  puts "   Total Permissions: #{Permission.count}"
+  puts "   Total Permissions: #{Permissions.all_permissions.size}"
   puts "   Total Roles: #{Role.count}"
   puts "   Permission Categories: #{permission_categories.count} (#{permission_categories.join(', ')})"
 else
@@ -118,8 +136,8 @@ rescue => e
   puts "   This may cause worker authentication issues"
 end
 
-# Only create admin account in development/test environments (or when SEED_ADMIN_USERS=true for Docker dev deploys)
-if Rails.env.development? || Rails.env.test? || ENV['SEED_ADMIN_USERS'] == 'true'
+# Demo: test/dev accounts + users (core/prod gets the first account from the wizard).
+if Powernode::Seeds.demo?
   puts "\n🏢 Creating development/test accounts and users..."
 
   # Load the unified test user seed which handles all user creation
@@ -127,7 +145,9 @@ if Rails.env.development? || Rails.env.test? || ENV['SEED_ADMIN_USERS'] == 'true
   load Rails.root.join('db', 'seeds', 'cypress_test_users.rb')
 end
 
-# 📄 Create public pages
+# 📄 Create public pages — demo/account-scoped (need an admin author). Gated by
+# Powernode::Seeds.demo?; in core/prod the setup wizard seeds account pages.
+if Powernode::Seeds.demo?
 puts "\n📄 Creating public pages..."
 
 # Get admin user as author
@@ -894,16 +914,16 @@ Page.find_or_create_by!(slug: 'features') do |page|
 end
 
 puts "✅ Created #{Page.count} public pages"
+end
 
-# Load Knowledge Base data
+# Load Knowledge Base data (KB permissions are code-defined in the catalog now)
 puts "\n📚 Loading Knowledge Base content..."
-load Rails.root.join('db', 'seeds', 'knowledge_base_permissions.rb')
 load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
 
 # Marketing permissions loaded via extension seeds (extensions/marketing/)
 
 # Load AI Providers and Agents (only in development/test)
-if Rails.env.development? || Rails.env.test?
+if Powernode::Seeds.demo?
   puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
   load Rails.root.join('db', 'seeds', 'comprehensive_ai_providers_seed.rb')
 
@@ -1039,7 +1059,7 @@ Powernode::ExtensionRegistry.each do |slug, ext|
 end
 
 puts "\n🎉 Seeding complete!"
-puts "   Permissions: #{Permission.count}"
+puts "   Permissions: #{Permissions.all_permissions.size}"
 puts "   Roles: #{Role.count}"
 plan_class = defined?(Billing::Plan) ? Billing::Plan : (defined?(Plan) ? Plan : nil)
 puts "   Plans: #{plan_class&.count || 0}"
@@ -1048,7 +1068,7 @@ puts "   Public Pages: #{Page.count}"
 puts "   KB Categories: #{KnowledgeBase::Category.count}"
 puts "   KB Articles: #{KnowledgeBase::Article.count}"
 
-if Rails.env.development? || Rails.env.test?
+if Powernode::Seeds.demo?
   puts "   AI Providers: #{Ai::Provider.count}"
   puts "   AI Agents: #{Ai::Agent.count}"
   puts "   DevOps Container Templates: #{Devops::ContainerTemplate.count}"
@@ -1095,7 +1115,7 @@ SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for
 puts "✅ Created #{SiteSetting.count} site settings"
 
 
-if Rails.env.development? || Rails.env.test?
+if Powernode::Seeds.demo?
   puts "   Accounts: #{Account.count}"
   puts "   Users: #{User.count}"
   puts "   Site Settings: #{SiteSetting.count}"

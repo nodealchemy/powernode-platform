@@ -115,12 +115,16 @@ KB_ARTICLE_FILES = %w[
   troubleshooting_articles
 ].freeze
 
-KB_ARTICLE_FILES.each do |file|
-  file_path = Rails.root.join('db', 'seeds', 'kb', "#{file}.rb")
-  if File.exist?(file_path)
-    load file_path
-  else
-    puts "  ⚠️  File not found: #{file}.rb"
+# KB categories + tags (above) are CORE — always seeded. The article BODIES need
+# an admin author (account-scoped demo content), so gate them by demo?.
+if Powernode::Seeds.demo?
+  KB_ARTICLE_FILES.each do |file|
+    file_path = Rails.root.join('db', 'seeds', 'kb', "#{file}.rb")
+    if File.exist?(file_path)
+      load file_path
+    else
+      puts "  ⚠️  File not found: #{file}.rb"
+    end
   end
 end
 

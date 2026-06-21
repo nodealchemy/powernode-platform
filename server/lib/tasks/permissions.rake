@@ -3,15 +3,11 @@
 namespace :permissions do
   desc "Verify admin user has proper permissions setup"
   task verify_admin: :environment do
-    # Load permissions configuration
-    require Rails.root.join("config", "permissions")
     puts "\n" + "=" * 80
     puts "🔍 PERMISSIONS STRUCTURE AUDIT"
     puts "=" * 80
 
-    # Find admin user
     admin_user = User.find_by(email: "admin@powernode.org")
-
     if admin_user.nil?
       puts "❌ Admin user not found (admin@powernode.org)"
       exit 1
@@ -20,9 +16,7 @@ namespace :permissions do
     puts "\n✅ Admin User Found:"
     puts "   Email: #{admin_user.email}"
     puts "   ID: #{admin_user.id}"
-    puts "   Created: #{admin_user.created_at}"
 
-    # Check roles
     puts "\n📋 Assigned Roles:"
     if admin_user.roles.empty?
       puts "   ❌ No roles assigned!"
@@ -32,77 +26,51 @@ namespace :permissions do
     admin_user.roles.each do |role|
       puts "   ✓ #{role.name} (#{role.display_name})"
       puts "     Type: #{role.role_type}"
-      puts "     Permissions: #{role.permissions.count}"
-      puts "     Has system.admin: #{role.permissions.exists?(name: 'system.admin') ? '✓' : '✗'}"
+      puts "     Permissions: #{role.role_permissions.count}"
+      puts "     Has system.admin: #{role.has_permission?('system.admin') ? '✓' : '✗'}"
     end
 
-    # Check for super_admin role
     super_admin_role = admin_user.roles.find_by(name: "super_admin")
     if super_admin_role.nil?
       puts "\n⚠️  WARNING: Admin user does not have super_admin role!"
     else
-      puts "\n✅ Super Admin Role Verified:"
-      puts "   Display Name: #{super_admin_role.display_name}"
-      puts "   System Role: #{super_admin_role.is_system?}"
-      puts "   Immutable: #{super_admin_role.immutable?}"
+      puts "\n✅ Super Admin Role Verified (system: #{super_admin_role.is_system?}, immutable: #{super_admin_role.immutable?})"
     end
 
-    # Verify system.admin permission
-    has_system_admin = admin_user.roles.joins(:permissions)
-                                  .exists?(permissions: { name: "system.admin" })
-
+    has_system_admin = admin_user.has_permission?("system.admin")
     if has_system_admin
-      puts "\n✅ System Admin Permission: ACTIVE"
-      puts "   This grants programmatic access to ALL permissions"
+      puts "\n✅ System Admin Permission: ACTIVE (grants programmatic access to ALL permissions)"
     else
       puts "\n❌ System Admin Permission: NOT FOUND"
-      puts "   Admin user will not have access to all permissions!"
       exit 1
     end
 
-    # Count total permissions in system
-    total_permissions = Permission.count
     puts "\n📊 Permission Statistics:"
-    puts "   Total Permissions: #{total_permissions}"
-
-    # Group by category
-    categories = Permission.pluck(:name).map { |name| name.split(".").first }.uniq
+    puts "   Total Permissions (catalog): #{Permissions.all_permissions.size}"
+    categories = Permissions.all_permissions.keys.map { |name| name.split(".").first }.uniq
     puts "   Permission Categories: #{categories.count}"
     categories.sort.each do |category|
-      count = Permission.where("name LIKE ?", "#{category}.%").count
+      count = Permissions.all_permissions.keys.count { |n| n.start_with?("#{category}.") }
       puts "     - #{category}: #{count} permissions"
     end
 
-    # Test permission check
     puts "\n🧪 Testing Permission Access:"
-    test_permissions = [
-      "users.manage",
-      "admin.access",
-      "billing.manage",
-      "system.admin",
-      "storage.manage",
-      "admin.storage.manage"
-    ]
-
-    test_permissions.each do |perm|
-      has_perm = admin_user.has_permission?(perm)
-      puts "   #{has_perm ? '✓' : '✗'} #{perm}"
+    %w[users.manage admin.access billing.manage system.admin storage.manage admin.storage.manage].each do |perm|
+      puts "   #{admin_user.has_permission?(perm) ? '✓' : '✗'} #{perm}"
     end
 
-    # Verify all roles are properly configured
-    puts "\n🔧 Role Configuration Validation:"
-    Permissions::ROLES.each do |role_name, config|
-      db_role = Role.find_by(name: role_name)
+    puts "\n🔧 Role Configuration Validation (global roles vs catalog):"
+    Permissions::ROLES.each do |role_name, _config|
+      db_role = Role.find_by(name: role_name.to_s, account_id: nil)
       if db_role.nil?
         puts "   ⚠️  Role '#{role_name}' defined in config but not in database"
         next
       end
 
-      config_perms = config[:permissions] || []
-      db_perms = db_role.permissions.pluck(:name)
+      config_perms = Permissions.permissions_for_role(role_name.to_s)
+      db_perms = db_role.role_permissions.pluck(:permission_name)
 
       if db_role.name == "super_admin"
-        # Super admin should only have system.admin permission
         if db_perms == [ "system.admin" ]
           puts "   ✓ #{role_name}: Correctly configured with system.admin"
         else
@@ -111,7 +79,6 @@ namespace :permissions do
       else
         missing = config_perms - db_perms
         extra = db_perms - config_perms
-
         if missing.empty? && extra.empty?
           puts "   ✓ #{role_name}: #{db_perms.count} permissions (in sync)"
         else
@@ -125,37 +92,27 @@ namespace :permissions do
     puts "\n" + "=" * 80
     puts "✅ AUDIT COMPLETE"
     puts "=" * 80
-    puts "\nSummary:"
-    puts "  Admin User: #{admin_user.email}"
-    puts "  Super Admin Role: #{super_admin_role ? '✓ Assigned' : '✗ Missing'}"
-    puts "  System Admin Permission: #{has_system_admin ? '✓ Active' : '✗ Inactive'}"
-    puts "  Total Permissions: #{total_permissions}"
-    puts "  Permission Categories: #{categories.count}"
-    puts "\n"
   end
 
-  desc "List all permissions in the system"
+  desc "List all permissions in the system (the code-defined catalog)"
   task list: :environment do
     puts "\n📋 All System Permissions:"
     puts "=" * 80
 
-    permissions = Permission.order(:name)
     current_category = nil
-
-    permissions.each do |perm|
-      category = perm.name.split(".").first
-
+    Permissions.all_permissions.keys.sort.each do |name|
+      category = name.split(".").first
       if category != current_category
         puts "\n#{category.upcase}:"
         current_category = category
       end
-
-      puts "  • #{perm.name}"
-      puts "    #{perm.description}" if perm.description.present?
+      puts "  • #{name}"
+      desc = Permissions.permission_description(name)
+      puts "    #{desc}" if desc.present?
     end
 
     puts "\n" + "=" * 80
-    puts "Total: #{permissions.count} permissions"
+    puts "Total: #{Permissions.all_permissions.size} permissions"
     puts "=" * 80
   end
 
@@ -164,26 +121,22 @@ namespace :permissions do
     puts "\n📊 Permission Distribution Across Roles:"
     puts "=" * 80
 
-    roles = Role.includes(:permissions).order(:role_type, :name)
-
+    roles = Role.order(:role_type, :name)
     roles.group_by(&:role_type).each do |role_type, type_roles|
-      puts "\n#{role_type.upcase} ROLES:"
+      puts "\n#{role_type.to_s.upcase} ROLES:"
       type_roles.each do |role|
-        has_system_admin = role.permissions.exists?(name: "system.admin")
-        perm_count = role.permissions.count
+        names = role.role_permissions.pluck(:permission_name)
+        scope = role.account_id ? "[account #{role.account_id}]" : "[global]"
 
-        puts "\n  #{role.display_name} (#{role.name})"
-        puts "    Permissions: #{perm_count}"
-        puts "    System Role: #{role.is_system?}"
-        puts "    Immutable: #{role.immutable?}"
+        puts "\n  #{role.display_name} (#{role.name}) #{scope}"
+        puts "    Permissions: #{names.size}"
+        puts "    System Role: #{role.is_system?} | Immutable: #{role.immutable?}"
 
-        if has_system_admin
+        if names.include?("system.admin")
           puts "    🔑 Has system.admin (grants all permissions)"
-        elsif perm_count > 0
+        elsif names.any?
           puts "    Permissions:"
-          role.permissions.pluck(:name).sort.each do |perm|
-            puts "      • #{perm}"
-          end
+          names.sort.each { |perm| puts "      • #{perm}" }
         else
           puts "    ⚠️  No permissions assigned"
         end
@@ -201,66 +154,38 @@ namespace :permissions do
     puts "=" * 80
 
     issues = []
+    catalog = Permissions.all_permissions.keys
 
-    # Check for orphaned role_permissions
-    orphaned_role_perms = RolePermission.left_joins(:role, :permission)
-                                        .where(roles: { id: nil })
-                                        .or(RolePermission.left_joins(:role, :permission)
-                                        .where(permissions: { id: nil }))
-                                        .count
+    # Orphaned role_permissions: role missing, or grant name not in the catalog
+    orphaned_missing_role = RolePermission.left_joins(:role).where(roles: { id: nil }).count
+    issues << "Found #{orphaned_missing_role} role_permission records with a missing role" if orphaned_missing_role > 0
 
-    if orphaned_role_perms > 0
-      issues << "Found #{orphaned_role_perms} orphaned role_permission records"
-    end
+    unknown_grants = RolePermission.distinct.pluck(:permission_name).reject { |n| catalog.include?(n) }
+    issues << "Found #{unknown_grants.count} grants whose permission is not in the catalog: #{unknown_grants.join(', ')}" if unknown_grants.any?
 
-    # Check for orphaned user_roles
+    # Orphaned user_roles
     orphaned_user_roles = UserRole.left_joins(:user, :role)
                                    .where(users: { id: nil })
-                                   .or(UserRole.left_joins(:user, :role)
-                                   .where(roles: { id: nil }))
+                                   .or(UserRole.left_joins(:user, :role).where(roles: { id: nil }))
                                    .count
+    issues << "Found #{orphaned_user_roles} orphaned user_role records" if orphaned_user_roles > 0
 
-    if orphaned_user_roles > 0
-      issues << "Found #{orphaned_user_roles} orphaned user_role records"
-    end
+    # GLOBAL roles not in config (account-scoped custom roles are expected, not flagged)
+    orphaned_roles = Role.global.pluck(:name) - Permissions::ROLES.keys.map(&:to_s)
+    issues << "Found #{orphaned_roles.count} GLOBAL roles not in config: #{orphaned_roles.join(', ')}" if orphaned_roles.any?
 
-    # Check for permissions not in config
-    config_perms = Permissions::ALL_PERMISSIONS.keys
-    db_perms = Permission.pluck(:name)
-    orphaned_perms = db_perms - config_perms
-
-    if orphaned_perms.any?
-      issues << "Found #{orphaned_perms.count} permissions in database not in config: #{orphaned_perms.join(', ')}"
-    end
-
-    # Check for roles not in config
-    config_roles = Permissions::ROLES.keys.map(&:to_s)
-    db_roles = Role.pluck(:name)
-    orphaned_roles = db_roles - config_roles
-
-    if orphaned_roles.any?
-      issues << "Found #{orphaned_roles.count} roles in database not in config: #{orphaned_roles.join(', ')}"
-    end
-
-    # Check for users with no roles
+    # Users with no roles
     users_without_roles = User.left_joins(:user_roles).where(user_roles: { id: nil }).count
-    if users_without_roles > 0
-      issues << "Found #{users_without_roles} users with no roles assigned"
-    end
+    issues << "Found #{users_without_roles} users with no roles assigned" if users_without_roles > 0
 
-    # Report results
     if issues.empty?
       puts "\n✅ No integrity issues found!"
-      puts "\n   Permissions: #{Permission.count}"
-      puts "   Roles: #{Role.count}"
-      puts "   Users: #{User.count}"
-      puts "   User Roles: #{UserRole.count}"
-      puts "   Role Permissions: #{RolePermission.count}"
+      puts "\n   Permissions (catalog): #{Permissions.all_permissions.size}"
+      puts "   Roles: #{Role.count} (#{Role.global.count} global, #{Role.account_scoped.count} account-scoped)"
+      puts "   Users: #{User.count} | User Roles: #{UserRole.count} | Role Permissions: #{RolePermission.count}"
     else
       puts "\n⚠️  Found #{issues.count} integrity issues:\n"
-      issues.each_with_index do |issue, index|
-        puts "   #{index + 1}. #{issue}"
-      end
+      issues.each_with_index { |issue, i| puts "   #{i + 1}. #{issue}" }
     end
 
     puts "\n" + "=" * 80
