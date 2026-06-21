@@ -16,3 +16,6 @@ export { pagesApi } from './pages/services/pagesApi';
 // Page components
 export { PageEditor } from './pages/components/PageEditor';
 export { ImageGalleryModal } from './pages/components/ImageGalleryModal';
+
+// Globally-scoped foundational content (scope filter, clone, update-from-source)
+export * from './scoped';

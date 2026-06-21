@@ -2,6 +2,8 @@
  * AI Prompt Templates Types
  */
 
+import type { ContentScope } from '@/features/content/scoped';
+
 export type PromptCategory =
   | 'review'
   | 'implement'
@@ -34,6 +36,12 @@ export interface PromptTemplate {
   created_by_name?: string;
   created_at: string;
   updated_at: string;
+  // Globally-scoped foundational content provenance (see GloballyScopable).
+  // `account_id == null` => GLOBAL platform template (read-only); a set
+  // `cloned_from_id` => an account copy forked from another template.
+  account_id?: string | null;
+  cloned_from_id?: string | null;
+  source_key?: string | null;
 }
 
 export interface PromptTemplateFormData {
@@ -69,4 +77,5 @@ export interface PromptTemplatesParams {
   is_active?: boolean;
   root_only?: boolean;
   search?: string;
+  scope?: ContentScope;
 }

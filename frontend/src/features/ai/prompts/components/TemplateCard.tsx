@@ -1,4 +1,11 @@
 import React, { useState } from 'react';
+import { Lock } from 'lucide-react';
+import {
+  isGlobal,
+  isClone,
+  CloneToCustomizeButton,
+  UpdateAvailableBadge,
+} from '@/features/content/scoped';
 import type { PromptTemplate, PromptCategory } from '../types';
 
 const getCategoryColor = (category: PromptCategory): string => {
@@ -22,6 +29,16 @@ interface TemplateCardProps {
   onPreview: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  /** Whether the current user may create templates (shows the clone CTA on globals). */
+  canClone?: boolean;
+  /** Fork this global template into the account (the clone API call). */
+  onCloneTemplate?: (id: string) => Promise<PromptTemplate>;
+  /** Called with the new editable copy after a successful clone. */
+  onCloned?: (copy: PromptTemplate) => void;
+  /** Show the "update available" badge (clone whose origin diverged). */
+  updateAvailable?: boolean;
+  /** Open the update-from-source flow for this clone. */
+  onUpdateFromSource?: (id: string) => void;
 }
 
 export const TemplateCard: React.FC<TemplateCardProps> = ({
@@ -30,8 +47,15 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
   onPreview,
   onDuplicate,
   onDelete,
+  canClone = false,
+  onCloneTemplate,
+  onCloned,
+  updateAvailable = false,
+  onUpdateFromSource,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
+  const global = isGlobal(template);
+  const clone = isClone(template);
 
   return (
     <div
@@ -43,9 +67,20 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
           <h4 className="font-medium text-theme-primary truncate">{template.name}</h4>
           <p className="text-xs text-theme-tertiary">/{template.slug}</p>
         </div>
-        <span className={`text-xs px-2 py-1 rounded-full ${getCategoryColor(template.category)}`}>
-          {template.category}
-        </span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {global && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-theme-surface-secondary text-theme-tertiary"
+              title="Platform-provided and read-only — clone to customize"
+            >
+              <Lock className="w-3 h-3" />
+              Global
+            </span>
+          )}
+          <span className={`text-xs px-2 py-1 rounded-full ${getCategoryColor(template.category)}`}>
+            {template.category}
+          </span>
+        </div>
       </div>
 
       {template.description && (
@@ -71,39 +106,60 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
           >
             Preview
           </button>
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="text-theme-secondary hover:text-theme-primary"
-          >
-            •••
-          </button>
-          {showMenu && (
+          {/* Global items are read-only: no edit/delete menu, clone instead. */}
+          {!global && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-              <div className="absolute right-0 top-full mt-1 bg-theme-surface border border-theme rounded-lg shadow-lg z-20 py-1 min-w-[120px]">
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    onDuplicate();
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
-                >
-                  Duplicate
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    onDelete();
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm text-theme-error-fg hover:bg-theme-surface-hover"
-                >
-                  Delete
-                </button>
-              </div>
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="text-theme-secondary hover:text-theme-primary"
+              >
+                •••
+              </button>
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 bg-theme-surface border border-theme rounded-lg shadow-lg z-20 py-1 min-w-[120px]">
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        onDuplicate();
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
+                    >
+                      Duplicate
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        onDelete();
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-theme-error-fg hover:bg-theme-surface-hover"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {/* Scope treatment: clone CTA on globals, update badge on clones */}
+      {(global || (clone && updateAvailable)) && (
+        <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+          {global && onCloneTemplate && (
+            <CloneToCustomizeButton
+              canClone={canClone}
+              onClone={() => onCloneTemplate(template.id)}
+              onCloned={(copy) => onCloned?.(copy as PromptTemplate)}
+            />
+          )}
+          {clone && updateAvailable && (
+            <UpdateAvailableBadge onClick={() => onUpdateFromSource?.(template.id)} />
+          )}
+        </div>
+      )}
     </div>
   );
 };

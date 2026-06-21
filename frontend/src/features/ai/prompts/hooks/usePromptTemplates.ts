@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { promptsApi } from '../services/promptsApi';
+import type { UpdateFromSourcePreview, ConflictResolutions } from '@/features/content/scoped';
 import type {
   PromptTemplate,
   PromptTemplateFormData,
@@ -26,6 +27,12 @@ interface UsePromptTemplatesResult {
   deleteTemplate: (id: string) => Promise<void>;
   duplicateTemplate: (id: string) => Promise<PromptTemplate>;
   previewTemplate: (id: string, variables: Record<string, string>) => Promise<PromptPreviewResponse>;
+  /** Fork a global template into the account as an editable copy. */
+  cloneTemplate: (id: string) => Promise<PromptTemplate>;
+  /** 3-way diff of an account-cloned template vs its origin (no save). */
+  previewUpdateFromSource: (id: string) => Promise<UpdateFromSourcePreview>;
+  /** Apply the update-from-source merge, optionally resolving conflicts. */
+  applyUpdateFromSource: (id: string, resolutions?: ConflictResolutions) => Promise<PromptTemplate>;
 }
 
 export function usePromptTemplates(params?: PromptTemplatesParams): UsePromptTemplatesResult {
@@ -104,6 +111,31 @@ export function usePromptTemplates(params?: PromptTemplatesParams): UsePromptTem
     }
   }, []);
 
+  const cloneTemplate = useCallback(async (id: string) => {
+    try {
+      const template = await promptsApi.clone(id);
+      await loadTemplates();
+      return template;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clone template');
+      throw err;
+    }
+  }, [loadTemplates]);
+
+  const previewUpdateFromSource = useCallback(
+    (id: string) => promptsApi.updateFromSourcePreview(id),
+    [],
+  );
+
+  const applyUpdateFromSource = useCallback(
+    async (id: string, resolutions?: ConflictResolutions) => {
+      const template = await promptsApi.updateFromSource(id, resolutions);
+      await loadTemplates();
+      return template;
+    },
+    [loadTemplates],
+  );
+
   return {
     templates,
     meta,
@@ -115,6 +147,9 @@ export function usePromptTemplates(params?: PromptTemplatesParams): UsePromptTem
     deleteTemplate,
     duplicateTemplate,
     previewTemplate,
+    cloneTemplate,
+    previewUpdateFromSource,
+    applyUpdateFromSource,
   };
 }
 
