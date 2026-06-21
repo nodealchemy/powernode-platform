@@ -36,8 +36,11 @@ FactoryBot.define do
 
     trait :with_permissions do
       after(:create) do |role|
-        permission = create(:permission)
-        role.permissions << permission
+        # Permissions are code-defined; grant real catalog permissions BY NAME
+        # through the role_permissions join (no Permission AR model exists).
+        %w[users.read users.create].each do |permission_name|
+          role.role_permissions.find_or_create_by!(permission_name: permission_name)
+        end
       end
     end
   end

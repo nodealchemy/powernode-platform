@@ -5,7 +5,9 @@ RSpec.describe Role, type: :model do
 
   describe "associations" do
     it { should have_many(:role_permissions).dependent(:delete_all) }
-    it { should have_many(:permissions).through(:role_permissions) }
+    it { should belong_to(:account).optional }
+    it { should have_many(:user_roles).dependent(:destroy) }
+    it { should have_many(:users).through(:user_roles) }
   end
 
   describe "validations" do
@@ -115,13 +117,10 @@ RSpec.describe Role, type: :model do
 
   describe "#has_permission?" do
     let(:role) { create(:role) }
-    let!(:permission1) { create(:permission, name: "users.create") }
-    let!(:permission2) { create(:permission, name: "users.read") }
-    let!(:permission3) { create(:permission, name: "roles.create") }
 
     before do
-      role.permissions << permission1
-      role.permissions << permission2
+      role.role_permissions.create!(permission_name: "users.create")
+      role.role_permissions.create!(permission_name: "users.read")
     end
 
     it "returns true when role has the permission" do
@@ -130,7 +129,7 @@ RSpec.describe Role, type: :model do
     end
 
     it "returns false when role does not have the permission" do
-      expect(role.has_permission?("roles.create")).to be false
+      expect(role.has_permission?("users.delete")).to be false
     end
 
     it "returns false for non-existent permissions" do
@@ -140,60 +139,102 @@ RSpec.describe Role, type: :model do
     it "handles case sensitivity correctly" do
       expect(role.has_permission?("USERS.CREATE")).to be false
     end
+
+    it "grants any permission when the role holds system.admin (wildcard)" do
+      admin_role = create(:role, name: "wildcard_role", role_type: "admin")
+      admin_role.role_permissions.create!(permission_name: "system.admin")
+
+      expect(admin_role.has_permission?("users.delete")).to be true
+      expect(admin_role.has_permission?("admin.access")).to be true
+    end
   end
 
   describe "#add_permission" do
     let(:role) { create(:role) }
-    let(:permission) { create(:permission, name: "test.permission") }
 
     it "adds permission to role when not already present" do
       expect {
-        role.add_permission("test.permission")
-      }.to change { role.permissions.count }.by(1)
+        role.add_permission("page.read")
+      }.to change { role.role_permissions.count }.by(1)
 
-      expect(role.has_permission?("test.permission")).to be true
+      expect(role.has_permission?("page.read")).to be true
     end
 
     it "does not add duplicate permission" do
-      role.permissions << permission
+      role.role_permissions.create!(permission_name: "page.read")
 
       expect {
-        role.add_permission("test.permission")
-      }.not_to change { role.permissions.count }
+        role.add_permission("page.read")
+      }.not_to change { role.role_permissions.count }
     end
 
-    it "creates permission if it doesn't exist" do
+    it "rejects a permission name that is not in the catalog" do
       expect {
         role.add_permission("new.permission")
-      }.to change { Permission.count }.by(1)
+      }.to raise_error(ActiveRecord::RecordInvalid)
 
-      expect(role.has_permission?("new.permission")).to be true
+      expect(role.has_permission?("new.permission")).to be false
     end
   end
 
   describe "#remove_permission" do
     let(:role) { create(:role) }
-    let(:permission1) { create(:permission, name: "perm.one") }
-    let(:permission2) { create(:permission, name: "perm.two") }
 
     before do
-      role.permissions << permission1
-      role.permissions << permission2
+      role.role_permissions.create!(permission_name: "page.read")
+      role.role_permissions.create!(permission_name: "page.update")
     end
 
     it "removes permission from role" do
       expect {
-        role.remove_permission("perm.one")
-      }.to change { role.permissions.count }.by(-1)
+        role.remove_permission("page.read")
+      }.to change { role.role_permissions.count }.by(-1)
 
-      expect(role.has_permission?("perm.one")).to be false
-      expect(role.has_permission?("perm.two")).to be true
+      expect(role.has_permission?("page.read")).to be false
+      expect(role.has_permission?("page.update")).to be true
     end
 
     it "does nothing when permission is not present" do
       expect {
         role.remove_permission("nonexistent.permission")
-      }.not_to change { role.permissions.count }
+      }.not_to change { role.role_permissions.count }
+    end
+  end
+
+  describe "#permission_names" do
+    let(:role) { create(:role) }
+
+    it "returns the sorted, granted permission names" do
+      role.role_permissions.create!(permission_name: "users.read")
+      role.role_permissions.create!(permission_name: "users.create")
+
+      expect(role.permission_names).to eq(%w[users.create users.read])
+    end
+
+    it "expands to the entire catalog for a system.admin role" do
+      admin_role = create(:role, name: "catalog_admin_role", role_type: "admin")
+      admin_role.role_permissions.create!(permission_name: "system.admin")
+
+      expect(admin_role.permission_names).to match_array(Permissions.all_permissions.keys)
+    end
+  end
+
+  describe "#sync_permissions!" do
+    let(:role) { create(:role) }
+
+    it "reconciles grants to exactly the desired catalog names" do
+      role.role_permissions.create!(permission_name: "users.read")
+
+      role.sync_permissions!(%w[users.create users.update])
+
+      expect(role.reload.permission_names).to match_array(%w[users.create users.update])
+      expect(role.has_permission?("users.read")).to be false
+    end
+
+    it "drops names that are not in the catalog" do
+      role.sync_permissions!(%w[users.read totally.bogus])
+
+      expect(role.reload.permission_names).to eq(%w[users.read])
     end
   end
 
@@ -213,21 +254,19 @@ RSpec.describe Role, type: :model do
 
     it "manages permissions correctly" do
       role = create(:role)
-      permission1 = create(:permission, name: "posts.create")
-      permission2 = create(:permission, name: "posts.edit")
 
-      # Add permissions
-      role.add_permission(permission1.name)
-      role.add_permission(permission2.name)
+      # Add permissions (by catalog name)
+      role.add_permission("page.create")
+      role.add_permission("page.update")
 
-      expect(role.has_permission?("posts.create")).to be true
-      expect(role.has_permission?("posts.edit")).to be true
+      expect(role.has_permission?("page.create")).to be true
+      expect(role.has_permission?("page.update")).to be true
 
       # Remove permission
-      role.remove_permission(permission1.name)
+      role.remove_permission("page.create")
 
-      expect(role.has_permission?("posts.create")).to be false
-      expect(role.has_permission?("posts.edit")).to be true
+      expect(role.has_permission?("page.create")).to be false
+      expect(role.has_permission?("page.update")).to be true
     end
 
     it "prevents duplicate role names" do
@@ -286,31 +325,24 @@ RSpec.describe Role, type: :model do
 
   describe "complex permission management" do
     let(:role) { create(:role) }
-    let(:permissions) do
-      [
-        create(:permission, name: "users.create"),
-        create(:permission, name: "users.read"),
-        create(:permission, name: "users.update"),
-        create(:permission, name: "users.delete")
-      ]
-    end
+    let(:permission_names) { %w[users.create users.read users.update users.delete] }
 
     it "can manage multiple permissions efficiently" do
-      # Add multiple permissions
-      permissions.each { |p| role.add_permission(p.name) }
+      # Add multiple permissions (all real catalog names)
+      permission_names.each { |name| role.add_permission(name) }
 
-      expect(role.permissions.count).to eq(4)
-      permissions.each do |permission|
-        expect(role.has_permission?(permission.name)).to be true
+      expect(role.role_permissions.count).to eq(4)
+      permission_names.each do |name|
+        expect(role.has_permission?(name)).to be true
       end
 
       # Remove some permissions
-      role.remove_permission(permissions[0].name)
-      role.remove_permission(permissions[2].name)
+      role.remove_permission(permission_names[0])
+      role.remove_permission(permission_names[2])
 
-      expect(role.permissions.count).to eq(2)
-      expect(role.has_permission?(permissions[1].name)).to be true
-      expect(role.has_permission?(permissions[3].name)).to be true
+      expect(role.role_permissions.count).to eq(2)
+      expect(role.has_permission?(permission_names[1])).to be true
+      expect(role.has_permission?(permission_names[3])).to be true
     end
   end
 end

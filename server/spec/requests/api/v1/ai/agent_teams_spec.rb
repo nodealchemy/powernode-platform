@@ -17,14 +17,10 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       description: 'Can manage AI agent teams'
     )
 
-    # Create and assign permissions
+    # Grant permissions BY NAME — permissions are code-defined (the Permissions
+    # catalog is the source of truth; there is no Permission AR model).
     [ 'ai.teams.manage', 'ai.teams.execute' ].each do |perm_name|
-      permission = Permission.find_or_create_from_name!(perm_name, {
-        resource: 'ai.teams',
-        action: perm_name.split('.').last,
-        description: "#{perm_name.split('.').last.capitalize} AI agent teams"
-      })
-      role.permissions << permission unless role.permissions.include?(permission)
+      role.role_permissions.find_or_create_by!(permission_name: perm_name)
     end
 
     role
