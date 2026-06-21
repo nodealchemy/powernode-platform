@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WorkerFiltersState } from '@/pages/app/admin/WorkersPage';
+import { rolesApi } from '@/features/admin/roles/services/rolesApi';
 import { Search, Filter, X, ChevronDown } from 'lucide-react';
 
 export interface WorkerFiltersProps {
@@ -9,27 +10,17 @@ export interface WorkerFiltersProps {
   filteredWorkers: number;
 }
 
-const availableRoles = [
-  { value: 'member', label: 'Member' },
-  { value: 'developer', label: 'App Developer' },
-  { value: 'billing_admin', label: 'Billing Administrator' },
-  { value: 'admin', label: 'Administrator' },
-  { value: 'super_admin', label: 'Super Administrator' },
-  { value: 'system_worker', label: 'System Worker' },
-  { value: 'task_worker', label: 'Task Worker' }
-];
+interface RoleOption {
+  value: string;
+  label: string;
+}
 
-const commonPermissions = [
-  'admin.access',
-  'admin.workers.read',
-  'admin.workers.create',
-  'admin.workers.update',
-  'admin.workers.delete',
-  'api.read',
-  'api.write',
-  'business.billing.manage',
-  'users.manage'
-];
+// Humanize a role name (e.g. "billing_admin" -> "Billing Admin") for filter labels.
+const humanizeRole = (name: string): string =>
+  name
+    .split('_')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 
 export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
   filters,
@@ -38,6 +29,35 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
   filteredWorkers
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Role + permission filter options are derived from the backend catalog so they
+  // never hardcode (and never drift from) extension-contributed permissions/roles.
+  const [availableRoles, setAvailableRoles] = useState<RoleOption[]>([]);
+  const [commonPermissions, setCommonPermissions] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([rolesApi.getRoles(), rolesApi.getPermissions()])
+      .then(([rolesResponse, permissionsResponse]) => {
+        if (cancelled) return;
+        setAvailableRoles(
+          (rolesResponse.data || []).map(role => ({
+            value: role.name,
+            label: role.display_name || humanizeRole(role.name)
+          }))
+        );
+        setCommonPermissions((permissionsResponse.data || []).map(permission => permission.name));
+      })
+      .catch(() => {
+        // Filter options are non-critical; fall back to empty lists on failure.
+        if (cancelled) return;
+        setAvailableRoles([]);
+        setCommonPermissions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const hasActiveFilters = filters.search !== '' || 
     filters.status !== 'all' || 

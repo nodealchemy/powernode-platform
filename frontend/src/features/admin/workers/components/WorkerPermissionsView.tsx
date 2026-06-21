@@ -1,5 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Worker } from '@/features/admin/workers/services/workerApi';
+import { rolesApi, Role, Permission } from '@/features/admin/roles/services/rolesApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { getErrorMessage } from '@/shared/services/errorHandler';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import {
   Shield,
   Key,
@@ -17,11 +21,99 @@ export interface WorkerPermissionsViewProps {
 }
 
 interface PermissionGroup {
+  // Stable grouping key (the permission `resource`, e.g. "user", "admin.billing").
+  resource: string;
   category: string;
   permissions: string[];
   description: string;
   color: string;
 }
+
+// UI-only styling/labels keyed by the permission `resource` (the dotted prefix the
+// catalog already returns). This map contains NO permission strings — it is purely
+// presentation. Resources not listed here fall back to a humanized label + neutral
+// styling, so extension-contributed resources render correctly without being named.
+interface ResourceStyle {
+  category: string;
+  description: string;
+  color: string;
+}
+
+const RESOURCE_STYLES: Record<string, ResourceStyle> = {
+  user: {
+    category: 'User & Team Management',
+    description: 'User profiles and team collaboration',
+    color: 'bg-theme-info-bg text-theme-info-fg'
+  },
+  team: {
+    category: 'User & Team Management',
+    description: 'User profiles and team collaboration',
+    color: 'bg-theme-info-bg text-theme-info-fg'
+  },
+  billing: {
+    category: 'Billing & Subscriptions',
+    description: 'Subscription management and billing',
+    color: 'bg-theme-warning-bg text-theme-warning-fg'
+  },
+  page: {
+    category: 'Content & Pages',
+    description: 'Content creation and management',
+    color: 'bg-theme-success-bg text-theme-success-fg'
+  },
+  analytics: {
+    category: 'Analytics & Reports',
+    description: 'Data insights and reporting',
+    color: 'bg-theme-surface text-theme-primary'
+  },
+  report: {
+    category: 'Analytics & Reports',
+    description: 'Data insights and reporting',
+    color: 'bg-theme-surface text-theme-primary'
+  },
+  api: {
+    category: 'API & Webhooks',
+    description: 'API access and webhook management',
+    color: 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
+  },
+  webhook: {
+    category: 'API & Webhooks',
+    description: 'API access and webhook management',
+    color: 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
+  },
+  admin: {
+    category: 'Admin Operations',
+    description: 'Administrative functions and oversight',
+    color: 'bg-theme-error-bg text-theme-error-fg'
+  },
+  system: {
+    category: 'System & Workers',
+    description: 'System operations and worker management',
+    color: 'bg-theme-surface border border-theme text-theme-secondary'
+  }
+};
+
+const DEFAULT_RESOURCE_STYLE: ResourceStyle = {
+  category: '',
+  description: 'Permissions for this resource',
+  color: 'bg-theme-surface border border-theme text-theme-secondary'
+};
+
+// Humanize a dotted resource key (e.g. "admin.billing" -> "Admin Billing") for
+// resources that do not have an explicit friendly category label.
+const humanizeResource = (resource: string): string =>
+  resource
+    .split('.')
+    .map(part => part.replace(/_/g, ' '))
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+
+const styleForResource = (resource: string): ResourceStyle => {
+  // Match on the leading segment so e.g. "admin.billing" inherits "admin" styling.
+  const head = resource.split('.')[0];
+  const style = RESOURCE_STYLES[resource] || RESOURCE_STYLES[head];
+  if (style) return style;
+  return { ...DEFAULT_RESOURCE_STYLE, category: humanizeResource(resource) };
+};
 
 export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
   worker,
@@ -29,69 +121,86 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
   editedWorker,
   onWorkerChange
 }) => {
+  const { showNotification } = useNotifications();
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['user', 'billing']));
   const [showAllPermissions, setShowAllPermissions] = useState(false);
 
+  // Catalog-derived data (source of truth = backend permission catalog + roles).
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const currentWorker = editedWorker || worker;
 
-  // Permission groups synced with backend permission categories
-  const permissionGroups: PermissionGroup[] = useMemo(() => [
-    {
-      category: 'User & Team Management',
-      permissions: ['user.read', 'user.edit_self', 'user.delete_self', 'team.read', 'team.invite', 'team.remove', 'team.assign_roles'],
-      description: 'User profiles and team collaboration',
-      color: 'bg-theme-info-bg text-theme-info-fg'
-    },
-    {
-      category: 'Billing & Subscriptions',
-      permissions: ['business.billing.read', 'business.billing.update', 'business.billing.cancel', 'business.plans.read', 'business.plans.create', 'business.plans.manage', 'business.invoice.read', 'business.invoice.download'],
-      description: 'Subscription management and billing',
-      color: 'bg-theme-warning-bg text-theme-warning-fg'
-    },
-    {
-      category: 'Content & Pages',
-      permissions: ['page.create', 'page.read', 'page.update', 'page.delete', 'page.publish'],
-      description: 'Content creation and management',
-      color: 'bg-theme-success-bg text-theme-success-fg'
-    },
-    {
-      category: 'Analytics & Reports',
-      permissions: ['analytics.read', 'analytics.export', 'report.read', 'report.generate', 'report.export'],
-      description: 'Data insights and reporting',
-      color: 'bg-theme-surface text-theme-primary'
-    },
-    {
-      category: 'API & Webhooks',
-      permissions: ['api.read', 'api.write', 'api.manage_keys', 'webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete'],
-      description: 'API access and webhook management',
-      color: 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
-    },
-    {
-      category: 'Marketplace',
-      permissions: ['business.app.read', 'business.app.create', 'business.app.update', 'business.app.delete', 'business.app.publish', 'business.app.manage_features', 'business.app.manage_plans', 'business.marketplace.read', 'business.marketplace.create', 'business.subscription.read', 'business.subscription.create', 'business.marketplace.review'],
-      description: 'Marketplace apps and subscriptions',
-      color: 'bg-theme-success-bg/50 text-theme-success-fg'
-    },
-    {
-      category: 'Admin Operations',
-      permissions: ['admin.access', 'admin.user.read', 'admin.user.create', 'admin.account.read', 'business.billing.read', 'admin.settings.read', 'admin.audit.read'],
-      description: 'Administrative functions and oversight',
-      color: 'bg-theme-error-bg text-theme-error-fg'
-    },
-    {
-      category: 'System & Workers',
-      permissions: ['admin.workers.read', 'admin.workers.create', 'system.worker.register', 'system.jobs.process', 'system.health.check', 'system.database.read'],
-      description: 'System operations and worker management',
-      color: 'bg-theme-surface border border-theme text-theme-secondary'
-    }
-  ], []);
+  const showNotificationRef = React.useRef(showNotification);
+  useEffect(() => {
+    showNotificationRef.current = showNotification;
+  }, [showNotification]);
 
-  // Get all available permissions from groups
-  const allPermissions = useMemo(() => 
-    permissionGroups.flatMap(group => group.permissions),
-    [permissionGroups]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [permissionsResponse, rolesResponse] = await Promise.all([
+          rolesApi.getPermissions(),
+          rolesApi.getRoles()
+        ]);
+        if (cancelled) return;
+        setPermissions(permissionsResponse.data || []);
+        setRoles(rolesResponse.data || []);
+      } catch (error: unknown) {
+        if (cancelled) return;
+        showNotificationRef.current(`Failed to load permissions: ${getErrorMessage(error)}`, 'error');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Group catalog permissions by their `resource`, then collapse resources that share
+  // a friendly category (e.g. user + team) into a single display group.
+  const permissionGroups: PermissionGroup[] = useMemo(() => {
+    const byCategory = new Map<string, PermissionGroup>();
+    permissions.forEach(permission => {
+      const style = styleForResource(permission.resource);
+      const category = style.category || humanizeResource(permission.resource);
+      const existing = byCategory.get(category);
+      if (existing) {
+        existing.permissions.push(permission.name);
+      } else {
+        byCategory.set(category, {
+          resource: permission.resource,
+          category,
+          description: style.description,
+          color: style.color,
+          permissions: [permission.name]
+        });
+      }
+    });
+    return Array.from(byCategory.values()).sort((a, b) => a.category.localeCompare(b.category));
+  }, [permissions]);
+
+  // Map of role name -> permission names, derived from the roles API.
+  const rolePermissionMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    roles.forEach(role => {
+      map[role.name] = role.permissions.map(p => p.name);
+    });
+    return map;
+  }, [roles]);
+
+  const getRolePermissions = (role: string): string[] => rolePermissionMap[role] || [];
+
+  const getRoleDescription = (role: string): string => {
+    const match = roles.find(r => r.name === role);
+    return match?.description || 'Custom role with specific permissions';
+  };
 
   // Filter permissions based on search
   const filteredGroups = useMemo(() => {
@@ -133,122 +242,32 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
     onWorkerChange({ roles: newRoles });
   };
 
-  const getRoleDescription = (role: string): string => {
-    const roleDescriptions: Record<string, string> = {
-      'member': 'Basic account member with standard access',
-      'manager': 'Team manager with content and team management capabilities',
-      'billing_admin': 'Manages billing, subscriptions, and financial operations',
-      'developer': 'App developer with marketplace publishing capabilities',
-      'owner': 'Account owner with full account management capabilities',
-      'admin': 'System administrator with full administrative access',
-      'super_admin': 'Super administrator with full system access',
-      'system_worker': 'Automated worker with system-level access',
-      'task_worker': 'Worker limited to specific task execution'
-    };
-    return roleDescriptions[role] || 'Custom role with specific permissions';
-  };
-
-  const getRolePermissions = (role: string): string[] => {
-    // Role-permission mappings synced with backend Permissions::ROLES
-    const rolePermissionMap: Record<string, string[]> = {
-      'member': [
-        'user.read', 'user.edit_self', 'team.read', 'business.billing.read', 'page.read', 'analytics.read',
-        'report.read', 'api.read', 'webhook.read', 'business.invoice.read', 'audit.read',
-        'business.app.read', 'business.marketplace.read', 'business.subscription.read', 'business.subscription.create', 'subscription.manage',
-        'subscription.cancel', 'subscription.read_usage', 'business.marketplace.review'
-      ],
-      'manager': [
-        'user.read', 'user.edit_self', 'team.read', 'team.invite', 'team.remove', 'team.assign_roles',
-        'business.billing.read', 'business.billing.update', 'business.plans.read', 'business.plans.manage',
-        'page.read', 'page.create', 'page.update', 'page.delete', 'page.publish',
-        'analytics.read', 'analytics.export', 'report.read', 'report.generate', 'report.export',
-        'api.read', 'api.write', 'api.manage_keys', 'webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete',
-        'business.invoice.read', 'business.invoice.download', 'audit.read', 'audit.export',
-        'business.app.read', 'business.app.create', 'business.app.update', 'business.app.delete', 'business.app.publish', 'business.app.manage_features', 'business.app.manage_plans', 'app.read_analytics',
-        'business.marketplace.read', 'business.marketplace.create', 'listing.update', 'listing.delete',
-        'business.subscription.read', 'business.subscription.create', 'subscription.manage', 'subscription.cancel', 'subscription.upgrade', 'subscription.read_usage',
-        'business.marketplace.review', 'review.create', 'review.update', 'review.delete', 'review.moderate'
-      ],
-      'billing_admin': [
-        'user.read', 'user.edit_self', 'team.read', 'business.billing.read', 'business.billing.update', 'business.billing.cancel',
-        'business.plans.read', 'business.plans.create', 'business.plans.manage', 'business.invoice.read', 'business.invoice.download',
-        'analytics.read', 'report.read', 'report.generate', 'admin.billing.override',
-        'admin.billing.refund', 'admin.billing.credit', 'audit.read'
-      ],
-      'developer': [
-        'user.read', 'user.edit_self', 'team.read', 'business.billing.read', 'business.billing.update', 'business.plans.read',
-        'page.read', 'analytics.read', 'analytics.export', 'report.read', 'report.generate',
-        'api.read', 'api.write', 'api.manage_keys', 'webhook.read', 'webhook.create', 'webhook.update',
-        'business.invoice.read', 'business.invoice.download', 'audit.read',
-        'business.app.read', 'business.app.create', 'business.app.update', 'business.app.delete', 'business.app.publish', 'business.app.manage_features', 'business.app.manage_plans', 'app.read_analytics',
-        'business.marketplace.read', 'business.marketplace.create', 'listing.update', 'listing.delete',
-        'business.subscription.read', 'business.subscription.create', 'subscription.manage', 'subscription.cancel', 'subscription.upgrade', 'subscription.read_usage',
-        'business.marketplace.review', 'review.create', 'review.update', 'review.delete', 'review.moderate'
-      ],
-      'owner': [
-        // All resource permissions + selected admin permissions
-        ...allPermissions.filter(p => !p.startsWith('system.')), // All non-system permissions
-        'admin.user.read', 'admin.user.create', 'admin.user.update', 'admin.user.suspend',
-        'admin.role.read', 'admin.role.assign', 'business.billing.read', 'admin.billing.override',
-        'admin.settings.read', 'admin.settings.update', 'admin.audit.read', 'admin.audit.export'
-      ],
-      'admin': [
-        // All resource permissions + most admin permissions (except maintenance)
-        ...allPermissions.filter(p => !p.startsWith('system.') && !p.includes('maintenance'))
-      ],
-      'super_admin': [
-        // All resource + admin + worker management permissions
-        ...allPermissions.filter(p => !p.startsWith('system.') || p.startsWith('system.workers.'))
-      ],
-      'system_worker': [
-        // All system permissions
-        ...allPermissions.filter(p => p.startsWith('system.'))
-      ],
-      'task_worker': [
-        'system.worker.register', 'system.worker.heartbeat', 'system.worker.report',
-        'system.worker.execute', 'system.jobs.process', 'system.health.report', 'system.api.internal'
-      ]
-    };
-    return rolePermissionMap[role] || [];
-  };
-
   const getPermissionStatus = (permission: string): 'inherited' | 'none' => {
     // All permissions are inherited from roles, no direct permissions allowed
-    const hasFromRole = (currentWorker.roles || []).some(role => 
+    const hasFromRole = (currentWorker.roles || []).some(role =>
       getRolePermissions(role).includes(permission)
     );
     return hasFromRole ? 'inherited' : 'none';
   };
 
-  // Role definitions with types
-  const roleTypes = {
-    'member': 'user',
-    'manager': 'user', 
-    'billing_admin': 'user',
-    'developer': 'user',
-    'owner': 'user',
-    'admin': 'admin',
-    'super_admin': 'admin',
-    'system_worker': 'system',
-    'task_worker': 'system'
-  };
-
   const isSystemWorker = worker.account_name === 'System';
 
-  const getAvailableRolesForWorker = () => {
-    const allRoles = ['member', 'manager', 'billing_admin', 'developer', 'owner', 'admin', 'super_admin', 'system_worker', 'task_worker'];
-    
+  // Role classification comes straight from the backend catalog (role_type:
+  // user | admin | system) — the authoritative taxonomy. Account workers hold
+  // user-type roles; System workers hold admin/system-type roles. Mirrors the
+  // catalog rule "role_type: user => assignable to per-account workers" and
+  // Worker.assignable_roles_for_account.
+  const getRoleType = (role: Role): 'system' | 'admin' | 'user' => role.role_type;
+
+  const availableRoles = useMemo(() => {
     if (isSystemWorker) {
-      // System workers can have system and admin roles
-      return allRoles.filter(role => ['system', 'admin'].includes(roleTypes[role as keyof typeof roleTypes]));
-    } else {
-      // Account workers can have specific user roles and task_worker
-      return allRoles.filter(role => 
-        (roleTypes[role as keyof typeof roleTypes] === 'user' && ['member', 'manager', 'billing_admin', 'developer', 'owner'].includes(role)) ||
-        role === 'task_worker'
-      );
+      // System workers can hold system and admin (global) roles.
+      return roles.filter(role => getRoleType(role) !== 'user');
     }
-  };
+    // Account workers can hold account-scoped / user roles.
+    return roles.filter(role => getRoleType(role) === 'user');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roles, isSystemWorker]);
 
   const getRoleTypeBadge = (roleType: string) => {
     switch (roleType) {
@@ -263,6 +282,14 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Roles Section */}
@@ -276,22 +303,23 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
         {/* Role Type Information */}
         <div className="mb-4 p-3 bg-theme-info-fg/30 border border-theme-info-border rounded-lg">
           <div className="text-sm text-theme-info-fg">
-            <strong>Role Restrictions:</strong> {isSystemWorker ? 'System workers' : 'Account workers'} can only be assigned 
+            <strong>Role Restrictions:</strong> {isSystemWorker ? 'System workers' : 'Account workers'} can only be assigned
             {isSystemWorker ? ' system and admin roles' : ' specific user roles and task worker role'} based on their worker type.
           </div>
         </div>
 
         <div className="space-y-3">
-          {getAvailableRolesForWorker().map(role => {
+          {availableRoles.map(roleObj => {
+            const role = roleObj.name;
             const isAssigned = (currentWorker.roles || []).includes(role);
             const inheritedPermissions = getRolePermissions(role);
-            
+
             return (
               <div
                 key={role}
                 className={`p-4 rounded-lg border transition-colors ${
-                  isAssigned 
-                    ? 'border-theme-interactive-primary bg-theme-interactive-primary/5' 
+                  isAssigned
+                    ? 'border-theme-interactive-primary bg-theme-interactive-primary/5'
                     : 'border-theme bg-theme-surface'
                 }`}
               >
@@ -316,8 +344,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-theme-primary">{role}</span>
                           {(() => {
-                            const roleType = roleTypes[role as keyof typeof roleTypes];
-                            const badge = getRoleTypeBadge(roleType);
+                            const badge = getRoleTypeBadge(getRoleType(roleObj));
                             return (
                               <span className={`text-xs px-2 py-0.5 rounded-full ${badge.className}`}>
                                 {badge.label}
@@ -420,7 +447,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
                       {groupPermissions.map(permission => {
                         const status = getPermissionStatus(permission);
-                        
+
                         return (
                           <div
                             key={permission}
@@ -467,7 +494,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
               <div className="flex-1">
                 <div className="font-medium text-theme-info-fg mb-1">Role-Based Permission System</div>
                 <div className="text-sm text-theme-info-fg/80">
-                  Workers inherit permissions from their assigned roles. To modify permissions, 
+                  Workers inherit permissions from their assigned roles. To modify permissions,
                   edit the worker's roles above. Direct permission assignment is not allowed for security reasons.
                 </div>
               </div>
@@ -495,4 +522,3 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
     </div>
   );
 };
-

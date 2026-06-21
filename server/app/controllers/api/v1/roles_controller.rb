@@ -189,6 +189,7 @@ class Api::V1::RolesController < ApplicationController
       scope: role.account_id ? "account" : "global",
       editable: role.account_id.present? && role.account_id == current_user.account_id,
       system_role: role.system_role?,
+      role_type: role.role_type,
       # Literal grants (not the system.admin-expanded set) for display
       permissions: role.role_permissions.pluck(:permission_name).sort.map { |name| permission_brief(name) },
       users_count: role.users.count,
@@ -234,6 +235,7 @@ class Api::V1::RolesController < ApplicationController
       description: role.description,
       scope: role.account_id ? "account" : "global",
       system_role: role.system_role?,
+      role_type: role.role_type,
       permission_count: role.role_permissions.count,
       users_count: role.users.count
     }

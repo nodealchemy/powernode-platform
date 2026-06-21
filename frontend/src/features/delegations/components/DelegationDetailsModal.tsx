@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { delegationApi, Delegation, DelegationActivity, DELEGATION_PERMISSIONS } from '@/features/delegations/services/delegationApi';
+import {
+  delegationApi,
+  Delegation,
+  DelegationActivity,
+  DelegationPermissionOption,
+  deriveDelegationPermissions,
+  DELEGATION_PERMISSIONS
+} from '@/features/delegations/services/delegationApi';
+import { rolesApi } from '@/features/admin/roles/services/rolesApi';
 import { formatDateTime } from '@/shared/utils/formatters';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 
@@ -29,6 +37,24 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [showAddUsers, setShowAddUsers] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Catalog-derived permission labels (seeded from the back-compat constant).
+  const [permissionRefs, setPermissionRefs] = useState<DelegationPermissionOption[]>(DELEGATION_PERMISSIONS);
+
+  useEffect(() => {
+    let cancelled = false;
+    rolesApi.getPermissions()
+      .then(response => {
+        if (cancelled) return;
+        const derived = deriveDelegationPermissions(response.data || []);
+        if (derived.length > 0) setPermissionRefs(derived);
+      })
+      .catch(() => {
+        // Labels are non-critical; fall back to raw permission keys.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadActivityLog = useCallback(async () => {
     try {
@@ -89,7 +115,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
   };
 
   const getPermissionLabel = (key: string) => {
-    const permission = DELEGATION_PERMISSIONS.find(p => p.key === key);
+    const permission = permissionRefs.find(p => p.key === key);
     return permission ? permission.label : key;
   };
 

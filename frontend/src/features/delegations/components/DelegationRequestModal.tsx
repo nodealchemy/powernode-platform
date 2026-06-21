@@ -1,5 +1,11 @@
-import React, { useState } from 'react';
-import { DelegationRequest, DELEGATION_PERMISSIONS } from '@/features/delegations/services/delegationApi';
+import React, { useState, useEffect } from 'react';
+import {
+  DelegationRequest,
+  DelegationPermissionOption,
+  deriveDelegationPermissions,
+  DELEGATION_PERMISSIONS
+} from '@/features/delegations/services/delegationApi';
+import { rolesApi } from '@/features/admin/roles/services/rolesApi';
 
 interface DelegationRequestModalProps {
   request: DelegationRequest;
@@ -17,6 +23,24 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
   const [action, setAction] = useState<'review' | 'approve' | 'reject'>('review');
   const [note, setNote] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  // Catalog-derived permission labels (seeded from the back-compat constant).
+  const [permissionRefs, setPermissionRefs] = useState<DelegationPermissionOption[]>(DELEGATION_PERMISSIONS);
+
+  useEffect(() => {
+    let cancelled = false;
+    rolesApi.getPermissions()
+      .then(response => {
+        if (cancelled) return;
+        const derived = deriveDelegationPermissions(response.data || []);
+        if (derived.length > 0) setPermissionRefs(derived);
+      })
+      .catch(() => {
+        // Labels are non-critical; fall back to raw permission keys.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -29,12 +53,12 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
   };
 
   const getPermissionLabel = (key: string) => {
-    const permission = DELEGATION_PERMISSIONS.find(p => p.key === key);
+    const permission = permissionRefs.find(p => p.key === key);
     return permission ? permission.label : key;
   };
 
   const getPermissionDescription = (key: string) => {
-    const permission = DELEGATION_PERMISSIONS.find(p => p.key === key);
+    const permission = permissionRefs.find(p => p.key === key);
     return permission ? permission.description : '';
   };
 

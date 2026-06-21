@@ -15,6 +15,8 @@ export interface Role {
   display_name?: string;
   description: string;
   system_role: boolean;
+  // Backend role taxonomy: user (account-assignable) | admin | system.
+  role_type: 'user' | 'admin' | 'system';
   // Roles are either GLOBAL (code-defined, read-only) or ACCOUNT-scoped (custom, editable).
   account_id: string | null;
   scope: 'global' | 'account';
