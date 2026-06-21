@@ -115,9 +115,10 @@ KB_ARTICLE_FILES = %w[
   troubleshooting_articles
 ].freeze
 
-# KB categories + tags (above) are CORE — always seeded. The article BODIES need
-# an admin author (account-scoped demo content), so gate them by demo?.
-if Powernode::Seeds.demo?
+# KB categories + tags (above) are CORE — always seeded. The article BODIES are
+# GLOBAL baseline content (account_id nil, author_id nil, upserted by source_key),
+# so gate them by baseline? — they seed in core/prod too, no account/author needed.
+if Powernode::Seeds.baseline?
   KB_ARTICLE_FILES.each do |file|
     file_path = Rails.root.join('db', 'seeds', 'kb', "#{file}.rb")
     if File.exist?(file_path)

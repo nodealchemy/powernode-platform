@@ -6,7 +6,6 @@
 puts "  🔧 Creating Troubleshooting articles..."
 
 troubleshooting_cat = KnowledgeBase::Category.find_by!(slug: "troubleshooting")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 39: Common Issues and Solutions (Featured)
 common_issues_content = <<~MARKDOWN
@@ -199,19 +198,22 @@ Resolution:
 Still stuck? See [Contacting Support](/kb/contacting-support) for help options.
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "common-issues-solutions") do |article|
-  article.title = "Common Issues and Solutions"
-  article.category = troubleshooting_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = true
-  article.excerpt = "Quick solutions for login issues, payment problems, API errors, webhook failures, and performance troubleshooting."
-  article.content = common_issues_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "common-issues-solutions", account_id: nil)
+article.assign_attributes(
+  title: "Common Issues and Solutions",
+  slug: "common-issues-solutions",
+  category: troubleshooting_cat,
+  status: "published",
+  is_public: true,
+  is_featured: true,
+  excerpt: "Quick solutions for login issues, payment problems, API errors, webhook failures, and performance troubleshooting.",
+  content: common_issues_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Common Issues and Solutions"
 
@@ -351,19 +353,22 @@ For emergencies (data breach, complete outage):
 - Payment system down
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "contacting-support") do |article|
-  article.title = "Contacting Support"
-  article.category = troubleshooting_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Get help through email, live chat, phone, or help desk with response times by plan tier and tips for faster resolution."
-  article.content = contact_support_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "contacting-support", account_id: nil)
+article.assign_attributes(
+  title: "Contacting Support",
+  slug: "contacting-support",
+  category: troubleshooting_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Get help through email, live chat, phone, or help desk with response times by plan tier and tips for faster resolution.",
+  content: contact_support_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Contacting Support"
 

@@ -1,42 +1,39 @@
 # frozen_string_literal: true
 
-# Seed default RAG knowledge bases for accounts with AI features enabled
-# Idempotent: skips if a KB with the same name already exists for the account
+# Seed the default GLOBAL RAG knowledge base (account_id nil), upserted by
+# source_key (= name parameterized) so future seeds update in place. This is
+# foundational platform content — no account needed (seeds in core/prod too).
+# Idempotent: upserts the KB and its starter document.
 
-Account.find_each do |account|
-  # Only seed for accounts that have at least one AI provider configured
-  next unless account.ai_providers.active.exists?
+# GLOBAL baseline content: account_id nil, source_key upsert.
+return unless Powernode::Seeds.baseline?
 
-  kb_name = "Platform Documentation"
-  next if Ai::KnowledgeBase.exists?(account: account, name: kb_name)
+kb_name = "Platform Documentation"
+kb_source_key = kb_name.parameterize
 
-  admin_user = account.users.joins(:user_roles, user_roles: :role)
-                       .where(roles: { name: "super_admin" })
-                       .first || account.users.first
+kb = Ai::KnowledgeBase.find_or_initialize_by(source_key: kb_source_key, account_id: nil)
+kb.assign_attributes(
+  name: kb_name,
+  description: "Default knowledge base for platform docs, guides, and reference. Add documents to enable AI search and context retrieval.",
+  embedding_model: "text-embedding-3-small",
+  embedding_provider: "openai",
+  embedding_dimensions: 1536,
+  chunking_strategy: "recursive",
+  chunk_size: 1000,
+  chunk_overlap: 200,
+  metadata_schema: {},
+  settings: {},
+  is_public: true,
+  status: "active"
+)
+kb.save!
 
-  kb = Ai::KnowledgeBase.create!(
-    account: account,
-    name: kb_name,
-    description: "Default knowledge base for platform docs, guides, and reference. Add documents to enable AI search and context retrieval.",
-    embedding_model: "text-embedding-3-small",
-    embedding_provider: "openai",
-    embedding_dimensions: 1536,
-    chunking_strategy: "recursive",
-    chunk_size: 1000,
-    chunk_overlap: 200,
-    metadata_schema: {},
-    settings: {},
-    is_public: false,
-    status: "active",
-    created_by: admin_user
-  )
-
-  # Add a starter document
-  doc = kb.documents.create!(
-    name: "Getting Started with RAG",
-    source_type: "upload",
-    content_type: "text/markdown",
-    content: <<~MARKDOWN,
+# Add (or refresh) the starter document — keyed by name within this KB.
+doc = kb.documents.find_or_initialize_by(name: "Getting Started with RAG")
+doc.assign_attributes(
+  source_type: "upload",
+  content_type: "text/markdown",
+  content: <<~MARKDOWN,
       # Getting Started with RAG Knowledge Bases
 
       ## Overview
@@ -67,13 +64,13 @@ Account.find_each do |account|
       - Update documents regularly to maintain accuracy
       - Use tags and metadata for better organization
     MARKDOWN
-    content_size_bytes: 0,
-    status: "pending",
-    uploaded_by: admin_user
-  )
-  doc.update!(content_size_bytes: doc.content.bytesize, checksum: doc.generate_checksum)
+  content_size_bytes: 0,
+  status: "pending"
+)
+doc.save!
+doc.update!(content_size_bytes: doc.content.bytesize, checksum: doc.generate_checksum)
 
-  kb.update_stats!
+kb.update_stats!
 
-  Rails.logger.info "[Seed] Created RAG knowledge base '#{kb_name}' for account #{account.id}"
-end
+Rails.logger.info "[Seed] Upserted GLOBAL RAG knowledge base '#{kb_name}' (source_key=#{kb_source_key})"
+puts "  ✅ Global RAG knowledge bases: #{Ai::KnowledgeBase.global.count}"

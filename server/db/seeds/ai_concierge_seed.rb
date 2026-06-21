@@ -75,7 +75,9 @@ ActiveRecord::Base.transaction do
 
   # Link concierge to its workspace routing skill (find_or_initialize + assign
   # ensures re-running seeds always reactivates the link, even if previously disabled)
-  concierge_skill = Ai::Skill.find_by(slug: "powernode-concierge", account: admin_account)
+  # The concierge skill is global baseline content (account_id nil); for_account
+  # resolves global + this account's rows.
+  concierge_skill = Ai::Skill.for_account(admin_account.id).find_by(slug: "powernode-concierge")
   raise "ai_concierge_seed: Powernode Concierge skill not found — run ai_skills_seed.rb first" unless concierge_skill
 
   agent_skill = Ai::AgentSkill.find_or_initialize_by(ai_agent_id: agent.id, ai_skill_id: concierge_skill.id)

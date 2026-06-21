@@ -6,7 +6,6 @@
 puts "  👤 Creating Account Management articles..."
 
 account_cat = KnowledgeBase::Category.find_by!(slug: "account-management")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 5: Managing Your Profile and Settings
 profile_content = <<~MARKDOWN
@@ -184,19 +183,22 @@ Contact support to delete your account. A 30-day grace period applies; after it,
 For team management, see [Team Management and Invitations](/kb/team-management-invitations).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "managing-profile-settings") do |article|
-  article.title = "Managing Your Profile and Settings"
-  article.category = account_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Customize your Powernode experience with profile updates, display preferences, security settings, 2FA, and notification configuration."
-  article.content = profile_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "managing-profile-settings", account_id: nil)
+article.assign_attributes(
+  title: "Managing Your Profile and Settings",
+  slug: "managing-profile-settings",
+  category: account_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Customize your Powernode experience with profile updates, display preferences, security settings, 2FA, and notification configuration.",
+  content: profile_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Managing Your Profile and Settings"
 
@@ -317,19 +319,22 @@ For compliance, the audit trail records who did what, when it happened, what cha
 For detailed permissions, see [User Roles and Permissions](/kb/user-roles-permissions).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "team-management-invitations") do |article|
-  article.title = "Team Management and Invitations"
-  article.category = account_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Manage team members, send invitations, configure permissions, and perform bulk operations for team collaboration."
-  article.content = team_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "team-management-invitations", account_id: nil)
+article.assign_attributes(
+  title: "Team Management and Invitations",
+  slug: "team-management-invitations",
+  category: account_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Manage team members, send invitations, configure permissions, and perform bulk operations for team collaboration.",
+  content: team_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Team Management and Invitations"
 
@@ -461,19 +466,22 @@ Report to security@powernode.org. Describe the issue, include timestamps, preser
 For general troubleshooting, see [Troubleshooting Common Issues](/kb/troubleshooting-common-issues).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "account-security-best-practices") do |article|
-  article.title = "Account Security Best Practices"
-  article.category = account_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Secure your account with strong passwords, 2FA, session management, API key practices, and security monitoring."
-  article.content = security_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "account-security-best-practices", account_id: nil)
+article.assign_attributes(
+  title: "Account Security Best Practices",
+  slug: "account-security-best-practices",
+  category: account_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Secure your account with strong passwords, 2FA, session management, API key practices, and security monitoring.",
+  content: security_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Account Security Best Practices"
 

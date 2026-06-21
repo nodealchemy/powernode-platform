@@ -7,7 +7,6 @@
 puts "  🤖 Creating AI Orchestration Advanced articles..."
 
 ai_cat = KnowledgeBase::Category.find_by!(slug: "ai-orchestration")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 28: A2A Protocol
 a2a_protocol_content = <<~MARKDOWN
@@ -213,20 +212,21 @@ a2a_protocol_content = <<~MARKDOWN
   Need help with A2A integration? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "a2a-protocol-agent-communication")
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "a2a-protocol-agent-communication", account_id: nil)
 article.assign_attributes(
   title: "A2A Protocol: Agent-to-Agent Communication",
+  slug: "a2a-protocol-agent-communication",
   category: ai_cat,
-  author: author,
   status: "published",
   is_public: true,
   is_featured: false,
   excerpt: "JSON-RPC 2.0 based protocol for inter-agent communication with discovery, task lifecycle management, federation, and push notifications.",
   content: a2a_protocol_content,
-  views_count: 0,
-  likes_count: 0,
-  published_at: Time.current
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ A2A Protocol: Agent-to-Agent Communication"
@@ -389,20 +389,21 @@ trust_autonomy_content = <<~MARKDOWN
   Need help configuring trust tiers? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "trust-autonomy-system")
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "trust-autonomy-system", account_id: nil)
 article.assign_attributes(
   title: "Trust & Autonomy System",
+  slug: "trust-autonomy-system",
   category: ai_cat,
-  author: author,
   status: "published",
   is_public: true,
   is_featured: false,
   excerpt: "Graduated trust framework with four tiers (supervised, monitored, trusted, autonomous), five trust dimensions, budget controls, and automatic promotion/demotion.",
   content: trust_autonomy_content,
-  views_count: 0,
-  likes_count: 0,
-  published_at: Time.current
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Trust & Autonomy System"
@@ -618,20 +619,21 @@ memory_tiers_content = <<~MARKDOWN
   Need help with memory configuration? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "memory-tiers-knowledge-management")
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "memory-tiers-knowledge-management", account_id: nil)
 article.assign_attributes(
   title: "Memory Tiers & Knowledge Management",
+  slug: "memory-tiers-knowledge-management",
   category: ai_cat,
-  author: author,
   status: "published",
   is_public: true,
   is_featured: false,
   excerpt: "Four-tier memory architecture (working, short-term, long-term, shared) with pgvector semantic search, temporal decay, consolidation, and integrity verification.",
   content: memory_tiers_content,
-  views_count: 0,
-  likes_count: 0,
-  published_at: Time.current
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Memory Tiers & Knowledge Management"
@@ -816,20 +818,21 @@ compound_learning_content = <<~MARKDOWN
   Need help with compound learning? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "compound-learning-system")
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "compound-learning-system", account_id: nil)
 article.assign_attributes(
   title: "Compound Learning System",
+  slug: "compound-learning-system",
   category: ai_cat,
-  author: author,
   status: "published",
   is_public: true,
   is_featured: false,
   excerpt: "Automatic learning extraction from task outcomes with deduplication, context injection, cross-team promotion, effectiveness tracking, and daily maintenance.",
   content: compound_learning_content,
-  views_count: 0,
-  likes_count: 0,
-  published_at: Time.current
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Compound Learning System"
@@ -1043,20 +1046,21 @@ worktree_sandboxes_content = <<~MARKDOWN
   Need help with sandbox configuration? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "worktree-sandboxes-git-integration")
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "worktree-sandboxes-git-integration", account_id: nil)
 article.assign_attributes(
   title: "Worktree Sandboxes & Git Integration",
+  slug: "worktree-sandboxes-git-integration",
   category: ai_cat,
-  author: author,
   status: "published",
   is_public: true,
   is_featured: false,
   excerpt: "Git worktree-based isolation for AI agents with session lifecycle management, config auto-copy, three merge strategies, health checks, and container sandbox alternatives.",
   content: worktree_sandboxes_content,
-  views_count: 0,
-  likes_count: 0,
-  published_at: Time.current
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Worktree Sandboxes & Git Integration"
@@ -1266,20 +1270,21 @@ review_workflows_content = <<~MARKDOWN
   Need help configuring review workflows? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "review-workflows")
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "review-workflows", account_id: nil)
 article.assign_attributes(
   title: "Review Workflows",
+  slug: "review-workflows",
   category: ai_cat,
-  author: author,
   status: "published",
   is_public: true,
   is_featured: false,
   excerpt: "Structured review system with blocking and shadow modes, severity-graded findings, completeness checks, and per-team/per-agent configuration.",
   content: review_workflows_content,
-  views_count: 0,
-  likes_count: 0,
-  published_at: Time.current
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Review Workflows"
@@ -1504,20 +1509,21 @@ role_profiles_content = <<~MARKDOWN
   Need help creating custom profiles? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "role-profiles")
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "role-profiles", account_id: nil)
 article.assign_attributes(
   title: "Role Profiles",
+  slug: "role-profiles",
   category: ai_cat,
-  author: author,
   status: "published",
   is_public: true,
   is_featured: false,
   excerpt: "Six system role profiles (developer, reviewer, researcher, writer, planner, tester) with prompt templates, quality checks, tool access controls, and custom profile creation.",
   content: role_profiles_content,
-  views_count: 0,
-  likes_count: 0,
-  published_at: Time.current
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Role Profiles"
@@ -1734,20 +1740,21 @@ agent_trajectories_content = <<~MARKDOWN
   Need help with trajectory analysis? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "agent-trajectories")
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "agent-trajectories", account_id: nil)
 article.assign_attributes(
   title: "Agent Trajectories",
+  slug: "agent-trajectories",
   category: ai_cat,
-  author: author,
   status: "published",
   is_public: true,
   is_featured: false,
   excerpt: "Complete execution traces with chapters, quality scoring, outcome tracking, and integration with the compound learning system for continuous agent improvement.",
   content: agent_trajectories_content,
-  views_count: 0,
-  likes_count: 0,
-  published_at: Time.current
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Agent Trajectories"
@@ -2041,20 +2048,21 @@ team_orchestration_content = <<~MARKDOWN
   Need help designing your team structure? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "team-orchestration-patterns")
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "team-orchestration-patterns", account_id: nil)
 article.assign_attributes(
   title: "Team Orchestration Patterns",
+  slug: "team-orchestration-patterns",
   category: ai_cat,
-  author: author,
   status: "published",
   is_public: true,
   is_featured: false,
   excerpt: "Four team types (functional, cross-functional, hierarchical, swarm) and five coordination strategies (round robin, parallel, sequential, manager-led, consensus) with real-world examples.",
   content: team_orchestration_content,
-  views_count: 0,
-  likes_count: 0,
-  published_at: Time.current
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Team Orchestration Patterns"
@@ -2356,20 +2364,21 @@ cicd_pipeline_content = <<~MARKDOWN
   Need help with pipeline integration? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "cicd-pipeline-integration")
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "cicd-pipeline-integration", account_id: nil)
 article.assign_attributes(
   title: "CI/CD Pipeline Integration",
+  slug: "cicd-pipeline-integration",
   category: ai_cat,
-  author: author,
   status: "published",
   is_public: true,
   is_featured: false,
   excerpt: "GitHub and Gitea Actions integration with AI-powered pipeline analysis, security scanning, deployment automation, and pre-built workflow templates.",
   content: cicd_pipeline_content,
-  views_count: 0,
-  likes_count: 0,
-  published_at: Time.current
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ CI/CD Pipeline Integration"
@@ -2442,19 +2451,22 @@ team_conversations_content = <<~MARKDOWN
   - [AI Conversations Guide](/kb/ai-conversations-guide)
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "team-conversations-chat") do |article|
-  article.title = "Team Conversations & Chat"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Real-time collaboration interface between users and AI agent teams with coordinator routing, activity messages, and plan approval workflows."
-  article.content = team_conversations_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "team-conversations-chat", account_id: nil)
+article.assign_attributes(
+  title: "Team Conversations & Chat",
+  slug: "team-conversations-chat",
+  category: ai_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Real-time collaboration interface between users and AI agent teams with coordinator routing, activity messages, and plan approval workflows.",
+  content: team_conversations_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Team Conversations & Chat"
 
@@ -2560,19 +2572,22 @@ mcp_platform_tools_content = <<~MARKDOWN
   - [AI Orchestration Overview](/kb/ai-orchestration-overview)
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "mcp-platform-tools-reference") do |article|
-  article.title = "MCP Platform Tools Reference"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Complete reference for all MCP platform tools available to AI agents including agent, team, workflow, memory, KB, page, learning, and knowledge management."
-  article.content = mcp_platform_tools_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "mcp-platform-tools-reference", account_id: nil)
+article.assign_attributes(
+  title: "MCP Platform Tools Reference",
+  slug: "mcp-platform-tools-reference",
+  category: ai_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Complete reference for all MCP platform tools available to AI agents including agent, team, workflow, memory, KB, page, learning, and knowledge management.",
+  content: mcp_platform_tools_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ MCP Platform Tools Reference"
 
@@ -2630,19 +2645,22 @@ coordinator_service_content = <<~MARKDOWN
   - [Agent Teams & Multi-Agent Orchestration](/kb/agent-teams-multi-agent-orchestration)
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "coordinator-service") do |article|
-  article.title = "Coordinator Service"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "How the Coordinator Service routes user messages in team conversations through LLM classification to respond, delegate, or clarify."
-  article.content = coordinator_service_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "coordinator-service", account_id: nil)
+article.assign_attributes(
+  title: "Coordinator Service",
+  slug: "coordinator-service",
+  category: ai_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "How the Coordinator Service routes user messages in team conversations through LLM classification to respond, delegate, or clarify.",
+  content: coordinator_service_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Coordinator Service"
 
@@ -2702,19 +2720,22 @@ agent_profiles_content = <<~MARKDOWN
   - [AI Conversations Guide](/kb/ai-conversations-guide)
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "agent-conversation-profiles") do |article|
-  article.title = "Agent Conversation Profiles"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Configure how AI agents present themselves in chat with tone, verbosity, greeting, and style settings through conversation profiles."
-  article.content = agent_profiles_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "agent-conversation-profiles", account_id: nil)
+article.assign_attributes(
+  title: "Agent Conversation Profiles",
+  slug: "agent-conversation-profiles",
+  category: ai_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Configure how AI agents present themselves in chat with tone, verbosity, greeting, and style settings through conversation profiles.",
+  content: agent_profiles_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Agent Conversation Profiles"
 

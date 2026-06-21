@@ -6,7 +6,6 @@
 puts "  🤖 Creating AI Orchestration articles..."
 
 ai_cat = KnowledgeBase::Category.find_by!(slug: "ai-orchestration")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 15: AI Orchestration Overview (Featured)
 ai_overview_content = <<~MARKDOWN
@@ -219,10 +218,11 @@ Built-in protections following OWASP guidelines:
 Questions about AI features? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "ai-orchestration-overview", category: ai_cat)
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "ai-orchestration-overview", account_id: nil)
 article.assign_attributes(
   title: "AI Orchestration Overview",
-  author: author,
+  slug: "ai-orchestration-overview",
+  category: ai_cat,
   status: "published",
   is_public: true,
   is_featured: true,
@@ -232,6 +232,7 @@ article.assign_attributes(
   likes_count: article.likes_count || 0,
   published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ AI Orchestration Overview"
@@ -559,10 +560,11 @@ Test models interactively:
 Need help with provider configuration? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "configuring-ai-providers", category: ai_cat)
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "configuring-ai-providers", account_id: nil)
 article.assign_attributes(
   title: "Configuring AI Providers",
-  author: author,
+  slug: "configuring-ai-providers",
+  category: ai_cat,
   status: "published",
   is_public: true,
   is_featured: false,
@@ -572,6 +574,7 @@ article.assign_attributes(
   likes_count: article.likes_count || 0,
   published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Configuring AI Providers"
@@ -1047,10 +1050,11 @@ Monitoring:
 Need help creating agents? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "creating-managing-ai-agents", category: ai_cat)
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "creating-managing-ai-agents", account_id: nil)
 article.assign_attributes(
   title: "Creating and Managing AI Agents",
-  author: author,
+  slug: "creating-managing-ai-agents",
+  category: ai_cat,
   status: "published",
   is_public: true,
   is_featured: false,
@@ -1060,6 +1064,7 @@ article.assign_attributes(
   likes_count: article.likes_count || 0,
   published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Creating and Managing AI Agents"
@@ -1496,19 +1501,22 @@ Debugging:
 Need help with MCP or contexts? Contact ai-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "mcp-servers-context-management") do |article|
-  article.title = "MCP Servers and Context Management"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Configure Model Context Protocol (MCP) servers for tool access, manage knowledge bases, and implement RAG for contextual AI responses."
-  article.content = mcp_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "mcp-servers-context-management", account_id: nil)
+article.assign_attributes(
+  title: "MCP Servers and Context Management",
+  slug: "mcp-servers-context-management",
+  category: ai_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Configure Model Context Protocol (MCP) servers for tool access, manage knowledge bases, and implement RAG for contextual AI responses.",
+  content: mcp_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ MCP Servers and Context Management"
 
@@ -1983,10 +1991,11 @@ Team: Enterprise Support
 Need help with agent teams? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "agent-teams-multi-agent", category: ai_cat)
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "agent-teams-multi-agent", account_id: nil)
 article.assign_attributes(
   title: "Agent Teams and Multi-Agent Orchestration",
-  author: author,
+  slug: "agent-teams-multi-agent",
+  category: ai_cat,
   status: "published",
   is_public: true,
   is_featured: false,
@@ -1996,6 +2005,7 @@ article.assign_attributes(
   likes_count: article.likes_count || 0,
   published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Agent Teams and Multi-Agent Orchestration"
@@ -2298,19 +2308,22 @@ Embed AI chat in your applications:
 Need help with conversations? Contact ai-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "ai-conversations-guide") do |article|
-  article.title = "AI Conversations Guide"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Interactive guide to using AI conversations for chatting with agents, testing prompts, managing history, and building conversational experiences."
-  article.content = ai_conversations_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "ai-conversations-guide", account_id: nil)
+article.assign_attributes(
+  title: "AI Conversations Guide",
+  slug: "ai-conversations-guide",
+  category: ai_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Interactive guide to using AI conversations for chatting with agents, testing prompts, managing history, and building conversational experiences.",
+  content: ai_conversations_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ AI Conversations Guide"
 
@@ -2645,19 +2658,22 @@ Access shared templates:
 Need help with templates? Contact ai-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "managing-prompt-templates") do |article|
-  article.title = "Managing Prompt Templates"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Create and manage reusable prompt templates with variables, versioning, sharing, and advanced features for consistent AI interactions."
-  article.content = prompt_templates_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "managing-prompt-templates", account_id: nil)
+article.assign_attributes(
+  title: "Managing Prompt Templates",
+  slug: "managing-prompt-templates",
+  category: ai_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Create and manage reusable prompt templates with variables, versioning, sharing, and advanced features for consistent AI interactions.",
+  content: prompt_templates_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Managing Prompt Templates"
 
@@ -3002,19 +3018,22 @@ Log Entry:
 Need help with monitoring? Contact ai-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "ai-monitoring-dashboard") do |article|
-  article.title = "AI Monitoring Dashboard"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Monitor AI system health, performance metrics, provider status, agent performance, costs, and set up alerting for real-time observability."
-  article.content = ai_monitoring_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "ai-monitoring-dashboard", account_id: nil)
+article.assign_attributes(
+  title: "AI Monitoring Dashboard",
+  slug: "ai-monitoring-dashboard",
+  category: ai_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Monitor AI system health, performance metrics, provider status, agent performance, costs, and set up alerting for real-time observability.",
+  content: ai_monitoring_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ AI Monitoring Dashboard"
 
@@ -3383,19 +3402,22 @@ Model Review:
 Need help with governance? Contact compliance@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "ai-governance-policies") do |article|
-  article.title = "AI Governance and Policies"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Implement responsible AI with governance policies, content filtering, access controls, compliance settings, and safety guardrails."
-  article.content = ai_governance_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "ai-governance-policies", account_id: nil)
+article.assign_attributes(
+  title: "AI Governance and Policies",
+  slug: "ai-governance-policies",
+  category: ai_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Implement responsible AI with governance policies, content filtering, access controls, compliance settings, and safety guardrails.",
+  content: ai_governance_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ AI Governance and Policies"
 
@@ -3852,10 +3874,11 @@ Production Readiness:
 Need help with the sandbox? Contact ai-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "using-ai-sandbox", category: ai_cat)
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "using-ai-sandbox", account_id: nil)
 article.assign_attributes(
   title: "Using the AI Sandbox",
-  author: author,
+  slug: "using-ai-sandbox",
+  category: ai_cat,
   status: "published",
   is_public: true,
   is_featured: false,
@@ -3865,6 +3888,7 @@ article.assign_attributes(
   likes_count: article.likes_count || 0,
   published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ Using the AI Sandbox"
@@ -4200,19 +4224,22 @@ Listing Configuration:
 Need help with the marketplace? Contact marketplace@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "agent-marketplace-guide") do |article|
-  article.title = "Agent Marketplace Guide"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Browse, install, and manage pre-built AI agents from the marketplace, plus learn how to publish your own agents."
-  article.content = agent_marketplace_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "agent-marketplace-guide", account_id: nil)
+article.assign_attributes(
+  title: "Agent Marketplace Guide",
+  slug: "agent-marketplace-guide",
+  category: ai_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Browse, install, and manage pre-built AI agents from the marketplace, plus learn how to publish your own agents.",
+  content: agent_marketplace_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Agent Marketplace Guide"
 
@@ -4690,10 +4717,11 @@ jobs:
 Need help with templates? Contact devops-support@powernode.org
 MARKDOWN
 
-article = KnowledgeBase::Article.find_or_initialize_by(slug: "devops-ai-templates", category: ai_cat)
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "devops-ai-templates", account_id: nil)
 article.assign_attributes(
   title: "DevOps AI Templates",
-  author: author,
+  slug: "devops-ai-templates",
+  category: ai_cat,
   status: "published",
   is_public: true,
   is_featured: false,
@@ -4703,6 +4731,7 @@ article.assign_attributes(
   likes_count: article.likes_count || 0,
   published_at: article.published_at || Time.current
 )
+article.author_id = nil
 article.save!
 
 puts "    ✅ DevOps AI Templates"

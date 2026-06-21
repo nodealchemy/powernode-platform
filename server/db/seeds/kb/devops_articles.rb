@@ -6,7 +6,6 @@
 puts "  📦 Creating DevOps articles..."
 
 devops_cat = KnowledgeBase::Category.find_by!(slug: "devops")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 24: DevOps Overview (Featured)
 devops_overview_content = <<~MARKDOWN
@@ -264,19 +263,22 @@ Ready to dive deeper? Explore these guides:
 Need help? Contact support@powernode.org or visit our [community forum](https://community.powernode.org).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "devops-overview") do |article|
-  article.title = "DevOps Overview"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = true
-  article.excerpt = "Comprehensive introduction to Powernode's DevOps capabilities including Git integration, CI/CD pipelines, webhooks, and automation patterns."
-  article.content = devops_overview_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "devops-overview", account_id: nil)
+article.assign_attributes(
+  title: "DevOps Overview",
+  slug: "devops-overview",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: true,
+  excerpt: "Comprehensive introduction to Powernode's DevOps capabilities including Git integration, CI/CD pipelines, webhooks, and automation patterns.",
+  content: devops_overview_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ DevOps Overview"
 
@@ -607,19 +609,22 @@ Debugging:
 Need help configuring your Git provider? Contact support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "configuring-git-providers") do |article|
-  article.title = "Configuring Git Providers"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Step-by-step guide to connecting GitHub, GitLab, Gitea, and Bitbucket to Powernode for repository synchronization and CI/CD integration."
-  article.content = git_providers_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "configuring-git-providers", account_id: nil)
+article.assign_attributes(
+  title: "Configuring Git Providers",
+  slug: "configuring-git-providers",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Step-by-step guide to connecting GitHub, GitLab, Gitea, and Bitbucket to Powernode for repository synchronization and CI/CD integration.",
+  content: git_providers_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Configuring Git Providers"
 
@@ -1126,19 +1131,22 @@ notifications:
 Need help with pipeline configuration? Contact support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "creating-cicd-pipelines") do |article|
-  article.title = "Creating CI/CD Pipelines"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Complete guide to building automated CI/CD pipelines in Powernode with visual builder, YAML configuration, and advanced features."
-  article.content = cicd_pipelines_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "creating-cicd-pipelines", account_id: nil)
+article.assign_attributes(
+  title: "Creating CI/CD Pipelines",
+  slug: "creating-cicd-pipelines",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Complete guide to building automated CI/CD pipelines in Powernode with visual builder, YAML configuration, and advanced features.",
+  content: cicd_pipelines_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Creating CI/CD Pipelines"
 
@@ -1556,19 +1564,22 @@ ngrok http 3000
 Need help with webhook configuration? Contact support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "webhook-integration-management") do |article|
-  article.title = "Webhook and Integration Management"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Configure webhooks to receive real-time events from Powernode and integrate with external services like Slack, PagerDuty, and custom applications."
-  article.content = webhook_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "webhook-integration-management", account_id: nil)
+article.assign_attributes(
+  title: "Webhook and Integration Management",
+  slug: "webhook-integration-management",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Configure webhooks to receive real-time events from Powernode and integrate with external services like Slack, PagerDuty, and custom applications.",
+  content: webhook_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Webhook and Integration Management"
 
@@ -2022,19 +2033,22 @@ journalctl -u powernode-runner -f
 Need help with runners? Contact devops-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "managing-pipeline-runners") do |article|
-  article.title = "Managing Pipeline Runners"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Configure self-hosted runners for CI/CD pipeline execution with Docker, Kubernetes, labels, monitoring, and security best practices."
-  article.content = runners_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "managing-pipeline-runners", account_id: nil)
+article.assign_attributes(
+  title: "Managing Pipeline Runners",
+  slug: "managing-pipeline-runners",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Configure self-hosted runners for CI/CD pipeline execution with Docker, Kubernetes, labels, monitoring, and security best practices.",
+  content: runners_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Managing Pipeline Runners"
 
@@ -2458,19 +2472,22 @@ curl -X POST https://api.powernode.org/api/v1/api-keys/revoke-expired \\
 Need help with API keys? Contact devops-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "api-key-management") do |article|
-  article.title = "API Key Management"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Create, manage, and secure API keys with scoped permissions, IP restrictions, rotation policies, and usage monitoring."
-  article.content = api_keys_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "api-key-management", account_id: nil)
+article.assign_attributes(
+  title: "API Key Management",
+  slug: "api-key-management",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Create, manage, and secure API keys with scoped permissions, IP restrictions, rotation policies, and usage monitoring.",
+  content: api_keys_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ API Key Management"
 

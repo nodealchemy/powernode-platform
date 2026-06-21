@@ -5,13 +5,17 @@
 
 puts "🌱 Seeding Powernode platform..."
 
-# Core vs demo gate. CORE data (permissions, roles, system worker, KB categories,
-# site settings) ALWAYS seeds — it's account-independent and production-safe.
-# DEMO/account-scoped data (test accounts, public pages, KB articles, AI agents)
-# seeds only when Powernode::Seeds.demo? — POWERNODE_SEED_DEMO=true, or (default)
-# development/test, or SEED_ADMIN_USERS=true. In core/prod, account-scoped data is
-# created by the setup wizard (Setup::SeedService), not here. A module method (not
-# a local) so files pulled in via `load` can call it.
+# Three-tier seed gating (demo ⊇ baseline ⊇ core):
+#   CORE     — always. Account-independent platform reference (permissions, roles,
+#              plans, settings, KB categories, system worker).
+#   BASELINE — Powernode::Seeds.baseline? (POWERNODE_SEED_BASELINE, default ON).
+#              Foundational product content seeded as GLOBAL (account_id nil,
+#              read-only, upserted by source_key): skills, prompt templates, KB
+#              documentation, default knowledge bases, agent/team/mission templates.
+#              Needs NO account (global content), so it seeds in core/prod too.
+#   DEMO     — Powernode::Seeds.demo? (POWERNODE_SEED_DEMO / dev-test / SEED_ADMIN_USERS).
+#              Account-scoped samples: test accounts/users, sample agents, showcase pages.
+# Module methods (not locals) so files pulled in via `load` can call them.
 module Powernode
   module Seeds
     def self.demo?
@@ -19,9 +23,17 @@ module Powernode
 
       ENV.fetch("POWERNODE_SEED_DEMO") { (Rails.env.development? || Rails.env.test?).to_s }.to_s == "true"
     end
+
+    # Foundational product content (global, read-only). On by default everywhere;
+    # opt out with POWERNODE_SEED_BASELINE=false. demo? implies baseline.
+    def self.baseline?
+      return true if demo?
+
+      ENV.fetch("POWERNODE_SEED_BASELINE", "true").to_s != "false"
+    end
   end
 end
-puts(Powernode::Seeds.demo? ? "   mode: CORE + DEMO data" : "   mode: CORE data only (POWERNODE_SEED_DEMO=true to include demo)")
+puts("   mode: CORE#{Powernode::Seeds.baseline? ? ' + BASELINE' : ''}#{Powernode::Seeds.demo? ? ' + DEMO' : ''} data")
 
 # Permissions are code-defined (the Permissions catalog is the source of truth);
 # there is no permissions table to seed. Roles + their grants are seeded from the
@@ -922,58 +934,20 @@ load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
 
 # Marketing permissions loaded via extension seeds (extensions/marketing/)
 
-# Load AI Providers and Agents (only in development/test)
-if Powernode::Seeds.demo?
-  puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
-  load Rails.root.join('db', 'seeds', 'comprehensive_ai_providers_seed.rb')
-
-  puts "\n🧠 Loading Claude-Powered Agents..."
-  load Rails.root.join('db', 'seeds', 'claude_agents_seed.rb')
-
-  puts "\n📊 Loading Monitoring and Analytics Agents..."
-  load Rails.root.join('db', 'seeds', 'monitoring_analytics_agents_seed.rb')
-
-  puts "\n🔌 Loading MCP Servers..."
-  load Rails.root.join('db', 'seeds', 'mcp_servers_seeds.rb')
-
-  puts "\n🗄️  Loading File Storage configurations..."
-  load Rails.root.join('db', 'seeds', 'file_storage_seeds.rb')
-
-  puts "\n📦 Loading DevOps Container Templates..."
-  load Rails.root.join('db', 'seeds', 'devops_container_templates.rb')
-
-  puts "\n🔌 Loading MCP Server Container Templates..."
-  load Rails.root.join('db', 'seeds', 'mcp_container_templates_seed.rb')
-
-  puts "\n🔧 Loading AI DevOps Templates..."
-  load Rails.root.join('db', 'seeds', 'ai_devops_templates_seed.rb')
-
-  puts "\n🔧 Loading AI DevOps Configs (Template Installations + AI Configs)..."
-  load Rails.root.join('db', 'seeds', 'ai_devops_configs_seed.rb')
-
-  puts "\n👥 Loading AI Agent Teams..."
-  load Rails.root.join('db', 'seeds', 'ai_teams_seed.rb')
-
-  puts "\n📋 Loading AI Todo App Team..."
-  load Rails.root.join('db', 'seeds', 'ai_todo_team_seed.rb')
-
+# ---------------------------------------------------------------------------
+# BASELINE: foundational GLOBAL content (account_id nil, upserted by source_key).
+# Seeds in core/prod too — no account required. Each of these files seeds its
+# content rows globally and demo-gates any instance creation internally.
+# ---------------------------------------------------------------------------
+if Powernode::Seeds.baseline?
   puts "\n🧩 Loading AI Skills..."
   load Rails.root.join('db', 'seeds', 'ai_skills_seed.rb')
 
   puts "\n📋 Loading AI Example Templates..."
   load Rails.root.join('db', 'seeds', 'ai_example_templates_seed.rb')
 
-  puts "\n🔧 Loading AI Utility Agents & Specialist Skills..."
-  load Rails.root.join('db', 'seeds', 'ai_utility_agents_seed.rb')
-
-  puts "\n🔧 Loading Powernode Development Team..."
-  load Rails.root.join('db', 'seeds', 'ai_dev_team_seed.rb')
-
   puts "\n🎯 Loading AI Mission Templates..."
   load Rails.root.join('db', 'seeds', 'ai_mission_templates.rb')
-
-  puts "\n🤖 Loading AI Concierge Agent..."
-  load Rails.root.join('db', 'seeds', 'ai_concierge_seed.rb')
 
   puts "\n📝 Loading AI System Prompt Templates..."
   load Rails.root.join('db', 'seeds', 'ai_system_prompt_templates_seed.rb')
@@ -981,19 +955,17 @@ if Powernode::Seeds.demo?
   puts "\n📚 Loading RAG Knowledge Base seed..."
   load Rails.root.join('db', 'seeds', 'ai_knowledge_base_seed.rb')
 
-  puts "\n🤖 Loading Autonomy Data (consolidation + seeding)..."
-  load Rails.root.join('db', 'seeds', 'autonomy_data_seed.rb')
+  puts "\n🔧 Loading AI DevOps Templates..."
+  load Rails.root.join('db', 'seeds', 'ai_devops_templates_seed.rb')
 
-  puts "\n🧠 Loading AI Memory Pools..."
-  load Rails.root.join('db', 'seeds', 'ai_memory_pools_seed.rb')
+  puts "\n📦 Loading DevOps Container Templates..."
+  load Rails.root.join('db', 'seeds', 'devops_container_templates.rb')
 
-  puts "\n🌐 Loading AI Data Sources..."
-  load Rails.root.join('db', 'seeds', 'ai_data_sources_seed.rb')
+  puts "\n🔌 Loading MCP Server Container Templates..."
+  load Rails.root.join('db', 'seeds', 'mcp_container_templates_seed.rb')
 
-  puts "\n🛡️ Loading AI Governance (compliance policies + approval chains)..."
-  load Rails.root.join('db', 'seeds', 'ai_governance_seed.rb')
-
-  # Seed AI model pricing from hardcoded constant
+  # Seed AI model pricing from hardcoded constant (account-independent reference
+  # the cost-aware model selector needs — baseline, not demo).
   if defined?(Ai::ProviderManagementService::MODEL_PRICING) && Ai::ModelPricing.count == 0
     puts "\n💰 Seeding AI model pricing..."
     Ai::ProviderManagementService::MODEL_PRICING.each do |model_id, pricing|
@@ -1020,6 +992,57 @@ if Powernode::Seeds.demo?
     end
     puts "✅ Seeded #{Ai::ModelPricing.count} model pricings"
   end
+end
+
+# ---------------------------------------------------------------------------
+# DEMO: account-scoped INSTANCE data (providers, agents, teams, configs).
+# Requires at least one account — never runs in baseline-only mode.
+# ---------------------------------------------------------------------------
+if Powernode::Seeds.demo?
+  puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
+  load Rails.root.join('db', 'seeds', 'comprehensive_ai_providers_seed.rb')
+
+  puts "\n🧠 Loading Claude-Powered Agents..."
+  load Rails.root.join('db', 'seeds', 'claude_agents_seed.rb')
+
+  puts "\n📊 Loading Monitoring and Analytics Agents..."
+  load Rails.root.join('db', 'seeds', 'monitoring_analytics_agents_seed.rb')
+
+  puts "\n🔌 Loading MCP Servers..."
+  load Rails.root.join('db', 'seeds', 'mcp_servers_seeds.rb')
+
+  puts "\n🗄️  Loading File Storage configurations..."
+  load Rails.root.join('db', 'seeds', 'file_storage_seeds.rb')
+
+  puts "\n🔧 Loading AI DevOps Configs (Template Installations + AI Configs)..."
+  load Rails.root.join('db', 'seeds', 'ai_devops_configs_seed.rb')
+
+  puts "\n👥 Loading AI Agent Teams..."
+  load Rails.root.join('db', 'seeds', 'ai_teams_seed.rb')
+
+  puts "\n📋 Loading AI Todo App Team..."
+  load Rails.root.join('db', 'seeds', 'ai_todo_team_seed.rb')
+
+  puts "\n🔧 Loading AI Utility Agents & Specialist Skills..."
+  load Rails.root.join('db', 'seeds', 'ai_utility_agents_seed.rb')
+
+  puts "\n🔧 Loading Powernode Development Team..."
+  load Rails.root.join('db', 'seeds', 'ai_dev_team_seed.rb')
+
+  puts "\n🤖 Loading AI Concierge Agent..."
+  load Rails.root.join('db', 'seeds', 'ai_concierge_seed.rb')
+
+  puts "\n🤖 Loading Autonomy Data (consolidation + seeding)..."
+  load Rails.root.join('db', 'seeds', 'autonomy_data_seed.rb')
+
+  puts "\n🧠 Loading AI Memory Pools..."
+  load Rails.root.join('db', 'seeds', 'ai_memory_pools_seed.rb')
+
+  puts "\n🌐 Loading AI Data Sources..."
+  load Rails.root.join('db', 'seeds', 'ai_data_sources_seed.rb')
+
+  puts "\n🛡️ Loading AI Governance (compliance policies + approval chains)..."
+  load Rails.root.join('db', 'seeds', 'ai_governance_seed.rb')
 end
 
 # Extension seeds (dynamically discovered from registered extensions).

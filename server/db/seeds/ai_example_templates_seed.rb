@@ -6,41 +6,42 @@
 
 puts "\n📋 Seeding AI Example Templates & Showcase Data..."
 
+# This file is MIXED: the 10 capability skills at the bottom are GLOBAL
+# baseline CONTENT (account_id nil, upserted by source_key) and seed
+# unconditionally. The example agents, teams, and marketplace templates are
+# account-scoped INSTANCE/showcase data and are demo-gated below (they need an
+# admin account, user, and seeded providers — absent in baseline-only mode).
+return unless Powernode::Seeds.baseline?
+
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 
-unless admin_account && admin_user
-  puts "  ⏭️  Admin account/user not found — skipping AI Example Templates"
-  return
-end
-
-# ---------------------------------------------------------------------------
-# Resolve Providers
-# ---------------------------------------------------------------------------
+# Resolve providers (only present once comprehensive_ai_providers_seed has run in demo).
 anthropic_provider = Ai::Provider.find_by(provider_type: 'anthropic')
 openai_provider    = Ai::Provider.find_by(provider_type: 'openai')
 grok_provider      = Ai::Provider.find_by(name: 'Grok (X.AI)') ||
                      Ai::Provider.where(provider_type: 'custom').where("name ILIKE ?", "%grok%").first
 
-unless anthropic_provider
-  puts "  ⚠️  Anthropic provider not found — skipping AI Example Templates"
-  return
-end
+# Instance/showcase data requires an account, user, and all three providers.
+seed_instances = Powernode::Seeds.demo? && admin_account && admin_user &&
+                 anthropic_provider && openai_provider && grok_provider
 
-unless openai_provider
-  puts "  ⚠️  OpenAI provider not found — skipping AI Example Templates"
-  return
-end
+agents = {}
+agents_created = 0
+teams_created = 0
+roles_created = 0
+channels_created = 0
+members_created = 0
+templates_created = 0
 
-unless grok_provider
-  puts "  ⚠️  Grok (X.AI) provider not found — skipping AI Example Templates"
-  return
+if seed_instances
+  puts "  ✅ Providers: Anthropic=#{anthropic_provider.id}, OpenAI=#{openai_provider.id}, Grok=#{grok_provider.id}"
+else
+  puts "  ⏭️  AI Example instance data skipped (baseline-only or missing account/providers)"
 end
-
-puts "  ✅ Providers: Anthropic=#{anthropic_provider.id}, OpenAI=#{openai_provider.id}, Grok=#{grok_provider.id}"
 
 # ===========================================================================
-# 8 EXAMPLE AGENTS (one per agent_type)
+# 8 EXAMPLE AGENTS (one per agent_type) — account-scoped INSTANCE data
 # ===========================================================================
 agents_data = [
   {
@@ -397,11 +398,10 @@ agents_data = [
 ]
 
 # ---------------------------------------------------------------------------
-# Create Agents
+# Create Agents, Teams, and Marketplace Templates — account-scoped INSTANCE /
+# showcase data, demo-gated (the GLOBAL skills below seed unconditionally).
 # ---------------------------------------------------------------------------
-agents = {}
-agents_created = 0
-
+if seed_instances
 agents_data.each do |ad|
   agent = Ai::Agent.find_or_create_by!(account: admin_account, name: ad[:name]) do |a|
     a.description = ad[:description]
@@ -1233,9 +1233,10 @@ puts "  ⏭️  Marketplace templates skipped (publisher is business-only — co
   templates_created += 1
   puts "  ✅ Template '#{template.name}' (#{td[:pricing_type]}, #{td[:vertical]})"
 end
+end # if seed_instances (agents, teams, marketplace templates)
 
 # ===========================================================================
-# 10 SKILLS (Ai::Skill)
+# 10 SKILLS (Ai::Skill) — GLOBAL baseline CONTENT (account_id nil, source_key)
 # ===========================================================================
 skills_data = [
   {
@@ -1353,9 +1354,11 @@ skills_data = [
 skills_created = 0
 
 skills_data.each do |sd|
-  skill = Ai::Skill.find_or_initialize_by(slug: sd[:name].parameterize)
+  # GLOBAL content: account_id nil, upserted by source_key (= parameterized name).
+  source_key = sd[:name].parameterize
+  skill = Ai::Skill.find_or_initialize_by(source_key: source_key, account_id: nil)
+  skill.slug = source_key
   skill.assign_attributes(
-    account: admin_account,
     name: sd[:name],
     description: sd[:description],
     category: sd[:category],

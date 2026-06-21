@@ -1,30 +1,43 @@
 # frozen_string_literal: true
 
 # AI DevOps Templates Seed Data
-# Creates system-level AI DevOps workflow templates for common operations
-# Uses find_or_create_by! to avoid overwriting existing customized templates
+# Creates GLOBAL (account_id nil) system AI DevOps workflow templates for common
+# operations, upserted by source_key (= slug) so they update in place.
 
 puts "  Loading AI DevOps Templates..."
 
-admin_account = Account.find_by(name: "Powernode Admin")
-unless admin_account
-  puts "  ⚠️  Admin account not found - skipping AI DevOps templates"
-  return
+# GLOBAL baseline content: account_id nil, read-only, upserted by source_key
+# (the template slug) so future seeds update in place. No account needed —
+# these are platform-provided system templates that seed in core/prod too.
+return unless Powernode::Seeds.baseline?
+
+# Upsert a GLOBAL system DevOps template by slug (also its source_key).
+# Always applies the block (on create AND update) so content changes take
+# effect, then version-bumps the patch number when anything changed.
+upsert_devops_template = lambda do |slug, &block|
+  t = Ai::DevopsTemplate.find_or_initialize_by(source_key: slug, account_id: nil)
+  t.slug = slug
+  block.call(t)
+  t.account_id = nil
+  t.is_system = true
+  if !t.new_record? && t.changed?
+    parts = t.version.to_s.split(".")
+    parts << "0" while parts.length < 3
+    parts[-1] = (parts[-1].to_i + 1).to_s
+    t.version = parts.join(".")
+  end
+  t.save!
+  t
 end
 
-puts "  ✅ Using admin account: #{admin_account.name} (ID: #{admin_account.id})"
-
 # Template 1: Automated Code Review
-Ai::DevopsTemplate.find_or_create_by!(slug: "automated-code-review") do |t|
-  t.account = admin_account
+upsert_devops_template.call("automated-code-review") do |t|
   t.name = "Automated Code Review"
   t.description = "AI-powered code review that analyzes pull requests for quality, security, performance, and best practices. Provides structured feedback with severity ratings and line-level suggestions."
   t.category = "code_quality"
   t.template_type = "code_review"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.is_featured = true
   t.published_at = Time.current
   t.workflow_definition = {
@@ -85,16 +98,13 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "automated-code-review") do |t|
 end
 
 # Template 2: Security Vulnerability Scanner
-Ai::DevopsTemplate.find_or_create_by!(slug: "security-vulnerability-scanner") do |t|
-  t.account = admin_account
+upsert_devops_template.call("security-vulnerability-scanner") do |t|
   t.name = "Security Vulnerability Scanner"
   t.description = "Comprehensive AI security analysis combining SAST scanning, dependency auditing, secret detection, and OWASP Top 10 checks. Generates structured vulnerability reports with remediation guidance."
   t.category = "security"
   t.template_type = "security_scan"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.is_featured = true
   t.published_at = Time.current
   t.workflow_definition = {
@@ -159,16 +169,13 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "security-vulnerability-scanner") do
 end
 
 # Template 3: Test Generation Pipeline
-Ai::DevopsTemplate.find_or_create_by!(slug: "ai-test-generation") do |t|
-  t.account = admin_account
+upsert_devops_template.call("ai-test-generation") do |t|
   t.name = "AI Test Generation Pipeline"
   t.description = "Automatically generates comprehensive test suites for new or modified code. Supports RSpec, Jest, pytest, and Go test frameworks with edge case coverage and mocking strategies."
   t.category = "testing"
   t.template_type = "test_generation"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
@@ -214,16 +221,13 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "ai-test-generation") do |t|
 end
 
 # Template 4: Deployment Validation
-Ai::DevopsTemplate.find_or_create_by!(slug: "deployment-validation") do |t|
-  t.account = admin_account
+upsert_devops_template.call("deployment-validation") do |t|
   t.name = "Pre-Deployment Validation"
   t.description = "AI-powered pre-deployment risk assessment that analyzes code changes, database migrations, configuration diffs, and infrastructure impact before deploying to staging or production."
   t.category = "deployment"
   t.template_type = "deployment_validation"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.is_featured = true
   t.published_at = Time.current
   t.workflow_definition = {
@@ -269,16 +273,13 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "deployment-validation") do |t|
 end
 
 # Template 5: Release Notes Generator
-Ai::DevopsTemplate.find_or_create_by!(slug: "release-notes-generator") do |t|
-  t.account = admin_account
+upsert_devops_template.call("release-notes-generator") do |t|
   t.name = "Release Notes Generator"
   t.description = "Automatically generates structured release notes from git history, PR descriptions, and issue trackers. Produces user-facing changelogs categorized by feature, fix, and breaking change."
   t.category = "release"
   t.template_type = "release_notes"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
@@ -326,16 +327,13 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "release-notes-generator") do |t|
 end
 
 # Template 6: Changelog Updater
-Ai::DevopsTemplate.find_or_create_by!(slug: "changelog-updater") do |t|
-  t.account = admin_account
+upsert_devops_template.call("changelog-updater") do |t|
   t.name = "Changelog Updater"
   t.description = "Maintains a Keep a Changelog formatted CHANGELOG.md by analyzing merged PRs and commits. Automatically categorizes entries and updates the file with each release."
   t.category = "release"
   t.template_type = "changelog"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
@@ -375,16 +373,13 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "changelog-updater") do |t|
 end
 
 # Template 7: API Documentation Generator
-Ai::DevopsTemplate.find_or_create_by!(slug: "api-docs-generator") do |t|
-  t.account = admin_account
+upsert_devops_template.call("api-docs-generator") do |t|
   t.name = "API Documentation Generator"
   t.description = "Scans API controllers, routes, and serializers to generate OpenAPI/Swagger documentation. Includes endpoint descriptions, request/response examples, and authentication details."
   t.category = "documentation"
   t.template_type = "api_docs"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
@@ -430,16 +425,13 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "api-docs-generator") do |t|
 end
 
 # Template 8: Coverage Analysis Report
-Ai::DevopsTemplate.find_or_create_by!(slug: "coverage-analysis-report") do |t|
-  t.account = admin_account
+upsert_devops_template.call("coverage-analysis-report") do |t|
   t.name = "Coverage Analysis Report"
   t.description = "Analyzes test coverage data to identify uncovered code paths, suggest priority areas for testing, and track coverage trends over time. Integrates with SimpleCov, Istanbul, and coverage.py."
   t.category = "testing"
   t.template_type = "coverage_analysis"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
@@ -481,16 +473,13 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "coverage-analysis-report") do |t|
 end
 
 # Template 9: Performance Check
-Ai::DevopsTemplate.find_or_create_by!(slug: "performance-check") do |t|
-  t.account = admin_account
+upsert_devops_template.call("performance-check") do |t|
   t.name = "Performance Regression Check"
   t.description = "Detects performance regressions by analyzing code changes for N+1 queries, memory leaks, slow algorithms, and missing indexes. Compares against baseline benchmarks."
   t.category = "monitoring"
   t.template_type = "performance_check"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
@@ -535,16 +524,13 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "performance-check") do |t|
 end
 
 # Template 10: Incident Response Runbook
-Ai::DevopsTemplate.find_or_create_by!(slug: "incident-response-runbook") do |t|
-  t.account = admin_account
+upsert_devops_template.call("incident-response-runbook") do |t|
   t.name = "Incident Response Runbook"
   t.description = "AI-assisted incident response that analyzes error logs, correlates events, suggests root causes, and generates incident reports. Integrates with monitoring and alerting systems."
   t.category = "monitoring"
   t.template_type = "custom"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
@@ -612,8 +598,4 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "incident-response-runbook") do |t|
   GUIDE
 end
 
-# Ensure all system templates belong to admin account (fixes templates created before account assignment)
-updated = Ai::DevopsTemplate.where(is_system: true, account_id: nil).update_all(account_id: admin_account.id)
-puts "  Updated #{updated} existing templates to admin account" if updated > 0
-
-puts "  Created #{Ai::DevopsTemplate.where(is_system: true).count} system AI DevOps templates (all owned by #{admin_account.name})"
+puts "  Created #{Ai::DevopsTemplate.global.where(is_system: true).count} global system AI DevOps templates"

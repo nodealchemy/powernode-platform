@@ -6,7 +6,6 @@
 puts "  🔒 Creating Security & Compliance articles..."
 
 security_cat = KnowledgeBase::Category.find_by!(slug: "security-compliance")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 35: Security Configuration Guide
 security_config_content = <<~MARKDOWN
@@ -170,19 +169,22 @@ Block access from specific regions:
 For privacy settings, see [Privacy and Data Protection](/kb/privacy-data-protection).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "security-configuration-guide") do |article|
-  article.title = "Security Configuration Guide"
-  article.category = security_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Configure security settings including password policies, session management, API security, rate limiting, and SSL/TLS."
-  article.content = security_config_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "security-configuration-guide", account_id: nil)
+article.assign_attributes(
+  title: "Security Configuration Guide",
+  slug: "security-configuration-guide",
+  category: security_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Configure security settings including password policies, session management, API security, rate limiting, and SSL/TLS.",
+  content: security_config_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Security Configuration Guide"
 
@@ -373,19 +375,22 @@ Document AI data handling:
 For technical security, see [Security Configuration Guide](/kb/security-configuration-guide).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "privacy-data-protection") do |article|
-  article.title = "Privacy and Data Protection"
-  article.category = security_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Manage GDPR/CCPA compliance with consent management, data subject requests, retention policies, and cookie management."
-  article.content = privacy_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "privacy-data-protection", account_id: nil)
+article.assign_attributes(
+  title: "Privacy and Data Protection",
+  slug: "privacy-data-protection",
+  category: security_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Manage GDPR/CCPA compliance with consent management, data subject requests, retention policies, and cookie management.",
+  content: privacy_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Privacy and Data Protection"
 

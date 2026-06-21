@@ -6,7 +6,6 @@
 puts "  ⚙️ Creating System Administration articles..."
 
 system_cat = KnowledgeBase::Category.find_by!(slug: "system-administration")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 33: System Services Management
 services_content = <<~MARKDOWN
@@ -171,19 +170,22 @@ Backup Settings:
 For audit logging, see [Audit Logs and Monitoring](/kb/audit-logs-monitoring).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "system-services-management") do |article|
-  article.title = "System Services Management"
-  article.category = system_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Monitor and manage Powernode's system services including API, background jobs, database, and maintenance mode."
-  article.content = services_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "system-services-management", account_id: nil)
+article.assign_attributes(
+  title: "System Services Management",
+  slug: "system-services-management",
+  category: system_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Monitor and manage Powernode's system services including API, background jobs, database, and maintenance mode.",
+  content: services_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ System Services Management"
 
@@ -367,19 +369,22 @@ Alert Rules:
 For security configuration, see [Security Configuration Guide](/kb/security-configuration-guide).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "audit-logs-monitoring") do |article|
-  article.title = "Audit Logs and Monitoring"
-  article.category = system_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Track all system activity with comprehensive audit logging for authentication, data changes, and compliance reporting."
-  article.content = audit_logs_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "audit-logs-monitoring", account_id: nil)
+article.assign_attributes(
+  title: "Audit Logs and Monitoring",
+  slug: "audit-logs-monitoring",
+  category: system_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Track all system activity with comprehensive audit logging for authentication, data changes, and compliance reporting.",
+  content: audit_logs_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Audit Logs and Monitoring"
 
@@ -741,19 +746,22 @@ Debug Options:
 Need help with workers? Contact ops-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "background-workers-jobs") do |article|
-  article.title = "Background Workers and Jobs"
-  article.category = system_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Monitor and manage background workers for asynchronous task processing, job queues, scheduled jobs, and failure handling."
-  article.content = workers_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "background-workers-jobs", account_id: nil)
+article.assign_attributes(
+  title: "Background Workers and Jobs",
+  slug: "background-workers-jobs",
+  category: system_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Monitor and manage background workers for asynchronous task processing, job queues, scheduled jobs, and failure handling.",
+  content: workers_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Background Workers and Jobs"
 
@@ -1126,19 +1134,22 @@ Emergency Maintenance:
 Need help with maintenance? Contact ops-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "system-maintenance-mode") do |article|
-  article.title = "System Maintenance Mode"
-  article.category = system_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Enable maintenance mode for safe system updates with customizable messages, admin bypass, scheduled windows, and user notifications."
-  article.content = maintenance_mode_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "system-maintenance-mode", account_id: nil)
+article.assign_attributes(
+  title: "System Maintenance Mode",
+  slug: "system-maintenance-mode",
+  category: system_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Enable maintenance mode for safe system updates with customizable messages, admin bypass, scheduled windows, and user notifications.",
+  content: maintenance_mode_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ System Maintenance Mode"
 
@@ -1498,19 +1509,22 @@ Solution:
 Need help with impersonation? Contact security@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "user-impersonation-support") do |article|
-  article.title = "User Impersonation for Support"
-  article.category = system_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Securely impersonate users to debug issues and provide support with full audit logging, user notifications, and access controls."
-  article.content = impersonation_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "user-impersonation-support", account_id: nil)
+article.assign_attributes(
+  title: "User Impersonation for Support",
+  slug: "user-impersonation-support",
+  category: system_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Securely impersonate users to debug issues and provide support with full audit logging, user notifications, and access controls.",
+  content: impersonation_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ User Impersonation for Support"
 

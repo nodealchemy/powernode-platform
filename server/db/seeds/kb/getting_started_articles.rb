@@ -6,7 +6,6 @@
 puts "  🚀 Creating Getting Started articles..."
 
 getting_started_cat = KnowledgeBase::Category.find_by!(slug: "getting-started")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 1: Welcome to Powernode Platform (Featured)
 welcome_content = <<~MARKDOWN
@@ -131,19 +130,22 @@ Access key metrics and quick actions from the home dashboard.
 3. [User Roles and Permissions](/kb/user-roles-permissions) - Access control
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "welcome-to-powernode-platform") do |article|
-  article.title = "Welcome to Powernode Platform"
-  article.category = getting_started_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = true
-  article.excerpt = "Complete introduction to Powernode's subscription management, AI orchestration, DevOps integration, and supply chain security capabilities."
-  article.content = welcome_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "welcome-to-powernode-platform", account_id: nil)
+article.assign_attributes(
+  title: "Welcome to Powernode Platform",
+  slug: "welcome-to-powernode-platform",
+  category: getting_started_cat,
+  status: "published",
+  is_public: true,
+  is_featured: true,
+  excerpt: "Complete introduction to Powernode's subscription management, AI orchestration, DevOps integration, and supply chain security capabilities.",
+  content: welcome_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Welcome to Powernode Platform"
 
@@ -307,19 +309,22 @@ Navigate to **Settings > Team**:
 | 3D Secure | 4000 0027 6000 3184 |
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "quick-start-guide") do |article|
-  article.title = "Quick Start Guide - Your First 30 Minutes"
-  article.category = getting_started_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Get up and running with Powernode in 30 minutes. Create your account, connect payments, set up plans, and make your first test subscription."
-  article.content = quick_start_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "quick-start-guide", account_id: nil)
+article.assign_attributes(
+  title: "Quick Start Guide - Your First 30 Minutes",
+  slug: "quick-start-guide",
+  category: getting_started_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Get up and running with Powernode in 30 minutes. Create your account, connect payments, set up plans, and make your first test subscription.",
+  content: quick_start_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Quick Start Guide"
 
@@ -469,19 +474,22 @@ The dashboard adapts to different screen sizes:
 | `Esc` | Close modal |
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "understanding-dashboard") do |article|
-  article.title = "Understanding the Dashboard"
-  article.category = getting_started_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Navigate Powernode's dashboard effectively. Learn about key metrics, quick actions, customization, and keyboard shortcuts."
-  article.content = dashboard_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "understanding-dashboard", account_id: nil)
+article.assign_attributes(
+  title: "Understanding the Dashboard",
+  slug: "understanding-dashboard",
+  category: getting_started_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Navigate Powernode's dashboard effectively. Learn about key metrics, quick actions, customization, and keyboard shortcuts.",
+  content: dashboard_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Understanding the Dashboard"
 
@@ -656,19 +664,22 @@ Missing permissions hide features. Request the needed permissions or contact you
 For detailed permission management, see the [Team Management Guide](/kb/team-management-permissions-guide).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "user-roles-permissions") do |article|
-  article.title = "User Roles and Permissions Overview"
-  article.category = getting_started_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Understand Powernode's permission-based access control including permission categories, standard sets, and best practices for security."
-  article.content = roles_permissions_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "user-roles-permissions", account_id: nil)
+article.assign_attributes(
+  title: "User Roles and Permissions Overview",
+  slug: "user-roles-permissions",
+  category: getting_started_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Understand Powernode's permission-based access control including permission categories, standard sets, and best practices for security.",
+  content: roles_permissions_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ User Roles and Permissions"
 

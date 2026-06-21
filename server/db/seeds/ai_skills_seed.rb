@@ -3,16 +3,24 @@
 puts "  [Skills] Starting AI Skills seed..."
 Rails.logger.info "[Seeds] Creating AI Skills system data..."
 
+# GLOBAL baseline content: Ai::Skill rows are seeded global (account_id nil,
+# upserted by source_key = slug) UNCONDITIONALLY below. The MCP servers and
+# their HABTM links are account-scoped INSTANCE data, so they are demo-gated
+# (baseline-only mode has zero accounts).
+return unless Powernode::Seeds.baseline?
+
 account = Account.first
-unless account
-  Rails.logger.warn "[Seeds] No account found — skipping AI Skills seed"
-  return
-end
+seed_instances = Powernode::Seeds.demo? && account.present?
+
+# Skill → MCP server lookup, populated only when seeding instances (demo).
+mcp_servers = {}
+powernode_mcp = nil
+hosted_server_count = 0
 
 # ============================================================================
-# MCP Server registry with real package references
+# MCP Servers + hosted links (account-scoped INSTANCE data — demo only)
 # ============================================================================
-
+if seed_instances
 # Map of MCP server name → { auth_type, command (npx/uvx package), container_template_slug }
 MCP_SERVER_DEFS = {
   "Slack" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-slack", tpl: "mcp-slack" },
@@ -76,9 +84,8 @@ tool_count = Ai::Tools::McpPlatformToolRegistrar.sync_to_database!(account: acco
 puts "  Synced #{tool_count} platform tools to Powernode MCP server"
 
 # Build MCP server lookup and hosted server links
-mcp_servers = { "powernode mcp" => powernode_mcp }
+mcp_servers["powernode mcp"] = powernode_mcp
 template_cache = {}
-hosted_server_count = 0
 
 # Suppress after_create callback that enqueues worker jobs (avoids HTTP timeout per server)
 McpServer.skip_callback(:create, :after, :initialize_connection, raise: false)
@@ -127,6 +134,7 @@ puts "  [Skills] MCP servers done. Creating skills..."
 
 # Restore callback
 McpServer.set_callback(:create, :after, :initialize_connection) rescue nil
+end # if seed_instances (MCP servers + hosted links)
 
 # Suppress conflict check callback during seed — daily maintenance handles conflict scanning
 Ai::Skill.skip_callback(:commit, :after, :enqueue_conflict_check, raise: false)
@@ -650,9 +658,10 @@ created_count = 0
 server_link_count = 0
 
 skills_data.each do |data|
-  skill = Ai::Skill.find_or_initialize_by(slug: data[:slug])
+  # GLOBAL content: account_id nil, upserted by source_key (= slug).
+  skill = Ai::Skill.find_or_initialize_by(source_key: data[:slug], account_id: nil)
+  skill.slug = data[:slug]
   skill.assign_attributes(
-    account: account,
     name: data[:name],
     description: data[:description],
     category: data[:category],
@@ -682,21 +691,23 @@ skills_data.each do |data|
   )
   skill.save!
 
-  # Link MCP servers via HABTM join table
-  server_ids = data[:connectors].filter_map { |key| mcp_servers[key]&.id }
-  skill.mcp_server_ids = server_ids
-  server_link_count += server_ids.size
+  # Link MCP servers via HABTM join table (account-scoped instances — demo only)
+  if seed_instances
+    server_ids = data[:connectors].filter_map { |key| mcp_servers[key]&.id }
+    skill.mcp_server_ids = server_ids
+    server_link_count += server_ids.size
+  end
 
   created_count += 1
-  Rails.logger.info "[Seeds] Created/Updated skill: #{skill.name} (#{server_ids.size} MCP servers)"
+  Rails.logger.info "[Seeds] Created/Updated global skill: #{skill.name}"
 end
 
 # ============================================================================
 # Powernode Concierge skill — workspace routing & agent delegation rules
 # ============================================================================
-concierge_skill = Ai::Skill.find_or_initialize_by(slug: "powernode-concierge")
+concierge_skill = Ai::Skill.find_or_initialize_by(source_key: "powernode-concierge", account_id: nil)
+concierge_skill.slug = "powernode-concierge"
 concierge_skill.assign_attributes(
-  account: account,
   name: "Powernode Concierge",
   description: "Workspace routing, agent delegation, and @mention mechanics for the Powernode Concierge agent.",
   category: "skill_management",
@@ -739,9 +750,10 @@ concierge_skill.assign_attributes(
 )
 concierge_skill.save!
 
-# Link Powernode MCP server to the concierge skill
-concierge_skill.mcp_server_ids = [powernode_mcp.id]
+# Link Powernode MCP server to the concierge skill (account-scoped — demo only)
+concierge_skill.mcp_server_ids = [powernode_mcp.id] if seed_instances && powernode_mcp
 
-Rails.logger.info "[Seeds] Created/Updated Powernode Concierge skill (1 MCP server)"
+Rails.logger.info "[Seeds] Created/Updated GLOBAL Powernode Concierge skill"
+puts "  ✅ Global AI skills: #{Ai::Skill.global.where(is_system: true).count} (instances: #{seed_instances})"
 
 Rails.logger.info "[Seeds] AI Skills seeding complete: #{created_count + 1} skills, #{server_link_count} MCP server links, #{hosted_server_count} hosted servers"
