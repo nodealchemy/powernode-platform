@@ -3,7 +3,7 @@
 # Worker Activities Controller
 # Manages activity tracking and viewing for workers
 class Api::V1::ActivitiesController < ApplicationController
-  before_action -> { require_permission("system.workers.read") }
+  before_action -> { require_permission("admin.workers.read") }
   before_action :set_worker
   before_action :set_activity, only: [ :show ]
 
@@ -140,7 +140,7 @@ class Api::V1::ActivitiesController < ApplicationController
 
   def set_worker
     # Admin users can access all workers, regular users only their account's workers
-    @worker = if current_user.has_permission?("system.workers.view") || current_user.has_permission?("super_admin")
+    @worker = if current_user.has_permission?("admin.workers.read") || current_user.has_permission?("system.admin")
                 Worker.find(params[:worker_id])
     else
                 current_account.workers.find(params[:worker_id])

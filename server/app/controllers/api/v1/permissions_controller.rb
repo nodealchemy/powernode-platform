@@ -26,8 +26,8 @@ class Api::V1::PermissionsController < ApplicationController
   private
 
   def require_admin_permission
-    # Allow users with admin.role.view or admin.access permissions to view permissions
-    unless current_user&.has_permission?("admin.role.view") ||
+    # Allow users with admin.role.read or admin.access permissions to view permissions
+    unless current_user&.has_permission?("admin.role.read") ||
            current_user&.has_permission?("admin.access") ||
            current_user&.has_permission?("system.admin")
       render_error("Unauthorized access to permissions", status: :forbidden)

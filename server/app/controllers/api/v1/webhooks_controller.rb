@@ -353,7 +353,7 @@ class Api::V1::WebhooksController < ApplicationController
   private
 
   def require_admin_access
-    unless current_user.has_permission?("account.manage") || current_user.has_permission?("admin.access")
+    unless current_user.has_permission?("accounts.manage") || current_user.has_permission?("admin.access")
       render_error("Access denied: Admin privileges required", status: :forbidden)
     end
   end

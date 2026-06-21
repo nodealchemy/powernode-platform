@@ -111,7 +111,7 @@ class Role < ApplicationRecord
 
   def permission_names
     # Roles with system.admin permission have all permissions programmatically
-    return Permissions::ALL_PERMISSIONS.keys.sort if permissions.exists?(name: "system.admin")
+    return Permissions.all_permissions.keys.sort if permissions.exists?(name: "system.admin")
 
     permissions.pluck(:name).sort
   end
@@ -123,7 +123,7 @@ class Role < ApplicationRecord
     new_permissions = permission_names.uniq.filter_map do |name|
       Permission.find_or_create_from_name!(
         name,
-        Permissions::ALL_PERMISSIONS[name]
+        Permissions.all_permissions[name]
       )
     end
 

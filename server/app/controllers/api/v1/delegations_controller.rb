@@ -206,13 +206,13 @@ class Api::V1::DelegationsController < ApplicationController
   end
 
   def authorize_delegation_management!
-    unless current_user.has_permission?("account.manage") || current_user.has_permission?("admin.access")
+    unless current_user.has_permission?("accounts.manage") || current_user.has_permission?("admin.access")
       render_error("Insufficient permissions to manage delegations", status: :forbidden)
     end
   end
 
   def authorize_delegation_view!
-    unless current_user.has_permission?("account.manage") || current_user.has_permission?("admin.access") || @delegation.delegated_user == current_user
+    unless current_user.has_permission?("accounts.manage") || current_user.has_permission?("admin.access") || @delegation.delegated_user == current_user
       render_error("Insufficient permissions to view this delegation", status: :forbidden)
     end
   end

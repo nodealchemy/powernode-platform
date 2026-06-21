@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "permissions/catalog"
+
 # Permission System V2 - Three-tier Architecture
 # resource.action - Standard resource operations for regular users
 # admin.action - Administrative operations for admin users
@@ -549,10 +551,95 @@ module Permissions
   }.freeze
 
   # All permissions combined
-  ALL_PERMISSIONS = {
+  # ---------------------------------------------------------------------------
+  # Programmatic catalog additions (audit-reconciled permission gaps), declared
+  # via the Permissions.catalog DSL. Merged into CORE_PERMISSIONS below and into
+  # every role by permissions_for_role. Grouped by tier/namespace.
+  # ---------------------------------------------------------------------------
+  define do
+    # File ownership overrides (irregular non-CRUD names → escape hatch)
+    permission "files.view_all",     "View any file regardless of ownership",     grant: { admin: true }
+    permission "files.download_all", "Download any file regardless of ownership", grant: { admin: true }
+    permission "files.edit_all",     "Edit any file regardless of ownership",     grant: { admin: true }
+    permission "files.delete_all",   "Delete any file regardless of ownership",   grant: { admin: true }
+    # Account-scoped user management (distinct from cross-account admin.user.*)
+    resource :users, actions: :crud,
+             grant: { manager: %i[read create update], owner: :all, admin: :all }
+  end
+
+  # AI domain (core). owner/admin receive all resource-tier perms (mirroring the
+  # historical *RESOURCE_PERMISSIONS splat invariant); manager/ai_specialist/
+  # member/system_worker per enforcement. Cross-account super-scopes are admin-only.
+  define(namespace: "ai") do
+    permission "ai.manage", "Coarse manage-all-AI gate",
+               grant: { owner: true, admin: true, manager: true, ai_specialist: true }
+    resource :agents, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :conversations, actions: %i[update delete],
+             grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all,
+                      member: %i[update], system_worker: %i[update] }
+    resource :messages, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :workflows, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :knowledge, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :image, actions: %i[generate], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :credentials, actions: %i[decrypt], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :analytics, actions: %i[create manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    permission "ai.analytics.global", "Cross-account AI analytics scope (admin-only)", grant: { admin: true }
+    resource :monitoring, actions: %i[read manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :routing, actions: %i[read manage optimize], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :aiops, actions: %i[read write], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :devops, actions: %i[read manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :sandboxes, actions: %i[read create update delete manage test benchmark],
+             grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :federation, actions: %i[read create update delete verify sync],
+             grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :community_agents, actions: %i[read create update delete manage rate report],
+             grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all, member: %i[read rate report] }
+    resource :kill_switch, actions: %i[manage], grant: { owner: :all, admin: :all }
+    resource :goals, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :intervention_policies, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    resource :proposals, actions: %i[view review],
+             grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all, member: %i[view] }
+    resource :escalations, actions: %i[view resolve],
+             grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all, member: %i[view] }
+    resource :feedback, actions: %i[submit view],
+             grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all, member: %i[submit view] }
+    resource :approval_chains, actions: %i[manage], grant: { owner: :all, admin: :all }
+    resource :security, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    # FE-enforced AI surfaces lacking a backend gate (audit/governance/teams views).
+    resource :audits, actions: %i[view manage], grant: { owner: :all, admin: :all, manager: %i[view], ai_specialist: :all }
+    resource :governance, actions: %i[read], grant: { owner: :all, admin: :all, manager: :all, member: :all, ai_specialist: :all }
+    resource :teams, actions: %i[read], grant: { owner: :all, admin: :all, manager: :all, member: :all, ai_specialist: :all }
+  end
+
+  # Core platform gaps (audit-reconciled). Resource-tier: owner/admin = all
+  # (splat invariant) + manager subset; cross-account super-scopes admin-only.
+  define do
+    resource :accounts, actions: %i[read manage], grant: { owner: :all, admin: :all }
+    resource :"oauth.applications", actions: :crud, grant: { manager: %i[read], owner: :all, admin: :all }
+    resource :team, actions: %i[manage], grant: { manager: :all, owner: :all, admin: :all }
+    resource :settings, actions: %i[manage], grant: { owner: :all, admin: :all }
+    # Inbound webhook EVENT management — distinct from the outbound webhook.* config set
+    resource :webhooks, actions: %i[manage], grant: { manager: :all, owner: :all, admin: :all }
+    resource :"git.account_webhooks", actions: %i[manage], grant: { manager: :all, owner: :all, admin: :all }
+    permission "analytics.global", "Cross-account analytics scope (admin-only)", grant: { admin: true }
+  end
+
+  define(tier: :admin) do
+    resource :user, actions: %i[manage], grant: { admin: :all }   # admin.user.manage (suspend/reset/unlock)
+    resource :oauth, actions: %i[manage], grant: { admin: :all }  # admin.oauth.manage (cross-account OAuth admin)
+    # Worker management (operator action → admin tier, core; renamed from system.workers.*)
+    resource :workers, actions: %i[read create update delete], grant: { admin: :all }
+  end
+
+  # Core permission set (this app + its DSL catalog additions). The full runtime
+  # set INCLUDING enabled extensions is Permissions.all_permissions (a dynamic
+  # union computed at call time — see the Lookups section). Nothing here, or in
+  # any consumer, names an extension.
+  CORE_PERMISSIONS = {
     **RESOURCE_PERMISSIONS,
     **ADMIN_PERMISSIONS,
-    **SYSTEM_PERMISSIONS
+    **SYSTEM_PERMISSIONS,
+    **@catalog_permissions
   }.freeze
 
   # Role Definitions
@@ -972,12 +1059,22 @@ module Permissions
     end
 
     # === Lookups ===
+    # The full runtime permission set: core + every registered extension's
+    # permissions. Extensions register via the seam at engine-init; a DISABLED
+    # extension never runs its initializer, so it's naturally excluded. The union
+    # is computed dynamically and names no extension — it is simply whatever is
+    # loaded. Consumers (sync, role enumeration, lookups, UI) use this, never the
+    # core-only CORE_PERMISSIONS constant.
+    def all_permissions
+      CORE_PERMISSIONS.merge(@extension_permissions)
+    end
+
     def permission_exists?(permission)
-      ALL_PERMISSIONS.key?(permission) || @extension_permissions.key?(permission)
+      all_permissions.key?(permission)
     end
 
     def permission_description(permission)
-      ALL_PERMISSIONS[permission] || @extension_permissions[permission]
+      all_permissions[permission]
     end
 
     # Returns the effective permission set for a role, merging the static
@@ -986,7 +1083,8 @@ module Permissions
     def permissions_for_role(role_name)
       base = ROLES.dig(role_name, :permissions) || []
       extras = @extension_role_permissions[role_name.to_s] || []
-      (base + extras).uniq
+      catalog = @catalog_grants[role_name.to_s] || []
+      (base + extras + catalog).uniq
     end
 
     def role_exists?(role_name)
