@@ -17,7 +17,7 @@ Account.find_each do |account|
   kb = Ai::KnowledgeBase.create!(
     account: account,
     name: kb_name,
-    description: "Default knowledge base for platform documentation, guides, and reference materials. Add documents here to enable AI-powered search and context retrieval.",
+    description: "Default knowledge base for platform docs, guides, and reference. Add documents to enable AI search and context retrieval.",
     embedding_model: "text-embedding-3-small",
     embedding_provider: "openai",
     embedding_dimensions: 1536,
@@ -40,7 +40,7 @@ Account.find_each do |account|
       # Getting Started with RAG Knowledge Bases
 
       ## Overview
-      RAG (Retrieval-Augmented Generation) knowledge bases allow AI agents to search and retrieve relevant information from your documents. This enhances agent responses with accurate, up-to-date context from your own data.
+      RAG (Retrieval-Augmented Generation) knowledge bases let AI agents search and retrieve from your documents, grounding responses in your own data.
 
       ## How It Works
       1. **Create a Knowledge Base** - Organize documents by topic or domain

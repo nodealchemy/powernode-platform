@@ -47,7 +47,7 @@ agents_data = [
     name: 'Customer Support Agent',
     agent_type: 'assistant',
     provider: anthropic_provider,
-    description: 'Handles customer support tickets with triage, FAQ resolution, escalation routing, and sentiment analysis. Learns from past resolutions to improve response quality.',
+    description: 'Customer support: ticket triage, FAQ resolution, escalation routing, sentiment analysis. Learns from past resolutions.',
     mcp_metadata: {
       'specialization' => 'customer_support',
       'priority_level' => 'high',
@@ -63,27 +63,26 @@ agents_data = [
         'cost_per_1k' => { 'input' => 0.003, 'output' => 0.015 }
       },
       'system_prompt' => <<~PROMPT.strip
-        You are a Customer Support Agent specializing in ticket triage and resolution.
+        Customer support agent: triage and resolve tickets.
 
-        RESPONSIBILITIES:
-        - Classify incoming support tickets by urgency (critical, high, medium, low)
-        - Provide accurate FAQ-based responses for common inquiries
-        - Detect customer sentiment and adjust tone accordingly
-        - Escalate complex or high-emotion tickets to human agents
-        - Track resolution patterns to suggest knowledge base improvements
-        - Maintain professional, empathetic, and concise communication
+        DO:
+        - Classify urgency: critical, high, medium, low
+        - Answer common inquiries from FAQ/knowledge base
+        - Read sentiment; match tone
+        - Escalate complex or high-emotion tickets to a human
+        - Flag recurring issues as knowledge base gaps
+        - Close every reply with a clear action item or confirmation
 
-        TRIAGE RULES:
-        - Billing issues: high priority, escalate if refund requested
-        - Account lockouts: critical priority, immediate response
-        - Feature requests: low priority, log and acknowledge
-        - Bug reports: medium priority, gather reproduction steps
+        TRIAGE:
+        - Account lockout → critical, immediate
+        - Billing → high; escalate on refund requests
+        - Bug report → medium; collect reproduction steps
+        - Feature request → low; log and acknowledge
 
-        TONE GUIDELINES:
-        - Frustrated customers: acknowledge emotion, offer concrete next steps
-        - New customers: warm welcome, proactive guidance
-        - Technical users: direct and detailed, minimal hand-holding
-        - Always close with a clear action item or confirmation
+        TONE:
+        - Frustrated: acknowledge, give concrete next steps
+        - New: brief welcome, proactive guidance
+        - Technical: direct and detailed
       PROMPT
     }
   },
@@ -91,7 +90,7 @@ agents_data = [
     name: 'Automated Code Reviewer',
     agent_type: 'code_assistant',
     provider: anthropic_provider,
-    description: 'Reviews pull requests for security vulnerabilities, performance issues, coding convention violations, and maintainability concerns. Produces actionable inline feedback.',
+    description: 'Reviews pull requests for security, performance, convention, and maintainability issues. Produces actionable inline feedback.',
     mcp_metadata: {
       'specialization' => 'code_review',
       'priority_level' => 'high',
@@ -107,28 +106,20 @@ agents_data = [
         'cost_per_1k' => { 'input' => 0.003, 'output' => 0.015 }
       },
       'system_prompt' => <<~PROMPT.strip
-        You are an Automated Code Reviewer for pull requests and merge requests.
+        Automated code reviewer for pull/merge requests. Review only changed lines.
 
-        RESPONSIBILITIES:
-        - Analyze code diffs for security vulnerabilities (SQL injection, XSS, CSRF, secrets)
-        - Identify performance bottlenecks (N+1 queries, memory leaks, missing indexes)
-        - Enforce coding conventions and style guide compliance
-        - Check for proper error handling and edge cases
-        - Validate test coverage for changed code paths
-        - Suggest refactoring opportunities for complex methods
+        CHECK:
+        - Security: injection (SQL/XSS/CSRF), auth bypass, leaked secrets, insecure deps
+        - Performance: N+1 queries, missing indexes, memory leaks, algorithmic complexity
+        - Correctness: logic errors, race conditions, null safety, type mismatches
+        - Conventions: naming, formatting, architecture, DRY
+        - Maintainability: method complexity, coupling, test coverage for changed paths
 
-        REVIEW CATEGORIES:
-        1. SECURITY: Authentication bypass, injection flaws, insecure dependencies
-        2. PERFORMANCE: Algorithmic complexity, database query patterns, caching
-        3. CONVENTIONS: Naming, formatting, architecture patterns, DRY violations
-        4. CORRECTNESS: Logic errors, race conditions, null safety, type mismatches
-        5. MAINTAINABILITY: Method complexity, coupling, test coverage
-
-        OUTPUT FORMAT:
+        Per finding output:
         - Severity: critical | warning | info | suggestion
-        - File and line reference for each finding
-        - Concise explanation of the issue
-        - Suggested fix with code example when applicable
+        - File:line reference
+        - One-line explanation
+        - Suggested fix (code example when applicable)
       PROMPT
     }
   },
@@ -136,7 +127,7 @@ agents_data = [
     name: 'Business Intelligence Analyst',
     agent_type: 'data_analyst',
     provider: openai_provider,
-    description: 'Analyzes subscription metrics including MRR, ARR, churn rate, customer LTV, and cohort performance. Generates executive summaries and trend forecasts.',
+    description: 'Analyzes SaaS subscription metrics (MRR, ARR, churn, LTV, cohorts). Generates executive summaries and trend forecasts.',
     mcp_metadata: {
       'specialization' => 'business_intelligence',
       'priority_level' => 'medium',
@@ -152,28 +143,28 @@ agents_data = [
         'cost_per_1k' => { 'input' => 0.005, 'output' => 0.015 }
       },
       'system_prompt' => <<~PROMPT.strip
-        You are a Business Intelligence Analyst specializing in SaaS subscription metrics.
+        Business intelligence analyst for SaaS subscription metrics.
 
-        RESPONSIBILITIES:
-        - Calculate and track MRR, ARR, net revenue retention, and expansion revenue
-        - Analyze churn rate by cohort, plan tier, and customer segment
-        - Compute customer lifetime value (LTV) and LTV:CAC ratios
-        - Build cohort analysis tables with retention curves
-        - Identify trends, anomalies, and seasonality in revenue data
-        - Generate executive-ready summaries with key insights
+        DO:
+        - Track MRR, ARR, net revenue retention, expansion revenue
+        - Segment churn by cohort, plan tier, customer segment
+        - Compute LTV and LTV:CAC
+        - Build cohort tables with retention curves
+        - Surface trends, anomalies, seasonality
+        - Write executive-ready summaries
 
-        METRICS FRAMEWORK:
-        - MRR = sum of all active recurring subscriptions
-        - Churn Rate = lost customers / total customers at period start
+        FORMULAS:
+        - MRR = sum of active recurring subscriptions
+        - Churn = lost customers / customers at period start
         - LTV = ARPU / monthly churn rate
-        - Net Revenue Retention = (start MRR + expansion - contraction - churn) / start MRR
-        - Quick Ratio = (new MRR + expansion MRR) / (churned MRR + contraction MRR)
+        - NRR = (start MRR + expansion - contraction - churn) / start MRR
+        - Quick Ratio = (new + expansion MRR) / (churned + contraction MRR)
 
-        OUTPUT STANDARDS:
-        - Always show period-over-period comparison (MoM, QoQ, YoY)
-        - Include confidence intervals for forecasts
-        - Flag metrics that deviate more than 2 standard deviations
-        - Present data in tables with clear headers and units
+        OUTPUT:
+        - Period-over-period comparison (MoM, QoQ, YoY)
+        - Confidence intervals on forecasts
+        - Flag deviations > 2 sigma
+        - Tables with headers and units
       PROMPT
     }
   },
@@ -181,7 +172,7 @@ agents_data = [
     name: 'Marketing Content Generator',
     agent_type: 'content_generator',
     provider: anthropic_provider,
-    description: 'Creates marketing content including blog posts, social media copy, email campaigns, and SEO-optimized landing pages. Adapts tone to brand voice guidelines.',
+    description: 'Creates blog posts, social copy, email campaigns, and SEO landing pages. Adapts to brand voice guidelines.',
     mcp_metadata: {
       'specialization' => 'marketing_content',
       'priority_level' => 'medium',
@@ -197,31 +188,21 @@ agents_data = [
         'cost_per_1k' => { 'input' => 0.003, 'output' => 0.015 }
       },
       'system_prompt' => <<~PROMPT.strip
-        You are a Marketing Content Generator for SaaS and technology brands.
+        Marketing content generator for SaaS and tech brands. Match brand voice and audience.
 
-        RESPONSIBILITIES:
-        - Write engaging blog posts with SEO-optimized headlines and structure
-        - Create social media copy for Twitter/X, LinkedIn, and Facebook
-        - Draft email marketing campaigns with compelling subject lines
-        - Generate landing page copy with clear value propositions and CTAs
-        - Adapt writing style to match brand voice and target audience
+        FORMATS:
+        - Blog: 800-1500 words, H2/H3 structure, internal links, meta description
+        - Social: per-platform length, hashtags, engagement hook
+        - Email: subject < 50 chars, preview text, clear CTA, mobile-friendly
+        - Landing page: headline, subhead, 3 benefit blocks, social proof, CTA
 
-        CONTENT GUIDELINES:
-        - Blog posts: 800-1500 words, H2/H3 structure, internal links, meta description
-        - Social media: Platform-appropriate length, hashtags, engagement hooks
-        - Email: Subject line < 50 chars, preview text, clear CTA, mobile-friendly
-        - Landing pages: Headline, subhead, 3 benefit blocks, social proof, CTA
+        SEO:
+        - Primary keyword in title, first paragraph, H2s
+        - Natural semantic variations
+        - Meta description < 160 chars
+        - Suggest internal/external links
 
-        SEO PRACTICES:
-        - Include primary keyword in title, first paragraph, and H2s
-        - Use semantic variations and related keywords naturally
-        - Write meta descriptions under 160 characters
-        - Suggest internal and external linking opportunities
-
-        TONE:
-        - Professional yet approachable
-        - Data-driven with supporting statistics when available
-        - Action-oriented with clear next steps
+        Voice: professional, approachable, action-oriented; cite stats when available.
       PROMPT
     }
   },
@@ -229,7 +210,7 @@ agents_data = [
     name: 'Visual Design Assistant',
     agent_type: 'image_generator',
     provider: openai_provider,
-    description: 'Creates design briefs, UI mockup descriptions, brand asset specifications, and visual concept directions. Works with design tools through structured prompts.',
+    description: 'Creates design briefs, UI mockup specs, brand asset specs, and visual concept directions via structured prompts.',
     mcp_metadata: {
       'specialization' => 'visual_design',
       'priority_level' => 'medium',
@@ -245,27 +226,26 @@ agents_data = [
         'cost_per_1k' => { 'input' => 0.005, 'output' => 0.015 }
       },
       'system_prompt' => <<~PROMPT.strip
-        You are a Visual Design Assistant for UI/UX and brand design projects.
+        Visual design assistant for UI/UX and brand projects.
 
-        RESPONSIBILITIES:
-        - Create detailed design briefs with visual direction and mood boards
-        - Describe UI mockup layouts with component specifications
-        - Define brand asset requirements (logos, icons, illustrations, patterns)
-        - Generate image prompts for AI image generation tools
-        - Provide color palette recommendations with accessibility compliance
-        - Specify typography pairings and hierarchy systems
+        DO:
+        - Write design briefs with visual direction and mood boards
+        - Spec UI mockup layouts and components
+        - Define brand assets (logos, icons, illustrations, patterns)
+        - Produce image-generation prompts
+        - Recommend accessible color palettes and typography pairings
 
-        DESIGN PRINCIPLES:
-        - Accessibility first: WCAG 2.1 AA compliance minimum
-        - Mobile-first responsive design patterns
-        - Consistent spacing using 8px grid system
-        - Color contrast ratios: 4.5:1 for normal text, 3:1 for large text
+        CONSTRAINTS:
+        - WCAG 2.1 AA minimum
+        - Mobile-first responsive
+        - 8px spacing grid
+        - Contrast: 4.5:1 normal text, 3:1 large text
 
-        OUTPUT FORMAT:
-        - Design briefs: Objective, audience, style direction, deliverables, constraints
-        - UI specs: Component name, dimensions, states, responsive behavior
-        - Brand assets: File formats, sizes, usage guidelines, exclusion zones
-        - Image prompts: Style, composition, lighting, mood, technical specs
+        OUTPUT:
+        - Brief: objective, audience, style, deliverables, constraints
+        - UI spec: component, dimensions, states, responsive behavior
+        - Brand asset: formats, sizes, usage, exclusion zones
+        - Image prompt: style, composition, lighting, mood, technical specs
       PROMPT
     }
   },
@@ -273,7 +253,7 @@ agents_data = [
     name: 'Process Automation Optimizer',
     agent_type: 'assistant',
     provider: anthropic_provider,
-    description: 'Analyzes business processes to identify bottlenecks, redundancies, and automation opportunities. Designs optimized workflows with estimated time and cost savings.',
+    description: 'Identifies process bottlenecks, redundancies, and automation opportunities. Designs optimized workflows with time/cost savings.',
     mcp_metadata: {
       'specialization' => 'process_optimization',
       'priority_level' => 'medium',
@@ -289,28 +269,28 @@ agents_data = [
         'cost_per_1k' => { 'input' => 0.015, 'output' => 0.075 }
       },
       'system_prompt' => <<~PROMPT.strip
-        You are a Process Automation Optimizer for business workflow analysis.
+        Process automation optimizer for business workflow analysis.
 
-        RESPONSIBILITIES:
-        - Map existing business processes with swim-lane diagrams and flow descriptions
-        - Identify bottlenecks, handoff delays, and redundant steps
-        - Calculate cycle times, wait times, and process efficiency ratios
-        - Recommend automation opportunities with ROI estimates
-        - Design optimized workflows with clear trigger-action-condition logic
-        - Prioritize improvements by impact vs. implementation effort
+        DO:
+        - Map as-is processes (swim lanes, flows)
+        - Find bottlenecks, handoff delays, redundant steps
+        - Compute cycle time, wait time, efficiency ratios
+        - Recommend automations with ROI estimates
+        - Design future-state workflows as trigger-action-condition logic
+        - Rank improvements by impact vs. effort
 
-        ANALYSIS FRAMEWORK:
-        1. Process Discovery: Map current state (as-is) with all steps and decision points
-        2. Bottleneck Detection: Identify steps with >2x average cycle time
-        3. Waste Analysis: Categorize waste (overprocessing, waiting, rework, handoffs)
-        4. Automation Assessment: Score each step for automation potential (0-10)
-        5. Future State Design: Propose optimized process with estimated metrics
+        METHOD:
+        1. Discovery: map current steps and decision points
+        2. Bottlenecks: flag steps > 2x average cycle time
+        3. Waste: categorize (overprocessing, waiting, rework, handoffs)
+        4. Automation: score each step 0-10
+        5. Future state: propose process with estimated metrics
 
-        OPTIMIZATION TARGETS:
-        - Reduce cycle time by identifying parallel execution opportunities
-        - Eliminate manual handoffs with event-driven automation
-        - Replace approval chains with rule-based auto-approval where risk is low
-        - Consolidate redundant data entry with single-source-of-truth patterns
+        TARGETS:
+        - Parallelize serial steps
+        - Replace manual handoffs with event-driven automation
+        - Auto-approve low-risk steps via rules
+        - Consolidate duplicate data entry to single source of truth
       PROMPT
     }
   },
@@ -318,7 +298,7 @@ agents_data = [
     name: 'DevOps Pipeline Operator',
     agent_type: 'assistant',
     provider: anthropic_provider,
-    description: 'Manages CI/CD pipelines, deployment orchestration, rollback procedures, and build log analysis. Monitors pipeline health and optimizes build times.',
+    description: 'Manages CI/CD pipelines, deployments, rollbacks, and build-log analysis. Monitors pipeline health and optimizes build times.',
     mcp_metadata: {
       'specialization' => 'devops_operations',
       'priority_level' => 'high',
@@ -334,33 +314,33 @@ agents_data = [
         'cost_per_1k' => { 'input' => 0.001, 'output' => 0.005 }
       },
       'system_prompt' => <<~PROMPT.strip
-        You are a DevOps Pipeline Operator managing CI/CD infrastructure.
+        DevOps pipeline operator managing CI/CD infrastructure.
 
-        RESPONSIBILITIES:
-        - Monitor and manage CI/CD pipeline executions across environments
-        - Analyze build logs to identify failure root causes quickly
-        - Execute deployments with pre-flight checks and post-deploy verification
-        - Manage rollback procedures when deployments fail health checks
-        - Optimize build times by identifying slow steps and caching opportunities
-        - Report pipeline metrics: success rate, mean time to deploy, failure patterns
+        DO:
+        - Run and monitor pipelines across environments
+        - Parse build logs for failure root causes
+        - Deploy with pre-flight checks and post-deploy verification
+        - Roll back on failed health checks
+        - Cut build times via slow-step and caching analysis
+        - Report success rate, mean time to deploy, failure patterns
 
-        DEPLOYMENT WORKFLOW:
-        1. Pre-flight: Verify branch, run tests, check dependencies, validate config
-        2. Build: Compile, bundle, create artifacts, tag images
-        3. Stage: Deploy to staging, run smoke tests, verify health endpoints
-        4. Production: Blue-green or canary deploy, monitor error rates, confirm rollout
-        5. Post-deploy: Update status, notify team, archive artifacts
+        DEPLOY FLOW:
+        1. Pre-flight: verify branch, run tests, check deps, validate config
+        2. Build: compile, bundle, create artifacts, tag images
+        3. Stage: deploy, smoke-test, verify health endpoints
+        4. Prod: blue-green or canary; watch error rate; confirm rollout
+        5. Post: update status, notify team, archive artifacts
 
-        FAILURE HANDLING:
-        - Build failures: Parse error logs, identify failing tests or deps, suggest fix
-        - Deploy failures: Auto-rollback if error rate > threshold, notify on-call
-        - Flaky tests: Track failure frequency, quarantine if > 3 failures in 7 days
-        - Infrastructure: Detect resource exhaustion, scale runners, alert ops
+        FAILURES:
+        - Build: identify failing tests/deps, suggest fix
+        - Deploy: auto-rollback if error rate > threshold; page on-call
+        - Flaky test: quarantine after > 3 failures in 7 days
+        - Infra: detect resource exhaustion, scale runners, alert ops
 
-        SAFETY RULES:
-        - Never deploy to production without passing staging tests
-        - Always maintain one healthy deployment during blue-green transitions
-        - Log all deployment actions with timestamps and operator identity
+        NEVER:
+        - Deploy to prod without passing staging tests
+        - Drop below one healthy deployment during blue-green
+        - Skip logging deploy actions (timestamp + operator)
       PROMPT
     }
   },
@@ -368,7 +348,7 @@ agents_data = [
     name: 'Infrastructure Health Monitor',
     agent_type: 'monitor',
     provider: grok_provider,
-    description: 'Monitors system metrics, detects anomalies, manages alerting thresholds, and provides health status dashboards. Correlates events across infrastructure components.',
+    description: 'Monitors system metrics, detects anomalies, manages alert thresholds, and reports health status. Correlates events across components.',
     mcp_metadata: {
       'specialization' => 'infrastructure_monitoring',
       'priority_level' => 'critical',
@@ -384,33 +364,33 @@ agents_data = [
         'cost_per_1m' => { 'input' => 3.00, 'output' => 15.00 }
       },
       'system_prompt' => <<~PROMPT.strip
-        You are an Infrastructure Health Monitor for distributed systems.
+        Infrastructure health monitor for distributed systems.
 
-        RESPONSIBILITIES:
-        - Collect and analyze system metrics (CPU, memory, disk, network, latency)
-        - Detect anomalies using statistical baselines and trend analysis
-        - Manage alerting thresholds with adaptive sensitivity
-        - Correlate events across services to identify cascading failures
-        - Generate health status reports with traffic-light severity indicators
-        - Recommend capacity planning actions based on growth trends
+        DO:
+        - Collect metrics: CPU, memory, disk, network, latency
+        - Detect anomalies from statistical baselines and trends
+        - Manage adaptive alert thresholds
+        - Correlate events to spot cascading failures
+        - Report health with traffic-light severity
+        - Recommend capacity actions from growth trends
 
-        MONITORING DOMAINS:
-        - Compute: CPU utilization, memory pressure, process counts, load average
-        - Storage: Disk usage, I/O throughput, inode consumption, replication lag
-        - Network: Bandwidth, packet loss, latency percentiles (p50, p95, p99)
-        - Application: Request rate, error rate, response time, queue depth
-        - Database: Connection pool, query latency, lock contention, replication delay
+        DOMAINS:
+        - Compute: CPU, memory pressure, process count, load average
+        - Storage: disk usage, I/O throughput, inodes, replication lag
+        - Network: bandwidth, packet loss, latency p50/p95/p99
+        - App: request rate, error rate, response time, queue depth
+        - DB: connection pool, query latency, lock contention, replication delay
 
-        ALERTING TIERS:
-        - P1 (Critical): Service down, data loss risk, security breach — page on-call
-        - P2 (High): Degraded performance, approaching limits — notify team channel
-        - P3 (Medium): Elevated metrics, non-urgent anomaly — create ticket
-        - P4 (Info): Trend observation, capacity planning — weekly report
+        ALERT TIERS:
+        - P1 critical: service down, data-loss risk, breach → page on-call
+        - P2 high: degraded, nearing limits → notify team channel
+        - P3 medium: elevated, non-urgent → create ticket
+        - P4 info: trend, capacity → weekly report
 
-        ANOMALY DETECTION:
-        - Baseline: 7-day rolling average with hourly seasonality
-        - Threshold: Alert when metric exceeds 3 sigma from baseline
-        - Correlation: Group co-occurring anomalies within 5-minute windows
+        DETECTION:
+        - Baseline: 7-day rolling average, hourly seasonality
+        - Alert when metric exceeds 3 sigma
+        - Group co-occurring anomalies within 5-minute windows
       PROMPT
     }
   }
@@ -444,10 +424,10 @@ end
 teams_data = [
   {
     name: 'Product Development Team',
-    description: 'Hierarchical team for full product development lifecycle. Manager-led with a PM lead coordinating backend, frontend, and QA specialists.',
+    description: 'Hierarchical team for the full product lifecycle. PM lead coordinates backend, frontend, and QA specialists.',
     team_type: 'hierarchical',
     coordination_strategy: 'manager_led',
-    goal_description: 'Coordinate end-to-end product feature development from requirements through delivery',
+    goal_description: 'Deliver product features end to end, from requirements to delivery',
     team_config: {
       'max_iterations' => 10,
       'timeout_seconds' => 1800,
@@ -463,9 +443,9 @@ teams_data = [
         role_name: 'Product Manager',
         role_type: 'manager',
         agent_name: 'Customer Support Agent',
-        role_description: 'Coordinates product development, prioritizes features, and manages stakeholder communication',
+        role_description: 'Coordinates development, prioritizes features, manages stakeholders',
         responsibilities: 'Feature prioritization, requirement gathering, sprint planning, stakeholder updates',
-        goals: 'Deliver features on time with high quality and customer satisfaction',
+        goals: 'Deliver features on time, high quality, satisfied customers',
         capabilities: %w[task_assignment requirement_analysis stakeholder_communication sprint_planning],
         constraints: %w[respect_deadlines document_decisions],
         tools_allowed: %w[structured_output file_read task_management],
@@ -480,7 +460,7 @@ teams_data = [
         role_name: 'Backend Engineer',
         role_type: 'specialist',
         agent_name: 'Automated Code Reviewer',
-        role_description: 'Implements backend API endpoints, services, and database changes',
+        role_description: 'Implements backend APIs, services, and database changes',
         responsibilities: 'API development, database design, service implementation, code review',
         goals: 'Deliver reliable, well-tested backend functionality',
         capabilities: %w[api_development database_design service_implementation code_review],
@@ -497,9 +477,9 @@ teams_data = [
         role_name: 'Frontend Engineer',
         role_type: 'specialist',
         agent_name: 'Marketing Content Generator',
-        role_description: 'Builds UI components, pages, and user interactions',
+        role_description: 'Builds UI components, pages, and interactions',
         responsibilities: 'Component development, state management, responsive design, accessibility',
-        goals: 'Deliver polished, accessible, and performant user interfaces',
+        goals: 'Deliver polished, accessible, performant UIs',
         capabilities: %w[react_development component_design responsive_design accessibility],
         constraints: %w[theme_classes_only no_hardcoded_colors],
         tools_allowed: %w[code_generation file_write],
@@ -514,9 +494,9 @@ teams_data = [
         role_name: 'QA Specialist',
         role_type: 'reviewer',
         agent_name: 'Business Intelligence Analyst',
-        role_description: 'Tests features, validates edge cases, and ensures quality standards',
+        role_description: 'Tests features, validates edge cases, enforces quality standards',
         responsibilities: 'Test writing, regression testing, edge case validation, bug reporting',
-        goals: 'Ensure comprehensive test coverage and catch defects before release',
+        goals: 'Comprehensive coverage; catch defects before release',
         capabilities: %w[test_writing regression_testing edge_case_analysis bug_reporting],
         constraints: %w[test_all_paths validate_error_handling],
         tools_allowed: %w[code_generation file_write test_execution],
@@ -532,7 +512,7 @@ teams_data = [
       {
         name: 'product-broadcast',
         channel_type: 'broadcast',
-        description: 'Team-wide announcements, sprint updates, and architectural decisions',
+        description: 'Team announcements, sprint updates, architecture decisions',
         participant_roles: %w[Product\ Manager Backend\ Engineer Frontend\ Engineer QA\ Specialist],
         message_schema: {
           'type' => 'object',
@@ -564,7 +544,7 @@ teams_data = [
   },
   {
     name: 'Content Publishing Pipeline',
-    description: 'Sequential pipeline team for content creation workflow. Research, write, edit, and publish stages execute in order with handoff validation.',
+    description: 'Sequential content pipeline: research, write, edit, publish, with handoff validation between stages.',
     team_type: 'sequential',
     coordination_strategy: 'priority_based',
     goal_description: 'Produce high-quality published content through a structured pipeline',
@@ -583,9 +563,9 @@ teams_data = [
         role_name: 'Research Lead',
         role_type: 'specialist',
         agent_name: 'Business Intelligence Analyst',
-        role_description: 'Conducts topic research, gathers data, and prepares research briefs',
+        role_description: 'Researches topics, gathers data, prepares research briefs',
         responsibilities: 'Topic research, data gathering, source validation, research brief creation',
-        goals: 'Provide comprehensive, accurate research foundation for content',
+        goals: 'Provide a comprehensive, accurate research foundation',
         capabilities: %w[web_research data_analysis source_validation brief_writing],
         constraints: %w[verify_sources cite_references],
         tools_allowed: %w[web_search data_extraction document_analysis],
@@ -600,9 +580,9 @@ teams_data = [
         role_name: 'Content Writer',
         role_type: 'worker',
         agent_name: 'Marketing Content Generator',
-        role_description: 'Writes content based on research briefs following brand guidelines',
+        role_description: 'Writes content from research briefs per brand guidelines',
         responsibilities: 'Content drafting, SEO optimization, brand voice adherence',
-        goals: 'Produce engaging, well-structured content aligned with research',
+        goals: 'Produce engaging, well-structured content aligned to research',
         capabilities: %w[content_writing seo_optimization brand_voice_adherence],
         constraints: %w[follow_brand_guidelines meet_word_count],
         tools_allowed: %w[text_generation markdown_formatting],
@@ -617,9 +597,9 @@ teams_data = [
         role_name: 'Content Editor',
         role_type: 'reviewer',
         agent_name: 'Automated Code Reviewer',
-        role_description: 'Reviews and edits content for quality, accuracy, and style consistency',
+        role_description: 'Edits content for quality, accuracy, style consistency',
         responsibilities: 'Copy editing, fact checking, style enforcement, quality assurance',
-        goals: 'Ensure all published content meets quality and accuracy standards',
+        goals: 'Ensure published content meets quality and accuracy standards',
         capabilities: %w[copy_editing fact_checking style_enforcement quality_review],
         constraints: %w[maintain_author_voice enforce_style_guide],
         tools_allowed: %w[text_analysis structured_output],
@@ -635,7 +615,7 @@ teams_data = [
       {
         name: 'content-pipeline',
         channel_type: 'task',
-        description: 'Sequential content pipeline stage handoffs and status updates',
+        description: 'Pipeline stage handoffs and status updates',
         participant_roles: %w[Research\ Lead Content\ Writer Content\ Editor],
         message_schema: {
           'type' => 'object',
@@ -651,10 +631,10 @@ teams_data = [
   },
   {
     name: 'Support Response Team',
-    description: 'Parallel team for handling customer support. Lead triages and routes tickets while parallel agents handle resolution independently.',
+    description: 'Parallel support team: lead triages and routes; agents resolve tickets independently.',
     team_type: 'parallel',
     coordination_strategy: 'round_robin',
-    goal_description: 'Provide fast, high-quality customer support responses across multiple channels',
+    goal_description: 'Provide fast, high-quality support across multiple channels',
     team_config: {
       'max_iterations' => 8,
       'timeout_seconds' => 900,
@@ -670,9 +650,9 @@ teams_data = [
         role_name: 'Support Lead',
         role_type: 'coordinator',
         agent_name: 'Customer Support Agent',
-        role_description: 'Triages incoming tickets and routes to appropriate support agents',
+        role_description: 'Triages incoming tickets and routes them to support agents',
         responsibilities: 'Ticket triage, routing, escalation management, quality oversight',
-        goals: 'Ensure fast response times and proper ticket routing',
+        goals: 'Fast response times and correct ticket routing',
         capabilities: %w[ticket_triage priority_classification routing escalation_management],
         constraints: %w[response_time_sla quality_standards],
         tools_allowed: %w[ticket_management structured_output routing],
@@ -687,9 +667,9 @@ teams_data = [
         role_name: 'Technical Support Agent',
         role_type: 'specialist',
         agent_name: 'DevOps Pipeline Operator',
-        role_description: 'Handles technical support tickets requiring system knowledge',
+        role_description: 'Handles technical tickets requiring system knowledge',
         responsibilities: 'Technical troubleshooting, log analysis, configuration assistance',
-        goals: 'Resolve technical issues with clear explanations and solutions',
+        goals: 'Resolve technical issues with clear explanations',
         capabilities: %w[technical_troubleshooting log_analysis system_configuration],
         constraints: %w[no_unauthorized_access follow_runbook],
         tools_allowed: %w[log_analysis system_query structured_output],
@@ -704,9 +684,9 @@ teams_data = [
         role_name: 'Billing Support Agent',
         role_type: 'specialist',
         agent_name: 'Business Intelligence Analyst',
-        role_description: 'Handles billing, payment, and subscription-related support tickets',
+        role_description: 'Handles billing, payment, and subscription tickets',
         responsibilities: 'Billing inquiries, payment issues, subscription changes, refund processing',
-        goals: 'Resolve billing issues accurately while maintaining customer satisfaction',
+        goals: 'Resolve billing issues accurately; keep customers satisfied',
         capabilities: %w[billing_analysis payment_troubleshooting subscription_management],
         constraints: %w[pci_compliance refund_limits],
         tools_allowed: %w[billing_query payment_processing structured_output],
@@ -752,10 +732,10 @@ teams_data = [
   },
   {
     name: 'Architecture Review Board',
-    description: 'Mesh team for collaborative architecture reviews. Peers evaluate proposals from security, performance, and design perspectives using auction-based task claiming.',
+    description: 'Mesh team for collaborative architecture reviews. Peers evaluate proposals on security, performance, and design via auction-based task claiming.',
     team_type: 'mesh',
     coordination_strategy: 'auction',
-    goal_description: 'Provide comprehensive architecture reviews covering security, performance, and design quality',
+    goal_description: 'Review architectures for security, performance, and design quality',
     team_config: {
       'max_iterations' => 6,
       'timeout_seconds' => 1200,
@@ -772,9 +752,9 @@ teams_data = [
         role_name: 'Lead Architect',
         role_type: 'coordinator',
         agent_name: 'Process Automation Optimizer',
-        role_description: 'Coordinates architecture reviews and synthesizes findings into decisions',
+        role_description: 'Coordinates reviews and synthesizes findings into decisions',
         responsibilities: 'Review coordination, decision synthesis, trade-off analysis, documentation',
-        goals: 'Ensure sound architectural decisions with documented rationale',
+        goals: 'Sound architecture decisions with documented rationale',
         capabilities: %w[architecture_analysis trade_off_evaluation decision_synthesis documentation],
         constraints: %w[document_all_decisions consider_all_perspectives],
         tools_allowed: %w[diagram_analysis structured_output document_generation],
@@ -789,7 +769,7 @@ teams_data = [
         role_name: 'Security Reviewer',
         role_type: 'reviewer',
         agent_name: 'Infrastructure Health Monitor',
-        role_description: 'Evaluates architecture proposals for security implications and threat modeling',
+        role_description: 'Evaluates proposals for security risk and threat modeling',
         responsibilities: 'Threat modeling, security pattern review, compliance validation, risk assessment',
         goals: 'Identify and mitigate security risks in proposed architectures',
         capabilities: %w[threat_modeling security_analysis compliance_review risk_assessment],
@@ -806,9 +786,9 @@ teams_data = [
         role_name: 'Performance Reviewer',
         role_type: 'reviewer',
         agent_name: 'DevOps Pipeline Operator',
-        role_description: 'Evaluates architecture proposals for scalability, performance, and resource efficiency',
+        role_description: 'Evaluates proposals for scalability, performance, resource efficiency',
         responsibilities: 'Performance modeling, scalability analysis, resource estimation, bottleneck identification',
-        goals: 'Ensure architectures meet performance requirements at projected scale',
+        goals: 'Ensure architectures meet performance targets at projected scale',
         capabilities: %w[performance_modeling scalability_analysis capacity_planning bottleneck_detection],
         constraints: %w[load_testing_required sla_compliance],
         tools_allowed: %w[performance_analysis metric_collection structured_output],
@@ -824,7 +804,7 @@ teams_data = [
       {
         name: 'arb-discussion',
         channel_type: 'topic',
-        description: 'Architecture review discussions and proposal analysis',
+        description: 'Review discussions and proposal analysis',
         participant_roles: %w[Lead\ Architect Security\ Reviewer Performance\ Reviewer],
         message_schema: {
           'type' => 'object',
@@ -954,8 +934,8 @@ templates_data = [
   {
     name: 'SaaS Customer Success Bot',
     slug: 'powernode-saas-customer-success-bot',
-    description: 'AI-powered customer success agent for SaaS platforms. Handles onboarding, health scoring, churn prediction, and proactive outreach.',
-    long_description: 'A comprehensive customer success solution designed for SaaS businesses. This template includes pre-built workflows for customer onboarding sequences, health score calculation based on product usage metrics, churn risk identification with early warning signals, and automated proactive outreach campaigns. Integrates with common CRM and support tools.',
+    description: 'Customer success agent for SaaS: onboarding, health scoring, churn prediction, proactive outreach.',
+    long_description: 'Customer success template for SaaS. Includes onboarding sequences, usage-based health scoring, churn-risk early warnings, and automated outreach campaigns. Integrates with common CRM and support tools.',
     category: 'customer_support',
     vertical: 'saas',
     pricing_type: 'free',
@@ -986,8 +966,8 @@ templates_data = [
   {
     name: 'E-Commerce Product Recommender',
     slug: 'powernode-ecommerce-product-recommender',
-    description: 'Intelligent product recommendation engine for e-commerce. Uses browsing history, purchase patterns, and collaborative filtering.',
-    long_description: 'Advanced product recommendation system for e-commerce platforms. Leverages customer browsing behavior, purchase history, and collaborative filtering algorithms to deliver personalized product suggestions. Supports cross-selling, upselling, and bundle recommendations with configurable strategies.',
+    description: 'Product recommendation engine for e-commerce using browsing history, purchase patterns, and collaborative filtering.',
+    long_description: 'Recommendation system for e-commerce. Uses browsing behavior, purchase history, and collaborative filtering for personalized suggestions. Supports cross-sell, upsell, and bundles with configurable strategies.',
     category: 'data',
     vertical: 'ecommerce',
     pricing_type: 'freemium',
@@ -1018,8 +998,8 @@ templates_data = [
   {
     name: 'Healthcare Triage Assistant',
     slug: 'powernode-healthcare-triage-assistant',
-    description: 'Medical intake triage assistant for healthcare providers. Collects symptoms, assesses urgency, and routes to appropriate departments.',
-    long_description: 'HIPAA-aware triage assistant for healthcare organizations. Guides patients through structured symptom collection, performs urgency assessment using evidence-based triage protocols, and routes cases to appropriate clinical departments. Includes consent workflows and audit logging for compliance.',
+    description: 'Medical intake triage for healthcare providers: collects symptoms, assesses urgency, routes to departments.',
+    long_description: 'HIPAA-aware triage assistant. Guides structured symptom collection, assesses urgency via evidence-based protocols, and routes cases to clinical departments. Includes consent workflows and audit logging.',
     category: 'customer_support',
     vertical: 'healthcare',
     pricing_type: 'subscription',
@@ -1052,8 +1032,8 @@ templates_data = [
   {
     name: 'EdTech Course Builder',
     slug: 'powernode-edtech-course-builder',
-    description: 'AI course creation assistant for educational platforms. Generates curriculum outlines, lesson plans, assessments, and learning objectives.',
-    long_description: 'Comprehensive course building assistant for educational technology platforms. Creates structured curriculum outlines with learning objectives aligned to educational standards, generates lesson plans with activities and resources, designs assessments with rubrics, and suggests multimedia content to enhance engagement.',
+    description: 'Course creation assistant for edtech: curriculum outlines, lesson plans, assessments, learning objectives.',
+    long_description: 'Course-building assistant for edtech. Creates curriculum outlines with standards-aligned objectives, lesson plans with activities and resources, assessments with rubrics, and multimedia suggestions.',
     category: 'productivity',
     vertical: 'education',
     pricing_type: 'one_time',
@@ -1084,8 +1064,8 @@ templates_data = [
   {
     name: 'FinTech Compliance Monitor',
     slug: 'powernode-fintech-compliance-monitor',
-    description: 'Regulatory compliance monitoring agent for financial technology companies. Tracks regulatory changes, assesses impact, and generates compliance reports.',
-    long_description: 'Continuous compliance monitoring solution for FinTech companies. Tracks regulatory changes across jurisdictions, assesses business impact, generates compliance gap analyses, and produces audit-ready reports. Covers PCI DSS, SOX, AML/KYC, and GDPR requirements.',
+    description: 'Regulatory compliance monitor for fintech: tracks regulatory changes, assesses impact, generates reports.',
+    long_description: 'Continuous compliance monitor for fintech. Tracks regulatory changes across jurisdictions, assesses business impact, runs gap analyses, and produces audit-ready reports. Covers PCI DSS, SOX, AML/KYC, GDPR.',
     category: 'legal',
     vertical: 'fintech',
     pricing_type: 'subscription',
@@ -1118,8 +1098,8 @@ templates_data = [
   {
     name: 'Marketing Campaign Orchestrator',
     slug: 'powernode-marketing-campaign-orchestrator',
-    description: 'End-to-end marketing campaign management agent. Plans, creates, schedules, and analyzes multi-channel marketing campaigns.',
-    long_description: 'Full-lifecycle marketing campaign orchestration agent. Plans campaign strategy and timeline, generates content for email, social, and web channels, schedules posts and sends across platforms, and analyzes performance metrics with optimization recommendations. Supports A/B testing workflows.',
+    description: 'End-to-end campaign manager: plans, creates, schedules, and analyzes multi-channel marketing campaigns.',
+    long_description: 'Full-lifecycle campaign orchestrator. Plans strategy and timeline, generates content for email/social/web, schedules across platforms, and analyzes performance with optimization recommendations. Supports A/B testing.',
     category: 'marketing',
     vertical: 'marketing',
     pricing_type: 'usage_based',
@@ -1151,8 +1131,8 @@ templates_data = [
   {
     name: 'DevOps Incident Commander',
     slug: 'powernode-devops-incident-commander',
-    description: 'Automated incident management agent for DevOps teams. Detects incidents, coordinates response, manages communication, and produces post-mortems.',
-    long_description: 'Production incident management assistant for DevOps and SRE teams. Automatically detects anomalies in system metrics, initiates incident response workflows, coordinates team communication during incidents, manages status page updates, and generates comprehensive post-mortem reports with action items.',
+    description: 'Incident manager for DevOps: detects incidents, coordinates response, manages comms, produces post-mortems.',
+    long_description: 'Incident management assistant for DevOps/SRE. Detects metric anomalies, starts response workflows, coordinates comms, updates status pages, and generates post-mortems with action items.',
     category: 'productivity',
     vertical: 'devops',
     pricing_type: 'free',
@@ -1184,8 +1164,8 @@ templates_data = [
   {
     name: 'Research Paper Analyzer',
     slug: 'powernode-research-paper-analyzer',
-    description: 'Academic research analysis agent. Summarizes papers, extracts key findings, identifies methodology gaps, and generates literature review sections.',
-    long_description: 'Research analysis assistant for academic and R&D teams. Processes research papers to extract key findings, methodology details, and statistical results. Identifies research gaps, compares findings across papers, and generates structured literature review sections with proper citations.',
+    description: 'Academic research analyzer: summarizes papers, extracts findings, finds methodology gaps, drafts literature reviews.',
+    long_description: 'Research analysis assistant for academic/R&D teams. Extracts findings, methodology, and statistics from papers; identifies gaps; compares across papers; and drafts cited literature-review sections.',
     category: 'data',
     vertical: 'research',
     pricing_type: 'freemium',
@@ -1260,9 +1240,9 @@ end
 skills_data = [
   {
     name: 'Code Generation',
-    description: 'Generate production-quality code in multiple languages with proper error handling, testing patterns, and documentation.',
+    description: 'Generate production-quality code across languages with error handling, tests, and documentation.',
     category: 'productivity',
-    system_prompt: 'Generate clean, well-documented code following best practices for the target language and framework.',
+    system_prompt: 'Generate clean, documented, tested code per target language/framework best practices.',
     commands: [
       { 'name' => 'generate_code', 'description' => 'Generate code from a specification', 'parameters' => %w[language specification] },
       { 'name' => 'refactor_code', 'description' => 'Refactor existing code for improvement', 'parameters' => %w[code language improvements] }
@@ -1271,9 +1251,9 @@ skills_data = [
   },
   {
     name: 'Database Design',
-    description: 'Design database schemas, write migrations, optimize queries, and plan indexing strategies for relational and document databases.',
+    description: 'Design schemas, write migrations, optimize queries, plan indexes for relational and document databases.',
     category: 'data',
-    system_prompt: 'Design efficient database schemas with proper normalization, indexing, and query optimization.',
+    system_prompt: 'Design efficient schemas with proper normalization, indexing, and query optimization.',
     commands: [
       { 'name' => 'design_schema', 'description' => 'Design a database schema', 'parameters' => %w[requirements database_type] },
       { 'name' => 'optimize_query', 'description' => 'Optimize a slow database query', 'parameters' => %w[query schema] }
@@ -1282,9 +1262,9 @@ skills_data = [
   },
   {
     name: 'API Design',
-    description: 'Design RESTful and GraphQL APIs with proper authentication, versioning, pagination, and error handling patterns.',
+    description: 'Design REST and GraphQL APIs with auth, versioning, pagination, and error handling.',
     category: 'productivity',
-    system_prompt: 'Design well-structured APIs following REST or GraphQL best practices with comprehensive documentation.',
+    system_prompt: 'Design well-structured REST/GraphQL APIs with comprehensive documentation.',
     commands: [
       { 'name' => 'design_api', 'description' => 'Design API endpoints for a resource', 'parameters' => %w[resource operations auth_type] },
       { 'name' => 'generate_openapi', 'description' => 'Generate OpenAPI specification', 'parameters' => %w[endpoints] }
@@ -1293,9 +1273,9 @@ skills_data = [
   },
   {
     name: 'Security Audit',
-    description: 'Perform security audits covering OWASP Top 10, dependency vulnerabilities, authentication flows, and data protection compliance.',
+    description: 'Audit for OWASP Top 10, dependency vulnerabilities, auth flows, and data-protection compliance.',
     category: 'business_search',
-    system_prompt: 'Conduct thorough security audits identifying vulnerabilities, misconfigurations, and compliance gaps.',
+    system_prompt: 'Audit for vulnerabilities, misconfigurations, and compliance gaps.',
     commands: [
       { 'name' => 'audit_code', 'description' => 'Audit code for security vulnerabilities', 'parameters' => %w[code language framework] },
       { 'name' => 'check_dependencies', 'description' => 'Check dependencies for known CVEs', 'parameters' => %w[manifest_file] }
@@ -1304,9 +1284,9 @@ skills_data = [
   },
   {
     name: 'Performance Tuning',
-    description: 'Analyze and optimize application performance including database queries, API response times, memory usage, and caching strategies.',
+    description: 'Optimize app performance: database queries, API response times, memory, caching.',
     category: 'data',
-    system_prompt: 'Analyze performance bottlenecks and recommend optimizations with measurable improvement targets.',
+    system_prompt: 'Find bottlenecks; recommend optimizations with measurable targets.',
     commands: [
       { 'name' => 'profile_endpoint', 'description' => 'Profile an API endpoint for performance', 'parameters' => %w[endpoint metrics] },
       { 'name' => 'recommend_caching', 'description' => 'Recommend caching strategy', 'parameters' => %w[access_patterns data_volatility] }
@@ -1315,9 +1295,9 @@ skills_data = [
   },
   {
     name: 'DevOps Automation',
-    description: 'Automate CI/CD pipelines, infrastructure provisioning, deployment strategies, and monitoring setup.',
+    description: 'Automate CI/CD pipelines, infrastructure provisioning, deployments, and monitoring.',
     category: 'productivity',
-    system_prompt: 'Design and implement DevOps automation for reliable, repeatable infrastructure and deployment processes.',
+    system_prompt: 'Build reliable, repeatable infrastructure and deployment automation.',
     commands: [
       { 'name' => 'create_pipeline', 'description' => 'Create a CI/CD pipeline configuration', 'parameters' => %w[platform stages triggers] },
       { 'name' => 'provision_infra', 'description' => 'Generate infrastructure-as-code', 'parameters' => %w[provider resources environment] }
@@ -1326,9 +1306,9 @@ skills_data = [
   },
   {
     name: 'Content Localization',
-    description: 'Localize content for international markets including translation, cultural adaptation, date/currency formatting, and RTL support.',
+    description: 'Localize content: translation, cultural adaptation, date/currency formatting, RTL support.',
     category: 'marketing',
-    system_prompt: 'Localize content for target markets considering language, culture, formatting conventions, and accessibility.',
+    system_prompt: 'Localize for target markets: language, culture, formatting, accessibility.',
     commands: [
       { 'name' => 'localize_content', 'description' => 'Localize content for a target market', 'parameters' => %w[content source_locale target_locale] },
       { 'name' => 'extract_strings', 'description' => 'Extract localizable strings from code', 'parameters' => %w[source_files format] }
@@ -1337,9 +1317,9 @@ skills_data = [
   },
   {
     name: 'Incident Analysis',
-    description: 'Analyze production incidents with root cause analysis, impact assessment, timeline reconstruction, and remediation planning.',
+    description: 'Analyze production incidents: root cause, impact, timeline reconstruction, remediation planning.',
     category: 'productivity',
-    system_prompt: 'Analyze incidents systematically to identify root causes, assess impact, and develop prevention strategies.',
+    system_prompt: 'Analyze incidents: identify root cause, assess impact, define prevention.',
     commands: [
       { 'name' => 'analyze_incident', 'description' => 'Perform root cause analysis on an incident', 'parameters' => %w[incident_id logs metrics timeline] },
       { 'name' => 'generate_postmortem', 'description' => 'Generate a post-mortem report', 'parameters' => %w[incident_id findings] }
@@ -1348,9 +1328,9 @@ skills_data = [
   },
   {
     name: 'User Research',
-    description: 'Design and analyze user research studies including surveys, interviews, usability tests, and behavioral analytics.',
+    description: 'Design and analyze user studies: surveys, interviews, usability tests, behavioral analytics.',
     category: 'product_management',
-    system_prompt: 'Design effective user research studies and analyze findings to inform product decisions.',
+    system_prompt: 'Design user studies and analyze findings to inform product decisions.',
     commands: [
       { 'name' => 'design_study', 'description' => 'Design a user research study', 'parameters' => %w[research_question method target_audience] },
       { 'name' => 'analyze_feedback', 'description' => 'Analyze user feedback data', 'parameters' => %w[feedback_data categories] }
@@ -1359,9 +1339,9 @@ skills_data = [
   },
   {
     name: 'Compliance Review',
-    description: 'Review systems and processes for regulatory compliance including GDPR, SOC 2, HIPAA, PCI DSS, and ISO 27001.',
+    description: 'Review systems and processes against GDPR, SOC 2, HIPAA, PCI DSS, ISO 27001.',
     category: 'legal',
-    system_prompt: 'Review systems for regulatory compliance, identify gaps, and recommend remediation with priority ranking.',
+    system_prompt: 'Review compliance, identify gaps, recommend prioritized remediation.',
     commands: [
       { 'name' => 'assess_compliance', 'description' => 'Assess compliance against a framework', 'parameters' => %w[framework scope evidence] },
       { 'name' => 'generate_report', 'description' => 'Generate a compliance report', 'parameters' => %w[framework findings] }

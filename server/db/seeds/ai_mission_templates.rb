@@ -5,7 +5,7 @@ puts "  Seeding AI mission templates..."
 templates = [
   {
     name: "Standard Development",
-    description: "Full development lifecycle with code analysis, PRD generation, implementation, testing, code review, and deployment preview.",
+    description: "Full dev lifecycle: code analysis, PRD, implementation, testing, code review, deployment preview.",
     template_type: "system",
     mission_type: "development",
     is_default: true,
