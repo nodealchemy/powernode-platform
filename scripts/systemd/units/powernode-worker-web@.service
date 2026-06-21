@@ -1,8 +1,14 @@
 [Unit]
-Description=Powernode Sidekiq Web UI (instance %i)
+Description=Powernode Worker HTTP API: embeddings/LLM/jobs + Sidekiq UI (instance %i)
 Documentation=https://github.com/powernode/platform
 After=powernode-worker@%i.service
-BindsTo=powernode-worker@%i.service
+# Intentionally NOT BindsTo=powernode-worker@ — this is the Worker HTTP API
+# (embeddings, LLM proxy, job endpoints on :4567), and it must survive worker@
+# restarts/stops. BindsTo propagated worker@'s stop but not its start, so a
+# restart of the Sidekiq job worker silently orphaned the embedding API and
+# broke embeddings/learnings/RAG platform-wide. Kept alive instead by
+# PartOf=powernode.target + WantedBy + Restart=on-failure; After= preserves
+# boot ordering only.
 PartOf=powernode.target
 StartLimitIntervalSec=300
 StartLimitBurst=5

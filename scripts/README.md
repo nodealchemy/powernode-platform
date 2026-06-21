@@ -12,9 +12,16 @@ Services are managed via **systemd template units** (`@.service`). Each service 
 |---------|------|-------------|---------|
 | Backend | `powernode-backend@.service` | 3000 | Rails/Puma API server |
 | Worker | `powernode-worker@.service` | — | Sidekiq background jobs |
-| Worker Web | `powernode-worker-web@.service` | 4567 | Sidekiq web dashboard |
+| Worker HTTP API | `powernode-worker-web@.service` | 4567 | Embeddings/LLM/jobs API + Sidekiq UI (**critical** — not just a dashboard) |
 | Frontend | `powernode-frontend@.service` | 3001 | Vite dev server |
 | Target | `powernode.target` | — | Groups all services |
+
+> **The Worker HTTP API is critical, not optional.** Despite the historical
+> "worker-web" name, `powernode-worker-web@` serves embeddings, the LLM proxy,
+> and job endpoints on :4567 (plus the Sidekiq UI). If it is down,
+> embeddings / learnings / RAG fail platform-wide while `powernode-worker@`
+> (Sidekiq jobs) still looks healthy. For full restarts prefer
+> `systemctl restart powernode.target` over restarting individual services.
 
 ## Quick Start
 
