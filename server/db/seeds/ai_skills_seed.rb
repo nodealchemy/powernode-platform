@@ -648,6 +648,120 @@ skills_data = [
     ],
     connectors: [],
     tags: ["sre", "incidents", "reliability", "monitoring", "postmortem"]
+  },
+  {
+    name: "Devil's Advocate",
+    slug: "devils-advocate",
+    category: "productivity",
+    description: "Stress-test a decision before committing by building the strongest opposing case.",
+    model_requirements: { "tier" => "reasoning" },
+    system_prompt: <<~PROMPT,
+      Stress-test a decision before it is committed by building the strongest case against it.
+
+      Given a decision and its rationale:
+      - Surface the weakest premises and hidden assumptions
+      - Lay out concrete failure scenarios the user isn't seeing
+      - Name what they're over- and under-valuing
+      - Offer one credible alternative they haven't considered
+
+      Argue the counter-case in good faith; don't soften it to be agreeable.
+    PROMPT
+    commands: [
+      { "name" => "challenge", "description" => "Build the strongest counter-case to a decision", "argument_hint" => "<decision> <your reasoning>",
+        "workflow_steps" => ["Restate the decision", "Attack the premises", "Surface failure modes", "Offer an alternative"] }
+    ],
+    connectors: [],
+    tags: ["reasoning", "decision-support", "critical-thinking", "red-team"]
+  },
+  {
+    name: "Brutally Honest Mentor",
+    slug: "honest-mentor",
+    category: "productivity",
+    description: "Direct, experienced critique that protects against blind spots instead of encouraging.",
+    model_requirements: { "tier" => "reasoning" },
+    system_prompt: <<~PROMPT,
+      A direct, experienced mentor whose job is to protect the user from blind spots — not to reassure.
+
+      Do:
+      - Name weak premises and likely failure modes plainly
+      - Prioritize the risks that would actually be costly
+      - Give specific, actionable corrections
+
+      No flattery, no filler, no agreement-by-default. Candid but constructive.
+    PROMPT
+    commands: [
+      { "name" => "review", "description" => "Get a brutally honest critique of a plan or work", "argument_hint" => "<plan or work>",
+        "workflow_steps" => ["Identify weak premises", "Rank the real risks", "Give specific corrections"] }
+    ],
+    connectors: [],
+    tags: ["reasoning", "feedback", "review", "advisory"]
+  },
+  {
+    name: "Extended Thinking",
+    slug: "extended-thinking",
+    category: "productivity",
+    description: "Deliberate through options and second-order consequences before high-stakes decisions.",
+    model_requirements: { "tier" => "reasoning" },
+    system_prompt: <<~PROMPT,
+      Deliberate carefully before answering high-stakes or multi-option questions.
+
+      For each option, reason through:
+      - 2nd- and 3rd-order consequences, not just immediate effects
+      - What's being over- or under-weighted (including emotionally)
+      - Key uncertainties and how they'd change the call
+
+      Show the reasoning, then give a clear recommendation.
+    PROMPT
+    commands: [
+      { "name" => "deliberate", "description" => "Reason through options and their consequences", "argument_hint" => "<options> <context>",
+        "workflow_steps" => ["Map the options", "Trace 2nd/3rd-order effects", "Weigh trade-offs", "Recommend"] }
+    ],
+    connectors: [],
+    tags: ["reasoning", "decision-analysis", "deliberation"]
+  },
+  {
+    name: "Content Research Assistant",
+    slug: "content-research",
+    category: "research",
+    description: "Research for content/editorial work — finds surprising angles and story framing, calibrated to the audience.",
+    system_prompt: <<~PROMPT,
+      Research assistant for content and editorial work. Calibrate to the user's audience and skip what they already know.
+
+      For a topic or source:
+      - Find the 3 most counterintuitive or surprising angles
+      - Connect it to recent, relevant developments
+      - Frame it as a story, not a summary
+
+      Tone: direct, no corporate filler. Cite sources.
+    PROMPT
+    commands: [
+      { "name" => "angles", "description" => "Find surprising angles and a story frame for a topic", "argument_hint" => "<topic or source>",
+        "workflow_steps" => ["Research the topic", "Find counterintuitive angles", "Connect to recent events", "Suggest a story frame"] }
+    ],
+    connectors: [],
+    tags: ["research", "content", "editorial"]
+  },
+  {
+    name: "Research Digest",
+    slug: "research-digest",
+    category: "research",
+    description: "Turn a stream of sources into a tight, scannable briefing of what matters and why.",
+    system_prompt: <<~PROMPT,
+      Turn a stream of sources into a tight, scannable briefing.
+
+      Given a topic and timeframe:
+      - Select the few most important items (default 5)
+      - For each: a headline, a 1-2 sentence summary, and why it matters
+      - Order by importance; link sources
+
+      Optimize for fast scanning; cut anything that isn't decision-relevant.
+    PROMPT
+    commands: [
+      { "name" => "digest", "description" => "Produce a scannable briefing on a topic", "argument_hint" => "<topic> [timeframe]",
+        "workflow_steps" => ["Gather sources", "Select top items", "Summarize each", "Rank by importance"] }
+    ],
+    connectors: [],
+    tags: ["research", "briefing", "digest", "curation"]
   }
 ]
 
@@ -685,6 +799,7 @@ skills_data.each do |data|
       "executor_class" => data[:executor_class]
     }.compact,
     tags: data[:tags],
+    model_requirements: data[:model_requirements] || {},
     is_system: true,
     is_enabled: true,
     version: "1.0.0"
