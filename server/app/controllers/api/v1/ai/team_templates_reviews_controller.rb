@@ -4,12 +4,21 @@ module Api
   module V1
     module Ai
       class TeamTemplatesReviewsController < ApplicationController
+        include GloballyScopedContent
+
         rescue_from ::Ai::TeamAuthorityService::AuthorityViolation do |e|
           render_error(e.message, status: :forbidden)
         end
 
         before_action :authenticate_request
         before_action :set_team_service
+        # clone / update_from_source mutate team-template content → manage right.
+        before_action -> { authorize_team_manage! }, only: [:clone, :update_from_source]
+
+        # The GloballyScopable model backing the clone / update_from_source actions.
+        def content_model
+          ::Ai::TeamTemplate
+        end
 
         # ============================================================================
         # TEMPLATES
@@ -140,7 +149,7 @@ module Api
         end
 
         def template_filter_params
-          params.permit(:public_only, :system_only, :category, :topology, :page, :per_page)
+          params.permit(:public_only, :system_only, :category, :topology, :page, :per_page, :scope)
         end
 
         def template_params
@@ -157,6 +166,17 @@ module Api
 
         def trajectory_filter_params
           params.permit(:type, :status, :query, :limit, :agent_id, tags: [])
+        end
+
+        def authorize_team_manage!
+          return if current_user.has_permission?("ai.teams.manage")
+
+          render_forbidden
+        end
+
+        # Richer serialization for clone / update_from_source responses.
+        def content_json(record)
+          serialize_template(record, detailed: true)
         end
 
         def authorize_code_reviews_read!
@@ -198,7 +218,7 @@ module Api
             data[:default_config] = template.default_config
           end
 
-          data
+          data.merge(template.scope_attributes)
         end
 
         def serialize_role_profile(profile)

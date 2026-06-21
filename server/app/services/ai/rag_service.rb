@@ -15,7 +15,7 @@ module Ai
     # ============================================================================
 
     def list_knowledge_bases(filters = {})
-      bases = account.ai_knowledge_bases
+      bases = scoped_knowledge_bases(filters[:scope])
       bases = bases.where(status: filters[:status]) if filters[:status].present?
       bases = bases.where(is_public: filters[:is_public]) if filters[:is_public].present?
       bases = bases.order(created_at: :desc)
@@ -23,8 +23,30 @@ module Ai
       bases
     end
 
+    # Apply ?scope=global|custom|all (default: global + own) so global baseline
+    # knowledge bases stay visible after the global/account split. NOTE:
+    # Ai::KnowledgeBase redefines #for_account as account-only, so the
+    # global-inclusive default is expressed by an explicit account_id column
+    # filter rather than that shadowed scope.
+    def scoped_knowledge_bases(scope)
+      case scope.to_s
+      when "global" then Ai::KnowledgeBase.global
+      when "custom" then Ai::KnowledgeBase.owned_by_account(account&.id)
+      when "all"    then Ai::KnowledgeBase.all
+      else Ai::KnowledgeBase.where(account_id: [ nil, account&.id ])
+      end
+    end
+
+    # Account-owned lookup — used for mutations and all sub-resource operations
+    # (documents/embeddings/queries/connectors), which must not touch global KBs.
     def get_knowledge_base(id)
       account.ai_knowledge_bases.find(id)
+    end
+
+    # Read lookup that also resolves GLOBAL (platform-managed) knowledge bases, so
+    # the baseline library is visible on show. Mutations still guard via #global?.
+    def get_visible_knowledge_base(id)
+      Ai::KnowledgeBase.where(account_id: [ nil, account&.id ]).find(id)
     end
 
     def create_knowledge_base(params, user: nil)

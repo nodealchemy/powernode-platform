@@ -1910,6 +1910,11 @@ Rails.application.routes.draw do
           patch "knowledge_bases/:id", action: :update_knowledge_base
           delete "knowledge_bases/:id", action: :delete_knowledge_base
 
+          # Global/account content lifecycle (GloballyScopedContent)
+          post "knowledge_bases/:id/clone", action: :clone
+          post "knowledge_bases/:id/update_from_source", action: :update_from_source
+          get "knowledge_bases/:id/update_from_source/preview", action: :update_from_source_preview
+
           # Documents
           get "knowledge_bases/:knowledge_base_id/documents", action: :list_documents
           post "knowledge_bases/:knowledge_base_id/documents", action: :create_document
@@ -2037,6 +2042,10 @@ Rails.application.routes.draw do
             get "/templates/:id", action: :show_template
             post "/templates", action: :create_template
             post "/templates/:id/publish", action: :publish_template
+            # Global/account content lifecycle (GloballyScopedContent)
+            post "/templates/:id/clone", action: :clone
+            post "/templates/:id/update_from_source", action: :update_from_source
+            get "/templates/:id/update_from_source/preview", action: :update_from_source_preview
             get "/role_profiles", action: :list_role_profiles
             get "/role_profiles/:id", action: :show_role_profile
             get "/trajectories", action: :list_trajectories
@@ -2142,6 +2151,10 @@ Rails.application.routes.draw do
           member do
             post :preview
             post :duplicate
+            # Global/account content lifecycle (GloballyScopedContent)
+            post :clone
+            post :update_from_source
+            get "update_from_source/preview", to: "prompt_templates#update_from_source_preview"
           end
         end
 
@@ -2189,7 +2202,14 @@ Rails.application.routes.draw do
         # ===================================================================
         # MISSION TEMPLATES - Reusable mission phase definitions
         # ===================================================================
-        resources :mission_templates, controller: "mission_templates", only: [:index, :show, :create, :update, :destroy]
+        resources :mission_templates, controller: "mission_templates", only: [:index, :show, :create, :update, :destroy] do
+          member do
+            # Global/account content lifecycle (GloballyScopedContent)
+            post :clone
+            post :update_from_source
+            get "update_from_source/preview", to: "mission_templates#update_from_source_preview"
+          end
+        end
 
         # ===================================================================
         # MISSIONS - AI-Assisted Development Hub
@@ -2543,6 +2563,10 @@ Rails.application.routes.draw do
             get "installations", action: :installations
             post "templates/:template_id/install", action: :install
             delete "installations/:id", action: :uninstall
+            # Global/account content lifecycle (GloballyScopedContent)
+            post "templates/:id/clone", action: :clone
+            post "templates/:id/update_from_source", action: :update_from_source
+            get "templates/:id/update_from_source/preview", action: :update_from_source_preview
           end
 
           # Executions & analytics → DevopsExecutionsController
@@ -2805,6 +2829,10 @@ Rails.application.routes.draw do
             post :activate
             post :deactivate
             get :agents
+            # Global/account content lifecycle (GloballyScopedContent)
+            post :clone
+            post :update_from_source
+            get "update_from_source/preview", to: "skills#update_from_source_preview"
           end
 
           collection do

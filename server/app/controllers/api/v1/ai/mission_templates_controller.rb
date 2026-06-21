@@ -4,12 +4,19 @@ module Api
   module V1
     module Ai
       class MissionTemplatesController < ApplicationController
-        before_action :authorize_read!, only: [:index, :show]
-        before_action :authorize_manage!, only: [:create, :update, :destroy]
+        include GloballyScopedContent
+
+        before_action :authorize_read!, only: [:index, :show, :update_from_source_preview]
+        before_action :authorize_manage!, only: [:create, :update, :destroy, :clone, :update_from_source]
+
+        # The GloballyScopable model backing the clone / update_from_source actions.
+        def content_model
+          ::Ai::MissionTemplate
+        end
 
         # GET /api/v1/ai/mission_templates
         def index
-          templates = ::Ai::MissionTemplate.for_account(current_account.id).active
+          templates = apply_content_scope(::Ai::MissionTemplate.all).active
 
           templates = templates.by_type(params[:mission_type]) if params[:mission_type].present?
           templates = templates.where(template_type: params[:template_type]) if params[:template_type].present?
@@ -43,10 +50,8 @@ module Api
           template = find_template!
           return unless template
 
-          if template.template_type == "system"
-            render_error("System templates cannot be modified", :forbidden)
-            return
-          end
+          require_editable_content!(template)
+          return if performed?
 
           if template.update(template_params)
             render_success(template: template.template_details)
@@ -60,10 +65,8 @@ module Api
           template = find_template!
           return unless template
 
-          if template.template_type == "system"
-            render_error("System templates cannot be deleted", :forbidden)
-            return
-          end
+          require_editable_content!(template)
+          return if performed?
 
           template.update!(status: "archived")
           render_success(deleted: true)
@@ -84,6 +87,11 @@ module Api
         rescue ActiveRecord::RecordNotFound
           render_error("Mission template not found", :not_found)
           nil
+        end
+
+        # Richer serialization for clone / update_from_source responses.
+        def content_json(record)
+          record.template_details
         end
 
         def template_params

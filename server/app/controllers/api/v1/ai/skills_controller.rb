@@ -4,8 +4,19 @@ module Api
   module V1
     module Ai
       class SkillsController < ApplicationController
+        include GloballyScopedContent
+
         before_action :authenticate_request
         before_action :set_skill, only: [:show, :update, :destroy, :activate, :deactivate, :agents]
+        # clone needs create rights; update_from_source mutates the account copy.
+        before_action -> { authorize_action!("ai.skills.create") }, only: [:clone]
+        before_action -> { authorize_action!("ai.skills.update") }, only: [:update_from_source]
+        before_action -> { authorize_action!("ai.skills.read") }, only: [:update_from_source_preview]
+
+        # The GloballyScopable model backing the clone / update_from_source actions.
+        def content_model
+          ::Ai::Skill
+        end
 
         # GET /api/v1/ai/skills
         def index
@@ -52,6 +63,9 @@ module Api
           authorize_action!("ai.skills.update")
           return if performed?
 
+          require_editable_content!(@skill)
+          return if performed?
+
           skill = skill_service.update_skill(
             skill_id: @skill.id,
             attributes: skill_params,
@@ -68,6 +82,9 @@ module Api
           authorize_action!("ai.skills.delete")
           return if performed?
 
+          require_editable_content!(@skill)
+          return if performed?
+
           skill_service.delete_skill(skill_id: @skill.id)
 
           render_success(message: "Skill deleted")
@@ -80,6 +97,9 @@ module Api
           authorize_action!("ai.skills.update")
           return if performed?
 
+          require_editable_content!(@skill)
+          return if performed?
+
           skill = skill_service.toggle_skill(skill_id: @skill.id, enabled: true)
 
           render_success({ skill: skill.skill_summary })
@@ -88,6 +108,9 @@ module Api
         # POST /api/v1/ai/skills/:id/deactivate
         def deactivate
           authorize_action!("ai.skills.update")
+          return if performed?
+
+          require_editable_content!(@skill)
           return if performed?
 
           skill = skill_service.toggle_skill(skill_id: @skill.id, enabled: false)
@@ -123,6 +146,11 @@ module Api
           render_not_found("Skill")
         end
 
+        # Richer serialization for clone / update_from_source responses.
+        def content_json(record)
+          record.skill_details
+        end
+
         def skill_service
           @skill_service ||= ::Ai::SkillService.new(account: current_account)
         end
@@ -143,7 +171,8 @@ module Api
             category: params[:category],
             status: params[:status],
             enabled: params[:enabled],
-            search: params[:search]
+            search: params[:search],
+            scope: params[:scope]
           }.compact
         end
 
