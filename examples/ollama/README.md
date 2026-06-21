@@ -28,12 +28,6 @@ Simple examples demonstrating Ollama integration with Powernode AI features.
    sudo systemctl start powernode.target
    ```
 
-4. **Database seeded with Ollama provider**:
-   ```bash
-   cd server
-   bundle exec rails runner db/seeds/examples/ollama_examples_seed.rb
-   ```
-
 ## Examples
 
 ### 01-basic-chat.rb
@@ -90,8 +84,6 @@ ollama pull llama3.2
 
 ### Provider not configured
 
-Run the seed file to create the Ollama provider:
-```bash
-cd server
-bundle exec rails runner db/seeds/examples/ollama_examples_seed.rb
-```
+Create an Ollama provider in the app (AI > Providers) pointing at your Ollama
+server, or via the API. The examples look up a provider with `provider_type: "ollama"`
+(or slug `ollama` / `remote-ollama-server`).
