@@ -745,11 +745,13 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
   end
 
   create_table "ai_agent_templates", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id"
     t.integer "active_installations", default: 0
     t.jsonb "agent_config", default: {}
     t.float "average_rating"
     t.string "category"
     t.text "changelog"
+    t.uuid "cloned_from_id"
     t.datetime "created_at", null: false
     t.jsonb "default_settings", default: {}
     t.text "description"
@@ -761,6 +763,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.datetime "last_updated_at"
     t.jsonb "limitations", default: []
     t.text "long_description"
+    t.jsonb "model_requirements", default: {}, null: false
     t.decimal "monthly_price_usd", precision: 10, scale: 2
     t.string "name", null: false
     t.decimal "price_usd", precision: 10, scale: 2
@@ -775,6 +778,9 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.text "setup_instructions"
     t.string "slug", null: false
     t.uuid "source_agent_id"
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "draft", null: false
     t.jsonb "supported_providers", default: []
     t.jsonb "tags", default: []
@@ -782,13 +788,16 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.string "version", default: "1.0.0", null: false
     t.string "vertical"
     t.string "visibility", default: "private", null: false
+    t.index ["account_id"], name: "index_ai_agent_templates_on_account_id"
     t.index ["average_rating", "installation_count"], name: "idx_on_average_rating_installation_count_b612451228"
     t.index ["category"], name: "index_ai_agent_templates_on_category"
+    t.index ["cloned_from_id"], name: "index_ai_agent_templates_on_cloned_from_id"
     t.index ["is_featured"], name: "index_ai_agent_templates_on_is_featured"
     t.index ["pricing_type"], name: "index_ai_agent_templates_on_pricing_type"
     t.index ["publisher_id"], name: "index_ai_agent_templates_on_publisher_id"
     t.index ["slug"], name: "index_ai_agent_templates_on_slug", unique: true
     t.index ["source_agent_id"], name: "index_ai_agent_templates_on_source_agent_id"
+    t.index ["source_key"], name: "index_ai_agent_templates_on_source_key"
     t.index ["status", "visibility"], name: "index_ai_agent_templates_on_status_and_visibility"
     t.index ["vertical"], name: "index_ai_agent_templates_on_vertical"
     t.check_constraint "pricing_type::text = ANY (ARRAY['free'::character varying::text, 'one_time'::character varying::text, 'subscription'::character varying::text, 'usage_based'::character varying::text, 'freemium'::character varying::text])", name: "check_pricing_type"
@@ -1940,6 +1949,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.uuid "account_id"
     t.float "average_rating"
     t.string "category", null: false
+    t.uuid "cloned_from_id"
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.text "description"
@@ -1948,6 +1958,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.jsonb "integrations_required", default: []
     t.boolean "is_featured", default: false, null: false
     t.boolean "is_system", default: false, null: false
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.jsonb "output_schema", default: {}
     t.decimal "price_usd", precision: 10, scale: 2
@@ -1955,6 +1966,9 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.integer "review_count", default: 0
     t.jsonb "secrets_required", default: []
     t.string "slug", null: false
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "draft", null: false
     t.jsonb "tags", default: []
     t.string "template_type", null: false
@@ -1967,10 +1981,12 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.jsonb "workflow_definition", default: {}
     t.index ["account_id"], name: "index_ai_devops_templates_on_account_id"
     t.index ["category"], name: "index_ai_devops_templates_on_category"
+    t.index ["cloned_from_id"], name: "index_ai_devops_templates_on_cloned_from_id"
     t.index ["created_by_id"], name: "index_ai_devops_templates_on_created_by_id"
     t.index ["is_featured"], name: "index_ai_devops_templates_on_is_featured"
     t.index ["is_system"], name: "index_ai_devops_templates_on_is_system"
     t.index ["slug"], name: "index_ai_devops_templates_on_slug", unique: true
+    t.index ["source_key"], name: "index_ai_devops_templates_on_source_key"
     t.index ["status", "visibility"], name: "index_ai_devops_templates_on_status_and_visibility"
     t.index ["template_type"], name: "index_ai_devops_templates_on_template_type"
     t.check_constraint "category::text = ANY (ARRAY['code_quality'::character varying::text, 'deployment'::character varying::text, 'documentation'::character varying::text, 'testing'::character varying::text, 'security'::character varying::text, 'monitoring'::character varying::text, 'release'::character varying::text, 'custom'::character varying::text])", name: "check_devops_category"
@@ -2402,11 +2418,12 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
   end
 
   create_table "ai_knowledge_bases", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
+    t.uuid "account_id"
     t.integer "chunk_count", default: 0
     t.integer "chunk_overlap", default: 200
     t.integer "chunk_size", default: 1000
     t.string "chunking_strategy", default: "recursive", null: false
+    t.uuid "cloned_from_id"
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.string "description"
@@ -2419,17 +2436,24 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.datetime "last_indexed_at"
     t.datetime "last_queried_at"
     t.jsonb "metadata_schema", default: {}
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.jsonb "settings", default: {}
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "active", null: false
     t.bigint "storage_bytes", default: 0
     t.bigint "total_tokens", default: 0
     t.datetime "updated_at", null: false
-    t.index ["account_id", "name"], name: "index_ai_knowledge_bases_on_account_id_and_name", unique: true
+    t.index ["account_id", "name"], name: "index_ai_knowledge_bases_on_account_id_and_name", unique: true, where: "(account_id IS NOT NULL)"
     t.index ["account_id"], name: "index_ai_knowledge_bases_on_account_id"
+    t.index ["cloned_from_id"], name: "index_ai_knowledge_bases_on_cloned_from_id"
     t.index ["created_by_id"], name: "index_ai_knowledge_bases_on_created_by_id"
     t.index ["git_repository_id"], name: "index_ai_knowledge_bases_on_git_repository_id"
     t.index ["is_public"], name: "index_ai_knowledge_bases_on_is_public"
+    t.index ["name"], name: "index_ai_knowledge_bases_on_name_global", unique: true, where: "(account_id IS NULL)"
+    t.index ["source_key"], name: "index_ai_knowledge_bases_on_source_key"
     t.index ["status"], name: "index_ai_knowledge_bases_on_status"
     t.check_constraint "chunking_strategy::text = ANY (ARRAY['recursive'::character varying::text, 'semantic'::character varying::text, 'fixed'::character varying::text, 'sentence'::character varying::text, 'paragraph'::character varying::text, 'custom'::character varying::text])", name: "check_kb_chunking_strategy"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'indexing'::character varying::text, 'paused'::character varying::text, 'archived'::character varying::text, 'error'::character varying::text])", name: "check_kb_status"
@@ -2661,23 +2685,30 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
   create_table "ai_mission_templates", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id"
     t.jsonb "approval_gates", default: []
+    t.uuid "cloned_from_id"
     t.datetime "created_at", null: false
     t.jsonb "default_configuration", default: {}
     t.text "description"
     t.boolean "is_default", default: false
     t.string "mission_type", null: false
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.jsonb "phases", default: []
     t.jsonb "rejection_mappings", default: {}
     t.jsonb "skill_compositions", default: {}
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "active"
     t.string "template_type", default: "account", null: false
     t.datetime "updated_at", null: false
     t.integer "version", default: 1
     t.index ["account_id", "template_type"], name: "index_ai_mission_templates_on_account_id_and_template_type"
     t.index ["account_id"], name: "index_ai_mission_templates_on_account_id"
+    t.index ["cloned_from_id"], name: "index_ai_mission_templates_on_cloned_from_id"
     t.index ["is_default"], name: "index_ai_mission_templates_on_is_default", where: "(is_default = true)"
     t.index ["mission_type", "status"], name: "index_ai_mission_templates_on_mission_type_and_status"
+    t.index ["source_key"], name: "index_ai_mission_templates_on_source_key"
   end
 
   create_table "ai_missions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -3772,6 +3803,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.jsonb "activation_rules", default: {}
     t.uuid "ai_knowledge_base_id"
     t.string "category", null: false
+    t.uuid "cloned_from_id"
     t.jsonb "commands", default: []
     t.datetime "created_at", null: false
     t.text "description"
@@ -3783,11 +3815,15 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.datetime "last_used_at"
     t.jsonb "lifecycle_metadata", default: {}
     t.jsonb "metadata", default: {}
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.integer "negative_usage_count", default: 0
     t.uuid "parent_skill_id"
     t.integer "positive_usage_count", default: 0
     t.string "slug", null: false
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "active"
     t.text "system_prompt"
     t.jsonb "tags", default: []
@@ -3797,9 +3833,11 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.index ["account_id"], name: "index_ai_skills_on_account_id"
     t.index ["ai_knowledge_base_id"], name: "index_ai_skills_on_ai_knowledge_base_id"
     t.index ["category"], name: "index_ai_skills_on_category"
+    t.index ["cloned_from_id"], name: "index_ai_skills_on_cloned_from_id"
     t.index ["is_system"], name: "index_ai_skills_on_is_system"
     t.index ["parent_skill_id"], name: "index_ai_skills_on_parent_skill_id"
     t.index ["slug"], name: "index_ai_skills_on_slug", unique: true
+    t.index ["source_key"], name: "index_ai_skills_on_source_key"
     t.index ["status"], name: "index_ai_skills_on_status"
     t.index ["tags"], name: "index_ai_skills_on_tags", using: :gin
   end
@@ -4080,26 +4118,33 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.float "average_rating"
     t.string "category"
     t.jsonb "channel_definitions", default: []
+    t.uuid "cloned_from_id"
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.jsonb "default_config", default: {}
     t.text "description"
     t.boolean "is_public", default: false, null: false
     t.boolean "is_system", default: false, null: false
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.datetime "published_at"
     t.jsonb "role_definitions", default: []
     t.string "slug", null: false
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.jsonb "tags", default: []
     t.string "team_topology", default: "hierarchical", null: false
     t.datetime "updated_at", null: false
     t.integer "usage_count", default: 0
     t.jsonb "workflow_pattern", default: {}
     t.index ["account_id"], name: "index_ai_team_templates_on_account_id"
+    t.index ["cloned_from_id"], name: "index_ai_team_templates_on_cloned_from_id"
     t.index ["created_by_id"], name: "index_ai_team_templates_on_created_by_id"
     t.index ["is_public", "category"], name: "index_ai_team_templates_on_is_public_and_category"
     t.index ["is_system"], name: "index_ai_team_templates_on_is_system"
     t.index ["slug"], name: "index_ai_team_templates_on_slug", unique: true
+    t.index ["source_key"], name: "index_ai_team_templates_on_source_key"
     t.index ["team_topology"], name: "index_ai_team_templates_on_team_topology"
     t.check_constraint "team_topology::text = ANY (ARRAY['hierarchical'::character varying::text, 'flat'::character varying::text, 'mesh'::character varying::text, 'pipeline'::character varying::text, 'hybrid'::character varying::text])", name: "check_team_topology"
   end
@@ -6538,8 +6583,10 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
   end
 
   create_table "knowledge_base_articles", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "author_id", null: false
+    t.uuid "account_id"
+    t.uuid "author_id"
     t.uuid "category_id", null: false
+    t.uuid "cloned_from_id"
     t.text "content", null: false
     t.datetime "created_at", null: false
     t.text "excerpt"
@@ -6553,19 +6600,25 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.text "meta_description"
     t.string "meta_title", limit: 255
     t.jsonb "metadata", default: {}
+    t.jsonb "model_requirements", default: {}, null: false
     t.integer "not_helpful_count", default: 0
     t.datetime "published_at"
     t.integer "reading_time_minutes"
     t.tsvector "search_vector"
     t.string "slug", limit: 255, null: false
     t.integer "sort_order", default: 0
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", limit: 50, default: "draft"
     t.string "title", limit: 255, null: false
     t.datetime "updated_at", null: false
     t.integer "view_count", default: 0
     t.integer "views_count", default: 0
+    t.index ["account_id"], name: "index_knowledge_base_articles_on_account_id"
     t.index ["author_id"], name: "index_knowledge_base_articles_on_author_id"
     t.index ["category_id"], name: "index_knowledge_base_articles_on_category_id"
+    t.index ["cloned_from_id"], name: "index_knowledge_base_articles_on_cloned_from_id"
     t.index ["helpfulness_score"], name: "index_knowledge_base_articles_on_helpfulness_score"
     t.index ["is_featured"], name: "index_knowledge_base_articles_on_is_featured"
     t.index ["is_public"], name: "index_knowledge_base_articles_on_is_public"
@@ -6573,6 +6626,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.index ["published_at"], name: "index_knowledge_base_articles_on_published_at"
     t.index ["search_vector"], name: "idx_knowledge_base_articles_on_search_vector", using: :gin
     t.index ["slug"], name: "index_knowledge_base_articles_on_slug", unique: true
+    t.index ["source_key"], name: "index_knowledge_base_articles_on_source_key"
     t.index ["status"], name: "index_knowledge_base_articles_on_status"
     t.index ["view_count"], name: "index_knowledge_base_articles_on_view_count"
     t.check_constraint "helpful_count >= 0 AND not_helpful_count >= 0", name: "valid_kb_helpful_counts"
@@ -7221,8 +7275,9 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
   end
 
   create_table "shared_prompt_templates", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
+    t.uuid "account_id"
     t.string "category", null: false
+    t.uuid "cloned_from_id"
     t.text "content", null: false
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
@@ -7231,20 +7286,27 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.boolean "is_active", default: true, null: false
     t.boolean "is_system", default: false, null: false
     t.jsonb "metadata", default: {}, null: false
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.uuid "parent_template_id"
     t.decimal "rating", precision: 3, scale: 2, default: "0.0"
     t.integer "rating_count", default: 0
     t.string "slug", null: false
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.datetime "updated_at", null: false
     t.jsonb "variables", default: [], null: false
     t.integer "version", default: 1, null: false
     t.index ["account_id", "category"], name: "index_shared_prompt_templates_on_account_id_and_category"
     t.index ["account_id", "domain"], name: "index_shared_prompt_templates_on_account_id_and_domain"
-    t.index ["account_id", "slug"], name: "index_shared_prompt_templates_on_account_id_and_slug", unique: true
+    t.index ["account_id", "slug"], name: "index_shared_prompt_templates_on_account_id_and_slug", unique: true, where: "(account_id IS NOT NULL)"
+    t.index ["cloned_from_id"], name: "index_shared_prompt_templates_on_cloned_from_id"
     t.index ["is_active"], name: "index_shared_prompt_templates_on_is_active"
     t.index ["is_system"], name: "index_shared_prompt_templates_on_is_system"
     t.index ["parent_template_id"], name: "index_shared_prompt_templates_on_parent_template_id"
+    t.index ["slug"], name: "index_shared_prompt_templates_on_slug_global", unique: true, where: "(account_id IS NULL)"
+    t.index ["source_key"], name: "index_shared_prompt_templates_on_source_key"
   end
 
   create_table "site_settings", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -11044,6 +11106,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
   add_foreign_key "ai_agent_team_members", "ai_agent_teams"
   add_foreign_key "ai_agent_team_members", "ai_agents"
   add_foreign_key "ai_agent_teams", "accounts"
+  add_foreign_key "ai_agent_templates", "accounts"
   add_foreign_key "ai_agent_templates", "ai_agents", column: "source_agent_id"
   add_foreign_key "ai_agent_trust_scores", "accounts"
   add_foreign_key "ai_agent_trust_scores", "ai_agents", column: "agent_id"
@@ -11540,6 +11603,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "jwt_blacklists", "users", on_delete: :nullify
   add_foreign_key "knowledge_base_article_views", "users"
+  add_foreign_key "knowledge_base_articles", "accounts"
   add_foreign_key "knowledge_base_articles", "knowledge_base_categories", column: "category_id", on_delete: :cascade
   add_foreign_key "knowledge_base_articles", "users", column: "author_id"
   add_foreign_key "knowledge_base_articles", "users", column: "last_edited_by_id"

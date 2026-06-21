@@ -730,11 +730,13 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
   end
 
   create_table "ai_agent_templates", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id"
     t.integer "active_installations", default: 0
     t.jsonb "agent_config", default: {}
     t.float "average_rating"
     t.string "category"
     t.text "changelog"
+    t.uuid "cloned_from_id"
     t.datetime "created_at", null: false
     t.jsonb "default_settings", default: {}
     t.text "description"
@@ -746,6 +748,7 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.datetime "last_updated_at"
     t.jsonb "limitations", default: []
     t.text "long_description"
+    t.jsonb "model_requirements", default: {}, null: false
     t.decimal "monthly_price_usd", precision: 10, scale: 2
     t.string "name", null: false
     t.decimal "price_usd", precision: 10, scale: 2
@@ -760,6 +763,9 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.text "setup_instructions"
     t.string "slug", null: false
     t.uuid "source_agent_id"
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "draft", null: false
     t.jsonb "supported_providers", default: []
     t.jsonb "tags", default: []
@@ -767,13 +773,16 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.string "version", default: "1.0.0", null: false
     t.string "vertical"
     t.string "visibility", default: "private", null: false
+    t.index ["account_id"]
     t.index ["average_rating", "installation_count"]
     t.index ["category"]
+    t.index ["cloned_from_id"]
     t.index ["is_featured"]
     t.index ["pricing_type"]
     t.index ["publisher_id"]
     t.index ["slug"], unique: true
     t.index ["source_agent_id"]
+    t.index ["source_key"]
     t.index ["status", "visibility"]
     t.index ["vertical"]
     t.check_constraint "pricing_type::text = ANY (ARRAY['free'::character varying::text, 'one_time'::character varying::text, 'subscription'::character varying::text, 'usage_based'::character varying::text, 'freemium'::character varying::text])", name: "check_pricing_type"
@@ -1925,6 +1934,7 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.uuid "account_id"
     t.float "average_rating"
     t.string "category", null: false
+    t.uuid "cloned_from_id"
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.text "description"
@@ -1933,6 +1943,7 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.jsonb "integrations_required", default: []
     t.boolean "is_featured", default: false, null: false
     t.boolean "is_system", default: false, null: false
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.jsonb "output_schema", default: {}
     t.decimal "price_usd", precision: 10, scale: 2
@@ -1940,6 +1951,9 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.integer "review_count", default: 0
     t.jsonb "secrets_required", default: []
     t.string "slug", null: false
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "draft", null: false
     t.jsonb "tags", default: []
     t.string "template_type", null: false
@@ -1952,10 +1966,12 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.jsonb "workflow_definition", default: {}
     t.index ["account_id"]
     t.index ["category"]
+    t.index ["cloned_from_id"]
     t.index ["created_by_id"]
     t.index ["is_featured"]
     t.index ["is_system"]
     t.index ["slug"], unique: true
+    t.index ["source_key"]
     t.index ["status", "visibility"]
     t.index ["template_type"]
     t.check_constraint "category::text = ANY (ARRAY['code_quality'::character varying::text, 'deployment'::character varying::text, 'documentation'::character varying::text, 'testing'::character varying::text, 'security'::character varying::text, 'monitoring'::character varying::text, 'release'::character varying::text, 'custom'::character varying::text])", name: "check_devops_category"
@@ -2387,11 +2403,12 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
   end
 
   create_table "ai_knowledge_bases", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
+    t.uuid "account_id"
     t.integer "chunk_count", default: 0
     t.integer "chunk_overlap", default: 200
     t.integer "chunk_size", default: 1000
     t.string "chunking_strategy", default: "recursive", null: false
+    t.uuid "cloned_from_id"
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.string "description"
@@ -2404,17 +2421,24 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.datetime "last_indexed_at"
     t.datetime "last_queried_at"
     t.jsonb "metadata_schema", default: {}
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.jsonb "settings", default: {}
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "active", null: false
     t.bigint "storage_bytes", default: 0
     t.bigint "total_tokens", default: 0
     t.datetime "updated_at", null: false
-    t.index ["account_id", "name"], unique: true
+    t.index ["account_id", "name"], unique: true, where: "(account_id IS NOT NULL)"
     t.index ["account_id"]
+    t.index ["cloned_from_id"]
     t.index ["created_by_id"]
     t.index ["git_repository_id"]
     t.index ["is_public"]
+    t.index ["name"], unique: true, where: "(account_id IS NULL)", name: "index_ai_knowledge_bases_on_name_global"
+    t.index ["source_key"]
     t.index ["status"]
     t.check_constraint "chunking_strategy::text = ANY (ARRAY['recursive'::character varying::text, 'semantic'::character varying::text, 'fixed'::character varying::text, 'sentence'::character varying::text, 'paragraph'::character varying::text, 'custom'::character varying::text])", name: "check_kb_chunking_strategy"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'indexing'::character varying::text, 'paused'::character varying::text, 'archived'::character varying::text, 'error'::character varying::text])", name: "check_kb_status"
@@ -2646,23 +2670,30 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
   create_table "ai_mission_templates", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id"
     t.jsonb "approval_gates", default: []
+    t.uuid "cloned_from_id"
     t.datetime "created_at", null: false
     t.jsonb "default_configuration", default: {}
     t.text "description"
     t.boolean "is_default", default: false
     t.string "mission_type", null: false
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.jsonb "phases", default: []
     t.jsonb "rejection_mappings", default: {}
     t.jsonb "skill_compositions", default: {}
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "active"
     t.string "template_type", default: "account", null: false
     t.datetime "updated_at", null: false
     t.integer "version", default: 1
     t.index ["account_id", "template_type"]
     t.index ["account_id"]
+    t.index ["cloned_from_id"]
     t.index ["is_default"], name: "index_ai_mission_templates_on_is_default", where: "(is_default = true)"
     t.index ["mission_type", "status"]
+    t.index ["source_key"]
   end
 
   create_table "ai_missions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -3757,6 +3788,7 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.jsonb "activation_rules", default: {}
     t.uuid "ai_knowledge_base_id"
     t.string "category", null: false
+    t.uuid "cloned_from_id"
     t.jsonb "commands", default: []
     t.datetime "created_at", null: false
     t.text "description"
@@ -3768,11 +3800,15 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.datetime "last_used_at"
     t.jsonb "lifecycle_metadata", default: {}
     t.jsonb "metadata", default: {}
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.integer "negative_usage_count", default: 0
     t.uuid "parent_skill_id"
     t.integer "positive_usage_count", default: 0
     t.string "slug", null: false
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "active"
     t.text "system_prompt"
     t.jsonb "tags", default: []
@@ -3782,9 +3818,11 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.index ["account_id"]
     t.index ["ai_knowledge_base_id"]
     t.index ["category"]
+    t.index ["cloned_from_id"]
     t.index ["is_system"]
     t.index ["parent_skill_id"]
     t.index ["slug"], unique: true
+    t.index ["source_key"]
     t.index ["status"]
     t.index ["tags"], name: "index_ai_skills_on_tags", using: :gin
   end
@@ -4065,26 +4103,33 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.float "average_rating"
     t.string "category"
     t.jsonb "channel_definitions", default: []
+    t.uuid "cloned_from_id"
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.jsonb "default_config", default: {}
     t.text "description"
     t.boolean "is_public", default: false, null: false
     t.boolean "is_system", default: false, null: false
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.datetime "published_at"
     t.jsonb "role_definitions", default: []
     t.string "slug", null: false
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.jsonb "tags", default: []
     t.string "team_topology", default: "hierarchical", null: false
     t.datetime "updated_at", null: false
     t.integer "usage_count", default: 0
     t.jsonb "workflow_pattern", default: {}
     t.index ["account_id"]
+    t.index ["cloned_from_id"]
     t.index ["created_by_id"]
     t.index ["is_public", "category"]
     t.index ["is_system"]
     t.index ["slug"], unique: true
+    t.index ["source_key"]
     t.index ["team_topology"]
     t.check_constraint "team_topology::text = ANY (ARRAY['hierarchical'::character varying::text, 'flat'::character varying::text, 'mesh'::character varying::text, 'pipeline'::character varying::text, 'hybrid'::character varying::text])", name: "check_team_topology"
   end
@@ -6523,8 +6568,10 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
   end
 
   create_table "knowledge_base_articles", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "author_id", null: false
+    t.uuid "account_id"
+    t.uuid "author_id"
     t.uuid "category_id", null: false
+    t.uuid "cloned_from_id"
     t.text "content", null: false
     t.datetime "created_at", null: false
     t.text "excerpt"
@@ -6538,19 +6585,25 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.text "meta_description"
     t.string "meta_title", limit: 255
     t.jsonb "metadata", default: {}
+    t.jsonb "model_requirements", default: {}, null: false
     t.integer "not_helpful_count", default: 0
     t.datetime "published_at"
     t.integer "reading_time_minutes"
     t.tsvector "search_vector"
     t.string "slug", limit: 255, null: false
     t.integer "sort_order", default: 0
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", limit: 50, default: "draft"
     t.string "title", limit: 255, null: false
     t.datetime "updated_at", null: false
     t.integer "view_count", default: 0
     t.integer "views_count", default: 0
+    t.index ["account_id"]
     t.index ["author_id"]
     t.index ["category_id"]
+    t.index ["cloned_from_id"]
     t.index ["helpfulness_score"]
     t.index ["is_featured"]
     t.index ["is_public"]
@@ -6558,6 +6611,7 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.index ["published_at"]
     t.index ["search_vector"], name: "idx_knowledge_base_articles_on_search_vector", using: :gin
     t.index ["slug"], unique: true
+    t.index ["source_key"]
     t.index ["status"]
     t.index ["view_count"]
     t.check_constraint "helpful_count >= 0 AND not_helpful_count >= 0", name: "valid_kb_helpful_counts"
@@ -7003,8 +7057,9 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
   end
 
   create_table "shared_prompt_templates", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
+    t.uuid "account_id"
     t.string "category", null: false
+    t.uuid "cloned_from_id"
     t.text "content", null: false
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
@@ -7013,20 +7068,27 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.boolean "is_active", default: true, null: false
     t.boolean "is_system", default: false, null: false
     t.jsonb "metadata", default: {}, null: false
+    t.jsonb "model_requirements", default: {}, null: false
     t.string "name", null: false
     t.uuid "parent_template_id"
     t.decimal "rating", precision: 3, scale: 2, default: "0.0"
     t.integer "rating_count", default: 0
     t.string "slug", null: false
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.datetime "updated_at", null: false
     t.jsonb "variables", default: [], null: false
     t.integer "version", default: 1, null: false
     t.index ["account_id", "category"]
     t.index ["account_id", "domain"]
-    t.index ["account_id", "slug"], unique: true
+    t.index ["account_id", "slug"], unique: true, where: "(account_id IS NOT NULL)"
+    t.index ["cloned_from_id"]
     t.index ["is_active"]
     t.index ["is_system"]
     t.index ["parent_template_id"]
+    t.index ["slug"], unique: true, where: "(account_id IS NULL)", name: "index_shared_prompt_templates_on_slug_global"
+    t.index ["source_key"]
   end
 
   create_table "site_settings", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -7451,6 +7513,7 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     add_foreign_key "ai_agent_team_members", "ai_agent_teams", column: "ai_agent_team_id"
     add_foreign_key "ai_agent_team_members", "ai_agents", column: "ai_agent_id"
     add_foreign_key "ai_agent_teams", "accounts", column: "account_id"
+    add_foreign_key "ai_agent_templates", "accounts", column: "account_id"
     add_foreign_key "ai_agent_templates", "ai_agents", column: "source_agent_id"
     add_foreign_key "ai_agent_trust_scores", "accounts", column: "account_id"
     add_foreign_key "ai_agent_trust_scores", "ai_agents", column: "agent_id"
@@ -7944,6 +8007,7 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     add_foreign_key "invitations", "users", column: "inviter_id"
     add_foreign_key "jwt_blacklists", "users", column: "user_id", on_delete: :nullify
     add_foreign_key "knowledge_base_article_views", "users", column: "user_id"
+    add_foreign_key "knowledge_base_articles", "accounts", column: "account_id"
     add_foreign_key "knowledge_base_articles", "knowledge_base_categories", column: "category_id", on_delete: :cascade
     add_foreign_key "knowledge_base_articles", "users", column: "author_id"
     add_foreign_key "knowledge_base_articles", "users", column: "last_edited_by_id"
