@@ -64,6 +64,15 @@ export interface FeatureHeaderWidget {
  *  SetupWizard for component-based extension steps; keyed by id, never by core. */
 type SetupStepComponent = LazyExoticComponent<ComponentType<unknown>> | ComponentType<unknown>;
 
+/** A component an extension contributes into a named slot that a core host page
+ *  exposes (e.g. an optional leaf inside a tabbed hub). Keyed by an opaque slot
+ *  id the host page owns (e.g. 'ai.cost.outcome-billing'); the host renders the
+ *  slot's component when present and omits the surface when absent. Lets a core
+ *  page host an extension-provided sub-view without importing — or naming — any
+ *  extension. Props are slot-specific; the host casts to the slot's prop shape
+ *  at the call site (mirrors getSetupStepComponent). */
+type ComponentSlot = LazyExoticComponent<ComponentType<unknown>> | ComponentType<unknown>;
+
 interface FeatureRegistryState {
   routes: Map<string, FeatureRoute[]>;
   publicRoutes: Map<string, FeatureRoute[]>;
@@ -72,6 +81,7 @@ interface FeatureRegistryState {
   settingsTabs: Map<string, FeatureSettingsTab[]>;
   headerWidgets: Map<string, FeatureHeaderWidget[]>;
   setupStepComponents: Map<string, SetupStepComponent>;
+  componentSlots: Map<string, ComponentSlot>;
   version: number;
   listeners: Set<() => void>;
 }
@@ -84,6 +94,7 @@ const state: FeatureRegistryState = {
   settingsTabs: new Map(),
   headerWidgets: new Map(),
   setupStepComponents: new Map(),
+  componentSlots: new Map(),
   version: 0,
   listeners: new Set(),
 };
@@ -128,6 +139,25 @@ export const featureRegistry = {
   /** Resolve a setup-step component by its `component` id, or undefined. */
   getSetupStepComponent(id: string): SetupStepComponent | undefined {
     return state.setupStepComponents.get(id);
+  },
+
+  /**
+   * Register components into named slots that core host pages expose, keyed by
+   * each slot's opaque id (owned by the host page, e.g. 'ai.cost.outcome-billing').
+   * Extensions call this from register.ts to fill a host slot; the host renders
+   * the slot when present and omits the surface when absent — so a core page can
+   * host an extension-provided sub-view without importing or naming any extension.
+   */
+  registerComponentSlots(slots: Record<string, ComponentSlot>): void {
+    Object.entries(slots).forEach(([id, component]) => {
+      state.componentSlots.set(id, component);
+    });
+    notifyListeners();
+  },
+
+  /** Resolve a slot component by its host-owned slot id, or undefined. */
+  getComponentSlot(id: string): ComponentSlot | undefined {
+    return state.componentSlots.get(id);
   },
 
   /**
@@ -275,5 +305,7 @@ export const featureRegistry = {
     state.navSections.clear();
     state.settingsTabs.clear();
     state.headerWidgets.clear();
+    state.setupStepComponents.clear();
+    state.componentSlots.clear();
   },
 };

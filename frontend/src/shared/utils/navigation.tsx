@@ -4,9 +4,9 @@ import {
   FileText, UserCheck,
   HelpCircle, LogOut, Bot, Brain, Bell,
   HardDrive, Workflow, Server, GitBranch,
-  Plug, BookOpen, UserCog, Activity, ShieldCheck,
+  Plug, BookOpen, Activity, ShieldCheck,
   Container, Boxes,
-  Play, Rocket, DollarSign, Code2, Gauge, Building2, CreditCard
+  Play, Rocket, DollarSign, Code2, Gauge, Building2
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -199,15 +199,9 @@ export const defaultNavigationConfig: NavigationConfig = {
           permissions: [],
           order: 2
         },
-        {
-          id: 'subscription',
-          name: 'Subscription',
-          href: '/app/profile/subscription',
-          icon: CreditCard,
-          description: 'Your subscription and plan',
-          permissions: ['business.billing.read', 'business.billing.manage'],
-          order: 3
-        },
+        // 'Subscription' (order 3) is registered by the business extension via
+        // featureRegistry.registerNavItems('business', [{ section: 'account', ... }]),
+        // since billing/subscription is a commercial concern owned by that extension.
         {
           id: 'users',
           name: 'Users',
@@ -432,15 +426,9 @@ export const adminNavigationOverrides = {
           permissions: ['admin.role.read'],
           order: 2
         },
-        {
-          id: 'impersonation-admin',
-          name: 'Impersonation',
-          href: '/app/admin/impersonation',
-          icon: UserCog,
-          description: 'User impersonation for support and debugging',
-          permissions: ['business.impersonation.read'],
-          order: 3
-        },
+        // 'Impersonation' (order 3) is registered by the business extension via
+        // featureRegistry.registerNavItems('business', [{ section: 'admin', ... }]);
+        // the impersonation page/route/permission (admin.user.impersonate) live there.
         {
           id: 'settings',
           name: 'Settings',

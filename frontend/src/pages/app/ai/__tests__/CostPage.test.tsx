@@ -29,9 +29,6 @@ jest.mock('@/shared/hooks/usePermissions', () => ({
 jest.mock('@/pages/app/ai/CreditsPage', () => ({
   CreditsContent: () => <div data-testid="credits-leaf" />,
 }));
-jest.mock('@/pages/app/ai/OutcomeBillingPage', () => ({
-  OutcomeBillingContent: () => <div data-testid="outcome-leaf" />,
-}));
 jest.mock('@/features/ai/finops', () => ({
   FinOpsContent: () => <div data-testid="finops-leaf" />,
 }));
@@ -46,6 +43,18 @@ jest.mock('@/features/ai/finops/components/CostTrendChart', () => ({
 }));
 
 import { CostPage } from '../CostPage';
+import { featureRegistry } from '@/shared/services/featureRegistry';
+
+// Outcome Billing is an extension-provided leaf the hub hosts via a registry
+// component slot; fill it so the hub renders the leaf (mirrors a loaded extension).
+beforeEach(() => {
+  featureRegistry.registerComponentSlots({
+    'ai.cost.outcome-billing': () => <div data-testid="outcome-leaf" />,
+  });
+});
+afterEach(() => {
+  featureRegistry.clear();
+});
 
 function renderAt(path: string) {
   return render(
