@@ -261,7 +261,7 @@ Audit Log Entry:
 ```yaml
 Search Queries:
   # All login failures
-  event_type: authentication.login
+  event_type: user.login
   status: failure
 
   # Permission changes today

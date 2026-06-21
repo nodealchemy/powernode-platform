@@ -2474,7 +2474,7 @@ puts "    ✅ Team Conversations & Chat"
 mcp_platform_tools_content = <<~MARKDOWN
   # MCP Platform Tools Reference
 
-  Complete reference for all 42 MCP platform tools available to AI agents through the `PlatformApiToolRegistry`.
+  Complete reference for all 39 MCP platform tools available to AI agents through the `PlatformApiToolRegistry`.
 
   ## Tool Categories
 

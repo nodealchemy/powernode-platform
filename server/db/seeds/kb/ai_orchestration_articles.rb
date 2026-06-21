@@ -133,19 +133,19 @@ Configure per-task model selection to optimize costs:
 
 ```yaml
 Agent: Backend Developer
-  Default Model: claude-sonnet-4-5
+  Default Model: claude-sonnet-4-6
   Task Overrides:
     documentation: ollama/qwen2.5:14b  # Free, self-hosted
-    code_review: claude-sonnet-4-5      # Premium quality
-    planning: claude-sonnet-4-5         # Standard
+    code_review: claude-sonnet-4-6      # Premium quality
+    planning: claude-sonnet-4-6         # Standard
 ```
 
 ### Model Cost Comparison
 
 | Model | Input/1K | Output/1K | Best For |
 |-------|----------|-----------|----------|
-| Claude Opus 4.1 | $0.015 | $0.075 | Complex reasoning, leadership |
-| Claude Sonnet 4.5 | $0.003 | $0.015 | Coding, general purpose |
+| Claude Opus 4.8 | $0.015 | $0.075 | Complex reasoning, leadership |
+| Claude Sonnet 4.6 | $0.003 | $0.015 | Coding, general purpose |
 | Claude Haiku 4.5 | $0.001 | $0.005 | Fast tasks, high volume |
 | GPT-4o Mini | $0.00015 | $0.0006 | Simple tasks, testing |
 | Ollama (any) | $0.00 | $0.00 | Documentation, offline |
@@ -252,8 +252,8 @@ Industry-leading models for coding, reasoning, and agentic workflows.
 **Available Models:**
 | Model | Context | Best For | Cost/1K Input | Cost/1K Output |
 |-------|---------|----------|---------------|----------------|
-| Claude Opus 4.1 | 200K | Complex reasoning, leadership, multi-hour tasks | $0.015 | $0.075 |
-| Claude Sonnet 4.5 | 200K | Best coding model, complex agents, general purpose | $0.003 | $0.015 |
+| Claude Opus 4.8 | 200K | Complex reasoning, leadership, multi-hour tasks | $0.015 | $0.075 |
+| Claude Sonnet 4.6 | 200K | Best coding model, complex agents, general purpose | $0.003 | $0.015 |
 | Claude Haiku 4.5 | 200K | Fast tasks, parallel execution, cost optimization | $0.001 | $0.005 |
 
 **Configuration:**
@@ -265,7 +265,7 @@ Provider Setup:
   Base URL: https://api.anthropic.com/v1 (default)
 
 Settings:
-  Default Model: claude-sonnet-4-5-20250929
+  Default Model: claude-sonnet-4-6
   Max Retries: 3
   Timeout: 120s
   Rate Limit:
@@ -284,8 +284,8 @@ Broad model ecosystem with vision, reasoning, and embeddings.
 |-------|---------|----------|---------------|----------------|
 | GPT-4o | 128K | Multimodal, function calling | $0.0025 | $0.01 |
 | GPT-4o Mini | 128K | Cost-effective, high volume | $0.00015 | $0.0006 |
-| o1-preview | 128K | Advanced reasoning, math | $0.015 | $0.06 |
-| o1-mini | 128K | Faster reasoning, coding | $0.0011 | $0.0044 |
+| o3 | 128K | Advanced reasoning, math | $0.015 | $0.06 |
+| o4-mini | 128K | Faster reasoning, coding | $0.0011 | $0.0044 |
 
 **Configuration:**
 ```yaml
@@ -353,9 +353,9 @@ To use a remote Ollama instance (e.g., on a GPU server):
 | Ollama (any) | $0.000 | $0.000 | Free | Documentation, simple tasks |
 | GPT-4o Mini | $0.00015 | $0.0006 | $ | Testing, QA, high volume |
 | Claude Haiku 4.5 | $0.001 | $0.005 | $$ | DevOps, fast tasks |
-| Claude Sonnet 4.5 | $0.003 | $0.015 | $$$ | Coding, general purpose |
+| Claude Sonnet 4.6 | $0.003 | $0.015 | $$$ | Coding, general purpose |
 | GPT-4o | $0.0025 | $0.01 | $$$ | Multimodal, vision |
-| Claude Opus 4.1 | $0.015 | $0.075 | $$$$$ | Architecture, complex reasoning |
+| Claude Opus 4.8 | $0.015 | $0.075 | $$$$$ | Architecture, complex reasoning |
 
 ## Adding a Provider
 
@@ -425,7 +425,7 @@ Automatic failover:
 Fallback Chain:
   Primary: openai-production (gpt-4o)
   Fallbacks:
-    1. anthropic-production (claude-3-5-sonnet)
+    1. anthropic-production (claude-sonnet-4-6)
     2. openai-backup (gpt-4-turbo)
     3. ollama-local (llama3.1:70b)
 
@@ -1539,8 +1539,8 @@ Team: Code Review Squad
   Type: functional
   Use Case: Parallel code review from multiple perspectives
   Members:
-    - Security Reviewer (Claude Sonnet 4.5)
-    - Performance Reviewer (Claude Sonnet 4.5)
+    - Security Reviewer (Claude Sonnet 4.6)
+    - Performance Reviewer (Claude Sonnet 4.6)
     - Style Reviewer (Claude Haiku 4.5)
 ```
 
@@ -1553,8 +1553,8 @@ Team: Feature Delivery
   Type: cross_functional
   Use Case: Full-stack feature development
   Members:
-    - Frontend Developer (Claude Sonnet 4.5)
-    - Backend Developer (Claude Sonnet 4.5)
+    - Frontend Developer (Claude Sonnet 4.6)
+    - Backend Developer (Claude Sonnet 4.6)
     - QA Engineer (GPT-4o Mini)
     - Documentation (Ollama Qwen 2.5)
 ```
@@ -1568,12 +1568,12 @@ Team: Powernode Development Team
   Type: hierarchical
   Use Case: Managed project work with oversight
   Members:
-    - Project Lead (Claude Opus 4.1) [LEAD]
-    - Frontend Developer (Claude Sonnet 4.5)
-    - Backend Developer (Claude Sonnet 4.5)
+    - Project Lead (Claude Opus 4.8) [LEAD]
+    - Frontend Developer (Claude Sonnet 4.6)
+    - Backend Developer (Claude Sonnet 4.6)
     - DevOps Engineer (Claude Haiku 4.5)
     - QA Engineer (GPT-4o Mini)
-    - Doc Specialist (Claude Sonnet 4.5)
+    - Doc Specialist (Claude Sonnet 4.6)
 ```
 
 ### Swarm Teams
@@ -1948,7 +1948,7 @@ Team: Enterprise Support
   Members:
     - agent: triage-agent
       role: Initial classification
-      model: gpt-3.5-turbo  # Fast for simple task
+      model: gpt-4.1-mini  # Fast for simple task
 
     - agent: technical-agent
       role: Technical issues
@@ -2742,8 +2742,8 @@ Token Metrics (Last 24 Hours):
 
   By Model:
     gpt-4o: 1,000,000
-    claude-3-5-sonnet: 800,000
-    gpt-3.5-turbo: 500,000
+    claude-sonnet-4-6: 800,000
+    gpt-4.1-mini: 500,000
     llama3.1: 150,000
 ```
 
@@ -2781,7 +2781,7 @@ Rate Limits:
     Tokens: 85,000/100,000 per minute
     Status: ⚠️ Near limit
 
-  Anthropic (claude-3-5-sonnet):
+  Anthropic (claude-sonnet-4-6):
     Requests: 150/500 per minute
     Tokens: 45,000/200,000 per minute
     Status: ✅ OK
@@ -3351,15 +3351,15 @@ Incident Workflow:
 Approved Models:
   Production:
     - gpt-4o (OpenAI)
-    - claude-3-5-sonnet (Anthropic)
+    - claude-sonnet-4-6 (Anthropic)
     - llama3.1:70b (Ollama - internal only)
 
   Sandbox Only:
     - gpt-4-turbo (testing)
-    - claude-3-opus (cost-restricted)
+    - claude-opus-4-8 (cost-restricted)
 
   Deprecated:
-    - gpt-3.5-turbo (end of life: 2024-06)
+    - gpt-4.1-nano (end of life: 2027-01)
 ```
 
 ### Model Evaluation
@@ -3603,7 +3603,7 @@ Compare model responses:
 
 ```
 ┌─────────────────────────┬─────────────────────────┐
-│  GPT-4o                 │  Claude 3.5 Sonnet      │
+│  GPT-4o                 │  Claude Sonnet 4.6      │
 ├─────────────────────────┼─────────────────────────┤
 │  Response:              │  Response:              │
 │  Here's my analysis...  │  I've analyzed the...   │
@@ -4183,7 +4183,7 @@ Listing Configuration:
     - Automatic escalation
 
   Requirements:
-    Provider: OpenAI (GPT-4) or Anthropic (Claude 3)
+    Provider: OpenAI (GPT-4o) or Anthropic (Claude Opus 4.8)
     Plan: Professional+
     Tools: optional
 
@@ -4736,4 +4736,4 @@ article.save!
 
 puts "    ✅ DevOps AI Templates"
 
-puts "  ✅ AI Orchestration articles created (13 articles)"
+puts "  ✅ AI Orchestration articles created (12 articles)"
