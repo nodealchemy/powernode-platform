@@ -31,6 +31,33 @@ module Powernode
 
       ENV.fetch("POWERNODE_SEED_BASELINE", "true").to_s != "false"
     end
+
+    # Create/refresh the System Worker (required for worker↔backend comms).
+    # Workers must belong to an account, so this is a no-op until at least one
+    # account exists: on a fresh core/prod build no account is present at seed
+    # time (the setup wizard creates the first account later), so we skip
+    # gracefully with an informative message and NO error. In demo mode this
+    # is invoked again AFTER the demo accounts are seeded. Idempotent — safe to
+    # call multiple times.
+    # The system Worker is a bootstrap invariant (it authenticates worker→backend
+    # API calls), so the real creation lives in the core service
+    # Workers::EnsureSystemWorker — invoked here for demo/re-seed and from
+    # Setup::FirstAdminService on first-account bootstrap (core/prod). No account
+    # yet ⇒ harmless no-op; the wizard creates the worker with the account.
+    def self.ensure_system_worker!
+      account = Account.first
+      unless account
+        puts "⏭️  No account yet — System Worker is created at first-account bootstrap."
+        return
+      end
+
+      worker = ::Workers::EnsureSystemWorker.call(account: account)
+      if worker
+        puts "🔧 System worker ensured — #{worker.masked_token} (roles: #{worker.role_names.join(', ')})"
+      else
+        puts "⚠️  System worker could not be ensured (see logs)."
+      end
+    end
   end
 end
 puts("   mode: CORE#{Powernode::Seeds.baseline? ? ' + BASELINE' : ''}#{Powernode::Seeds.demo? ? ' + DEMO' : ''} data")
@@ -90,63 +117,11 @@ end
 # Plans are seeded by the business extension (extensions/business/server/db/seeds/saas_plans_seed.rb)
 # In core-only mode, no Plan model exists — all features are unlocked via FeatureGateService.
 
-# Create system worker (required for worker-backend communication)
-puts "🔧 Creating system worker..."
-
-begin
-  # Check if WORKER_TOKEN is set in environment
-  worker_token = ENV['WORKER_TOKEN']
-  if worker_token.blank?
-    puts "⚠️ WORKER_TOKEN not found in environment - generating new token"
-    worker_token = "swt_#{SecureRandom.urlsafe_base64(32)}"
-    puts "💡 Set this token in your environment: WORKER_TOKEN=#{worker_token}"
-  end
-
-  system_worker = Worker.find_by(name: 'System Worker')
-  # Workers should always belong to an account; system worker uses the admin account
-  admin_account = Account.first
-
-  if system_worker
-    # Ensure system worker belongs to the admin account and is flagged as system
-    updates = {}
-    updates[:account_id] = admin_account&.id if system_worker.account_id != admin_account&.id
-    updates[:is_system] = true unless system_worker.is_system?
-    if updates.any?
-      system_worker.update_columns(updates)
-      puts "🔧 Updated system worker: #{updates.keys.join(', ')}"
-    end
-    puts "✅ System worker already exists"
-  else
-    system_worker = Worker.create_worker!(
-      name: 'System Worker',
-      description: 'System worker for background processing and API communication',
-      account: admin_account,
-      is_system: true,
-      roles: [ 'system_worker' ],
-      token: worker_token
-    )
-  end
-
-  # Dev mTLS: bind the System Worker to the sentinel node_instance_id the worker
-  # injects via X-Forwarded-Tls-Client-Cert-Info (BackendApiClient, dev only), so
-  # header-based worker→backend auth survives db:seed. No-op outside development;
-  # in prod the worker presents a real cert and this binding is irrelevant.
-  if Rails.env.development? && system_worker
-    sentinel = ENV.fetch("DEV_WORKER_NODE_INSTANCE_ID", "00000000-0000-7000-8000-000000000001")
-    if system_worker.node_instance_id != sentinel
-      system_worker.update_columns(node_instance_id: sentinel)
-      puts "🔧 Dev: bound System Worker to mTLS sentinel node_instance_id"
-    end
-  end
-
-  puts "✅ System worker created successfully"
-  puts "   Token: #{system_worker.masked_token}"
-  puts "   Roles: #{system_worker.role_names.join(', ')}"
-
-rescue => e
-  puts "❌ Failed to create system worker: #{e.message}"
-  puts "   This may cause worker authentication issues"
-end
+# Create system worker (required for worker-backend communication).
+# Runs only when an account already exists (e.g. re-seed, or core/prod after the
+# setup wizard). On a fresh build with no account yet it skips gracefully — demo
+# mode invokes it again after the demo accounts are seeded (see below).
+Powernode::Seeds.ensure_system_worker!
 
 # Demo: test/dev accounts + users (core/prod gets the first account from the wizard).
 if Powernode::Seeds.demo?
@@ -155,6 +130,10 @@ if Powernode::Seeds.demo?
   # Load the unified test user seed which handles all user creation
   # and writes credentials to test-credentials.json
   load Rails.root.join('db', 'seeds', 'cypress_test_users.rb')
+
+  # Now that demo accounts exist, (re)create the System Worker bound to the
+  # admin account. No-op/refresh if the early call above already created it.
+  Powernode::Seeds.ensure_system_worker!
 end
 
 # 📄 Create public pages — demo/account-scoped (need an admin author). Gated by
