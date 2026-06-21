@@ -61,7 +61,6 @@ ActiveRecord::Base.transaction do
         In workspace conversations, follow the delegation instructions from your workspace skill.
       PROMPT
       "model_config" => {
-        "model" => "gpt-4.1-mini",
         "provider" => "openai",
         "max_tokens" => 4096,
         "cost_per_1k" => { "input" => 0.0004, "output" => 0.0016 },

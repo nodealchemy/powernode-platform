@@ -44,8 +44,8 @@ upsert_devops_template.call("automated-code-review") do |t|
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "PR Opened/Updated", "config" => { "event" => "pull_request" } },
       { "id" => "fetch_diff", "type" => "action", "label" => "Fetch PR Diff", "config" => { "tool" => "git_diff" } },
-      { "id" => "analyze_quality", "type" => "ai", "label" => "Analyze Code Quality", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "analyze_security", "type" => "ai", "label" => "Security Review", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
+      { "id" => "analyze_quality", "type" => "ai", "label" => "Analyze Code Quality", "config" => { "temperature" => 0.2 } },
+      { "id" => "analyze_security", "type" => "ai", "label" => "Security Review", "config" => { "temperature" => 0.1 } },
       { "id" => "post_review", "type" => "action", "label" => "Post Review Comments", "config" => { "tool" => "git_comment" } }
     ],
     "edges" => [
@@ -111,10 +111,10 @@ upsert_devops_template.call("security-vulnerability-scanner") do |t|
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Scan Triggered", "config" => { "event" => "manual_or_schedule" } },
       { "id" => "clone_repo", "type" => "action", "label" => "Clone Repository", "config" => { "tool" => "git_clone" } },
-      { "id" => "sast_scan", "type" => "ai", "label" => "SAST Analysis", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
+      { "id" => "sast_scan", "type" => "ai", "label" => "SAST Analysis", "config" => { "temperature" => 0.1 } },
       { "id" => "dependency_audit", "type" => "action", "label" => "Dependency Audit", "config" => { "tool" => "dependency_check" } },
-      { "id" => "secret_scan", "type" => "ai", "label" => "Secret Detection", "config" => { "model" => "claude-haiku-4-5-20251001", "temperature" => 0.0 } },
-      { "id" => "generate_report", "type" => "ai", "label" => "Generate Report", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } }
+      { "id" => "secret_scan", "type" => "ai", "label" => "Secret Detection", "config" => { "temperature" => 0.0 } },
+      { "id" => "generate_report", "type" => "ai", "label" => "Generate Report", "config" => { "temperature" => 0.2 } }
     ],
     "edges" => [
       { "source" => "trigger", "target" => "clone_repo" },
@@ -181,8 +181,8 @@ upsert_devops_template.call("ai-test-generation") do |t|
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Code Changed", "config" => { "event" => "push" } },
       { "id" => "detect_changes", "type" => "action", "label" => "Detect Changed Files", "config" => { "tool" => "git_diff" } },
-      { "id" => "analyze_code", "type" => "ai", "label" => "Analyze Code Structure", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "generate_tests", "type" => "ai", "label" => "Generate Tests", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.3 } },
+      { "id" => "analyze_code", "type" => "ai", "label" => "Analyze Code Structure", "config" => { "temperature" => 0.2 } },
+      { "id" => "generate_tests", "type" => "ai", "label" => "Generate Tests", "config" => { "temperature" => 0.3 } },
       { "id" => "validate_tests", "type" => "action", "label" => "Run Generated Tests", "config" => { "tool" => "test_runner" } },
       { "id" => "create_pr", "type" => "action", "label" => "Create Test PR", "config" => { "tool" => "git_pr" } }
     ],
@@ -234,9 +234,9 @@ upsert_devops_template.call("deployment-validation") do |t|
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Deploy Requested", "config" => { "event" => "deployment" } },
       { "id" => "gather_changes", "type" => "action", "label" => "Gather Release Changes", "config" => { "tool" => "git_log" } },
-      { "id" => "check_migrations", "type" => "ai", "label" => "Analyze Migrations", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
-      { "id" => "check_config", "type" => "ai", "label" => "Config Change Review", "config" => { "model" => "claude-haiku-4-5-20251001", "temperature" => 0.1 } },
-      { "id" => "risk_assessment", "type" => "ai", "label" => "Risk Assessment", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
+      { "id" => "check_migrations", "type" => "ai", "label" => "Analyze Migrations", "config" => { "temperature" => 0.1 } },
+      { "id" => "check_config", "type" => "ai", "label" => "Config Change Review", "config" => { "temperature" => 0.1 } },
+      { "id" => "risk_assessment", "type" => "ai", "label" => "Risk Assessment", "config" => { "temperature" => 0.2 } },
       { "id" => "gate_decision", "type" => "condition", "label" => "Deploy Gate", "config" => { "condition" => "risk_level != 'critical'" } }
     ],
     "edges" => [
@@ -286,8 +286,8 @@ upsert_devops_template.call("release-notes-generator") do |t|
       { "id" => "trigger", "type" => "trigger", "label" => "Release Tagged", "config" => { "event" => "tag_push" } },
       { "id" => "fetch_commits", "type" => "action", "label" => "Fetch Commit History", "config" => { "tool" => "git_log" } },
       { "id" => "fetch_prs", "type" => "action", "label" => "Fetch Merged PRs", "config" => { "tool" => "git_prs" } },
-      { "id" => "categorize", "type" => "ai", "label" => "Categorize Changes", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "generate_notes", "type" => "ai", "label" => "Write Release Notes", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.4 } },
+      { "id" => "categorize", "type" => "ai", "label" => "Categorize Changes", "config" => { "temperature" => 0.2 } },
+      { "id" => "generate_notes", "type" => "ai", "label" => "Write Release Notes", "config" => { "temperature" => 0.4 } },
       { "id" => "publish", "type" => "action", "label" => "Publish Release", "config" => { "tool" => "git_release" } }
     ],
     "edges" => [
@@ -339,8 +339,8 @@ upsert_devops_template.call("changelog-updater") do |t|
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "PR Merged to Main", "config" => { "event" => "pull_request.merged" } },
       { "id" => "read_changelog", "type" => "action", "label" => "Read CHANGELOG.md", "config" => { "tool" => "file_read" } },
-      { "id" => "analyze_pr", "type" => "ai", "label" => "Categorize PR", "config" => { "model" => "claude-haiku-4-5-20251001", "temperature" => 0.1 } },
-      { "id" => "update_changelog", "type" => "ai", "label" => "Update Changelog", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
+      { "id" => "analyze_pr", "type" => "ai", "label" => "Categorize PR", "config" => { "temperature" => 0.1 } },
+      { "id" => "update_changelog", "type" => "ai", "label" => "Update Changelog", "config" => { "temperature" => 0.2 } },
       { "id" => "commit_changes", "type" => "action", "label" => "Commit Updated Changelog", "config" => { "tool" => "git_commit" } }
     ],
     "edges" => [
@@ -386,8 +386,8 @@ upsert_devops_template.call("api-docs-generator") do |t|
       { "id" => "trigger", "type" => "trigger", "label" => "Docs Requested", "config" => { "event" => "manual" } },
       { "id" => "scan_routes", "type" => "action", "label" => "Scan API Routes", "config" => { "tool" => "file_search" } },
       { "id" => "scan_controllers", "type" => "action", "label" => "Scan Controllers", "config" => { "tool" => "file_read" } },
-      { "id" => "analyze_endpoints", "type" => "ai", "label" => "Analyze Endpoints", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "generate_openapi", "type" => "ai", "label" => "Generate OpenAPI Spec", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
+      { "id" => "analyze_endpoints", "type" => "ai", "label" => "Analyze Endpoints", "config" => { "temperature" => 0.2 } },
+      { "id" => "generate_openapi", "type" => "ai", "label" => "Generate OpenAPI Spec", "config" => { "temperature" => 0.1 } },
       { "id" => "write_docs", "type" => "action", "label" => "Write Documentation Files", "config" => { "tool" => "file_write" } }
     ],
     "edges" => [
@@ -437,9 +437,9 @@ upsert_devops_template.call("coverage-analysis-report") do |t|
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Tests Completed", "config" => { "event" => "ci_complete" } },
       { "id" => "collect_coverage", "type" => "action", "label" => "Collect Coverage Data", "config" => { "tool" => "artifact_download" } },
-      { "id" => "analyze_gaps", "type" => "ai", "label" => "Analyze Coverage Gaps", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "prioritize", "type" => "ai", "label" => "Prioritize Test Targets", "config" => { "model" => "claude-haiku-4-5-20251001", "temperature" => 0.1 } },
-      { "id" => "generate_report", "type" => "ai", "label" => "Generate Report", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.3 } }
+      { "id" => "analyze_gaps", "type" => "ai", "label" => "Analyze Coverage Gaps", "config" => { "temperature" => 0.2 } },
+      { "id" => "prioritize", "type" => "ai", "label" => "Prioritize Test Targets", "config" => { "temperature" => 0.1 } },
+      { "id" => "generate_report", "type" => "ai", "label" => "Generate Report", "config" => { "temperature" => 0.3 } }
     ],
     "edges" => [
       { "source" => "trigger", "target" => "collect_coverage" },
@@ -485,10 +485,10 @@ upsert_devops_template.call("performance-check") do |t|
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "PR Opened", "config" => { "event" => "pull_request" } },
       { "id" => "fetch_changes", "type" => "action", "label" => "Fetch Code Changes", "config" => { "tool" => "git_diff" } },
-      { "id" => "query_analysis", "type" => "ai", "label" => "N+1 Query Detection", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
-      { "id" => "complexity_analysis", "type" => "ai", "label" => "Complexity Analysis", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
-      { "id" => "memory_analysis", "type" => "ai", "label" => "Memory Pattern Check", "config" => { "model" => "claude-haiku-4-5-20251001", "temperature" => 0.1 } },
-      { "id" => "summary", "type" => "ai", "label" => "Performance Summary", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } }
+      { "id" => "query_analysis", "type" => "ai", "label" => "N+1 Query Detection", "config" => { "temperature" => 0.1 } },
+      { "id" => "complexity_analysis", "type" => "ai", "label" => "Complexity Analysis", "config" => { "temperature" => 0.1 } },
+      { "id" => "memory_analysis", "type" => "ai", "label" => "Memory Pattern Check", "config" => { "temperature" => 0.1 } },
+      { "id" => "summary", "type" => "ai", "label" => "Performance Summary", "config" => { "temperature" => 0.2 } }
     ],
     "edges" => [
       { "source" => "trigger", "target" => "fetch_changes" },
@@ -537,9 +537,9 @@ upsert_devops_template.call("incident-response-runbook") do |t|
       { "id" => "trigger", "type" => "trigger", "label" => "Alert Received", "config" => { "event" => "webhook" } },
       { "id" => "collect_logs", "type" => "action", "label" => "Collect Recent Logs", "config" => { "tool" => "log_query" } },
       { "id" => "collect_metrics", "type" => "action", "label" => "Collect Metrics", "config" => { "tool" => "metrics_query" } },
-      { "id" => "correlate_events", "type" => "ai", "label" => "Correlate Events", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
-      { "id" => "root_cause", "type" => "ai", "label" => "Root Cause Analysis", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "generate_runbook", "type" => "ai", "label" => "Generate Response Steps", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.3 } },
+      { "id" => "correlate_events", "type" => "ai", "label" => "Correlate Events", "config" => { "temperature" => 0.1 } },
+      { "id" => "root_cause", "type" => "ai", "label" => "Root Cause Analysis", "config" => { "temperature" => 0.2 } },
+      { "id" => "generate_runbook", "type" => "ai", "label" => "Generate Response Steps", "config" => { "temperature" => 0.3 } },
       { "id" => "notify_team", "type" => "action", "label" => "Notify On-Call Team", "config" => { "tool" => "notification" } }
     ],
     "edges" => [

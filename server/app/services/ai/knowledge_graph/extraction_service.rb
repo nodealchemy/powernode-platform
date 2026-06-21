@@ -445,7 +445,7 @@ module Ai
           provider = Ai::Provider.find_by(id: curator.ai_provider_id)
           credential = provider&.provider_credentials&.active&.first if provider
           if provider && credential
-            model = curator.mcp_metadata&.dig("model_config", "model") || default_model_for(provider.provider_type)
+            model = curator.resolved_model # #37: resolve via Ai::Agent resolution triple
             Rails.logger.info "[ExtractionService] Primary: #{curator.name} (#{provider.name}/#{model})"
             clients << [WorkerLlmClient.new(agent_id: curator.id), model]
           end

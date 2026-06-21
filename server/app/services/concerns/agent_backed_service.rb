@@ -84,11 +84,10 @@ module AgentBackedService
     )
   end
 
-  # Resolve model from agent configuration.
-  # Priority: mcp_metadata model_config > provider default_model
+  # Resolve model from the agent's selection triple (#37): pinned model, else the
+  # cost/capability selector pick across any active provider, else provider default.
   def agent_model(agent)
-    agent.mcp_metadata&.dig("model_config", "model") ||
-      agent.provider&.default_model
+    agent.resolved_model
   end
 
   # Agent's system prompt (with conversation profile merged in).

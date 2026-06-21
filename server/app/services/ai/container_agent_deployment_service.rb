@@ -200,7 +200,7 @@ module Ai
           "agent_name" => agent.name,
           "conversation_id" => conversation_id,
           "system_prompt" => agent.mcp_metadata&.dig("system_prompt"),
-          "model" => agent.mcp_metadata&.dig("model_config", "model"),
+          "model" => agent.resolved_model, # #37: resolve via Ai::Agent resolution triple
           "provider" => agent.mcp_metadata&.dig("model_config", "provider"),
           "cluster_name" => cluster.name,
           "template_name" => template.name,
@@ -284,7 +284,7 @@ module Ai
       env["SYSTEM_PROMPT"] = system_prompt if system_prompt.present?
 
       # Add model config
-      model = agent.mcp_metadata&.dig("model_config", "model")
+      model = agent.resolved_model # #37: resolve via Ai::Agent resolution triple
       env["MODEL"] = model if model.present?
 
       provider = agent.mcp_metadata&.dig("model_config", "provider")

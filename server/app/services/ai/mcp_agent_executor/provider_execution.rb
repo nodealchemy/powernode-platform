@@ -70,9 +70,9 @@ class Ai::McpAgentExecutor
     # Resolve model, temperature, max_tokens, and system prompt from agent config
     def resolve_model_config(execution_context)
       model_config = @agent.mcp_metadata&.dig("model_config") || {}
-      model = model_config["model"] ||
-              @agent.mcp_tool_manifest&.dig("model") ||
-              @agent.provider.supported_models.first&.dig("id")
+      # #37: resolve via the agent's selector triple (any active provider) rather
+      # than a hardcoded model_config/manifest read.
+      model = @agent.resolved_model
       max_tokens = execution_context.dig(:context, "max_tokens") ||
                    model_config["max_tokens"] || 2000
       temperature = execution_context.dig(:context, "temperature") ||

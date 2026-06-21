@@ -149,7 +149,62 @@ module Ai
       [base_prompt, skill_prompts, profile_lines.join("\n")].reject(&:blank?).join("\n\n")
     end
 
+    # Runtime model resolution — agents own model selection. With a pinned model
+    # (mcp_metadata.model_config.model) the agent's own provider is honored;
+    # otherwise Ai::AgentModelSelector picks the best (provider, model) across ANY
+    # active, credentialed provider in the account (cost/capability/empirical-aware,
+    # honoring model_config.model_requirements). The matching active credential is
+    # resolved for whichever provider wins. Returned as one memoized, coherent
+    # triple so model, provider, and credential never disagree. Call sites (and the
+    # worker's provider_config endpoint) should prefer these over the raw
+    # model_config dig + agent.provider so unpinned agents resolve a current model.
+    def model_resolution
+      return @model_resolution if defined?(@model_resolution)
+
+      @model_resolution = compute_model_resolution
+    end
+
+    def resolved_model
+      model_resolution[:model]
+    end
+
+    def resolved_provider
+      model_resolution[:provider]
+    end
+
+    def resolved_credential
+      model_resolution[:credential]
+    end
+
     private
+
+    # Compute the coherent (model, provider, credential) triple. A pinned model
+    # keeps the agent's own provider; otherwise the cross-provider selector pick
+    # wins and its matching active credential is resolved.
+    def compute_model_resolution
+      pinned = mcp_metadata&.dig("model_config", "model").presence
+      if pinned
+        return { model: pinned, provider: provider, credential: active_credential_for(provider) }
+      end
+
+      rec  = ::Ai::AgentModelSelector.recommend(
+        account:      account,
+        agent_type:   agent_type,
+        requirements: mcp_metadata&.dig("model_config", "model_requirements") || {}
+      )
+      prov = rec[:provider] || provider
+      { model: rec[:model] || prov&.default_model, provider: prov, credential: active_credential_for(prov) }
+    rescue StandardError => e
+      Rails.logger.warn("[Ai::Agent#model_resolution] selector failed: #{e.message}")
+      { model: provider&.default_model, provider: provider, credential: active_credential_for(provider) }
+    end
+
+    # Active credential to use for a given provider (prefers the default).
+    def active_credential_for(prov)
+      return nil unless prov
+
+      prov.provider_credentials.active.where(account: account).order(is_default: :desc).first
+    end
 
     def build_skill_system_prompts(context: nil)
       skill_query = agent_skills.where(is_active: true)

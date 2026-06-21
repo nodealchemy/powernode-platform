@@ -39,35 +39,13 @@ module Ai
       nil
     end
 
-    # Resolve the model to use from the agent's provider config.
-    # Falls back to the provider's cheapest chat model if agent config is empty.
-    #
-    # The agent.mcp_metadata.model_config.model override is honored ONLY when
-    # the configured model ID is actually in the provider's supported_models —
-    # otherwise we silently fall through to the provider default. Without this
-    # validation, an agent whose mcp_metadata says "gpt-4.1-mini" but whose
-    # provider is Anthropic will send an OpenAI model ID to the Anthropic
-    # HTTP client and the API call will fail on an unknown model.
+    # #37: the agent owns model selection — its pinned model when set, else the
+    # cost/capability-aware AgentModelSelector pick across ANY active, credentialed
+    # provider, else the provider default. (Provider + credential for the worker
+    # come from the agent's resolution triple via the internal provider_config
+    # endpoint, so model and provider stay coherent.)
     def resolve_model(agent)
-      provider = agent.provider
-      configured = agent.mcp_metadata&.dig("model_config", "model")
-
-      if configured.present? && provider
-        supported_ids = (provider.supported_models || []).map { |m| m["id"] }
-        return configured if supported_ids.include?(configured)
-      elsif configured.present?
-        # No provider on the agent — accept the override; the worker has to
-        # route somehow.
-        return configured
-      end
-
-      return "gpt-4.1-mini" unless provider
-
-      models = provider.supported_models || []
-      chat_models = models.select { |m| m["capabilities"]&.include?("text_generation") }
-      # Prefer "mini" / "haiku" / "small" / "nano" tier models for cheap calls.
-      preferred = chat_models.find { |m| m["id"].to_s.match?(/mini|haiku|small|nano/i) }
-      (preferred || chat_models.first || models.first)&.dig("id") || "gpt-4.1-mini"
+      agent.resolved_model
     end
   end
 end

@@ -455,7 +455,8 @@ module Ai
         metadata = agent.mcp_metadata || {}
         model_config = metadata.dig("ollama_config") || metadata.dig("model_config") || metadata
         {
-          model: model_config["model"] || provider.default_model,
+          # #37: resolve model via Ai::Agent resolution triple (pinned → selector → default)
+          model: agent.resolved_model,
           max_tokens: model_config["max_tokens"] || 4096,
           temperature: model_config["temperature"] || 0.7
         }

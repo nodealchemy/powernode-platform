@@ -90,7 +90,16 @@ module Ai
     end
 
     def enumerate_candidates
-      @account.ai_providers.where(is_active: true).flat_map do |provider|
+      providers = @account.ai_providers.where(is_active: true).to_a
+      # Selection should only pick a provider the account can actually call:
+      # restrict to providers that have an active credential. If none are
+      # credentialed yet (fresh setup), fall back to all active providers.
+      credentialed = ::Ai::ProviderCredential.where(account_id: @account.id, is_active: true)
+                                             .distinct.pluck(:ai_provider_id).to_set
+      usable = providers.select { |p| credentialed.include?(p.id) }
+      usable = providers if usable.empty?
+
+      usable.flat_map do |provider|
         Array(provider.supported_models).filter_map do |m|
           next nil unless m.is_a?(Hash)
           model_id = m["id"] || m["name"]
