@@ -11,8 +11,10 @@ class Account::Delegation < ApplicationRecord
     belongs_to :role, optional: true
 
     # Permission associations
+    # Permissions are code-defined (the Permissions catalog) and referenced by
+    # NAME (string) through delegation_permissions — there is no Permission AR
+    # model or through-association.
     has_many :delegation_permissions, class_name: "Account::DelegationPermission", foreign_key: "account_delegation_id", dependent: :destroy
-    has_many :permissions, through: :delegation_permissions
 
     # Validations
     validates :delegated_by_id, uniqueness: { scope: [ :account_id, :delegated_user_id ],
@@ -75,17 +77,21 @@ class Account::Delegation < ApplicationRecord
       active? && role&.has_permission?("users.create")
     end
 
+    # Permission names assigned directly to this delegation (custom overrides).
+    def permission_names
+      delegation_permissions.pluck(:permission_name)
+    end
+
+    # Effective permission NAME strings: custom delegation permissions when any
+    # are assigned, otherwise the delegation role's permission names.
     def effective_permissions
       return [] unless active?
 
-      # If specific permissions are assigned, use those
-      if permissions.any?
-        permissions
-      elsif role.present?
-        # Otherwise fall back to role permissions
-        role.permissions
+      custom = permission_names
+      if custom.any?
+        custom
       else
-        []
+        role&.permission_names || []
       end
     end
 
@@ -116,38 +122,32 @@ class Account::Delegation < ApplicationRecord
     def has_permission?(permission_key)
       return false unless active?
 
-      if permission_key.is_a?(String) && permission_key.include?(".")
-        resource, action = permission_key.split(".", 2)
-        effective_permissions.any? { |p| p.resource == resource && p.action == action }
-      else
-        effective_permissions.any? { |p| p.name == permission_key }
-      end
+      effective_permissions.include?(permission_key)
     end
 
-    def assign_permission(permission)
+    def assign_permission(permission_name)
       return false unless active?
 
       # Only check if custom permission is already assigned (not role permissions)
-      return false if permissions.exists?(id: permission.id)
+      return false if delegation_permissions.exists?(permission_name: permission_name)
 
       # Validate permission is within role scope if role is assigned
-      if role.present? && !role.permissions.include?(permission)
+      if role.present? && !role.has_permission?(permission_name)
         return false
       end
 
-      delegation_permissions.create(permission: permission)
+      delegation_permissions.create(permission_name: permission_name)
       true
     rescue ActiveRecord::RecordInvalid
       false
     end
 
-    def remove_permission(permission)
-      delegation_permission = delegation_permissions.find_by(permission: permission)
-      delegation_permission&.destroy
+    def remove_permission(permission_name)
+      delegation_permissions.where(permission_name: permission_name).destroy_all
     end
 
     def permission_source
-      if permissions.any?
+      if permission_names.any?
         "custom"
       elsif role.present?
         "role"
@@ -156,20 +156,21 @@ class Account::Delegation < ApplicationRecord
       end
     end
 
+    # Role permission names that aren't already specifically assigned.
     def available_permissions
       return [] unless role.present?
 
-      # Return role permissions that aren't already specifically assigned
-      assigned_permission_ids = delegation_permissions.pluck(:permission_id)
-      role.permissions.where.not(id: assigned_permission_ids)
+      role.permission_names - permission_names
     end
 
     def permissions_summary
-      return "No permissions" unless effective_permissions.any?
+      perms = effective_permissions
+      return "No permissions" if perms.empty?
 
-      grouped = effective_permissions.group_by(&:resource)
-      summary_parts = grouped.map do |resource, perms|
-        actions = perms.map(&:action).sort
+      # Group "resource.sub.action" by everything-but-the-last-segment -> action.
+      grouped = perms.group_by { |name| name.split(".")[0..-2].join(".") }
+      summary_parts = grouped.map do |resource, names|
+        actions = names.map { |name| name.split(".").last }.sort
         "#{resource}: #{actions.join(', ')}"
       end
 

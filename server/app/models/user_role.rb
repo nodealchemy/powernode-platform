@@ -12,6 +12,7 @@ class UserRole < ApplicationRecord
 
   # Validations
   validates :user_id, uniqueness: { scope: :role_id, message: "already has this role" }
+  validate :role_available_to_user_account
 
   # Callbacks
   after_create :log_role_grant
@@ -20,6 +21,15 @@ class UserRole < ApplicationRecord
   after_destroy :clear_user_permission_cache
 
   private
+
+  # A user may only hold GLOBAL roles (account_id nil) or roles owned by their
+  # own account — never another account's custom role (cross-account isolation).
+  def role_available_to_user_account
+    return if role.nil? || user.nil?
+    return if role.account_id.nil? || role.account_id == user.account_id
+
+    errors.add(:role, "is not available to this user's account")
+  end
 
   def log_role_grant
     Rails.logger.info "Role #{role.name} granted to user #{user.email}"

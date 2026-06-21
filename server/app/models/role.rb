@@ -4,23 +4,31 @@ require_relative "../../config/permissions"
 
 class Role < ApplicationRecord
   # Associations
+  # account_id nil => global (code-defined, catalog-seeded) role shared across
+  # all accounts; account_id set => account-scoped custom role (customizable).
+  belongs_to :account, optional: true
   has_many :role_permissions, dependent: :delete_all
-  has_many :permissions, through: :role_permissions
   has_many :user_roles, dependent: :destroy
   has_many :users, through: :user_roles
   has_many :worker_roles, dependent: :destroy
   has_many :workers, through: :worker_roles
 
   # Validations
-  validates :name, presence: true, uniqueness: true, format: {
+  validates :name, presence: true, uniqueness: { scope: :account_id }, format: {
     with: /\A[a-z_.]+\z/,
     message: "must be lowercase with underscores or dots only"
   }
   validates :display_name, presence: true
   validates :role_type, presence: true, inclusion: { in: %w[user admin system] }
   validates :immutable, inclusion: { in: [ true, false ] }
+  # Account-scoped roles must not shadow a global role name (avoids ambiguity)
+  validate :account_role_name_not_shadowing_global
 
   # Scopes
+  scope :global, -> { where(account_id: nil) }
+  scope :account_scoped, -> { where.not(account_id: nil) }
+  scope :owned_by_account, ->(account_id) { where(account_id: account_id) }
+  scope :for_account, ->(account_id) { where(account_id: [ nil, account_id ]) }
   scope :user_roles, -> { where(role_type: "user") }
   scope :admin_roles, -> { where(role_type: "admin") }
   scope :system_roles, -> { where(role_type: "system") }
@@ -38,7 +46,9 @@ class Role < ApplicationRecord
   class << self
     def sync_from_config!
       Permissions::ROLES.each do |name, config|
-        role = find_or_initialize_by(name: name)
+        # Catalog roles are GLOBAL (account_id nil); account-scoped roles are
+        # created at runtime via the API and are never seeded here.
+        role = find_or_initialize_by(name: name, account_id: nil)
         attrs = {
           display_name: config[:display_name],
           description: config[:description],
@@ -52,7 +62,7 @@ class Role < ApplicationRecord
           begin
             role.save!
           rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
-            role = find_by!(name: name)
+            role = find_by!(name: name, account_id: nil)
             role.update!(attrs) unless role.immutable?
           end
         elsif !role.immutable?
@@ -66,8 +76,8 @@ class Role < ApplicationRecord
       end
     end
 
-    def find_by_name(name)
-      find_by(name: name.to_s)
+    def find_by_name(name, account_id: nil)
+      find_by(name: name.to_s, account_id: account_id)
     end
   end
 
@@ -93,54 +103,48 @@ class Role < ApplicationRecord
   end
 
   def add_permission(permission_name)
-    permission = Permission.find_or_create_from_name!(permission_name)
-    permissions << permission unless permissions.include?(permission)
+    return if role_permissions.exists?(permission_name: permission_name)
+
+    role_permissions.create!(permission_name: permission_name)
   end
 
   def remove_permission(permission_name)
-    permission = Permission.find_by(name: permission_name)
-    permissions.delete(permission) if permission
+    role_permissions.where(permission_name: permission_name).delete_all
   end
 
   def has_permission?(permission_name)
-    # Roles with system.admin permission have all permissions programmatically
-    return true if permissions.exists?(name: "system.admin")
+    # Roles granted system.admin have all permissions programmatically
+    return true if role_permissions.exists?(permission_name: "system.admin")
 
-    permissions.exists?(name: permission_name)
+    role_permissions.exists?(permission_name: permission_name)
   end
 
   def permission_names
-    # Roles with system.admin permission have all permissions programmatically
-    return Permissions.all_permissions.keys.sort if permissions.exists?(name: "system.admin")
+    # Roles granted system.admin have all permissions programmatically
+    return Permissions.all_permissions.keys.sort if role_permissions.exists?(permission_name: "system.admin")
 
-    permissions.pluck(:name).sort
+    role_permissions.pluck(:permission_name).uniq.sort
   end
 
+  # Destructively reconcile this role's grants to the given catalog permission
+  # names. Used by Role.sync_from_config! for GLOBAL (code-defined) roles, whose
+  # grants are owned by the catalog. Account-scoped roles are NOT synced here —
+  # they are edited through the API and persist independently.
   def sync_permissions!(permission_names)
     return unless permission_names.is_a?(Array)
 
-    # Deduplicate permission names first, then get or create all permissions
-    new_permissions = permission_names.uniq.filter_map do |name|
-      Permission.find_or_create_from_name!(
-        name,
-        Permissions.all_permissions[name]
-      )
-    end
+    # Only catalog-defined permissions are grantable; drop any unknown names
+    # (e.g. a permission removed from the catalog) so stale grants prune.
+    desired = permission_names.uniq.select { |name| Permissions.permission_exists?(name) }
+    current = role_permissions.pluck(:permission_name)
 
-    # Get unique permission IDs we want
-    desired_ids = new_permissions.map(&:id).uniq
-    current_ids = role_permissions.pluck(:permission_id)
+    to_remove = current - desired
+    role_permissions.where(permission_name: to_remove).delete_all if to_remove.any?
 
-    # Remove permissions no longer needed
-    ids_to_remove = current_ids - desired_ids
-    role_permissions.where(permission_id: ids_to_remove).delete_all if ids_to_remove.any?
-
-    # Add new permissions not yet assigned
-    ids_to_add = desired_ids - current_ids
-    ids_to_add.each do |pid|
-      role_permissions.find_or_create_by!(permission_id: pid)
+    (desired - current).each do |name|
+      role_permissions.find_or_create_by!(permission_name: name)
     rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
-      # Already exists (caught by DB constraint or model validation), ignore
+      # Already exists (race) or rejected by validation — ignore.
     end
   end
 
@@ -175,6 +179,13 @@ class Role < ApplicationRecord
 
     config = Permissions::ROLES[name]
     sync_permissions!(config[:permissions]) if config[:permissions]
+  end
+
+  def account_role_name_not_shadowing_global
+    return if account_id.nil? # global roles define the canonical names
+    return if name.blank?
+
+    errors.add(:name, "is reserved by a global role") if Role.global.where(name: name).exists?
   end
 
   def prevent_super_admin_deletion

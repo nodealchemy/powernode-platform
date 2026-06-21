@@ -5,10 +5,12 @@ class Account::DelegationPermission < ApplicationRecord
 
     # Associations
     belongs_to :account_delegation, class_name: "Account::Delegation", foreign_key: "account_delegation_id"
-    belongs_to :permission
 
     # Validations
-    validates :account_delegation_id, uniqueness: { scope: :permission_id,
+    # Permissions are code-defined; a delegation references a catalog permission
+    # by name (no DB permission row).
+    validates :permission_name, presence: true
+    validates :account_delegation_id, uniqueness: { scope: :permission_name,
                                                   message: "already has this permission assigned" }
 
     # Callbacks
@@ -16,43 +18,35 @@ class Account::DelegationPermission < ApplicationRecord
 
     # Scopes
     scope :for_delegation, ->(delegation) { where(account_delegation: delegation) }
-    scope :by_resource, ->(resource) { joins(:permission).where(permissions: { resource: resource }) }
-    scope :by_action, ->(action) { joins(:permission).where(permissions: { action: action }) }
 
     # Class methods
     def self.permission_summary(delegation)
-      permissions = joins(:permission)
-                     .where(account_delegation: delegation)
-                     .includes(:permission)
-                     .order("permissions.resource, permissions.action")
-
-      grouped = permissions.group_by { |dp| dp.permission.resource }
-
-      grouped.transform_values do |perms|
-        perms.map { |dp| dp.permission.action }
+      names = where(account_delegation: delegation).pluck(:permission_name).sort
+      # Group "resource.sub.action" by everything-but-the-last-segment -> action
+      names.group_by { |n| n.split(".")[0..-2].join(".") }.transform_values do |perms|
+        perms.map { |n| n.split(".").last }
       end
     end
 
     # Instance methods
     def permission_key
-      "#{permission.resource}.#{permission.action}"
+      permission_name
     end
 
     def permission_description
-      permission.description
+      Permissions.permission_description(permission_name)
     end
 
     private
 
     def validate_permission_scope
-      # Ensure the permission being assigned doesn't exceed the role's permissions
+      # Ensure the permission being assigned doesn't exceed the delegation role's permissions
       delegation_role = account_delegation.role
+      return if delegation_role.blank?
 
-      if delegation_role.present?
-      unless delegation_role.permissions.include?(permission)
-        errors.add(:permission, "cannot be granted as it's not available in the delegation's role")
+      unless delegation_role.has_permission?(permission_name)
+        errors.add(:permission_name, "cannot be granted as it's not available in the delegation's role")
         throw :abort
-      end
       end
   end
 end
