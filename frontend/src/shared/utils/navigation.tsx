@@ -205,7 +205,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/profile/subscription',
           icon: CreditCard,
           description: 'Your subscription and plan',
-          permissions: ['billing.read', 'billing.manage'],
+          permissions: ['business.billing.read', 'business.billing.manage'],
           order: 3
         },
         {
@@ -281,7 +281,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/devops/ci-cd',
           icon: Workflow,
           description: 'Pipelines and runner management',
-          permissions: ['devops.pipelines.read', 'cicd.runners.read'],
+          permissions: ['devops.pipelines.read', 'git.runners.read'],
           order: 3
         },
         {
@@ -339,7 +339,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 9
         }
       ],
-      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'swarm.clusters.read', 'docker.hosts.read', 'kubernetes.clusters.read'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'git.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'swarm.clusters.read', 'docker.hosts.read', 'kubernetes.clusters.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 11
@@ -438,7 +438,7 @@ export const adminNavigationOverrides = {
           href: '/app/admin/impersonation',
           icon: UserCog,
           description: 'User impersonation for support and debugging',
-          permissions: ['admin.impersonation.read'],
+          permissions: ['business.impersonation.read'],
           order: 3
         },
         {

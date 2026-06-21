@@ -434,8 +434,8 @@ export const ProfilePage: React.FC = () => {
     ];
 
     // Add subscription tab if user has billing permissions
-    const canManageBilling = user?.permissions?.includes('billing.manage') || 
-                            user?.permissions?.includes('billing.read');
+    const canManageBilling = user?.permissions?.includes('business.billing.manage') || 
+                            user?.permissions?.includes('business.billing.read');
     
     if (canManageBilling) {
       baseTabs.push({ id: 'subscription', label: 'Subscription', icon: '💳', path: '/subscription' });

@@ -16,15 +16,15 @@ export const TEAM_PERMISSIONS = {
 } as const;
 
 export const BILLING_PERMISSIONS = {
-  VIEW: 'billing.read',
-  UPDATE: 'billing.update',
-  CANCEL: 'billing.cancel'
+  VIEW: 'business.billing.read',
+  UPDATE: 'business.billing.update',
+  CANCEL: 'business.billing.cancel'
 } as const;
 
 export const PLAN_PERMISSIONS = {
-  VIEW: 'plans.read',
-  CREATE: 'plans.create',
-  MANAGE: 'plans.manage'
+  VIEW: 'business.plans.read',
+  CREATE: 'business.plans.create',
+  MANAGE: 'business.plans.manage'
 } as const;
 
 export const PAGE_PERMISSIONS = {
@@ -60,8 +60,8 @@ export const WEBHOOK_PERMISSIONS = {
 } as const;
 
 export const INVOICE_PERMISSIONS = {
-  VIEW: 'invoice.read',
-  DOWNLOAD: 'invoice.download'
+  VIEW: 'business.invoice.read',
+  DOWNLOAD: 'business.invoice.download'
 } as const;
 
 export const AUDIT_PERMISSIONS = {
@@ -83,19 +83,19 @@ export const KB_PERMISSIONS = {
 
 // Marketplace Permissions
 export const APP_PERMISSIONS = {
-  VIEW: 'app.read',
-  CREATE: 'app.create',
-  UPDATE: 'app.update',
-  DELETE: 'app.delete',
-  PUBLISH: 'app.publish',
-  MANAGE_FEATURES: 'app.manage_features',
-  MANAGE_PLANS: 'app.manage_plans',
+  VIEW: 'business.app.read',
+  CREATE: 'business.app.create',
+  UPDATE: 'business.app.update',
+  DELETE: 'business.app.delete',
+  PUBLISH: 'business.app.publish',
+  MANAGE_FEATURES: 'business.app.manage_features',
+  MANAGE_PLANS: 'business.app.manage_plans',
   READ_ANALYTICS: 'app.read_analytics'
 } as const;
 
 export const SUBSCRIPTION_PERMISSIONS = {
-  VIEW: 'subscription.read',
-  CREATE: 'subscription.create',
+  VIEW: 'business.subscription.read',
+  CREATE: 'business.subscription.create',
   MANAGE: 'subscription.manage',
   CANCEL: 'subscription.cancel',
   UPGRADE: 'subscription.upgrade',
@@ -103,7 +103,7 @@ export const SUBSCRIPTION_PERMISSIONS = {
 } as const;
 
 export const REVIEW_PERMISSIONS = {
-  VIEW: 'review.read',
+  VIEW: 'business.marketplace.review',
   CREATE: 'review.create',
   UPDATE: 'review.update',
   DELETE: 'review.delete',
@@ -111,8 +111,8 @@ export const REVIEW_PERMISSIONS = {
 } as const;
 
 export const LISTING_PERMISSIONS = {
-  VIEW: 'listing.read',
-  CREATE: 'listing.create',
+  VIEW: 'business.marketplace.read',
+  CREATE: 'business.marketplace.create',
   UPDATE: 'listing.update',
   DELETE: 'listing.delete'
 } as const;
@@ -148,7 +148,7 @@ export const ADMIN_ROLE_PERMISSIONS = {
 } as const;
 
 export const ADMIN_BILLING_PERMISSIONS = {
-  VIEW: 'admin.billing.read',
+  VIEW: 'business.billing.read',
   OVERRIDE: 'admin.billing.override',
   REFUND: 'admin.billing.refund',
   CREDIT: 'admin.billing.credit',

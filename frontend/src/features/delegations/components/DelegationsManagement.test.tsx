@@ -28,8 +28,8 @@ jest.mock('@/features/delegations/services/delegationApi', () => ({
     rejectDelegationRequest: (...args: any[]) => mockRejectDelegationRequest(...args)
   },
   DELEGATION_PERMISSIONS: [
-    { key: 'billing.read', label: 'View Billing', description: 'View billing information' },
-    { key: 'billing.manage', label: 'Manage Billing', description: 'Manage billing settings' },
+    { key: 'business.billing.read', label: 'View Billing', description: 'View billing information' },
+    { key: 'business.billing.manage', label: 'Manage Billing', description: 'Manage billing settings' },
     { key: 'users.read', label: 'View Users', description: 'View team members' }
   ]
 }));
@@ -75,7 +75,7 @@ describe('DelegationsManagement', () => {
       sourceAccountId: 'current',
       targetAccountId: 'other-1',
       users: ['user-1', 'user-2'],
-      permissions: ['billing.read', 'billing.manage'],
+      permissions: ['business.billing.read', 'business.billing.manage'],
       expiresAt: '2025-12-31T00:00:00Z',
       updatedAt: '2025-01-15T00:00:00Z'
     },

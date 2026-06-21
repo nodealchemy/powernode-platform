@@ -87,7 +87,7 @@ describe('useAuth', () => {
       id: '123',
       email: 'test@example.com',
       name: 'Test User',
-      permissions: ['users.read', 'users.create', 'billing.read'],
+      permissions: ['users.read', 'users.create', 'business.billing.read'],
       roles: ['account.member'],
       status: 'active',
       email_verified: true,
@@ -146,7 +146,7 @@ describe('useAuth', () => {
         wrapper: createWrapper(store),
       });
 
-      expect(result.current.permissions).toEqual(['users.read', 'users.create', 'billing.read']);
+      expect(result.current.permissions).toEqual(['users.read', 'users.create', 'business.billing.read']);
     });
 
     it('returns empty array when user has no permissions', () => {

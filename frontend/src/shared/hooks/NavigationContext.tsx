@@ -80,7 +80,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
   // Check if user has admin access (permission-based)
   const hasAdminPermissions = hasAccess(user, ['admin.access']) ||
                              hasAccess(user, ['users.manage']) ||
-                             hasAccess(user, ['workers.manage']);
+                             hasAccess(user, ['admin.workers.read']);
 
   // Helper: filter items whose extensionSlug is not loaded
   const filterExtensionItems = useCallback((items: NavigationItem[]): NavigationItem[] => {

@@ -45,7 +45,7 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
     },
     {
       category: 'Billing & Subscriptions',
-      permissions: ['billing.read', 'billing.update', 'billing.cancel', 'plans.read', 'plans.create', 'plans.manage', 'invoice.read', 'invoice.download'],
+      permissions: ['business.billing.read', 'business.billing.update', 'business.billing.cancel', 'business.plans.read', 'business.plans.create', 'business.plans.manage', 'business.invoice.read', 'business.invoice.download'],
       description: 'Subscription management and billing',
       color: 'bg-theme-warning-bg text-theme-warning-fg'
     },
@@ -69,19 +69,19 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
     },
     {
       category: 'Marketplace',
-      permissions: ['app.read', 'app.create', 'app.update', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'listing.read', 'listing.create', 'subscription.read', 'subscription.create', 'review.read'],
+      permissions: ['business.app.read', 'business.app.create', 'business.app.update', 'business.app.delete', 'business.app.publish', 'business.app.manage_features', 'business.app.manage_plans', 'business.marketplace.read', 'business.marketplace.create', 'business.subscription.read', 'business.subscription.create', 'business.marketplace.review'],
       description: 'Marketplace apps and subscriptions',
       color: 'bg-theme-success-bg/50 text-theme-success-fg'
     },
     {
       category: 'Admin Operations',
-      permissions: ['admin.access', 'admin.user.read', 'admin.user.create', 'admin.account.read', 'admin.billing.read', 'admin.settings.read', 'admin.audit.read'],
+      permissions: ['admin.access', 'admin.user.read', 'admin.user.create', 'admin.account.read', 'business.billing.read', 'admin.settings.read', 'admin.audit.read'],
       description: 'Administrative functions and oversight',
       color: 'bg-theme-error-bg text-theme-error-fg'
     },
     {
       category: 'System & Workers',
-      permissions: ['system.workers.read', 'system.workers.create', 'system.worker.register', 'system.jobs.process', 'system.health.check', 'system.database.read'],
+      permissions: ['admin.workers.read', 'admin.workers.create', 'system.worker.register', 'system.jobs.process', 'system.health.check', 'system.database.read'],
       description: 'System operations and worker management',
       color: 'bg-theme-surface border border-theme text-theme-secondary'
     }
@@ -152,44 +152,44 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
     // Role-permission mappings synced with backend Permissions::ROLES
     const rolePermissionMap: Record<string, string[]> = {
       'member': [
-        'user.read', 'user.edit_self', 'team.read', 'billing.read', 'page.read', 'analytics.read',
-        'report.read', 'api.read', 'webhook.read', 'invoice.read', 'audit.read',
-        'app.read', 'listing.read', 'subscription.read', 'subscription.create', 'subscription.manage',
-        'subscription.cancel', 'subscription.read_usage', 'review.read'
+        'user.read', 'user.edit_self', 'team.read', 'business.billing.read', 'page.read', 'analytics.read',
+        'report.read', 'api.read', 'webhook.read', 'business.invoice.read', 'audit.read',
+        'business.app.read', 'business.marketplace.read', 'business.subscription.read', 'business.subscription.create', 'subscription.manage',
+        'subscription.cancel', 'subscription.read_usage', 'business.marketplace.review'
       ],
       'manager': [
         'user.read', 'user.edit_self', 'team.read', 'team.invite', 'team.remove', 'team.assign_roles',
-        'billing.read', 'billing.update', 'plans.read', 'plans.manage',
+        'business.billing.read', 'business.billing.update', 'business.plans.read', 'business.plans.manage',
         'page.read', 'page.create', 'page.update', 'page.delete', 'page.publish',
         'analytics.read', 'analytics.export', 'report.read', 'report.generate', 'report.export',
         'api.read', 'api.write', 'api.manage_keys', 'webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete',
-        'invoice.read', 'invoice.download', 'audit.read', 'audit.export',
-        'app.read', 'app.create', 'app.update', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'app.read_analytics',
-        'listing.read', 'listing.create', 'listing.update', 'listing.delete',
-        'subscription.read', 'subscription.create', 'subscription.manage', 'subscription.cancel', 'subscription.upgrade', 'subscription.read_usage',
-        'review.read', 'review.create', 'review.update', 'review.delete', 'review.moderate'
+        'business.invoice.read', 'business.invoice.download', 'audit.read', 'audit.export',
+        'business.app.read', 'business.app.create', 'business.app.update', 'business.app.delete', 'business.app.publish', 'business.app.manage_features', 'business.app.manage_plans', 'app.read_analytics',
+        'business.marketplace.read', 'business.marketplace.create', 'listing.update', 'listing.delete',
+        'business.subscription.read', 'business.subscription.create', 'subscription.manage', 'subscription.cancel', 'subscription.upgrade', 'subscription.read_usage',
+        'business.marketplace.review', 'review.create', 'review.update', 'review.delete', 'review.moderate'
       ],
       'billing_admin': [
-        'user.read', 'user.edit_self', 'team.read', 'billing.read', 'billing.update', 'billing.cancel',
-        'plans.read', 'plans.create', 'plans.manage', 'invoice.read', 'invoice.download',
-        'analytics.read', 'report.read', 'report.generate', 'admin.billing.read', 'admin.billing.override',
+        'user.read', 'user.edit_self', 'team.read', 'business.billing.read', 'business.billing.update', 'business.billing.cancel',
+        'business.plans.read', 'business.plans.create', 'business.plans.manage', 'business.invoice.read', 'business.invoice.download',
+        'analytics.read', 'report.read', 'report.generate', 'admin.billing.override',
         'admin.billing.refund', 'admin.billing.credit', 'audit.read'
       ],
       'developer': [
-        'user.read', 'user.edit_self', 'team.read', 'billing.read', 'billing.update', 'plans.read',
+        'user.read', 'user.edit_self', 'team.read', 'business.billing.read', 'business.billing.update', 'business.plans.read',
         'page.read', 'analytics.read', 'analytics.export', 'report.read', 'report.generate',
         'api.read', 'api.write', 'api.manage_keys', 'webhook.read', 'webhook.create', 'webhook.update',
-        'invoice.read', 'invoice.download', 'audit.read',
-        'app.read', 'app.create', 'app.update', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'app.read_analytics',
-        'listing.read', 'listing.create', 'listing.update', 'listing.delete',
-        'subscription.read', 'subscription.create', 'subscription.manage', 'subscription.cancel', 'subscription.upgrade', 'subscription.read_usage',
-        'review.read', 'review.create', 'review.update', 'review.delete', 'review.moderate'
+        'business.invoice.read', 'business.invoice.download', 'audit.read',
+        'business.app.read', 'business.app.create', 'business.app.update', 'business.app.delete', 'business.app.publish', 'business.app.manage_features', 'business.app.manage_plans', 'app.read_analytics',
+        'business.marketplace.read', 'business.marketplace.create', 'listing.update', 'listing.delete',
+        'business.subscription.read', 'business.subscription.create', 'subscription.manage', 'subscription.cancel', 'subscription.upgrade', 'subscription.read_usage',
+        'business.marketplace.review', 'review.create', 'review.update', 'review.delete', 'review.moderate'
       ],
       'owner': [
         // All resource permissions + selected admin permissions
         ...allPermissions.filter(p => !p.startsWith('system.')), // All non-system permissions
         'admin.user.read', 'admin.user.create', 'admin.user.update', 'admin.user.suspend',
-        'admin.role.read', 'admin.role.assign', 'admin.billing.read', 'admin.billing.override',
+        'admin.role.read', 'admin.role.assign', 'business.billing.read', 'admin.billing.override',
         'admin.settings.read', 'admin.settings.update', 'admin.audit.read', 'admin.audit.export'
       ],
       'admin': [

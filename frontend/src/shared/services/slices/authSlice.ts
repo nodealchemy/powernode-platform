@@ -10,7 +10,7 @@ export interface User {
   name: string;
   full_name?: string;  // Full name returned from backend (typically same as name)
   roles: string[];  // Array of role names (e.g., ['system.admin', 'account.manager'])
-  permissions?: string[];  // Array of permission strings (e.g., ['users.create', 'billing.read']) - optional as not always returned
+  permissions?: string[];  // Array of permission strings (e.g., ['users.create', 'business.billing.read']) - optional as not always returned
   status: string;
   email_verified: boolean;
   account: {

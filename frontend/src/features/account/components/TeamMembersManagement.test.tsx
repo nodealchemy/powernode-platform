@@ -36,7 +36,7 @@ const mockTeamMembers = [
     email_verified: true,
     last_login_at: '2023-12-01T10:00:00Z',
     created_at: '2023-01-01T00:00:00Z',
-    permissions: ['users.read', 'plans.read']
+    permissions: ['users.read', 'business.plans.read']
   },
   {
     id: '2',
@@ -47,7 +47,7 @@ const mockTeamMembers = [
     email_verified: true,
     last_login_at: '2023-12-02T15:30:00Z',
     created_at: '2023-02-01T00:00:00Z',
-    permissions: ['users.read', 'users.manage', 'billing.read']
+    permissions: ['users.read', 'users.manage', 'business.billing.read']
   },
   {
     id: '3',

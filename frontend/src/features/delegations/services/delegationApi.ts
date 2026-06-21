@@ -363,12 +363,12 @@ export const DELEGATION_PERMISSIONS = [
     description: 'Modify account settings and configuration',
   },
   {
-    key: 'billing.read',
+    key: 'business.billing.read',
     label: 'View Billing',
     description: 'View billing information and invoices',
   },
   {
-    key: 'billing.update',
+    key: 'business.billing.update',
     label: 'Manage Billing',
     description: 'Modify billing settings and payment methods',
   },

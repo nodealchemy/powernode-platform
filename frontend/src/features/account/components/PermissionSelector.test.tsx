@@ -12,8 +12,8 @@ describe('PermissionSelector', () => {
     { id: 'perm-1', resource: 'users', action: 'read', description: 'View users', key: 'users.read' },
     { id: 'perm-2', resource: 'users', action: 'create', description: 'Create users', key: 'users.create' },
     { id: 'perm-3', resource: 'users', action: 'delete', description: 'Delete users', key: 'users.delete' },
-    { id: 'perm-4', resource: 'billing', action: 'read', description: 'View billing', key: 'billing.read' },
-    { id: 'perm-5', resource: 'billing', action: 'update', description: 'Update billing', key: 'billing.update' },
+    { id: 'perm-4', resource: 'billing', action: 'read', description: 'View billing', key: 'business.billing.read' },
+    { id: 'perm-5', resource: 'billing', action: 'update', description: 'Update billing', key: 'business.billing.update' },
     { id: 'perm-6', resource: 'analytics', action: 'export', description: 'Export analytics', key: 'analytics.export' }
   ];
 
@@ -160,8 +160,8 @@ describe('PermissionSelector', () => {
       const searchInput = screen.getByPlaceholderText('Search permissions...');
       fireEvent.change(searchInput, { target: { value: 'billing' } });
 
-      expect(screen.getByText('billing.read')).toBeInTheDocument();
-      expect(screen.getByText('billing.update')).toBeInTheDocument();
+      expect(screen.getByText('business.billing.read')).toBeInTheDocument();
+      expect(screen.getByText('business.billing.update')).toBeInTheDocument();
       expect(screen.queryByText('users.read')).not.toBeInTheDocument();
     });
 
@@ -187,7 +187,7 @@ describe('PermissionSelector', () => {
       const resourceFilter = screen.getAllByRole('combobox')[1];
       fireEvent.change(resourceFilter, { target: { value: 'billing' } });
 
-      expect(screen.getByText('billing.read')).toBeInTheDocument();
+      expect(screen.getByText('business.billing.read')).toBeInTheDocument();
       expect(screen.queryByText('users.read')).not.toBeInTheDocument();
     });
 
@@ -240,7 +240,7 @@ describe('PermissionSelector', () => {
 
       expect(screen.getByText('users.read')).toBeInTheDocument();
       expect(screen.getByText('users.create')).toBeInTheDocument();
-      expect(screen.getByText('billing.read')).toBeInTheDocument();
+      expect(screen.getByText('business.billing.read')).toBeInTheDocument();
     });
 
     it('displays permission descriptions', () => {

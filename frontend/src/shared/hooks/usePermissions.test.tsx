@@ -82,7 +82,7 @@ describe('usePermissions', () => {
 
   describe('exact permission matching', () => {
     it('grants access for exact permission matches', () => {
-      const permissions = ['users.read', 'users.create', 'billing.read'];
+      const permissions = ['users.read', 'users.create', 'business.billing.read'];
       const user = createMockUser(permissions);
       const store = createMockStore(user);
       const { result } = renderHook(() => usePermissions(), {
@@ -91,13 +91,13 @@ describe('usePermissions', () => {
 
       expect(result.current.hasPermission('users.read')).toBe(true);
       expect(result.current.hasPermission('users.create')).toBe(true);
-      expect(result.current.hasPermission('billing.read')).toBe(true);
+      expect(result.current.hasPermission('business.billing.read')).toBe(true);
       expect(result.current.hasPermission('users.delete')).toBe(false);
       expect(result.current.hasPermission('admin.access')).toBe(false);
     });
 
     it('uses canAccess method correctly', () => {
-      const permissions = ['users.read', 'users.create', 'billing.read'];
+      const permissions = ['users.read', 'users.create', 'business.billing.read'];
       const user = createMockUser(permissions);
       const store = createMockStore(user);
       const { result } = renderHook(() => usePermissions(), {
@@ -114,7 +114,7 @@ describe('usePermissions', () => {
 
   describe('wildcard permission matching', () => {
     it('grants access for resource wildcards', () => {
-      const permissions = ['users.*', 'billing.read'];
+      const permissions = ['users.*', 'business.billing.read'];
       const user = createMockUser(permissions);
       const store = createMockStore(user);
       const { result } = renderHook(() => usePermissions(), {
@@ -127,7 +127,7 @@ describe('usePermissions', () => {
       expect(result.current.hasPermission('users.delete')).toBe(true);
       expect(result.current.hasPermission('users.anything')).toBe(true);
       
-      expect(result.current.hasPermission('billing.read')).toBe(true);
+      expect(result.current.hasPermission('business.billing.read')).toBe(true);
       expect(result.current.hasPermission('billing.create')).toBe(false);
       
       expect(result.current.hasPermission('admin.access')).toBe(false);
@@ -143,7 +143,7 @@ describe('usePermissions', () => {
 
       expect(result.current.hasPermission('users.read')).toBe(true);
       expect(result.current.hasPermission('users.create')).toBe(true);
-      expect(result.current.hasPermission('billing.read')).toBe(true);
+      expect(result.current.hasPermission('business.billing.read')).toBe(true);
       expect(result.current.hasPermission('admin.access')).toBe(true);
       expect(result.current.hasPermission('anything.anything')).toBe(true);
     });
@@ -165,7 +165,7 @@ describe('usePermissions', () => {
 
   describe('multiple permission checks', () => {
     it('checks hasAnyPermission correctly', () => {
-      const permissions = ['users.read', 'billing.read'];
+      const permissions = ['users.read', 'business.billing.read'];
       const user = createMockUser(permissions);
       const store = createMockStore(user);
       const { result } = renderHook(() => usePermissions(), {
@@ -174,13 +174,13 @@ describe('usePermissions', () => {
 
       expect(result.current.hasAnyPermission(['users.read', 'users.write'])).toBe(true);
       expect(result.current.hasAnyPermission(['users.write', 'users.delete'])).toBe(false);
-      expect(result.current.hasAnyPermission(['users.read', 'billing.read'])).toBe(true);
+      expect(result.current.hasAnyPermission(['users.read', 'business.billing.read'])).toBe(true);
       expect(result.current.hasAnyPermission(['admin.access', 'system.admin'])).toBe(false);
       expect(result.current.hasAnyPermission([])).toBe(false);
     });
 
     it('checks hasAllPermissions correctly', () => {
-      const permissions = ['users.read', 'users.create', 'billing.read'];
+      const permissions = ['users.read', 'users.create', 'business.billing.read'];
       const user = createMockUser(permissions);
       const store = createMockStore(user);
       const { result } = renderHook(() => usePermissions(), {
@@ -189,8 +189,8 @@ describe('usePermissions', () => {
 
       expect(result.current.hasAllPermissions(['users.read', 'users.create'])).toBe(true);
       expect(result.current.hasAllPermissions(['users.read', 'users.delete'])).toBe(false);
-      expect(result.current.hasAllPermissions(['users.read', 'billing.read'])).toBe(true);
-      expect(result.current.hasAllPermissions(['users.read', 'users.create', 'billing.read'])).toBe(true);
+      expect(result.current.hasAllPermissions(['users.read', 'business.billing.read'])).toBe(true);
+      expect(result.current.hasAllPermissions(['users.read', 'users.create', 'business.billing.read'])).toBe(true);
       expect(result.current.hasAllPermissions(['users.read', 'admin.access'])).toBe(false);
       expect(result.current.hasAllPermissions([])).toBe(true);
     });
@@ -258,7 +258,7 @@ describe('usePermissions', () => {
 
   describe('data accessors', () => {
     it('returns correct permissions and roles', () => {
-      const permissions = ['users.read', 'users.create', 'billing.read'];
+      const permissions = ['users.read', 'users.create', 'business.billing.read'];
       const roles = ['account.manager', 'billing.manager'];
       const user = createMockUser(permissions, roles);
       const store = createMockStore(user);
@@ -329,13 +329,13 @@ describe('usePermissions', () => {
       expect(result.current.hasPermission('Users.CREATE')).toBe(true);
       expect(result.current.hasPermission('users.CREATE')).toBe(false);
       expect(result.current.hasPermission('BILLING.read')).toBe(true);
-      expect(result.current.hasPermission('billing.read')).toBe(false);
+      expect(result.current.hasPermission('business.billing.read')).toBe(false);
     });
   });
 
   describe('complex scenarios', () => {
     it('handles mixed exact and wildcard permissions correctly', () => {
-      const permissions = ['users.*', 'billing.read', 'admin.access', 'reports.*'];
+      const permissions = ['users.*', 'business.billing.read', 'admin.access', 'reports.*'];
       const user = createMockUser(permissions);
       const store = createMockStore(user);
       const { result } = renderHook(() => usePermissions(), {
@@ -351,12 +351,12 @@ describe('usePermissions', () => {
       expect(result.current.hasPermission('reports.export')).toBe(true);
 
       // Exact permissions
-      expect(result.current.hasPermission('billing.read')).toBe(true);
+      expect(result.current.hasPermission('business.billing.read')).toBe(true);
       expect(result.current.hasPermission('admin.access')).toBe(true);
 
       // Not granted permissions
       expect(result.current.hasPermission('billing.create')).toBe(false);
-      expect(result.current.hasPermission('billing.update')).toBe(false);
+      expect(result.current.hasPermission('business.billing.update')).toBe(false);
       expect(result.current.hasPermission('system.admin')).toBe(false);
     });
 
@@ -370,7 +370,7 @@ describe('usePermissions', () => {
 
       expect(result.current.hasPermission('users.read')).toBe(true);
       expect(result.current.hasPermission('users.create')).toBe(true);
-      expect(result.current.hasPermission('billing.read')).toBe(true);
+      expect(result.current.hasPermission('business.billing.read')).toBe(true);
       expect(result.current.hasPermission('admin.access')).toBe(true);
       expect(result.current.isSystemAdmin()).toBe(true);
     });
@@ -420,7 +420,7 @@ describe('usePermissions', () => {
     };
 
     it('integrates correctly with components for regular user', () => {
-      const user = createMockUser(['users.read', 'billing.read'], ['basic.user']);
+      const user = createMockUser(['users.read', 'business.billing.read'], ['basic.user']);
       const store = createMockStore(user);
       
       render(
@@ -461,7 +461,7 @@ describe('usePermissions', () => {
     });
 
     it('integrates correctly with components for account manager', () => {
-      const user = createMockUser(['users.manage', 'team.manage', 'billing.read'], ['account.manager']);
+      const user = createMockUser(['users.manage', 'team.manage', 'business.billing.read'], ['account.manager']);
       const store = createMockStore(user);
       
       render(

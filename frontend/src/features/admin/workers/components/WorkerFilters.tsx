@@ -21,14 +21,14 @@ const availableRoles = [
 
 const commonPermissions = [
   'admin.access',
-  'system.workers.read',
-  'system.workers.create',
-  'system.workers.update',
-  'system.workers.delete',
+  'admin.workers.read',
+  'admin.workers.create',
+  'admin.workers.update',
+  'admin.workers.delete',
   'api.read',
   'api.write',
-  'billing.manage',
-  'user.manage'
+  'business.billing.manage',
+  'users.manage'
 ];
 
 export const WorkerFilters: React.FC<WorkerFiltersProps> = ({

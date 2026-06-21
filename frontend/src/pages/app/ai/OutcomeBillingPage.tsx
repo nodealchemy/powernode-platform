@@ -51,18 +51,18 @@ const DEFAULT_OUTCOME_BILLING_BASE_PATH = '/app/ai/cost/outcome-billing';
 /**
  * Path-based tab specs for the outcome-billing hub. Each tab owns a URL
  * segment, so switching tabs updates the URL path (and the breadcrumbs the
- * parent page derives from it). Every tab requires `ai.billing.read` — the
+ * parent page derives from it). Every tab requires `business.billing.read` — the
  * same permission the page's data endpoints require — which preserves the
  * prior all-or-nothing visibility (the page rendered every tab to anyone who
  * could load it).
  */
 export const OUTCOME_BILLING_TABS: PathTabSpec[] = [
-  { key: 'definitions', label: 'Definitions', permission: 'ai.billing.read', icon: <FileText size={16} /> },
-  { key: 'contracts', label: 'Contracts', permission: 'ai.billing.read', icon: <Shield size={16} /> },
-  { key: 'records', label: 'Records', permission: 'ai.billing.read', icon: <DollarSign size={16} /> },
-  { key: 'violations', label: 'Violations', permission: 'ai.billing.read', icon: <AlertTriangle size={16} /> },
-  { key: 'performance', label: 'Performance', permission: 'ai.billing.read', icon: <BarChart3 size={16} /> },
-  { key: 'summary', label: 'Summary', permission: 'ai.billing.read', icon: <TrendingUp size={16} /> },
+  { key: 'definitions', label: 'Definitions', permission: 'business.billing.read', icon: <FileText size={16} /> },
+  { key: 'contracts', label: 'Contracts', permission: 'business.billing.read', icon: <Shield size={16} /> },
+  { key: 'records', label: 'Records', permission: 'business.billing.read', icon: <DollarSign size={16} /> },
+  { key: 'violations', label: 'Violations', permission: 'business.billing.read', icon: <AlertTriangle size={16} /> },
+  { key: 'performance', label: 'Performance', permission: 'business.billing.read', icon: <BarChart3 size={16} /> },
+  { key: 'summary', label: 'Summary', permission: 'business.billing.read', icon: <TrendingUp size={16} /> },
 ];
 
 interface OutcomeBillingContentProps {
