@@ -119,11 +119,14 @@ module Ai
           api_endpoint&.include?("bedrock")
       end
 
+      # #37: no hardcoded model. Honor an explicit per-provider devops override,
+      # else the provider's configured default_model, else its first supported
+      # model id. (The old chain hardcoded "claude-3-sonnet-20240229" and also
+      # mishandled Hash-shaped supported_models entries.)
       def default_model_for_devops
-        metadata&.dig("devops_model") ||
-          supported_models&.find { |m| m.include?("claude-3") } ||
-          supported_models&.first ||
-          "claude-3-sonnet-20240229"
+        metadata&.dig("devops_model").presence ||
+          default_model.presence ||
+          Array(supported_models).filter_map { |m| m.is_a?(Hash) ? (m["id"] || m["name"]) : m }.first
       end
 
       def devops_max_tokens

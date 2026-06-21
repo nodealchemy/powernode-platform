@@ -95,7 +95,7 @@ ai_configs = [
     description: 'Primary AI configuration for automated code review and analysis',
     config_type: 'code_review',
     provider: 'anthropic',
-    model: 'claude-sonnet-4-5-20250929',
+    model: 'auto', # #37: resolved at runtime via Devops::AiConfig#resolved_model
     temperature: 0.2,
     max_tokens: 8192,
     timeout_seconds: 60,
@@ -111,7 +111,7 @@ ai_configs = [
     description: 'AI configuration for generating code, tests, and documentation',
     config_type: 'code_generation',
     provider: 'anthropic',
-    model: 'claude-sonnet-4-5-20250929',
+    model: 'auto', # #37: resolved at runtime via Devops::AiConfig#resolved_model
     temperature: 0.4,
     max_tokens: 16_384,
     timeout_seconds: 90,
@@ -141,7 +141,7 @@ ai_configs = [
     description: 'Specialized AI configuration for security vulnerability analysis',
     config_type: 'custom',
     provider: 'anthropic',
-    model: 'claude-sonnet-4-5-20250929',
+    model: 'auto', # #37: resolved at runtime via Devops::AiConfig#resolved_model
     temperature: 0.1,
     max_tokens: 8192,
     timeout_seconds: 60,

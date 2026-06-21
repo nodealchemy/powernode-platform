@@ -87,9 +87,20 @@ module Devops
       }
     end
 
+    # #37: resolve the model dynamically when the config is "auto"/blank — an
+    # explicit model string is honored as a pin. Resolution stays within the
+    # config's own provider (a config is provider-specific): embedding configs
+    # pick a text_embedding model; code/chat configs prefer a reasoning-tier
+    # model; otherwise the provider's default. No hardcoded model names.
+    def resolved_model
+      return model if model.present? && !auto_model?
+
+      resolve_devops_model
+    end
+
     def model_params
       {
-        model: model,
+        model: resolved_model,
         max_tokens: max_tokens,
         temperature: temperature,
         top_p: top_p,
@@ -109,6 +120,39 @@ module Devops
     end
 
     private
+
+    # Sentinel values that mean "resolve a model at runtime" rather than pin one.
+    AUTO_MODELS = %w[auto default].freeze
+
+    def auto_model?
+      AUTO_MODELS.include?(model.to_s.strip.downcase)
+    end
+
+    # Pick a concrete model from THIS config's provider (provider-constrained, so
+    # the resolved model always matches the provider whose credential the devops
+    # flow uses). Capability/tier-aware; falls back to the provider default.
+    def resolve_devops_model
+      prov = Ai::Provider.where(account_id: account_id, provider_type: provider, is_active: true).first ||
+             Ai::Provider.where(account_id: account_id, is_active: true).first
+      return model.to_s unless prov
+
+      entries = Array(prov.supported_models)
+      id_of   = ->(m) { m.is_a?(Hash) ? (m["id"] || m["name"]) : m }
+
+      if config_type == "embedding"
+        embed = entries.find { |m| m.is_a?(Hash) && Array(m["capabilities"]).include?("text_embedding") }
+        (embed && id_of.call(embed)) || prov.default_model.presence || entries.filter_map(&id_of).first.to_s
+      else
+        reasoning = ::Ai::Agent::MODEL_CAPABILITY_TIERS[:reasoning]
+        text = entries.select { |m| m.is_a?(Hash) && Array(m["capabilities"]).include?("text_generation") }
+        text = entries.select { |m| m.is_a?(Hash) } if text.empty?
+        # cheapest reasoning-tier model in this provider (cost-quality fit, like #37's selector)
+        cost = ->(m) { c = m.dig("cost_per_1k_tokens", "input").to_f; c.zero? ? Float::INFINITY : c }
+        pick = text.select { |m| reasoning.any? { |p| id_of.call(m).to_s.start_with?(p) } }.min_by(&cost)
+        pick ||= text.min_by(&cost)
+        (pick && id_of.call(pick)) || prov.default_model.presence || entries.filter_map(&id_of).first.to_s
+      end
+    end
 
     def ensure_single_default_per_type
       return unless is_default? && is_default_changed?
