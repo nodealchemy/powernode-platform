@@ -4891,11 +4891,11 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
   create_table "delegation_permissions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_delegation_id", null: false
     t.datetime "created_at", null: false
-    t.uuid "permission_id", null: false
+    t.string "permission_name", limit: 100, null: false
     t.datetime "updated_at", null: false
-    t.index ["account_delegation_id", "permission_id"], name: "idx_on_account_delegation_id_permission_id_f30bb342b5", unique: true
+    t.index ["account_delegation_id", "permission_name"], name: "idx_on_account_delegation_id_permission_name", unique: true
     t.index ["account_delegation_id"], name: "index_delegation_permissions_on_account_delegation_id"
-    t.index ["permission_id"], name: "index_delegation_permissions_on_permission_id"
+    t.index ["permission_name"], name: "index_delegation_permissions_on_permission_name"
   end
 
   create_table "devops_ai_configs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -7111,20 +7111,6 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.index ["user_id"], name: "index_password_histories_on_user_id"
   end
 
-  create_table "permissions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.string "action", limit: 100
-    t.string "category", limit: 50, null: false
-    t.datetime "created_at", null: false
-    t.text "description"
-    t.string "name", limit: 100, null: false
-    t.string "resource", limit: 100
-    t.datetime "updated_at", null: false
-    t.index ["category"], name: "index_permissions_on_category"
-    t.index ["name"], name: "index_permissions_on_name", unique: true
-    t.index ["resource", "action", "category"], name: "index_permissions_on_resource_and_action_and_category", unique: true
-    t.check_constraint "category::text = ANY (ARRAY['resource'::character varying::text, 'admin'::character varying::text, 'system'::character varying::text])", name: "valid_permission_category"
-  end
-
   create_table "report_requests", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "completed_at"
@@ -7155,14 +7141,15 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
 
   create_table "role_permissions", id: false, force: :cascade do |t|
     t.datetime "granted_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }, null: false
-    t.uuid "permission_id", null: false
+    t.string "permission_name", limit: 100, null: false
     t.uuid "role_id", null: false
-    t.index ["permission_id"], name: "index_role_permissions_on_permission_id"
-    t.index ["role_id", "permission_id"], name: "index_role_permissions_on_role_id_and_permission_id", unique: true
+    t.index ["permission_name"], name: "index_role_permissions_on_permission_name"
+    t.index ["role_id", "permission_name"], name: "index_role_permissions_on_role_id_and_permission_name", unique: true
     t.index ["role_id"], name: "index_role_permissions_on_role_id"
   end
 
   create_table "roles", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id"
     t.datetime "created_at", null: false
     t.text "description"
     t.string "display_name", limit: 100
@@ -7171,7 +7158,9 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
     t.string "name", limit: 100, null: false
     t.string "role_type", limit: 20
     t.datetime "updated_at", null: false
-    t.index ["name"], name: "index_roles_on_name", unique: true
+    t.index ["account_id", "name"], name: "index_roles_on_account_id_and_name", unique: true, where: "(account_id IS NOT NULL)"
+    t.index ["account_id"], name: "index_roles_on_account_id"
+    t.index ["name"], name: "index_roles_on_name_global", unique: true, where: "(account_id IS NULL)"
   end
 
   create_table "scheduled_reports", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -11428,7 +11417,6 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
   add_foreign_key "database_restores", "database_backups"
   add_foreign_key "database_restores", "users", column: "initiated_by_id"
   add_foreign_key "delegation_permissions", "account_delegations"
-  add_foreign_key "delegation_permissions", "permissions"
   add_foreign_key "devops_ai_configs", "accounts", on_delete: :cascade
   add_foreign_key "devops_ai_configs", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "devops_container_image_builds", "accounts"
@@ -11594,8 +11582,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000004) do
   add_foreign_key "password_histories", "users"
   add_foreign_key "report_requests", "accounts"
   add_foreign_key "report_requests", "users", column: "requested_by_id"
-  add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"
+  add_foreign_key "roles", "accounts", on_delete: :cascade
   add_foreign_key "scheduled_reports", "accounts"
   add_foreign_key "scheduled_reports", "users", column: "created_by_id"
   add_foreign_key "security_secrets", "accounts"

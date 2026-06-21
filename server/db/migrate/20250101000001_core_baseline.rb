@@ -4876,11 +4876,11 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
   create_table "delegation_permissions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_delegation_id", null: false
     t.datetime "created_at", null: false
-    t.uuid "permission_id", null: false
+    t.string "permission_name", limit: 100, null: false
     t.datetime "updated_at", null: false
-    t.index ["account_delegation_id", "permission_id"], unique: true
+    t.index ["account_delegation_id", "permission_name"], unique: true, name: "idx_on_account_delegation_id_permission_name"
     t.index ["account_delegation_id"]
-    t.index ["permission_id"]
+    t.index ["permission_name"]
   end
 
   create_table "devops_ai_configs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -6893,20 +6893,6 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.index ["user_id"]
   end
 
-  create_table "permissions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.string "action", limit: 100
-    t.string "category", limit: 50, null: false
-    t.datetime "created_at", null: false
-    t.text "description"
-    t.string "name", limit: 100, null: false
-    t.string "resource", limit: 100
-    t.datetime "updated_at", null: false
-    t.index ["category"]
-    t.index ["name"], unique: true
-    t.index ["resource", "action", "category"], unique: true
-    t.check_constraint "category::text = ANY (ARRAY['resource'::character varying::text, 'admin'::character varying::text, 'system'::character varying::text])", name: "valid_permission_category"
-  end
-
   create_table "report_requests", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "completed_at"
@@ -6937,14 +6923,15 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
 
   create_table "role_permissions", id: false, force: :cascade do |t|
     t.datetime "granted_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }, null: false
-    t.uuid "permission_id", null: false
+    t.string "permission_name", limit: 100, null: false
     t.uuid "role_id", null: false
-    t.index ["permission_id"]
-    t.index ["role_id", "permission_id"], unique: true
+    t.index ["permission_name"]
+    t.index ["role_id", "permission_name"], unique: true
     t.index ["role_id"]
   end
 
   create_table "roles", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id"
     t.datetime "created_at", null: false
     t.text "description"
     t.string "display_name", limit: 100
@@ -6953,7 +6940,9 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     t.string "name", limit: 100, null: false
     t.string "role_type", limit: 20
     t.datetime "updated_at", null: false
-    t.index ["name"], unique: true
+    t.index ["account_id", "name"], unique: true, where: "(account_id IS NOT NULL)"
+    t.index ["account_id"]
+    t.index ["name"], unique: true, where: "(account_id IS NULL)", name: "index_roles_on_name_global"
   end
 
   create_table "scheduled_reports", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -7834,7 +7823,6 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     add_foreign_key "database_restores", "database_backups", column: "database_backup_id"
     add_foreign_key "database_restores", "users", column: "initiated_by_id"
     add_foreign_key "delegation_permissions", "account_delegations", column: "account_delegation_id"
-    add_foreign_key "delegation_permissions", "permissions", column: "permission_id"
     add_foreign_key "devops_ai_configs", "accounts", column: "account_id", on_delete: :cascade
     add_foreign_key "devops_ai_configs", "users", column: "created_by_id", on_delete: :nullify
     add_foreign_key "devops_container_image_builds", "accounts", column: "account_id"
@@ -7983,8 +7971,8 @@ class CoreBaseline < ActiveRecord::Migration[8.1]
     add_foreign_key "password_histories", "users", column: "user_id"
     add_foreign_key "report_requests", "accounts", column: "account_id"
     add_foreign_key "report_requests", "users", column: "requested_by_id"
-    add_foreign_key "role_permissions", "permissions", column: "permission_id"
     add_foreign_key "role_permissions", "roles", column: "role_id"
+    add_foreign_key "roles", "accounts", column: "account_id", on_delete: :cascade
     add_foreign_key "scheduled_reports", "accounts", column: "account_id"
     add_foreign_key "scheduled_reports", "users", column: "created_by_id"
     add_foreign_key "security_secrets", "accounts", column: "account_id"
