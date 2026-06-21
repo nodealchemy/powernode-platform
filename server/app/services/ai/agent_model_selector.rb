@@ -35,19 +35,22 @@ module Ai
     EMPIRICAL_MIN_RUNS  = 5
     EMPIRICAL_DEFAULT   = 0.5
 
-    def self.recommend(account:, agent_type:, role: nil, description: nil)
-      new(account: account, agent_type: agent_type, role: role, description: description).recommend
+    def self.recommend(account:, agent_type:, role: nil, description: nil, requirements: {})
+      new(account: account, agent_type: agent_type, role: role, description: description, requirements: requirements).recommend
     end
 
-    def initialize(account:, agent_type:, role: nil, description: nil)
+    def initialize(account:, agent_type:, role: nil, description: nil, requirements: {})
       @account = account
       @agent_type = agent_type.to_s
       @role = role.to_s
       @description = description.to_s
+      # Per-skill/context model fit (e.g. Ai::Skill#model_requirements):
+      # { capabilities: [hard gates], preferred: [...], tier: :reasoning }.
+      @requirements = (requirements || {}).symbolize_keys
     end
 
     def recommend
-      profile = AGENT_TYPE_PROFILES[@agent_type] || AGENT_TYPE_PROFILES["assistant"]
+      profile = merge_requirements(AGENT_TYPE_PROFILES[@agent_type] || AGENT_TYPE_PROFILES["assistant"])
       candidates = enumerate_candidates
       return fallback if candidates.empty?
 
@@ -71,6 +74,20 @@ module Ai
     end
 
     private
+
+    # Fold per-skill/context model_requirements into the agent_type profile:
+    # the skill's required capabilities ADD to the hard gate (an incapable model
+    # gets filtered out), preferred capabilities add to the soft preference, and
+    # an explicit tier overrides the profile default. No requirements => unchanged.
+    def merge_requirements(profile)
+      return profile if @requirements.blank?
+
+      {
+        required:  (Array(profile[:required])  + Array(@requirements[:capabilities])).uniq,
+        preferred: (Array(profile[:preferred]) + Array(@requirements[:preferred])).uniq,
+        tier:      (@requirements[:tier].presence&.to_sym || profile[:tier])
+      }
+    end
 
     def enumerate_candidates
       @account.ai_providers.where(is_active: true).flat_map do |provider|
