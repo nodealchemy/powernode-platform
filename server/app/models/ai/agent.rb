@@ -162,6 +162,11 @@ module Ai
       return @model_resolution if defined?(@model_resolution)
 
       @model_resolution = compute_model_resolution
+    rescue StandardError => e
+      # Don't memoize a transient failure — recompute next call so resolution
+      # recovers once the cause (DB blip / selector error) clears.
+      Rails.logger.error("[Ai::Agent#model_resolution] #{e.class}: #{e.message}")
+      fallback_resolution
     end
 
     def resolved_model
@@ -178,32 +183,74 @@ module Ai
 
     private
 
-    # Compute the coherent (model, provider, credential) triple. A pinned model
-    # keeps the agent's own provider; otherwise the cross-provider selector pick
-    # wins and its matching active credential is resolved.
+    # The coherent (model, provider, credential) triple. A pinned model is honored
+    # only when it belongs to a usable provider (preferring the agent's own);
+    # otherwise — and for unpinned agents — the selector picks across active
+    # credentialed providers, folding in the agent's own + its skills' model
+    # requirements. The credential always comes from the *resolved* provider, so the
+    # three never disagree. Raises on selector failure (model_resolution rescues).
     def compute_model_resolution
       pinned = mcp_metadata&.dig("model_config", "model").presence
-      if pinned
-        return { model: pinned, provider: provider, credential: active_credential_for(provider) }
+      if pinned && (prov = provider_for_pinned_model(pinned))
+        return resolution_for(pinned, prov)
       end
 
       rec  = ::Ai::AgentModelSelector.recommend(
         account:      account,
         agent_type:   agent_type,
-        requirements: mcp_metadata&.dig("model_config", "model_requirements") || {}
+        requirements: merged_model_requirements
       )
       prov = rec[:provider] || provider
-      { model: rec[:model] || prov&.default_model, provider: prov, credential: active_credential_for(prov) }
-    rescue StandardError => e
-      Rails.logger.warn("[Ai::Agent#model_resolution] selector failed: #{e.message}")
-      { model: provider&.default_model, provider: provider, credential: active_credential_for(provider) }
+      resolution_for(rec[:model] || prov&.default_model, prov)
     end
 
-    # Active credential to use for a given provider (prefers the default).
-    def active_credential_for(prov)
-      return nil unless prov
+    def resolution_for(model, prov)
+      { model: model, provider: prov, credential: prov&.active_credential }
+    end
 
-      prov.provider_credentials.active.where(account: account).order(is_default: :desc).first
+    def fallback_resolution
+      resolution_for(provider&.default_model, provider)
+    end
+
+    # The provider that can actually serve a pinned model: the agent's own when it
+    # lists the model, else an account provider whose family matches the model id.
+    # nil ⇒ the pin matches no usable provider, so the caller falls through to the
+    # selector — restoring the supported-model safety check the old resolve_model had.
+    def provider_for_pinned_model(model_id)
+      return provider if provider && provider_lists_model?(provider, model_id)
+
+      ptype = provider_type_for_model(model_id)
+      return nil unless ptype
+
+      account.ai_providers.active.where(provider_type: ptype).detect { |p| provider_lists_model?(p, model_id) } ||
+        account.ai_providers.active.find_by(provider_type: ptype)
+    end
+
+    def provider_lists_model?(prov, model_id)
+      Array(prov.supported_models).any? { |entry| ::Ai::ModelTiers.id_for(entry) == model_id }
+    end
+
+    # The agent's own model_requirements merged with its active skills' — capability
+    # union, preferred union, most-demanding tier — so a skill like "devils-advocate"
+    # (tier: reasoning) actually steers selection (previously inert).
+    def merged_model_requirements
+      ([ mcp_metadata&.dig("model_config", "model_requirements") ] + active_skill_model_requirements)
+        .compact.reject(&:blank?)
+        .reduce({}) do |acc, req|
+          req = req.symbolize_keys
+          {
+            capabilities: (Array(acc[:capabilities]) + Array(req[:capabilities])).uniq,
+            preferred:    (Array(acc[:preferred])    + Array(req[:preferred])).uniq,
+            tier:         ::Ai::ModelTiers.max_tier(acc[:tier], req[:tier])
+          }.compact
+        end
+    end
+
+    def active_skill_model_requirements
+      agent_skills.where(is_active: true)
+                  .joins(:skill)
+                  .where(ai_skills: { status: "active", is_enabled: true })
+                  .pluck("ai_skills.model_requirements")
     end
 
     def build_skill_system_prompts(context: nil)
@@ -281,14 +328,7 @@ module Ai
     # Warn when model capability doesn't match agent type requirements.
     # Lightweight models (mini/haiku/small) are fine for assistants and workers,
     # but monitor and data_analyst roles benefit from stronger reasoning models.
-    MODEL_CAPABILITY_TIERS = {
-      # Tier 1: Full-power reasoning models
-      reasoning: %w[claude-opus claude-sonnet o3 o3-pro gpt-4o grok-3 grok-4],
-      # Tier 2: Cost-effective models adequate for most tasks
-      standard: %w[gpt-4.1-mini gpt-4.1 claude-haiku grok-3-mini o3-mini],
-      # Tier 3: Lightweight / local models
-      light: %w[gpt-4o-mini llama qwen codellama]
-    }.freeze
+    # (Tier data + classification live in Ai::ModelTiers.)
 
     # Agent types that benefit from stronger models
     REASONING_PREFERRED_TYPES = %w[monitor data_analyst].freeze
@@ -298,20 +338,13 @@ module Ai
       return if model.blank? || agent_type.blank?
       return unless REASONING_PREFERRED_TYPES.include?(agent_type)
 
-      tier = model_capability_tier(model)
+      tier = ::Ai::ModelTiers.classify(model)
       return unless tier == :light
 
       Rails.logger.warn(
         "[Ai::Agent] Agent '#{name}' (#{agent_type}) uses lightweight model '#{model}'. " \
         "Consider a standard or reasoning-tier model for better #{agent_type} performance."
       )
-    end
-
-    def model_capability_tier(model_name)
-      MODEL_CAPABILITY_TIERS.each do |tier, prefixes|
-        return tier if prefixes.any? { |p| model_name.start_with?(p) }
-      end
-      :standard # Unknown models default to standard
     end
 
     def sync_to_knowledge_graph

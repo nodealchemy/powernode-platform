@@ -128,30 +128,41 @@ module Devops
       AUTO_MODELS.include?(model.to_s.strip.downcase)
     end
 
-    # Pick a concrete model from THIS config's provider (provider-constrained, so
-    # the resolved model always matches the provider whose credential the devops
-    # flow uses). Capability/tier-aware; falls back to the provider default.
+    # Resolve a model within THIS config's provider — a config is provider-specific,
+    # so the model always matches the provider whose credential the devops flow uses
+    # (no cross-provider fallback). Code/chat configs route through the one shared
+    # resolver (Ai::AgentModelSelector, provider-constrained); embedding configs pick
+    # a text_embedding model directly (the selector's agent profiles assume chat).
+    # Returns nil when the declared provider isn't set up, so the caller surfaces a
+    # missing model rather than emitting the "auto" sentinel or a blank string.
     def resolve_devops_model
-      prov = Ai::Provider.where(account_id: account_id, provider_type: provider, is_active: true).first ||
-             Ai::Provider.where(account_id: account_id, is_active: true).first
-      return model.to_s unless prov
-
-      entries = Array(prov.supported_models)
-      id_of   = ->(m) { m.is_a?(Hash) ? (m["id"] || m["name"]) : m }
+      prov = config_provider
+      return nil unless prov
 
       if config_type == "embedding"
-        embed = entries.find { |m| m.is_a?(Hash) && Array(m["capabilities"]).include?("text_embedding") }
-        (embed && id_of.call(embed)) || prov.default_model.presence || entries.filter_map(&id_of).first.to_s
+        embedding_model_for(prov) || prov.default_model.presence
       else
-        reasoning = ::Ai::Agent::MODEL_CAPABILITY_TIERS[:reasoning]
-        text = entries.select { |m| m.is_a?(Hash) && Array(m["capabilities"]).include?("text_generation") }
-        text = entries.select { |m| m.is_a?(Hash) } if text.empty?
-        # cheapest reasoning-tier model in this provider (cost-quality fit, like #37's selector)
-        cost = ->(m) { c = m.dig("cost_per_1k_tokens", "input").to_f; c.zero? ? Float::INFINITY : c }
-        pick = text.select { |m| reasoning.any? { |p| id_of.call(m).to_s.start_with?(p) } }.min_by(&cost)
-        pick ||= text.min_by(&cost)
-        (pick && id_of.call(pick)) || prov.default_model.presence || entries.filter_map(&id_of).first.to_s
+        ::Ai::AgentModelSelector.recommend(account: account, agent_type: selector_agent_type, provider: prov)[:model].presence ||
+          prov.default_model.presence
       end
+    end
+
+    # The config's own active provider (no cross-provider fallback).
+    def config_provider
+      ::Ai::Provider.where(account_id: account_id, provider_type: provider, is_active: true).first
+    end
+
+    # Map the DevOps config_type to the selector's nearest agent_type profile.
+    def selector_agent_type
+      %w[code_review code_generation].include?(config_type) ? "code_assistant" : "assistant"
+    end
+
+    # First text_embedding-capable model id in the provider's catalog.
+    def embedding_model_for(prov)
+      entry = Array(prov.supported_models).find do |m|
+        m.is_a?(Hash) && Array(m["capabilities"]).include?("text_embedding")
+      end
+      ::Ai::ModelTiers.id_for(entry) if entry
     end
 
     def ensure_single_default_per_type

@@ -104,11 +104,13 @@ module Ai
         }
       end
 
-      # Get the active credential for API access
+      # The provider's active credential, preferring the account default. Shared by
+      # devops env-var generation and the agent/devops model-resolution triple, so
+      # the credential always matches the resolved provider.
       #
       # @return [Ai::ProviderCredential, nil]
       def active_credential
-        provider_credentials.find_by(is_active: true)
+        provider_credentials.active.order(is_default: :desc).first
       end
 
       private

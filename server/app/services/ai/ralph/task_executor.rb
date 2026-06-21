@@ -112,8 +112,13 @@ module Ai
 
       # Execute task via AI agent with agentic tool-calling loop
       def execute_via_agent(agent)
-        provider = agent.provider
-        credential = provider.provider_credentials.active.first
+        # #37: use the agent's coherent resolution triple so the provider, model,
+        # credential, and the tool formatting / AgenticLoop provider_type below all
+        # agree (an unpinned agent may resolve to a provider other than agent.provider).
+        provider = agent.resolved_provider
+        raise "No usable provider resolved for agent '#{agent.name}'" unless provider
+
+        credential = agent.resolved_credential
         raise "No active credentials for provider #{provider.name}" unless credential
 
         client = WorkerLlmClient.new(agent_id: agent.id)

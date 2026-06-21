@@ -109,7 +109,10 @@ module Api
           end
 
           def build_llm_client
-            unless @agent.provider&.is_active?
+            # #37: gate on the resolved provider (the one the worker serves via
+            # provider_config), not the raw agent.provider, so the check agrees with
+            # the model resolve_model_config returns.
+            unless @agent.resolved_provider&.is_active?
               raise "AI provider is not active for agent: #{@agent.name}"
             end
 

@@ -258,8 +258,9 @@ UTILITY_AGENTS.each do |attrs|
     provider: provider,
     version: "1.0.0",
     mcp_metadata: (agent.mcp_metadata || {}).merge(
+      # #37: no model pin — these cheap/standard utility agents resolve their
+      # model at runtime via Ai::Agent#resolved_model (unpinned ⇒ selector picks).
       "model_config" => {
-        "model" => provider.default_model,
         "temperature" => attrs[:temperature],
         "max_tokens" => attrs[:max_tokens]
       },
