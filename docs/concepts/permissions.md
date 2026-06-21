@@ -2,7 +2,7 @@
 
 > Status: active
 
-> Permission-based access control. Frontend uses permissions only; roles exist purely as backend permission groupings.
+> Permission-based access control. Permissions are code-defined (a static catalog, no DB table); roles live in the DB (global or account-scoped) and group permissions by name. The frontend uses permissions only, never roles.
 
 ## Table of Contents
 
@@ -12,7 +12,7 @@
 - [Backend authorization](#backend-authorization)
 - [Frontend access control](#frontend-access-control)
 - [Permission categories](#permission-categories)
-- [Roles (backend permission groupings)](#roles-backend-permission-groupings)
+- [Roles (global vs account-scoped)](#roles-global-vs-account-scoped)
 - [Three-tier permission system](#three-tier-permission-system)
 - [Forbidden patterns](#forbidden-patterns)
 - [Database schema](#database-schema)
@@ -27,29 +27,41 @@ Powernode access control follows one absolute mandate: **use permissions, never 
 
 This concept doc explains why, defines the naming convention, shows the correct backend and frontend patterns, walks through the three-tier permission structure (resource / admin / system), and documents the role catalog. The canonical permission registry — the live list of every permission with its description and current role assignments — lives at [`reference/permissions.md`](../reference/permissions.md).
 
-The open-source base ships **371 static permissions** (`Permissions::ALL_PERMISSIONS`). The live `Permission.count` in a running deployment is higher — extensions register their own permissions on load, so the DB total is extension-inclusive. For current numbers, run `cd server && rails runner "puts Permission.count"` or query `platform.search_knowledge` for "permission system"; never hardcode the live total in docs.
+Permissions are **code-defined and static** — the `Permissions` catalog (`server/config/permissions.rb` plus the programmatic DSL in `server/config/permissions/catalog.rb`) is the single source of truth. There is **no `permissions` database table and no `Permission` ActiveRecord model**; a permission is just a `name => description` entry in the catalog. The catalog ships a core-only constant `Permissions::CORE_PERMISSIONS`, and the runtime set is the dynamic union `Permissions.all_permissions` (core ∪ every enabled extension's registered permissions). Because the total depends on which extensions are loaded, the count is **dynamic** — roughly ~687 in full mode. Never hardcode it; to get the current number run:
+
+```bash
+cd server && rails runner "puts Permissions.all_permissions.size"
+```
+
+or query `platform.search_knowledge` for "permission system".
 
 ## Core principle
 
 ```mermaid
 flowchart LR
+    Catalog[Permissions catalog<br/>CODE — source of truth<br/>name → description]
     User[User]
-    Role[Role<br/>backend-only<br/>grouping]
-    Perm[Permission<br/>string]
+    Role[Role<br/>DB — global or<br/>account-scoped grouping]
+    Grant[role_permissions<br/>by permission_name]
+    Perm[Permission name<br/>string]
     BackendCheck[has_permission?<br/>require_permission]
     FrontendCheck[currentUser.permissions.includes]
 
+    Catalog -- "defines" --> Perm
     User -- "assigned" --> Role
-    Role -- "grants" --> Perm
+    Role -- "grants by name" --> Grant
+    Grant -- "validated against" --> Catalog
+    Grant -- "resolves to" --> Perm
     Perm -- "checked by" --> BackendCheck
     Perm -- "checked by" --> FrontendCheck
 ```
 
 **Three-layer rule:**
 
-1. **Database** stores roles and permissions; roles join to permissions through `role_permissions`
-2. **Backend** authorizes actions by calling `current_user.has_permission?('resource.action')` — never by inspecting roles
-3. **Frontend** authorizes UI by checking `currentUser?.permissions?.includes('resource.action')` — never by inspecting roles
+1. **Code (catalog)** defines the permissions — the `Permissions` catalog enumerates every permission name and its description. The database does **not** store permissions.
+2. **Database** stores roles and their grants: `roles` rows plus `role_permissions(role_id, permission_name)` rows that reference a catalog permission **by name** (validated against the catalog). It is the assignment layer, not the definition layer.
+3. **Backend** authorizes actions by calling `current_user.has_permission?('resource.action')` — never by inspecting roles.
+4. **Frontend** authorizes UI by checking `currentUser?.permissions?.includes('resource.action')` — never by inspecting roles.
 
 The frontend has no concept of "admin"; it has the concept of "user with `admin.access` permission". This means access can be granted granularly without inventing new roles, and reading the codebase tells you exactly what each user can do.
 
@@ -217,14 +229,16 @@ const filteredNavItems = navigationItems.filter(item => {
 
 ### API response format
 
-User objects returned from API include the permissions array:
+User objects returned from API include the permissions array. The serializer (`app/controllers/concerns/user_serialization.rb`) reads `User#permission_names` — the catalog-resolved set of grant names (a `system.admin` grant expands to `Permissions.all_permissions.keys`):
 
 ```ruby
-# In UserSerializer
-def permission_names
-  object.permissions.pluck(:name)
+# In UserSerialization concern
+def user_permissions(user)
+  user.permission_names   # Array<String> of catalog permission names
 end
 ```
+
+`User#permissions` is an alias that returns the same **array of permission name strings** (not ActiveRecord objects):
 
 ```json
 {
@@ -240,37 +254,41 @@ end
 
 Permissions are organized by prefix. The major categories:
 
+Core categories (always present):
+
 | Category | Description |
 |----------|-------------|
-| `admin.*` | Admin panel access — accounts, AI, audit, billing, DevOps, Docker, files, Git, marketplace |
+| `admin.*` | Admin panel access — accounts, AI, audit, DevOps, files, Git, integrations, settings |
 | `ai.*` | AI features — agents, workflows, memory, knowledge, conversations, providers, autonomy |
-| `system.*` | System-level — admin, monitoring, health, configuration |
-| `supply_chain.*` | Supply chain management (supply-chain extension) |
-| `devops.*` | DevOps — pipelines, providers, repositories, templates |
-| `swarm.*` | Docker Swarm operations |
-| `git.*` | Git — approvals, credentials, pipelines, providers, repositories |
-| `docker.*` | Docker container management |
-| `marketing.*` | Marketing campaigns (marketing extension) |
+| `system.*` | System-level — admin, workers, jobs, monitoring, CI workers, disk-image publication |
+| `devops.*` | DevOps — pipelines, providers, repositories, templates, containers |
+| `git.*` | Git — approvals, credentials, pipelines, providers, repositories, runners |
 | `integrations.*` | Third-party integrations |
-| `app.*` | App marketplace |
 | `files.*` | File management |
+| `storage.*` | Storage backends |
 | `kb.*` | Knowledge base articles |
 | `mcp.*` | MCP protocol operations |
-| `subscription.*` | Subscription lifecycle |
 | `page.*` | CMS pages |
-| `review.*` | Code reviews |
-| `storage.*` | Storage backends |
-| `listing.*` | Marketplace listings |
 | `team.*` | Team management |
 | `webhook.*` | Webhook management |
 | `api.*` | API key management |
 | `audit.*` | Audit logs |
-| `billing.*` | Billing operations |
-| `plans.*` | Plan management |
 | `report.*` | Reports |
-| `user.*` | User management |
-| `invoice.*` | Invoice management |
-| `marketplace.*` | Marketplace access |
+| `analytics.*` | Analytics dashboards / exports |
+| `user.*` / `users.*` | User management (account-scoped) |
+
+Extension-prefixed categories (present only when the extension is loaded):
+
+| Category | Description |
+|----------|-------------|
+| `business.*` | Marketplace, billing, plans, invoices, subscriptions, reviews, and developer marketplace-apps — e.g. `business.marketplace.read`, `business.billing.manage`, `business.plans.manage`, `business.app.*` (private business extension) |
+| `supply_chain.*` | Supply chain management — attestations, container-image scanning/signing, SBOMs (supply-chain extension) |
+| `system.sdwan.*` | SD-WAN / networking control plane (system extension) |
+| `marketing.*` | Marketing campaigns, content, calendars, email lists (marketing extension) |
+
+> **Deferred (not currently defined):** `docker.*`, `swarm.*`, and `kubernetes.*` container-plane permissions are **not** in the catalog today — they are reserved for a planned container-plane epic. Do not treat them as live categories; container orchestration is currently expressed through `devops.containers.*` / `devops.container_templates.*`.
+
+> **Migrated to `business.*`:** the marketplace/billing surface that earlier docs listed under bare `marketplace.*`, `app.*`, `listing.*`, `subscription.*`, `review.*`, `billing.*`, `plans.*`, and `invoice.*` prefixes now lives entirely under the `business.*` namespace in the private business extension. Those bare prefixes are no longer registered by core.
 
 ### AI autonomy permissions
 
@@ -291,45 +309,62 @@ Permissions are organized by prefix. The major categories:
 
 For the live, complete list of every permission with current role assignments, see [`reference/permissions.md`](../reference/permissions.md).
 
-## Roles (backend permission groupings)
+## Roles (global vs account-scoped)
 
-Roles exist solely as a backend mechanism to assign groups of permissions to users. The frontend never checks them.
+Roles are the backend mechanism that groups catalog permissions for assignment to users. The frontend never checks them. Roles live in the database, and there are now **two kinds**, distinguished by the nullable `roles.account_id` column:
 
-### User roles (account-scoped)
+| Kind | `account_id` | Defined by | Editable? | Scope |
+|------|-------------|-----------|-----------|-------|
+| **Global role** | `NULL` | The code catalog (`Permissions::ROLES`), seeded by `Role.sync_from_config!` | **Read-only in the UI** — change them by changing the catalog | Shared across all accounts |
+| **Account-scoped (custom) role** | set to an account id | Created at runtime by an account's admins via the roles API | Fully editable / deletable | Isolated to that one account |
+
+Key rules:
+
+- **Global roles** are the standard code-defined set below. They are seeded from the catalog and are read-only through the API — `PATCH`/`DELETE` on a role with `account_id IS NULL` returns `403`. The `super_admin` global role is additionally immutable.
+- **Account-scoped roles** are created by `POST /api/v1/roles`, which always stamps the acting user's `account_id`. Two different accounts may each define a custom role with the **same name**; a custom role may **not** shadow a global role's name (enforced by a model validation).
+- **Cross-account isolation:** a user may only hold global roles or roles owned by their own account (`UserRole` validation), and the roles controller only ever exposes `global + the current account's` roles (`Role.for_account`).
+- **No privilege escalation:** when an account admin grants permissions to a custom role, they may only grant permissions **they themselves hold**, and **never** any `system.*` (SYSTEM-tier) permission. This is implemented by `User#grantable_permission_names` (own `permission_names` minus everything under `system.`) and `User#can_grant_permission?(name)`, and enforced in the roles controller's `apply_permission_names`.
+
+### Global user roles
 
 | Role | Purpose | Typical Permissions |
 |------|---------|---------------------|
-| `member` | Basic account member with standard access | `analytics.view`, `api.read`, `invoice.view`, `subscription.cancel`, `team.view`, `user.edit_self`, `webhook.view`, basic admin views |
-| `manager` | Team manager with content and team management | Member permissions + app/listing/review management, content publishing, API management, team management |
-| `billing_admin` _(business extension)_ | Financial operations specialist — created only when the business extension's seeds run; absent in core mode | `billing.*`, `admin.billing.*`, `plans.*`, `invoice.*` |
-| `developer` | Marketplace application development | `app.*`, `listing.*`, marketplace operations, API management |
-| `owner` | Full account management authority | All resource permissions + selected admin permissions for account management |
-| `content_manager` | Knowledge base content management | `kb.view`, `kb.write`, `kb.manage` |
+| `member` | Basic account member with standard access | `analytics.read`, `api.read`, `team.read`, `user.edit_self`, `webhook.read`, read-only AI views, basic file management |
+| `manager` | Team manager with content and team management | Member permissions + content publishing, API/key management, team management, full AI/DevOps/Git/integration management |
+| `developer` | App developer focused on marketplace publishing | `user.edit_self`, `api.*`, `webhook.*`, `kb.*`, plus `business.app.*` / `business.marketplace.*` when the business extension is loaded |
+| `owner` | Full account management authority | All resource-tier permissions (`*RESOURCE_PERMISSIONS.keys`) + selected account-management admin permissions |
+| `content_manager` | Knowledge base content management | `kb.read`, `kb.create`, `kb.update`, `kb.delete`, `kb.publish`, `kb.manage`, `kb.moderate` |
+| `ai_specialist` | AI power user | Full `ai.*` management surface + templates publishing + supporting Git/DevOps/integration permissions |
 
-### Admin roles (system-wide)
+> `billing_admin` is **not** a core role. The private business extension may seed its own financial role(s) granting `business.billing.*` / `business.plans.*`; these are absent in core mode.
+
+### Global admin roles
 
 | Role | Purpose |
 |------|---------|
-| `admin` | Full system administration (excludes maintenance operations) |
-| `super_admin` | Ultimate system authority with programmatic access to all permissions |
+| `admin` | Full system administration — all resource permissions + all admin permissions except `admin.maintenance.*` |
+| `super_admin` | Ultimate system authority. Holds only the `system.admin` permission, which programmatically grants every permission. Immutable (cannot be edited or deleted) |
 
 #### Universal-access (`system.admin`) programmatic grant
 
-Universal access is granted when any of a user's roles holds the `system.admin` permission — **not** via a `super_admin?` role check. A role carrying `system.admin` gets all permissions programmatically, without explicit `role_permissions` rows for every permission:
+Universal access is granted when any of a user's roles **grants the `system.admin` permission by name** — **not** via a `super_admin?` role check. A role carrying `system.admin` gets all permissions programmatically, without explicit `role_permissions` rows for every permission:
 
 ```ruby
-# User model
+# User model — grants are checked by NAME against role_permissions
 def has_permission?(permission_name)
   # Any role granting the system.admin permission bypasses all checks
-  return true if roles.joins(:permissions).exists?(permissions: { name: 'system.admin' })
-  permissions.exists?(name: permission_name)
+  return true if roles.joins(:role_permissions).exists?(role_permissions: { permission_name: "system.admin" })
+
+  # Otherwise the user has it if any of their roles grants it
+  roles.joins(:role_permissions).exists?(role_permissions: { permission_name: permission_name })
 end
 
-def permissions
-  if roles.joins(:permissions).exists?(permissions: { name: 'system.admin' })
-    Permission.all
+def permission_names
+  # system.admin expands to the entire (dynamic) catalog
+  if roles.joins(:role_permissions).exists?(role_permissions: { permission_name: "system.admin" })
+    Permissions.all_permissions.keys.sort
   else
-    Permission.joins(:roles).where(roles: { id: role_ids })
+    roles.joins(:role_permissions).pluck("role_permissions.permission_name").uniq.sort
   end
 end
 ```
@@ -340,14 +375,15 @@ The `super_admin?` method exists (`has_role?('super_admin')`) but is **not** wha
 
 **Considerations:** Programmatic grants bypass detailed permission-usage logging; tests require special handling.
 
-### System roles (automation)
+### Global system roles (automation)
 
 | Role | Purpose |
 |------|---------|
-| `system_worker` | Full automation with system-level operations — background workers, maintenance automation. Holds all `system.*` permissions (database, jobs, health, cache, storage, services) |
-| `task_worker` | Limited task execution — restricted worker processes, specific task automation. Holds basic operations: `worker.*`, `jobs.process`, `health.report`, `api.internal` |
+| `system_worker` | Full automation with system-level operations — background workers, maintenance automation. Holds all `system.*` permissions (database, jobs, integrations, AI, Git) plus AI execution permissions |
+| `task_worker` | Limited task execution — restricted worker processes. Holds basic worker operations: `system.worker.*`, `system.jobs.process`, `system.api.internal` |
+| `ci_worker` | External CI runner authorized **only** to register disk-image builds (`system.platforms.publish_disk_image` + worker auth basics). `role_type: "user"` so it's assignable per-account; deliberately minimal so a leaked token can't escalate |
 
-The core `Permissions::ROLES` constant also defines `ci_worker` and `ai_specialist` (automation roles), omitted from this table for brevity.
+All of the above are **global** roles (catalog-defined, `account_id IS NULL`). `ai_specialist` is also catalog-defined and is listed under the global user roles above.
 
 ### Role progression
 
@@ -364,12 +400,12 @@ flowchart LR
     Owner --> Admin
     Admin --> SuperAdmin
 
-    Member --> BillingAdmin[billing_admin]
     Member --> Developer[developer]
     Member --> ContentManager[content_manager]
+    Member --> AiSpecialist[ai_specialist]
 ```
 
-User roles progress: `member → manager → owner`. Specialized roles (`billing_admin`, `developer`, `content_manager`) provide focused capabilities laterally. Administrative escalation: `owner → admin → super_admin`.
+The global roles above are the code-defined standard set. User roles progress: `member → manager → owner`; specialized roles (`developer`, `content_manager`, `ai_specialist`) provide focused capabilities laterally; administrative escalation runs `owner → admin → super_admin`. Accounts that need anything outside this set create **account-scoped custom roles** via the API (subject to the no-escalation guard above) rather than editing the catalog.
 
 ## Three-tier permission system
 
@@ -411,46 +447,64 @@ if (currentUser?.roles?.some(r => r.includes('admin'))) { ... }
 ### Backend — never do this
 
 ```ruby
-# FORBIDDEN — Using .include? on permissions collection (returns objects, not strings)
-if current_user.permissions.include?('users.manage')  # WRONG — won't work
-
 # FORBIDDEN — Role-based authorization
 if current_user.roles.any? { |r| r.name == 'admin' }  # WRONG
+if current_user.has_role?('admin')                     # WRONG — authorize on permissions, not roles
 ```
 
-The first pattern fails because `current_user.permissions` returns ActiveRecord objects, not strings. Always use `has_permission?('name')`.
+Authorize on permissions, never on roles. The canonical check is `current_user.has_permission?('name')` — it consults the by-name `role_permissions` grants **and** transparently honors the `system.admin` wildcard (a `system.admin` grant returns `true` for every permission). `has_permission?` is what controllers' `require_permission` calls under the hood.
+
+> Note: the old caveat "`current_user.permissions` returns ActiveRecord objects, so never call `.include?`" is **obsolete**. `current_user.permissions` is now an alias for `permission_names` and returns a plain **array of permission name strings** (a `system.admin` grant expands it to the entire catalog), so a string `.include?` check works. Even so, prefer `has_permission?('name')`: it expresses intent, is the path `require_permission` uses, and avoids materializing the full catalog array just to test one name.
 
 ## Database schema
 
+Permissions are **code-defined** — there is **no `permissions` table** (and no `Permission` model). The database stores only roles and their by-name grants:
+
 ```sql
+-- Roles: global (account_id NULL) OR account-scoped (account_id set)
 CREATE TABLE roles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR UNIQUE NOT NULL,
-  display_name VARCHAR,
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  account_id UUID,                          -- NULL = global (catalog) role; set = account-scoped custom role
+  name VARCHAR(100) NOT NULL,
+  display_name VARCHAR(100),
   description TEXT,
-  role_type VARCHAR CHECK (role_type IN ('user', 'admin', 'system'))
+  role_type VARCHAR(20) CHECK (role_type IN ('user', 'admin', 'system')),
+  is_system BOOLEAN NOT NULL DEFAULT false,
+  immutable BOOLEAN NOT NULL DEFAULT false
 );
+-- Global role names are globally unique; account role names are unique per account.
+CREATE UNIQUE INDEX index_roles_on_name_global
+  ON roles (name) WHERE account_id IS NULL;
+CREATE UNIQUE INDEX index_roles_on_account_id_and_name
+  ON roles (account_id, name) WHERE account_id IS NOT NULL;
 
-CREATE TABLE permissions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR UNIQUE NOT NULL,
-  resource VARCHAR NOT NULL,
-  action VARCHAR NOT NULL,
-  category VARCHAR CHECK (category IN ('resource', 'admin', 'system'))
-);
-
+-- Grants reference a catalog permission BY NAME (string), not a foreign key.
 CREATE TABLE role_permissions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  role_id UUID REFERENCES roles(id),
-  permission_id UUID REFERENCES permissions(id)
+  role_id UUID NOT NULL REFERENCES roles(id),
+  permission_name VARCHAR(100) NOT NULL,    -- validated against the Permissions catalog
+  granted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE UNIQUE INDEX index_role_permissions_on_role_id_and_permission_name
+  ON role_permissions (role_id, permission_name);
+
+-- Account delegations grant permissions the same way — by name.
+CREATE TABLE delegation_permissions (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  account_delegation_id UUID NOT NULL,
+  permission_name VARCHAR(100) NOT NULL     -- catalog name; must be within the delegation's role
+);
+CREATE UNIQUE INDEX idx_on_account_delegation_id_permission_name
+  ON delegation_permissions (account_delegation_id, permission_name);
 ```
+
+Both `role_permissions.permission_name` and `delegation_permissions.permission_name` are validated against `Permissions.permission_exists?` — an unknown name is rejected and stale grants (for a name later removed from the catalog) are pruned on the next `Role.sync_from_config!`.
 
 Defense in depth: every protected operation validates permissions at the controller layer (`before_action`), the model layer (business logic), and the service layer (background operations). Frontend checks gate UI; backend checks gate effects.
 
 ## Migration history
 
 - **2025-08-22**: Standardized all permissions to use singular resource naming. Previously mixed plural/singular (e.g., `users.manage`); now consistent singular throughout (`user.manage`, `webhook.create`)
+- **2026-06-20**: Permissions removed from the database — the code catalog (`Permissions`) is now the single source of truth (no `permissions` table, no `Permission` model). `role_permissions` and `delegation_permissions` were re-keyed from `permission_id` foreign keys to a validated `permission_name` string. Roles gained a nullable `account_id`, splitting them into **global** (catalog-defined, read-only) and **account-scoped** custom roles; account roles are customizable through the API behind a no-privilege-escalation guard (you can only grant permissions you hold, never `system.*`).
 - Subsequent additions extend the catalog without breaking the convention
 
 ## Agent-Specific Permission Examples
@@ -476,11 +530,14 @@ For the canonical list of every `ai.*` permission with its current role assignme
 
 ### Worked example — just-enough perms to manage Ralph Loops
 
-An operator who runs the daily Ralph Loop schedule but should not be able to flip the kill switch or rewrite autonomy policy needs the following narrow grant. Create a role (e.g. `ralph_operator`) and attach exactly these permissions:
+An operator who runs the daily Ralph Loop schedule but should not be able to flip the kill switch or rewrite autonomy policy needs the following narrow grant. Create an **account-scoped custom role** (e.g. `ralph_operator`) — typically via `POST /api/v1/roles`, which applies the no-escalation guard — and grant exactly these catalog permissions **by name**:
 
 ```ruby
 # frozen_string_literal: true
 
+# Grants are by permission NAME (validated against the catalog) — there is no
+# Permission model. role.add_permission is idempotent; it creates a
+# role_permissions(role_id, permission_name) row.
 %w[
   ai.agents.read
   ai.ralph_loops.read
@@ -489,7 +546,9 @@ An operator who runs the daily Ralph Loop schedule but should not be able to fli
   ai.ralph_loops.resume
   ai.ralph_loops.run_iteration
   ai.ralph_loops.update_task
-].each { |name| role.permissions << Permission.find_by!(name: name) }
+].each { |name| role.add_permission(name) }
+# Equivalent low-level form:
+#   names.each { |n| role.role_permissions.create!(permission_name: n) }
 ```
 
 This keeps the operator out of `ai.autonomy.manage`, `ai.autonomy.approve`, `ai.kill_switch.manage`, and `ai.approval_chains.manage` — the four permissions that gate full autonomy control.
@@ -510,4 +569,4 @@ This concept consolidates content from:
 - `docs/platform/PERMISSION_SYSTEM_REFERENCE.md`
 - `docs/platform/ROLES_PERMISSIONS_COMPREHENSIVE_ANALYSIS.md`
 
-_Last verified: 2026-06-04_
+_Last verified: 2026-06-20_
