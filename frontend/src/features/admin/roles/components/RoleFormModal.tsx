@@ -20,10 +20,13 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
   onSave,
   onClose
 }) => {
+  // Global / code-defined roles are read-only (editable === false). New roles are always editable.
+  const isReadOnly = role ? role.editable === false : false;
+
   const defaultValues: RoleFormData = {
     name: role?.name || '',
     description: role?.description || '',
-    permission_ids: role?.permissions.map(p => p.id) || []
+    permission_names: role?.permissions.map(p => p.name) || []
   };
 
   const validationRules: FormValidationRules = {
@@ -37,7 +40,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
       minLength: 10,
       maxLength: 500,
     },
-    permission_ids: {
+    permission_names: {
       custom: (value: unknown) => {
         const permissions = value as string[];
         if (!permissions || permissions.length === 0) {
@@ -75,39 +78,39 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
     return acc;
   }, {} as Record<string, Permission[]>);
 
-  const handlePermissionToggle = (permissionId: string) => {
-    const currentPermissions = form.values.permission_ids;
-    const newPermissions = currentPermissions.includes(permissionId)
-      ? currentPermissions.filter(id => id !== permissionId)
-      : [...currentPermissions, permissionId];
-    
-    form.setValue('permission_ids', newPermissions);
+  const handlePermissionToggle = (permissionName: string) => {
+    const currentPermissions = form.values.permission_names;
+    const newPermissions = currentPermissions.includes(permissionName)
+      ? currentPermissions.filter(name => name !== permissionName)
+      : [...currentPermissions, permissionName];
+
+    form.setValue('permission_names', newPermissions);
   };
 
   const handleSelectAllInResource = (resource: string) => {
     // Get resource permissions safely to prevent object injection
     const validResources = Object.keys(groupedPermissions);
     if (!validResources.includes(resource)) return;
-    
-     
+
+
     const resourcePermissions = groupedPermissions[resource];
     if (!resourcePermissions || resourcePermissions.length === 0) return;
-    
-    const allSelected = resourcePermissions.every(p => 
-      form.values.permission_ids.includes(p.id)
+
+    const allSelected = resourcePermissions.every(p =>
+      form.values.permission_names.includes(p.name)
     );
 
     if (allSelected) {
       // Deselect all permissions in this resource
-      const newPermissions = form.values.permission_ids.filter(id => 
-        !resourcePermissions.some(p => p.id === id)
+      const newPermissions = form.values.permission_names.filter(name =>
+        !resourcePermissions.some(p => p.name === name)
       );
-      form.setValue('permission_ids', newPermissions);
+      form.setValue('permission_names', newPermissions);
     } else {
       // Select all permissions in this resource
-      const newPermissionIds = resourcePermissions.map(p => p.id);
-      const updatedPermissions = Array.from(new Set([...form.values.permission_ids, ...newPermissionIds]));
-      form.setValue('permission_ids', updatedPermissions);
+      const newPermissionNames = resourcePermissions.map(p => p.name);
+      const updatedPermissions = Array.from(new Set([...form.values.permission_names, ...newPermissionNames]));
+      form.setValue('permission_names', updatedPermissions);
     }
   };
 
@@ -129,7 +132,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
           onChange={(value) => form.setValue('name', value)}
           placeholder="e.g., Content Manager"
           required
-          disabled={role?.system_role || form.isSubmitting}
+          disabled={role?.system_role || isReadOnly || form.isSubmitting}
           error={form.errors.name}
         />
 
@@ -142,7 +145,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
           placeholder="Describe the purpose and responsibilities of this role"
           rows={3}
           required
-          disabled={role?.system_role || form.isSubmitting}
+          disabled={role?.system_role || isReadOnly || form.isSubmitting}
           error={form.errors.description}
         />
 
@@ -151,17 +154,17 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
           <label className="block text-sm font-medium text-theme-primary mb-2">
             Permissions <span className="text-theme-error-fg">*</span>
           </label>
-          {form.errors.permission_ids && (
-            <p className="text-sm text-theme-error-fg mb-2">{form.errors.permission_ids}</p>
+          {form.errors.permission_names && (
+            <p className="text-sm text-theme-error-fg mb-2">{form.errors.permission_names}</p>
           )}
-          
+
           <div className="bg-theme-surface border border-theme rounded-lg p-4 max-h-96 overflow-y-auto">
             {Object.entries(groupedPermissions).map(([resource, resourcePermissions]) => {
-              const allSelected = resourcePermissions.every(p => 
-                form.values.permission_ids.includes(p.id)
+              const allSelected = resourcePermissions.every(p =>
+                form.values.permission_names.includes(p.name)
               );
-              const someSelected = resourcePermissions.some(p => 
-                form.values.permission_ids.includes(p.id)
+              const someSelected = resourcePermissions.some(p =>
+                form.values.permission_names.includes(p.name)
               );
 
               return (
@@ -176,7 +179,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
                       onClick={() => handleSelectAllInResource(resource)}
                       variant={allSelected ? 'primary' : someSelected ? 'secondary' : 'outline'}
                       size="xs"
-                      disabled={role?.system_role || form.isSubmitting}
+                      disabled={role?.system_role || isReadOnly || form.isSubmitting}
                     >
                       {allSelected ? 'Deselect All' : 'Select All'}
                     </Button>
@@ -185,15 +188,15 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {resourcePermissions.map(permission => (
                       <label
-                        key={permission.id}
+                        key={permission.name}
                         className="flex items-start space-x-3 cursor-pointer hover:bg-theme-surface-hover p-3 rounded-md transition-colors"
                       >
                         <input
                           type="checkbox"
-                          checked={form.values.permission_ids.includes(permission.id)}
-                          onChange={() => handlePermissionToggle(permission.id)}
+                          checked={form.values.permission_names.includes(permission.name)}
+                          onChange={() => handlePermissionToggle(permission.name)}
                           className="mt-0.5 h-4 w-4 text-theme-interactive-primary rounded border-theme focus:ring-2 focus:ring-theme-interactive-primary focus:ring-offset-0"
-                          disabled={role?.system_role || form.isSubmitting}
+                          disabled={role?.system_role || isReadOnly || form.isSubmitting}
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
@@ -215,15 +218,15 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
 
           <div className="mt-3 flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Badge variant={form.values.permission_ids.length > 0 ? 'success' : 'secondary'} size="sm">
+              <Badge variant={form.values.permission_names.length > 0 ? 'success' : 'secondary'} size="sm">
                 <CheckCircle className="w-3 h-3 mr-1" />
-                {form.values.permission_ids.length} selected
+                {form.values.permission_names.length} selected
               </Badge>
               <Badge variant="secondary" size="sm">
                 {permissions.length} total
               </Badge>
             </div>
-            {form.values.permission_ids.length > permissions.length * 0.75 && (
+            {form.values.permission_names.length > permissions.length * 0.75 && (
               <Badge variant="warning" size="sm">
                 High permission level
               </Badge>
@@ -246,6 +249,21 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
           </div>
         )}
 
+        {/* Global (read-only) Role Notice */}
+        {isReadOnly && !role?.system_role && (
+          <div className="bg-theme-warning-bg border border-theme-warning-border rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <Lock className="w-5 h-5 text-theme-warning-fg mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-theme-warning-fg">Global Role</p>
+                <p className="text-xs text-theme-warning-fg mt-1 opacity-90">
+                  Global roles are code-defined and read-only.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Form Actions */}
         <div className="flex justify-end space-x-3 pt-4 border-t border-theme">
           <Button
@@ -255,9 +273,9 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
             disabled={form.isSubmitting}
           >
             <X className="w-4 h-4 mr-2" />
-            Cancel
+            {isReadOnly || role?.system_role ? 'Close' : 'Cancel'}
           </Button>
-          {!role?.system_role && (
+          {!role?.system_role && !isReadOnly && (
             <Button
               type="submit"
               variant="primary"

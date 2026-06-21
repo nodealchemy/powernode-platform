@@ -94,17 +94,19 @@ export interface Delegation {
 }
 
 export interface Permission {
-  id: string;
+  // Permissions are code-defined and identified by NAME (the dotted catalog key).
+  // `name` and `key` are the canonical identifier; resource/action are derived for display.
+  name: string;
+  key: string;
   resource: string;
   action: string;
   description: string;
-  key: string;
 }
 
 export interface DelegationFormData {
   delegated_user_email: string;
   role_id?: string;
-  permission_ids?: string[];
+  permission_names?: string[];
   expires_at?: string;
   notes?: string;
 }
@@ -165,7 +167,7 @@ export interface DelegationRequest {
 export interface CreateDelegationData {
   delegated_user_email: string;
   role_id: string;
-  permission_ids: string[];
+  permission_names: string[];
   expires_at: string;
   notes: string;
 }
@@ -252,17 +254,17 @@ export const delegationApi = {
     return apiRequest(`/api/v1/accounts/current/delegations/available_permissions${params}`);
   },
 
-  // Add permission to delegation
-  async addPermissionToDelegation(delegationId: string, permissionId: string): Promise<DelegationResponse> {
+  // Add permission to delegation (by permission NAME)
+  async addPermissionToDelegation(delegationId: string, permissionName: string): Promise<DelegationResponse> {
     return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/permissions`, {
       method: 'POST',
-      body: JSON.stringify({ permission_id: permissionId }),
+      body: JSON.stringify({ permission_name: permissionName }),
     });
   },
 
-  // Remove permission from delegation
-  async removePermissionFromDelegation(delegationId: string, permissionId: string): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/permissions/${permissionId}`, {
+  // Remove permission from delegation (by permission NAME)
+  async removePermissionFromDelegation(delegationId: string, permissionName: string): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/permissions/${encodeURIComponent(permissionName)}`, {
       method: 'DELETE',
     });
   },

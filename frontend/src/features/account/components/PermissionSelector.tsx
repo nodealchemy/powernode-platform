@@ -3,11 +3,13 @@ import { Check, Shield, Lock, Eye, Settings, Search } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface Permission {
-  id: string;
+  // Permissions are code-defined and identified by NAME (the dotted catalog key).
+  // `key` (== name) is the canonical selection identifier; `id` is no longer sent.
+  key: string;
+  name?: string;
   resource: string;
   action: string;
   description: string;
-  key: string;
 }
 
 interface Role {
@@ -62,22 +64,22 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
     return acc;
   }, {} as Record<string, Permission[]>);
 
-  const handlePermissionToggle = (permissionId: string) => {
+  const handlePermissionToggle = (permissionKey: string) => {
     if (disabled) return;
-    
-    const isSelected = selectedPermissionIds.includes(permissionId);
+
+    const isSelected = selectedPermissionIds.includes(permissionKey);
     if (isSelected) {
-      onPermissionChange(selectedPermissionIds.filter(id => id !== permissionId));
+      onPermissionChange(selectedPermissionIds.filter(key => key !== permissionKey));
     } else {
-      onPermissionChange([...selectedPermissionIds, permissionId]);
+      onPermissionChange([...selectedPermissionIds, permissionKey]);
     }
   };
 
   const handleSelectAllInResource = (resource: string) => {
     if (disabled) return;
-    
+
     const resourcePermissions = availablePermissions.filter(p => p.resource === resource);
-    const resourcePermissionIds = resourcePermissions.map(p => p.id);
+    const resourcePermissionIds = resourcePermissions.map(p => p.key);
     const allSelected = resourcePermissionIds.every(id => selectedPermissionIds.includes(id));
     
     if (allSelected) {
@@ -207,11 +209,11 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-theme-tertiary">
-                        {permissions.filter(p => selectedPermissionIds.includes(p.id)).length} selected
+                        {permissions.filter(p => selectedPermissionIds.includes(p.key)).length} selected
                       </span>
-                      {permissions.every(p => selectedPermissionIds.includes(p.id)) ? (
+                      {permissions.every(p => selectedPermissionIds.includes(p.key)) ? (
                         <Check className="w-4 h-4 text-theme-success-fg" />
-                      ) : permissions.some(p => selectedPermissionIds.includes(p.id)) ? (
+                      ) : permissions.some(p => selectedPermissionIds.includes(p.key)) ? (
                         <div className="w-4 h-4 bg-theme-info-bg rounded-sm"></div>
                       ) : (
                         <div className="w-4 h-4 border-2 border-theme rounded-sm"></div>
@@ -220,14 +222,14 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
                   </div>
                   
                   {permissions.map(permission => {
-                    const isSelected = selectedPermissionIds.includes(permission.id);
+                    const isSelected = selectedPermissionIds.includes(permission.key);
                     return (
                       <div
-                        key={permission.id}
+                        key={permission.key}
                         className={`flex items-center justify-between p-3 pl-8 hover:bg-theme-surface-hover cursor-pointer transition-colors ${
                           isSelected ? 'bg-theme-info-bg' : ''
                         }`}
-                        onClick={() => handlePermissionToggle(permission.id)}
+                        onClick={() => handlePermissionToggle(permission.key)}
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2">

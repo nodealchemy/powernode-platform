@@ -192,7 +192,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                 <h3 className="text-sm font-medium text-theme-tertiary mb-3">Granted Permissions</h3>
                 <div className="grid grid-cols-2 gap-3">
                   {(delegation.permissions || []).map((permission) => (
-                    <div key={typeof permission === 'string' ? permission : permission.id || permission.key} className="bg-theme-background rounded-lg p-3">
+                    <div key={typeof permission === 'string' ? permission : permission.key} className="bg-theme-background rounded-lg p-3">
                       <div className="flex items-center space-x-2">
                         <span className="text-theme-success-fg">✓</span>
                         <span className="text-theme-primary text-sm">{getPermissionLabel(typeof permission === 'string' ? permission : permission.key)}</span>
