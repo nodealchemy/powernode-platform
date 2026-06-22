@@ -8,13 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Future features will be listed here
+- **UUIDv7 primary keys** across all tables — time-ordered v7 IDs via a portable `uuidv7()` SQL function
+  (PG16-compatible, named to match the PG18 native function; self-bootstrapping in `schema.rb`).
+- **Public/private schema isolation** — the committed `schema.rb` now contains only core + public-extension
+  tables; private-extension tables are excluded via a dynamic prefix registry (`ExtensionRegistry`), with a
+  leak-guard backstop in `scripts/pattern-validation.sh`.
+- **Extension registry seams** — extensions contribute permissions (`register_catalog`), roles
+  (`register_roles`), and audit actions/sources (`register_actions`/`register_sources`) into core at boot;
+  core no longer hardcodes any extension. New conventions: `migrations-and-seeds.md`,
+  `extension-db-contributions.md`.
+- **Three-tier seeds** — `core` / `baseline` (global foundational content) / `demo` gates, with a per-extension
+  `seed_orchestrator` contract.
 
 ### Changed
-- Future changes will be listed here
+- **Migrations squashed** 616 → 7 baselines (one bootstrap + one per owner), with uniform `<ext>_` table
+  prefixes (e.g. `system_`, `system_sdwan_`) and standardized Rails index names.
+- **Permissions are code-defined** — the catalog is the source of truth; the `permissions` table was removed.
+  Roles are global (read-only, code) or account-scoped (custom), with a no-escalation guard.
+- **Billing** confirmed keep-separate (distinct billing surfaces; no consolidation) — see
+  `docs/reference/phase6-billing-2026-06.md`.
+- `db:seed` is now strictly idempotent (complete on first run, no-op on re-run).
 
 ### Fixed
-- Future fixes will be listed here
+- **supply-chain extension dedup** — removed core's stale duplicate tree that shadowed the canonical
+  extension on the autoload path, restoring the `supply_chain.signing_keys.manage` separation-of-duties check.
+- **`pattern-validation.sh`** — leak-guard always-FAIL bug (`grep -c || echo 0` double-emit) and a stale
+  UUID-PK check (matched the discarded string-PK form); both now reflect the 0.4.0 schema.
 
 ## [0.0.2] - 2025-08-24
 
