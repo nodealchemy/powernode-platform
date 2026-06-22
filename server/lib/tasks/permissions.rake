@@ -60,7 +60,7 @@ namespace :permissions do
     end
 
     puts "\n🔧 Role Configuration Validation (global roles vs catalog):"
-    Permissions::ROLES.each do |role_name, _config|
+    Permissions.all_roles.each do |role_name, _config|
       db_role = Role.find_by(name: role_name.to_s, account_id: nil)
       if db_role.nil?
         puts "   ⚠️  Role '#{role_name}' defined in config but not in database"
@@ -171,7 +171,8 @@ namespace :permissions do
     issues << "Found #{orphaned_user_roles} orphaned user_role records" if orphaned_user_roles > 0
 
     # GLOBAL roles not in config (account-scoped custom roles are expected, not flagged)
-    orphaned_roles = Role.global.pluck(:name) - Permissions::ROLES.keys.map(&:to_s)
+    # all_roles = core + enabled-extension roles, so extension roles aren't orphans.
+    orphaned_roles = Role.global.pluck(:name) - Permissions.all_roles.keys.map(&:to_s)
     issues << "Found #{orphaned_roles.count} GLOBAL roles not in config: #{orphaned_roles.join(', ')}" if orphaned_roles.any?
 
     # Users with no roles

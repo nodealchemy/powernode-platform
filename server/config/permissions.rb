@@ -1077,22 +1077,32 @@ module Permissions
       all_permissions[permission]
     end
 
+    # The full runtime role set: core (ROLES) + every enabled extension's
+    # registered roles (@extension_roles, populated via register_roles at
+    # engine-init). A DISABLED extension never runs its initializer, so it's
+    # naturally excluded — the union is computed dynamically and names no
+    # extension, mirroring all_permissions. String keys throughout. Consumers
+    # (role sync, role enumeration, lookups) use this, never the core-only ROLES.
+    def all_roles
+      ROLES.merge(@extension_roles.transform_keys(&:to_s))
+    end
+
     # Returns the effective permission set for a role, merging the static
     # config with extension-registered additions. Used by Role.sync_from_config!
     # so extension grants survive db:seed.
     def permissions_for_role(role_name)
-      base = ROLES.dig(role_name, :permissions) || []
+      base = all_roles.dig(role_name.to_s, :permissions) || []
       extras = @extension_role_permissions[role_name.to_s] || []
       catalog = @catalog_grants[role_name.to_s] || []
       (base + extras + catalog).uniq
     end
 
     def role_exists?(role_name)
-      ROLES.key?(role_name)
+      all_roles.key?(role_name.to_s)
     end
 
     def role_info(role_name)
-      ROLES[role_name]
+      all_roles[role_name.to_s]
     end
 
     def permissions_by_category
@@ -1116,15 +1126,15 @@ module Permissions
     end
 
     def user_roles
-      ROLES.select { |_, info| info[:role_type] == "user" }.keys
+      all_roles.select { |_, info| info[:role_type] == "user" }.keys
     end
 
     def admin_roles
-      ROLES.select { |_, info| info[:role_type] == "admin" }.keys
+      all_roles.select { |_, info| info[:role_type] == "admin" }.keys
     end
 
     def system_roles
-      ROLES.select { |_, info| info[:role_type] == "system" }.keys
+      all_roles.select { |_, info| info[:role_type] == "system" }.keys
     end
   end
 end

@@ -91,11 +91,84 @@ module Permissions
     end
   end
 
+  # Programmatic ROLE catalog DSL — the role twin of Catalog.
+  #
+  # Lets an extension register NEW global roles (the way Catalog lets it register
+  # new permissions), keyed by a mandatory namespace (extension slug) so a role's
+  # stored name is always `<namespace>.<short>` (mirrors the db-table / permission
+  # prefix convention). Core roles still live in Permissions::ROLES; extension
+  # roles accumulate here and join via Permissions.all_roles.
+  #
+  # EXTENSION usage (extensions/<x>/server/lib/<engine>/engine.rb):
+  #   Permissions.register_roles(namespace: "system") do
+  #     role "operator", role_type: "admin",
+  #          display_name: "System Operator",
+  #          description: "Manages system workers",
+  #          permissions: %w[system.workers.read system.workers.update]
+  #   end
+  # => stored as { "system.operator" => { display_name:, description:,
+  #                role_type:, permissions:, is_system:, immutable: } }
+  class RoleCatalog
+    ROLE_TYPES = %w[user admin system].freeze
+
+    def initialize(namespace:)
+      @namespace = namespace.to_s
+      @roles = {}
+    end
+
+    # Declare one role. `short` is prefixed with the namespace if it isn't
+    # already (so callers may pass either "viewer" or "<namespace>.viewer").
+    #   role_type:    user | admin | system  (required; validated)
+    #   display_name: human label (defaults to a titleized short name)
+    #   description:  optional blurb
+    #   permissions:  array of permission names this role is granted
+    #   is_system:    flag the role as system-owned (also implied by role_type)
+    #   immutable:    flag the role as non-editable
+    def role(short, role_type:, display_name: nil, description: nil, permissions: [], is_system: false, immutable: false)
+      type = role_type.to_s
+      unless ROLE_TYPES.include?(type)
+        raise ArgumentError, "register_roles(#{@namespace.inspect}): role_type must be one of #{ROLE_TYPES.join('/')}, got #{role_type.inspect}"
+      end
+
+      name = prefixed(short)
+      @roles[name] = {
+        display_name: display_name || default_display_name(short),
+        description: description,
+        role_type: type,
+        permissions: Array(permissions).map(&:to_s).uniq,
+        is_system: is_system || type == "system",
+        immutable: immutable
+      }
+    end
+
+    def result = @roles
+
+    private
+
+    # Prefix the short name with the namespace unless already prefixed.
+    def prefixed(short)
+      s = short.to_s
+      prefix = "#{@namespace}."
+      s.start_with?(prefix) ? s : "#{prefix}#{s}"
+    end
+
+    def default_display_name(short)
+      short.to_s.split(/[.\-_]/).last.to_s.tr("_", " ").split.map(&:capitalize).join(" ")
+    end
+  end
+
   # Accumulators for core (in-file) catalog declarations.
   @catalog_permissions = {}
   @catalog_grants = Hash.new { |h, k| h[k] = [] }
   # Permissions (core- or extension-registered) that require 2FA to hold.
   @two_factor_required = []
+  # Extension-registered GLOBAL roles (the role twin of @extension_permissions).
+  # String-keyed `<namespace>.<short>` => role config Hash. A disabled extension
+  # never runs its initializer, so it is naturally excluded — mirroring how
+  # @extension_permissions joins via Permissions.all_permissions. Initialized here
+  # (beside the other singleton ivars, before permissions.rb's body runs) so it is
+  # readable from both files.
+  @extension_roles = {}
 
   class << self
     # Core sink — merge generated permissions into CORE_PERMISSIONS (via the
@@ -146,6 +219,24 @@ module Permissions
       register_permissions(res[:permissions])
       res[:grants].each { |role, names| register_role_permissions(role, names) }
       res
+    end
+
+    def extension_roles = @extension_roles
+
+    # Extension sink for NEW global roles — the role twin of register_catalog.
+    # Namespace mandatory; every role's stored name is forced under the
+    # `<namespace>.` prefix by RoleCatalog#role (an extension can never register
+    # an unprefixed, core-colliding role). Idempotent: re-registering the same
+    # role name+config is a no-op merge. Roles seed as GLOBAL (account_id nil)
+    # via Role.sync_from_config!, which iterates Permissions.all_roles.
+    def register_roles(namespace:, &blk)
+      if namespace.nil? || namespace.to_s.empty?
+        raise ArgumentError, "register_roles requires a namespace (extension slug) prefix"
+      end
+
+      catalog = RoleCatalog.new(namespace: namespace)
+      catalog.instance_eval(&blk)
+      @extension_roles.merge!(catalog.result)
     end
   end
 end

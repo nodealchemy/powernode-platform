@@ -45,7 +45,10 @@ class Role < ApplicationRecord
   # Class methods
   class << self
     def sync_from_config!
-      Permissions::ROLES.each do |name, config|
+      # all_roles = core ROLES + enabled-extension roles (register_roles).
+      # Extension roles seed as GLOBAL (account_id nil) when their extension is
+      # loaded; a disabled extension contributes none. Names no extension.
+      Permissions.all_roles.each do |name, config|
         # Catalog roles are GLOBAL (account_id nil); account-scoped roles are
         # created at runtime via the API and are never seeded here.
         role = find_or_initialize_by(name: name, account_id: nil)
@@ -175,9 +178,9 @@ class Role < ApplicationRecord
   private
 
   def sync_permissions_from_config
-    return unless Permissions::ROLES[name]
+    config = Permissions.all_roles[name]
+    return unless config
 
-    config = Permissions::ROLES[name]
     sync_permissions!(config[:permissions]) if config[:permissions]
   end
 
