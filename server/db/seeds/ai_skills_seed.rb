@@ -71,11 +71,14 @@ powernode_mcp.assign_attributes(
   description: "Built-in Powernode platform MCP endpoint (Streamable HTTP)",
   args: [],
   env: { "MCP_URL" => "/mcp" },
-  capabilities: {
+  # Merge (not replace) so the tool_count key the McpPlatformToolRegistrar writes
+  # right after (sync_to_database!) survives a re-seed — replacing would drop it,
+  # the registrar would re-add it, and the capabilities change would churn an audit.
+  capabilities: (powernode_mcp.capabilities || {}).merge(
     "tools" => true,
     "resources" => false,
     "prompts" => false
-  }
+  )
 )
 powernode_mcp.save!
 

@@ -100,17 +100,39 @@ UTILITY_AGENTS = [
     description: "Extracts entities and relationships from text to build and maintain the platform knowledge graph.",
     temperature: 0.2,
     max_tokens: 4096,
+    # Prompt aligned byte-for-byte with ai_dev_team_seed's KGC definition: that
+    # seed "always refreshes" this agent's system_prompt on re-seed, so a divergent
+    # prompt here would flip mcp_metadata (and bump the version) every run.
     system_prompt: <<~PROMPT.strip,
-      You are a knowledge graph curator. Extract entities and relationships from text to build a structured knowledge graph.
+      You are a knowledge graph extraction specialist for the Powernode platform.
 
-      Entity types: concept, service, model, controller, module, pattern, technology, person, team.
-      Relationship types: depends_on, implements, extends, uses, manages, contains, related_to.
+      YOUR ROLE:
+      - Extract entities and relationships from technical text
+      - Classify entities by type: person, organization, technology, event, location
+      - Map relationships: depends_on, uses, inherits, creates, updates, calls, etc.
+      - Output structured JSON matching the requested schema exactly
 
-      For each entity extract: { "name": "...", "type": "...", "attributes": {...} }
-      For each relationship: { "source": "...", "target": "...", "type": "...", "confidence": 0.0-1.0 }
+      EXTRACTION RULES:
+      - Be precise: only extract clearly stated facts, not inferences
+      - Classify software entities (services, models, adapters) as 'technology'
+      - Preserve exact class/module names (e.g., Ai::Llm::Client, not "LLM Client")
+      - Relationship descriptions should be concise (under 100 chars)
+      - Deduplicate entities by canonical name
 
-      Return ONLY valid JSON: { "entities": [...], "relationships": [...] }
-      Prefer specific entity names over generic ones. Set confidence based on how explicitly the text states the relationship.
+      POWERNODE CONTEXT:
+      - Backend: Rails 8 API with namespaced services (Ai::*, Shared::*, Devops::*)
+      - Frontend: React TypeScript with @/shared/ and @/features/ imports
+      - Worker: Standalone Sidekiq process communicating via HTTP API
+      - Business: Git submodule at extensions/business/
+
+      ## MCP Platform Tools Available
+      - Knowledge Graph: search_knowledge_graph, extract_to_knowledge_graph, get_graph_node
+      - Graph Analysis: reason_knowledge_graph, get_graph_neighbors, get_subgraph, graph_statistics
+      - Learnings: query_learnings, create_learning, reinforce_learning
+      - Shared Knowledge: search_knowledge, create_knowledge
+
+      ## Self-Improvement
+      Compound learnings are automatically injected. Apply proven extraction patterns.
     PROMPT
     skill_definitions: [
       { name: "Entity Extraction", slug: "entity-extraction", category: "data",
@@ -256,7 +278,10 @@ UTILITY_AGENTS.each do |attrs|
     description: attrs[:description],
     creator: admin_user,
     provider: provider,
-    version: "1.0.0",
+    # Create-only: Ai::Agent#update_version_if_mcp_changed bumps the patch version
+    # on create (mcp set), so re-assigning "1.0.0" on re-seed would downgrade it
+    # and churn an audit. Keep the existing (callback-bumped) version.
+    version: (agent.version || "1.0.0"),
     mcp_metadata: (agent.mcp_metadata || {}).merge(
       # #37: no model pin — these cheap/standard utility agents resolve their
       # model at runtime via Ai::Agent#resolved_model (unpinned ⇒ selector picks).

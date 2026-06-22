@@ -29,7 +29,9 @@ ActiveRecord::Base.transaction do
     description: "Intelligent concierge agent that helps you navigate all Powernode platform capabilities through natural language.",
     creator: admin_user,
     provider: provider,
-    version: "1.0.0",
+    # Create-only (see ai_utility_agents_seed): keep the callback-bumped version
+    # on re-seed instead of downgrading it to 1.0.0 and churning an audit.
+    version: (agent.version || "1.0.0"),
     conversation_profile: {
       "tone" => "helpful",
       "verbosity" => "concise",
