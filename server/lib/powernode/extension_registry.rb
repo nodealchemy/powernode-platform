@@ -105,7 +105,7 @@ module Powernode
       # Extensions declare `owned_prefixes`; a table belongs to an extension iff its
       # name starts with "<prefix>_". PRIVATE extensions' prefixes drive the
       # public-schema dump exclusion (config/initializers/schema_dump_isolation.rb)
-      # so committed public db/schema.rb never leaks private (business_/trading_)
+      # so committed public db/schema.rb never leaks private-extension
       # tables — the schema-layer twin of the public/private Gemfile split. Generic:
       # a new extension plugs in via register(owned_prefixes:), zero core edits.
 

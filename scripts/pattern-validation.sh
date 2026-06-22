@@ -243,7 +243,7 @@ if [ -z "$priv_prefixes" ]; then
     leak_count=0
 else
     # Any quoted private-table reference (create_table, add_foreign_key both args, add_index).
-    # Safe: core has no business_/trading_-prefixed COLUMNS (FK columns are publisher_id, etc.).
+    # Safe: core has no private-extension-prefixed COLUMNS (FK columns are publisher_id, etc.).
     # NOTE: `grep -c` prints the count AND exits 1 on zero matches; under `set -e` we must
     # swallow that exit with `|| true` (NOT `|| echo 0`, which double-emits "0" -> a
     # multiline value that breaks the `-eq` test and falsely trips the FAIL branch).

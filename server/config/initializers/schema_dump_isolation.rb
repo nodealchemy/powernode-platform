@@ -33,10 +33,10 @@ end
 ActiveRecord::SchemaDumper.prepend(Powernode::PrivateSchemaIsolation)
 
 # The committed public db/schema.rb is generated in CORE mode (no private extensions
-# loaded), where the private FKs the business baseline adds to core tables do NOT exist —
+# loaded), where the private FKs a private extension's baseline adds to core tables do NOT exist —
 # so a core-mode dump is leak-free. A FULL-mode post-migrate auto-dump, however, re-emits
 # those FKs (SchemaDumper dumps foreign keys even to ignored tables) and would re-leak
-# business_/trading_ names. So disable the post-migrate auto-dump everywhere; regenerate
+# private-extension table names. So disable the post-migrate auto-dump everywhere; regenerate
 # schema.rb explicitly via a CORE-mode `bin/rails db:schema:dump`. (CI leak guard backstops.)
 Rails.application.config.after_initialize do
   ActiveRecord.dump_schema_after_migration = false
