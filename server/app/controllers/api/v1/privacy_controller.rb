@@ -192,37 +192,6 @@ module Api
         )
       end
 
-      # GET /api/v1/privacy/cookies
-      def cookie_preferences
-        consent = CookieConsent.find_by(user: current_user) if current_user
-
-        render_success(
-          preferences: consent ? serialize_cookie_consent(consent) : default_cookie_preferences
-        )
-      end
-
-      # PUT /api/v1/privacy/cookies
-      def update_cookie_preferences
-        consent = CookieConsent.find_or_initialize_by(user: current_user)
-
-        consent.assign_attributes(
-          necessary: true, # Always required
-          functional: cookie_params[:functional] || false,
-          analytics: cookie_params[:analytics] || false,
-          marketing: cookie_params[:marketing] || false,
-          ip_address: request.remote_ip,
-          user_agent: request.user_agent,
-          consented_at: Time.current
-        )
-
-        consent.save!
-
-        render_success(
-          message: "Cookie preferences updated",
-          preferences: serialize_cookie_consent(consent)
-        )
-      end
-
       private
 
       def consent_params
@@ -238,10 +207,6 @@ module Api
 
       def deletion_params
         params.permit(:deletion_type, :reason, data_types_to_delete: [])
-      end
-
-      def cookie_params
-        params.permit(:functional, :analytics, :marketing)
       end
 
       def current_user_export_requests
@@ -326,26 +291,6 @@ module Api
           document_type: acceptance.document_type,
           document_version: acceptance.document_version,
           accepted_at: acceptance.accepted_at
-        }
-      end
-
-      def serialize_cookie_consent(consent)
-        {
-          necessary: consent.necessary,
-          functional: consent.functional,
-          analytics: consent.analytics,
-          marketing: consent.marketing,
-          consented_at: consent.consented_at
-        }
-      end
-
-      def default_cookie_preferences
-        {
-          necessary: true,
-          functional: false,
-          analytics: false,
-          marketing: false,
-          consented_at: nil
         }
       end
 

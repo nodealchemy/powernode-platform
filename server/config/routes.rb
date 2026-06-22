@@ -611,8 +611,6 @@ Rails.application.routes.draw do
         delete "deletion/:id", action: :cancel_deletion
         get :terms, action: :terms_status
         post "terms/:document_type/accept", action: :accept_terms
-        get :cookies, action: :cookie_preferences
-        put :cookies, action: :update_cookie_preferences
       end
 
       # OAuth Applications Management API

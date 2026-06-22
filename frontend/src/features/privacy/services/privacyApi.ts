@@ -55,14 +55,6 @@ export interface TermsAcceptance {
   accepted_at?: string;
 }
 
-export interface CookiePreferences {
-  necessary: boolean;
-  functional: boolean;
-  analytics: boolean;
-  marketing: boolean;
-  consented_at?: string;
-}
-
 export interface PrivacyDashboard {
   consents: ConsentPreferences;
   export_requests: DataExportRequest[];
@@ -159,18 +151,6 @@ export const privacyApi = {
   acceptTerms: async (documentType: string, version?: string): Promise<unknown> => {
     const response = await apiClient.post(`/privacy/terms/${documentType}/accept`, { version });
     return response.data;
-  },
-
-  // Get cookie preferences
-  getCookiePreferences: async (): Promise<CookiePreferences> => {
-    const response = await apiClient.get('/privacy/cookies');
-    return response.data.preferences;
-  },
-
-  // Update cookie preferences
-  updateCookiePreferences: async (preferences: Partial<CookiePreferences>): Promise<CookiePreferences> => {
-    const response = await apiClient.put('/privacy/cookies', preferences);
-    return response.data.preferences;
   },
 };
 
