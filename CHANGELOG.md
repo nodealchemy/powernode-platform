@@ -25,8 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prefixes (e.g. `system_`, `system_sdwan_`) and standardized Rails index names.
 - **Permissions are code-defined** — the catalog is the source of truth; the `permissions` table was removed.
   Roles are global (read-only, code) or account-scoped (custom), with a no-escalation guard.
-- **Billing** confirmed keep-separate (distinct billing surfaces; no consolidation) — see
-  `docs/reference/phase6-billing-2026-06.md`.
+- **Billing** confirmed keep-separate (distinct billing surfaces; no consolidation).
 - `db:seed` is now strictly idempotent (complete on first run, no-op on re-run).
 
 ### Fixed
