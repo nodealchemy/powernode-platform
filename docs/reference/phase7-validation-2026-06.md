@@ -51,11 +51,12 @@ Created the 4 extensions in `powernode_clean_test` (superuser) and `db:schema:lo
 **420 tables**. RSpec runs cleanly against the new schema:
 - Boot check (`account_spec` + `role_spec`): **83 examples, 0 failures, 4 pending** (the pending correctly
   require business billing models, skipped in core mode — the `permissions`-table drop did not break `role_spec`).
-- Across the boot check + a full-suite run (reached 328) + a models/services/lib/serializers subset (12-min
-  cap) + a `spec/models` run: **1000+ example-executions, 0 failures.** The schema↔model mapping holds.
-- **Pre-existing finding (not a schema regression):** the suite is slow — even `spec/models`+services+lib+
-  serializers exceeds 12 min — due to slow specs (network/LLM-timeout shaped). Tracked as a test-perf
-  follow-up, not a 0.4.0 blocker.
+- **`spec/models` completed: 3780 examples, 0 failures, 6 pending** (~26 min) — the entire model suite, i.e.
+  every model↔table mapping, validates against the new schema. Plus earlier runs (boot 83/0, a full-suite
+  run reaching 328/0, a models+services+lib+serializers subset) — all 0 failures.
+- **Pre-existing finding (not a schema regression):** the suite is slow. `--profile` pins the top cost on
+  `spec/models/ai/provider_spec.rb:733,739` ("query performance with large datasets" — ~48s *each*) and the
+  `Ai::A2aTask` scope specs (~7s each). Tracked as a test-perf follow-up (#53), not a 0.4.0 blocker.
 - Full-mode (business) spec run: pending a full-mode test DB build (sequential after the core run to avoid
   over-loading the host that serves live MCP). Full-mode `zeitwerk:check` already green (Gate 3).
 
