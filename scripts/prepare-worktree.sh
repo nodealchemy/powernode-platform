@@ -56,15 +56,38 @@ case "${1:-}" in
   -h|--help|"") sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 esac
 
+# set KEY=VALUE in an env file (replace existing line, else append)
+env_upsert() {
+  local file="$1" key="$2" val="$3"
+  if grep -qE "^${key}=" "$file" 2>/dev/null; then
+    sed -E -i "s|^${key}=.*|${key}=${val}|" "$file"
+  else
+    printf '%s=%s\n' "$key" "$val" >> "$file"
+  fi
+}
+
+# symlink one gitignored config from main (shared key material); skip if already present
+link_one() {
+  local rel="$1" src="$MAIN/$1" dst="$TARGET/$1"
+  [ -e "$src" ] || return 0
+  [ -L "$dst" ] && { skip "$rel (already linked)"; return 0; }
+  [ -e "$dst" ] && { warn "$rel exists as a real file — leaving as-is"; return 0; }
+  mkdir -p "$(dirname "$dst")"; ln -s "$src" "$dst"; ok "$rel (linked)"
+}
+
 # ---------- args ----------
 TARGET_ARG="$1"; shift
-MODE="prepare"; BASE=""
-case "${1:-}" in
-  --create) MODE="create"; BASE="${2:-}" ;;
-  --remove) MODE="remove" ;;
-  "") ;;
-  *) die "unknown option: $1" ;;
-esac
+MODE="prepare"; BASE=""; ISO_DB=""; ISO_PORT=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --create) MODE="create"; shift
+              case "${1:-}" in ""|--*) ;; *) BASE="$1"; shift ;; esac ;;
+    --remove) MODE="remove"; shift ;;
+    --isolated-db) ISO_DB="${2:-}"; [ -n "$ISO_DB" ] || die "--isolated-db requires a name (e.g. powernode_dev)"; shift 2
+                   case "${1:-}" in ""|--*) ;; *) ISO_PORT="$1"; shift ;; esac ;;
+    *) die "unknown option: $1" ;;
+  esac
+done
 
 # ---------- locate the MAIN checkout (source of truth for private exts + secrets) ----------
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -156,23 +179,59 @@ else
   skip "no private extensions in main checkout (core mode)"
 fi
 
-# ---------- 3. gitignored runtime configs (symlinked from main) ----------
-info "runtime configs (symlinked from main)"
-CONFIGS=(
-  server/config/database.yml
-  server/config/master.key
-  server/config/credentials.yml.enc
-  server/.env
-  worker/.env
-)
-for rel in "${CONFIGS[@]}"; do
+# ---------- 3. gitignored runtime configs ----------
+# Secrets (master.key, *.yml.enc, per-env credential keys) are always SYMLINKED — shared key
+# material. Deployment-targeting config (database.yml, .env) is SYMLINKED by default (the worktree
+# shares main's DB); with --isolated-db <name> [port] it is COPIED and rewritten so the worktree
+# targets its OWN database(s) (powernode_* → <name>_*) and never main's live DB.
+if [ -n "$ISO_DB" ]; then
+  info "runtime configs (isolated DB ${ISO_DB}_*${ISO_PORT:+ on port $ISO_PORT})"
+else
+  info "runtime configs (symlinked from main — SHARES main's DB)"
+fi
+
+for rel in server/config/master.key server/config/credentials.yml.enc; do link_one "$rel"; done
+
+for rel in server/config/database.yml server/.env worker/.env; do
   src="$MAIN/$rel"; dst="$TARGET/$rel"
   [ -e "$src" ] || continue
-  if [ -L "$dst" ]; then skip "$rel (already linked)"; continue; fi
-  if [ -e "$dst" ]; then warn "$rel exists as a real file — leaving as-is"; continue; fi
-  mkdir -p "$(dirname "$dst")"
-  ln -s "$src" "$dst"; ok "$rel"
+  if [ -L "$dst" ] || [ -e "$dst" ]; then skip "$rel (already present)"; continue; fi
+  if [ -z "$ISO_DB" ]; then link_one "$rel"; continue; fi
+  mkdir -p "$(dirname "$dst")"; cp "$src" "$dst"
+  case "$rel" in
+    *database.yml)
+      sed -E -i "s/powernode_(development|test|production)/${ISO_DB}_\1/g" "$dst"
+      ok "$rel (copied → ${ISO_DB}_*)" ;;
+    server/.env)
+      env_upsert "$dst" DATABASE_NAME "${ISO_DB}_development"
+      [ -n "$ISO_PORT" ] && env_upsert "$dst" PORT "$ISO_PORT"
+      env_upsert "$dst" POWERNODE_INCLUDE_PRIVATE_EXTENSIONS 1
+      ok "$rel (copied; DATABASE_NAME=${ISO_DB}_development${ISO_PORT:+, PORT=$ISO_PORT})" ;;
+    *)
+      ok "$rel (copied)" ;;
+  esac
 done
+
+# FIX 1: per-environment Rails credential keys. The <env>.yml.enc is tracked (checked out), but its
+# matching <env>.key is a gitignored secret, so without linking it a fresh worktree can't decrypt.
+if [ -d "$MAIN/server/config/credentials" ]; then
+  for key in "$MAIN"/server/config/credentials/*.key; do
+    [ -e "$key" ] || continue
+    link_one "server/config/credentials/$(basename "$key")"
+  done
+fi
+
+# FIX 3: extension posture (gitignored runtime state) — COPY, never symlink (a symlink would make a
+# worktree's enable/disable toggle mutate main's LIVE deployment posture).
+if [ -f "$MAIN/config/extensions_state.json" ]; then
+  dst="$TARGET/config/extensions_state.json"
+  if [ -e "$dst" ] || [ -L "$dst" ]; then
+    skip "config/extensions_state.json (already present)"
+  else
+    mkdir -p "$(dirname "$dst")"; cp "$MAIN/config/extensions_state.json" "$dst"
+    ok "config/extensions_state.json (copied)"
+  fi
+fi
 
 # ---------- 4. gitignored JS deps (node_modules symlinked from main) ----------
 # A fresh worktree checks out package.json but NOT node_modules (gitignored), so
