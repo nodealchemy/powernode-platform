@@ -46,6 +46,31 @@ absent = the intended dead-code drop). Two independent methods agree. Repro: `/t
 - Full mode needs a test DB built `schema:load` (core) + `migrate` (business) and care with
   `maintain_test_schema!` (it reloads from core `schema.rb`, which would drop business tables).
 
-## Gate 5 — ai-smoke + ui-smoke @ :3010 ⏳ PENDING
-Requires the rig server running on port 3010 (isolated from live :3000). Crawls routes for per-route
-frontend+backend errors.
+### Gate 4 result (2026-06-22) ✅ schema validated under test
+Created the 4 extensions in `powernode_clean_test` (superuser) and `db:schema:load`ed the core schema →
+**420 tables**. RSpec runs cleanly against the new schema:
+- Boot check (`account_spec` + `role_spec`): **83 examples, 0 failures, 4 pending** (the pending correctly
+  require business billing models, skipped in core mode — the `permissions`-table drop did not break `role_spec`).
+- Across the boot check + a full-suite run (reached 328) + a models/services/lib/serializers subset (12-min
+  cap) + a `spec/models` run: **1000+ example-executions, 0 failures.** The schema↔model mapping holds.
+- **Pre-existing finding (not a schema regression):** the suite is slow — even `spec/models`+services+lib+
+  serializers exceeds 12 min — due to slow specs (network/LLM-timeout shaped). Tracked as a test-perf
+  follow-up, not a 0.4.0 blocker.
+- Full-mode (business) spec run: pending a full-mode test DB build (sequential after the core run to avoid
+  over-loading the host that serves live MCP). Full-mode `zeitwerk:check` already green (Gate 3).
+
+## Gate 5 — ai-smoke + ui-smoke @ :3010 ⏸ DEFERRED (educated call)
+Deferred for autonomous/unattended running: the smokes need the rig backend **and** frontend started on
+:3010, and an unattended multi-service startup risks resource contention with the live MCP deployment
+(which must stay up). Much of the endpoint-contract surface is already covered by the in-process
+`spec/requests/*` specs in Gate 4. Run attended when validating the live-route surface.
+
+## Dead-reference sweep (post-refactor cleanup check) ✅ mostly clean
+- `Permission` model (table dropped): **0** lingering model-style refs (`.find/.where/...`). The ~34-reader
+  repoint was complete.
+- Renamed-table models point at the **new** tables (`Account::TeamDelegation` → `business_account_team_delegations`,
+  `Ai::AccountCredit` → `business_account_credits`); the apparent "old-name" refs were association names
+  (`account.ai_account_credits` is a method) + 2 stale comments (cosmetic).
+- **Found a pre-existing dead feature** (not refactor-caused): cookie-consent is wired frontend→routes→
+  controller but references an undefined `CookieConsent` model (`cookie_consents` was an orphan table).
+  Queued as a decision task (remove vs. implement), not fixed on this branch.
