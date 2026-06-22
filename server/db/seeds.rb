@@ -136,6 +136,17 @@ if Powernode::Seeds.demo?
   Powernode::Seeds.ensure_system_worker!
 end
 
+# Demo: AI providers (account-scoped) — seeded BEFORE the baseline section
+# because baseline's AI Example showcase data (ai_example_templates_seed) gates
+# its instance creation on all three providers (anthropic/openai/grok). Seeding
+# providers here lets a SINGLE db:seed produce the full set instead of needing a
+# second pass (the providers used to load in the demo section, after the example
+# templates, so the first seed silently skipped the example agents/teams).
+if Powernode::Seeds.demo?
+  puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
+  load Rails.root.join('db', 'seeds', 'comprehensive_ai_providers_seed.rb')
+end
+
 # 📄 Create public pages — demo/account-scoped (need an admin author). Gated by
 # Powernode::Seeds.demo?; in core/prod the setup wizard seeds account pages.
 if Powernode::Seeds.demo?
@@ -213,9 +224,6 @@ end
 # Requires at least one account — never runs in baseline-only mode.
 # ---------------------------------------------------------------------------
 if Powernode::Seeds.demo?
-  puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
-  load Rails.root.join('db', 'seeds', 'comprehensive_ai_providers_seed.rb')
-
   puts "\n🧠 Loading Claude-Powered Agents..."
   load Rails.root.join('db', 'seeds', 'claude_agents_seed.rb')
 
@@ -248,6 +256,11 @@ if Powernode::Seeds.demo?
 
   puts "\n🤖 Loading Autonomy Data (consolidation + seeding)..."
   load Rails.root.join('db', 'seeds', 'autonomy_data_seed.rb')
+
+  # Platform-wide skill assignments — LAST, after every agent-creating seed, so
+  # all target agents (Powernode Assistant, industry agents, etc.) already exist
+  # on the FIRST db:seed (idempotency).
+  load Rails.root.join('db', 'seeds', 'platform_skill_assignments_seed.rb')
 
   puts "\n🧠 Loading AI Memory Pools..."
   load Rails.root.join('db', 'seeds', 'ai_memory_pools_seed.rb')
