@@ -1,7 +1,8 @@
-import { useCallback, useRef, useEffect, useState } from 'react';
+import { useCallback, useRef, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 import { logger } from '@/shared/utils/logger';
 
 // Page types that determine auto-subscription behavior
@@ -17,16 +18,10 @@ export type PageType =
   | 'privacy'
   | 'account';
 
-// Channel types available for subscription
-export type ChannelType =
-  | 'notifications'
-  | 'settings'
-  | 'analytics'
-  | 'subscriptions'
-  | 'customers'
-  | 'aiOrchestration'
-  | 'aiMonitoring'
-  | 'devops';
+// Channel keys available for subscription. Core channels are enumerated in
+// CORE_CHANNEL_NAMES below; extensions contribute additional channel keys via
+// featureRegistry.registerChannels, so the runtime set is open — hence `string`.
+export type ChannelType = string;
 
 // WebSocket data update event
 export interface WebSocketDataUpdate {
@@ -41,23 +36,24 @@ export interface PageWebSocketOptions {
   // Page type determines default subscriptions
   pageType: PageType;
 
-  // Override default subscriptions
+  // Override default subscriptions for CORE channels
   subscribeToNotifications?: boolean;
   subscribeToSettings?: boolean;
-  subscribeToAnalytics?: boolean;
-  subscribeToSubscriptions?: boolean;
-  subscribeToCustomers?: boolean;
   subscribeToAiOrchestration?: boolean;
   subscribeToAiMonitoring?: boolean;
   subscribeToDevops?: boolean;
 
-  // Callbacks for data updates
+  // Generic add/remove for ANY channel key — core or extension-registered.
+  // (Extension channels, e.g. the business subscriptions/customers/analytics
+  // channels, have no per-channel boolean; use these instead.)
+  subscribeTo?: ChannelType[];
+  unsubscribeFrom?: ChannelType[];
+
+  // Callbacks for data updates. onDataUpdate fires for EVERY channel (core and
+  // extension), so extension pages route their channel's messages through it.
   onDataUpdate?: (update: WebSocketDataUpdate) => void;
   onNotification?: (data: unknown) => void;
   onSettingsUpdate?: (data: unknown) => void;
-  onAnalyticsUpdate?: (data: unknown) => void;
-  onSubscriptionUpdate?: (data: unknown) => void;
-  onCustomerUpdate?: (data: unknown) => void;
   onAiOrchestrationUpdate?: (data: unknown) => void;
   onAiMonitoringUpdate?: (data: unknown) => void;
   onDevopsUpdate?: (data: unknown) => void;
@@ -78,27 +74,26 @@ export interface PageWebSocketReturn {
   unsubscribeFromChannel: (channel: ChannelType) => void;
 }
 
-// Default channel subscriptions per page type
-const DEFAULT_SUBSCRIPTIONS: Record<PageType, ChannelType[]> = {
-  dashboard: ['notifications', 'subscriptions', 'analytics'],
+// Default CORE channel subscriptions per page type. Extensions add their channels
+// to page types at runtime via FeatureChannel.defaultPageTypes (merged below).
+const CORE_DEFAULT_SUBSCRIPTIONS: Record<PageType, ChannelType[]> = {
+  dashboard: ['notifications'],
   ai: ['notifications', 'aiOrchestration', 'aiMonitoring'],
-  business: ['notifications', 'analytics', 'subscriptions', 'customers'],
+  business: ['notifications'],
   devops: ['notifications', 'devops'],
   admin: ['notifications', 'settings'],
   content: ['notifications'],
   system: ['notifications', 'settings'],
-  marketplace: ['notifications', 'subscriptions'],
+  marketplace: ['notifications'],
   privacy: ['notifications'],
   account: ['notifications', 'settings']
 };
 
-// Channel to ActionCable channel name mapping
-const CHANNEL_NAMES: Record<ChannelType, string> = {
+// CORE channel key → ActionCable channel name. Extension channels are merged in at
+// runtime from featureRegistry.getChannels(), so core never names an extension channel.
+const CORE_CHANNEL_NAMES: Record<string, string> = {
   notifications: 'NotificationChannel',
   settings: 'NotificationChannel', // Settings use NotificationChannel
-  analytics: 'AnalyticsChannel',
-  subscriptions: 'SubscriptionChannel',
-  customers: 'CustomerChannel',
   aiOrchestration: 'AiOrchestrationChannel',
   aiMonitoring: 'AiOrchestrationChannel',
   devops: 'DevopsPipelineChannel'
@@ -107,8 +102,10 @@ const CHANNEL_NAMES: Record<ChannelType, string> = {
 /**
  * Unified WebSocket hook for page-level subscriptions
  *
- * Provides automatic channel subscriptions based on page type with
- * optional overrides for custom subscription needs.
+ * Provides automatic channel subscriptions based on page type with optional
+ * overrides. Core channels are built in; extensions contribute channels (name +
+ * default page types) through featureRegistry.registerChannels, which this hook
+ * merges in — so core stays channel-agnostic and gains channels with zero edits.
  *
  * @example
  * ```tsx
@@ -121,11 +118,11 @@ const CHANNEL_NAMES: Record<ChannelType, string> = {
  *   }
  * });
  *
- * // Custom subscriptions
+ * // Opt into an extra channel (core or extension-registered)
  * const { isConnected } = usePageWebSocket({
- *   pageType: 'ai',
- *   subscribeToAnalytics: true, // Override to also get analytics
- *   onAiOrchestrationUpdate: (data) => handleWorkflowUpdate(data)
+ *   pageType: 'business',
+ *   subscribeTo: ['subscriptions'],
+ *   onDataUpdate: (update) => handleUpdate(update)
  * });
  * ```
  */
@@ -133,18 +130,14 @@ export const usePageWebSocket = ({
   pageType,
   subscribeToNotifications,
   subscribeToSettings,
-  subscribeToAnalytics,
-  subscribeToSubscriptions,
-  subscribeToCustomers,
   subscribeToAiOrchestration,
   subscribeToAiMonitoring,
   subscribeToDevops,
+  subscribeTo,
+  unsubscribeFrom,
   onDataUpdate,
   onNotification,
   onSettingsUpdate,
-  onAnalyticsUpdate,
-  onSubscriptionUpdate,
-  onCustomerUpdate,
   onAiOrchestrationUpdate,
   onAiMonitoringUpdate,
   onDevopsUpdate,
@@ -156,6 +149,29 @@ export const usePageWebSocket = ({
   const user = useSelector((state: RootState) => state.auth.user);
   const accountId = providedAccountId || user?.account?.id;
 
+  // Channel name map + per-page defaults = CORE merged with whatever extensions
+  // registered (resolved once at mount — registrations happen at app bootstrap).
+  const channelNames = useMemo<Record<string, string>>(() => {
+    const merged: Record<string, string> = { ...CORE_CHANNEL_NAMES };
+    for (const ch of featureRegistry.getChannels()) {
+      merged[ch.key] = ch.channelName;
+    }
+    return merged;
+  }, []);
+
+  const defaultSubscriptions = useMemo<Record<PageType, ChannelType[]>>(() => {
+    const merged = Object.fromEntries(
+      Object.entries(CORE_DEFAULT_SUBSCRIPTIONS).map(([pt, channels]) => [pt, [...channels]])
+    ) as Record<PageType, ChannelType[]>;
+    for (const ch of featureRegistry.getChannels()) {
+      for (const pt of ch.defaultPageTypes || []) {
+        const list = merged[pt as PageType];
+        if (list && !list.includes(ch.key)) list.push(ch.key);
+      }
+    }
+    return merged;
+  }, []);
+
   // Track active subscriptions
   const [activeChannels, setActiveChannels] = useState<ChannelType[]>([]);
   const unsubscribeRefs = useRef<Map<ChannelType, () => void>>(new Map());
@@ -164,9 +180,6 @@ export const usePageWebSocket = ({
   const onDataUpdateRef = useRef(onDataUpdate);
   const onNotificationRef = useRef(onNotification);
   const onSettingsUpdateRef = useRef(onSettingsUpdate);
-  const onAnalyticsUpdateRef = useRef(onAnalyticsUpdate);
-  const onSubscriptionUpdateRef = useRef(onSubscriptionUpdate);
-  const onCustomerUpdateRef = useRef(onCustomerUpdate);
   const onAiOrchestrationUpdateRef = useRef(onAiOrchestrationUpdate);
   const onAiMonitoringUpdateRef = useRef(onAiMonitoringUpdate);
   const onDevopsUpdateRef = useRef(onDevopsUpdate);
@@ -177,9 +190,6 @@ export const usePageWebSocket = ({
   onDataUpdateRef.current = onDataUpdate;
   onNotificationRef.current = onNotification;
   onSettingsUpdateRef.current = onSettingsUpdate;
-  onAnalyticsUpdateRef.current = onAnalyticsUpdate;
-  onSubscriptionUpdateRef.current = onSubscriptionUpdate;
-  onCustomerUpdateRef.current = onCustomerUpdate;
   onAiOrchestrationUpdateRef.current = onAiOrchestrationUpdate;
   onAiMonitoringUpdateRef.current = onAiMonitoringUpdate;
   onDevopsUpdateRef.current = onDevopsUpdate;
@@ -203,10 +213,10 @@ export const usePageWebSocket = ({
         timestamp: new Date()
       };
 
-      // Call generic handler
+      // Generic handler — fires for every channel, including extension-registered ones
       onDataUpdateRef.current?.(update);
 
-      // Call channel-specific handlers
+      // Core channel-specific handlers
       switch (channel) {
         case 'notifications':
           if (data.type === 'new_notification' || data.type === 'notification_read') {
@@ -217,23 +227,6 @@ export const usePageWebSocket = ({
           if (data.type === 'settings_updated' || data.type === 'preferences_updated' ||
               data.type === 'notifications_updated' || data.type === 'profile_updated') {
             onSettingsUpdateRef.current?.(data);
-          }
-          break;
-        case 'analytics':
-          if (data.type === 'analytics_update') {
-            onAnalyticsUpdateRef.current?.(data);
-          }
-          break;
-        case 'subscriptions':
-          if (data.type === 'subscription_updated' || data.type === 'subscription_cancelled' ||
-              data.type === 'payment_processed' || data.type === 'trial_ending') {
-            onSubscriptionUpdateRef.current?.(data);
-          }
-          break;
-        case 'customers':
-          if (data.type === 'customer_updated' || data.type === 'customer_created' ||
-              data.type === 'customer_status_changed' || data.type === 'search_results') {
-            onCustomerUpdateRef.current?.(data);
           }
           break;
         case 'aiOrchestration':
@@ -266,13 +259,22 @@ export const usePageWebSocket = ({
       return;
     }
 
+    const channelName = channelNames[channel];
+    if (!channelName) {
+      // No core or extension channel registered under this key — skip gracefully
+      // (e.g. an extension channel requested while its extension isn't loaded).
+      if (process.env.NODE_ENV === 'development') {
+        logger.warn(`[PageWebSocket] No channel registered for '${channel}' — skipping`);
+      }
+      return;
+    }
+
     // Unsubscribe if already subscribed
     if (unsubscribeRefs.current.has(channel)) {
       unsubscribeRefs.current.get(channel)?.();
       unsubscribeRefs.current.delete(channel);
     }
 
-    const channelName = CHANNEL_NAMES[channel];
     const unsubscribe = subscribe({
       channel: channelName,
       params: { account_id: accountId },
@@ -286,7 +288,7 @@ export const usePageWebSocket = ({
       return [...prev, channel];
     });
 
-  }, [isConnected, accountId, subscribe, createMessageHandler, handleError]);
+  }, [isConnected, accountId, subscribe, channelNames, createMessageHandler, handleError]);
 
   // Unsubscribe from a specific channel
   const unsubscribeFromChannel = useCallback((channel: ChannelType) => {
@@ -299,16 +301,13 @@ export const usePageWebSocket = ({
 
   // Determine which channels to subscribe to
   const getChannelsToSubscribe = useCallback((): ChannelType[] => {
-    const defaults = DEFAULT_SUBSCRIPTIONS[pageType] || ['notifications'];
+    const defaults = defaultSubscriptions[pageType] || ['notifications'];
     const channels = new Set<ChannelType>(defaults);
 
-    // Apply explicit overrides
+    // Apply explicit core-channel overrides
     const overrides: [ChannelType, boolean | undefined][] = [
       ['notifications', subscribeToNotifications],
       ['settings', subscribeToSettings],
-      ['analytics', subscribeToAnalytics],
-      ['subscriptions', subscribeToSubscriptions],
-      ['customers', subscribeToCustomers],
       ['aiOrchestration', subscribeToAiOrchestration],
       ['aiMonitoring', subscribeToAiMonitoring],
       ['devops', subscribeToDevops]
@@ -322,17 +321,21 @@ export const usePageWebSocket = ({
       }
     }
 
+    // Generic add/remove for any channel key (core or extension-registered)
+    subscribeTo?.forEach(channel => channels.add(channel));
+    unsubscribeFrom?.forEach(channel => channels.delete(channel));
+
     return Array.from(channels);
   }, [
     pageType,
+    defaultSubscriptions,
     subscribeToNotifications,
     subscribeToSettings,
-    subscribeToAnalytics,
-    subscribeToSubscriptions,
-    subscribeToCustomers,
     subscribeToAiOrchestration,
     subscribeToAiMonitoring,
-    subscribeToDevops
+    subscribeToDevops,
+    subscribeTo,
+    unsubscribeFrom
   ]);
 
   // Auto-subscribe when connected

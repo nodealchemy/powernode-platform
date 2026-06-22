@@ -3,8 +3,6 @@ export { useNotifications } from '@/shared/hooks/useNotifications';
 export { usePermissions } from '@/shared/hooks/usePermissions';
 export { useThemeColors } from '@/shared/hooks/useThemeColors';
 export { useWebSocket } from '@/shared/hooks/useWebSocket';
-export { useAnalyticsWebSocket } from '@/shared/hooks/useAnalyticsWebSocket';
-export { useCustomerWebSocket } from '@/shared/hooks/useCustomerWebSocket';
 export { useSettingsWebSocket } from '@/shared/hooks/useSettingsWebSocket';
 export { useMcpWebSocket } from '@/shared/hooks/useMcpWebSocket';
 export { useAiStreamingWebSocket } from '@/shared/hooks/useAiStreamingWebSocket';
