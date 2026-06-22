@@ -13,7 +13,8 @@ puts "🌱 Seeding Powernode platform..."
 #              read-only, upserted by source_key): skills, prompt templates, KB
 #              documentation, default knowledge bases, agent/team/mission templates.
 #              Needs NO account (global content), so it seeds in core/prod too.
-#   DEMO     — Powernode::Seeds.demo? (POWERNODE_SEED_DEMO / dev-test / SEED_ADMIN_USERS).
+#   DEMO     — Powernode::Seeds.demo? (POWERNODE_SEED_DEMO=true / SEED_ADMIN_USERS).
+#              OFF by default in all envs — opt in explicitly.
 #              Account-scoped samples: test accounts/users, sample agents, showcase pages.
 # Module methods (not locals) so files pulled in via `load` can call them.
 module Powernode
@@ -21,7 +22,10 @@ module Powernode
     def self.demo?
       return true if ENV["SEED_ADMIN_USERS"] == "true"
 
-      ENV.fetch("POWERNODE_SEED_DEMO") { (Rails.env.development? || Rails.env.test?).to_s }.to_s == "true"
+      # Demo is OFF by default in every environment — opt in explicitly with
+      # POWERNODE_SEED_DEMO=true. (Previously dev/test defaulted ON, which
+      # silently seeded sample accounts/agents on a plain `rails db:seed`.)
+      ENV.fetch("POWERNODE_SEED_DEMO", "false").to_s == "true"
     end
 
     # Foundational product content (global, read-only). On by default everywhere;
