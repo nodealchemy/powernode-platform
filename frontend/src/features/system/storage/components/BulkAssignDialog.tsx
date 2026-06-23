@@ -60,7 +60,7 @@ export const BulkAssignDialog: React.FC<Props> = ({ storageId, providerType, onC
         );
       }
       onCreated();
-    } catch (e) {
+    } catch {
       dispatch(addNotification({ type: 'error', message: 'Bulk assignment failed' }));
     } finally {
       setSubmitting(false);
