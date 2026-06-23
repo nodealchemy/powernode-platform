@@ -194,7 +194,7 @@ const AppContent: React.FC = () => {
               } else {
                 localStorage.removeItem('impersonationToken');
               }
-            } catch (impersonationError) {
+            } catch {
               localStorage.removeItem('impersonationToken');
             }
           }
@@ -229,7 +229,7 @@ const AppContent: React.FC = () => {
                 } else {
                   localStorage.removeItem('impersonationToken');
                 }
-              } catch (impersonationError) {
+              } catch {
                 localStorage.removeItem('impersonationToken');
               }
             }
@@ -246,7 +246,7 @@ const AppContent: React.FC = () => {
             }
           }
         }
-      } catch (error) {
+      } catch {
         dispatch(clearAuth());
       } finally {
         clearTimeout(timeoutId);
