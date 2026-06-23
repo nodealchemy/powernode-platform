@@ -44,7 +44,7 @@ export const StorageProviderAssignmentsTab: React.FC<Props> = ({ storageId, prov
     try {
       const response = await storageAssignmentsApi.list({ file_storage_id: storageId });
       setAssignments(response.assignments);
-    } catch (e) {
+    } catch {
       dispatch(addNotification({ type: 'error', message: 'Failed to load assignments' }));
     } finally {
       setLoading(false);
@@ -131,7 +131,7 @@ const AssignmentRow: React.FC<{
       await storageAssignmentsApi.rotateCredential(assignment.id);
       dispatch(addNotification({ type: 'success', message: 'Credential rotated' }));
       onChange();
-    } catch (e) {
+    } catch {
       dispatch(addNotification({ type: 'error', message: 'Rotate failed' }));
     }
   };
@@ -141,7 +141,7 @@ const AssignmentRow: React.FC<{
       await storageAssignmentsApi.destroy(assignment.id);
       dispatch(addNotification({ type: 'success', message: 'Assignment deleted' }));
       onChange();
-    } catch (e) {
+    } catch {
       dispatch(addNotification({ type: 'error', message: 'Delete failed' }));
     }
   };

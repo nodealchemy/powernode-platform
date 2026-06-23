@@ -103,9 +103,9 @@ class NotificationService
       return if admin_user_ids.empty?
 
       notification_type = case level
-                          when :critical, :error then "error"
-                          when :warning then "warning"
-                          else "info"
+      when :critical, :error then "error"
+      when :warning then "warning"
+      else "info"
       end
 
       send_in_app(

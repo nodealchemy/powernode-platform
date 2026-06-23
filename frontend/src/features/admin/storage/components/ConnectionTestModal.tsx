@@ -56,8 +56,8 @@ export const ConnectionTestModal: React.FC<ConnectionTestModalProps> = ({
                 <h3
                   className={`text-lg font-semibold ${
                     result.success
-                      ? 'text-theme-success-fg dark:text-theme-success-fg'
-                      : 'text-theme-danger-fg dark:text-theme-danger-fg'
+                      ? 'text-theme-success-fg'
+                      : 'text-theme-danger-fg'
                   }`}
                 >
                   {result.success ? 'Connection Successful' : 'Connection Failed'}
@@ -134,7 +134,7 @@ export const ConnectionTestModal: React.FC<ConnectionTestModalProps> = ({
                     <div className="flex items-start gap-2">
                       <AlertCircle className="h-5 w-5 text-theme-danger-fg flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-theme-danger-fg dark:text-theme-danger-fg">
+                        <p className="text-sm font-medium text-theme-danger-fg">
                           Error Details
                         </p>
                         <p className="text-sm text-theme-danger-fg mt-1">
@@ -150,7 +150,7 @@ export const ConnectionTestModal: React.FC<ConnectionTestModalProps> = ({
             {/* Recommendations */}
             {!result.success && (
               <div className="bg-theme-info-fg/10 dark:bg-theme-info-fg/20 border border-theme-info-border/30 dark:border-theme-info-border/50 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-theme-info-fg dark:text-theme-info-fg mb-2">
+                <h4 className="text-sm font-semibold text-theme-info-fg mb-2">
                   Troubleshooting Tips
                 </h4>
                 <ul className="text-sm text-theme-info-fg space-y-1 list-disc list-inside">

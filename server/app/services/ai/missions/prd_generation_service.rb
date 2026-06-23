@@ -173,7 +173,7 @@ module Ai
       def parse_prd_from_response(text)
         # Try direct JSON parse
         parsed = JSON.parse(text)
-        return normalize_prd(parsed) if parsed.is_a?(Hash) && parsed["tasks"]
+        normalize_prd(parsed) if parsed.is_a?(Hash) && parsed["tasks"]
       rescue JSON::ParserError
         # Try extracting from code fences
         if (match = text.match(/```(?:json)?\s*\n?(.*?)\n?\s*```/m))

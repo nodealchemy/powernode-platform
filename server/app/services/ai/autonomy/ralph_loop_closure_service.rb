@@ -28,7 +28,6 @@ module Ai
         scheduler = GoalDrivenSchedulerService.new(account: @account, agent: @agent)
         while (action = scheduler.next_action)
           results[:decide] << action
-          break if results[:decide].size >= 5 # Safety limit per cycle
 
           # 4. Act: Execute based on decision
           case action[:type]
@@ -53,6 +52,7 @@ module Ai
           end
 
           results[:act] << action
+          break if results[:decide].size >= 5 # Safety limit per cycle
         end
 
         # 5. Learn: Extract learnings from cycle

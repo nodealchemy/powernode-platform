@@ -9,6 +9,7 @@ import {
   MoreVertical,
 } from 'lucide-react';
 import { AvailableProvider } from '../types';
+import { GIT_PROVIDER_BRAND_BG } from '../constants';
 
 interface GitProviderCardProps {
   provider: AvailableProvider;
@@ -17,13 +18,6 @@ interface GitProviderCardProps {
   onDelete?: () => void;
   canManage?: boolean;
 }
-
-const providerColors: Record<string, string> = {
-  github: 'bg-[#24292f]',
-  gitlab: 'bg-[#FC6D26]',
-  gitea: 'bg-[#609926]',
-  bitbucket: 'bg-[#0052CC]',
-};
 
 const ProviderIcon: React.FC<{ type: string }> = ({ type }) => {
   switch (type) {
@@ -64,7 +58,7 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
   canManage = false,
 }) => {
   const [showMenu, setShowMenu] = React.useState(false);
-  const bgColor = providerColors[provider.provider_type] || 'bg-theme-surface';
+  const bgColor = GIT_PROVIDER_BRAND_BG[provider.provider_type] || 'bg-theme-surface';
 
   return (
     <div className="bg-theme-surface rounded-lg border border-theme overflow-hidden hover:shadow-md transition-shadow">

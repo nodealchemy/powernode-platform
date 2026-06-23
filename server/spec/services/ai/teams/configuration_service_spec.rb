@@ -25,6 +25,19 @@ RSpec.describe Ai::Teams::ConfigurationService, type: :service do
       expect(role.role_name).to eq('Developer')
       expect(role.role_type).to eq('worker')
     end
+
+    # Regression: `can_escalate: params[:can_escalate] || true` forced false -> true,
+    # so a role meant to be barred from escalation was silently created escalation-capable
+    # (TeamRole#can_escalate_to? returns false unless can_escalate).
+    it 'honors an explicit can_escalate: false' do
+      role = service.create_role(team.id, { role_name: 'Locked', role_type: 'worker', can_escalate: false })
+      expect(role.can_escalate).to be false
+    end
+
+    it 'defaults can_escalate to true when unspecified' do
+      role = service.create_role(team.id, { role_name: 'Default', role_type: 'worker' })
+      expect(role.can_escalate).to be true
+    end
   end
 
   describe '#update_role' do

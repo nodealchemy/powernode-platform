@@ -96,6 +96,16 @@ RSpec.describe Ai::SkillGraph::OptimizationService, type: :service do
         expect(result[:stats]).to be_present
         expect(result[:ran_at]).to be_present
       end
+
+      # Regression: conflicts_found/auto_resolved were assigned the full scan_all /
+      # auto_resolve_all hashes instead of the integer counts (the keys default to 0 and
+      # are interpolated into "found N conflicts" log lines).
+      it "records integer counts for conflicts_found and auto_resolved (not the raw hashes)" do
+        result = service.daily_maintenance
+
+        expect(result[:conflicts_found]).to eq(3)
+        expect(result[:auto_resolved]).to eq(2)
+      end
     end
   end
 

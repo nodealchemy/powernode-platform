@@ -23,11 +23,14 @@ export interface UserWithName {
  * getUserInitials(null) // 'U'
  */
 export const getUserInitials = (user?: UserWithName | null): string => {
-  const fullName = user?.name || user?.full_name;
+  // Trim each field before falling back so a whitespace-only name neither
+  // shadows a real full_name nor crashes the split below (a blank name is
+  // truthy but trims to '', whose split yields [''] -> parts[0][0] === undefined).
+  const fullName = user?.name?.trim() || user?.full_name?.trim();
 
   if (!fullName) return 'U';
 
-  const parts = fullName.trim().split(/\s+/);
+  const parts = fullName.split(/\s+/);
 
   // Single word name (e.g., "Madonna")
   if (parts.length === 1) {

@@ -477,7 +477,6 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
     setTouched({});
     setTestStatus('idle');
     setTestMessage(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, providerType]);
 
   const { isValid, errors } = useMemo(() => computeValidity(fields, values), [fields, values]);

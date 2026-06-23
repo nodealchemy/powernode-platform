@@ -6,6 +6,9 @@ module Ai
       MAX_ACTIONS_PER_CYCLE = 3
       DEFAULT_PROACTIVE_RATIO = 0.3
       MAX_DAILY_ACTIONS = 50
+      # execution_context tag identifying an AgentExecution as a duty-cycle action,
+      # so the per-day budget can be counted without a dedicated column.
+      DUTY_CYCLE_KIND = "duty_cycle"
       DECISION_PRIORITY_ORDER = %w[
         urgent_reaction
         approval_queue
@@ -21,6 +24,22 @@ module Ai
         @account = account
         @agent = agent
         @ralph_loop = ralph_loop
+      end
+
+      # Today's duty-cycle action count for an agent. Counts AgentExecutions tagged
+      # execution_context.kind = "duty_cycle". No ralph_loop needed — the budget is a
+      # pure daily action count, so schedulers/gates can call this directly.
+      def self.duty_cycle_action_count(agent)
+        Ai::AgentExecution
+          .where(ai_agent_id: agent.id)
+          .where("execution_context ->> 'kind' = ?", DUTY_CYCLE_KIND)
+          .where("created_at >= ?", Time.current.beginning_of_day)
+          .count
+      end
+
+      # Whether the agent has reached its per-day duty-cycle action budget.
+      def self.daily_limit_exceeded?(agent)
+        duty_cycle_action_count(agent) >= MAX_DAILY_ACTIONS
       end
 
       # Run one full OODA duty cycle iteration.
@@ -303,13 +322,17 @@ module Ai
       end
 
       def record_action(action_type, observation)
-        # Record in agent's execution history via metadata
+        # Record the duty-cycle action in the agent's execution history, tagged in
+        # execution_context so the per-day budget (duty_cycle_action_count) can count it.
         Ai::AgentExecution.create!(
           account_id: account.id,
           ai_agent_id: agent.id,
-          execution_type: "duty_cycle",
+          ai_provider_id: agent.ai_provider_id,
+          user_id: agent.creator_id,
+          execution_id: SecureRandom.uuid,
           status: "completed",
-          input_data: {
+          execution_context: { "kind" => DUTY_CYCLE_KIND, "action_type" => action_type },
+          input_parameters: {
             action_type: action_type,
             observation_id: observation.id,
             observation_title: observation.title,
@@ -317,7 +340,8 @@ module Ai
           },
           output_data: { result: "processed" },
           started_at: Time.current,
-          completed_at: Time.current
+          completed_at: Time.current,
+          duration_ms: 0
         )
       rescue StandardError => e
         Rails.logger.warn("[DutyCycle] Failed to record action: #{e.message}")
@@ -333,10 +357,7 @@ module Ai
       end
 
       def daily_action_count
-        Ai::AgentExecution
-          .where(ai_agent_id: agent.id, execution_type: "duty_cycle")
-          .where("created_at >= ?", Time.current.beginning_of_day)
-          .count
+        self.class.duty_cycle_action_count(agent)
       end
     end
   end

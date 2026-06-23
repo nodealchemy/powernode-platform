@@ -118,6 +118,30 @@ RSpec.describe Ai::Discovery::TaskAnalyzerService, type: :service do
         expect(code_review_rec[:match_score]).to be > 0
       end
     end
+
+    context 'with an agent whose SKILLS match but whose name does not' do
+      # Regression: extract_agent_skill_names guarded on respond_to?(:ai_agent_skills),
+      # but Ai::Agent's association is :skills (through :agent_skills) — so the guard was
+      # always false, skill-match scoring was dead, and an agent that matched a capability
+      # only by its skills (not its name) scored 0 and was falsely reported as a gap.
+      let!(:skill_agent) do
+        create(:ai_agent, account: account, provider: provider, creator: user, name: "Generalist Helper")
+      end
+      let!(:matching_skill) do
+        create(:ai_skill, account: account, name: "Linting Expert", slug: "linting-expert")
+      end
+
+      before { create(:ai_agent_skill, agent: skill_agent, skill: matching_skill) }
+
+      it 'scores the agent via its skills and recommends it (not a gap)' do
+        result = service.recommend_team(["code_review"], agents)
+
+        rec = result.find { |r| r[:capability] == "code_review" }
+        expect(rec[:agent_id]).to eq(skill_agent.id)
+        expect(rec[:match_score]).to be > 0
+        expect(rec[:gap]).to be_falsey
+      end
+    end
   end
 
   describe '#skill_gap_analysis' do

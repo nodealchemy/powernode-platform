@@ -188,9 +188,9 @@ module Ai
       end
 
       def extract_agent_skill_names(agent)
-        return [] unless agent.respond_to?(:ai_agent_skills)
+        return [] unless agent.respond_to?(:skills)
 
-        agent.ai_agent_skills.pluck(:name).map(&:downcase)
+        agent.skills.pluck(:name).map(&:downcase)
       rescue StandardError
         []
       end

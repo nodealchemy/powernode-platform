@@ -103,8 +103,9 @@ export function usePrdEditor({ tasks, onChange, onSave, readOnly }: UsePrdEditor
 
   const handleRemoveTask = useCallback((index: number) => {
     const taskKey = tasks[index].key;
-    const newTasks = tasks.filter((_, i) => i !== index);
-    newTasks.forEach((task, idx) => { task.priority = idx + 1; });
+    const newTasks = tasks
+      .filter((_, i) => i !== index)
+      .map((task, idx) => ({ ...task, priority: idx + 1 }));
     onChange(newTasks);
     setExpandedTasks(prev => { const next = new Set(prev); next.delete(taskKey); return next; });
   }, [tasks, onChange]);
@@ -133,10 +134,10 @@ export function usePrdEditor({ tasks, onChange, onSave, readOnly }: UsePrdEditor
 
   const handleDragEnd = () => {
     if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
-      const newTasks = [...tasks];
-      const [draggedTask] = newTasks.splice(draggedIndex, 1);
-      newTasks.splice(dragOverIndex, 0, draggedTask);
-      newTasks.forEach((task, idx) => { task.priority = idx + 1; });
+      const reordered = [...tasks];
+      const [draggedTask] = reordered.splice(draggedIndex, 1);
+      reordered.splice(dragOverIndex, 0, draggedTask);
+      const newTasks = reordered.map((task, idx) => ({ ...task, priority: idx + 1 }));
       onChange(newTasks);
     }
     setDraggedIndex(null);

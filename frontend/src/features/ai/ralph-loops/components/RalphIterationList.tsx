@@ -326,7 +326,7 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
     if (refreshKey !== undefined && refreshKey > 0) {
       loadIterations();
     }
-  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   // Infinite scroll observer
   useEffect(() => {

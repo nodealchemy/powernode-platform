@@ -453,4 +453,19 @@ RSpec.describe Ai::Analytics::PerformanceAnalysisService do
       expect(result[:count]).to eq(1)
     end
   end
+
+  # Regression: success_rates_by_day computed the date via `runs_by_day.count.key(total)`
+  # (a value-based reverse lookup, plus a re-run of the COUNT query), so two days sharing
+  # the same execution count collapsed to the first matching day's completed numerator.
+  describe "#analyze_success_rates by_day with colliding daily totals" do
+    it "computes each day's rate from its own completed count" do
+      day_a = 2.days.ago.noon
+      day_b = 1.day.ago.noon
+      2.times { create(:ai_agent_execution, :completed, account: account, agent: agent, created_at: day_a) }
+      2.times { create(:ai_agent_execution, :failed, account: account, agent: agent, created_at: day_b) }
+
+      rates = service.analyze_success_rates[:by_day].values
+      expect(rates).to contain_exactly(100.0, 0.0)
+    end
+  end
 end

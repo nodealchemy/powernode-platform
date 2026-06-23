@@ -6,6 +6,10 @@ module Ai
       class GoalProgressSensor < Base
         STALE_HOURS = 24
 
+        def sensor_type
+          "goal_progress"
+        end
+
         def collect
           observations = []
 
@@ -15,7 +19,6 @@ module Ai
 
           stale_goals.each do |goal|
             observations << build_observation(
-              sensor_type: "goal_progress",
               observation_type: "degradation",
               severity: "warning",
               title: "Goal '#{goal.title}' has no progress for #{STALE_HOURS}h",
@@ -27,7 +30,7 @@ module Ai
                 fingerprint: "stale_goal_#{goal.id}"
               },
               requires_action: true,
-              expires_at: 12.hours.from_now
+              expires_in: 12.hours
             )
           end
 
@@ -39,7 +42,6 @@ module Ai
 
           stuck_steps.each do |step|
             observations << build_observation(
-              sensor_type: "goal_progress",
               observation_type: "anomaly",
               severity: "warning",
               title: "Plan step ##{step.step_number} stuck for >2h",
@@ -51,7 +53,7 @@ module Ai
                 fingerprint: "stuck_step_#{step.id}"
               },
               requires_action: true,
-              expires_at: 6.hours.from_now
+              expires_in: 6.hours
             )
           end
 
@@ -62,7 +64,6 @@ module Ai
 
             if budget.remaining_cents < (plan.estimated_cost_usd * 100 * 0.5)
               observations << build_observation(
-                sensor_type: "goal_progress",
                 observation_type: "alert",
                 severity: "critical",
                 title: "Budget may be insufficient for plan completion",
@@ -73,7 +74,7 @@ module Ai
                   fingerprint: "budget_overrun_#{plan.id}"
                 },
                 requires_action: true,
-                expires_at: 4.hours.from_now
+                expires_in: 4.hours
               )
             end
           end

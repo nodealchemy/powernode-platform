@@ -20,17 +20,18 @@ module Ai
         def check!(agent_id:, max_calls: DEFAULT_MAX_CALLS, window: DEFAULT_WINDOW_SECONDS)
           key = rate_limit_key(agent_id)
           now = Time.current.to_f
+          member = "#{now}:#{SecureRandom.hex(4)}"
 
           redis.multi do |pipeline|
             pipeline.zremrangebyscore(key, "-inf", now - window)
-            pipeline.zadd(key, now, "#{now}:#{SecureRandom.hex(4)}")
+            pipeline.zadd(key, now, member)
             pipeline.zcard(key)
             pipeline.expire(key, window)
           end => results
 
           count = results[2]
           if count > max_calls
-            redis.zrem(key, "#{now}:#{SecureRandom.hex(4)}")
+            redis.zrem(key, member)
             oldest = redis.zrange(key, 0, 0, with_scores: true).first
             retry_after = oldest ? (oldest[1] + window - now).ceil : window
             raise RateLimitExceeded.new(retry_after: [retry_after, 1].max)

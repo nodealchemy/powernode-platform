@@ -34,7 +34,7 @@ module Ai
             tools_allowed: params[:tools_allowed] || [],
             priority_order: params[:priority_order] || 0,
             can_delegate: params[:can_delegate] || false,
-            can_escalate: params[:can_escalate] || true,
+            can_escalate: params.fetch(:can_escalate, true),
             max_concurrent_tasks: params[:max_concurrent_tasks] || 1,
             context_access: params[:context_access] || {},
             ai_agent_id: params[:agent_id]

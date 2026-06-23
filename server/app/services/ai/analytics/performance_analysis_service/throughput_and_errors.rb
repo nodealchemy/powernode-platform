@@ -114,16 +114,16 @@ module Ai
           runs_by_day = agent_executions.where("ai_agent_executions.created_at >= ?", since)
                                         .where.not(status: %w[running pending])
                                         .group("DATE(ai_agent_executions.created_at)")
+                                        .count
 
           completed_by_day = agent_executions.where("ai_agent_executions.created_at >= ?", since)
                                              .where(status: "completed")
                                              .group("DATE(ai_agent_executions.created_at)")
                                              .count
 
-          runs_by_day.count.transform_keys(&:to_s).transform_values do |total|
-            date = runs_by_day.count.key(total)
+          runs_by_day.each_with_object({}) do |(date, total), rates|
             completed = completed_by_day[date] || 0
-            (completed.to_f / total * 100).round(2)
+            rates[date.to_s] = total.zero? ? 0.0 : (completed.to_f / total * 100).round(2)
           end
         end
 

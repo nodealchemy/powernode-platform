@@ -1,5 +1,8 @@
 // Git Providers Feature - Main exports
 
+// Constants
+export { GIT_PROVIDER_BRAND_BG } from './constants';
+
 // Components
 export { GitProviderCard } from './components/GitProviderCard';
 export { CredentialModal } from './components/CredentialModal';

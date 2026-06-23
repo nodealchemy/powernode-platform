@@ -58,11 +58,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
   // Cleanup timer on unmount
   useEffect(() => () => { if (armTimerRef.current) clearTimeout(armTimerRef.current); }, []);
 
-  // Don't render the trigger at all when there are no actions to show.
-  // Previously this rendered an empty popup on click, which surfaced as
-  // an unclickable artifact for messages with no available actions.
   const visibleItems = items.filter((i) => i.divider || i.label || i.icon);
-  if (visibleItems.length === 0) return null;
 
   const computePosition = useCallback(() => {
     const trig = triggerWrapRef.current;
@@ -124,6 +120,20 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
       };
     }
   }, [isOpen]);
+
+  // If every item disappears while the menu is open, close it. The component
+  // renders null when empty (below); without this, isOpen would persist and the
+  // menu would reappear already-open if items later return.
+  useEffect(() => {
+    if (isOpen && visibleItems.length === 0) setIsOpen(false);
+  }, [isOpen, visibleItems.length]);
+
+  // Don't render the trigger at all when there are no actions to show.
+  // Previously this rendered an empty popup on click, which surfaced as an
+  // unclickable artifact for messages with no available actions. This guard
+  // MUST come after every hook above so the hook order stays identical across
+  // renders (Rules of Hooks) — `items` can change from populated to empty.
+  if (visibleItems.length === 0) return null;
 
   const handleItemClick = (item: DropdownMenuItem, key: string) => {
     if (item.disabled) return;

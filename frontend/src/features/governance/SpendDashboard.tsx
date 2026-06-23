@@ -112,7 +112,6 @@ export const SpendDashboard: React.FC<SpendDashboardProps> = ({
       loadSummary(false);
     }
     // We intentionally only run on mount when no initial data was provided.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const utilizationPct = useMemo(

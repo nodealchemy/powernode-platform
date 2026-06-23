@@ -198,7 +198,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     config.quickActions.sort((a, b) => (a.order || 99) - (b.order || 99));
 
     return config;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasAdminPermissions, filterExtensionItems, filterExtensionSections, registryVersion]);
 
   // Permission checker - ONLY use permissions, ignore roles

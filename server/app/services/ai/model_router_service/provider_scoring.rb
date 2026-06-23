@@ -63,9 +63,11 @@ module Ai
         # Select based on strategy
         selected = case @strategy
         when "cost_optimized"
-          scored_providers.min_by { |p| p[:breakdown][:cost_score] }
+          # cost_score is 1/(1+cost) — higher means cheaper, so maximize it
+          scored_providers.max_by { |p| p[:breakdown][:cost_score] }
         when "latency_optimized"
-          scored_providers.min_by { |p| p[:breakdown][:latency_score] }
+          # latency_score is 1/(1+latency) — higher means faster, so maximize it
+          scored_providers.max_by { |p| p[:breakdown][:latency_score] }
         when "quality_optimized"
           scored_providers.max_by { |p| p[:breakdown][:quality_score] }
         when "round_robin"
@@ -81,7 +83,7 @@ module Ai
           {
             total_score: selected[:score],
             breakdown: selected[:breakdown],
-            candidates: scored_providers.map { |p| { provider_id: p[:provider].id, score: p[:score] } },
+            candidates: scored_providers.map { |p| { provider_id: p[:provider].id, score: p[:score], estimated_cost: p[:breakdown][:estimated_cost] } },
             estimated_cost_usd: selected[:breakdown][:estimated_cost],
             estimated_latency_ms: selected[:breakdown][:estimated_latency]
           }

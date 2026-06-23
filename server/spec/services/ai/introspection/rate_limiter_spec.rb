@@ -116,6 +116,30 @@ RSpec.describe Ai::Introspection::RateLimiter do
         }.to raise_error(Ai::Introspection::RateLimiter::RateLimitExceeded)
       end
 
+      it "rolls back the EXACT member it speculatively added (no window lockout)" do
+        # Regression: zadd added one SecureRandom member but zrem generated a
+        # second, different SecureRandom member, so the rollback removed nothing
+        # and the rejected entry persisted — locking the agent out for the whole
+        # window. The rollback must target the same member that was added.
+        added_member = nil
+        removed_member = nil
+
+        allow(mock_redis).to receive(:multi).and_yield(mock_redis).and_return([nil, nil, 11, nil])
+        allow(mock_redis).to receive(:zremrangebyscore)
+        allow(mock_redis).to receive(:zadd) { |_key, _score, member| added_member = member }
+        allow(mock_redis).to receive(:zcard)
+        allow(mock_redis).to receive(:expire)
+        allow(mock_redis).to receive(:zrange).and_return([["entry", Time.current.to_f]])
+        allow(mock_redis).to receive(:zrem) { |_key, member| removed_member = member }
+
+        expect {
+          described_class.check!(agent_id: agent_id)
+        }.to raise_error(Ai::Introspection::RateLimiter::RateLimitExceeded)
+
+        expect(added_member).to be_present
+        expect(removed_member).to eq(added_member)
+      end
+
       it "defaults retry_after to window when no oldest entry" do
         allow(mock_redis).to receive(:multi).and_yield(mock_redis).and_return([nil, nil, 11, nil])
         allow(mock_redis).to receive(:zremrangebyscore)

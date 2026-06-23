@@ -328,7 +328,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                       key={notification.id}
                       className={`
                         px-4 py-3 hover:bg-theme-surface-hover transition-colors cursor-pointer
-                        ${!notification.read ? 'bg-theme-info-fg/10 dark:bg-theme-info-fg/10' : ''}
+                        ${!notification.read ? 'bg-theme-info-fg/10' : ''}
                         ${isAutonomyApproval ? 'border-l-4 border-theme-warning-border' : ''}
                       `}
                       onClick={() => handleNotificationClick(notification)}

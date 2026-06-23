@@ -29,7 +29,6 @@ declare const __DISABLED_EXTENSIONS__: string[];
 // resolve into extension source files (which have no node_modules of their own).
 // Vite's Rollup build will catch any missing modules at build time.
 declare module '@ext/*' {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ambient wildcard: export shape unknown at compile time
   const value: any;
   export default value;
   export = value;
