@@ -100,7 +100,9 @@ export const getTokenExpiry = (token: string): Date | null => {
     const parts = token.split('.');
     const payload = JSON.parse(atob(parts[1]));
     
-    if (!payload.hasOwnProperty('exp') || payload.exp === null || payload.exp === undefined) return null;
+    // payload is untrusted JWT content — call hasOwnProperty via the prototype
+    // so a payload with its own `hasOwnProperty` key can't shadow the method.
+    if (!Object.prototype.hasOwnProperty.call(payload, 'exp') || payload.exp === null || payload.exp === undefined) return null;
     
     const expNumber = Number(payload.exp);
     if (isNaN(expNumber)) return null;

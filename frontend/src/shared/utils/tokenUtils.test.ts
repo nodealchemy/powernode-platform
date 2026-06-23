@@ -345,8 +345,19 @@ describe('tokenUtils', () => {
 
     it('handles edge case with empty payload object', () => {
       const token = createJWT({});
-      
+
       expect(getTokenExpiry(token)).toBe(null);
+    });
+
+    it('resolves exp even when the payload defines its own hasOwnProperty key', () => {
+      // Untrusted JWT content can shadow Object.prototype.hasOwnProperty; the
+      // expiry must still be read via the real prototype method.
+      const exp = Math.floor(Date.now() / 1000) + 3600;
+      const token = createJWT({ exp, hasOwnProperty: 1 });
+
+      const expiry = getTokenExpiry(token);
+      expect(expiry).toBeInstanceOf(Date);
+      expect(expiry?.getTime()).toBe(exp * 1000);
     });
   });
 
