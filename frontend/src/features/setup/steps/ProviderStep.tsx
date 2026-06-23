@@ -104,8 +104,6 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
     testStatus,
     saveStatus,
     saveError,
-    savedCredentialId: null,
-    preExisting: false,
   };
 
   return (
