@@ -2,7 +2,6 @@
 
 How to build a Powernode database from the **0.4.0 baselines** (post-squash). Companion:
 [../contributing/conventions/migrations-and-seeds.md](../contributing/conventions/migrations-and-seeds.md).
-For migrating data from a pre-0.4.0 deployment, see `data-migration.md` (Phase 9 ETL).
 
 ## Prerequisites
 
