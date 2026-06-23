@@ -51,7 +51,6 @@ const SetupWizard = React.lazy(() =>
   import('@/features/setup/SetupWizard').then((m) => ({ default: m.SetupWizard }))
 );
 import apiClient from '@/shared/services/apiClient';
-import { SetupPendingBanner } from '@/features/setup/SetupPendingBanner';
 import { logger } from '@/shared/utils/logger';
 
 interface OnboardingStatusResponse {
@@ -386,10 +385,7 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute requireEmailVerification>
                 <OnboardingGate>
-                  <>
-                    <SetupPendingBanner />
-                    <DashboardPage />
-                  </>
+                  <DashboardPage />
                 </OnboardingGate>
               </ProtectedRoute>
             }

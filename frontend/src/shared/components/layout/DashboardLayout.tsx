@@ -6,6 +6,7 @@ import { toggleSidebar } from '@/shared/services/slices/uiSlice';
 import { Sidebar, Header } from '@/shared/components/navigation';
 import { NavigationProvider } from '@/shared/hooks/NavigationContext';
 import { ImpersonationBanner } from '@/features/admin/components/ImpersonationBanner';
+import { SetupPendingBanner } from '@/features/setup/SetupPendingBanner';
 import { ChatWindowProvider } from '@/features/ai/chat/context/ChatWindowContext';
 import { ChatWindowRoot } from '@/features/ai/chat/components/ChatWindowRoot';
 import { FloatingChatWidget } from '@/features/ai/chat/components/FloatingChatWidget';
@@ -29,24 +30,32 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   return (
     <NavigationProvider>
       <ChatWindowProvider>
-        <div className="h-screen flex overflow-hidden bg-theme-background-secondary">
-          {/* Sidebar */}
-          <Sidebar isOpen={sidebarOpen} onToggle={handleToggleSidebar} />
+        <div className="h-screen flex flex-col overflow-hidden bg-theme-background-secondary">
+          {/* Full-width setup banner — renders null unless extensions have pending
+              setup. Lives inside the h-screen column (not above it) so its height
+              compresses the sidebar+content row instead of overflowing the viewport
+              and clipping the bottom of the sidebar. */}
+          <SetupPendingBanner />
 
-          {/* Main content */}
-          <div className="flex flex-col w-0 flex-1 min-w-0">
-            <Header />
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            {/* Sidebar */}
+            <Sidebar isOpen={sidebarOpen} onToggle={handleToggleSidebar} />
 
-            {/* Impersonation Banner */}
-            <ImpersonationBanner />
+            {/* Main content */}
+            <div className="flex flex-col w-0 flex-1 min-w-0">
+              <Header />
 
-            <main className="flex-1 relative overflow-y-auto overflow-x-hidden focus:outline-none bg-theme-background">
-              <div className="py-6">
-                <div className="px-4 sm:px-6 md:px-8">
-                  {children}
+              {/* Impersonation Banner */}
+              <ImpersonationBanner />
+
+              <main className="flex-1 relative overflow-y-auto overflow-x-hidden focus:outline-none bg-theme-background">
+                <div className="py-6">
+                  <div className="px-4 sm:px-6 md:px-8">
+                    {children}
+                  </div>
                 </div>
-              </div>
-            </main>
+              </main>
+            </div>
           </div>
 
           <FloatingChatWidget />
