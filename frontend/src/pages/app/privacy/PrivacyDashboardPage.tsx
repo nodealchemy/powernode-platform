@@ -130,7 +130,7 @@ const PrivacyDashboardPage: React.FC = () => {
         <div className="bg-theme-surface rounded-lg border border-theme p-6">
           <div className="flex items-center space-x-3">
             <div className="p-3 bg-theme-success-fg/20 dark:bg-theme-success-fg/30 rounded-lg">
-              <ShieldCheckIcon className="h-6 w-6 text-theme-success-fg dark:text-theme-success-fg" />
+              <ShieldCheckIcon className="h-6 w-6 text-theme-success-fg" />
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Active Consents</p>
@@ -144,7 +144,7 @@ const PrivacyDashboardPage: React.FC = () => {
         <div className="bg-theme-surface rounded-lg border border-theme p-6">
           <div className="flex items-center space-x-3">
             <div className="p-3 bg-theme-info-fg/20 dark:bg-theme-info-fg/30 rounded-lg">
-              <DocumentTextIcon className="h-6 w-6 text-theme-info-fg dark:text-theme-info-fg" />
+              <DocumentTextIcon className="h-6 w-6 text-theme-info-fg" />
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Data Exports</p>
@@ -158,7 +158,7 @@ const PrivacyDashboardPage: React.FC = () => {
         <div className="bg-theme-surface rounded-lg border border-theme p-6">
           <div className="flex items-center space-x-3">
             <div className="p-3 bg-theme-info-fg/20 dark:bg-theme-info-fg/30 rounded-lg">
-              <Cog6ToothIcon className="h-6 w-6 text-theme-info-fg dark:text-theme-info-fg" />
+              <Cog6ToothIcon className="h-6 w-6 text-theme-info-fg" />
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Terms Status</p>
@@ -176,10 +176,10 @@ const PrivacyDashboardPage: React.FC = () => {
           <div className="flex items-center space-x-3">
             <DocumentTextIcon className="h-6 w-6 text-theme-warning-fg" />
             <div>
-              <p className="font-medium text-theme-warning-fg dark:text-theme-warning-fg">
+              <p className="font-medium text-theme-warning-fg">
                 Terms and Policies Updated
               </p>
-              <p className="text-sm text-theme-warning-fg dark:text-theme-warning-fg">
+              <p className="text-sm text-theme-warning-fg">
                 Please review and accept the updated:{' '}
                 {dashboard.terms_status.missing.join(', ').replace(/_/g, ' ')}
               </p>

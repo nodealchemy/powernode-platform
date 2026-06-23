@@ -260,7 +260,7 @@ export const MessageList = React.memo<MessageListProps>(({
             <div
               className={`rounded-2xl px-4 py-3 max-w-full shadow-sm ${
                 hasError
-                  ? 'bg-theme-danger-fg/10 dark:bg-theme-danger-fg/20 border border-theme-danger-border/30 dark:border-theme-danger-border/50 text-theme-danger-fg dark:text-theme-danger-fg'
+                  ? 'bg-theme-danger-fg/10 dark:bg-theme-danger-fg/20 border border-theme-danger-border/30 dark:border-theme-danger-border/50 text-theme-danger-fg'
                   : isUser
                     ? 'bg-theme-primary/10 dark:bg-theme-primary/15 border border-theme-primary/20 text-theme-primary'
                     : 'bg-theme-surface border border-theme text-theme-primary'
@@ -313,14 +313,14 @@ export const MessageList = React.memo<MessageListProps>(({
                           return <li className="mb-1">{children}</li>;
                         },
                         pre: ({ children }) => (
-                          <pre className="bg-theme-surface dark:bg-theme-surface p-4 rounded-lg overflow-x-auto mb-4 text-sm text-theme-primary dark:text-theme-primary">
+                          <pre className="bg-theme-surface p-4 rounded-lg overflow-x-auto mb-4 text-sm text-theme-primary">
                             {children}
                           </pre>
                         ),
                         code: ({ className, children }) => {
                           const isInline = !className?.startsWith('language-');
                           return isInline ? (
-                            <code className="bg-theme-surface dark:bg-theme-surface px-1.5 py-0.5 rounded text-sm font-mono text-theme-primary dark:text-theme-primary">
+                            <code className="bg-theme-surface px-1.5 py-0.5 rounded text-sm font-mono text-theme-primary">
                               {children}
                             </code>
                           ) : (
@@ -338,11 +338,11 @@ export const MessageList = React.memo<MessageListProps>(({
                           </a>
                         ),
                         blockquote: ({ children }) => (
-                          <blockquote className="border-l-4 border-theme dark:border-theme pl-4 italic mb-4">
+                          <blockquote className="border-l-4 border-theme pl-4 italic mb-4">
                             {children}
                           </blockquote>
                         ),
-                        hr: () => <hr className="border-t border-theme dark:border-theme my-4" />,
+                        hr: () => <hr className="border-t border-theme my-4" />,
                         table: ({ children }) => (
                           <div className="overflow-x-auto mb-4">
                             <table className="min-w-full divide-y divide-theme">
@@ -351,12 +351,12 @@ export const MessageList = React.memo<MessageListProps>(({
                           </div>
                         ),
                         th: ({ children }) => (
-                          <th className="px-3 py-2 text-left text-xs font-medium text-theme-secondary dark:text-theme-secondary uppercase tracking-wider">
+                          <th className="px-3 py-2 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                             {children}
                           </th>
                         ),
                         td: ({ children }) => (
-                          <td className="px-3 py-2 text-sm text-theme-primary dark:text-theme-primary">
+                          <td className="px-3 py-2 text-sm text-theme-primary">
                             {children}
                           </td>
                         ),

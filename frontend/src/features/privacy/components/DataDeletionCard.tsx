@@ -47,7 +47,7 @@ export const DataDeletionCard: React.FC<DataDeletionCardProps> = ({
         <div className="flex items-start space-x-3">
           <ExclamationTriangleIcon className="h-6 w-6 text-theme-danger-fg" />
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-theme-danger-fg dark:text-theme-danger-fg">
+            <h3 className="text-lg font-semibold text-theme-danger-fg">
               Account Deletion Scheduled
             </h3>
             <p className="text-sm text-theme-danger-fg mt-1">
@@ -120,7 +120,7 @@ export const DataDeletionCard: React.FC<DataDeletionCardProps> = ({
           <div className="p-4 bg-theme-warning-fg/10 dark:bg-theme-warning-fg/20 rounded-lg">
             <div className="flex items-start space-x-3">
               <ExclamationTriangleIcon className="h-5 w-5 text-theme-warning-fg mt-0.5" />
-              <div className="text-sm text-theme-warning-fg dark:text-theme-warning-fg">
+              <div className="text-sm text-theme-warning-fg">
                 <p className="font-medium">Important Notice</p>
                 <ul className="mt-2 list-disc list-inside space-y-1">
                   <li>This action cannot be undone after the grace period</li>

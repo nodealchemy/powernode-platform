@@ -94,7 +94,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold text-theme-primary">{provider.name}</h3>
               {provider.is_default && (
-                <span className="flex items-center gap-1 px-2 py-0.5 bg-theme-warning-fg/20 dark:bg-theme-warning-fg/30 text-theme-warning-fg dark:text-theme-warning-fg text-xs rounded-full">
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-theme-warning-fg/20 dark:bg-theme-warning-fg/30 text-theme-warning-fg text-xs rounded-full">
                   <Star className="h-3 w-3 fill-current" />
                   Default
                 </span>
@@ -162,7 +162,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
                       setShowMenu(false);
                       onDelete(provider);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-theme-danger-fg dark:text-theme-danger-fg hover:bg-theme-danger-fg/10 dark:hover:bg-theme-danger-fg/20 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm text-theme-danger-fg hover:bg-theme-danger-fg/10 dark:hover:bg-theme-danger-fg/20 flex items-center gap-2"
                   >
                     <Trash2 className="h-4 w-4" />
                     Delete
