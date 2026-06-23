@@ -58,11 +58,8 @@ module Ai
                                   .group("DATE(ai_agent_executions.created_at)")
                                   .count
 
-          total.transform_keys(&:to_s).transform_values do |count|
-            date = total.key(count)
-            next 0.0 if count.zero?
-
-            ((completed[date] || 0).to_f / count * 100).round(2)
+          total.each_with_object({}) do |(date, count), rates|
+            rates[date.to_s] = count.zero? ? 0.0 : ((completed[date] || 0).to_f / count * 100).round(2)
           end
         end
 

@@ -930,4 +930,24 @@ RSpec.describe Ai::Analytics::DashboardService do
       expect(svc.time_range).to eq(30.days)
     end
   end
+
+  # =========================================================================
+  # Regression: success_rate_by_day computed the date via `total.key(count)`
+  # (a value-based reverse lookup), so two days sharing the same execution
+  # count collapsed to the first matching day's numerator — a 0%-success day
+  # was reported with an earlier 100% day's rate.
+  # =========================================================================
+  describe "#generate_trend_data success_rate_by_day with colliding daily totals" do
+    let(:agent) { create(:ai_agent, account: account, provider: provider) }
+
+    it "computes each day's rate from its own completed count" do
+      day_a = 2.days.ago.noon
+      day_b = 1.day.ago.noon
+      2.times { create(:ai_agent_execution, :completed, agent: agent, account: account, provider: provider, created_at: day_a) }
+      2.times { create(:ai_agent_execution, :failed, agent: agent, account: account, provider: provider, created_at: day_b) }
+
+      rates = service.generate_trend_data[:success_rate_by_day].values
+      expect(rates).to contain_exactly(100.0, 0.0)
+    end
+  end
 end
