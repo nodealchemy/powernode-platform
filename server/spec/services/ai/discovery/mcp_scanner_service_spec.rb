@@ -83,8 +83,8 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
     end
 
     context 'when agent has matching skills' do
-      # The service checks respond_to?(:ai_agent_skills) but calls agent.agent_skills.
-      # Use a plain double to avoid the "does not implement" error.
+      # The service reads skill names via the :skills through-association.
+      # Use a plain double to isolate the matching logic from the DB.
       let(:agent) do
         double('agent',
           id: SecureRandom.uuid,
@@ -94,14 +94,14 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
           created_at: Time.current
         ).tap do |a|
           allow(a).to receive(:respond_to?).and_return(false)
-          allow(a).to receive(:respond_to?).with(:ai_agent_skills).and_return(true)
+          allow(a).to receive(:respond_to?).with(:skills).and_return(true)
           allow(a).to receive(:respond_to?).with(:capabilities).and_return(false)
           allow(a).to receive(:respond_to?).with(:status).and_return(true)
           allow(a).to receive(:respond_to?).with(:provider).and_return(false)
           allow(a).to receive(:respond_to?).with(:model).and_return(false)
 
           skill_relation = double('skill_relation')
-          allow(a).to receive(:agent_skills).and_return(skill_relation)
+          allow(a).to receive(:skills).and_return(skill_relation)
           allow(skill_relation).to receive(:pluck).with(:name).and_return([ "code", "search" ])
         end
       end
@@ -127,11 +127,11 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
           description: "Agent for other tasks"
         ).tap do |a|
           allow(a).to receive(:respond_to?).and_return(false)
-          allow(a).to receive(:respond_to?).with(:ai_agent_skills).and_return(true)
+          allow(a).to receive(:respond_to?).with(:skills).and_return(true)
           allow(a).to receive(:respond_to?).with(:capabilities).and_return(false)
 
           skill_relation = double('skill_relation')
-          allow(a).to receive(:agent_skills).and_return(skill_relation)
+          allow(a).to receive(:skills).and_return(skill_relation)
           allow(skill_relation).to receive(:pluck).with(:name).and_return([ "unrelated_skill" ])
         end
       end
@@ -153,11 +153,11 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
           description: "Agent without skills"
         ).tap do |a|
           allow(a).to receive(:respond_to?).and_return(false)
-          allow(a).to receive(:respond_to?).with(:ai_agent_skills).and_return(true)
+          allow(a).to receive(:respond_to?).with(:skills).and_return(true)
           allow(a).to receive(:respond_to?).with(:capabilities).and_return(false)
 
           skill_relation = double('skill_relation')
-          allow(a).to receive(:agent_skills).and_return(skill_relation)
+          allow(a).to receive(:skills).and_return(skill_relation)
           allow(skill_relation).to receive(:pluck).with(:name).and_return([])
         end
       end
@@ -168,6 +168,27 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
 
         matches = service.match_tools_to_agents(tools, agents_relation)
         expect(matches).to be_empty
+      end
+    end
+
+    # Regression (real model, not a double): extract_agent_skills guarded on
+    # respond_to?(:ai_agent_skills), but Ai::Agent's association is :skills
+    # (through :agent_skills) — so on a REAL agent the guard was always false and
+    # skill extraction returned [], making MCP tool->agent discovery find zero
+    # matches regardless of the agent's actual skills. The double-based examples
+    # above cannot catch this because they mock the association.
+    context 'with a REAL agent whose skills match a tool keyword' do
+      let!(:skilled_agent) { create(:ai_agent, account: account) }
+      let!(:skill) { create(:ai_skill, account: account, name: "code", slug: "code-skill") }
+
+      before { create(:ai_agent_skill, agent: skilled_agent, skill: skill) }
+
+      it 'reads the real skill names and matches tools' do
+        matches = service.match_tools_to_agents(tools, Ai::Agent.where(account: account))
+
+        rec = matches.find { |m| m[:agent_id] == skilled_agent.id }
+        expect(rec).to be_present
+        expect(rec[:matched_tools]).to include("code_search")
       end
     end
   end
