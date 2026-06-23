@@ -169,5 +169,40 @@ RSpec.describe Ai::ModelRouterService do
       provider, = svc.send(:select_optimal_provider, providers: providers, request_context: {}, matching_rules: [])
       expect(provider).to eq(cheap_fast)
     end
+
+    it "carries each candidate's estimated dollar cost (for savings analytics)" do
+      svc = described_class.new(account: account, strategy: "cost_optimized")
+      allow(svc).to receive(:get_provider_cost_per_1k) { |p| p.id == cheap_fast.id ? 0.001 : 0.10 }
+      allow(svc).to receive(:get_provider_avg_latency).and_return(1000.0)
+      allow(svc).to receive(:get_provider_success_rate).and_return(100.0)
+
+      _, scoring = svc.send(:select_optimal_provider, providers: providers, request_context: {}, matching_rules: [])
+
+      expect(scoring[:candidates]).to all(include(:estimated_cost))
+    end
+  end
+
+  describe "#calculate_alternative_cost" do
+    subject(:service) { described_class.new(account: account) }
+
+    # Regression: returned the max routing SCORE (0–1) as alternative_cost_usd, which
+    # RoutingDecision#record_outcome! then subtracts from a real dollar cost
+    # (savings_usd = alternative_cost_usd - cost_usd) → fabricated dollar savings.
+    it "returns the most expensive alternative's estimated dollar cost, not the routing score" do
+      candidates = [
+        { provider_id: "selected", score: 0.95, estimated_cost: 0.002 },
+        { provider_id: "alt-1",    score: 0.80, estimated_cost: 0.05 },
+        { provider_id: "alt-2",    score: 0.70, estimated_cost: 0.03 }
+      ]
+
+      result = service.send(:calculate_alternative_cost, candidates, "selected")
+
+      expect(result).to eq(0.05) # max estimated_cost of the alternatives (a dollar amount)
+    end
+
+    it "returns nil when there are no alternatives" do
+      candidates = [{ provider_id: "selected", score: 0.9, estimated_cost: 0.01 }]
+      expect(service.send(:calculate_alternative_cost, candidates, "selected")).to be_nil
+    end
   end
 end

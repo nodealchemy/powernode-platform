@@ -146,10 +146,12 @@ module Ai
 
       def calculate_alternative_cost(candidates, selected_id)
         alternatives = candidates.reject { |c| c[:provider_id] == selected_id }
-        return nil if alternatives.empty?
+        # Estimated DOLLAR cost of the most expensive alternative (savings_usd baseline).
+        # Use estimated_cost, NOT the 0–1 composite routing score.
+        costs = alternatives.filter_map { |c| c[:estimated_cost] }
+        return nil if costs.empty?
 
-        # Return the cost of the most expensive alternative
-        alternatives.map { |c| c[:score] }.max
+        costs.max
       end
 
       def record_provider_metrics(provider, result)

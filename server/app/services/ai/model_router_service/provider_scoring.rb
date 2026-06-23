@@ -83,7 +83,7 @@ module Ai
           {
             total_score: selected[:score],
             breakdown: selected[:breakdown],
-            candidates: scored_providers.map { |p| { provider_id: p[:provider].id, score: p[:score] } },
+            candidates: scored_providers.map { |p| { provider_id: p[:provider].id, score: p[:score], estimated_cost: p[:breakdown][:estimated_cost] } },
             estimated_cost_usd: selected[:breakdown][:estimated_cost],
             estimated_latency_ms: selected[:breakdown][:estimated_latency]
           }
