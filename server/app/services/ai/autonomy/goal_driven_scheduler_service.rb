@@ -96,8 +96,9 @@ module Ai
       end
 
       def duty_cycle_exceeded?
-        Ai::Autonomy::DutyCycleService.new(account: @account, agent: @agent).exceeded?
-      rescue StandardError
+        Ai::Autonomy::DutyCycleService.daily_limit_exceeded?(@agent)
+      rescue StandardError => e
+        Rails.logger.warn("[GoalDrivenScheduler] duty-cycle budget check failed for agent #{@agent.id}: #{e.message}")
         false
       end
 
