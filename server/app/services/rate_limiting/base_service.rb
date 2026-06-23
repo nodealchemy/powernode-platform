@@ -51,7 +51,7 @@ module RateLimiting
         end
 
         keys_cleared = 0
-        Rails.cache.redis.scan_each(match: pattern) do |key|
+        Powernode::CacheRedis.scan_each(match: pattern) do |key|
           Rails.cache.delete(key)
           keys_cleared += 1
         end
@@ -71,7 +71,7 @@ module RateLimiting
         end
 
         found = false
-        Rails.cache.redis.scan_each(match: pattern) do |key|
+        Powernode::CacheRedis.scan_each(match: pattern) do |key|
           current_count = Rails.cache.read(key) || 0
           limit = extract_limit_from_key(key)
           if limit && current_count >= limit
@@ -94,22 +94,24 @@ module RateLimiting
         end
 
         limits = {}
-        Rails.cache.redis.scan_each(match: pattern) do |key|
-          parts = key.split(":")
-          next if parts.length < 4
+        Powernode::CacheRedis.with do |redis|
+          redis.scan_each(match: pattern) do |key|
+            parts = key.split(":")
+            next if parts.length < 4
 
-          controller = parts[1]
-          action = parts[2]
-          current_count = Rails.cache.read(key) || 0
-          limit = extract_limit_from_key(key)
-          ttl = Rails.cache.redis.ttl(key)
+            controller = parts[1]
+            action = parts[2]
+            current_count = Rails.cache.read(key) || 0
+            limit = extract_limit_from_key(key)
+            ttl = redis.ttl(key)
 
-          limits["#{controller}##{action}"] = {
-            current: current_count,
-            limit: limit,
-            remaining: [ limit - current_count, 0 ].max,
-            reset_in: ttl > 0 ? ttl : 0
-          } if limit
+            limits["#{controller}##{action}"] = {
+              current: current_count,
+              limit: limit,
+              remaining: [ limit - current_count, 0 ].max,
+              reset_in: ttl > 0 ? ttl : 0
+            } if limit
+          end
         end
 
         limits
@@ -138,7 +140,7 @@ module RateLimiting
 
       def count_current_violations
         violations = 0
-        Rails.cache.redis.scan_each(match: "rate_limit:*") do |key|
+        Powernode::CacheRedis.scan_each(match: "rate_limit:*") do |key|
           current_count = Rails.cache.read(key) || 0
           limit = extract_limit_from_key(key)
           violations += 1 if limit && current_count >= limit
@@ -151,7 +153,7 @@ module RateLimiting
 
       def count_active_limits
         count = 0
-        Rails.cache.redis.scan_each(match: "rate_limit:*") { count += 1 }
+        Powernode::CacheRedis.scan_each(match: "rate_limit:*") { count += 1 }
         count
       rescue StandardError => e
         Rails.logger.error "Error counting active limits: #{e.message}"

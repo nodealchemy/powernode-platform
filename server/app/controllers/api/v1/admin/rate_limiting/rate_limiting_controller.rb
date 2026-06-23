@@ -138,7 +138,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
 
       if temporarily_disabled
         # Try to get the remaining time
-        ttl = Rails.cache.redis.ttl("rate_limiting_temporarily_disabled")
+        ttl = Powernode::CacheRedis.ttl("rate_limiting_temporarily_disabled") || 0
         if ttl > 0
           status_info[:disabled_until] = (Time.current + ttl.seconds).iso8601
           status_info[:remaining_seconds] = ttl
@@ -292,7 +292,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
 
     # Get all rate limit keys and check for violations
     begin
-      Rails.cache.redis.scan_each(match: "rate_limit:*") do |key|
+      Powernode::CacheRedis.scan_each(match: "rate_limit:*") do |key|
         current_count = Rails.cache.read(key) || 0
         limit = extract_limit_from_key(key)
 

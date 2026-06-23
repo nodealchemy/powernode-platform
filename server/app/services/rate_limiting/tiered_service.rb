@@ -526,7 +526,7 @@ module RateLimiting
       end
 
       def get_reset_time(cache_key)
-        ttl = Rails.cache.redis&.ttl(cache_key) || 0
+        ttl = Powernode::CacheRedis.ttl(cache_key) || 0
         Time.current + ttl.seconds
       rescue StandardError
         Time.current + 1.minute
