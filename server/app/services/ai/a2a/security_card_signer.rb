@@ -14,26 +14,21 @@ module Ai
 
       def sign_card(agent_card)
         card_data = agent_card.to_a2a_json
-        card_data[:security] = build_security_section(agent_card)
+        # Stamp validity metadata BEFORE signing so the signed bytes are exactly the
+        # card that verify_signed_card reconstructs (the card minus the :signature key).
+        # issuer + valid_until live inside :security, so both stay covered by the signature.
+        card_data[:security] = build_security_section(agent_card).merge(
+          signed_at: Time.current.iso8601,
+          valid_until: CARD_VALIDITY_HOURS.hours.from_now.iso8601
+        )
 
-        payload = {
-          card: card_data,
-          iss: issuer_id,
-          iat: Time.current.to_i,
-          exp: CARD_VALIDITY_HOURS.hours.from_now.to_i,
-          aud: "a2a-discovery"
-        }
+        signature = sign_payload(card_data)
 
-        signature = sign_payload(payload)
+        signed_card = card_data.deep_dup
+        signed_card[:security][:signature] = signature
 
         {
-          signed_card: card_data.merge(
-            security: card_data[:security].merge(
-              signature: signature,
-              signed_at: Time.current.iso8601,
-              valid_until: CARD_VALIDITY_HOURS.hours.from_now.iso8601
-            )
-          ),
+          signed_card: signed_card,
           signature: signature
         }
       end

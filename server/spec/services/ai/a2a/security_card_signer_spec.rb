@@ -155,6 +155,29 @@ RSpec.describe Ai::A2a::SecurityCardSigner do
         expect(result[:issuer]).to eq("powernode:#{account.id}")
         expect(result[:verified_at]).to be_a(String)
       end
+
+      # Regression: sign_card HMAC'd a WRAPPED payload ({card:, iss:, iat:, exp:, aud:})
+      # while verify_signed_card HMAC'd the BARE card (signature removed) — so the signature
+      # sign_card actually produced never verified. (The test above masked it by recomputing
+      # its own expected signature rather than round-tripping sign_card's output.)
+      it "verifies the signature actually produced by sign_card (true round trip)" do
+        signed_card = signer.sign_card(agent_card)[:signed_card]
+        result = signer.verify_signed_card(signed_card)
+        expect(result[:valid]).to be true
+      end
+
+      it "verifies a sign_card result after JSON transport (string keys)" do
+        signed_card = signer.sign_card(agent_card)[:signed_card]
+        transported = JSON.parse(signed_card.to_json)
+        expect(signer.verify_signed_card(transported)[:valid]).to be true
+      end
+
+      it "rejects a sign_card result whose card body was tampered" do
+        signed_card = signer.sign_card(agent_card)[:signed_card]
+        tampered = JSON.parse(signed_card.to_json)
+        tampered["name"] = "Evil Agent"
+        expect(signer.verify_signed_card(tampered)[:valid]).to be false
+      end
     end
 
     context "with missing security section" do
