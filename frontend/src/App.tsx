@@ -256,7 +256,6 @@ const AppContent: React.FC = () => {
     };
 
     void initializeAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]); // Remove access_token, refresh_token, user to prevent infinite loop
 
   const handleAuthFallback = () => {

@@ -212,7 +212,6 @@ export const ProvisioningPage: React.FC = () => {
   useEffect(() => {
     if (!initialMissionId || !conversationId) return;
     void handleOpenPlan(initialMissionId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMissionId, conversationId]);
 
   // ------------------------------------------------------------------ //

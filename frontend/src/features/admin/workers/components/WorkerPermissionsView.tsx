@@ -266,7 +266,6 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
     }
     // Account workers can hold account-scoped / user roles.
     return roles.filter(role => getRoleType(role) === 'user');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roles, isSystemWorker]);
 
   const getRoleTypeBadge = (roleType: string) => {
