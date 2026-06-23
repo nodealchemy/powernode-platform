@@ -47,7 +47,7 @@ const getAPIBaseURL = (): string => {
           // Direct access - use port 3000 for backend
           return `${currentProtocol}//${currentHostname}:3000${apiPath}`;
         }
-      } catch (e) {
+      } catch {
         // Fallback if URL parsing fails
         const fallback = `${currentProtocol}//${currentHostname}:3000/api/v1`;
         return fallback;
@@ -138,7 +138,7 @@ class APIClient {
             try {
               // Try to gracefully end the impersonation session
               await store.dispatch(stopImpersonation());
-            } catch (stopError) {
+            } catch {
               store.dispatch(clearAuth());
             }
             return Promise.reject(error);
