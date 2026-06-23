@@ -135,4 +135,39 @@ RSpec.describe Ai::ModelRouterService do
       expect(result[:routing][:model_tier]).to eq("economy")
     end
   end
+
+  describe "#select_optimal_provider strategy direction" do
+    # Regression: cost_optimized/latency_optimized used min_by on cost_score/latency_score,
+    # but those are 1/(1+x) (cheaper/faster => HIGHER score), so min_by deterministically
+    # selected the MOST expensive / SLOWEST provider — the opposite of intent.
+    let(:cheap_fast) { create(:ai_provider, account: account, provider_type: "openai", api_base_url: "https://api.openai.com/v1") }
+    let(:pricey_slow) { create(:ai_provider, account: account, provider_type: "anthropic", api_base_url: "https://api.anthropic.com") }
+    let(:providers) { [pricey_slow, cheap_fast] } # order should not matter
+
+    def select_with(strategy)
+      svc = described_class.new(account: account, strategy: strategy)
+      allow(svc).to receive(:get_provider_cost_per_1k) { |p| p.id == cheap_fast.id ? 0.001 : 0.10 }
+      allow(svc).to receive(:get_provider_avg_latency) { |p| p.id == cheap_fast.id ? 100.0 : 2000.0 }
+      allow(svc).to receive(:get_provider_success_rate).and_return(100.0)
+      provider, = svc.send(:select_optimal_provider, providers: providers, request_context: {}, matching_rules: [])
+      provider
+    end
+
+    it "cost_optimized selects the cheaper provider" do
+      expect(select_with("cost_optimized")).to eq(cheap_fast)
+    end
+
+    it "latency_optimized selects the faster provider" do
+      expect(select_with("latency_optimized")).to eq(cheap_fast)
+    end
+
+    it "quality_optimized still selects the higher-success provider" do
+      svc = described_class.new(account: account, strategy: "quality_optimized")
+      allow(svc).to receive(:get_provider_cost_per_1k).and_return(0.002)
+      allow(svc).to receive(:get_provider_avg_latency).and_return(1000.0)
+      allow(svc).to receive(:get_provider_success_rate) { |p| p.id == cheap_fast.id ? 99.0 : 50.0 }
+      provider, = svc.send(:select_optimal_provider, providers: providers, request_context: {}, matching_rules: [])
+      expect(provider).to eq(cheap_fast)
+    end
+  end
 end
