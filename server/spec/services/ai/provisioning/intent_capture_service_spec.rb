@@ -270,6 +270,31 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, type: :service do
       expect(result[:intent_type]).to eq(described_class::INTENT_GENERAL)
       expect(result[:confidence]).to eq(0.0)
     end
+
+    # Regression: INTENT_KEYWORDS was unanchored, so keyword SUBSTRINGS inside ordinary
+    # words (ghost→host, downscale→scale, stacks→stack, provisional→provision, hostname→host)
+    # matched and short-circuited to provision_infrastructure, bypassing the LLM fallback.
+    context "keyword anchoring (no substring false positives)" do
+      before { allow(service).to receive(:classify_with_llm).and_return(nil) }
+
+      [
+        "a ghost story",
+        "downscale my expectations",
+        "stacks of paperwork",
+        "we reached a provisional agreement",
+        "what is the hostname here"
+      ].each do |phrase|
+        it "does not classify #{phrase.inspect} as provisioning" do
+          result = service.classify(natural_language: phrase)
+          expect(result[:intent_type]).not_to eq(described_class::INTENT_PROVISION)
+        end
+      end
+
+      it "still classifies whole-word keyword utterances as provisioning" do
+        result = service.classify(natural_language: "provision a host for me")
+        expect(result[:intent_type]).to eq(described_class::INTENT_PROVISION)
+      end
+    end
   end
 
   describe "constants" do

@@ -45,7 +45,7 @@ module Ai
 
       REQUIRED_FIELDS = %i[intent use_case scale regions budget_cap_usd_monthly].freeze
 
-      INTENT_KEYWORDS = /provision|deploy|host|stack|cluster|database|scale|migrate/i.freeze
+      INTENT_KEYWORDS = /\b(?:provision|deploy|host|stack|cluster|database|scale|migrate)\b/i.freeze
 
       INTENT_PROVISION = "provision_infrastructure"
       INTENT_GENERAL = "general_chat"
