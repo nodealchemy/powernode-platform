@@ -4,6 +4,10 @@ module Ai
   module Autonomy
     module Sensors
       class GovernanceSensor < Base
+        def sensor_type
+          "governance"
+        end
+
         def collect
           observations = []
 
@@ -12,7 +16,6 @@ module Ai
 
           critical_reports.each do |report|
             observations << build_observation(
-              sensor_type: "governance",
               observation_type: "alert",
               severity: "critical",
               title: "Critical governance report: #{report.report_type} for agent #{report.subject_agent_id}",
@@ -24,7 +27,7 @@ module Ai
                 fingerprint: "governance_#{report.id}"
               },
               requires_action: true,
-              expires_at: 4.hours.from_now
+              expires_in: 4.hours
             )
           end
 
@@ -34,7 +37,6 @@ module Ai
 
           if collusion.any?
             observations << build_observation(
-              sensor_type: "governance",
               observation_type: "alert",
               severity: "warning",
               title: "#{collusion.count} high-confidence collusion indicators detected",
@@ -44,7 +46,7 @@ module Ai
                 fingerprint: "collusion_#{collusion.count}"
               },
               requires_action: true,
-              expires_at: 24.hours.from_now
+              expires_in: 24.hours
             )
           end
 
