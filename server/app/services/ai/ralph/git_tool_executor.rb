@@ -100,7 +100,7 @@ module Ai
           return { success: false, error: result[:error] || "Failed to write file" }
         end
 
-        operation = existing ? :updated : :created
+        operation = existing && existing[:sha] ? :updated : :created
         commit_sha = extract_commit_sha(result)
         @last_commit_sha = commit_sha if commit_sha
 
