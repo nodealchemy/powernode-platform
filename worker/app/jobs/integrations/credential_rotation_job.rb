@@ -21,8 +21,9 @@ module Integrations
     def rotate_single_credential(credential_id, options = {})
       log_info("Rotating credential", credential_id: credential_id)
 
-      # Call the backend rotation endpoint
-      response = api_client.post("/api/v1/integrations/credentials/#{credential_id}/rotate")
+      # Call the backend rotation endpoint (routed under the devops namespace;
+      # the :integrations namespace only routes `instances`).
+      response = api_client.post("/api/v1/devops/integration_credentials/#{credential_id}/rotate")
 
       if response[:success]
         log_info("Credential rotated successfully", credential_id: credential_id)
@@ -61,7 +62,7 @@ module Integrations
       page = 1
 
       loop do
-        response = api_client.get("/api/v1/integrations/credentials", {
+        response = api_client.get("/api/v1/devops/integration_credentials", {
           page: page,
           per_page: 50
         })
