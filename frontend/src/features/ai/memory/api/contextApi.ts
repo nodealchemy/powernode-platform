@@ -166,7 +166,7 @@ export const contextApi = {
       });
 
       if (filters?.entry_type) params.append('entry_type', filters.entry_type);
-      if (filters?.min_importance) params.append('min_importance', filters.min_importance.toString());
+      if (filters?.min_importance !== undefined) params.append('min_importance', filters.min_importance.toString());
       if (filters?.tags?.length) params.append('tags', filters.tags.join(','));
       if (filters?.has_embedding !== undefined) params.append('has_embedding', String(filters.has_embedding));
       if (filters?.q) params.append('q', filters.q);
@@ -296,7 +296,7 @@ export const contextApi = {
       });
 
       if (filters?.entry_type) params.append('entry_type', filters.entry_type);
-      if (filters?.min_importance) params.append('min_importance', filters.min_importance.toString());
+      if (filters?.min_importance !== undefined) params.append('min_importance', filters.min_importance.toString());
       if (filters?.tags?.length) params.append('tags', filters.tags.join(','));
 
       const response = await api.get(`/ai/agents/${agentId}/memory?${params}`);
