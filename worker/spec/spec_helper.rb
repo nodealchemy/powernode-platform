@@ -99,11 +99,18 @@ end
 
 def load_extension_worker_specs
   # "Targeted" = an explicit existing file/dir path was passed positionally. We
-  # deliberately test File.exist? (not a name/glob match) so option VALUES that
-  # look spec-ish (e.g. --exclude-pattern '**/foo_spec.rb', --seed 123) don't
-  # count — only real paths the developer pointed rspec at. A targeted run runs
-  # exactly what was named (and never double-loads an ext spec named directly).
-  targeted = ARGV.any? { |arg| arg !~ /\A-/ && File.exist?(arg) }
+  # test File.exist? (not a name/glob match) so option VALUES that look spec-ish
+  # (e.g. --exclude-pattern '**/foo_spec.rb', --seed 123) don't count — only real
+  # paths the developer pointed rspec at. Strip rspec's location suffix first
+  # (foo_spec.rb:42 / foo_spec.rb[1:2:3]) so those targeted forms are recognized.
+  # A targeted run runs exactly what was named (and never double-loads an ext
+  # spec named directly).
+  targeted = ARGV.any? do |arg|
+    next false if arg.start_with?('-')
+
+    path = arg.sub(/(\[[\d:]+\]|:\d+(?::\d+)*)\z/, '')
+    File.exist?(path)
+  end
   return if targeted
 
   extensions_dir = File.expand_path('../../extensions', __dir__)
