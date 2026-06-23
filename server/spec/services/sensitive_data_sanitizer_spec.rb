@@ -3,6 +3,15 @@
 require 'rails_helper'
 
 RSpec.describe DataManagement::Sanitizer do
+  # Regression: a dead, verbatim copy of this class lived at the top level as
+  # SensitiveDataSanitizer (app/services/sensitive_data_sanitizer.rb), referenced
+  # nowhere — a PCI-masking drift hazard. DataManagement::Sanitizer is the single
+  # source of truth (used by config/initializers/pci_compliance.rb). Guard against
+  # the duplicate being reintroduced.
+  it 'is the only sanitizer implementation (no dead top-level SensitiveDataSanitizer)' do
+    expect { SensitiveDataSanitizer }.to raise_error(NameError)
+  end
+
   describe '.sanitize_string' do
     it 'masks credit card numbers' do
       input = 'Please charge 4242424242424242 for the order'
