@@ -57,7 +57,9 @@ export interface BacklinkItem {
   excerpt: string;
 }
 
-export interface UnlinkedMentionItem extends BacklinkItem {}
+// Structurally identical to BacklinkItem today; kept as a named alias so the
+// unlinked-mentions API surface reads distinctly from backlinks.
+export type UnlinkedMentionItem = BacklinkItem;
 
 export interface RelatedPageItem extends BacklinkItem {
   similarity: number;
