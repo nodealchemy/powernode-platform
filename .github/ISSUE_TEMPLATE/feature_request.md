@@ -39,7 +39,7 @@ Which parts of the platform would this touch?
 
 ## Stability Tier
 
-Which tier does this land in? See [`docs/STABILITY.md`](../docs/STABILITY.md). New
+Which tier does this land in? See [`docs/STABILITY.md`](../../docs/STABILITY.md). New
 work in Experimental areas is especially welcome — those subsystems explicitly invite
 community maintainers.
 
