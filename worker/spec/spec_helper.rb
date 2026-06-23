@@ -75,6 +75,81 @@ end
 # Configure WebMock - disable all real HTTP connections to force stub usage
 WebMock.disable_net_connect!
 
+# --- Extension worker-spec discovery (generic seam) --------------------------
+# Extensions keep their worker specs in-tree (extensions/<slug>/worker/spec),
+# mirroring extension isolation — their jobs are already autoloaded by
+# config/boot.rb. RSpec's default path only covers worker/spec, so on a full
+# suite run we require each ENABLED extension's worker specs here. Enumeration
+# mirrors config/boot.rb exactly: flat extensions/<slug> + extensions/private/<slug>
+# ("private" is a grouping dir, never a slug), skipping anything disabled in
+# config/extensions_state.json and any extension without components.worker.
+#
+# Skipped when the invocation names explicit files/dirs, so targeted runs stay
+# fast and never double-load a spec the developer pointed at directly. To run a
+# single extension's worker specs, pass its path, e.g.:
+#   bundle exec rspec ../extensions/supply-chain/worker/spec
+def private_extensions_active?
+  return true if ENV['POWERNODE_INCLUDE_PRIVATE_EXTENSIONS'].to_s == '1'
+
+  gemfile = defined?(Bundler) ? Bundler.default_gemfile.to_s : ''
+  gemfile.end_with?('Gemfile.private')
+rescue StandardError
+  false
+end
+
+def load_extension_worker_specs
+  # "Targeted" = an explicit existing file/dir path was passed positionally. We
+  # deliberately test File.exist? (not a name/glob match) so option VALUES that
+  # look spec-ish (e.g. --exclude-pattern '**/foo_spec.rb', --seed 123) don't
+  # count — only real paths the developer pointed rspec at. A targeted run runs
+  # exactly what was named (and never double-loads an ext spec named directly).
+  targeted = ARGV.any? { |arg| arg !~ /\A-/ && File.exist?(arg) }
+  return if targeted
+
+  extensions_dir = File.expand_path('../../extensions', __dir__)
+  return unless Dir.exist?(extensions_dir)
+
+  disabled = begin
+    state_file = File.expand_path('../../config/extensions_state.json', __dir__)
+    File.exist?(state_file) ? Array(JSON.parse(File.read(state_file))['disabled']).map(&:to_s) : []
+  rescue JSON::ParserError, IOError, SystemCallError
+    []
+  end
+
+  ext_specs = []
+  Dir.children(extensions_dir).sort.each do |s|
+    next if s == 'private'
+    ext_specs << [extensions_dir, s]
+  end
+  # Private extensions load their worker code only in full mode (private bundle /
+  # POWERNODE_INCLUDE_PRIVATE_EXTENSIONS). In core mode their job constants are
+  # absent, so requiring their specs would NameError — skip them, mirroring the
+  # worker's own core/full split.
+  if private_extensions_active?
+    private_dir = File.join(extensions_dir, 'private')
+    Dir.children(private_dir).sort.each { |s| ext_specs << [private_dir, s] } if Dir.exist?(private_dir)
+  end
+
+  ext_specs.each do |ext_root, slug|
+    next if disabled.include?(slug)
+
+    manifest_path = File.join(ext_root, slug, 'extension.json')
+    next unless File.exist?(manifest_path)
+
+    manifest = begin
+      JSON.parse(File.read(manifest_path))
+    rescue JSON::ParserError
+      next
+    end
+    next unless manifest.dig('components', 'worker')
+
+    spec_glob = File.join(ext_root, slug, 'worker', 'spec', '**', '*_spec.rb')
+    Dir[spec_glob].sort.each { |f| require f }
+  end
+end
+
+load_extension_worker_specs
+
 # Configure VCR for HTTP recording
 VCR.configure do |config|
   config.cassette_library_dir = "spec/vcr_cassettes"
