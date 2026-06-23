@@ -4,8 +4,10 @@ import type { AiMessage, MessageAction, ActionContext, ChatCard } from '@/shared
 /**
  * Clean AI streaming content to remove chunked encoding artifacts.
  * Chunk markers are hex numbers on their own line (e.g., "1a3\r\n" or "\r\n0\r\n").
- * Only matches hex sequences that are separated by newlines from content,
- * never hex chars that are part of normal words (e.g., "Code", "cafe").
+ * Only matches hex sequences that are separated by newlines from content, and
+ * (except the bare "0" terminator) only when the token contains at least one digit —
+ * so an all-letter line that happens to be a hex word ("DECADE", "CAFE", "BEEF") is
+ * kept as content, never mistaken for a chunk-size marker.
  */
 export const cleanStreamingContent = (content: string): string => {
   if (!content) return '';
@@ -14,12 +16,13 @@ export const cleanStreamingContent = (content: string): string => {
 
   // Chunked encoding cleanup — only strip hex sequences on their own lines
   cleaned = cleaned
-    // Remove trailing chunk markers (newline + hex-only line at end)
-    ?.replace(/\r?\n[0-9a-fA-F]+\s*$/g, '')
+    // Remove trailing chunk markers (newline + hex-only line at end).
+    // Require a digit so all-letter hex words (e.g. "DECADE") aren't deleted.
+    ?.replace(/\r?\n(?=[0-9a-fA-F]*\d)[0-9a-fA-F]+\s*$/g, '')
     // Remove leading chunk headers (hex-only line + newline at start)
-    ?.replace(/^[0-9a-fA-F]+\r?\n/g, '')
+    ?.replace(/^(?=[0-9a-fA-F]*\d)[0-9a-fA-F]+\r?\n/g, '')
     // Remove inline chunk markers (hex-only line between content lines)
-    ?.replace(/\r?\n[0-9a-fA-F]+\r?\n/g, '\n')
+    ?.replace(/\r?\n(?=[0-9a-fA-F]*\d)[0-9a-fA-F]+\r?\n/g, '\n')
     // Remove final "0" chunk terminator (on its own line or after punctuation)
     ?.replace(/\r?\n0\s*$/g, '')
     ?.replace(/([.!?])\s*\r?\n0\s*$/g, '$1')

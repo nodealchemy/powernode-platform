@@ -30,6 +30,28 @@ describe('cleanStreamingContent', () => {
     expect(cleanStreamingContent('Code cafe')).toBe('Code cafe');
     expect(cleanStreamingContent('deadbeef face')).toBe('deadbeef face');
   });
+
+  // Regression: the hex-line strips matched ANY all-hex line, so a final/leading/inline
+  // line that is an English word made only of a-f letters was deleted. Real chunk-size
+  // markers contain digits; pure-letter words do not.
+  it('preserves a trailing all-hex WORD line (no digits — not a chunk marker)', () => {
+    expect(cleanStreamingContent('It lasted a\nDECADE')).toContain('DECADE');
+    expect(cleanStreamingContent('Meet me at the\nCAFE')).toContain('CAFE');
+  });
+
+  it('preserves a leading all-hex WORD line', () => {
+    expect(cleanStreamingContent('FACADE\nof the old building')).toContain('FACADE');
+  });
+
+  it('preserves an inline all-hex WORD line', () => {
+    expect(cleanStreamingContent('first line\nBEEF\nlast line')).toContain('BEEF');
+  });
+
+  it('still strips hex chunk markers that contain digits (leading/trailing/inline)', () => {
+    expect(cleanStreamingContent('The answer is here\n1a2f')).not.toContain('1a2f');
+    expect(cleanStreamingContent('1a2f\nThe answer is here')).not.toContain('1a2f');
+    expect(cleanStreamingContent('Hello world\n1a3\nGoodbye world')).not.toContain('1a3');
+  });
 });
 
 describe('cleanMessageContent (role gating)', () => {
