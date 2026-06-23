@@ -278,21 +278,19 @@ module Ai
       end
 
       def record_learning(prediction, action, result)
-        return unless defined?(Ai::CompoundLearningService)
+        success = result.is_a?(Hash) && result[:status] == "success"
 
-        Ai::CompoundLearningService.new(account: @account).record_extraction(
-          source_type: "self_healing",
-          source_id: prediction[:source_id],
-          learning_type: "remediation_outcome",
+        Ai::Learning::CompoundLearningService.new(account: @account).store_learning({
+          category: "performance_insight",
+          title: "Self-healing remediation: #{action}",
           content: "Predictive remediation: #{action} triggered by #{prediction[:event_type]} " \
                    "(probability: #{prediction[:probability]}, signals: #{prediction[:signals]&.join(', ')})",
-          effectiveness: result.is_a?(Hash) && result[:status] == "success" ? 0.8 : 0.3,
-          metadata: {
-            prediction: prediction.except(:metrics),
-            action: action,
-            result_status: result.is_a?(Hash) ? result[:status] : nil
-          }
-        )
+          importance: success ? 0.8 : 0.3,
+          confidence: 0.7,
+          extraction_method: success ? "auto_success" : "auto_failure",
+          source_execution_successful: success,
+          tags: [ "self_healing", prediction[:event_type] ].compact
+        })
       rescue StandardError => e
         Rails.logger.warn "[PredictiveMonitor] Failed to record learning: #{e.message}"
       end

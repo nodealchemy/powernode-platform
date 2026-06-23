@@ -296,4 +296,45 @@ RSpec.describe Ai::SelfHealing::PredictiveMonitorService, type: :service do
       end
     end
   end
+
+  # ===========================================================================
+  # #record_learning
+  # Regression: guarded on `defined?(Ai::CompoundLearningService)` and called
+  # .record_extraction — but the class is Ai::Learning::CompoundLearningService
+  # (no top-level alias) and has no record_extraction, so the guard was always
+  # nil and the self-healing feedback loop never recorded a learning.
+  # ===========================================================================
+  describe "#record_learning" do
+    before do
+      # Return nil so store_learning uses its deterministic text-dedup path
+      # (a stubbed vector would route through pgvector nearest_neighbors).
+      allow_any_instance_of(Ai::Memory::EmbeddingService)
+        .to receive(:generate).and_return(nil)
+    end
+
+    let(:prediction) do
+      { event_type: "provider_degradation", source_id: "prov-1", probability: 0.9, signals: ["latency_spike_3.2x"] }
+    end
+
+    it "persists a compound learning for a successful remediation (auto_success)" do
+      expect {
+        service.send(:record_learning, prediction, "model_downgrade", { status: "success" })
+      }.to change(Ai::CompoundLearning, :count).by(1)
+
+      learning = Ai::CompoundLearning.order(:created_at).last
+      expect(learning.content).to include("model_downgrade")
+      expect(learning.extraction_method).to eq("auto_success")
+      expect(learning.source_execution_successful).to be true
+      expect(Ai::CompoundLearning::CATEGORIES).to include(learning.category)
+    end
+
+    it "records a failed remediation as auto_failure" do
+      service.send(:record_learning, prediction, "alert_escalation", { status: "failed" })
+
+      learning = Ai::CompoundLearning.order(:created_at).last
+      expect(learning).to be_present
+      expect(learning.extraction_method).to eq("auto_failure")
+      expect(learning.source_execution_successful).to be false
+    end
+  end
 end
