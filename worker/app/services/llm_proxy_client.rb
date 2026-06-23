@@ -228,7 +228,9 @@ class LlmProxyClient
     api_key = credentials&.dig("api_key") || credentials&.dig(:api_key)
     raise "No API key found for credential #{credential_id}" unless api_key
 
-    PowernodeWorker.application.logger.info("[LlmProxyClient] Building client: provider=#{provider_type} base_url=#{base_url} credential=#{credential_id&.slice(0, 12)}... key=#{api_key.slice(0, 8)}...")
+    # Never log the API key — not even a prefix (CLAUDE.md cryptographic-material
+    # safety). credential_id is a non-secret reference, safe to log truncated.
+    PowernodeWorker.application.logger.info("[LlmProxyClient] Building client: provider=#{provider_type} base_url=#{base_url} credential=#{credential_id&.slice(0, 12)}...")
 
     client = Ai::Llm::Client.for_credentials(
       provider_type: provider_type,
