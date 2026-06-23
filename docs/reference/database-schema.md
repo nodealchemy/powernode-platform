@@ -26,7 +26,6 @@ Core platform models not in a namespace.
 | `User` | Platform users with authentication and permissions |
 | `Account` | Multi-tenant account (one per organisation) |
 | `Role` | Permission grouping (super_admin, owner, admin, manager, member, etc.) |
-| `Permission` | Individual permission entry — see [permissions.md](permissions.md) |
 | `RolePermission` | Role-to-permission join table |
 | `Plan` | Subscription plan with features/limits (extension-gated) |
 | `Subscription` | Account subscription, AASM state machine with 8 states (extension-gated) |
@@ -195,7 +194,6 @@ MCP protocol principal records. (The MCP server/tool/session/execution models li
 flowchart LR
   Account --> User
   User --> Role
-  Role --> Permission
   Account --> Subscription
   Subscription --> Plan
   Account --> AiAgent[Ai::Agent]
