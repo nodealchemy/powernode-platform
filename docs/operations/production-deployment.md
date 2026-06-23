@@ -212,33 +212,27 @@ storage.remove_file_size(bytes)
 
 ### Automated Backups
 
-```bash
-crontab -e
-
-# Daily backup at 2 AM
-0 2 * * * cd ~/powernode && ./scripts/backup/backup-database.sh >> /var/log/powernode-backup.log 2>&1
-```
+Backups run automatically as **worker maintenance jobs** — no cron entry or shell script is involved. The standalone worker schedules a daily full backup (02:00 UTC) and a weekly schema-only backup (Sunday 03:00 UTC) via `Maintenance::ScheduledBackupJob`, writing `pg_dump` custom-format dumps to `BACKUP_DIR` (default `/var/backups/powernode`); `Maintenance::BackupCleanupJob` prunes them past `BACKUP_RETENTION_DAYS` (default 30). See [postgres-backup.md](./postgres-backup.md) for the full runbook.
 
 ### Manual Backup
 
+Take an out-of-band backup with the same `pg_dump` the worker uses:
+
 ```bash
-cd ~/powernode
-export POSTGRES_HOST=localhost
-export POSTGRES_USER=powernode
-export POSTGRES_PASSWORD=<password>
-export POSTGRES_DB=powernode_production
-export BACKUP_DIR=/backups
-./scripts/backup/backup-database.sh
+sudo -u postgres \
+  pg_dump -Fc -h localhost -U postgres -d powernode_production \
+  -f /var/backups/powernode/manual_$(date +%Y%m%d_%H%M%S).dump
 ```
 
 ### Restore
 
-```bash
-# From local backup
-./scripts/backup/restore-database.sh /backups/powernode_20260104_120000.sql.gz
+`pg_restore` the custom-format dump into the target database (stop services first — see [postgres-backup.md#restore-procedure](./postgres-backup.md#restore-procedure)):
 
-# From S3
-./scripts/backup/restore-database.sh s3://your-bucket/backups/powernode_20260104_120000.sql.gz
+```bash
+sudo -u postgres \
+  pg_restore --clean --if-exists --no-owner --no-privileges \
+  -h localhost -U postgres -d powernode_production \
+  /var/backups/powernode/powernode_production_full_20260104_120000.dump
 ```
 
 ## Monitoring

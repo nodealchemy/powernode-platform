@@ -32,47 +32,48 @@ Not in the backup:
 
 ## Backup procedure
 
-### Automated daily backup (recommended)
+### Automated backups (default)
 
-The repository ships `scripts/backup/backup-database.sh`. Schedule it via cron on the database host (or an adjacent host with network access to Postgres):
+Backups run as **worker maintenance jobs** — there is no shell script or cron entry to install. The standalone worker schedules them via sidekiq-scheduler (`worker/config/sidekiq.yml`):
 
-```bash
-# /etc/cron.d/powernode-backup
-0 2 * * * powernode cd /opt/powernode && /opt/powernode/scripts/backup/backup-database.sh >> /var/log/powernode-backup.log 2>&1
-```
+| Schedule | Job (args) | What it does |
+|----------|-----------|--------------|
+| Daily, 02:00 UTC | `Maintenance::ScheduledBackupJob` (`full`) | Full database backup |
+| Sunday, 03:00 UTC | `Maintenance::ScheduledBackupJob` (`schema_only`) | Schema-only backup |
+| Daily, 04:00 UTC | `Maintenance::BackupCleanupJob` | Removes backups past the retention period |
 
-Required environment variables (loaded from `/etc/powernode/backend-default.conf` or the operator's preferred env file):
+`ScheduledBackupJob` asks the backend to create a `Database::Backup` row; `Maintenance::DatabaseBackupJob` then runs `pg_dump -Fc` (PostgreSQL custom format — compressed and `pg_restore`-compatible) and records the file path, size, and SHA-256 checksum. Each run writes `${BACKUP_DIR}/<database>_<type>_<YYYYMMDD_HHMMSS>.dump`.
+
+The worker reads these environment variables (from `worker/.env` or the operator's preferred env file):
 
 | Variable | Purpose |
 |----------|---------|
-| `POSTGRES_HOST` | Database host (default `localhost`) |
-| `POSTGRES_USER` | Postgres role with `pg_dump` access to the application database |
-| `POSTGRES_PASSWORD` | Password for that role |
-| `POSTGRES_DB` | Application database name (`powernode_production`) |
-| `BACKUP_DIR` | Local backup directory (default `/backups`) |
-| `RETENTION_DAYS` | Local retention (default 30) |
-| `S3_BUCKET` | Optional S3 bucket for off-host replication |
-| `AWS_REGION` | AWS region when using S3 |
+| `DATABASE_HOST` | Database host (default `localhost`) |
+| `DATABASE_PORT` | Database port (default `5432`) |
+| `DATABASE_USERNAME` | Postgres role with `pg_dump` access (default `postgres`) |
+| `DATABASE_PASSWORD` | Password for that role |
+| `DATABASE_NAME` | Application database name (`powernode_production`) |
+| `BACKUP_DIR` | Local backup directory (default `/var/backups/powernode`) |
+| `BACKUP_RETENTION_DAYS` | Local retention used by the cleanup job (default 30) |
 
-Each invocation writes `${BACKUP_DIR}/powernode_YYYYMMDD_HHMMSS.sql.gz` and, if `S3_BUCKET` is set, uploads the file to `s3://${S3_BUCKET}/backups/`.
+Off-host replication (S3, etc.) is **not** built in — sync `${BACKUP_DIR}` to durable, off-host storage with your own tooling (e.g. an `aws s3 sync` cron, or a filesystem snapshot) so losing the host doesn't lose the backups with it.
 
 ### Manual ad-hoc backup
 
-Run the same script with an explicit name for triage backups (e.g. before a risky migration):
+Before a risky migration, take an out-of-band backup with the same `pg_dump` the worker uses (custom format, so `pg_restore` can read it):
 
 ```bash
-sudo -u powernode \
-  BACKUP_DIR=/var/backups/powernode \
-  /opt/powernode/scripts/backup/backup-database.sh "pre_migration_${USER}_$(date +%s)"
+sudo -u postgres \
+  pg_dump -Fc -h localhost -U postgres -d powernode_production \
+  -f /var/backups/powernode/pre_migration_$(date +%Y%m%d_%H%M%S).dump
 ```
 
 ### Backup verification
 
-The script logs file size and (when `S3_BUCKET` is set) the S3 ETag. Always verify both:
+`DatabaseBackupJob` records each backup's file size and SHA-256 checksum on its `Database::Backup` row (visible via the admin maintenance API). Spot-check the dump on disk — and any off-host copy you replicate to:
 
 ```bash
-ls -la /backups/ | head
-aws s3 ls "s3://${S3_BUCKET}/backups/" | tail -5
+ls -la /var/backups/powernode/ | tail
 ```
 
 A backup smaller than ~10% of the previous successful backup is suspicious — investigate before relying on it.
@@ -85,7 +86,7 @@ A backup smaller than ~10% of the previous successful backup is suspicious — i
 | Weekly | 13 weeks | S3 (move oldest-of-week before cleanup; rotate via lifecycle policy) |
 | Monthly | 12 months | S3 (set lifecycle to Glacier for archival cost reduction) |
 
-`RETENTION_DAYS=30` on the daily cron handles local cleanup. Weekly/monthly tiering happens via S3 lifecycle policy — Powernode does not currently ship one. Sample policy:
+`BACKUP_RETENTION_DAYS=30`, read by `Maintenance::BackupCleanupJob` (daily at 04:00 UTC), handles local cleanup. Weekly/monthly tiering happens via an S3 lifecycle policy on whatever off-host copy you maintain — Powernode does not currently ship one. Sample policy:
 
 ```json
 {
@@ -105,7 +106,7 @@ A backup smaller than ~10% of the previous successful backup is suspicious — i
 
 ## Restore procedure
 
-> Use `scripts/backup/restore-database.sh`. The script drops and recreates the target database — never run it against production without an explicit recovery decision.
+> Restores run `pg_restore --clean --if-exists` against the target database (the same command `Maintenance::DatabaseRestoreJob` uses) — it **drops and recreates every object it restores**. Never run it against production without an explicit recovery decision.
 
 ### Pre-flight checklist
 
@@ -118,37 +119,38 @@ A backup smaller than ~10% of the previous successful backup is suspicious — i
    sudo -u postgres psql -d postgres -c "SELECT name FROM pg_available_extensions WHERE name IN ('vector','pgcrypto');"
    ```
    Both rows must come back. Install via `apt install postgresql-16-pgvector` (or the version-matched package — the platform standardizes on PostgreSQL 16) before continuing.
-3. Validate the backup file integrity:
+3. Validate the backup file integrity (custom-format dumps carry a table of contents `pg_restore` can read without restoring):
    ```bash
-   gunzip -t /backups/powernode_20260518_020000.sql.gz && echo "gzip OK"
+   pg_restore -l /var/backups/powernode/powernode_production_full_20260518_020000.dump > /dev/null && echo "dump OK"
    ```
 
 ### Restore from local file
 
 ```bash
-sudo -u powernode \
-  POSTGRES_HOST=localhost \
-  POSTGRES_USER=postgres \
-  POSTGRES_PASSWORD=... \
-  POSTGRES_DB=powernode_production \
-  /opt/powernode/scripts/backup/restore-database.sh /backups/powernode_20260518_020000.sql.gz
+sudo -u postgres \
+  pg_restore --clean --if-exists --no-owner --no-privileges \
+  -h localhost -U postgres -d powernode_production \
+  /var/backups/powernode/powernode_production_full_20260518_020000.dump
 ```
 
-### Restore from S3
+### Restore from an off-host copy (e.g. S3)
+
+Backups are local files, so first pull the dump back to the restore host, then restore it the same way:
 
 ```bash
-sudo -u powernode \
-  AWS_REGION=us-west-2 \
-  POSTGRES_HOST=localhost \
-  POSTGRES_USER=postgres \
-  POSTGRES_PASSWORD=... \
-  POSTGRES_DB=powernode_production \
-  /opt/powernode/scripts/backup/restore-database.sh "s3://your-bucket/backups/powernode_20260518_020000.sql.gz"
+aws s3 cp \
+  s3://your-bucket/backups/powernode_production_full_20260518_020000.dump \
+  /var/backups/powernode/
+
+sudo -u postgres \
+  pg_restore --clean --if-exists --no-owner --no-privileges \
+  -h localhost -U postgres -d powernode_production \
+  /var/backups/powernode/powernode_production_full_20260518_020000.dump
 ```
 
 ### Post-restore verification
 
-After the restore script exits cleanly:
+After `pg_restore` completes (custom-format restores can print non-fatal warnings — only `FATAL`/connection errors abort the restore):
 
 1. **Schema version**:
    ```bash

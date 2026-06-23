@@ -40,10 +40,10 @@ Powernode stores the following classes of data. Treat each according to your reg
 |------|-------------------|----------------|------------------|
 | Audit logs | indefinite | none — append-only | Most regimes require 1-7 years. Default is fine. Add manual archival for cost. |
 | Conversations | indefinite | none | Consider auto-expiry for GDPR data-minimization. No built-in TTL. |
-| Generated reports | 30 days (cleanup script) | `scripts/backup/...` retention env vars | Adjust to your regime |
+| Generated reports | none built-in | manual — files live on the worker filesystem (`worker/storage/`) | Regenerable from data; snapshot/prune the storage volume per your regime |
 | Background job dead set | 14 days (Sidekiq default) | `worker/config/sidekiq.yml` | Operational only — no customer data |
 | Loki logs | 7 days | `configs/logging/loki-config.yml` `retention_period` | PCI requires 1 year minimum; adjust before claiming PCI |
-| Postgres backups | 30 days local + S3 lifecycle | `scripts/backup/backup-database.sh` `RETENTION_DAYS` | Match to longest applicable retention |
+| Postgres backups | 30 days local | `Maintenance::BackupCleanupJob` (`BACKUP_RETENTION_DAYS`) | Match to longest applicable retention; off-host/S3 copies are operator-managed |
 
 ## GDPR / CCPA
 
