@@ -63,8 +63,20 @@ export const MissionsIndexTable: React.FC<MissionsIndexTableProps> = ({
         (m.repository?.name && m.repository.name.toLowerCase().includes(q))
       );
     }
-    return filtered;
-  }, [missions, statusFilter, search, typeFilter]);
+
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      let cmp: number;
+      if (sortBy === 'name') {
+        cmp = a.name.localeCompare(b.name);
+      } else {
+        const av = a[sortBy as 'updated_at' | 'created_at'] ?? '';
+        const bv = b[sortBy as 'updated_at' | 'created_at'] ?? '';
+        cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      }
+      return cmp * dir;
+    });
+  }, [missions, statusFilter, search, typeFilter, sortBy, sortOrder]);
 
   // --- Handlers ---
 
