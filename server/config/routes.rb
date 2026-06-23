@@ -1909,7 +1909,7 @@ Rails.application.routes.draw do
           delete "knowledge_bases/:id", action: :delete_knowledge_base
 
           # Global/account content lifecycle (GloballyScopedContent)
-          post "knowledge_bases/:id/clone", action: :clone
+          post "knowledge_bases/:id/clone", action: :perform_clone
           post "knowledge_bases/:id/update_from_source", action: :update_from_source
           get "knowledge_bases/:id/update_from_source/preview", action: :update_from_source_preview
 
@@ -2041,7 +2041,7 @@ Rails.application.routes.draw do
             post "/templates", action: :create_template
             post "/templates/:id/publish", action: :publish_template
             # Global/account content lifecycle (GloballyScopedContent)
-            post "/templates/:id/clone", action: :clone
+            post "/templates/:id/clone", action: :perform_clone
             post "/templates/:id/update_from_source", action: :update_from_source
             get "/templates/:id/update_from_source/preview", action: :update_from_source_preview
             get "/role_profiles", action: :list_role_profiles
@@ -2150,7 +2150,7 @@ Rails.application.routes.draw do
             post :preview
             post :duplicate
             # Global/account content lifecycle (GloballyScopedContent)
-            post :clone
+            post "clone", action: :perform_clone
             post :update_from_source
             get "update_from_source/preview", to: "prompt_templates#update_from_source_preview"
           end
@@ -2203,7 +2203,7 @@ Rails.application.routes.draw do
         resources :mission_templates, controller: "mission_templates", only: [:index, :show, :create, :update, :destroy] do
           member do
             # Global/account content lifecycle (GloballyScopedContent)
-            post :clone
+            post "clone", action: :perform_clone
             post :update_from_source
             get "update_from_source/preview", to: "mission_templates#update_from_source_preview"
           end
@@ -2562,7 +2562,7 @@ Rails.application.routes.draw do
             post "templates/:template_id/install", action: :install
             delete "installations/:id", action: :uninstall
             # Global/account content lifecycle (GloballyScopedContent)
-            post "templates/:id/clone", action: :clone
+            post "templates/:id/clone", action: :perform_clone
             post "templates/:id/update_from_source", action: :update_from_source
             get "templates/:id/update_from_source/preview", action: :update_from_source_preview
           end
@@ -2828,7 +2828,7 @@ Rails.application.routes.draw do
             post :deactivate
             get :agents
             # Global/account content lifecycle (GloballyScopedContent)
-            post :clone
+            post "clone", action: :perform_clone
             post :update_from_source
             get "update_from_source/preview", to: "skills#update_from_source_preview"
           end

@@ -9,7 +9,7 @@ module Api
         before_action :authenticate_request
         before_action :set_skill, only: [:show, :update, :destroy, :activate, :deactivate, :agents]
         # clone needs create rights; update_from_source mutates the account copy.
-        before_action -> { authorize_action!("ai.skills.create") }, only: [:clone]
+        before_action -> { authorize_action!("ai.skills.create") }, only: [:perform_clone]
         before_action -> { authorize_action!("ai.skills.update") }, only: [:update_from_source]
         before_action -> { authorize_action!("ai.skills.read") }, only: [:update_from_source_preview]
 

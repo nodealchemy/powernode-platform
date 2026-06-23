@@ -7,7 +7,7 @@ module Api
         include GloballyScopedContent
 
         before_action :authorize_read!, only: [:index, :show, :update_from_source_preview]
-        before_action :authorize_manage!, only: [:create, :update, :destroy, :clone, :update_from_source]
+        before_action :authorize_manage!, only: [:create, :update, :destroy, :perform_clone, :update_from_source]
 
         # The GloballyScopable model backing the clone / update_from_source actions.
         def content_model

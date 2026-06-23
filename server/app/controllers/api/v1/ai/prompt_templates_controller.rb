@@ -9,7 +9,7 @@ module Api
 
         before_action :authenticate_request
         before_action :require_read_permission, only: [ :index, :show, :preview, :update_from_source_preview ]
-        before_action :require_write_permission, only: [ :create, :update, :destroy, :duplicate, :clone, :update_from_source ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :duplicate, :perform_clone, :update_from_source ]
         before_action :set_prompt_template, only: [ :show, :update, :destroy, :preview, :duplicate ]
 
         # The GloballyScopable model backing the clone / update_from_source actions.

@@ -10,7 +10,12 @@ module GloballyScopedContent
 
   # POST .../:id/clone — fork a visible (global or account) record into the
   # current account as an editable copy with provenance.
-  def clone
+  #
+  # Named `perform_clone` rather than `clone`: Ruby's Object#clone masks a
+  # module-provided `clone`, so Rails' action_methods would omit it and routing
+  # to it raises AbstractController::ActionNotFound. Routes map the `clone` URL
+  # segment to this action via `action: :perform_clone`.
+  def perform_clone
     record = find_visible_content(params[:id])
     return unless record
 

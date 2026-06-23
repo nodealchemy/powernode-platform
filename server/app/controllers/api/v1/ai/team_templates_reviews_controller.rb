@@ -13,7 +13,7 @@ module Api
         before_action :authenticate_request
         before_action :set_team_service
         # clone / update_from_source mutate team-template content → manage right.
-        before_action -> { authorize_team_manage! }, only: [:clone, :update_from_source]
+        before_action -> { authorize_team_manage! }, only: [:perform_clone, :update_from_source]
 
         # The GloballyScopable model backing the clone / update_from_source actions.
         def content_model

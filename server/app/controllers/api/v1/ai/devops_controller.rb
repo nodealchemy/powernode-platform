@@ -8,7 +8,7 @@ module Api
 
         before_action :set_service
         # clone needs manage rights; update_from_source mutates the account copy.
-        before_action -> { authorize_action!("ai.devops.manage") }, only: [:clone, :update_from_source]
+        before_action -> { authorize_action!("ai.devops.manage") }, only: [:perform_clone, :update_from_source]
         before_action -> { authorize_action!("ai.devops.read") }, only: [:update_from_source_preview]
 
         # The GloballyScopable model backing the clone / update_from_source actions.
