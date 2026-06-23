@@ -21,13 +21,13 @@ interface WizardProgressProps {
  * list and the current index; this component renders the numbered rail + labels.
  */
 export const WizardProgress: React.FC<WizardProgressProps> = ({ steps, currentIndex, testId }) => (
-  <ol className="flex items-center gap-2" data-testid={testId}>
+  <ol className="flex flex-wrap items-center gap-x-2 gap-y-3" data-testid={testId}>
     {steps.map((step, idx) => {
       const reached = idx <= currentIndex;
       return (
-        <li key={step.key} className="flex flex-1 items-center gap-2">
+        <li key={step.key} className="flex items-center gap-2">
           <span
-            className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
               reached
                 ? 'bg-theme-interactive-primary text-white'
                 : 'bg-theme-background-secondary text-theme-tertiary'
@@ -37,7 +37,7 @@ export const WizardProgress: React.FC<WizardProgressProps> = ({ steps, currentIn
             {idx + 1}
           </span>
           <span
-            className={`hidden text-xs sm:inline ${
+            className={`hidden whitespace-nowrap text-xs sm:inline ${
               reached ? 'text-theme-primary' : 'text-theme-tertiary'
             }`}
           >
@@ -46,7 +46,7 @@ export const WizardProgress: React.FC<WizardProgressProps> = ({ steps, currentIn
           </span>
           {idx < steps.length - 1 && (
             <span
-              className={`h-0.5 flex-1 rounded-full ${
+              className={`h-0.5 w-8 shrink-0 rounded-full ${
                 idx < currentIndex ? 'bg-theme-interactive-primary' : 'bg-theme-background-secondary'
               }`}
             />
