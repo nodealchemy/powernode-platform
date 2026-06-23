@@ -285,6 +285,17 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
       expect(entry.provenance["promoted_from"]).to eq("private")
     end
 
+    # Regression: the log line interpolated entry.access_level AFTER update!, so it printed
+    # "team → team" instead of "private → team" (old_level was captured but unused).
+    it "logs the previous access level, not the post-update value" do
+      allow(Rails.logger).to receive(:info)
+
+      service.promote(entry_id: entry_id, new_access_level: "team")
+
+      expect(Rails.logger).to have_received(:info)
+        .with(a_string_matching(/Promoted entry .*: private → team/))
+    end
+
     it "prevents demotion" do
       # First promote to account
       service.promote(entry_id: entry_id, new_access_level: "account")

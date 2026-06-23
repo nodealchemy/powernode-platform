@@ -206,7 +206,7 @@ module Ai
           )
         )
 
-        Rails.logger.info("[SharedKnowledge] Promoted entry #{entry_id}: #{entry.access_level} → #{new_access_level}")
+        Rails.logger.info("[SharedKnowledge] Promoted entry #{entry_id}: #{old_level} → #{new_access_level}")
         { success: true, entry: serialize_entry(entry.reload) }
       rescue StandardError => e
         Rails.logger.error("[SharedKnowledge] Promote failed for #{entry_id}: #{e.message}")
