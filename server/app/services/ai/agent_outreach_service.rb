@@ -139,8 +139,8 @@ module Ai
       Ai::Conversation
         .where(account_id: account.id, ai_agent_id: agent.id)
         .where(conversation_type: "direct")
-        .joins(:participants)
-        .where(ai_conversation_participants: { user_id: user.id })
+        # participants is a jsonb array of user ids on ai_conversations (no join table)
+        .where("participants @> ?", [ user.id ].to_json)
         .first
     rescue StandardError => e
       Rails.logger.warn("[AgentOutreach] Failed to find conversation: #{e.message}")

@@ -107,7 +107,7 @@ module Api
         {
           total_users: User.count,
           active_subscriptions: subscription_class&.active&.count || 0,
-          total_revenue_cents: (subscription_class&.active&.joins(:plan)&.sum("plans.price")) || 0,
+          total_revenue_cents: (subscription_class&.active&.joins(:plan)&.sum("business_plans.price")) || 0,
           successful_payments_today: (payment_class&.successful&.where("created_at >= ?", 1.day.ago)&.count || 0)
         }
       rescue StandardError => e
@@ -136,9 +136,9 @@ module Api
               cancelled: subscription_class.cancelled.count,
               expired: subscription_class.expired.count,
               trial: subscription_class.trial.count,
-              by_plan: subscription_class.joins(:plan).group("plans.name").count,
-              monthly_revenue_cents: subscription_class.active.joins(:plan).sum("plans.price"),
-              mrr: (subscription_class.active.joins(:plan).sum("plans.price") / 100.0).round(2),
+              by_plan: subscription_class.joins(:plan).group("business_plans.name").count,
+              monthly_revenue_cents: subscription_class.active.joins(:plan).sum("business_plans.price"),
+              mrr: (subscription_class.active.joins(:plan).sum("business_plans.price") / 100.0).round(2),
               new_this_month: subscription_class.where("created_at >= ?", 1.month.ago).count
             }
           else
