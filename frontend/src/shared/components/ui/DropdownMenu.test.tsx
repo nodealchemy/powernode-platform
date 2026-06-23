@@ -253,4 +253,43 @@ describe('DropdownMenu', () => {
       expect(trigger).toHaveAttribute('aria-haspopup', 'true');
     });
   });
+
+  describe('rules of hooks', () => {
+    // Regression: hooks must be called in the same order on every render.
+    // Previously an early `return null` for empty items sat ABOVE four hooks,
+    // so toggling items between populated and empty changed the hook count and
+    // crashed React with "Rendered fewer hooks than expected".
+    it('does not crash when items change from populated to empty', () => {
+      const { rerender } = render(
+        <DropdownMenu trigger={defaultTrigger} items={defaultItems} />
+      );
+      expect(() =>
+        rerender(<DropdownMenu trigger={defaultTrigger} items={[]} />)
+      ).not.toThrow();
+    });
+
+    it('does not crash when items change from empty to populated', () => {
+      const { rerender } = render(
+        <DropdownMenu trigger={defaultTrigger} items={[]} />
+      );
+      expect(() =>
+        rerender(<DropdownMenu trigger={defaultTrigger} items={defaultItems} />)
+      ).not.toThrow();
+    });
+
+    it('does not auto-reopen when items repopulate after emptying while open', () => {
+      const { rerender } = render(
+        <DropdownMenu trigger={defaultTrigger} items={defaultItems} />
+      );
+      fireEvent.click(screen.getByText('Open Menu'));
+      expect(screen.getByText('Edit')).toBeInTheDocument();
+
+      // Items disappear while the menu is open -> component renders null.
+      rerender(<DropdownMenu trigger={defaultTrigger} items={[]} />);
+      // Items come back -> menu must stay closed until the user clicks again.
+      rerender(<DropdownMenu trigger={defaultTrigger} items={defaultItems} />);
+
+      expect(screen.queryByText('Edit')).not.toBeInTheDocument();
+    });
+  });
 });
