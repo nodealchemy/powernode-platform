@@ -26,7 +26,7 @@ A Powernode backup contains the full primary database dump, including:
 - **Extension declarations** — `CREATE EXTENSION pgvector` and `CREATE EXTENSION pgcrypto` are emitted by `pg_dump` and replayed on restore. **The pgvector extension binary must be installed on the restore target before restoring**; otherwise the restore fails on the `CREATE EXTENSION` line.
 
 Not in the backup:
-- **Vault secrets** — keys/secrets live in HashiCorp Vault and have their own backup process (see [infrastructure/vault-example/](../infrastructure/vault-example/)). The DB only stores Vault key paths, not values.
+- **Vault secrets** — keys/secrets live in HashiCorp Vault and have their own backup process. The DB only stores Vault key paths, not values.
 - **Generated PDFs/CSVs** — these live on the worker filesystem (`worker/storage/reports/`) and are regenerable from data. Snapshot the filesystem separately if you want point-in-time report continuity.
 - **Sidekiq Redis state** — in-flight jobs. Sidekiq is treated as ephemeral; on restore, scheduled jobs will be re-emitted by their owning models.
 
