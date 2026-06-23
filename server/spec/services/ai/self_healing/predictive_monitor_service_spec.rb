@@ -337,4 +337,22 @@ RSpec.describe Ai::SelfHealing::PredictiveMonitorService, type: :service do
       expect(learning.source_execution_successful).to be false
     end
   end
+
+  # ===========================================================================
+  # #determine_preemptive_action
+  # Regression: signals are emitted as "latency_spike_#{N}x" but the dispatch did
+  # include?("latency_spike") (exact match), so model_downgrade was unreachable and
+  # every execution_degradation fell through to alert_escalation.
+  # ===========================================================================
+  describe "#determine_preemptive_action" do
+    it "returns model_downgrade for an execution_degradation with a latency_spike_Nx signal" do
+      prediction = { event_type: "execution_degradation", signals: ["latency_spike_3.2x"] }
+      expect(service.send(:determine_preemptive_action, prediction)).to eq("model_downgrade")
+    end
+
+    it "returns alert_escalation for an execution_degradation without a latency spike" do
+      prediction = { event_type: "execution_degradation", signals: ["error_rate_rising"] }
+      expect(service.send(:determine_preemptive_action, prediction)).to eq("alert_escalation")
+    end
+  end
 end

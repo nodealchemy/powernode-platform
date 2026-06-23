@@ -267,7 +267,7 @@ module Ai
         when "provider_degradation"
           "provider_failover"
         when "execution_degradation"
-          if prediction[:signals]&.include?("latency_spike")
+          if prediction[:signals]&.any? { |s| s.start_with?("latency_spike") }
             "model_downgrade"
           else
             "alert_escalation"
