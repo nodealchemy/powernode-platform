@@ -29,7 +29,9 @@ ActiveRecord::Base.transaction do
     description: "Intelligent concierge agent that helps you navigate all Powernode platform capabilities through natural language.",
     creator: admin_user,
     provider: provider,
-    version: "1.0.0",
+    # Create-only (see ai_utility_agents_seed): keep the callback-bumped version
+    # on re-seed instead of downgrading it to 1.0.0 and churning an audit.
+    version: (agent.version || "1.0.0"),
     conversation_profile: {
       "tone" => "helpful",
       "verbosity" => "concise",
@@ -61,7 +63,6 @@ ActiveRecord::Base.transaction do
         In workspace conversations, follow the delegation instructions from your workspace skill.
       PROMPT
       "model_config" => {
-        "model" => "gpt-4.1-mini",
         "provider" => "openai",
         "max_tokens" => 4096,
         "cost_per_1k" => { "input" => 0.0004, "output" => 0.0016 },
@@ -75,7 +76,9 @@ ActiveRecord::Base.transaction do
 
   # Link concierge to its workspace routing skill (find_or_initialize + assign
   # ensures re-running seeds always reactivates the link, even if previously disabled)
-  concierge_skill = Ai::Skill.find_by(slug: "powernode-concierge", account: admin_account)
+  # The concierge skill is global baseline content (account_id nil); for_account
+  # resolves global + this account's rows.
+  concierge_skill = Ai::Skill.for_account(admin_account.id).find_by(slug: "powernode-concierge")
   raise "ai_concierge_seed: Powernode Concierge skill not found — run ai_skills_seed.rb first" unless concierge_skill
 
   agent_skill = Ai::AgentSkill.find_or_initialize_by(ai_agent_id: agent.id, ai_skill_id: concierge_skill.id)

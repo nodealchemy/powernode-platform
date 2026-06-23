@@ -1,12 +1,31 @@
 # frozen_string_literal: true
 
-# Seed practical container templates (system-level, account_id: nil)
-# These leverage the platform's Gitea act_runner infrastructure with powernode-ai-agent label
+# Seed practical GLOBAL container templates (system-level, account_id: nil).
+# These leverage the platform's Gitea act_runner infrastructure with the
+# powernode-ai-agent label. Pure platform-provided content — no account needed.
+# (devops_container_templates has no source_key column; its stable global key is
+# the unique `slug`, derived deterministically from the name.)
 
 puts "  Loading DevOps Container Templates..."
 
+# GLOBAL baseline content: account_id nil, upserted by slug so future seeds
+# update in place. No account needed (seeds in core/prod too).
+return unless Powernode::Seeds.baseline?
+
+# Upsert a GLOBAL container template keyed by its (name-derived) slug. Always
+# applies the block — on create AND update — so content changes take effect.
+upsert_container_template = lambda do |name, &block|
+  slug = name.parameterize
+  t = Devops::ContainerTemplate.find_or_initialize_by(slug: slug, account_id: nil)
+  t.name = name
+  block.call(t)
+  t.account_id = nil
+  t.save!
+  t
+end
+
 # Template 1: Git Repository Test Runner
-Devops::ContainerTemplate.find_or_create_by!(name: "Git Repository Test Runner", account_id: nil) do |t|
+upsert_container_template.call("Git Repository Test Runner") do |t|
   t.description = "Clone repo from any connected git provider, install dependencies, run test suite, and report results. Supports Node.js, Python, and Ruby projects."
   t.image_name = "node"
   t.image_tag = "20-alpine"
@@ -37,7 +56,7 @@ Devops::ContainerTemplate.find_or_create_by!(name: "Git Repository Test Runner",
 end
 
 # Template 2: AI Coding Agent
-Devops::ContainerTemplate.find_or_create_by!(name: "AI Coding Agent", account_id: nil) do |t|
+upsert_container_template.call("AI Coding Agent") do |t|
   t.description = "Run an autonomous AI coding agent in isolation for code generation, review, and refactoring tasks."
   t.image_name = "python"
   t.image_tag = "3.12-slim"
@@ -68,7 +87,7 @@ Devops::ContainerTemplate.find_or_create_by!(name: "AI Coding Agent", account_id
 end
 
 # Template 3: Multi-Agent DevOps Pipeline
-Devops::ContainerTemplate.find_or_create_by!(name: "Multi-Agent DevOps Pipeline", account_id: nil) do |t|
+upsert_container_template.call("Multi-Agent DevOps Pipeline") do |t|
   t.description = "Orchestrate multiple AI agents (planner, coder, reviewer, deployer) for end-to-end feature development."
   t.image_name = "python"
   t.image_tag = "3.12-slim"
@@ -100,7 +119,7 @@ Devops::ContainerTemplate.find_or_create_by!(name: "Multi-Agent DevOps Pipeline"
 end
 
 # Template 4: Gitea/GitHub Actions Workflow Runner
-Devops::ContainerTemplate.find_or_create_by!(name: "GitHub Actions Workflow Runner", account_id: nil) do |t|
+upsert_container_template.call("GitHub Actions Workflow Runner") do |t|
   t.description = "Execute GitHub Actions-compatible workflows locally via act runner. Test workflows before pushing to remote."
   t.image_name = "catthehacker/ubuntu"
   t.image_tag = "act-latest"
@@ -130,7 +149,7 @@ Devops::ContainerTemplate.find_or_create_by!(name: "GitHub Actions Workflow Runn
 end
 
 # Template 5: Code Quality & Security Scanner
-Devops::ContainerTemplate.find_or_create_by!(name: "Code Quality & Security Scanner", account_id: nil) do |t|
+upsert_container_template.call("Code Quality & Security Scanner") do |t|
   t.description = "Run linting (ESLint, Ruff, RuboCop), SAST scanning (Semgrep, Bandit), dependency audit, and complexity analysis."
   t.image_name = "python"
   t.image_tag = "3.12-slim"
@@ -160,7 +179,7 @@ Devops::ContainerTemplate.find_or_create_by!(name: "Code Quality & Security Scan
 end
 
 # Template 6: Database Migration Runner
-Devops::ContainerTemplate.find_or_create_by!(name: "Database Migration Runner", account_id: nil) do |t|
+upsert_container_template.call("Database Migration Runner") do |t|
   t.description = "Execute database migrations safely with dry-run, backup, and auto-rollback on failure."
   t.image_name = "postgres"
   t.image_tag = "16-alpine"
@@ -192,7 +211,7 @@ Devops::ContainerTemplate.find_or_create_by!(name: "Database Migration Runner", 
 end
 
 # Template 7: API Integration Tester
-Devops::ContainerTemplate.find_or_create_by!(name: "API Integration Tester", account_id: nil) do |t|
+upsert_container_template.call("API Integration Tester") do |t|
   t.description = "Run API endpoint tests with configurable requests, assertions, response validation, and load testing."
   t.image_name = "node"
   t.image_tag = "20-alpine"
@@ -225,7 +244,7 @@ Devops::ContainerTemplate.find_or_create_by!(name: "API Integration Tester", acc
 end
 
 # Template 8: Container Build & Registry Push
-Devops::ContainerTemplate.find_or_create_by!(name: "Container Build & Registry Push", account_id: nil) do |t|
+upsert_container_template.call("Container Build & Registry Push") do |t|
   t.description = "Build Docker image from Dockerfile, tag, and push to container registry (GHCR, Docker Hub, Gitea registry)."
   t.image_name = "docker"
   t.image_tag = "24-dind"
@@ -259,7 +278,7 @@ Devops::ContainerTemplate.find_or_create_by!(name: "Container Build & Registry P
 end
 
 # Template 9: Infrastructure Health Monitor
-Devops::ContainerTemplate.find_or_create_by!(name: "Infrastructure Health Monitor", account_id: nil) do |t|
+upsert_container_template.call("Infrastructure Health Monitor") do |t|
   t.description = "Check health of services, ports, SSL certificates, DNS, and connectivity across infrastructure."
   t.image_name = "alpine"
   t.image_tag = "3.19"
@@ -290,7 +309,7 @@ Devops::ContainerTemplate.find_or_create_by!(name: "Infrastructure Health Monito
 end
 
 # Template 10: Log Analyzer with AI
-Devops::ContainerTemplate.find_or_create_by!(name: "Log Analyzer with AI", account_id: nil) do |t|
+upsert_container_template.call("Log Analyzer with AI") do |t|
   t.description = "Analyze log files with pattern matching, anomaly detection, and AI-powered summarization."
   t.image_name = "python"
   t.image_tag = "3.12-slim"
@@ -321,7 +340,7 @@ Devops::ContainerTemplate.find_or_create_by!(name: "Log Analyzer with AI", accou
 end
 
 # Template 11: Autonomous Chat Agent
-Devops::ContainerTemplate.find_or_create_by!(name: "Autonomous Chat Agent", account_id: nil) do |t|
+upsert_container_template.call("Autonomous Chat Agent") do |t|
   t.description = "Long-lived containerized agent for chat conversations. Supports WebSocket bidirectional communication, MCP sidecar injection, and heartbeat health reporting. Designed for container-per-session pattern."
   t.image_name = "python"
   t.image_tag = "3.12-slim"

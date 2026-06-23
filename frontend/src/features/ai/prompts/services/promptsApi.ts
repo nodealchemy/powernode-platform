@@ -3,6 +3,8 @@
  */
 
 import apiClient from '@/shared/services/api';
+import { createScopedContentApi } from '@/features/content/scoped';
+import type { UpdateFromSourcePreview, ConflictResolutions } from '@/features/content/scoped';
 import type {
   PromptTemplate,
   PromptTemplateFormData,
@@ -12,6 +14,8 @@ import type {
 } from '../types';
 
 const BASE_PATH = '/ai/prompt_templates';
+
+const scopedApi = createScopedContentApi<PromptTemplate>(BASE_PATH);
 
 export const promptsApi = {
   /**
@@ -85,6 +89,19 @@ export const promptsApi = {
     );
     return response.data.data.prompt_template;
   },
+
+  // --- Globally-scoped content actions (clone + update-from-source) ---
+
+  /** Fork a global (read-only) template into the account as an editable copy. */
+  clone: (id: string): Promise<PromptTemplate> => scopedApi.clone(id),
+
+  /** 3-way diff of an account-cloned template against its origin (no save). */
+  updateFromSourcePreview: (id: string): Promise<UpdateFromSourcePreview> =>
+    scopedApi.updateFromSourcePreview(id),
+
+  /** Apply the update-from-source merge, optionally resolving conflicts. */
+  updateFromSource: (id: string, resolutions?: ConflictResolutions): Promise<PromptTemplate> =>
+    scopedApi.updateFromSource(id, resolutions),
 };
 
 export default promptsApi;

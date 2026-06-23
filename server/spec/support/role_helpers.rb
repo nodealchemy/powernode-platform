@@ -34,16 +34,21 @@ module RoleHelpers
     end
   end
 
+  # Permissions are code-defined (the Permissions catalog is the source of
+  # truth — there is no Permission AR model to seed). This helper is retained
+  # as a no-op for backward compatibility and returns the catalog names that
+  # callers may reference. Any name not already in the catalog is registered via
+  # the runtime seam so tests can grant it by name.
   def setup_test_permissions
-    # Create basic test permissions
-    [ 'users', 'accounts', 'billing', 'analytics' ].each do |resource|
+    names = []
+    [ 'users', 'accounts', 'analytics' ].each do |resource|
       [ 'create', 'read', 'update', 'delete', 'manage' ].each do |action|
-        Permission.find_or_create_by!(resource: resource, action: action) do |p|
-          p.name = "#{resource}.#{action}"
-          p.category = 'resource'
-        end
+        name = "#{resource}.#{action}"
+        Permissions.register_permissions(name => "Test permission") unless Permissions.permission_exists?(name)
+        names << name
       end
     end
+    names
   end
 end
 

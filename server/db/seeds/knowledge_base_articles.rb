@@ -98,31 +98,34 @@ puts "  ✅ Created #{common_tags.count} common tags"
 
 puts "\n📄 Loading article files..."
 
-# Define article files in priority order
+# Core-domain article files in priority order. Extension-domain KB articles
+# (supply_chain/business/billing/business_analytics/marketplace) were relocated
+# to their extensions' db/seeds/kb/ and load via each extension's seed
+# orchestrator AFTER these shared categories are created.
 KB_ARTICLE_FILES = %w[
   devops_articles
-  supply_chain_articles
   ai_orchestration_articles
   ai_orchestration_advanced_articles
   getting_started_articles
-  billing_articles
-  business_analytics_articles
-  business_articles
   account_management_articles
   content_management_articles
-  marketplace_articles
   system_admin_articles
   security_compliance_articles
   api_integrations_articles
   troubleshooting_articles
 ].freeze
 
-KB_ARTICLE_FILES.each do |file|
-  file_path = Rails.root.join('db', 'seeds', 'kb', "#{file}.rb")
-  if File.exist?(file_path)
-    load file_path
-  else
-    puts "  ⚠️  File not found: #{file}.rb"
+# KB categories + tags (above) are CORE — always seeded. The article BODIES are
+# GLOBAL baseline content (account_id nil, author_id nil, upserted by source_key),
+# so gate them by baseline? — they seed in core/prod too, no account/author needed.
+if Powernode::Seeds.baseline?
+  KB_ARTICLE_FILES.each do |file|
+    file_path = Rails.root.join('db', 'seeds', 'kb', "#{file}.rb")
+    if File.exist?(file_path)
+      load file_path
+    else
+      puts "  ⚠️  File not found: #{file}.rb"
+    end
   end
 end
 

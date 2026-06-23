@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Lock } from 'lucide-react';
 import { skillsApi } from '../services/skillsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { EntityLink } from '@/shared/components/entity';
+import {
+  isGlobal,
+  isClone,
+  CloneToCustomizeButton,
+  UpdateFromSourceModal,
+} from '@/features/content/scoped';
 import type { AiSkill, McpServerInfo } from '../types';
 
 interface AgentSummary {
@@ -129,13 +136,18 @@ interface SkillDetailPanelProps {
   skillId: string;
   onClose: () => void;
   onUpdated: () => void;
+  /** Whether the current user may create skills (enables Clone on globals). */
+  canCreate?: boolean;
+  /** Called with the new editable copy after cloning a global skill. */
+  onCloned?: (copy: AiSkill) => void;
 }
 
-export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPanelProps) {
+export function SkillDetailPanel({ skillId, onClose, onUpdated, canCreate = false, onCloned }: SkillDetailPanelProps) {
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
   const [skill, setSkill] = useState<AiSkill | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
     loadSkill();
@@ -168,7 +180,7 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
   };
 
   const handleDelete = async () => {
-    if (!skill || skill.is_system) return;
+    if (!skill || skill.is_system || isGlobal(skill)) return;
     const response = await skillsApi.deleteSkill(skill.id);
     if (response.success) {
       showNotification('Skill deleted', 'success');
@@ -196,6 +208,8 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
   const icon = skillsApi.getCategoryIcon(skill.category);
   const categoryLabel = skillsApi.getCategoryLabel(skill.category);
   const containerBackedCount = skill.connectors.filter(c => c.hosting?.container_backed).length;
+  const global = isGlobal(skill);
+  const clone = isClone(skill);
 
   return (
     <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-theme-surface border-l border-theme shadow-xl z-50 overflow-y-auto">
@@ -220,6 +234,12 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
                 {skill.is_system && (
                   <span className="px-2 py-0.5 text-xs rounded-full bg-theme-info-bg text-theme-info-fg">
                     System
+                  </span>
+                )}
+                {global && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-surface-secondary text-theme-tertiary">
+                    <Lock className="w-3 h-3" />
+                    Global · read-only
                   </span>
                 )}
               </div>
@@ -370,21 +390,57 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
         <AgentsList skillId={skillId} />
 
         {/* Actions */}
-        <div className="flex gap-3 pt-4 border-t border-theme">
-          <Button variant="secondary" onClick={handleToggle}>
-            {skill.is_enabled ? 'Disable' : 'Enable'}
-          </Button>
-          {!skill.is_system && (
-            <Button
-              variant="secondary"
-              onClick={handleDelete}
-              className="text-theme-error-fg hover:text-theme-error-fg"
-            >
-              Delete
-            </Button>
+        <div className="flex flex-wrap gap-3 pt-4 border-t border-theme">
+          {global ? (
+            <>
+              <CloneToCustomizeButton
+                canClone={canCreate}
+                onClone={() => skillsApi.clone(skill.id)}
+                onCloned={(copy) => {
+                  onUpdated();
+                  onCloned?.(copy as AiSkill);
+                }}
+              />
+              <span className="self-center text-xs text-theme-tertiary">
+                Platform-managed skill — clone it to make changes.
+              </span>
+            </>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={handleToggle}>
+                {skill.is_enabled ? 'Disable' : 'Enable'}
+              </Button>
+              {clone && (
+                <Button variant="secondary" onClick={() => setShowUpdateModal(true)}>
+                  Update from source
+                </Button>
+              )}
+              {!skill.is_system && (
+                <Button
+                  variant="secondary"
+                  onClick={handleDelete}
+                  className="text-theme-error-fg hover:text-theme-error-fg"
+                >
+                  Delete
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {/* Update-from-source Modal (account clones) */}
+      <UpdateFromSourceModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        itemName={skill.name}
+        fetchPreview={() => skillsApi.updateFromSourcePreview(skill.id)}
+        applyUpdate={(resolutions) => skillsApi.updateFromSource(skill.id, resolutions)}
+        onApplied={() => {
+          loadSkill();
+          onUpdated();
+        }}
+      />
     </div>
   );
 }

@@ -1,7 +1,12 @@
 # frozen_string_literal: true
 
-# Seed MCP server container templates (system-level, account_id: nil)
-# These define sandboxed container configurations for running MCP servers
+# Seed GLOBAL MCP server container templates (system-level, account_id: nil),
+# upserted by slug so future seeds update in place. These define sandboxed
+# container configurations for running MCP servers. Pure platform-provided
+# content — no account needed (seeds in core/prod too).
+
+# GLOBAL baseline content: account_id nil, upserted by slug.
+return unless Powernode::Seeds.baseline?
 
 Rails.logger.info "[Seeds] Loading MCP Server Container Templates..."
 

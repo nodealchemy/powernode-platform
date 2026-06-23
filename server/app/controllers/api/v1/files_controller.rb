@@ -32,7 +32,7 @@ module Api
         if params[:tags].present?
           tag_names = params[:tags].split(",").map(&:strip)
           tag_ids = FileManagement::Tag.where(account: current_account, name: tag_names).pluck(:id)
-          files = files.joins(:object_tags).where(file_management_object_tags: { file_tag_id: tag_ids })
+          files = files.joins(:object_tags).where(file_object_tags: { file_tag_id: tag_ids })
         end
 
         # Search by filename

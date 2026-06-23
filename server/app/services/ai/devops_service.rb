@@ -26,9 +26,8 @@ module Ai
       )
     end
 
-    def search_templates(query: nil, category: nil, template_type: nil, page: 1, per_page: 20)
-      templates = Ai::DevopsTemplate.published
-                                    .where("visibility IN (?) OR account_id = ?", %w[public marketplace], account.id)
+    def search_templates(query: nil, category: nil, template_type: nil, page: 1, per_page: 20, scope: nil)
+      templates = scoped_templates(scope)
 
       if query.present?
         sanitized = ActiveRecord::Base.sanitize_sql_like(query)
@@ -38,6 +37,21 @@ module Ai
       templates = templates.by_type(template_type) if template_type.present?
 
       templates.order(installation_count: :desc).page(page).per(per_page)
+    end
+
+    # ?scope=global|custom|all (default: marketplace discovery — published public/
+    # marketplace templates + GLOBAL baseline rows + this account's own). Global
+    # (account_id nil) rows are included so the baseline library stays visible.
+    def scoped_templates(scope)
+      case scope.to_s
+      when "global" then Ai::DevopsTemplate.global
+      when "custom" then Ai::DevopsTemplate.owned_by_account(account&.id)
+      when "all"    then Ai::DevopsTemplate.all
+      else
+        Ai::DevopsTemplate.published
+                          .where("visibility IN (?) OR account_id = ? OR account_id IS NULL",
+                                 %w[public marketplace], account&.id)
+      end
     end
 
     # Installation Management

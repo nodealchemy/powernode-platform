@@ -65,7 +65,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
     const frontendSrc = path.resolve(dir, 'frontend/src');
     if (fs.existsSync(manifestPath) && fs.existsSync(frontendSrc)) {
       extensionAliases[`@ext/${slug}`] = frontendSrc;
-      extensionAliases[`@${slug}`] = frontendSrc; // intra-extension imports (e.g. @business/)
+      extensionAliases[`@${slug}`] = frontendSrc; // intra-extension imports (e.g. @<slug>/)
       discoveredSlugs.push(slug);
     }
   }

@@ -13,7 +13,7 @@ import {
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'skipped';
 
-/** Per-category progress consumed by the provider step (shared by both wizards). */
+/** Per-category progress consumed by the provider step. */
 export interface CategoryProgress {
   providerType: ProviderTypeSlug | null;
   credentials: ProviderCredentialValues;
@@ -21,8 +21,6 @@ export interface CategoryProgress {
   testStatus: CredentialTestStatus;
   saveStatus: SaveStatus;
   saveError: string | null;
-  savedCredentialId: string | null;
-  preExisting: boolean;
 }
 
 interface ProviderOption {

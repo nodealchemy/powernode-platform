@@ -109,7 +109,10 @@ module Api
           end
 
           def build_llm_client
-            unless @agent.provider&.is_active?
+            # #37: gate on the resolved provider (the one the worker serves via
+            # provider_config), not the raw agent.provider, so the check agrees with
+            # the model resolve_model_config returns.
+            unless @agent.resolved_provider&.is_active?
               raise "AI provider is not active for agent: #{@agent.name}"
             end
 
@@ -118,10 +121,8 @@ module Api
 
           def resolve_model_config
             model_config = @agent.mcp_metadata&.dig("model_config") || {}
-            model = params[:model] ||
-                    model_config["model"] ||
-                    @agent.mcp_tool_manifest&.dig("model") ||
-                    @agent.provider.supported_models.first&.dig("id")
+            # #37: explicit param override, else resolve via Ai::Agent resolution triple
+            model = params[:model] || @agent.resolved_model
 
             max_tokens = params[:max_tokens] || model_config["max_tokens"] || 2000
             temperature = params[:temperature] || model_config["temperature"] || 0.7

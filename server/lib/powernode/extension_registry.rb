@@ -34,13 +34,20 @@ module Powernode
       #   provides (presence). Stored symbolized and frozen.
       # @param providers [Hash{Symbol,String=>Object,String,#call}] named behavior providers.
       #   Values may be an object/class, a callable, or a String to constantize lazily.
-      def register(slug:, engine:, version: nil, features_module: nil, capabilities: [], providers: {})
+      def register(slug:, engine:, version: nil, features_module: nil, capabilities: [], providers: {}, owned_prefixes: [])
+        root = engine.respond_to?(:root) ? engine.root.to_s : ""
         extensions[slug.to_s] = {
           engine: engine,
           version: version,
           features_module: features_module,
           capabilities: Array(capabilities).map(&:to_sym).freeze,
-          providers: providers.to_h.transform_keys(&:to_sym).freeze
+          providers: providers.to_h.transform_keys(&:to_sym).freeze,
+          # Table-name prefixes this extension owns (e.g. %w[business]). Drives the
+          # public-schema dump exclusion for PRIVATE extensions (schema isolation).
+          owned_prefixes: Array(owned_prefixes).map(&:to_s).freeze,
+          # Private-by-location: extensions/private/* are remote-only (absent from
+          # public clones). Derived, never hardcoded — mirrors the Gemfile split.
+          private: root.include?("/extensions/private/")
         }
       end
 
@@ -92,6 +99,36 @@ module Powernode
           return impl.is_a?(String) ? impl.constantize : impl
         end
         nil
+      end
+
+      # --- Table-ownership seam (schema isolation) ---------------------------------
+      # Extensions declare `owned_prefixes`; a table belongs to an extension iff its
+      # name starts with "<prefix>_". PRIVATE extensions' prefixes drive the
+      # public-schema dump exclusion (config/initializers/schema_dump_isolation.rb)
+      # so committed public db/schema.rb never leaks private-extension
+      # tables — the schema-layer twin of the public/private Gemfile split. Generic:
+      # a new extension plugs in via register(owned_prefixes:), zero core edits.
+
+      # True iff the named extension is private-by-location (extensions/private/*).
+      def private?(slug)
+        !!extensions.dig(slug.to_s, :private)
+      end
+
+      # All owned prefixes across every loaded extension (public + private).
+      def all_owned_prefixes
+        extensions.each_value.flat_map { |e| e[:owned_prefixes] || [] }.uniq
+      end
+
+      # Owned prefixes of PRIVATE extensions only — the dump-exclusion set.
+      def private_table_prefixes
+        extensions.each_value.select { |e| e[:private] }
+                  .flat_map { |e| e[:owned_prefixes] || [] }.uniq
+      end
+
+      # True iff `table_name` is owned by a loaded private extension.
+      def table_private?(table_name)
+        name = table_name.to_s
+        private_table_prefixes.any? { |p| name.start_with?("#{p}_") }
       end
 
       # Licensed availability of a feature for an account. Consults ONLY the features_module

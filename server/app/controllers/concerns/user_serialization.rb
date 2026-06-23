@@ -81,7 +81,7 @@ module UserSerialization
 
   # Check if current user has permission to view sensitive user data
   def can_view_sensitive_data?(target_user)
-    return true if current_user&.has_permission?("admin.users.view")
+    return true if current_user&.has_permission?("admin.user.read")
     return true if current_user&.has_permission?("users.manage") && same_account?(target_user)
     return true if current_user == target_user
     false

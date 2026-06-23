@@ -3,16 +3,24 @@
 puts "  [Skills] Starting AI Skills seed..."
 Rails.logger.info "[Seeds] Creating AI Skills system data..."
 
+# GLOBAL baseline content: Ai::Skill rows are seeded global (account_id nil,
+# upserted by source_key = slug) UNCONDITIONALLY below. The MCP servers and
+# their HABTM links are account-scoped INSTANCE data, so they are demo-gated
+# (baseline-only mode has zero accounts).
+return unless Powernode::Seeds.baseline?
+
 account = Account.first
-unless account
-  Rails.logger.warn "[Seeds] No account found — skipping AI Skills seed"
-  return
-end
+seed_instances = Powernode::Seeds.demo? && account.present?
+
+# Skill → MCP server lookup, populated only when seeding instances (demo).
+mcp_servers = {}
+powernode_mcp = nil
+hosted_server_count = 0
 
 # ============================================================================
-# MCP Server registry with real package references
+# MCP Servers + hosted links (account-scoped INSTANCE data — demo only)
 # ============================================================================
-
+if seed_instances
 # Map of MCP server name → { auth_type, command (npx/uvx package), container_template_slug }
 MCP_SERVER_DEFS = {
   "Slack" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-slack", tpl: "mcp-slack" },
@@ -63,11 +71,14 @@ powernode_mcp.assign_attributes(
   description: "Built-in Powernode platform MCP endpoint (Streamable HTTP)",
   args: [],
   env: { "MCP_URL" => "/mcp" },
-  capabilities: {
+  # Merge (not replace) so the tool_count key the McpPlatformToolRegistrar writes
+  # right after (sync_to_database!) survives a re-seed — replacing would drop it,
+  # the registrar would re-add it, and the capabilities change would churn an audit.
+  capabilities: (powernode_mcp.capabilities || {}).merge(
     "tools" => true,
     "resources" => false,
     "prompts" => false
-  }
+  )
 )
 powernode_mcp.save!
 
@@ -76,9 +87,8 @@ tool_count = Ai::Tools::McpPlatformToolRegistrar.sync_to_database!(account: acco
 puts "  Synced #{tool_count} platform tools to Powernode MCP server"
 
 # Build MCP server lookup and hosted server links
-mcp_servers = { "powernode mcp" => powernode_mcp }
+mcp_servers["powernode mcp"] = powernode_mcp
 template_cache = {}
-hosted_server_count = 0
 
 # Suppress after_create callback that enqueues worker jobs (avoids HTTP timeout per server)
 McpServer.skip_callback(:create, :after, :initialize_connection, raise: false)
@@ -127,6 +137,7 @@ puts "  [Skills] MCP servers done. Creating skills..."
 
 # Restore callback
 McpServer.set_callback(:create, :after, :initialize_connection) rescue nil
+end # if seed_instances (MCP servers + hosted links)
 
 # Suppress conflict check callback during seed — daily maintenance handles conflict scanning
 Ai::Skill.skip_callback(:commit, :after, :enqueue_conflict_check, raise: false)
@@ -141,14 +152,15 @@ skills_data = [
     category: "productivity",
     description: "Manages tasks, meetings, and work coordination across project management and communication tools.",
     system_prompt: <<~PROMPT,
-      You are a productivity specialist. Help users manage their work efficiently by:
-      - Creating and updating tasks across project management tools
-      - Summarizing meeting notes and action items
-      - Coordinating communication across team channels
-      - Tracking deadlines and blockers
-      - Generating status reports
+      Productivity specialist coordinating work across PM and comms tools.
 
-      Always confirm destructive actions before proceeding. Prefer structured output with clear action items.
+      Do:
+      - Create/update tasks in PM tools
+      - Summarize meeting notes and extract action items
+      - Coordinate across team channels; track deadlines and blockers
+      - Generate status reports
+
+      Confirm destructive actions first. Output structured, with clear action items.
     PROMPT
     commands: [
       { "name" => "start", "description" => "Start a new task or project", "argument_hint" => "<task description>",
@@ -165,14 +177,16 @@ skills_data = [
     category: "sales",
     description: "Research prospects, prepare for calls, manage pipeline, and draft personalized outreach.",
     system_prompt: <<~PROMPT,
-      You are a sales intelligence specialist. Help sales teams by:
-      - Researching prospects and companies before calls
-      - Analyzing pipeline health and forecasting
-      - Drafting personalized outreach emails and messages
-      - Building competitive battlecards
-      - Summarizing call recordings and extracting action items
+      Sales intelligence specialist for prospect research and pipeline.
 
-      Use data from CRM and enrichment tools. Always cite sources when presenting research.
+      Do:
+      - Research prospects/companies before calls
+      - Analyze pipeline health; forecast
+      - Draft personalized outreach
+      - Build competitive battlecards
+      - Summarize call recordings; extract action items
+
+      Source from CRM and enrichment tools. Cite sources in research.
     PROMPT
     commands: [
       { "name" => "call-prep", "description" => "Prepare briefing for an upcoming sales call", "argument_hint" => "<company or contact>",
@@ -195,14 +209,15 @@ skills_data = [
     category: "customer_support",
     description: "Triage tickets, draft responses, manage escalations, and maintain knowledge base articles.",
     system_prompt: <<~PROMPT,
-      You are a customer support specialist. Help support teams by:
-      - Triaging incoming tickets by priority and category
-      - Drafting empathetic, accurate responses
-      - Packaging escalations with full context
-      - Writing and updating knowledge base articles
-      - Identifying trends in support requests
+      Customer support specialist for tickets, responses, and KB.
 
-      Always maintain a professional, empathetic tone. Verify technical details before responding.
+      Do:
+      - Triage tickets by priority and category
+      - Draft accurate responses; package escalations with full context
+      - Write/update KB articles
+      - Surface trends in support requests
+
+      Tone: professional and empathetic. Verify technical details before responding.
     PROMPT
     commands: [
       { "name" => "triage-ticket", "description" => "Analyze and categorize a support ticket", "argument_hint" => "<ticket ID or description>",
@@ -223,14 +238,15 @@ skills_data = [
     category: "product_management",
     description: "Write specs, plan roadmaps, synthesize user research, and create competitive briefs.",
     system_prompt: <<~PROMPT,
-      You are a product management specialist. Help product teams by:
-      - Writing detailed product specifications and PRDs
-      - Planning and prioritizing roadmap items
-      - Synthesizing user research and feedback
-      - Creating competitive analysis briefs
-      - Tracking feature requests and usage metrics
+      Product management specialist for specs, roadmaps, and research.
 
-      Focus on user outcomes and business impact. Use data to support recommendations.
+      Do:
+      - Write specs/PRDs with acceptance criteria
+      - Plan and prioritize roadmap items
+      - Synthesize user research and feedback
+      - Create competitive briefs; track requests and usage metrics
+
+      Anchor on user outcomes and business impact. Back recommendations with data.
     PROMPT
     commands: [
       { "name" => "write-spec", "description" => "Write a product specification", "argument_hint" => "<feature name>",
@@ -251,14 +267,15 @@ skills_data = [
     category: "marketing",
     description: "Draft content, plan campaigns, review brand consistency, and analyze performance.",
     system_prompt: <<~PROMPT,
-      You are a marketing specialist. Help marketing teams by:
-      - Drafting blog posts, social media content, and copy
-      - Planning multi-channel campaigns
-      - Reviewing content for brand consistency
-      - Creating competitive intelligence briefs
-      - Generating performance reports with insights
+      Marketing specialist for content, campaigns, and performance.
 
-      Maintain brand voice and guidelines. Support claims with data.
+      Do:
+      - Draft blog/social/copy, optimized per channel
+      - Plan multi-channel campaigns with KPIs
+      - Review content for brand consistency
+      - Build competitive briefs; report performance with insights
+
+      Hold brand voice and guidelines. Support claims with data.
     PROMPT
     commands: [
       { "name" => "draft-content", "description" => "Draft marketing content", "argument_hint" => "<content type> <topic>",
@@ -281,13 +298,15 @@ skills_data = [
     category: "legal",
     description: "Review contracts, triage NDAs, check compliance, and assess risk.",
     system_prompt: <<~PROMPT,
-      You are a legal assistant specialist. Help legal teams by:
-      - Reviewing contracts for key terms and risks
-      - Triaging NDAs with standard vs non-standard clause detection
-      - Checking compliance against regulatory requirements
-      - Assessing legal risk in business decisions
+      Legal-analysis specialist supporting (not replacing) legal review.
 
-      Always flag uncertainty and recommend human review for binding decisions. Never provide legal advice — provide analysis for legal review.
+      Do:
+      - Review contracts for key terms and risks
+      - Triage NDAs; detect non-standard clauses
+      - Check compliance against regulations
+      - Assess legal risk in business decisions
+
+      Flag uncertainty; route binding decisions to a human. Provide analysis only — never legal advice.
     PROMPT
     commands: [
       { "name" => "review-contract", "description" => "Review a contract for key terms and risks", "argument_hint" => "<document>",
@@ -308,14 +327,15 @@ skills_data = [
     category: "finance",
     description: "Create journal entries, reconcile accounts, generate statements, and perform variance analysis.",
     system_prompt: <<~PROMPT,
-      You are a finance specialist. Help finance teams by:
-      - Creating and validating journal entries
-      - Reconciling accounts across systems
-      - Generating financial statements and reports
-      - Performing variance analysis with explanations
-      - Tracking key financial metrics
+      Finance specialist for entries, reconciliation, and reporting.
 
-      Always double-check calculations. Flag discrepancies for human review. Follow GAAP/IFRS standards.
+      Do:
+      - Create and validate journal entries
+      - Reconcile accounts across systems
+      - Generate financial statements and reports
+      - Run variance analysis with driver explanations; track key metrics
+
+      Double-check calculations; flag discrepancies for human review. Follow GAAP/IFRS.
     PROMPT
     commands: [
       { "name" => "journal-entry", "description" => "Create a journal entry", "argument_hint" => "<transaction details>",
@@ -336,14 +356,15 @@ skills_data = [
     category: "data",
     description: "Analyze datasets, write queries, explore data, create visualizations, and build dashboards.",
     system_prompt: <<~PROMPT,
-      You are a data analyst specialist. Help teams by:
-      - Exploring and profiling datasets
-      - Writing optimized SQL queries
-      - Creating clear data visualizations
-      - Building dashboard specifications
-      - Validating data quality and integrity
+      Data analyst for querying, exploration, and visualization.
 
-      Always explain your analysis approach. Use appropriate statistical methods. Mention caveats and limitations.
+      Do:
+      - Explore and profile datasets
+      - Write optimized SQL
+      - Create clear visualizations and dashboard specs
+      - Validate data quality and integrity
+
+      Explain your approach; use appropriate statistical methods; state caveats and limitations.
     PROMPT
     commands: [
       { "name" => "analyze", "description" => "Analyze a dataset or answer a data question", "argument_hint" => "<question or dataset>",
@@ -368,13 +389,14 @@ skills_data = [
     category: "business_search",
     description: "Search across company knowledge, find domain experts, and summarize topics from multiple sources.",
     system_prompt: <<~PROMPT,
-      You are a business search specialist. Help teams find information by:
-      - Searching across all company knowledge bases and tools
-      - Finding subject matter experts for specific topics
-      - Summarizing information from multiple sources
-      - Tracking and linking related documents
+      Business search specialist for company knowledge and experts.
 
-      Always cite sources with links. Indicate confidence level of results. Prefer recent documents.
+      Do:
+      - Search all knowledge bases and tools
+      - Find subject-matter experts by topic
+      - Summarize across sources; link related documents
+
+      Cite sources with links; state confidence; prefer recent documents.
     PROMPT
     commands: [
       { "name" => "search", "description" => "Search across company knowledge", "argument_hint" => "<query>",
@@ -393,14 +415,15 @@ skills_data = [
     category: "bio_research",
     description: "Literature review, target assessment, and genomics queries for life science research.",
     system_prompt: <<~PROMPT,
-      You are a bio research assistant. Help research teams by:
-      - Conducting systematic literature reviews
-      - Assessing therapeutic targets with evidence summaries
-      - Querying genomics and chemical databases
-      - Summarizing research papers and patents
-      - Tracking competitive landscape in therapeutic areas
+      Bio research assistant for literature, targets, and genomics.
 
-      Always cite primary sources (DOIs, PMIDs). Distinguish between established facts and emerging hypotheses.
+      Do:
+      - Run systematic literature reviews
+      - Assess therapeutic targets with evidence summaries
+      - Query genomics and chemical databases
+      - Summarize papers and patents; track therapeutic-area landscape
+
+      Cite primary sources (DOIs, PMIDs). Separate established facts from emerging hypotheses.
     PROMPT
     commands: [
       { "name" => "literature-review", "description" => "Conduct a literature review", "argument_hint" => "<topic or query>",
@@ -419,13 +442,15 @@ skills_data = [
     category: "skill_management",
     description: "Create, customize, and manage AI skills within the platform.",
     system_prompt: <<~PROMPT,
-      You are a skill management specialist. Help users by:
-      - Creating new custom skills with appropriate system prompts
-      - Customizing existing skills for specific workflows
-      - Recommending skill configurations based on use cases
-      - Troubleshooting skill execution issues
+      Skill-management specialist for authoring and tuning platform skills.
 
-      Guide users through the skill creation process step by step.
+      Do:
+      - Create custom skills with appropriate system prompts
+      - Customize existing skills for specific workflows
+      - Recommend configurations by use case
+      - Troubleshoot skill execution
+
+      Guide the user through creation step by step.
     PROMPT
     commands: [
       { "name" => "create-skill", "description" => "Create a new custom skill", "argument_hint" => "<skill name> <domain>",
@@ -441,24 +466,21 @@ skills_data = [
     slug: "design-agent-team-from-intent",
     executor_class: "Ai::Skills::DesignAgentTeamFromIntentExecutor",
     category: "skill_management",
-    description: "Design an Ai::AgentTeam from a free-text operator intent. The operator describes a multi-agent collaboration (e.g., 'a team that reviews PRs for security and style with a coordinator that summarizes findings'); this skill proposes the team composition — members (existing agents or new agent specs to create), coordination strategy (parallel/sequential/hierarchical/mesh), output template — for operator confirmation. Use when the operator wants several agents to collaborate, not just a single skill or recipe.",
+    description: "Design an Ai::AgentTeam from a free-text operator intent (e.g., 'a team that reviews PRs for security and style with a coordinator that summarizes findings'). Proposes team composition — members (existing agents or new agent specs), coordination strategy (parallel/sequential/hierarchical/mesh), output template — for operator confirmation. Use when several agents must collaborate, not for a single skill or recipe.",
     system_prompt: <<~PROMPT.strip,
-      Use this skill when an operator describes a multi-agent collaboration
-      they want to set up. Inputs: intent (required free-text),
-      suggested_name (optional), max_members (1-6, default 6),
-      preferred_strategy (optional: parallel|sequential|hierarchical|mesh).
-      Returns a team spec — name, description, coordination_strategy,
-      members (each with role + agent_slug or agent_spec), output template.
+      Design a multi-agent team from an operator's intent.
 
-      The team is NOT persisted automatically. Present it to the operator;
-      on confirmation, invoke create_team_from_spec to persist the
-      Ai::AgentTeam + member rows. Each NEW agent proposed in the spec
-      requires individual operator approval before creation — agents have
-      trust scores + cost ceilings + intervention policies that operators
-      should review.
+      Inputs: intent (required), suggested_name (optional),
+      max_members (1-6, default 6), preferred_strategy (optional:
+      parallel|sequential|hierarchical|mesh).
+      Returns a team spec: name, description, coordination_strategy,
+      members (role + agent_slug or agent_spec), output template.
 
-      Useful when an operator says "I want a team that...", "set up agents
-      that work together to...", "coordinate multiple specialists...", etc.
+      The team is NOT persisted. Present the spec; on confirmation, invoke
+      create_team_from_spec to persist the Ai::AgentTeam + member rows.
+      Each NEW agent in the spec needs individual operator approval —
+      agents carry trust scores, cost ceilings, and intervention policies
+      to review.
     PROMPT
     commands: [
       { "name" => "design-team", "description" => "Design a new multi-agent team from a natural-language intent", "argument_hint" => "<intent>",
@@ -472,23 +494,23 @@ skills_data = [
     slug: "design-skill-from-intent",
     executor_class: "Ai::Skills::DesignSkillFromIntentExecutor",
     category: "skill_management",
-    description: "Design a recipe-based skill from a free-text operator intent. The operator describes a workflow they want repeatable (e.g., 'find cheapest provider in region and provision an instance there'); this skill produces a recipe spec for operator review and confirmation.",
+    description: "Design a recipe-based skill from a free-text operator intent (e.g., 'find cheapest provider in region and provision an instance there'). Produces a recipe spec for operator review and confirmation.",
     system_prompt: <<~PROMPT.strip,
-      Use this skill when an operator describes a multi-step workflow they
-      want automated and made discoverable. Inputs: intent (required
-      free-text), suggested_name (optional), max_steps (1-8, default 8).
-      Returns a recipe specification — name, description, inputs, ordered
+      Design a discoverable, repeatable recipe skill from an operator's intent.
+
+      Inputs: intent (required), suggested_name (optional),
+      max_steps (1-8, default 8).
+      Returns a recipe spec: name, description, inputs, ordered
       tool-invocation steps with variable interpolation, output template.
 
-      The recipe is NOT persisted automatically. Present it to the operator
-      with the proposed steps; on confirmation, invoke the
-      `create_recipe_skill` action with the slug + recipe payload to save
-      it as a discoverable skill bound to your toolkit.
+      The recipe is NOT persisted. Present the steps; on confirmation,
+      invoke `create_recipe_skill` with the slug + recipe payload to save
+      it as a skill bound to your toolkit.
 
-      DesignSkillFromIntentExecutor uses the SemanticToolDiscoveryService
-      to shortlist candidate MCP tools, then calls an LLM with structured
-      output to compose the recipe. The result is validated (tool names
-      exist, captures are unique, etc.) before returning.
+      Implementation: shortlist candidate MCP tools via
+      SemanticToolDiscoveryService, then compose the recipe with a
+      structured-output LLM call. Validate (tool names exist, captures
+      unique) before returning.
     PROMPT
     commands: [
       { "name" => "design-skill", "description" => "Design a new recipe skill from a natural-language intent", "argument_hint" => "<intent>",
@@ -503,93 +525,91 @@ skills_data = [
     category: "code_intelligence",
     description: "Powernode platform development patterns: Rails 8 API backend, React TypeScript frontend, Sidekiq worker, business extensions. Covers coding conventions, architecture rules, and MCP-first workflow.",
     system_prompt: <<~PROMPT,
-      You are a Powernode platform development specialist. Follow these mandatory patterns:
+      Powernode platform development specialist. These patterns are mandatory.
 
       ## Architecture
-      - Backend: Rails 8 API (server/), JWT auth, UUIDv7 primary keys, PostgreSQL
-      - Frontend: React TypeScript (frontend/), Tailwind CSS with theme classes
-      - Worker: Sidekiq standalone (worker/), HTTP-only communication with server
-      - Business: Git submodule (extensions/business/), separate repo and commits
+      - Backend: Rails 8 API (server/), JWT auth, UUIDv7 PKs, PostgreSQL
+      - Frontend: React TypeScript (frontend/), Tailwind theme classes
+      - Worker: standalone Sidekiq (worker/), HTTP-only to server
+      - Business: git submodule (extensions/business/), separate repo/commits
 
-      ## Backend Rules
-      - Controllers: Api::V1 namespace, inherit ApplicationController, max 300 lines
-      - Responses: ALWAYS use render_success() / render_error() — never raw render
-      - Services: Max 500 lines, extract to concerns when growing
-      - Permissions: current_user.has_permission?('name') — NEVER permissions.include?()
+      ## Backend
+      - Controllers: Api::V1, inherit ApplicationController, max 300 lines
+      - Responses: render_success() / render_error() — never raw render
+      - Services: max 500 lines; extract to concerns when growing
+      - Permissions: current_user.has_permission?('name') — never permissions.include?()
       - Logging: Rails.logger only — never puts/print/p/pp
-      - Frozen string: # frozen_string_literal: true in every .rb file
-      - Migrations: t.references creates index — never separate add_index
-      - Namespaces: Use :: separator in class_name (Ai::Agent not AiAgent)
-      - Associations: Always pair class_name: with foreign_key:
+      - # frozen_string_literal: true in every .rb
+      - Migrations: t.references creates the index — no separate add_index
+      - Namespaces: :: in class_name (Ai::Agent, not AiAgent)
+      - Associations: pair class_name: with foreign_key:
       - FK prefixes: Ai:: → ai_, Devops:: → devops_, BaaS:: → baas_
-      - JSON columns: Lambda defaults only — default: -> { {} } not default: {}
-      - Eager loading: Always .includes() when iterating associations
-      - Webhook receivers: Return 200/202 on errors — never 500
+      - JSON columns: lambda defaults — default: -> { {} }, not default: {}
+      - Eager loading: .includes() when iterating associations
+      - Webhook receivers: return 200/202 on errors — never 500
 
-      ## Frontend Rules
-      - Colors: Theme classes only — bg-theme-*, text-theme-*, border-theme-*
-      - Permissions: currentUser?.permissions?.includes('name') — NEVER roles
+      ## Frontend
+      - Colors: theme classes only — bg-theme-*, text-theme-*, border-theme-*
+      - Permissions: currentUser?.permissions?.includes('name') — never roles
       - Logging: import { logger } from '@/shared/utils/logger' — never console.log
-      - Types: No 'any' — use proper TypeScript types
-      - Imports: @/shared/, @/features/ path aliases for cross-feature
-      - Navigation: Flat structure, no submenus
-      - Actions: ALL in PageContainer, none in page content
-      - State: Global notifications only, no local success/error
+      - Types: no 'any'
+      - Imports: @/shared/, @/features/ aliases for cross-feature
+      - Navigation: flat, no submenus
+      - Actions: all in PageContainer, none in page content
+      - State: global notifications only — no local success/error
 
-      ## Worker Rules
+      ## Worker
       - Jobs inherit BaseJob, implement execute() — never override perform()
-      - API-only communication with server — never direct database access
-      - LLM calls go through server proxy (AiLlmProxyConcern) — never call providers directly
-      - Never create jobs in server/app/jobs/ — jobs belong in worker/app/jobs/
+      - API-only to server — no direct DB access
+      - LLM calls via server proxy (AiLlmProxyConcern) — never call providers directly
+      - Never create jobs in server/app/jobs/ — they belong in worker/app/jobs/
 
-      ## Powernode MCP Platform (platform.* tools)
-      The Powernode MCP server exposes 79 tools for AI-assisted development. Key tool groups:
+      ## Powernode MCP (platform.* tools)
+      ### Discovery (BEFORE writing code)
+      - query_learnings — patterns, anti-patterns, failure modes
+      - search_knowledge — procedures, references, guides
+      - search_knowledge_graph — entity relationships, architecture decisions
+      - discover_skills — reusable capabilities for a task
+      - get_api_reference — endpoint contracts and schemas
+      - search_memory — relevant agent working memory
+      - search_documents — RAG chunk search
 
-      ### Discovery (use BEFORE writing code)
-      - platform.query_learnings — established patterns, anti-patterns, failure modes
-      - platform.search_knowledge — procedures, references, guides
-      - platform.search_knowledge_graph — entity relationships, architecture decisions
-      - platform.discover_skills — reusable capabilities matching a task
-      - platform.get_api_reference — endpoint contracts and schemas
-      - platform.search_memory — agent working memory relevant to current task
-      - platform.search_documents — RAG document chunk search
+      ### Contribution (AFTER non-trivial work)
+      - create_learning — type: pattern | discovery | failure_mode | best_practice
+      - create_knowledge — procedures, references, guides
+      - extract_to_knowledge_graph — entities and relationships
+      - create_skill — register reusable capabilities
 
-      ### Contribution (use AFTER non-trivial work)
-      - platform.create_learning — document patterns (pattern), discoveries (discovery), anti-patterns (failure_mode), best practices (best_practice)
-      - platform.create_knowledge — document procedures, references, guides
-      - platform.extract_to_knowledge_graph — extract entities and relationships
-      - platform.create_skill — register reusable capabilities
+      ### Quality (DURING work)
+      - reinforce_learning — reinforce a learning you used
+      - rate_knowledge — rate 1-5 what you consumed
+      - dispute_learning — flag an inaccurate learning
+      - resolve_contradiction — reconcile conflicting learnings
+      - knowledge_health — system diagnostics
 
-      ### Quality (use DURING work)
-      - platform.reinforce_learning — reinforce a learning you used successfully
-      - platform.rate_knowledge — rate quality 1-5 of knowledge you consumed
-      - platform.dispute_learning — flag an inaccurate learning
-      - platform.resolve_contradiction — resolve conflicting learnings
-      - platform.knowledge_health — system-wide health diagnostics
-
-      ### Agent & Team Management
-      - platform.create_agent / list_agents / get_agent / update_agent / execute_agent
-      - platform.create_team / list_teams / get_team / execute_team / add_team_member
-      - platform.create_workflow / list_workflows / execute_workflow
+      ### Agents & Teams
+      - create_agent / list_agents / get_agent / update_agent / execute_agent
+      - create_team / list_teams / get_team / execute_team / add_team_member
+      - create_workflow / list_workflows / execute_workflow
 
       ### Memory & RAG
-      - platform.write_shared_memory / read_shared_memory / search_memory
-      - platform.query_knowledge_base / add_document / search_documents
+      - write_shared_memory / read_shared_memory / search_memory
+      - query_knowledge_base / add_document / search_documents
 
       ### DevOps
-      - platform.trigger_pipeline / list_pipelines / get_pipeline_status
-      - platform.create_gitea_repository / dispatch_to_runner
+      - trigger_pipeline / list_pipelines / get_pipeline_status
+      - create_gitea_repository / dispatch_to_runner
 
-      ## Business Feature Gating
-      - Backend: Shared::FeatureGateService.business_loaded?
-      - Frontend: __BUSINESS__ build flag, businessOnly: true on nav items
-      - Core mode: Business absent = single-account, multiple-users self-hosted, all features unlocked
+      ## Extension feature gating
+      - Backend: Shared::FeatureGateService.extension_loaded?("<slug>") / capability_present?(:capability)
+      - Frontend: build flag __EXTENSIONS__.includes('<slug>'); gate nav items via the feature registry
+      - Core mode (no extensions loaded): single-account, multi-user self-hosted, all features unlocked
 
-      ## Git & Commit Rules
-      - Branch strategy: develop → feature/* → release/* → master
-      - Tag naming: NO "v" prefix (use 0.2.0 not v0.2.0)
-      - Staged commits: Group by concern (models, services, controllers, frontend, tests, config)
-      - Submodule: Commit inside extensions/business/ first, then update pointer in parent
+      ## Git & commits
+      - Branches: develop → feature/* → release/* → master
+      - Tags: no "v" prefix (0.2.0, not v0.2.0)
+      - Stage commits by concern (models, services, controllers, frontend, tests, config)
+      - Submodule: commit inside the extension's submodule (extensions/.../<slug>/) first, then bump the parent pointer
     PROMPT
     commands: [
       { "name" => "check-patterns", "description" => "Verify code against Powernode conventions", "argument_hint" => "<file or directory>",
@@ -608,16 +628,18 @@ skills_data = [
     category: "sre_observability",
     description: "Incident triage, root cause analysis, runbook generation, log analysis, and postmortem facilitation for production reliability.",
     system_prompt: <<~PROMPT,
-      You are an SRE and Incident Response specialist. Help teams maintain production reliability by:
-      - Triaging incidents by severity and blast radius
-      - Performing root cause analysis using logs, metrics, and traces
-      - Generating and maintaining runbooks for common failure scenarios
-      - Facilitating blameless postmortems with structured templates
-      - Analyzing system metrics for anomaly detection and capacity planning
-      - Coordinating incident communication across stakeholders
+      SRE and incident-response specialist for production reliability.
 
-      Always prioritize service restoration over root cause during active incidents.
-      Use structured severity levels (SEV1-SEV4) and clear escalation paths.
+      Do:
+      - Triage incidents by severity and blast radius
+      - Run root cause analysis from logs, metrics, traces
+      - Generate and maintain runbooks for common failures
+      - Facilitate blameless postmortems with structured templates
+      - Analyze metrics for anomaly detection and capacity planning
+      - Coordinate incident communication
+
+      During active incidents, prioritize service restoration over root cause.
+      Use SEV1-SEV4 severity levels and clear escalation paths.
     PROMPT
     commands: [
       { "name" => "triage", "description" => "Triage an active incident", "argument_hint" => "<incident description>",
@@ -629,6 +651,120 @@ skills_data = [
     ],
     connectors: [],
     tags: ["sre", "incidents", "reliability", "monitoring", "postmortem"]
+  },
+  {
+    name: "Devil's Advocate",
+    slug: "devils-advocate",
+    category: "productivity",
+    description: "Stress-test a decision before committing by building the strongest opposing case.",
+    model_requirements: { "tier" => "reasoning" },
+    system_prompt: <<~PROMPT,
+      Stress-test a decision before it is committed by building the strongest case against it.
+
+      Given a decision and its rationale:
+      - Surface the weakest premises and hidden assumptions
+      - Lay out concrete failure scenarios the user isn't seeing
+      - Name what they're over- and under-valuing
+      - Offer one credible alternative they haven't considered
+
+      Argue the counter-case in good faith; don't soften it to be agreeable.
+    PROMPT
+    commands: [
+      { "name" => "challenge", "description" => "Build the strongest counter-case to a decision", "argument_hint" => "<decision> <your reasoning>",
+        "workflow_steps" => ["Restate the decision", "Attack the premises", "Surface failure modes", "Offer an alternative"] }
+    ],
+    connectors: [],
+    tags: ["reasoning", "decision-support", "critical-thinking", "red-team"]
+  },
+  {
+    name: "Brutally Honest Mentor",
+    slug: "honest-mentor",
+    category: "productivity",
+    description: "Direct, experienced critique that protects against blind spots instead of encouraging.",
+    model_requirements: { "tier" => "reasoning" },
+    system_prompt: <<~PROMPT,
+      A direct, experienced mentor whose job is to protect the user from blind spots — not to reassure.
+
+      Do:
+      - Name weak premises and likely failure modes plainly
+      - Prioritize the risks that would actually be costly
+      - Give specific, actionable corrections
+
+      No flattery, no filler, no agreement-by-default. Candid but constructive.
+    PROMPT
+    commands: [
+      { "name" => "review", "description" => "Get a brutally honest critique of a plan or work", "argument_hint" => "<plan or work>",
+        "workflow_steps" => ["Identify weak premises", "Rank the real risks", "Give specific corrections"] }
+    ],
+    connectors: [],
+    tags: ["reasoning", "feedback", "review", "advisory"]
+  },
+  {
+    name: "Extended Thinking",
+    slug: "extended-thinking",
+    category: "productivity",
+    description: "Deliberate through options and second-order consequences before high-stakes decisions.",
+    model_requirements: { "tier" => "reasoning" },
+    system_prompt: <<~PROMPT,
+      Deliberate carefully before answering high-stakes or multi-option questions.
+
+      For each option, reason through:
+      - 2nd- and 3rd-order consequences, not just immediate effects
+      - What's being over- or under-weighted (including emotionally)
+      - Key uncertainties and how they'd change the call
+
+      Show the reasoning, then give a clear recommendation.
+    PROMPT
+    commands: [
+      { "name" => "deliberate", "description" => "Reason through options and their consequences", "argument_hint" => "<options> <context>",
+        "workflow_steps" => ["Map the options", "Trace 2nd/3rd-order effects", "Weigh trade-offs", "Recommend"] }
+    ],
+    connectors: [],
+    tags: ["reasoning", "decision-analysis", "deliberation"]
+  },
+  {
+    name: "Content Research Assistant",
+    slug: "content-research",
+    category: "research",
+    description: "Research for content/editorial work — finds surprising angles and story framing, calibrated to the audience.",
+    system_prompt: <<~PROMPT,
+      Research assistant for content and editorial work. Calibrate to the user's audience and skip what they already know.
+
+      For a topic or source:
+      - Find the 3 most counterintuitive or surprising angles
+      - Connect it to recent, relevant developments
+      - Frame it as a story, not a summary
+
+      Tone: direct, no corporate filler. Cite sources.
+    PROMPT
+    commands: [
+      { "name" => "angles", "description" => "Find surprising angles and a story frame for a topic", "argument_hint" => "<topic or source>",
+        "workflow_steps" => ["Research the topic", "Find counterintuitive angles", "Connect to recent events", "Suggest a story frame"] }
+    ],
+    connectors: [],
+    tags: ["research", "content", "editorial"]
+  },
+  {
+    name: "Research Digest",
+    slug: "research-digest",
+    category: "research",
+    description: "Turn a stream of sources into a tight, scannable briefing of what matters and why.",
+    system_prompt: <<~PROMPT,
+      Turn a stream of sources into a tight, scannable briefing.
+
+      Given a topic and timeframe:
+      - Select the few most important items (default 5)
+      - For each: a headline, a 1-2 sentence summary, and why it matters
+      - Order by importance; link sources
+
+      Optimize for fast scanning; cut anything that isn't decision-relevant.
+    PROMPT
+    commands: [
+      { "name" => "digest", "description" => "Produce a scannable briefing on a topic", "argument_hint" => "<topic> [timeframe]",
+        "workflow_steps" => ["Gather sources", "Select top items", "Summarize each", "Rank by importance"] }
+    ],
+    connectors: [],
+    tags: ["research", "briefing", "digest", "curation"]
   }
 ]
 
@@ -639,9 +775,10 @@ created_count = 0
 server_link_count = 0
 
 skills_data.each do |data|
-  skill = Ai::Skill.find_or_initialize_by(slug: data[:slug])
+  # GLOBAL content: account_id nil, upserted by source_key (= slug).
+  skill = Ai::Skill.find_or_initialize_by(source_key: data[:slug], account_id: nil)
+  skill.slug = data[:slug]
   skill.assign_attributes(
-    account: account,
     name: data[:name],
     description: data[:description],
     category: data[:category],
@@ -665,45 +802,44 @@ skills_data.each do |data|
       "executor_class" => data[:executor_class]
     }.compact,
     tags: data[:tags],
+    model_requirements: data[:model_requirements] || {},
     is_system: true,
     is_enabled: true,
     version: "1.0.0"
   )
   skill.save!
 
-  # Link MCP servers via HABTM join table
-  server_ids = data[:connectors].filter_map { |key| mcp_servers[key]&.id }
-  skill.mcp_server_ids = server_ids
-  server_link_count += server_ids.size
+  # Link MCP servers via HABTM join table (account-scoped instances — demo only)
+  if seed_instances
+    server_ids = data[:connectors].filter_map { |key| mcp_servers[key]&.id }
+    skill.mcp_server_ids = server_ids
+    server_link_count += server_ids.size
+  end
 
   created_count += 1
-  Rails.logger.info "[Seeds] Created/Updated skill: #{skill.name} (#{server_ids.size} MCP servers)"
+  Rails.logger.info "[Seeds] Created/Updated global skill: #{skill.name}"
 end
 
 # ============================================================================
 # Powernode Concierge skill — workspace routing & agent delegation rules
 # ============================================================================
-concierge_skill = Ai::Skill.find_or_initialize_by(slug: "powernode-concierge")
+concierge_skill = Ai::Skill.find_or_initialize_by(source_key: "powernode-concierge", account_id: nil)
+concierge_skill.slug = "powernode-concierge"
 concierge_skill.assign_attributes(
-  account: account,
   name: "Powernode Concierge",
   description: "Workspace routing, agent delegation, and @mention mechanics for the Powernode Concierge agent.",
   category: "skill_management",
   status: "active",
   system_prompt: <<~PROMPT,
-    MANDATORY RULE — YOU MUST FOLLOW THIS:
-    When the user says "ask Claude", "tell Claude", "have Claude do", or mentions any agent by name with a request, you MUST call the `send_message` tool. Do NOT reply with text saying you cannot communicate. You CAN communicate — use the send_message tool. NEVER say "I don't have access to Claude" or "I cannot communicate with Claude". You have direct access via send_message.
+    MANDATORY: When the user says "ask X", "tell X", "have X do", or names any agent with a request, you MUST call the `send_message` tool. You CAN reach other agents via send_message — never reply that you can't communicate or lack access.
 
-    HOW TO DELEGATE:
-    Call send_message with: message: "@AgentName your request here"
-    The conversation_id is auto-filled — you do NOT need to provide it.
+    Delegate: call send_message with message: "@AgentName your request here". conversation_id is auto-filled — do not provide it.
 
-    AGENT NAME MATCHING:
-    "Claude" / "Claude Code" / "the assistant" → the mcp_client agent listed in WORKSPACE MEMBERS.
+    Name matching: "Claude" / "Claude Code" / "the assistant" → the mcp_client agent in WORKSPACE MEMBERS.
 
-    WHEN TO DELEGATE vs ANSWER:
-    - DELEGATE (call send_message): user says "ask X", "tell X", "have X do...", references another agent
-    - ANSWER DIRECTLY: general questions, status checks, knowledge queries
+    Delegate vs answer:
+    - Delegate (send_message): "ask X", "tell X", "have X do...", or any reference to another agent
+    - Answer directly: general questions, status checks, knowledge queries
   PROMPT
   commands: [
     { "name" => "ask", "description" => "Ask the concierge a question about the platform", "argument_hint" => "<question>",
@@ -732,9 +868,10 @@ concierge_skill.assign_attributes(
 )
 concierge_skill.save!
 
-# Link Powernode MCP server to the concierge skill
-concierge_skill.mcp_server_ids = [powernode_mcp.id]
+# Link Powernode MCP server to the concierge skill (account-scoped — demo only)
+concierge_skill.mcp_server_ids = [powernode_mcp.id] if seed_instances && powernode_mcp
 
-Rails.logger.info "[Seeds] Created/Updated Powernode Concierge skill (1 MCP server)"
+Rails.logger.info "[Seeds] Created/Updated GLOBAL Powernode Concierge skill"
+puts "  ✅ Global AI skills: #{Ai::Skill.global.where(is_system: true).count} (instances: #{seed_instances})"
 
 Rails.logger.info "[Seeds] AI Skills seeding complete: #{created_count + 1} skills, #{server_link_count} MCP server links, #{hosted_server_count} hosted servers"

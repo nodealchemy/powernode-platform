@@ -6,7 +6,6 @@
 puts "  🔧 Creating Troubleshooting articles..."
 
 troubleshooting_cat = KnowledgeBase::Category.find_by!(slug: "troubleshooting")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 39: Common Issues and Solutions (Featured)
 common_issues_content = <<~MARKDOWN
@@ -166,16 +165,8 @@ Resolution:
 
 ### Dashboard Loading Slowly
 
-**Browser Steps**
-1. Clear browser cache
-2. Disable extensions
-3. Try different browser
-4. Use incognito mode
-
-**Account Steps**
-- Reduce date ranges
-- Use filters
-- Check internet speed
+**Browser**: Clear cache, disable extensions, try a different browser, or use incognito mode.
+**Account**: Reduce date ranges, use filters, and check internet speed.
 
 ### Reports Not Generating
 
@@ -200,26 +191,29 @@ Resolution:
 - Enable JavaScript
 - Enable cookies
 - Disable ad blockers for Powernode
-- Update to latest version
+- Update to the latest version
 
 ---
 
 Still stuck? See [Contacting Support](/kb/contacting-support) for help options.
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "common-issues-solutions") do |article|
-  article.title = "Common Issues and Solutions"
-  article.category = troubleshooting_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = true
-  article.excerpt = "Quick solutions for login issues, payment problems, API errors, webhook failures, and performance troubleshooting."
-  article.content = common_issues_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "common-issues-solutions", account_id: nil)
+article.assign_attributes(
+  title: "Common Issues and Solutions",
+  slug: "common-issues-solutions",
+  category: troubleshooting_cat,
+  status: "published",
+  is_public: true,
+  is_featured: true,
+  excerpt: "Quick solutions for login issues, payment problems, API errors, webhook failures, and performance troubleshooting.",
+  content: common_issues_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Common Issues and Solutions"
 
@@ -256,7 +250,7 @@ Available for Business and Enterprise plans:
 
 ### Help Desk
 
-Submit tickets through dashboard:
+Submit tickets through the dashboard:
 1. Navigate to **Help > Support Tickets**
 2. Click **New Ticket**
 3. Describe issue
@@ -330,28 +324,17 @@ Try these first:
 
 ### Status Page
 
-Monitor system status:
-- **URL**: status.powernode.org
-- Subscribe for updates
-- Check incident history
+Monitor system status at status.powernode.org. Subscribe for updates and check incident history.
 
 ## Community Resources
 
 ### Community Forum
 
-Join discussions:
-- Ask questions
-- Share solutions
-- Connect with users
-- Feature discussions
+Ask questions, share solutions, connect with users, and join feature discussions.
 
 ### Developer Resources
 
-For technical questions:
-- API documentation
-- GitHub discussions
-- Developer Slack
-- Stack Overflow tag
+For technical questions: API documentation, GitHub discussions, Developer Slack, and the Stack Overflow tag.
 
 ## Emergency Contacts
 
@@ -368,25 +351,24 @@ For emergencies (data breach, complete outage):
 - Complete service outage
 - Data loss
 - Payment system down
-
----
-
-We're here to help! Contact us anytime through your preferred channel.
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "contacting-support") do |article|
-  article.title = "Contacting Support"
-  article.category = troubleshooting_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Get help through email, live chat, phone, or help desk with response times by plan tier and tips for faster resolution."
-  article.content = contact_support_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "contacting-support", account_id: nil)
+article.assign_attributes(
+  title: "Contacting Support",
+  slug: "contacting-support",
+  category: troubleshooting_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Get help through email, live chat, phone, or help desk with response times by plan tier and tips for faster resolution.",
+  content: contact_support_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Contacting Support"
 

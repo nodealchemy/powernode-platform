@@ -4,7 +4,17 @@ module Api
   module V1
     module Ai
       class DevopsController < ApplicationController
+        include GloballyScopedContent
+
         before_action :set_service
+        # clone needs manage rights; update_from_source mutates the account copy.
+        before_action -> { authorize_action!("ai.devops.manage") }, only: [:perform_clone, :update_from_source]
+        before_action -> { authorize_action!("ai.devops.read") }, only: [:update_from_source_preview]
+
+        # The GloballyScopable model backing the clone / update_from_source actions.
+        def content_model
+          ::Ai::DevopsTemplate
+        end
 
         # GET /api/v1/ai/devops/templates
         def templates
@@ -15,6 +25,7 @@ module Api
             query: params[:query],
             category: params[:category],
             template_type: params[:template_type],
+            scope: params[:scope],
             page: params[:page] || 1,
             per_page: params[:per_page] || 20
           )
@@ -60,6 +71,9 @@ module Api
           return if performed?
 
           template = ::Ai::DevopsTemplate.find(params[:id])
+
+          require_editable_content!(template)
+          return if performed?
 
           permitted = {}
           permitted[:name] = params[:name] if params.key?(:name)
@@ -142,6 +156,11 @@ module Api
           end
         end
 
+        # Richer serialization for clone / update_from_source responses.
+        def content_json(record)
+          template_json(record, detailed: true)
+        end
+
         def template_json(template, detailed: false)
           json = {
             id: template.id,
@@ -176,7 +195,7 @@ module Api
             )
           end
 
-          json
+          json.merge(template.scope_attributes)
         end
 
         def installation_json(installation)

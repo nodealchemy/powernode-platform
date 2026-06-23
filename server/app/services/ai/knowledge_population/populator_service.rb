@@ -188,7 +188,7 @@ module Ai
 
           sk("Path aliases for cross-feature imports",
              "Frontend: @/shared/ for shared utilities, @/features/ for feature code. " \
-             "Business: @business/ for intra-business imports.",
+             "Each extension imports its own code via its path alias (@<ext>/).",
              "procedure", %w[frontend imports], "convention"),
 
           sk("Global notifications only no local state",
@@ -242,12 +242,13 @@ module Ai
              "Jobs in worker/app/jobs/ — never server/app/jobs/. Server does NOT run Sidekiq.",
              "fact", %w[architecture worker sidekiq], "architecture"),
 
-          sk("Business submodule pattern",
-             "Business features at extensions/private/business/ (git submodule). When absent, app runs " \
-             "single-user self-hosted, all features unlocked. Gate generically: " \
+          sk("Extension submodule pattern",
+             "Optional features ship as git-submodule extensions under extensions/ (private ones under " \
+             "extensions/private/). When an extension is absent, the app runs single-user self-hosted with " \
+             "all features unlocked. Gate generically: " \
              "Shared::FeatureGateService.capability_present?(:capability) / extension_loaded?(slug) (backend), " \
              "featureRegistry / __EXTENSIONS__.includes(slug) (frontend).",
-             "fact", %w[architecture business], "architecture"),
+             "fact", %w[architecture extensions], "architecture"),
 
           sk("Rails 8 API only mode",
              "Backend is Rails 8 API-only. No views, no asset pipeline. " \

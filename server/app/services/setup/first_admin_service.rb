@@ -26,7 +26,7 @@ module Setup
 
       ensure_permissions_and_roles!
 
-      ActiveRecord::Base.transaction do
+      result = ActiveRecord::Base.transaction do
         account = Account.first || Account.create!(
           name: account_name.presence || name.presence || "Powernode",
           subdomain: unique_subdomain
@@ -44,6 +44,12 @@ module Setup
 
         Result.new(user: user, account: account)
       end
+
+      # The system Worker authenticates worker→backend API calls; ensure it exists
+      # on first-account bootstrap (core/prod), not just in seeded installs.
+      ::Workers::EnsureSystemWorker.call(account: result.account)
+
+      result
     end
 
     # Idempotently ensure the core permission/role catalog exists. At a genuinely
@@ -54,7 +60,7 @@ module Setup
     def self.ensure_permissions_and_roles!
       return if Role.exists?(name: "super_admin")
 
-      Permission.sync_from_config!
+      # Permissions are code-defined; only roles + their grants are seeded.
       Role.sync_from_config!
     end
 

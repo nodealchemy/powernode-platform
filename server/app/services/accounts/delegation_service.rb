@@ -9,7 +9,7 @@ module Accounts
       @account = account
     end
 
-    def create_delegation(delegated_user_email:, role_id: nil, permission_ids: nil, expires_at: nil, notes: nil)
+    def create_delegation(delegated_user_email:, role_id: nil, permission_names: nil, expires_at: nil, notes: nil)
       begin
         # Find the user to delegate to
         delegated_user = User.find_by(email: delegated_user_email)
@@ -38,21 +38,22 @@ module Accounts
           return { success: false, errors: [ "Cannot delegate Owner role" ] }
         end
 
-        # Validate and process custom permissions if provided
+        # Validate and process custom permissions (by NAME) if provided
         specific_permissions = []
-        if permission_ids.present?
-          specific_permissions = Permission.where(id: permission_ids)
+        if permission_names.present?
+          specific_permissions = Array(permission_names)
 
-          if specific_permissions.count != permission_ids.count
+          # All names must exist in the code-defined permission catalog
+          unknown = specific_permissions.reject { |name| Permissions.permission_exists?(name) }
+          if unknown.any?
             return { success: false, errors: [ "Some permissions not found" ] }
           end
 
           # If role is specified, ensure all permissions are within the role's scope
           if role.present?
-            invalid_permissions = specific_permissions - role.permissions
+            invalid_permissions = specific_permissions.reject { |name| role.has_permission?(name) }
             if invalid_permissions.any?
-              invalid_names = invalid_permissions.map { |p| "#{p.resource}.#{p.action}" }
-              return { success: false, errors: [ "Permissions #{invalid_names.join(', ')} are not available in the #{role.name} role" ] }
+              return { success: false, errors: [ "Permissions #{invalid_permissions.join(', ')} are not available in the #{role.name} role" ] }
             end
           end
         end
@@ -83,10 +84,10 @@ module Accounts
         )
 
         if delegation.save
-          # Assign specific permissions if provided
+          # Assign specific permissions (by name) if provided
           if specific_permissions.any?
-            specific_permissions.each do |permission|
-              delegation.assign_permission(permission)
+            specific_permissions.each do |permission_name|
+              delegation.assign_permission(permission_name)
             end
           end
 
@@ -103,7 +104,7 @@ module Accounts
       end
     end
 
-    def update_delegation(delegation:, role_id: nil, permission_ids: nil, expires_at: nil, notes: nil)
+    def update_delegation(delegation:, role_id: nil, permission_names: nil, expires_at: nil, notes: nil)
       begin
         # Validate delegation belongs to account
         unless delegation.account == account
@@ -139,34 +140,35 @@ module Accounts
         # Update notes if provided
         update_params[:notes] = notes if notes.present?
 
-        # Handle permission updates
-        if permission_ids.present?
-          specific_permissions = Permission.where(id: permission_ids)
+        # Handle permission updates (by NAME)
+        if permission_names.present?
+          specific_permissions = Array(permission_names)
 
-          if specific_permissions.count != permission_ids.count
+          # All names must exist in the code-defined permission catalog
+          unknown = specific_permissions.reject { |name| Permissions.permission_exists?(name) }
+          if unknown.any?
             return { success: false, errors: [ "Some permissions not found" ] }
           end
 
           # If role is being updated, validate permissions against new role
           target_role = update_params[:role] || delegation.role
           if target_role.present?
-            invalid_permissions = specific_permissions - target_role.permissions
+            invalid_permissions = specific_permissions.reject { |name| target_role.has_permission?(name) }
             if invalid_permissions.any?
-              invalid_names = invalid_permissions.map { |p| "#{p.resource}.#{p.action}" }
-              return { success: false, errors: [ "Permissions #{invalid_names.join(', ')} are not available in the #{target_role.name} role" ] }
+              return { success: false, errors: [ "Permissions #{invalid_permissions.join(', ')} are not available in the #{target_role.name} role" ] }
             end
           end
         end
 
         if delegation.update(update_params)
           # Update specific permissions if provided
-          if permission_ids.present?
+          if permission_names.present?
             # Remove existing delegation permissions
             delegation.delegation_permissions.destroy_all
 
-            # Add new permissions
-            specific_permissions.each do |permission|
-              delegation.assign_permission(permission)
+            # Add new permissions (by name)
+            specific_permissions.each do |permission_name|
+              delegation.assign_permission(permission_name)
             end
           end
 
@@ -273,17 +275,15 @@ module Accounts
         role = Role.find_by(id: role_id)
         return [] unless role && role.name != "Owner"
 
-        role.permissions.order(:resource, :action)
+        # Permission NAME strings granted to this role
+        role.permission_names
       else
-        # Return all non-owner permissions if no role specified
-        Permission.joins(:roles)
-                .where.not(roles: { name: "Owner" })
-                .distinct
-                .order(:resource, :action)
+        # No role specified: return all code-defined catalog permission names
+        Permissions.all_permissions.keys.sort
       end
     end
 
-    def add_permission_to_delegation(delegation:, permission_id:)
+    def add_permission_to_delegation(delegation:, permission_name:)
       begin
         unless delegation.account == account
           return { success: false, errors: [ "Delegation not found" ] }
@@ -293,19 +293,18 @@ module Accounts
           return { success: false, errors: [ "Cannot modify revoked delegation" ] }
         end
 
-        permission = Permission.find_by(id: permission_id)
-        unless permission
+        unless Permissions.permission_exists?(permission_name)
           return { success: false, errors: [ "Permission not found" ] }
         end
 
         # Validate permission is within role scope if role is assigned
-        if delegation.role.present? && !delegation.role.permissions.include?(permission)
-          return { success: false, errors: [ "Permission #{permission.resource}.#{permission.action} is not available in the #{delegation.role.name} role" ] }
+        if delegation.role.present? && !delegation.role.has_permission?(permission_name)
+          return { success: false, errors: [ "Permission #{permission_name} is not available in the #{delegation.role.name} role" ] }
         end
 
-        if delegation.assign_permission(permission)
+        if delegation.assign_permission(permission_name)
           create_audit_log("delegation_permission_added", delegation, {
-            permission: "#{permission.resource}.#{permission.action}"
+            permission: permission_name
           })
           { success: true, delegation: delegation }
         else
@@ -317,7 +316,7 @@ module Accounts
       end
     end
 
-    def remove_permission_from_delegation(delegation:, permission_id:)
+    def remove_permission_from_delegation(delegation:, permission_name:)
       begin
         unless delegation.account == account
           return { success: false, errors: [ "Delegation not found" ] }
@@ -327,14 +326,13 @@ module Accounts
           return { success: false, errors: [ "Cannot modify revoked delegation" ] }
         end
 
-        permission = Permission.find_by(id: permission_id)
-        unless permission
+        unless Permissions.permission_exists?(permission_name)
           return { success: false, errors: [ "Permission not found" ] }
         end
 
-        delegation.remove_permission(permission)
+        delegation.remove_permission(permission_name)
         create_audit_log("delegation_permission_removed", delegation, {
-          permission: "#{permission.resource}.#{permission.action}"
+          permission: permission_name
         })
 
         { success: true, delegation: delegation }

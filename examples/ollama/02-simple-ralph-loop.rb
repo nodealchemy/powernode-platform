@@ -25,7 +25,7 @@ provider ||= account.ai_providers.find_by(slug: "remote-ollama-server")
 
 unless provider
   puts "\nERROR: Ollama provider not configured."
-  puts "Run: bundle exec rails runner db/seeds/examples/ollama_examples_seed.rb"
+  puts "Configure an Ollama provider first (AI > Providers, or a 'remote-ollama-server' provider)."
   exit 1
 end
 

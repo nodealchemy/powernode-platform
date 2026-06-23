@@ -14,8 +14,7 @@ module Ai
   #          falls back to all when nothing matches required strictly).
   #   * +0.5 × preferred_capability_match_ratio
   #   * +0.25 tier_bonus when model's capability tier matches profile's
-  #          desired tier (reasoning / standard / light — same buckets as
-  #          Ai::Agent::MODEL_CAPABILITY_TIERS).
+  #          desired tier (reasoning / standard / light — see Ai::ModelTiers).
   #   * +cost_bonus (cheaper is better; capped at +0.3).
   #   * +0.4 × empirical_success_rate from ProviderMetric.model_breakdown
   #          (30-day window, min 5 requests). Defaults to 0.5 when absent
@@ -35,19 +34,27 @@ module Ai
     EMPIRICAL_MIN_RUNS  = 5
     EMPIRICAL_DEFAULT   = 0.5
 
-    def self.recommend(account:, agent_type:, role: nil, description: nil)
-      new(account: account, agent_type: agent_type, role: role, description: description).recommend
+    def self.recommend(account:, agent_type:, role: nil, description: nil, requirements: {}, provider: nil)
+      new(account: account, agent_type: agent_type, role: role, description: description,
+          requirements: requirements, provider: provider).recommend
     end
 
-    def initialize(account:, agent_type:, role: nil, description: nil)
+    def initialize(account:, agent_type:, role: nil, description: nil, requirements: {}, provider: nil)
       @account = account
       @agent_type = agent_type.to_s
       @role = role.to_s
       @description = description.to_s
+      # Per-skill/context model fit (e.g. Ai::Skill#model_requirements):
+      # { capabilities: [hard gates], preferred: [...], tier: :reasoning }.
+      @requirements = (requirements || {}).symbolize_keys
+      # Optional provider constraint — an Ai::Provider or provider_type string.
+      # When set, selection is confined to that provider (e.g. Devops::AiConfig,
+      # which is provider-specific); nil ⇒ pick across all credentialed providers.
+      @provider = provider
     end
 
     def recommend
-      profile = AGENT_TYPE_PROFILES[@agent_type] || AGENT_TYPE_PROFILES["assistant"]
+      profile = merge_requirements(AGENT_TYPE_PROFILES[@agent_type] || AGENT_TYPE_PROFILES["assistant"])
       candidates = enumerate_candidates
       return fallback if candidates.empty?
 
@@ -72,29 +79,59 @@ module Ai
 
     private
 
+    # Fold per-skill/context model_requirements into the agent_type profile:
+    # the skill's required capabilities ADD to the hard gate (an incapable model
+    # gets filtered out), preferred capabilities add to the soft preference, and
+    # an explicit tier overrides the profile default. No requirements => unchanged.
+    def merge_requirements(profile)
+      return profile if @requirements.blank?
+
+      {
+        required:  (Array(profile[:required])  + Array(@requirements[:capabilities])).uniq,
+        preferred: (Array(profile[:preferred]) + Array(@requirements[:preferred])).uniq,
+        tier:      (@requirements[:tier].presence&.to_sym || profile[:tier])
+      }
+    end
+
     def enumerate_candidates
-      @account.ai_providers.where(is_active: true).flat_map do |provider|
-        Array(provider.supported_models).filter_map do |m|
-          next nil unless m.is_a?(Hash)
-          model_id = m["id"] || m["name"]
+      candidate_providers.flat_map do |provider|
+        Array(provider.supported_models).filter_map do |entry|
+          model_id = ::Ai::ModelTiers.id_for(entry)
           next nil if model_id.blank?
 
+          hash = entry.is_a?(Hash) ? entry : {}
           {
             provider:     provider,
             model_id:     model_id,
-            capabilities: Array(m["capabilities"]),
-            cost_input:   m.dig("cost_per_1k_tokens", "input").to_f,
-            tier:         classify_tier(model_id)
+            capabilities: Array(hash["capabilities"]),
+            cost_input:   hash.dig("cost_per_1k_tokens", "input").to_f,
+            tier:         ::Ai::ModelTiers.classify(model_id)
           }
         end
       end
     end
 
-    def classify_tier(model_id)
-      ::Ai::Agent::MODEL_CAPABILITY_TIERS.each do |tier, prefixes|
-        return tier if prefixes.any? { |p| model_id.start_with?(p) }
+    # Providers to score: the constrained provider when one is given
+    # (Devops::AiConfig), else all active providers that have an active credential
+    # — falling back to all active providers when none are credentialed yet
+    # (fresh setup), so a brand-new account can still get a recommendation.
+    def candidate_providers
+      if @provider
+        prov = constraint_provider
+        return prov ? [ prov ] : []
       end
-      :standard
+
+      providers = @account.ai_providers.where(is_active: true).to_a
+      credentialed = ::Ai::ProviderCredential.where(account_id: @account.id, is_active: true)
+                                             .distinct.pluck(:ai_provider_id).to_set
+      providers.select { |p| credentialed.include?(p.id) }.presence || providers
+    end
+
+    def constraint_provider
+      return @provider if @provider.is_a?(::Ai::Provider)
+
+      @account.ai_providers.active.find_by(provider_type: @provider.to_s) ||
+        @account.ai_providers.find_by(provider_type: @provider.to_s)
     end
 
     # Confidence-weighted scoring. Static priors (tier match, cost, profile
@@ -164,7 +201,8 @@ module Ai
     end
 
     def fallback
-      provider = @account.ai_providers.where(is_active: true).order(priority_order: :asc).first ||
+      provider = candidate_providers.first ||
+                 @account.ai_providers.where(is_active: true).order(priority_order: :asc).first ||
                  @account.ai_providers.order(priority_order: :asc).first
       {
         provider:      provider,

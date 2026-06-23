@@ -3,10 +3,10 @@
 # Admin Workers Controller
 # Manages worker authentication tokens and permissions
 class Api::V1::Admin::WorkersController < ApplicationController
-  before_action -> { require_permission("system.workers.read") }, only: [ :index, :show ]
-  before_action -> { require_permission("system.workers.create") }, only: [ :create ]
-  before_action -> { require_permission("system.workers.update") }, only: [ :update, :regenerate_token, :suspend, :activate, :revoke ]
-  before_action -> { require_permission("system.workers.delete") }, only: [ :destroy ]
+  before_action -> { require_permission("admin.workers.read") }, only: [ :index, :show ]
+  before_action -> { require_permission("admin.workers.create") }, only: [ :create ]
+  before_action -> { require_permission("admin.workers.update") }, only: [ :update, :regenerate_token, :suspend, :activate, :revoke ]
+  before_action -> { require_permission("admin.workers.delete") }, only: [ :destroy ]
   before_action :set_worker, only: [ :show, :update, :destroy, :regenerate_token, :suspend, :activate, :revoke ]
 
   # GET /api/v1/admin/workers
@@ -172,7 +172,7 @@ class Api::V1::Admin::WorkersController < ApplicationController
   end
 
   def ensure_admin_access
-    unless current_user.has_permission?("admin") || current_user.has_permission?("super_admin")
+    unless current_user.has_permission?("admin.access") || current_user.has_permission?("system.admin")
       render_forbidden("Admin access required")
     end
   end

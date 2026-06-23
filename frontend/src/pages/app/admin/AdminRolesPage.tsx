@@ -82,12 +82,12 @@ export const AdminRolesPage: React.FC = () => {
       showNotification('You do not have permission to edit roles', 'error');
       return;
     }
-    
-    if (isBuiltInRole(role)) {
-      showNotification('Built-in roles cannot be modified', 'warning');
+
+    if (!isEditableRole(role)) {
+      showNotification('Global roles are code-defined and read-only.', 'warning');
       return;
     }
-    
+
     setSelectedRole(role);
     setShowEditModal(true);
   };
@@ -98,8 +98,8 @@ export const AdminRolesPage: React.FC = () => {
       return;
     }
 
-    if (isBuiltInRole(role)) {
-      showNotification('Built-in roles cannot be deleted', 'warning');
+    if (!isEditableRole(role)) {
+      showNotification('Global roles are code-defined and read-only.', 'warning');
       return;
     }
 
@@ -119,7 +119,14 @@ export const AdminRolesPage: React.FC = () => {
           showNotification('Role deleted successfully', 'success');
           loadRoles();
         } catch (error) {
-          showNotification(error instanceof Error ? error.message : 'Failed to delete role', 'error');
+          // Surface backend errors (e.g. 403 "Global roles are code-defined and read-only").
+          const httpError = error as { response?: { data?: { error?: string; message?: string } } };
+          showNotification(
+            httpError?.response?.data?.error ||
+              httpError?.response?.data?.message ||
+              (error instanceof Error ? error.message : 'Failed to delete role'),
+            'error'
+          );
         }
       }
     });
@@ -179,12 +186,9 @@ export const AdminRolesPage: React.FC = () => {
     return grouped;
   };
 
-  // Built-in roles that cannot be modified or deleted
-  const BUILT_IN_ROLES = ['admin', 'billing_admin', 'manager', 'member', 'owner', 'super_admin'];
-  
-  const isBuiltInRole = (role: Role) => {
-    return BUILT_IN_ROLES.includes(role.name) || role.system_role;
-  };
+  // Global roles are code-defined and read-only; account-scoped roles are editable.
+  const isGlobalRole = (role: Role) => role.scope === 'global' || role.editable === false;
+  const isEditableRole = (role: Role) => role.editable !== false && role.scope !== 'global';
 
   if (loading) {
     return (
@@ -208,17 +212,17 @@ export const AdminRolesPage: React.FC = () => {
       actions={getPageActions()}
     >
       <div className="space-y-6">
-        {/* Built-in Roles Section */}
+        {/* Global Roles Section */}
         <div>
           <div className="flex items-center space-x-2 mb-4">
             <Shield className="w-5 h-5 text-theme-interactive-primary" />
-            <h2 className="text-lg font-semibold text-theme-primary">Built-in Roles</h2>
+            <h2 className="text-lg font-semibold text-theme-primary">Global Roles</h2>
             <Badge variant="secondary" size="sm">
-              {roles.filter(r => isBuiltInRole(r)).length}
+              {roles.filter(r => isGlobalRole(r)).length}
             </Badge>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {roles.filter(r => isBuiltInRole(r)).map(role => (
+            {roles.filter(r => isGlobalRole(r)).map(role => (
               <div key={role.id} className="bg-gradient-to-br from-theme-surface to-theme-surface-hover border border-theme rounded-lg p-5 hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center space-x-2">
@@ -231,7 +235,7 @@ export const AdminRolesPage: React.FC = () => {
                     <h3 className="font-semibold text-theme-primary capitalize">{role.name.replace(/_/g, ' ')}</h3>
                   </div>
                   <Badge variant="primary" size="xs">
-                    System
+                    Global
                   </Badge>
                 </div>
                 <p className="text-sm text-theme-secondary mb-4 line-clamp-2">{role.description}</p>
@@ -264,17 +268,17 @@ export const AdminRolesPage: React.FC = () => {
               <Shield className="w-5 h-5 text-theme-secondary" />
               <h2 className="text-lg font-semibold text-theme-primary">Custom Roles</h2>
               <Badge variant="secondary" size="sm">
-                {roles.filter(r => !isBuiltInRole(r)).length}
+                {roles.filter(r => isEditableRole(r)).length}
               </Badge>
             </div>
-            {canManageRoles && roles.filter(r => !isBuiltInRole(r)).length > 0 && (
+            {canManageRoles && roles.filter(r => isEditableRole(r)).length > 0 && (
               <Button onClick={handleCreateRole} variant="primary" size="sm">
                 <Plus className="w-4 h-4 mr-2" />
                 New Role
               </Button>
             )}
           </div>
-          {roles.filter(r => !isBuiltInRole(r)).length === 0 ? (
+          {roles.filter(r => isEditableRole(r)).length === 0 ? (
             <div className="bg-theme-surface border-2 border-dashed border-theme rounded-lg p-12 text-center">
               <div className="w-16 h-16 bg-theme-surface-hover rounded-full flex items-center justify-center mx-auto mb-4">
                 <Shield className="w-8 h-8 text-theme-tertiary" />
@@ -292,7 +296,7 @@ export const AdminRolesPage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {roles.filter(r => !isBuiltInRole(r)).map(role => (
+              {roles.filter(r => isEditableRole(r)).map(role => (
                 <div key={role.id} className="bg-theme-surface border border-theme rounded-lg p-5 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-2">
@@ -303,8 +307,11 @@ export const AdminRolesPage: React.FC = () => {
                         </div>
                       </div>
                       <h3 className="font-semibold text-theme-primary">{role.name}</h3>
+                      <Badge variant="secondary" size="xs">
+                        Custom
+                      </Badge>
                     </div>
-                    {canManageRoles && (
+                    {canManageRoles && isEditableRole(role) && (
                       <div className="flex items-center space-x-1">
                         <Button
                           variant="ghost"

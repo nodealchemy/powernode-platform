@@ -6,12 +6,9 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
   let(:account) { create(:account) }
   let(:manager_user) do
     user = create(:user, :manager, account: account)
-    # Grant account.manage permission
-    permission = Permission.find_or_create_by!(resource: 'account', action: 'manage') do |p|
-      p.description = 'Manage account settings and delegations'
-      p.category = 'resource'
-    end
-    user.roles.first.permissions << permission unless user.roles.first.permissions.include?(permission)
+    # Delegation management requires accounts.manage; grant it BY NAME through
+    # the user's role (permissions are code-defined, no Permission AR model).
+    user.roles.first.role_permissions.find_or_create_by!(permission_name: 'accounts.manage')
     user.reload
     user
   end
@@ -21,11 +18,7 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
   let(:headers) { auth_headers_for(manager_user) }
   let(:admin_role) do
     role = create(:role, name: 'account.admin', display_name: 'Account Admin', role_type: 'user')
-    permission = Permission.find_or_create_by!(resource: 'users', action: 'create') do |p|
-      p.description = 'Create users'
-      p.category = 'resource'
-    end
-    role.permissions << permission unless role.permissions.include?(permission)
+    role.role_permissions.find_or_create_by!(permission_name: 'users.create')
     role
   end
 
@@ -83,7 +76,9 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
     end
 
     it 'requires account.manage permission' do
-      regular_user = create(:user, account: account)
+      # Explicitly permissionless: the first user in an account would otherwise
+      # be auto-assigned the owner role (which holds accounts.manage).
+      regular_user = create(:user, account: account, permissions: [])
       regular_headers = auth_headers_for(regular_user)
 
       get "/api/v1/accounts/#{account.id}/delegations", headers: regular_headers
@@ -180,7 +175,9 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
     end
 
     it 'requires account.manage permission' do
-      regular_user = create(:user, account: account)
+      # Explicitly permissionless: the first user in an account would otherwise
+      # be auto-assigned the owner role (which holds accounts.manage).
+      regular_user = create(:user, account: account, permissions: [])
       regular_headers = auth_headers_for(regular_user)
 
       post "/api/v1/accounts/#{account.id}/delegations", params: delegation_params, headers: regular_headers, as: :json
@@ -354,17 +351,12 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
       external_user = create(:user, account: external_account)
       create(:account_delegation, :active, account: account, delegated_by: manager_user, delegated_user: external_user, role: nil)
     end
-    let(:permission) do
-      perm = Permission.find_or_create_by!(resource: 'reports', action: 'generate') do |p|
-        p.description = 'Generate reports'
-        p.category = 'resource'
-      end
-      perm
-    end
+    # Permissions are code-defined and referenced by NAME.
+    let(:permission_name) { 'report.generate' }
 
     it 'adds permission to delegation without role' do
       post "/api/v1/accounts/#{account.id}/delegations/#{delegation.id}/permissions",
-           params: { permission_id: permission.id },
+           params: { permission_name: permission_name },
            headers: headers,
            as: :json
 
@@ -376,7 +368,7 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
 
     it 'returns error when delegation not found' do
       post "/api/v1/accounts/#{account.id}/delegations/00000000-0000-0000-0000-000000000000/permissions",
-           params: { permission_id: permission.id },
+           params: { permission_name: permission_name },
            headers: headers,
            as: :json
 
@@ -384,23 +376,18 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
     end
   end
 
-  describe 'DELETE /api/v1/delegations/:id/permissions/:permission_id' do
-    let(:permission) do
-      Permission.find_or_create_by!(resource: 'test', action: 'delete') do |p|
-        p.description = 'Delete test'
-        p.category = 'resource'
-      end
-    end
+  describe 'DELETE /api/v1/delegations/:id/permissions/:permission_name' do
+    # :permission_name is a dotted catalog key the admin_role grants.
+    let(:permission_name) { 'users.create' }
     let(:delegation) do
       user = create(:user, account: account)
       d = create(:account_delegation, :active, account: account, delegated_by: manager_user, delegated_user: user, role: admin_role)
-      admin_role.permissions << permission unless admin_role.permissions.include?(permission)
-      d.delegation_permissions.create!(permission: permission)
+      d.delegation_permissions.create!(permission_name: permission_name)
       d
     end
 
     it 'removes permission from delegation' do
-      delete "/api/v1/accounts/#{account.id}/delegations/#{delegation.id}/permissions/#{permission.id}", headers: headers
+      delete "/api/v1/accounts/#{account.id}/delegations/#{delegation.id}/permissions/#{permission_name}", headers: headers
 
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
@@ -409,7 +396,7 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
     end
 
     it 'returns error when delegation not found' do
-      delete "/api/v1/accounts/#{account.id}/delegations/00000000-0000-0000-0000-000000000000/permissions/#{permission.id}", headers: headers
+      delete "/api/v1/accounts/#{account.id}/delegations/00000000-0000-0000-0000-000000000000/permissions/#{permission_name}", headers: headers
 
       expect(response).to have_http_status(:not_found)
     end

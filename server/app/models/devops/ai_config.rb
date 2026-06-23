@@ -87,9 +87,20 @@ module Devops
       }
     end
 
+    # #37: resolve the model dynamically when the config is "auto"/blank — an
+    # explicit model string is honored as a pin. Resolution stays within the
+    # config's own provider (a config is provider-specific): embedding configs
+    # pick a text_embedding model; code/chat configs prefer a reasoning-tier
+    # model; otherwise the provider's default. No hardcoded model names.
+    def resolved_model
+      return model if model.present? && !auto_model?
+
+      resolve_devops_model
+    end
+
     def model_params
       {
-        model: model,
+        model: resolved_model,
         max_tokens: max_tokens,
         temperature: temperature,
         top_p: top_p,
@@ -109,6 +120,50 @@ module Devops
     end
 
     private
+
+    # Sentinel values that mean "resolve a model at runtime" rather than pin one.
+    AUTO_MODELS = %w[auto default].freeze
+
+    def auto_model?
+      AUTO_MODELS.include?(model.to_s.strip.downcase)
+    end
+
+    # Resolve a model within THIS config's provider — a config is provider-specific,
+    # so the model always matches the provider whose credential the devops flow uses
+    # (no cross-provider fallback). Code/chat configs route through the one shared
+    # resolver (Ai::AgentModelSelector, provider-constrained); embedding configs pick
+    # a text_embedding model directly (the selector's agent profiles assume chat).
+    # Returns nil when the declared provider isn't set up, so the caller surfaces a
+    # missing model rather than emitting the "auto" sentinel or a blank string.
+    def resolve_devops_model
+      prov = config_provider
+      return nil unless prov
+
+      if config_type == "embedding"
+        embedding_model_for(prov) || prov.default_model.presence
+      else
+        ::Ai::AgentModelSelector.recommend(account: account, agent_type: selector_agent_type, provider: prov)[:model].presence ||
+          prov.default_model.presence
+      end
+    end
+
+    # The config's own active provider (no cross-provider fallback).
+    def config_provider
+      ::Ai::Provider.where(account_id: account_id, provider_type: provider, is_active: true).first
+    end
+
+    # Map the DevOps config_type to the selector's nearest agent_type profile.
+    def selector_agent_type
+      %w[code_review code_generation].include?(config_type) ? "code_assistant" : "assistant"
+    end
+
+    # First text_embedding-capable model id in the provider's catalog.
+    def embedding_model_for(prov)
+      entry = Array(prov.supported_models).find do |m|
+        m.is_a?(Hash) && Array(m["capabilities"]).include?("text_embedding")
+      end
+      ::Ai::ModelTiers.id_for(entry) if entry
+    end
 
     def ensure_single_default_per_type
       return unless is_default? && is_default_changed?

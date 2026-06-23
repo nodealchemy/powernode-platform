@@ -611,8 +611,6 @@ Rails.application.routes.draw do
         delete "deletion/:id", action: :cancel_deletion
         get :terms, action: :terms_status
         post "terms/:document_type/accept", action: :accept_terms
-        get :cookies, action: :cookie_preferences
-        put :cookies, action: :update_cookie_preferences
       end
 
       # OAuth Applications Management API
@@ -779,7 +777,10 @@ Rails.application.routes.draw do
             patch :deactivate
             patch :revoke
             post :permissions, to: "delegations#add_permission"
-            delete "permissions/:permission_id", to: "delegations#remove_permission"
+            # permission_name is a dotted catalog key (e.g. "users.read"); the
+            # constraint keeps the dots from being parsed as a format suffix.
+            delete "permissions/:permission_name", to: "delegations#remove_permission",
+                   constraints: { permission_name: %r{[^/]+} }
           end
         end
       end
@@ -833,7 +834,10 @@ Rails.application.routes.draw do
           delete "remove_from_user/:user_id", action: :remove_from_user
         end
       end
-      resources :permissions, only: [ :index, :show ]
+      # :id is a dotted catalog permission name (e.g. "users.read"); the
+      # constraint keeps the trailing ".read" from being parsed as a format
+      # suffix so params[:id] receives the full catalog key.
+      resources :permissions, only: [ :index, :show ], constraints: { id: %r{[^/]+} }
 
       # Plans management is in business/server/config/routes.rb
 
@@ -1904,6 +1908,11 @@ Rails.application.routes.draw do
           patch "knowledge_bases/:id", action: :update_knowledge_base
           delete "knowledge_bases/:id", action: :delete_knowledge_base
 
+          # Global/account content lifecycle (GloballyScopedContent)
+          post "knowledge_bases/:id/clone", action: :perform_clone
+          post "knowledge_bases/:id/update_from_source", action: :update_from_source
+          get "knowledge_bases/:id/update_from_source/preview", action: :update_from_source_preview
+
           # Documents
           get "knowledge_bases/:knowledge_base_id/documents", action: :list_documents
           post "knowledge_bases/:knowledge_base_id/documents", action: :create_document
@@ -2031,6 +2040,10 @@ Rails.application.routes.draw do
             get "/templates/:id", action: :show_template
             post "/templates", action: :create_template
             post "/templates/:id/publish", action: :publish_template
+            # Global/account content lifecycle (GloballyScopedContent)
+            post "/templates/:id/clone", action: :perform_clone
+            post "/templates/:id/update_from_source", action: :update_from_source
+            get "/templates/:id/update_from_source/preview", action: :update_from_source_preview
             get "/role_profiles", action: :list_role_profiles
             get "/role_profiles/:id", action: :show_role_profile
             get "/trajectories", action: :list_trajectories
@@ -2136,6 +2149,10 @@ Rails.application.routes.draw do
           member do
             post :preview
             post :duplicate
+            # Global/account content lifecycle (GloballyScopedContent)
+            post "clone", action: :perform_clone
+            post :update_from_source
+            get "update_from_source/preview", to: "prompt_templates#update_from_source_preview"
           end
         end
 
@@ -2183,7 +2200,14 @@ Rails.application.routes.draw do
         # ===================================================================
         # MISSION TEMPLATES - Reusable mission phase definitions
         # ===================================================================
-        resources :mission_templates, controller: "mission_templates", only: [:index, :show, :create, :update, :destroy]
+        resources :mission_templates, controller: "mission_templates", only: [:index, :show, :create, :update, :destroy] do
+          member do
+            # Global/account content lifecycle (GloballyScopedContent)
+            post "clone", action: :perform_clone
+            post :update_from_source
+            get "update_from_source/preview", to: "mission_templates#update_from_source_preview"
+          end
+        end
 
         # ===================================================================
         # MISSIONS - AI-Assisted Development Hub
@@ -2537,6 +2561,10 @@ Rails.application.routes.draw do
             get "installations", action: :installations
             post "templates/:template_id/install", action: :install
             delete "installations/:id", action: :uninstall
+            # Global/account content lifecycle (GloballyScopedContent)
+            post "templates/:id/clone", action: :perform_clone
+            post "templates/:id/update_from_source", action: :update_from_source
+            get "templates/:id/update_from_source/preview", action: :update_from_source_preview
           end
 
           # Executions & analytics → DevopsExecutionsController
@@ -2799,6 +2827,10 @@ Rails.application.routes.draw do
             post :activate
             post :deactivate
             get :agents
+            # Global/account content lifecycle (GloballyScopedContent)
+            post "clone", action: :perform_clone
+            post :update_from_source
+            get "update_from_source/preview", to: "skills#update_from_source_preview"
           end
 
           collection do

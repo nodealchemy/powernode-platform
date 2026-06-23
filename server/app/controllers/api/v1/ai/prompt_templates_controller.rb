@@ -5,11 +5,17 @@ module Api
     module Ai
       class PromptTemplatesController < ApplicationController
         include AuditLogging
+        include GloballyScopedContent
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [ :index, :show, :preview ]
-        before_action :require_write_permission, only: [ :create, :update, :destroy, :duplicate ]
+        before_action :require_read_permission, only: [ :index, :show, :preview, :update_from_source_preview ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :duplicate, :perform_clone, :update_from_source ]
         before_action :set_prompt_template, only: [ :show, :update, :destroy, :preview, :duplicate ]
+
+        # The GloballyScopable model backing the clone / update_from_source actions.
+        def content_model
+          ::Shared::PromptTemplate
+        end
 
         # GET /api/v1/ai/prompt_templates
         def index
@@ -62,7 +68,8 @@ module Api
 
         # POST /api/v1/ai/prompt_templates
         def create
-          template = prompt_templates_scope.new(prompt_template_params)
+          template = ::Shared::PromptTemplate.new(prompt_template_params)
+          template.account = current_user.account
           template.created_by = current_user
           template.domain ||= "general" # Default domain
 
@@ -83,6 +90,9 @@ module Api
 
         # PATCH/PUT /api/v1/ai/prompt_templates/:id
         def update
+          require_editable_content!(@prompt_template)
+          return if performed?
+
           if @prompt_template.update(prompt_template_params)
             render_success({
               prompt_template: serialize_prompt_template(@prompt_template),
@@ -100,6 +110,9 @@ module Api
 
         # DELETE /api/v1/ai/prompt_templates/:id
         def destroy
+          require_editable_content!(@prompt_template)
+          return if performed?
+
           # Check if template is in use by any pipeline steps
           if @prompt_template.devops_pipeline_steps.exists?
             render_error("Cannot delete template that is in use by pipeline steps", status: :unprocessable_content)
@@ -155,9 +168,11 @@ module Api
 
         private
 
-        # Scope to all accessible templates for the account
+        # Visible templates: global (platform-managed) + the account's own,
+        # filtered by ?scope=global|custom|all (default: global + own). Global
+        # baseline templates must stay visible after the global/account split.
         def prompt_templates_scope
-          current_user.account.shared_prompt_templates
+          apply_content_scope(::Shared::PromptTemplate.all)
         end
 
         def set_prompt_template
@@ -191,6 +206,11 @@ module Api
           )
         end
 
+        # Richer serialization for clone / update_from_source responses.
+        def content_json(record)
+          serialize_prompt_template(record)
+        end
+
         def serialize_collection(templates)
           templates.map { |t| serialize_prompt_template(t) }
         end
@@ -205,7 +225,7 @@ module Api
             end
           end
 
-          result
+          result.merge(template.scope_attributes)
         end
       end
     end

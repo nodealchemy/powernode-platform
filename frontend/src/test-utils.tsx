@@ -131,7 +131,7 @@ export const createMockUser = (overrides: Partial<EnhancedUser> = {}): EnhancedU
   first_name: 'John',
   last_name: 'Doe',
   roles: ['account.member'],
-  permissions: ['users.read', 'plans.read'],
+  permissions: ['users.read', 'business.plans.read'],
   status: 'active',
   email_verified: true,
   last_login_at: new Date().toISOString(),
@@ -153,7 +153,7 @@ export const mockUsers = {
     first_name: 'John',
     last_name: 'Doe',
     roles: ['account.member'],
-    permissions: ['users.read', 'plans.read'],
+    permissions: ['users.read', 'business.plans.read'],
     account: {
       id: 'acc_1',
       name: 'Test Company'
@@ -165,7 +165,7 @@ export const mockUsers = {
     first_name: 'Admin',
     last_name: 'User',
     roles: ['system.admin'],
-    permissions: ['users.read', 'users.manage', 'admin.access', 'plans.read', 'billing.manage'],
+    permissions: ['users.read', 'users.manage', 'admin.access', 'business.plans.read', 'business.billing.manage'],
     account: {
       id: 'acc_2',
       name: 'Admin Company'
@@ -177,7 +177,7 @@ export const mockUsers = {
     first_name: 'Billing',
     last_name: 'Manager',
     roles: ['billing.manager'],
-    permissions: ['users.read', 'billing.read', 'billing.manage', 'invoices.create'],
+    permissions: ['users.read', 'business.billing.read', 'business.billing.manage', 'invoices.create'],
     account: {
       id: 'acc_3',
       name: 'Billing Company'

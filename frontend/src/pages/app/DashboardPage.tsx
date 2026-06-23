@@ -130,8 +130,6 @@ const DashboardOverview: React.FC = () => {
   usePageWebSocket({
     pageType: 'dashboard',
     onDataUpdate: handleDataUpdate,
-    onSubscriptionUpdate: handleDataUpdate,
-    onAnalyticsUpdate: handleDataUpdate,
     onNotification: handleDataUpdate
   });
 

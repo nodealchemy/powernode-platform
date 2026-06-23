@@ -10,19 +10,16 @@ RSpec.describe Api::V1::Admin::DatabaseController, type: :controller do
   let(:worker_jwt) { Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now) }
 
   before do
-    # Grant system.admin permission to admin user
+    # Grant the system.admin permission (code-defined catalog entry) to the
+    # admin user via a role, BY NAME — there is no Permission AR model.
     admin_role = Role.find_or_create_by!(name: 'system.admin') do |role|
       role.display_name = 'System Administrator'
       role.role_type = 'admin'
       role.description = 'Full system administration access'
     end
-    # Ensure the permission exists and is assigned
-    system_admin_permission = Permission.find_or_create_by!(name: 'system.admin') do |p|
-      p.description = 'Full system admin access'
-      p.category = 'admin'
-    end
-    admin_role.permissions << system_admin_permission unless admin_role.permissions.include?(system_admin_permission)
+    admin_role.role_permissions.find_or_create_by!(permission_name: 'system.admin')
     admin_user.roles << admin_role unless admin_user.roles.include?(admin_role)
+    admin_user.reload
   end
 
   describe 'GET #pool_stats' do

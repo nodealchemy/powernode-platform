@@ -5,7 +5,7 @@ puts "  Seeding AI mission templates..."
 templates = [
   {
     name: "Standard Development",
-    description: "Full development lifecycle with code analysis, PRD generation, implementation, testing, code review, and deployment preview.",
+    description: "Full dev lifecycle: code analysis, PRD, implementation, testing, code review, deployment preview.",
     template_type: "system",
     mission_type: "development",
     is_default: true,
@@ -63,14 +63,21 @@ templates = [
   }
 ]
 
+# GLOBAL baseline content: account_id nil, upserted by source_key so future
+# seeds update in place. No account needed (seeds in core/prod too).
+return unless Powernode::Seeds.baseline?
+
 templates.each do |attrs|
-  template = Ai::MissionTemplate.find_or_initialize_by(
-    name: attrs[:name],
-    template_type: attrs[:template_type]
-  )
+  source_key = attrs[:name].parameterize
+  template = Ai::MissionTemplate.find_or_initialize_by(source_key: source_key, account_id: nil)
   template.assign_attributes(attrs)
+  if template.new_record?
+    template.version = 1
+  elsif template.changed?
+    template.version = template.version.to_i + 1
+  end
   template.save!
   puts "    #{attrs[:template_type]}/#{attrs[:name]} (#{attrs[:mission_type]}, #{attrs[:phases].length} phases)"
 end
 
-puts "  Created #{Ai::MissionTemplate.count} mission templates"
+puts "  Created #{Ai::MissionTemplate.global.count} global mission templates"

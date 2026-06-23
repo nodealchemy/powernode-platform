@@ -152,32 +152,28 @@ SYSTEM_PROMPT_TEMPLATES = [
   }
 ].freeze
 
-admin_account = Account.first
-unless admin_account
-  puts "  ⚠️  No account found — skipping system prompt templates"
-  return
-end
+# GLOBAL baseline content: account_id nil, read-only, upserted by source_key so
+# future seeds update in place. No account needed (seeds in core/prod too).
+return unless Powernode::Seeds.baseline?
 
-SYSTEM_PROMPT_TEMPLATES.each do |template_data|
-  existing = Shared::PromptTemplate.find_by(slug: template_data[:slug], account_id: admin_account.id)
-  if existing
-    puts "  ⏭️  Prompt template '#{template_data[:slug]}' already exists, skipping"
-    next
-  end
-
-  Shared::PromptTemplate.create!(
-    slug: template_data[:slug],
-    name: template_data[:name],
-    description: template_data[:description],
-    category: template_data[:category],
+SYSTEM_PROMPT_TEMPLATES.each do |t|
+  tmpl = Shared::PromptTemplate.find_or_initialize_by(source_key: t[:slug], account_id: nil)
+  tmpl.assign_attributes(
+    slug: t[:slug],
+    name: t[:name],
+    description: t[:description],
+    category: t[:category],
     domain: "general",
-    content: template_data[:content],
+    content: t[:content],
     is_system: true,
-    is_active: true,
-    version: 1,
-    account: admin_account
+    is_active: true
   )
-  puts "  ✅ Created prompt template '#{template_data[:slug]}'"
+  if tmpl.new_record?
+    tmpl.version = 1
+  elsif tmpl.changed?
+    tmpl.version = tmpl.version.to_i + 1
+  end
+  tmpl.save!
 end
 
-puts "✅ System prompt templates: #{Shared::PromptTemplate.system_templates.count} total"
+puts "✅ System prompt templates (global baseline): #{Shared::PromptTemplate.global.where(is_system: true).count}"

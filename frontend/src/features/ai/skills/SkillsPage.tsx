@@ -4,6 +4,7 @@ import { skillsApi } from './services/skillsApi';
 import { skillLifecycleApi } from './services/skillLifecycleApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
+import { usePermissions } from '@/shared/hooks/usePermissions';
 import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { SkillCard } from './components/SkillCard';
 import { SkillDetailPanel } from './components/SkillDetailPanel';
@@ -12,7 +13,13 @@ import { ResearchModal } from './components/ResearchModal';
 import { ProposalsList } from './components/ProposalsList';
 import { SkillGraphEmbed } from './components/SkillGraphEmbed';
 import { OptimizationDashboard } from './components/OptimizationDashboard';
-import type { AiSkillSummary, SkillCategory, SkillFilters } from './types';
+import {
+  ScopeFilter,
+  UpdateFromSourceModal,
+  useScopeParam,
+  isClone,
+} from '@/features/content/scoped';
+import type { AiSkill, AiSkillSummary, SkillCategory, SkillFilters } from './types';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 
 interface SkillsPageProps {
@@ -56,7 +63,10 @@ const getSubTab = (pathname: string): TopTab => {
 
 export function SkillsPage({ onActionsReady }: SkillsPageProps) {
   const { showNotification } = useNotifications();
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission('ai.skills.create');
   const location = useLocation();
+  const [scope, setScope] = useScopeParam();
   const [skills, setSkills] = useState<AiSkillSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -67,21 +77,60 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
   const [activeTab, setActiveTab] = useState<TopTab>(getSubTab(location.pathname));
   const [pendingCount, setPendingCount] = useState(0);
   const [showResearch, setShowResearch] = useState(false);
+  // id -> true when an account clone has diverged from its origin (preview not synced)
+  const [updateAvailable, setUpdateAvailable] = useState<Record<string, boolean>>({});
+  const [updateSkill, setUpdateSkill] = useState<AiSkillSummary | null>(null);
+
+  // For visible account clones, fetch the 3-way preview to learn whether the
+  // baseline has diverged, so the "Update available" badge only shows when not
+  // synced. Runs in parallel; failures (incl. no_origin) are treated as synced.
+  const refreshCloneSyncState = useCallback(async (list: AiSkillSummary[]) => {
+    const clones = list.filter((s) => isClone(s));
+    if (clones.length === 0) {
+      setUpdateAvailable({});
+      return;
+    }
+    const entries = await Promise.all(
+      clones.map(async (s) => {
+        try {
+          const preview = await skillsApi.updateFromSourcePreview(s.id);
+          return [s.id, !preview.error && !preview.synced] as const;
+        } catch {
+          return [s.id, false] as const;
+        }
+      }),
+    );
+    setUpdateAvailable(Object.fromEntries(entries));
+  }, []);
 
   const loadSkills = useCallback(async () => {
     setLoading(true);
-    const filters: SkillFilters = {};
+    const filters: SkillFilters = { scope };
     if (selectedCategory) filters.category = selectedCategory as SkillCategory;
     if (searchQuery) filters.search = searchQuery;
 
     const response = await skillsApi.getSkills(1, 100, filters);
     if (response.success && response.data) {
       setSkills(response.data.skills);
+      refreshCloneSyncState(response.data.skills);
     } else {
       showNotification(response.error || 'Failed to load skills', 'error');
     }
     setLoading(false);
-  }, [selectedCategory, searchQuery, showNotification]);
+  }, [scope, selectedCategory, searchQuery, showNotification, refreshCloneSyncState]);
+
+  const handleCloneSkill = useCallback(
+    async (id: string): Promise<AiSkill> => skillsApi.clone(id),
+    [],
+  );
+
+  const handleCloned = useCallback(
+    (copy: AiSkill) => {
+      loadSkills();
+      setSelectedSkillId(copy.id);
+    },
+    [loadSkills],
+  );
 
   const loadPendingCount = useCallback(async () => {
     const response = await skillLifecycleApi.getProposals(1, 'proposed');
@@ -188,15 +237,16 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
       {/* Skills Tab */}
       {activeTab === 'skills' && (
         <div className="space-y-6">
-          {/* Search */}
-          <div>
+          {/* Search + scope filter */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search skills..."
-              className="w-full max-w-md px-3 py-2 bg-theme-surface border border-theme rounded-md text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+              className="flex-1 min-w-[200px] max-w-md px-3 py-2 bg-theme-surface border border-theme rounded-md text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
             />
+            <ScopeFilter value={scope} onChange={setScope} />
           </div>
 
           {/* Category Tabs */}
@@ -240,6 +290,13 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
                   skill={skill}
                   onToggle={handleToggle}
                   onClick={(id) => setSelectedSkillId(id)}
+                  canClone={canCreate}
+                  onCloneSkill={handleCloneSkill}
+                  onCloned={handleCloned}
+                  updateAvailable={!!updateAvailable[skill.id]}
+                  onUpdateFromSource={(id) =>
+                    setUpdateSkill(skills.find((s) => s.id === id) ?? null)
+                  }
                 />
               ))}
             </div>
@@ -249,8 +306,10 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
           {selectedSkillId && (
             <SkillDetailPanel
               skillId={selectedSkillId}
+              canCreate={canCreate}
               onClose={() => setSelectedSkillId(null)}
               onUpdated={loadSkills}
+              onCloned={(copy) => setSelectedSkillId(copy.id)}
             />
           )}
         </div>
@@ -278,6 +337,18 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
         isOpen={showResearch}
         onClose={() => setShowResearch(false)}
         onProposalCreated={handleProposalCreated}
+      />
+
+      {/* Update-from-source Modal (account clones) */}
+      <UpdateFromSourceModal
+        isOpen={!!updateSkill}
+        onClose={() => setUpdateSkill(null)}
+        itemName={updateSkill?.name}
+        fetchPreview={() => skillsApi.updateFromSourcePreview(updateSkill!.id)}
+        applyUpdate={(resolutions) =>
+          skillsApi.updateFromSource(updateSkill!.id, resolutions)
+        }
+        onApplied={loadSkills}
       />
     </div>
   );

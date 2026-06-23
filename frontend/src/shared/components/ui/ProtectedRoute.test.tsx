@@ -152,7 +152,7 @@ describe('ProtectedRoute', () => {
         </ProtectedRoute>,
         {
           isAuthenticated: true,
-          user: { id: '1', email_verified: true, permissions: ['users.read', 'billing.read'] }
+          user: { id: '1', email_verified: true, permissions: ['users.read', 'business.billing.read'] }
         }
       );
 
@@ -251,7 +251,7 @@ describe('ProtectedRoute', () => {
       renderWithProviders(
         <ProtectedRoute
           requireEmailVerification
-          requiredPermissions={['billing.read']}
+          requiredPermissions={['business.billing.read']}
         >
           <div>Full Access Content</div>
         </ProtectedRoute>,
@@ -260,7 +260,7 @@ describe('ProtectedRoute', () => {
           user: {
             id: '1',
             email_verified: true,
-            permissions: ['billing.read', 'users.read']
+            permissions: ['business.billing.read', 'users.read']
           }
         }
       );
@@ -272,7 +272,7 @@ describe('ProtectedRoute', () => {
       renderWithProviders(
         <ProtectedRoute
           requireEmailVerification
-          requiredPermissions={['billing.read']}
+          requiredPermissions={['business.billing.read']}
         >
           <div>Full Access Content</div>
         </ProtectedRoute>,
@@ -281,7 +281,7 @@ describe('ProtectedRoute', () => {
           user: {
             id: '1',
             email_verified: false,
-            permissions: ['billing.read']
+            permissions: ['business.billing.read']
           }
         }
       );

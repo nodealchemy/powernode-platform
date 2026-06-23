@@ -57,7 +57,7 @@ export const mockUser = {
   email: 'test@example.com',
   name: 'John Doe',
   roles: ['system.admin'],
-  permissions: ['users.create', 'users.read', 'users.update', 'users.delete', 'billing.read', 'billing.update'],
+  permissions: ['users.create', 'users.read', 'users.update', 'users.delete', 'business.billing.read', 'business.billing.update'],
   status: 'active',
   email_verified: true,
   account: {
@@ -74,7 +74,7 @@ export const mockUsers = {
     email: 'admin@example.com',
     name: 'Admin User',
     roles: ['system.admin'],
-    permissions: ['users.create', 'users.read', 'users.update', 'users.delete', 'users.manage', 'team.manage', 'billing.read', 'billing.update', 'admin.access', 'settings.update'],
+    permissions: ['users.create', 'users.read', 'users.update', 'users.delete', 'users.manage', 'team.manage', 'business.billing.read', 'business.billing.update', 'admin.access', 'settings.update'],
     status: 'active',
     email_verified: true,
     account: {
@@ -102,7 +102,7 @@ export const mockUsers = {
     email: 'billing@example.com',
     name: 'Billing Manager',
     roles: ['billing.manager'],
-    permissions: ['billing.read', 'billing.update', 'billing.manage'],
+    permissions: ['business.billing.read', 'business.billing.update', 'business.billing.manage'],
     status: 'active',
     email_verified: true,
     account: {
@@ -281,7 +281,7 @@ export const createMockUser = (overrides: Partial<EnhancedUser> = {}): EnhancedU
   email: 'user@example.com',
   email_verified: true,
   roles: ['account.member'],
-  permissions: ['users.read', 'plans.read'],
+  permissions: ['users.read', 'business.plans.read'],
   status: 'active',
   locked: false,
   failed_login_attempts: 0,

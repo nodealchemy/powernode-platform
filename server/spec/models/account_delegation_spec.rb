@@ -6,21 +6,14 @@ RSpec.describe Account::Delegation, type: :model do
   let(:account) { create(:account) }
   let(:delegator) { create(:user, account: account) }
   let(:delegated_user) { create(:user, account: account) }
+  # Permissions are code-defined; grant real catalog permissions BY NAME.
+  ROLE_PERMISSION_NAMES = %w[users.create analytics.read accounts.manage].freeze
+
   let(:admin_role) do
     role = create(:role, name: 'account.admin', display_name: 'Account Admin', role_type: 'user')
-    permission1 = Permission.find_or_create_by!(resource: 'users', action: 'create') do |p|
-      p.description = 'Create users'
-      p.category = 'resource'
+    ROLE_PERMISSION_NAMES.each do |name|
+      role.role_permissions.find_or_create_by!(permission_name: name)
     end
-    permission2 = Permission.find_or_create_by!(resource: 'analytics', action: 'read') do |p|
-      p.description = 'Read analytics'
-      p.category = 'resource'
-    end
-    permission3 = Permission.find_or_create_by!(resource: 'account', action: 'manage') do |p|
-      p.description = 'Manage account'
-      p.category = 'admin'
-    end
-    role.permissions << [ permission1, permission2, permission3 ] unless role.permissions.include?(permission1)
     role
   end
 
@@ -31,7 +24,6 @@ RSpec.describe Account::Delegation, type: :model do
     it { should belong_to(:revoked_by).class_name('User').optional }
     it { should belong_to(:role).optional }
     it { should have_many(:delegation_permissions).dependent(:destroy) }
-    it { should have_many(:permissions).through(:delegation_permissions) }
   end
 
   describe 'validations' do
@@ -279,14 +271,18 @@ RSpec.describe Account::Delegation, type: :model do
   describe 'permission methods' do
     let(:delegation) { create(:account_delegation, account: account, delegated_by: delegator, delegated_user: delegated_user, role: admin_role) }
 
+    # Permissions are code-defined and referenced by NAME (string). The
+    # delegation's effective/assigned permissions are arrays of catalog names.
+    let(:role_permission_name) { ROLE_PERMISSION_NAMES.first }
+
     describe '#effective_permissions' do
-      it 'returns custom permissions when assigned' do
-        delegation.delegation_permissions.create!(permission: admin_role.permissions.first)
-        expect(delegation.effective_permissions).to eq([ admin_role.permissions.first ])
+      it 'returns custom permission names when assigned' do
+        delegation.delegation_permissions.create!(permission_name: role_permission_name)
+        expect(delegation.effective_permissions).to eq([ role_permission_name ])
       end
 
-      it 'returns role permissions when no custom permissions' do
-        expect(delegation.effective_permissions).to match_array(admin_role.permissions)
+      it 'returns role permission names when no custom permissions' do
+        expect(delegation.effective_permissions).to match_array(admin_role.permission_names)
       end
 
       it 'returns empty array when inactive' do
@@ -312,7 +308,7 @@ RSpec.describe Account::Delegation, type: :model do
       end
 
       it 'returns false when delegation does not have the permission' do
-        expect(delegation.has_permission?('billing.manage')).to be false
+        expect(delegation.has_permission?('page.delete')).to be false
       end
 
       it 'returns false when delegation is inactive' do
@@ -327,64 +323,59 @@ RSpec.describe Account::Delegation, type: :model do
     end
 
     describe '#assign_permission' do
-      it 'assigns permission when active and within role scope' do
-        perm = admin_role.permissions.first
-        delegation.permissions.clear
+      it 'assigns permission by name when active and within role scope' do
+        delegation.delegation_permissions.destroy_all
 
-        result = delegation.assign_permission(perm)
+        result = delegation.assign_permission(role_permission_name)
         expect(result).to be true
-        expect(delegation.reload.permissions).to include(perm)
+        expect(delegation.reload.permission_names).to include(role_permission_name)
       end
 
       it 'returns false when inactive' do
         delegation.update!(status: 'inactive')
-        result = delegation.assign_permission(admin_role.permissions.first)
+        result = delegation.assign_permission(role_permission_name)
         expect(result).to be false
       end
 
       it 'returns false when permission already assigned' do
-        perm = admin_role.permissions.first
-        delegation.delegation_permissions.create!(permission: perm)
+        delegation.delegation_permissions.create!(permission_name: role_permission_name)
 
-        result = delegation.assign_permission(perm)
+        result = delegation.assign_permission(role_permission_name)
         expect(result).to be false
       end
 
       it 'returns false when permission not in role scope' do
-        other_permission = create(:permission, resource: 'external', action: 'access')
-        result = delegation.assign_permission(other_permission)
+        # A real catalog permission the admin_role does NOT grant.
+        result = delegation.assign_permission('page.delete')
         expect(result).to be false
       end
 
       it 'assigns permission when no role assigned' do
         user = create(:user, account: account)
         no_role_delegation = create(:account_delegation, account: account, delegated_by: delegator, delegated_user: user, role: nil)
-        perm = create(:permission, resource: 'test', action: 'read')
 
-        result = no_role_delegation.assign_permission(perm)
+        result = no_role_delegation.assign_permission('report.read')
         expect(result).to be true
       end
     end
 
     describe '#remove_permission' do
-      it 'removes the permission' do
-        perm = admin_role.permissions.first
-        delegation.delegation_permissions.create!(permission: perm)
+      it 'removes the permission by name' do
+        delegation.delegation_permissions.create!(permission_name: role_permission_name)
 
-        delegation.remove_permission(perm)
-        expect(delegation.reload.permissions).not_to include(perm)
+        delegation.remove_permission(role_permission_name)
+        expect(delegation.reload.permission_names).not_to include(role_permission_name)
       end
 
-      it 'returns nil when permission not assigned' do
-        perm = create(:permission, resource: 'test', action: 'read')
-        result = delegation.remove_permission(perm)
-        expect(result).to be_nil
+      it 'returns an empty result when permission not assigned' do
+        result = delegation.remove_permission('report.read')
+        expect(result.to_a).to eq([])
       end
     end
 
     describe '#permission_source' do
       it 'returns "custom" when custom permissions assigned' do
-        delegation.delegation_permissions.create!(permission: admin_role.permissions.first)
+        delegation.delegation_permissions.create!(permission_name: role_permission_name)
         expect(delegation.permission_source).to eq('custom')
       end
 
@@ -400,14 +391,12 @@ RSpec.describe Account::Delegation, type: :model do
     end
 
     describe '#available_permissions' do
-      it 'returns role permissions not yet assigned' do
-        # Assign one permission specifically
-        assigned_perm = admin_role.permissions.first
-        delegation.delegation_permissions.create!(permission: assigned_perm)
+      it 'returns role permission names not yet assigned' do
+        delegation.delegation_permissions.create!(permission_name: role_permission_name)
 
         available = delegation.available_permissions
-        expect(available).not_to include(assigned_perm)
-        expect(available.count).to eq(admin_role.permissions.count - 1)
+        expect(available).not_to include(role_permission_name)
+        expect(available.count).to eq(admin_role.permission_names.count - 1)
       end
 
       it 'returns empty array when no role' do
@@ -422,7 +411,7 @@ RSpec.describe Account::Delegation, type: :model do
         summary = delegation.permissions_summary
         expect(summary).to include('users: create')
         expect(summary).to include('analytics: read')
-        expect(summary).to include('account: manage')
+        expect(summary).to include('accounts: manage')
       end
 
       it 'returns "No permissions" when no permissions' do

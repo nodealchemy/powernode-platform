@@ -79,11 +79,22 @@ type SetupAction =
   | { type: 'SUBMIT_START' }
   | { type: 'SUBMIT_ERROR'; error: string }
   | { type: 'REPLACE_STEPS'; steps: SetupStep[]; index: number }
-  | { type: 'ADVANCE' };
+  | { type: 'GOTO'; index: number };
 
 const firstIncomplete = (steps: SetupStep[]): number => {
   const i = steps.findIndex((s) => !s.completed);
   return i === -1 ? Math.max(steps.length - 1, 0) : i;
+};
+
+// First incomplete step at or after `from`, or steps.length when none remain
+// (caller finishes the wizard). Lets advancing auto-skip already-completed steps
+// — notably provider steps whose credentials already exist (completion:
+// provider_credentials), so the wizard never re-asks for a configured provider.
+const nextIncompleteFrom = (steps: SetupStep[], from: number): number => {
+  for (let i = Math.max(from, 0); i < steps.length; i += 1) {
+    if (!steps[i].completed) return i;
+  }
+  return steps.length;
 };
 
 const errorMessage = (err: unknown, fallback: string): string => {
@@ -124,8 +135,8 @@ function reducer(state: SetupState, action: SetupAction): SetupState {
       return { ...state, submitting: false, error: action.error };
     case 'REPLACE_STEPS':
       return { ...state, submitting: false, error: null, steps: action.steps, index: action.index };
-    case 'ADVANCE':
-      return { ...state, submitting: false, error: null, index: Math.min(state.index + 1, state.steps.length) };
+    case 'GOTO':
+      return { ...state, submitting: false, error: null, index: Math.min(action.index, state.steps.length) };
     default:
       return state;
   }
@@ -241,7 +252,9 @@ export const SetupWizard: React.FC = () => {
           await setupApi.submitStep(step.key, values);
         }
         const steps = await setupApi.getSteps();
-        const nextIdx = Math.min(state.index + 1, steps.length);
+        // Skip any already-completed steps ahead (e.g. provider steps whose
+        // credentials already exist) so we never re-ask for configured providers.
+        const nextIdx = nextIncompleteFrom(steps, state.index + 1);
         dispatchLocal({ type: 'REPLACE_STEPS', steps, index: nextIdx });
         if (nextIdx >= steps.length) {
           void finishSetup();
@@ -254,13 +267,13 @@ export const SetupWizard: React.FC = () => {
   );
 
   const skipStep = useCallback(() => {
-    const nextIdx = state.index + 1;
+    const nextIdx = nextIncompleteFrom(state.steps, state.index + 1);
     if (nextIdx >= state.steps.length) {
       void finishSetup();
     } else {
-      dispatchLocal({ type: 'ADVANCE' });
+      dispatchLocal({ type: 'GOTO', index: nextIdx });
     }
-  }, [state.index, state.steps.length, finishSetup]);
+  }, [state.steps, state.index, finishSetup]);
 
   const progressSteps = useMemo(
     () =>
@@ -310,7 +323,7 @@ export const SetupWizard: React.FC = () => {
       data-testid="setup-wizard"
     >
       <header className="border-b border-theme bg-theme-surface px-6 py-4">
-        <div className="mx-auto flex max-w-2xl items-center gap-3">
+        <div className="flex w-full items-center gap-3">
           <Rocket className="h-5 w-5 text-theme-interactive-primary" aria-hidden="true" />
           <div className="min-w-0">
             <h1 className="text-base font-semibold">Set up Powernode</h1>
@@ -322,7 +335,7 @@ export const SetupWizard: React.FC = () => {
       </header>
 
       <main className="flex-1 px-6 py-6">
-        <div className="mx-auto max-w-2xl space-y-5">
+        <div className="w-full space-y-5">
           <WizardProgress steps={progressSteps} currentIndex={state.index} testId="setup-step-progress" />
 
           <section

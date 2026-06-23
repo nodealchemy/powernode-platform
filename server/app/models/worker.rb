@@ -61,7 +61,7 @@ class Worker < ApplicationRecord
   # Scopes
   scope :active, -> { where(status: "active") }
   scope :for_account, ->(account) { where(account: account) }
-  scope :with_permission, ->(perm) { joins(roles: :permissions).where(permissions: { name: perm }) }
+  scope :with_permission, ->(perm) { joins(roles: :role_permissions).where(role_permissions: { permission_name: perm }) }
   scope :system_workers, -> { where(is_system: true) }
   scope :account_workers, -> { where(is_system: false) }
 
@@ -128,9 +128,9 @@ class Worker < ApplicationRecord
   def has_permission?(permission_name)
     return false unless active?
 
-    # Get all permissions from all assigned roles
-    roles.joins(:permissions)
-         .where(permissions: { name: permission_name.to_s })
+    # Permissions are code-defined; a worker's roles grant them by name.
+    roles.joins(:role_permissions)
+         .where(role_permissions: { permission_name: permission_name.to_s })
          .exists?
   end
 
@@ -165,9 +165,9 @@ class Worker < ApplicationRecord
   end
 
   def all_permissions
-    # Get unique permissions from all roles
-    roles.joins(:permissions)
-         .pluck("permissions.name")
+    # Get unique permission names from all roles
+    roles.joins(:role_permissions)
+         .pluck("role_permissions.permission_name")
          .uniq
          .sort
   end

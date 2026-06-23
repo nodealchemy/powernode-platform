@@ -36,8 +36,9 @@ namespace :roles do
     }
 
     # First, ensure all standard roles exist
+    # all_roles = core ROLES + enabled-extension roles (register_roles).
     puts "\n1. Creating/updating standard roles from Permissions module..."
-    Permissions::ROLES.each do |name, config|
+    Permissions.all_roles.each do |name, config|
       role = Role.find_or_create_by!(name: name) do |r|
         r.display_name = config[:display_name]
         r.description = config[:description]
@@ -104,7 +105,7 @@ namespace :roles do
 
     # Clean up any roles not in the standard list
     puts "\n3. Checking for non-standard roles..."
-    standard_role_names = Permissions::ROLES.keys
+    standard_role_names = Permissions.all_roles.keys
     Role.where.not(name: standard_role_names).each do |role|
       if role.users.any? || role.workers.any?
         puts "  ⚠ Warning: Role '#{role.name}' has #{role.users.count} users and #{role.workers.count} workers - manual review needed"
@@ -119,7 +120,7 @@ namespace :roles do
     Role.order(:role_type, :name).each do |role|
       user_count = role.users.count
       worker_count = role.workers.count
-      permission_count = role.permissions.count
+      permission_count = role.role_permissions.count
 
       puts "  • #{role.name} (#{role.display_name})"
       puts "    Type: #{role.role_type}, Users: #{user_count}, Workers: #{worker_count}, Permissions: #{permission_count}"
@@ -139,12 +140,12 @@ namespace :roles do
     puts "\nDatabase Roles:"
     Role.order(:role_type, :name).each do |role|
       puts "  #{role.name.ljust(20)} - #{role.display_name.ljust(25)} (#{role.role_type})"
-      puts "    Users: #{role.users.count}, Workers: #{role.workers.count}, Permissions: #{role.permissions.count}"
+      puts "    Users: #{role.users.count}, Workers: #{role.workers.count}, Permissions: #{role.role_permissions.count}"
     end
 
     # Show configured roles
     puts "\nConfigured Roles (from Permissions module):"
-    Permissions::ROLES.each do |name, config|
+    Permissions.all_roles.each do |name, config|
       puts "  #{name.ljust(20)} - #{config[:display_name].ljust(25)} (#{config[:role_type]})"
       puts "    Permissions: #{config[:permissions].count}"
     end
@@ -152,7 +153,7 @@ namespace :roles do
     # Show discrepancies
     puts "\nDiscrepancies:"
     db_role_names = Role.pluck(:name).to_set
-    config_role_names = Permissions::ROLES.keys.map(&:to_s).to_set
+    config_role_names = Permissions.all_roles.keys.map(&:to_s).to_set
 
     missing_in_db = config_role_names - db_role_names
     extra_in_db = db_role_names - config_role_names

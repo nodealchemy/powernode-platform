@@ -6,7 +6,6 @@
 puts "  ⚙️ Creating System Administration articles..."
 
 system_cat = KnowledgeBase::Category.find_by!(slug: "system-administration")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 33: System Services Management
 services_content = <<~MARKDOWN
@@ -15,8 +14,6 @@ services_content = <<~MARKDOWN
 Monitor and manage Powernode's system services for optimal performance and reliability.
 
 ## Services Dashboard
-
-### Overview
 
 Navigate to **Settings > System > Services**:
 
@@ -99,7 +96,7 @@ REDIS_URL=redis://localhost:6379
 
 ### Health Checks
 
-Automatic health monitoring:
+Automatic monitoring covers:
 - Service availability
 - Response times
 - Error rates
@@ -173,19 +170,22 @@ Backup Settings:
 For audit logging, see [Audit Logs and Monitoring](/kb/audit-logs-monitoring).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "system-services-management") do |article|
-  article.title = "System Services Management"
-  article.category = system_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Monitor and manage Powernode's system services including API, background jobs, database, and maintenance mode."
-  article.content = services_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "system-services-management", account_id: nil)
+article.assign_attributes(
+  title: "System Services Management",
+  slug: "system-services-management",
+  category: system_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Monitor and manage Powernode's system services including API, background jobs, database, and maintenance mode.",
+  content: services_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ System Services Management"
 
@@ -207,12 +207,7 @@ All significant events:
 - API access
 - Security events
 
-### Accessing Logs
-
-Navigate to **Settings > Audit Logs**:
-- Filterable log list
-- Detailed event view
-- Export capabilities
+Navigate to **Settings > Audit Logs** for a filterable log list, detailed event view, and export capabilities.
 
 ## Log Structure
 
@@ -266,7 +261,7 @@ Audit Log Entry:
 ```yaml
 Search Queries:
   # All login failures
-  event_type: authentication.login
+  event_type: user.login
   status: failure
 
   # Permission changes today
@@ -374,19 +369,22 @@ Alert Rules:
 For security configuration, see [Security Configuration Guide](/kb/security-configuration-guide).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "audit-logs-monitoring") do |article|
-  article.title = "Audit Logs and Monitoring"
-  article.category = system_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Track all system activity with comprehensive audit logging for authentication, data changes, and compliance reporting."
-  article.content = audit_logs_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "audit-logs-monitoring", account_id: nil)
+article.assign_attributes(
+  title: "Audit Logs and Monitoring",
+  slug: "audit-logs-monitoring",
+  category: system_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Track all system activity with comprehensive audit logging for authentication, data changes, and compliance reporting.",
+  content: audit_logs_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Audit Logs and Monitoring"
 
@@ -398,21 +396,13 @@ Monitor and manage background workers that process asynchronous tasks like email
 
 ## Workers Overview
 
-### What Are Background Workers?
-
 Background workers handle:
 - **Asynchronous Processing** - Tasks that don't need immediate response
 - **Scheduled Jobs** - Recurring tasks on schedules
 - **Queue Processing** - Managing work queues
 - **Long-Running Tasks** - Operations taking seconds to minutes
 
-### Accessing Workers
-
-Navigate to **System > Workers** to:
-- View worker status
-- Monitor job queues
-- Manage job execution
-- Review job history
+Navigate to **System > Workers** to view worker status, monitor job queues, manage job execution, and review job history.
 
 ## Workers Dashboard
 
@@ -736,32 +726,14 @@ Debug Options:
 
 ### Job Design
 
-1. **Keep Jobs Small**
-   - Break large tasks into smaller jobs
-   - Use job chaining for sequences
-   - Implement checkpointing for long jobs
-
-2. **Make Jobs Idempotent**
-   - Safe to retry without side effects
-   - Check for existing results
-   - Use unique identifiers
-
-3. **Handle Failures Gracefully**
-   - Implement proper error handling
-   - Use exponential backoff
-   - Set reasonable retry limits
+1. **Keep Jobs Small** - Break large tasks into smaller jobs, use job chaining for sequences, and checkpoint long jobs.
+2. **Make Jobs Idempotent** - Safe to retry without side effects; check for existing results and use unique identifiers.
+3. **Handle Failures Gracefully** - Implement proper error handling, use exponential backoff, and set reasonable retry limits.
 
 ### Operations
 
-1. **Monitor Continuously**
-   - Watch queue depths
-   - Track failure rates
-   - Set up alerts
-
-2. **Scale Appropriately**
-   - Add workers for high load
-   - Use queue priorities
-   - Plan for peak times
+1. **Monitor Continuously** - Watch queue depths, track failure rates, and set up alerts.
+2. **Scale Appropriately** - Add workers for high load, use queue priorities, and plan for peak times.
 
 ## Related Articles
 
@@ -774,19 +746,22 @@ Debug Options:
 Need help with workers? Contact ops-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "background-workers-jobs") do |article|
-  article.title = "Background Workers and Jobs"
-  article.category = system_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Monitor and manage background workers for asynchronous task processing, job queues, scheduled jobs, and failure handling."
-  article.content = workers_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "background-workers-jobs", account_id: nil)
+article.assign_attributes(
+  title: "Background Workers and Jobs",
+  slug: "background-workers-jobs",
+  category: system_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Monitor and manage background workers for asynchronous task processing, job queues, scheduled jobs, and failure handling.",
+  content: workers_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Background Workers and Jobs"
 
@@ -798,13 +773,7 @@ Enable maintenance mode to safely perform system updates, migrations, and mainte
 
 ## Maintenance Overview
 
-### What is Maintenance Mode?
-
-Maintenance mode:
-- **Restricts Access** to the platform temporarily
-- **Displays Message** to inform users
-- **Allows Admins** to continue working
-- **Protects Data** during updates
+Maintenance mode temporarily restricts access, displays a message to inform users, lets admins continue working, and protects data during updates.
 
 ### When to Use
 
@@ -818,11 +787,7 @@ Maintenance mode:
 
 ## Accessing Maintenance Settings
 
-Navigate to **Administration > Maintenance** to:
-- Enable/disable maintenance mode
-- Configure maintenance message
-- Set allowed IP addresses
-- Schedule maintenance windows
+Navigate to **Administration > Maintenance** to enable/disable maintenance mode, configure the message, set allowed IP addresses, and schedule maintenance windows.
 
 ## Maintenance Dashboard
 
@@ -1148,37 +1113,15 @@ Emergency Maintenance:
 
 ### Planning
 
-1. **Schedule Wisely**
-   - Choose low-traffic times
-   - Avoid business-critical periods
-   - Consider timezone impacts
-
-2. **Communicate Early**
-   - Give adequate notice
-   - Be clear about impact
-   - Provide alternatives if possible
-
-3. **Test First**
-   - Rehearse in staging
-   - Verify rollback works
-   - Time the maintenance tasks
+1. **Schedule Wisely** - Choose low-traffic times, avoid business-critical periods, and consider timezone impacts.
+2. **Communicate Early** - Give adequate notice, be clear about impact, and provide alternatives if possible.
+3. **Test First** - Rehearse in staging, verify rollback works, and time the maintenance tasks.
 
 ### Execution
 
-1. **Be Prepared**
-   - Have scripts ready
-   - Document all steps
-   - Assign clear roles
-
-2. **Monitor Closely**
-   - Watch for errors
-   - Track progress
-   - Be ready to rollback
-
-3. **Communicate Progress**
-   - Update status regularly
-   - Notify of any delays
-   - Confirm completion
+1. **Be Prepared** - Have scripts ready, document all steps, and assign clear roles.
+2. **Monitor Closely** - Watch for errors, track progress, and be ready to roll back.
+3. **Communicate Progress** - Update status regularly, notify of any delays, and confirm completion.
 
 ## Related Articles
 
@@ -1191,19 +1134,22 @@ Emergency Maintenance:
 Need help with maintenance? Contact ops-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "system-maintenance-mode") do |article|
-  article.title = "System Maintenance Mode"
-  article.category = system_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Enable maintenance mode for safe system updates with customizable messages, admin bypass, scheduled windows, and user notifications."
-  article.content = maintenance_mode_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "system-maintenance-mode", account_id: nil)
+article.assign_attributes(
+  title: "System Maintenance Mode",
+  slug: "system-maintenance-mode",
+  category: system_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Enable maintenance mode for safe system updates with customizable messages, admin bypass, scheduled windows, and user notifications.",
+  content: maintenance_mode_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ System Maintenance Mode"
 
@@ -1215,28 +1161,17 @@ Securely impersonate users to debug issues, provide support, and understand thei
 
 ## Impersonation Overview
 
-### What is User Impersonation?
-
-User impersonation allows administrators to:
+User impersonation lets administrators:
 - **View the platform** as a specific user sees it
 - **Debug issues** in the user's context
 - **Test permissions** and access levels
 - **Provide support** more effectively
 
-### Security Considerations
-
-Impersonation is a powerful feature requiring:
-- Strict access controls
-- Complete audit logging
-- Clear user notification
-- Time-limited sessions
+As a powerful feature, it requires strict access controls, complete audit logging, clear user notification, and time-limited sessions.
 
 ## Accessing Impersonation
 
-Navigate to **Administration > Impersonation** to:
-- Search for users to impersonate
-- View active impersonation sessions
-- Review impersonation history
+Navigate to **Administration > Impersonation** to search for users to impersonate, view active sessions, and review impersonation history.
 
 ## Impersonation Dashboard
 
@@ -1526,20 +1461,9 @@ Always Document:
 
 ### Security Guidelines
 
-1. **Minimize Duration**
-   - End session when done
-   - Don't leave sessions open
-   - Use shortest needed time
-
-2. **Minimize Access**
-   - Use read-only when possible
-   - Only request write when necessary
-   - Don't access unrelated data
-
-3. **Maintain Audit Trail**
-   - Always provide reason
-   - Document findings
-   - Report any concerns
+1. **Minimize Duration** - End the session when done, don't leave sessions open, and use the shortest time needed.
+2. **Minimize Access** - Use read-only when possible, only request write when necessary, and don't access unrelated data.
+3. **Maintain Audit Trail** - Always provide a reason, document findings, and report any concerns.
 
 ## Troubleshooting
 
@@ -1585,19 +1509,22 @@ Solution:
 Need help with impersonation? Contact security@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "user-impersonation-support") do |article|
-  article.title = "User Impersonation for Support"
-  article.category = system_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Securely impersonate users to debug issues and provide support with full audit logging, user notifications, and access controls."
-  article.content = impersonation_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "user-impersonation-support", account_id: nil)
+article.assign_attributes(
+  title: "User Impersonation for Support",
+  slug: "user-impersonation-support",
+  category: system_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Securely impersonate users to debug issues and provide support with full audit logging, user notifications, and access controls.",
+  content: impersonation_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ User Impersonation for Support"
 

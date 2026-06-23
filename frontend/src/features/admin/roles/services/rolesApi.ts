@@ -1,6 +1,7 @@
 import { api } from '@/shared/services/api';
 
 export interface Permission {
+  // `id` equals `name` (the dotted catalog key, e.g. "users.manage").
   id: string;
   name: string;
   resource: string;
@@ -11,8 +12,15 @@ export interface Permission {
 export interface Role {
   id: string;
   name: string;
+  display_name?: string;
   description: string;
   system_role: boolean;
+  // Backend role taxonomy: user (account-assignable) | admin | system.
+  role_type: 'user' | 'admin' | 'system';
+  // Roles are either GLOBAL (code-defined, read-only) or ACCOUNT-scoped (custom, editable).
+  account_id: string | null;
+  scope: 'global' | 'account';
+  editable: boolean;
   permissions: Permission[];
   users_count: number;
   created_at: string;
@@ -22,7 +30,8 @@ export interface Role {
 export interface RoleFormData {
   name: string;
   description: string;
-  permission_ids: string[];
+  // Permissions are granted by name (the dotted catalog key), not by id.
+  permission_names: string[];
 }
 
 export interface UserWithRoles {

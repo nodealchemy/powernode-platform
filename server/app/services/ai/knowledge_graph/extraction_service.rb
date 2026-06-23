@@ -441,11 +441,14 @@ module Ai
 
         # Look for the dedicated Knowledge Graph Curator agent first
         curator = Ai::Agent.find_by(account: @account, name: "Knowledge Graph Curator", status: "active")
-        if curator&.ai_provider_id
-          provider = Ai::Provider.find_by(id: curator.ai_provider_id)
-          credential = provider&.provider_credentials&.active&.first if provider
+        if curator
+          # #37: provider, credential, and model from the same resolved triple so the
+          # guard + log line agree with the model the worker actually uses (an unpinned
+          # curator resolves a provider via the selector, not just ai_provider_id).
+          provider = curator.resolved_provider
+          credential = curator.resolved_credential
           if provider && credential
-            model = curator.mcp_metadata&.dig("model_config", "model") || default_model_for(provider.provider_type)
+            model = curator.resolved_model
             Rails.logger.info "[ExtractionService] Primary: #{curator.name} (#{provider.name}/#{model})"
             clients << [WorkerLlmClient.new(agent_id: curator.id), model]
           end

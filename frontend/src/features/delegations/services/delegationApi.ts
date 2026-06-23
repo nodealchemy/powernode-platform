@@ -94,17 +94,19 @@ export interface Delegation {
 }
 
 export interface Permission {
-  id: string;
+  // Permissions are code-defined and identified by NAME (the dotted catalog key).
+  // `name` and `key` are the canonical identifier; resource/action are derived for display.
+  name: string;
+  key: string;
   resource: string;
   action: string;
   description: string;
-  key: string;
 }
 
 export interface DelegationFormData {
   delegated_user_email: string;
   role_id?: string;
-  permission_ids?: string[];
+  permission_names?: string[];
   expires_at?: string;
   notes?: string;
 }
@@ -165,7 +167,7 @@ export interface DelegationRequest {
 export interface CreateDelegationData {
   delegated_user_email: string;
   role_id: string;
-  permission_ids: string[];
+  permission_names: string[];
   expires_at: string;
   notes: string;
 }
@@ -252,17 +254,17 @@ export const delegationApi = {
     return apiRequest(`/api/v1/accounts/current/delegations/available_permissions${params}`);
   },
 
-  // Add permission to delegation
-  async addPermissionToDelegation(delegationId: string, permissionId: string): Promise<DelegationResponse> {
+  // Add permission to delegation (by permission NAME)
+  async addPermissionToDelegation(delegationId: string, permissionName: string): Promise<DelegationResponse> {
     return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/permissions`, {
       method: 'POST',
-      body: JSON.stringify({ permission_id: permissionId }),
+      body: JSON.stringify({ permission_name: permissionName }),
     });
   },
 
-  // Remove permission from delegation
-  async removePermissionFromDelegation(delegationId: string, permissionId: string): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/permissions/${permissionId}`, {
+  // Remove permission from delegation (by permission NAME)
+  async removePermissionFromDelegation(delegationId: string, permissionName: string): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/permissions/${encodeURIComponent(permissionName)}`, {
       method: 'DELETE',
     });
   },
@@ -329,57 +331,36 @@ export const delegationApi = {
   },
 };
 
-// Helper functions for delegation status and permissions
-// Legacy constant for backward compatibility - consider updating components to use the new permission system
-export const DELEGATION_PERMISSIONS = [
-  {
-    key: 'users.read',
-    label: 'View Users',
-    description: 'View user information and profiles',
-  },
-  {
-    key: 'users.create',
-    label: 'Create Users',
-    description: 'Create new user accounts',
-  },
-  {
-    key: 'users.update',
-    label: 'Update Users',
-    description: 'Modify user information and settings',
-  },
-  {
-    key: 'users.delete',
-    label: 'Delete Users',
-    description: 'Remove user accounts',
-  },
-  {
-    key: 'accounts.read',
-    label: 'View Account',
-    description: 'View account information and settings',
-  },
-  {
-    key: 'accounts.update',
-    label: 'Manage Account',
-    description: 'Modify account settings and configuration',
-  },
-  {
-    key: 'billing.read',
-    label: 'View Billing',
-    description: 'View billing information and invoices',
-  },
-  {
-    key: 'billing.update',
-    label: 'Manage Billing',
-    description: 'Modify billing settings and payment methods',
-  },
-  {
-    key: 'analytics.read',
-    label: 'View Analytics',
-    description: 'View analytics and reporting data',
-  },
-  {
-    key: 'analytics.global',
-    label: 'Global Analytics',
-    description: 'Access all analytics across the platform',
-  },
-];
+// A delegatable permission as rendered in the delegation UI.
+export interface DelegationPermissionOption {
+  // `key` is the dotted catalog permission name (the canonical identifier).
+  key: string;
+  label: string;
+  description: string;
+}
+
+// Humanize a catalog Permission into a delegatable filter option. The catalog has no
+// `label`, so it is derived from the dotted name (e.g. "billing.read" -> "Billing Read").
+// This keeps delegation permission options sourced from the catalog at runtime instead
+// of duplicating (and drifting from) the backend permission list here.
+export const deriveDelegationPermissions = (
+  permissions: Array<{ name: string; resource: string; action: string; description: string }>
+): DelegationPermissionOption[] =>
+  permissions.map(permission => {
+    const label = `${permission.resource} ${permission.action}`
+      .split(/[.\s_]+/)
+      .filter(Boolean)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+    return {
+      key: permission.name,
+      label,
+      description: permission.description,
+    };
+  });
+
+// Back-compat export retained for callers/tests that import this symbol. The catalog is
+// the source of truth, so the static list is intentionally empty here (no hardcoded
+// permission names); consumers fetch the catalog via `rolesApi.getPermissions()` and map
+// it through `deriveDelegationPermissions` at runtime.
+export const DELEGATION_PERMISSIONS: DelegationPermissionOption[] = [];

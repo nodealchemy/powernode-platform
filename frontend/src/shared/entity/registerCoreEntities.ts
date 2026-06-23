@@ -376,7 +376,7 @@ export function registerCoreEntities(): void {
       // `admin.role.view` is the narrowest of the accepted set.
       type: 'permission',
       label: 'Permission',
-      permission: 'admin.role.view',
+      permission: 'admin.role.read',
       icon: 'Key',
       labelField: 'name',
       fetchById: (id: string) => rolesApi.getPermission(id).then((r) => r.data),

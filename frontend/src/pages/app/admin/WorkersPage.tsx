@@ -105,11 +105,11 @@ export const WorkersPage: React.FC = () => {
   });
 
   // Permission checks
-  const canViewWorkers = hasPermissions(user, ['system.workers.read']);
+  const canViewWorkers = hasPermissions(user, ['admin.workers.read']);
   const canManageWorkers = hasPermissions(user, [
-    'system.workers.create',
-    'system.workers.update',
-    'system.workers.delete'
+    'admin.workers.create',
+    'admin.workers.update',
+    'admin.workers.delete'
   ]);
 
   // Calculate worker stats

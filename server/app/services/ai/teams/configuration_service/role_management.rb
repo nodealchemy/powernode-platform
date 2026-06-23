@@ -134,7 +134,10 @@ module Ai
         # Template management
 
         def list_templates(filters = {})
-          templates = Ai::TeamTemplate.all
+          # Scope to GLOBAL (platform) + this account's own templates so global
+          # baseline templates stay visible without leaking other accounts' rows
+          # (previously Ai::TeamTemplate.all exposed every account's templates).
+          templates = scoped_team_templates(filters[:scope])
           templates = templates.public_templates if filters[:public_only]
           templates = templates.system_templates if filters[:system_only]
           templates = templates.by_category(filters[:category]) if filters[:category].present?
@@ -142,6 +145,16 @@ module Ai
           templates = templates.order(usage_count: :desc)
           templates = templates.page(filters[:page]).per(filters[:per_page]) if filters[:page].present?
           templates
+        end
+
+        # ?scope=global|custom|all (default: for_account = global + own).
+        def scoped_team_templates(scope)
+          case scope.to_s
+          when "global" then Ai::TeamTemplate.global
+          when "custom" then Ai::TeamTemplate.owned_by_account(account&.id)
+          when "all"    then Ai::TeamTemplate.all
+          else Ai::TeamTemplate.for_account(account&.id)
+          end
         end
 
         def get_template(template_id)

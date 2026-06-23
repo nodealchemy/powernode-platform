@@ -64,6 +64,28 @@ export interface FeatureHeaderWidget {
  *  SetupWizard for component-based extension steps; keyed by id, never by core. */
 type SetupStepComponent = LazyExoticComponent<ComponentType<unknown>> | ComponentType<unknown>;
 
+/** A component an extension contributes into a named slot that a core host page
+ *  exposes (e.g. an optional leaf inside a tabbed hub). Keyed by an opaque slot
+ *  id the host page owns (e.g. 'ai.cost.outcome-billing'); the host renders the
+ *  slot's component when present and omits the surface when absent. Lets a core
+ *  page host an extension-provided sub-view without importing — or naming — any
+ *  extension. Props are slot-specific; the host casts to the slot's prop shape
+ *  at the call site (mirrors getSetupStepComponent). */
+type ComponentSlot = LazyExoticComponent<ComponentType<unknown>> | ComponentType<unknown>;
+
+/**
+ * A real-time ActionCable channel an extension contributes. `key` is the logical channel
+ * id consumed by usePageWebSocket (e.g. 'subscriptions'); `channelName` is the ActionCable
+ * channel class the backend exposes (e.g. 'SubscriptionChannel'); `defaultPageTypes` lists
+ * the page types that auto-subscribe to it when the extension is loaded. Keyed by namespace —
+ * core never names an extension's channels; it merges whatever is registered with its core set.
+ */
+export interface FeatureChannel {
+  key: string;
+  channelName: string;
+  defaultPageTypes?: string[];
+}
+
 interface FeatureRegistryState {
   routes: Map<string, FeatureRoute[]>;
   publicRoutes: Map<string, FeatureRoute[]>;
@@ -71,7 +93,9 @@ interface FeatureRegistryState {
   navSections: Map<string, FeatureNavSection[]>;
   settingsTabs: Map<string, FeatureSettingsTab[]>;
   headerWidgets: Map<string, FeatureHeaderWidget[]>;
+  channels: Map<string, FeatureChannel[]>;
   setupStepComponents: Map<string, SetupStepComponent>;
+  componentSlots: Map<string, ComponentSlot>;
   version: number;
   listeners: Set<() => void>;
 }
@@ -83,7 +107,9 @@ const state: FeatureRegistryState = {
   navSections: new Map(),
   settingsTabs: new Map(),
   headerWidgets: new Map(),
+  channels: new Map(),
   setupStepComponents: new Map(),
+  componentSlots: new Map(),
   version: 0,
   listeners: new Set(),
 };
@@ -128,6 +154,25 @@ export const featureRegistry = {
   /** Resolve a setup-step component by its `component` id, or undefined. */
   getSetupStepComponent(id: string): SetupStepComponent | undefined {
     return state.setupStepComponents.get(id);
+  },
+
+  /**
+   * Register components into named slots that core host pages expose, keyed by
+   * each slot's opaque id (owned by the host page, e.g. 'ai.cost.outcome-billing').
+   * Extensions call this from register.ts to fill a host slot; the host renders
+   * the slot when present and omits the surface when absent — so a core page can
+   * host an extension-provided sub-view without importing or naming any extension.
+   */
+  registerComponentSlots(slots: Record<string, ComponentSlot>): void {
+    Object.entries(slots).forEach(([id, component]) => {
+      state.componentSlots.set(id, component);
+    });
+    notifyListeners();
+  },
+
+  /** Resolve a slot component by its host-owned slot id, or undefined. */
+  getComponentSlot(id: string): ComponentSlot | undefined {
+    return state.componentSlots.get(id);
   },
 
   /**
@@ -236,6 +281,28 @@ export const featureRegistry = {
   },
 
   /**
+   * Register real-time channels for a namespace (e.g. the business subscriptions/
+   * customers/analytics channels). Consumed by usePageWebSocket, which merges these
+   * with its core channel set — so core resolves channel names and per-page defaults
+   * dynamically and never hardcodes an extension's channel.
+   */
+  registerChannels(namespace: string, channels: FeatureChannel[]): void {
+    const existing = state.channels.get(namespace) || [];
+    state.channels.set(namespace, [...existing, ...channels]);
+    notifyListeners();
+  },
+
+  /**
+   * Get all registered channels, optionally filtered by namespace
+   */
+  getChannels(namespace?: string): FeatureChannel[] {
+    if (namespace) {
+      return state.channels.get(namespace) || [];
+    }
+    return Array.from(state.channels.values()).flat();
+  },
+
+  /**
    * Get all registered namespace identifiers
    */
   getRegisteredNamespaces(): string[] {
@@ -275,5 +342,8 @@ export const featureRegistry = {
     state.navSections.clear();
     state.settingsTabs.clear();
     state.headerWidgets.clear();
+    state.channels.clear();
+    state.setupStepComponents.clear();
+    state.componentSlots.clear();
   },
 };

@@ -271,7 +271,7 @@ puts "  ✅ #{chains_count} approval chains created"
 # extensions/business). Guard behind business_loaded? so this core governance
 # seed runs cleanly in core mode, where the model is absent.
 # See docs/concepts/core-business-boundary.md.
-if Shared::FeatureGateService.business_loaded?
+if Shared::FeatureGateService.extension_loaded?("business")
   puts "\n  💰 Creating account credits..."
 
   Ai::AccountCredit.find_or_create_by!(account: admin_account) do |credit|
@@ -418,6 +418,6 @@ puts "  ✅ #{cards_count} agent cards created"
 puts "\n📊 AI Governance Summary:"
 puts "   Compliance Policies: #{Ai::CompliancePolicy.where(account: admin_account).count}"
 puts "   Approval Chains: #{Ai::ApprovalChain.where(account: admin_account).count}"
-puts "   Account Credits Balance: #{Ai::AccountCredit.find_by(account: admin_account)&.balance}" if Shared::FeatureGateService.business_loaded?
+puts "   Account Credits Balance: #{Ai::AccountCredit.find_by(account: admin_account)&.balance}" if Shared::FeatureGateService.extension_loaded?("business")
 puts "   Agent Cards: #{Ai::AgentCard.where(account: admin_account).count}"
 puts "✅ AI Governance seeding completed!"

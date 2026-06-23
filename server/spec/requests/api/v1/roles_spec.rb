@@ -180,15 +180,14 @@ RSpec.describe 'Api::V1::Roles', type: :request do
       end
 
       it 'can assign permissions to role' do
-        permission = create(:permission)
-
+        # Grants are by NAME; the user may only grant permissions it holds.
         post '/api/v1/roles',
-             params: { role: { name: 'custom_perms', description: 'Test' }, permission_ids: [ permission.id ] },
+             params: { role: { name: 'custom_perms', description: 'Test' }, permission_names: [ 'admin.role.read' ] },
              headers: role_headers, as: :json
 
         expect_success_response
-        new_role = Role.find_by(name: 'custom_perms')
-        expect(new_role.permissions).to include(permission)
+        new_role = Role.find_by(name: 'custom_perms', account_id: account.id)
+        expect(new_role.permission_names).to include('admin.role.read')
       end
     end
 
@@ -220,7 +219,8 @@ RSpec.describe 'Api::V1::Roles', type: :request do
 
   describe 'PATCH /api/v1/roles/:id' do
     let(:headers) { auth_headers_for(admin_user) }
-    let(:custom_role) { create(:role, name: 'editable_role', is_system: false) }
+    # Only account-scoped custom roles are editable; global (code) roles are read-only.
+    let(:custom_role) { create(:role, name: 'editable_role', is_system: false, account_id: account.id) }
 
     context 'with admin.role.update permission' do
       it 'updates role description' do
@@ -235,29 +235,28 @@ RSpec.describe 'Api::V1::Roles', type: :request do
         expect(custom_role.description).to eq('Updated description')
       end
 
-      it 'updates role permissions' do
-        permission = create(:permission)
-
+      it 'updates role permissions by name' do
         patch "/api/v1/roles/#{custom_role.id}",
-              params: { role: { description: 'Test' }, permission_ids: [ permission.id ] },
+              params: { role: { description: 'Test' }, permission_names: [ 'users.read' ] },
               headers: headers,
               as: :json
 
         expect_success_response
-        expect(custom_role.reload.permissions).to include(permission)
+        expect(custom_role.reload.permission_names).to include('users.read')
       end
     end
 
-    context 'when updating system role' do
-      let(:system_role) { create(:role, role_type: 'system', is_system: true) }
+    context 'when updating a global (code-defined) role' do
+      # account_id nil => global; the controller rejects edits to these.
+      let(:global_role) { create(:role, name: 'global_code_role', role_type: 'user', account_id: nil) }
 
       it 'returns forbidden error' do
-        patch "/api/v1/roles/#{system_role.id}",
+        patch "/api/v1/roles/#{global_role.id}",
               params: { role: { description: 'Hacked' } },
               headers: headers,
               as: :json
 
-        expect_error_response('System roles cannot be modified', 403)
+        expect_error_response('Global roles are code-defined and read-only', 403)
       end
     end
 
@@ -277,7 +276,8 @@ RSpec.describe 'Api::V1::Roles', type: :request do
 
   describe 'DELETE /api/v1/roles/:id' do
     let(:headers) { auth_headers_for(admin_user) }
-    let(:custom_role) { create(:role, name: 'deletable_role', is_system: false) }
+    # Only account-scoped custom roles can be deleted.
+    let(:custom_role) { create(:role, name: 'deletable_role', is_system: false, account_id: account.id) }
 
     context 'with admin.role.delete permission' do
       it 'deletes the role successfully' do
@@ -293,7 +293,7 @@ RSpec.describe 'Api::V1::Roles', type: :request do
     context 'when role has assigned users' do
       before do
         user = create(:user, account: account)
-        user.add_role(custom_role.name)
+        UserRole.create!(user: user, role: custom_role)
       end
 
       it 'returns conflict error' do
@@ -303,13 +303,14 @@ RSpec.describe 'Api::V1::Roles', type: :request do
       end
     end
 
-    context 'when deleting system role' do
-      let(:system_role) { create(:role, role_type: 'system', is_system: true) }
+    context 'when deleting a global (code-defined) role' do
+      # account_id nil => global; the controller refuses to delete these.
+      let(:global_role) { create(:role, name: 'global_undeletable_role', role_type: 'user', account_id: nil) }
 
       it 'returns forbidden error' do
-        delete "/api/v1/roles/#{system_role.id}", headers: headers, as: :json
+        delete "/api/v1/roles/#{global_role.id}", headers: headers, as: :json
 
-        expect_error_response('System roles cannot be deleted', 403)
+        expect_error_response('Global roles are code-defined and cannot be deleted', 403)
       end
     end
   end

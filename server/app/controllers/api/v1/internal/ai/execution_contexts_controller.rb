@@ -65,21 +65,17 @@ module Api
               Rails.logger.warn "[ExecutionContexts] Skill graph enrichment failed: #{e.message}"
             end
 
-            # Resolve model config
+            # Resolve model + provider + credential from the agent's coherent
+            # resolution triple (Ai::Agent#model_resolution): a pinned model keeps
+            # the agent's own provider; otherwise the selector picks the best model
+            # across ANY active, credentialed provider in the account.
             model_config = agent.mcp_metadata&.dig("model_config") || {}
-            model = model_config["model"] ||
-                    agent.mcp_tool_manifest&.dig("model") ||
-                    agent.provider.supported_models.first&.dig("id")
+            model      = agent.resolved_model
+            provider   = agent.resolved_provider
+            credential = agent.resolved_credential
 
             system_prompt = agent.build_system_prompt_with_profile.presence ||
                             agent.mcp_metadata&.dig("system_prompt")
-
-            # Resolve provider credential for direct LLM access
-            provider = agent.provider
-            credential = provider.provider_credentials
-                                 .where(account: agent.account)
-                                 .active
-                                 .first
 
             render_success(
               execution_context: execution_context,
@@ -87,10 +83,10 @@ module Api
               model: model,
               max_tokens: model_config["max_tokens"] || 2000,
               temperature: model_config["temperature"] || 0.7,
-              provider_type: provider.provider_type,
+              provider_type: provider&.provider_type,
               provider_credential_id: credential&.id,
-              provider_base_url: provider.api_base_url,
-              provider_name: provider.name
+              provider_base_url: provider&.api_base_url,
+              provider_name: provider&.name
             )
           rescue ActiveRecord::RecordNotFound
             render_error("Agent not found", status: :not_found)
@@ -105,22 +101,18 @@ module Api
           # the full execution context (memory injection, skill enrichment).
           def provider_config
             agent = ::Ai::Agent.find(params[:agent_id])
-            provider = agent.provider
-            credential = provider.provider_credentials
-                                 .where(account: agent.account)
-                                 .active
-                                 .first
-
-            model_config = agent.mcp_metadata&.dig("model_config") || {}
-            model = model_config["model"] ||
-                    agent.mcp_tool_manifest&.dig("model") ||
-                    provider.supported_models.first&.dig("id")
+            # Coherent resolution triple — when the agent has no pinned model the
+            # selector picks the best model across ANY active, credentialed
+            # provider; the matching credential is resolved for whichever wins.
+            provider   = agent.resolved_provider
+            credential = agent.resolved_credential
+            model      = agent.resolved_model
 
             render_success(
-              provider_type: provider.provider_type,
+              provider_type: provider&.provider_type,
               provider_credential_id: credential&.id,
-              provider_base_url: provider.api_base_url,
-              provider_name: provider.name,
+              provider_base_url: provider&.api_base_url,
+              provider_name: provider&.name,
               model: model
             )
           rescue ActiveRecord::RecordNotFound

@@ -1,49 +1,16 @@
 # frozen_string_literal: true
 
 # Autonomy Data Seed
-# 1. Consolidates agents from 37 → 10 (one per type, 4 providers)
-# 2. Cleans up orphaned teams
-# 3. Seeds trust scores and budgets for kept agents
+# Ensures the curated agent set exists (creating the extra industry/utility
+# agents if earlier seeds didn't) and seeds trust scores + budgets for them.
 #
-# Idempotent — safe to re-run.
+# Idempotent — safe to re-run. (The legacy destructive 37→10 consolidation that
+# used to run here was removed in 0.4.0 — see the note below.)
 
 Rails.logger.info "[AutonomySeed] Starting autonomy data seeding..."
 
-# Helper: recursively clean all FK references to rows being deleted from a table.
-# Prevents FK violations regardless of how many cascading references exist.
-def clean_fk_references_for(table_name, ids_to_delete, conn: ActiveRecord::Base.connection, visited: Set.new)
-  return if ids_to_delete.empty?
-  return if visited.include?(table_name)
-  visited.add(table_name)
-
-  quoted_ids = ids_to_delete.map { |id| conn.quote(id) }.join(",")
-
-  # Find all tables that reference this table via FK
-  refs = conn.execute(<<~SQL)
-    SELECT kcu.table_name AS from_table, kcu.column_name AS from_column
-    FROM information_schema.table_constraints tc
-    JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-    JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
-    WHERE tc.constraint_type = 'FOREIGN KEY' AND ccu.table_name = '#{table_name}'
-  SQL
-
-  refs.each do |ref|
-    child_table  = ref["from_table"]
-    child_column = ref["from_column"]
-    next if child_table == table_name # skip self-references
-
-    col_info = conn.columns(child_table).find { |c| c.name == child_column }
-
-    if col_info&.null
-      conn.execute("UPDATE #{conn.quote_table_name(child_table)} SET #{conn.quote_column_name(child_column)} = NULL WHERE #{conn.quote_column_name(child_column)} IN (#{quoted_ids})")
-    else
-      # Before deleting child rows, recursively clean THEIR dependents
-      child_ids = conn.execute("SELECT id FROM #{conn.quote_table_name(child_table)} WHERE #{conn.quote_column_name(child_column)} IN (#{quoted_ids})").map { |r| r["id"] }
-      clean_fk_references_for(child_table, child_ids, conn: conn, visited: visited) if child_ids.any?
-      conn.execute("DELETE FROM #{conn.quote_table_name(child_table)} WHERE #{conn.quote_column_name(child_column)} IN (#{quoted_ids})")
-    end
-  end
-end
+# (The recursive clean_fk_references_for FK-cascade helper that lived here was
+# removed along with the legacy 37→10 consolidation it was the only caller of.)
 
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user    = admin_account&.users&.find_by(email: "admin@powernode.org")
@@ -195,39 +162,14 @@ provider_assignments.each do |agent_name, provider|
   end
 end
 
-# Identify agents to delete
-keep_ids = Ai::Agent.where(account: admin_account, name: KEEP_AGENT_NAMES).pluck(:id)
-delete_ids = Ai::Agent.where(account: admin_account)
-  .where.not(id: keep_ids)
-  .where.not(is_concierge: true) # Never delete the concierge agent
-  .pluck(:id)
-
-if delete_ids.any?
-  Rails.logger.info "[AutonomySeed] Deleting #{delete_ids.size} agents and cleaning FK references..."
-
-  clean_fk_references_for("ai_agents", delete_ids)
-  Ai::Agent.where(id: delete_ids).delete_all
-
-  Rails.logger.info "[AutonomySeed] Deleted #{delete_ids.size} agents"
-end
-
-# ===========================================================================
-# STEP 1b — Team Cleanup
-# ===========================================================================
-KEEP_TEAM_NAMES = ["Powernode Development Team", "Architecture Review Board"].freeze
-
-teams_to_delete = Ai::AgentTeam.where(account: admin_account)
-  .where.not(name: KEEP_TEAM_NAMES)
-  .where.not(team_type: "workspace")
-
-if teams_to_delete.any?
-  team_ids = teams_to_delete.pluck(:id)
-
-  clean_fk_references_for("ai_agent_teams", team_ids)
-  Ai::AgentTeam.where(id: team_ids).delete_all
-
-  Rails.logger.info "[AutonomySeed] Deleted #{team_ids.size} orphaned teams"
-end
+# (0.4.0) The legacy "37→10" agent + orphaned-team consolidation (a destructive
+# allowlist delete: "delete every agent/team NOT in KEEP_*") was REMOVED. On a
+# fresh 0.4.0 install it destroyed legitimately seeded demo agents (the example /
+# industry agents) and the teams referencing them — leaving an incomplete install
+# (41 agents instead of 55) and churning their intervention policies / connections
+# on every re-seed. Seeds are additive + idempotent (every agent/team create is
+# find_or_create_by-guarded); deduplicating a pre-0.4.0 install is a Phase 9
+# data-migration concern, not a recurring seed.
 
 # ===========================================================================
 # STEP 2 — Seed Trust Scores and Budgets

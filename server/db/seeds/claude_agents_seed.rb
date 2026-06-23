@@ -95,7 +95,6 @@ ActiveRecord::Base.transaction do
 
         Leverage Claude's reasoning strength to provide deep, thoughtful strategic guidance that drives sustainable business success.
       PROMPT
-        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.3,
         'max_tokens' => 4096,
         'response_format' => 'strategic_analysis'
@@ -109,7 +108,7 @@ ActiveRecord::Base.transaction do
       'claude_optimized' => true,
       'reasoning_focus' => 'strategic_analysis',
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250929',
+        'model_requirements' => { 'tier' => 'reasoning' },
         'temperature' => 0.3,
         'max_tokens' => 4096,
         'response_format' => 'strategic_analysis'
@@ -193,7 +192,6 @@ ActiveRecord::Base.transaction do
 
         Use Claude's analytical strength to provide thorough, nuanced research that supports informed decision-making.
       PROMPT
-        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.2,
         'max_tokens' => 4096,
         'response_format' => 'research_report'
@@ -207,7 +205,6 @@ ActiveRecord::Base.transaction do
       'cost_tier' => 'free',
       'model_config' => {
         'provider' => 'ollama',
-        'model' => 'qwen2.5:14b',
         'temperature' => 0.2,
         'max_tokens' => 4096,
         'response_format' => 'research_report',
@@ -289,7 +286,6 @@ ActiveRecord::Base.transaction do
 
         Leverage Claude's language expertise to create content that resonates with audiences and drives meaningful engagement.
       PROMPT
-        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.7,
         'max_tokens' => 4096,
         'response_format' => 'creative_content'
@@ -303,7 +299,7 @@ ActiveRecord::Base.transaction do
       'claude_optimized' => true,
       'reasoning_focus' => 'creative_language',
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250929',
+        'model_requirements' => { 'tier' => 'reasoning' },
         'temperature' => 0.7,
         'max_tokens' => 4096,
         'response_format' => 'creative_content'

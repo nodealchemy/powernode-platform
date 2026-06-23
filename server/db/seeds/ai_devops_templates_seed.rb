@@ -1,38 +1,51 @@
 # frozen_string_literal: true
 
 # AI DevOps Templates Seed Data
-# Creates system-level AI DevOps workflow templates for common operations
-# Uses find_or_create_by! to avoid overwriting existing customized templates
+# Creates GLOBAL (account_id nil) system AI DevOps workflow templates for common
+# operations, upserted by source_key (= slug) so they update in place.
 
 puts "  Loading AI DevOps Templates..."
 
-admin_account = Account.find_by(name: "Powernode Admin")
-unless admin_account
-  puts "  ⚠️  Admin account not found - skipping AI DevOps templates"
-  return
+# GLOBAL baseline content: account_id nil, read-only, upserted by source_key
+# (the template slug) so future seeds update in place. No account needed —
+# these are platform-provided system templates that seed in core/prod too.
+return unless Powernode::Seeds.baseline?
+
+# Upsert a GLOBAL system DevOps template by slug (also its source_key).
+# Always applies the block (on create AND update) so content changes take
+# effect, then version-bumps the patch number when anything changed.
+upsert_devops_template = lambda do |slug, &block|
+  t = Ai::DevopsTemplate.find_or_initialize_by(source_key: slug, account_id: nil)
+  t.slug = slug
+  block.call(t)
+  t.account_id = nil
+  t.is_system = true
+  if !t.new_record? && t.changed?
+    parts = t.version.to_s.split(".")
+    parts << "0" while parts.length < 3
+    parts[-1] = (parts[-1].to_i + 1).to_s
+    t.version = parts.join(".")
+  end
+  t.save!
+  t
 end
 
-puts "  ✅ Using admin account: #{admin_account.name} (ID: #{admin_account.id})"
-
 # Template 1: Automated Code Review
-Ai::DevopsTemplate.find_or_create_by!(slug: "automated-code-review") do |t|
-  t.account = admin_account
+upsert_devops_template.call("automated-code-review") do |t|
   t.name = "Automated Code Review"
   t.description = "AI-powered code review that analyzes pull requests for quality, security, performance, and best practices. Provides structured feedback with severity ratings and line-level suggestions."
   t.category = "code_quality"
   t.template_type = "code_review"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.is_featured = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "PR Opened/Updated", "config" => { "event" => "pull_request" } },
       { "id" => "fetch_diff", "type" => "action", "label" => "Fetch PR Diff", "config" => { "tool" => "git_diff" } },
-      { "id" => "analyze_quality", "type" => "ai", "label" => "Analyze Code Quality", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "analyze_security", "type" => "ai", "label" => "Security Review", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
+      { "id" => "analyze_quality", "type" => "ai", "label" => "Analyze Code Quality", "config" => { "temperature" => 0.2 } },
+      { "id" => "analyze_security", "type" => "ai", "label" => "Security Review", "config" => { "temperature" => 0.1 } },
       { "id" => "post_review", "type" => "action", "label" => "Post Review Comments", "config" => { "tool" => "git_comment" } }
     ],
     "edges" => [
@@ -85,26 +98,23 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "automated-code-review") do |t|
 end
 
 # Template 2: Security Vulnerability Scanner
-Ai::DevopsTemplate.find_or_create_by!(slug: "security-vulnerability-scanner") do |t|
-  t.account = admin_account
+upsert_devops_template.call("security-vulnerability-scanner") do |t|
   t.name = "Security Vulnerability Scanner"
   t.description = "Comprehensive AI security analysis combining SAST scanning, dependency auditing, secret detection, and OWASP Top 10 checks. Generates structured vulnerability reports with remediation guidance."
   t.category = "security"
   t.template_type = "security_scan"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.is_featured = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Scan Triggered", "config" => { "event" => "manual_or_schedule" } },
       { "id" => "clone_repo", "type" => "action", "label" => "Clone Repository", "config" => { "tool" => "git_clone" } },
-      { "id" => "sast_scan", "type" => "ai", "label" => "SAST Analysis", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
+      { "id" => "sast_scan", "type" => "ai", "label" => "SAST Analysis", "config" => { "temperature" => 0.1 } },
       { "id" => "dependency_audit", "type" => "action", "label" => "Dependency Audit", "config" => { "tool" => "dependency_check" } },
-      { "id" => "secret_scan", "type" => "ai", "label" => "Secret Detection", "config" => { "model" => "claude-haiku-4-5-20251001", "temperature" => 0.0 } },
-      { "id" => "generate_report", "type" => "ai", "label" => "Generate Report", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } }
+      { "id" => "secret_scan", "type" => "ai", "label" => "Secret Detection", "config" => { "temperature" => 0.0 } },
+      { "id" => "generate_report", "type" => "ai", "label" => "Generate Report", "config" => { "temperature" => 0.2 } }
     ],
     "edges" => [
       { "source" => "trigger", "target" => "clone_repo" },
@@ -159,23 +169,20 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "security-vulnerability-scanner") do
 end
 
 # Template 3: Test Generation Pipeline
-Ai::DevopsTemplate.find_or_create_by!(slug: "ai-test-generation") do |t|
-  t.account = admin_account
+upsert_devops_template.call("ai-test-generation") do |t|
   t.name = "AI Test Generation Pipeline"
   t.description = "Automatically generates comprehensive test suites for new or modified code. Supports RSpec, Jest, pytest, and Go test frameworks with edge case coverage and mocking strategies."
   t.category = "testing"
   t.template_type = "test_generation"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Code Changed", "config" => { "event" => "push" } },
       { "id" => "detect_changes", "type" => "action", "label" => "Detect Changed Files", "config" => { "tool" => "git_diff" } },
-      { "id" => "analyze_code", "type" => "ai", "label" => "Analyze Code Structure", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "generate_tests", "type" => "ai", "label" => "Generate Tests", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.3 } },
+      { "id" => "analyze_code", "type" => "ai", "label" => "Analyze Code Structure", "config" => { "temperature" => 0.2 } },
+      { "id" => "generate_tests", "type" => "ai", "label" => "Generate Tests", "config" => { "temperature" => 0.3 } },
       { "id" => "validate_tests", "type" => "action", "label" => "Run Generated Tests", "config" => { "tool" => "test_runner" } },
       { "id" => "create_pr", "type" => "action", "label" => "Create Test PR", "config" => { "tool" => "git_pr" } }
     ],
@@ -214,25 +221,22 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "ai-test-generation") do |t|
 end
 
 # Template 4: Deployment Validation
-Ai::DevopsTemplate.find_or_create_by!(slug: "deployment-validation") do |t|
-  t.account = admin_account
+upsert_devops_template.call("deployment-validation") do |t|
   t.name = "Pre-Deployment Validation"
   t.description = "AI-powered pre-deployment risk assessment that analyzes code changes, database migrations, configuration diffs, and infrastructure impact before deploying to staging or production."
   t.category = "deployment"
   t.template_type = "deployment_validation"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.is_featured = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Deploy Requested", "config" => { "event" => "deployment" } },
       { "id" => "gather_changes", "type" => "action", "label" => "Gather Release Changes", "config" => { "tool" => "git_log" } },
-      { "id" => "check_migrations", "type" => "ai", "label" => "Analyze Migrations", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
-      { "id" => "check_config", "type" => "ai", "label" => "Config Change Review", "config" => { "model" => "claude-haiku-4-5-20251001", "temperature" => 0.1 } },
-      { "id" => "risk_assessment", "type" => "ai", "label" => "Risk Assessment", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
+      { "id" => "check_migrations", "type" => "ai", "label" => "Analyze Migrations", "config" => { "temperature" => 0.1 } },
+      { "id" => "check_config", "type" => "ai", "label" => "Config Change Review", "config" => { "temperature" => 0.1 } },
+      { "id" => "risk_assessment", "type" => "ai", "label" => "Risk Assessment", "config" => { "temperature" => 0.2 } },
       { "id" => "gate_decision", "type" => "condition", "label" => "Deploy Gate", "config" => { "condition" => "risk_level != 'critical'" } }
     ],
     "edges" => [
@@ -269,24 +273,21 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "deployment-validation") do |t|
 end
 
 # Template 5: Release Notes Generator
-Ai::DevopsTemplate.find_or_create_by!(slug: "release-notes-generator") do |t|
-  t.account = admin_account
+upsert_devops_template.call("release-notes-generator") do |t|
   t.name = "Release Notes Generator"
   t.description = "Automatically generates structured release notes from git history, PR descriptions, and issue trackers. Produces user-facing changelogs categorized by feature, fix, and breaking change."
   t.category = "release"
   t.template_type = "release_notes"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Release Tagged", "config" => { "event" => "tag_push" } },
       { "id" => "fetch_commits", "type" => "action", "label" => "Fetch Commit History", "config" => { "tool" => "git_log" } },
       { "id" => "fetch_prs", "type" => "action", "label" => "Fetch Merged PRs", "config" => { "tool" => "git_prs" } },
-      { "id" => "categorize", "type" => "ai", "label" => "Categorize Changes", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "generate_notes", "type" => "ai", "label" => "Write Release Notes", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.4 } },
+      { "id" => "categorize", "type" => "ai", "label" => "Categorize Changes", "config" => { "temperature" => 0.2 } },
+      { "id" => "generate_notes", "type" => "ai", "label" => "Write Release Notes", "config" => { "temperature" => 0.4 } },
       { "id" => "publish", "type" => "action", "label" => "Publish Release", "config" => { "tool" => "git_release" } }
     ],
     "edges" => [
@@ -326,23 +327,20 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "release-notes-generator") do |t|
 end
 
 # Template 6: Changelog Updater
-Ai::DevopsTemplate.find_or_create_by!(slug: "changelog-updater") do |t|
-  t.account = admin_account
+upsert_devops_template.call("changelog-updater") do |t|
   t.name = "Changelog Updater"
   t.description = "Maintains a Keep a Changelog formatted CHANGELOG.md by analyzing merged PRs and commits. Automatically categorizes entries and updates the file with each release."
   t.category = "release"
   t.template_type = "changelog"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "PR Merged to Main", "config" => { "event" => "pull_request.merged" } },
       { "id" => "read_changelog", "type" => "action", "label" => "Read CHANGELOG.md", "config" => { "tool" => "file_read" } },
-      { "id" => "analyze_pr", "type" => "ai", "label" => "Categorize PR", "config" => { "model" => "claude-haiku-4-5-20251001", "temperature" => 0.1 } },
-      { "id" => "update_changelog", "type" => "ai", "label" => "Update Changelog", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
+      { "id" => "analyze_pr", "type" => "ai", "label" => "Categorize PR", "config" => { "temperature" => 0.1 } },
+      { "id" => "update_changelog", "type" => "ai", "label" => "Update Changelog", "config" => { "temperature" => 0.2 } },
       { "id" => "commit_changes", "type" => "action", "label" => "Commit Updated Changelog", "config" => { "tool" => "git_commit" } }
     ],
     "edges" => [
@@ -375,24 +373,21 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "changelog-updater") do |t|
 end
 
 # Template 7: API Documentation Generator
-Ai::DevopsTemplate.find_or_create_by!(slug: "api-docs-generator") do |t|
-  t.account = admin_account
+upsert_devops_template.call("api-docs-generator") do |t|
   t.name = "API Documentation Generator"
   t.description = "Scans API controllers, routes, and serializers to generate OpenAPI/Swagger documentation. Includes endpoint descriptions, request/response examples, and authentication details."
   t.category = "documentation"
   t.template_type = "api_docs"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Docs Requested", "config" => { "event" => "manual" } },
       { "id" => "scan_routes", "type" => "action", "label" => "Scan API Routes", "config" => { "tool" => "file_search" } },
       { "id" => "scan_controllers", "type" => "action", "label" => "Scan Controllers", "config" => { "tool" => "file_read" } },
-      { "id" => "analyze_endpoints", "type" => "ai", "label" => "Analyze Endpoints", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "generate_openapi", "type" => "ai", "label" => "Generate OpenAPI Spec", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
+      { "id" => "analyze_endpoints", "type" => "ai", "label" => "Analyze Endpoints", "config" => { "temperature" => 0.2 } },
+      { "id" => "generate_openapi", "type" => "ai", "label" => "Generate OpenAPI Spec", "config" => { "temperature" => 0.1 } },
       { "id" => "write_docs", "type" => "action", "label" => "Write Documentation Files", "config" => { "tool" => "file_write" } }
     ],
     "edges" => [
@@ -430,24 +425,21 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "api-docs-generator") do |t|
 end
 
 # Template 8: Coverage Analysis Report
-Ai::DevopsTemplate.find_or_create_by!(slug: "coverage-analysis-report") do |t|
-  t.account = admin_account
+upsert_devops_template.call("coverage-analysis-report") do |t|
   t.name = "Coverage Analysis Report"
   t.description = "Analyzes test coverage data to identify uncovered code paths, suggest priority areas for testing, and track coverage trends over time. Integrates with SimpleCov, Istanbul, and coverage.py."
   t.category = "testing"
   t.template_type = "coverage_analysis"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Tests Completed", "config" => { "event" => "ci_complete" } },
       { "id" => "collect_coverage", "type" => "action", "label" => "Collect Coverage Data", "config" => { "tool" => "artifact_download" } },
-      { "id" => "analyze_gaps", "type" => "ai", "label" => "Analyze Coverage Gaps", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "prioritize", "type" => "ai", "label" => "Prioritize Test Targets", "config" => { "model" => "claude-haiku-4-5-20251001", "temperature" => 0.1 } },
-      { "id" => "generate_report", "type" => "ai", "label" => "Generate Report", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.3 } }
+      { "id" => "analyze_gaps", "type" => "ai", "label" => "Analyze Coverage Gaps", "config" => { "temperature" => 0.2 } },
+      { "id" => "prioritize", "type" => "ai", "label" => "Prioritize Test Targets", "config" => { "temperature" => 0.1 } },
+      { "id" => "generate_report", "type" => "ai", "label" => "Generate Report", "config" => { "temperature" => 0.3 } }
     ],
     "edges" => [
       { "source" => "trigger", "target" => "collect_coverage" },
@@ -481,25 +473,22 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "coverage-analysis-report") do |t|
 end
 
 # Template 9: Performance Check
-Ai::DevopsTemplate.find_or_create_by!(slug: "performance-check") do |t|
-  t.account = admin_account
+upsert_devops_template.call("performance-check") do |t|
   t.name = "Performance Regression Check"
   t.description = "Detects performance regressions by analyzing code changes for N+1 queries, memory leaks, slow algorithms, and missing indexes. Compares against baseline benchmarks."
   t.category = "monitoring"
   t.template_type = "performance_check"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "PR Opened", "config" => { "event" => "pull_request" } },
       { "id" => "fetch_changes", "type" => "action", "label" => "Fetch Code Changes", "config" => { "tool" => "git_diff" } },
-      { "id" => "query_analysis", "type" => "ai", "label" => "N+1 Query Detection", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
-      { "id" => "complexity_analysis", "type" => "ai", "label" => "Complexity Analysis", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
-      { "id" => "memory_analysis", "type" => "ai", "label" => "Memory Pattern Check", "config" => { "model" => "claude-haiku-4-5-20251001", "temperature" => 0.1 } },
-      { "id" => "summary", "type" => "ai", "label" => "Performance Summary", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } }
+      { "id" => "query_analysis", "type" => "ai", "label" => "N+1 Query Detection", "config" => { "temperature" => 0.1 } },
+      { "id" => "complexity_analysis", "type" => "ai", "label" => "Complexity Analysis", "config" => { "temperature" => 0.1 } },
+      { "id" => "memory_analysis", "type" => "ai", "label" => "Memory Pattern Check", "config" => { "temperature" => 0.1 } },
+      { "id" => "summary", "type" => "ai", "label" => "Performance Summary", "config" => { "temperature" => 0.2 } }
     ],
     "edges" => [
       { "source" => "trigger", "target" => "fetch_changes" },
@@ -535,25 +524,22 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "performance-check") do |t|
 end
 
 # Template 10: Incident Response Runbook
-Ai::DevopsTemplate.find_or_create_by!(slug: "incident-response-runbook") do |t|
-  t.account = admin_account
+upsert_devops_template.call("incident-response-runbook") do |t|
   t.name = "Incident Response Runbook"
   t.description = "AI-assisted incident response that analyzes error logs, correlates events, suggests root causes, and generates incident reports. Integrates with monitoring and alerting systems."
   t.category = "monitoring"
   t.template_type = "custom"
   t.status = "published"
   t.visibility = "public"
-  t.version = "1.0.0"
-  t.is_system = true
   t.published_at = Time.current
   t.workflow_definition = {
     "nodes" => [
       { "id" => "trigger", "type" => "trigger", "label" => "Alert Received", "config" => { "event" => "webhook" } },
       { "id" => "collect_logs", "type" => "action", "label" => "Collect Recent Logs", "config" => { "tool" => "log_query" } },
       { "id" => "collect_metrics", "type" => "action", "label" => "Collect Metrics", "config" => { "tool" => "metrics_query" } },
-      { "id" => "correlate_events", "type" => "ai", "label" => "Correlate Events", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.1 } },
-      { "id" => "root_cause", "type" => "ai", "label" => "Root Cause Analysis", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.2 } },
-      { "id" => "generate_runbook", "type" => "ai", "label" => "Generate Response Steps", "config" => { "model" => "claude-sonnet-4-5-20250929", "temperature" => 0.3 } },
+      { "id" => "correlate_events", "type" => "ai", "label" => "Correlate Events", "config" => { "temperature" => 0.1 } },
+      { "id" => "root_cause", "type" => "ai", "label" => "Root Cause Analysis", "config" => { "temperature" => 0.2 } },
+      { "id" => "generate_runbook", "type" => "ai", "label" => "Generate Response Steps", "config" => { "temperature" => 0.3 } },
       { "id" => "notify_team", "type" => "action", "label" => "Notify On-Call Team", "config" => { "tool" => "notification" } }
     ],
     "edges" => [
@@ -612,8 +598,4 @@ Ai::DevopsTemplate.find_or_create_by!(slug: "incident-response-runbook") do |t|
   GUIDE
 end
 
-# Ensure all system templates belong to admin account (fixes templates created before account assignment)
-updated = Ai::DevopsTemplate.where(is_system: true, account_id: nil).update_all(account_id: admin_account.id)
-puts "  Updated #{updated} existing templates to admin account" if updated > 0
-
-puts "  Created #{Ai::DevopsTemplate.where(is_system: true).count} system AI DevOps templates (all owned by #{admin_account.name})"
+puts "  Created #{Ai::DevopsTemplate.global.where(is_system: true).count} global system AI DevOps templates"

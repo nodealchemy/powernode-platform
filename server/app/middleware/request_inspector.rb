@@ -373,7 +373,7 @@ class RequestInspector
 
   def remaining_block_time(ip)
     # Estimate remaining time (default to 1 hour if unknown)
-    ttl = Rails.cache.redis&.ttl(block_cache_key(ip)) || 3600
+    ttl = Powernode::CacheRedis.ttl(block_cache_key(ip)) || 3600
     [ ttl, 0 ].max
   end
 

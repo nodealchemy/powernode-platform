@@ -12,7 +12,7 @@ module Ai
     end
 
     def list_skills(filters: {}, page: 1, per_page: 20)
-      skills = Ai::Skill.for_account(account&.id)
+      skills = scoped_skills(filters[:scope])
 
       skills = skills.by_category(filters[:category]) if filters[:category].present?
       skills = skills.where(status: filters[:status]) if filters[:status].present?
@@ -120,6 +120,17 @@ module Ai
     end
 
     private
+
+    # Apply ?scope=global|custom|all (default: for_account = global + own) so the
+    # global baseline skill library stays visible after the global/account split.
+    def scoped_skills(scope)
+      case scope.to_s
+      when "global" then Ai::Skill.global
+      when "custom" then Ai::Skill.owned_by_account(account&.id)
+      when "all"    then Ai::Skill.all
+      else Ai::Skill.for_account(account&.id)
+      end
+    end
 
     def attach_mcp_servers(skill, mcp_server_ids)
       servers = scoped_mcp_servers.where(id: mcp_server_ids)

@@ -14,10 +14,9 @@ namespace :powernode do
     puts "=" * 60
     puts ""
 
-    # Ensure permissions and roles are seeded
-    unless Permission.exists?
-      puts "Syncing permissions and roles..."
-      Permission.sync_from_config!
+    # Ensure roles are seeded (permissions are code-defined in the catalog)
+    unless Role.exists?(name: "super_admin")
+      puts "Syncing roles from the permission catalog..."
       Role.sync_from_config!
     end
 

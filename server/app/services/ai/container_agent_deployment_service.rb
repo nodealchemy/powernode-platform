@@ -200,8 +200,8 @@ module Ai
           "agent_name" => agent.name,
           "conversation_id" => conversation_id,
           "system_prompt" => agent.mcp_metadata&.dig("system_prompt"),
-          "model" => agent.mcp_metadata&.dig("model_config", "model"),
-          "provider" => agent.mcp_metadata&.dig("model_config", "provider"),
+          "model" => agent.resolved_model, # #37: resolved triple — model + provider must agree
+          "provider" => agent.resolved_provider&.provider_type,
           "cluster_name" => cluster.name,
           "template_name" => template.name,
           "chat_enabled" => true
@@ -283,11 +283,12 @@ module Ai
       system_prompt = agent.mcp_metadata&.dig("system_prompt")
       env["SYSTEM_PROMPT"] = system_prompt if system_prompt.present?
 
-      # Add model config
-      model = agent.mcp_metadata&.dig("model_config", "model")
+      # Add model config — model + provider from the same resolved triple so the
+      # container is launched with a coherent pair (#37).
+      model = agent.resolved_model
       env["MODEL"] = model if model.present?
 
-      provider = agent.mcp_metadata&.dig("model_config", "provider")
+      provider = agent.resolved_provider&.provider_type
       env["PROVIDER"] = provider if provider.present?
 
       env

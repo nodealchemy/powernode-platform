@@ -7,13 +7,18 @@ class AuditLog < ApplicationRecord
   belongs_to :user, optional: true
   belongs_to :account
 
-  # Enhanced validations with comprehensive action types
-  validates :action, presence: true, inclusion: { in: AuditActions::ALL_ACTIONS }
+  # Enhanced validations with comprehensive action types.
+  # action/source allowlists are DYNAMIC (re-evaluated per validation via a
+  # proc) so actions/sources registered by extensions at boot — through
+  # AuditActions.register_actions / register_sources — are accepted. Freezing
+  # the union at class-load would capture a stale (core-only) list before the
+  # extension engines' after_initialize hooks have run.
+  validates :action, presence: true,
+            inclusion: { in: ->(_record) { AuditActions.all_actions } }
   validates :resource_type, presence: true
   validates :resource_id, presence: true
-  validates :source, presence: true, inclusion: {
-    in: %w[web api system webhook admin_panel mobile_app integration automation scheduler worker security_system compliance_system]
-  }
+  validates :source, presence: true,
+            inclusion: { in: ->(_record) { AuditActions.all_sources } }
   validates :severity, inclusion: { in: %w[low medium high critical] }, allow_nil: false
   validates :risk_level, inclusion: { in: %w[low medium high critical] }, allow_nil: false
 

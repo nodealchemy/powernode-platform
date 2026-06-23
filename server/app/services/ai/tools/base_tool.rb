@@ -27,10 +27,10 @@ module Ai
           # Check if any user in the agent's account has the required permission.
           # Account doesn't have permissions directly — they're on User via roles.
           if agent.respond_to?(:account) && agent.account
-            Permission.joins(roles: :user_roles)
-                      .where(user_roles: { user_id: agent.account.users.select(:id) })
-                      .where(name: self::REQUIRED_PERMISSION)
-                      .exists?
+            RolePermission.joins(role: :user_roles)
+                          .where(user_roles: { user_id: agent.account.users.select(:id) })
+                          .where(permission_name: self::REQUIRED_PERMISSION)
+                          .exists?
           else
             true
           end

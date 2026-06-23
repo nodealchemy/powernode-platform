@@ -173,21 +173,6 @@ module AuditLogging
     log_resource_deleted(user, severity: "high", **options)
   end
 
-  def log_payment_processed(payment, **options)
-    log_audit_event(
-      "payment_completed",
-      payment,
-      new_values: {
-        amount_cents: payment.amount_cents,
-        status: payment.status,
-        payment_method: payment.payment_method&.last4
-      },
-      data_classification: "confidential",
-      severity: "high",
-      **options
-    )
-  end
-
   def log_subscription_changed(subscription, old_status, new_status, **options)
     log_audit_event(
       "subscription_change",

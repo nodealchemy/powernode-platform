@@ -35,7 +35,6 @@ export const ProfilePage: React.FC = () => {
     // Check for exact matches first to avoid conflicts
     if (path === '/app/profile') return 'profile';
     if (path === '/app/profile/account') return 'account';
-    if (path === '/app/profile/subscription') return 'subscription';
     if (path === '/app/profile/preferences') return 'preferences';
     if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
@@ -50,7 +49,6 @@ export const ProfilePage: React.FC = () => {
     // Use exact matches like in getActiveTabFromPath
     if (path === '/app/profile') return 'profile';
     if (path === '/app/profile/account') return 'account';
-    if (path === '/app/profile/subscription') return 'subscription';
     if (path === '/app/profile/preferences') return 'preferences';
     if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
@@ -433,13 +431,6 @@ export const ProfilePage: React.FC = () => {
       { id: 'account', label: 'Account', icon: '🏢', path: '/account' }
     ];
 
-    // Add subscription tab if user has billing permissions
-    const canManageBilling = user?.permissions?.includes('billing.manage') || 
-                            user?.permissions?.includes('billing.read');
-    
-    if (canManageBilling) {
-      baseTabs.push({ id: 'subscription', label: 'Subscription', icon: '💳', path: '/subscription' });
-    }
 
     const canManageTeam = user?.permissions?.includes('team.read');
     if (canManageTeam) {
@@ -628,11 +619,6 @@ export const ProfilePage: React.FC = () => {
               </div>
             </TabPanel>
 
-            <TabPanel tabId="subscription" activeTab={activeTab}>
-              <div className="p-8 text-center text-theme-secondary">
-                Subscription management is available in Business edition.
-              </div>
-            </TabPanel>
 
             <TabPanel tabId="preferences" activeTab={activeTab}>
               {preferences && (

@@ -381,8 +381,8 @@ module Ai
         conversation = Ai::Conversation
           .where(account_id: account.id)
           .where(conversation_type: "workspace")
-          .joins(:participants)
-          .where(ai_conversation_participants: { ai_agent_id: session[:agent_id] })
+          # a conversation's agent is the ai_agent_id column (no participants join table)
+          .where(ai_agent_id: session[:agent_id])
           .order(updated_at: :desc)
           .first
 

@@ -38,8 +38,8 @@ describe('CreateDelegationModal', () => {
   ];
 
   const mockPermissions = [
-    { id: 'perm-1', resource: 'billing', action: 'read', description: 'View billing', key: 'billing.read' },
-    { id: 'perm-2', resource: 'billing', action: 'manage', description: 'Manage billing', key: 'billing.manage' }
+    { id: 'perm-1', resource: 'billing', action: 'read', description: 'View billing', key: 'business.billing.read' },
+    { id: 'perm-2', resource: 'billing', action: 'manage', description: 'Manage billing', key: 'business.billing.manage' }
   ];
 
   beforeEach(() => {

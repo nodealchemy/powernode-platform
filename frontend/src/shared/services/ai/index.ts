@@ -39,7 +39,6 @@ import { aiOpsApi } from '@/shared/services/ai/AiOpsApiService';
 import { roiApi } from '@/shared/services/ai/RoiApiService';
 import { creditsApi } from '@/shared/services/ai/CreditsApiService';
 import { mcpHostingApi } from '@/shared/services/ai/McpHostingApiService';
-import { outcomeBillingApi } from '@/shared/services/ai/OutcomeBillingApiService';
 import { ragApi } from '@/shared/services/ai/RagApiService';
 import { teamsApi } from '@/shared/services/ai/TeamsApiService';
 import { governanceApi } from '@/shared/services/ai/GovernanceApiService';
@@ -235,16 +234,8 @@ export type {
   ServerCreateParams,
 } from '@/shared/services/ai/McpHostingApiService';
 
-// Re-export Outcome Billing service (Phase 2 - Outcome Billing)
-export { outcomeBillingApi };
-export type {
-  OutcomeDefinition,
-  SlaContract,
-  OutcomeBillingRecord,
-  SlaViolation,
-  BillingSummary,
-  SlaPerformance,
-} from '@/shared/services/ai/OutcomeBillingApiService';
+// Outcome Billing (success-based AI billing) is a commercial concern owned by
+// the business extension; its service/types live there, not in core.
 
 // Re-export RAG service (Phase 3 - Knowledge-Augmented Agents)
 export { ragApi };
@@ -521,7 +512,6 @@ export const aiApi = {
   // Phase 2 - New services
   credits: creditsApi,
   mcpHosting: mcpHostingApi,
-  outcomeBilling: outcomeBillingApi,
   // Phase 3 - New services
   rag: ragApi,
   teams: teamsApi,

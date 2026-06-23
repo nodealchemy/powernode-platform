@@ -56,7 +56,7 @@ agents_data = [
       'cost_tier' => 'mid',
       'model_config' => {
         'provider' => 'anthropic',
-        'model' => 'claude-sonnet-4-5-20250929',
+        'model_requirements' => { 'tier' => 'reasoning' },
         'temperature' => 0.3,
         'max_tokens' => 8192,
         'response_format' => 'structured_analysis',
@@ -138,7 +138,6 @@ agents_data = [
       'cost_tier' => 'mid',
       'model_config' => {
         'provider' => 'anthropic',
-        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.3,
         'max_tokens' => 8192,
         'response_format' => 'code_generation',
@@ -183,11 +182,11 @@ agents_data = [
         - Verify theme class usage — no hardcoded colors
         - Check import paths use @ aliases for cross-feature imports
 
-        BUSINESS AWARENESS:
-        - Business features use @business/ path alias
-        - Gate business UI with __BUSINESS__ build flag
-        - Navigation items: businessOnly: true for business features
-        - Core mode: All features unlocked when business submodule absent
+        EXTENSION AWARENESS:
+        - Extension code uses the extension's path alias (@<ext>/)
+        - Gate extension UI with the build flag (__EXTENSIONS__.includes('<ext>'))
+        - Navigation items: gate extension-only items behind the feature registry
+        - Core mode: All features unlocked when an extension's submodule is absent
 
         ## MCP Platform Tools Available
         You have access to 44 MCP platform tools for direct platform interaction:
@@ -221,7 +220,6 @@ agents_data = [
       'cost_tier' => 'mid',
       'model_config' => {
         'provider' => 'anthropic',
-        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.2,
         'max_tokens' => 8192,
         'response_format' => 'code_generation',
@@ -309,7 +307,6 @@ agents_data = [
       'cost_tier' => 'free',
       'model_config' => {
         'provider' => 'ollama',
-        'model' => 'llama3.1:8b',
         'temperature' => 0.1,
         'max_tokens' => 4096,
         'response_format' => 'operational',
@@ -394,7 +391,6 @@ agents_data = [
       'cost_tier' => 'free',
       'model_config' => {
         'provider' => 'ollama',
-        'model' => 'qwen2.5-coder:14b',
         'temperature' => 0.1,
         'max_tokens' => 4096,
         'response_format' => 'code_generation',
@@ -481,7 +477,6 @@ agents_data = [
       'cost_tier' => 'free',
       'model_config' => {
         'provider' => 'ollama',
-        'model' => 'qwen2.5-coder:14b',
         'temperature' => 0.4,
         'max_tokens' => 8192,
         'response_format' => 'documentation',
@@ -564,7 +559,6 @@ agents_data = [
       'cost_tier' => 'free',
       'model_config' => {
         'provider' => 'ollama',
-        'model' => 'qwen2.5:14b',
         'temperature' => 0.1,
         'max_tokens' => 4096,
         'response_format' => 'structured_json',
@@ -981,7 +975,7 @@ memory_pool = Ai::MemoryPool.find_or_create_by!(
           'Permission-based access: permissions.includes() — never roles',
           'Actions in PageContainer headerActions — never in page body',
           'Global notifications only — no local success/error state',
-          'Path aliases: @/shared/, @/features/, @business/',
+          'Path aliases: @/shared/, @/features/, and each extension via its own @<ext>/ alias',
           'No console.log — use logger from @/shared/utils/logger',
           'No any types — proper TypeScript typing required',
           'Lucide-react for all icons',
@@ -1164,77 +1158,11 @@ else
   puts "  ⚠️  No matching skills found — skipping skill assignments"
 end
 
-# ---------------------------------------------------------------------------
-# Platform-wide Skill Assignments (agents created by other seeds)
-# ---------------------------------------------------------------------------
-platform_skills_assigned = 0
-
-platform_skill_assignments = {
-  'Infrastructure Health Monitor' => %w[
-    sre-incident-response devops-engineer incident-analysis
-    performance-tuning security-analyst
-  ],
-  'Knowledge Graph Curator' => %w[
-    knowledge-system-curator data skill-management
-    business-search
-  ],
-  'Powernode Assistant' => %w[
-    productivity knowledge-system-curator skill-management
-    product-management powernode-dev
-    design-skill-from-intent
-    design-agent-team-from-intent
-  ],
-  'Process Automation Optimizer' => %w[
-    devops-automation productivity incident-analysis
-    product-management
-  ],
-  'Visual Design Assistant' => %w[
-    content-localization marketing product-management
-    user-research
-  ],
-  'Claude Research Analyst' => %w[
-    technical-researcher data knowledge-system-curator
-    business-search user-research
-  ],
-  'Legal & Compliance Analyst' => %w[
-    legal compliance-review security-audit
-  ],
-  'Life Sciences Research Analyst' => %w[
-    bio-research technical-researcher
-  ],
-  'Finance Operations Analyst' => %w[
-    finance data compliance-review
-  ],
-  'Sales Operations Specialist' => %w[
-    sales marketing business-search
-  ],
-  'Customer Success Agent' => %w[
-    customer-support knowledge-system-curator productivity
-  ]
-}
-
-platform_skill_assignments.each do |agent_name, slugs|
-  agent = Ai::Agent.find_by(name: agent_name, account: admin_account)
-  next unless agent
-
-  slugs.each_with_index do |slug, idx|
-    skill = Ai::Skill.find_by(slug: slug, status: 'active')
-    next unless skill
-
-    Ai::AgentSkill.find_or_create_by!(
-      ai_agent_id: agent.id,
-      ai_skill_id: skill.id
-    ) do |as|
-      as.is_active = true
-      as.priority = [idx / 3, 2].min
-    end
-    platform_skills_assigned += 1
-  end
-end
-
-if platform_skills_assigned.positive?
-  puts "  ✅ Platform-wide Skills Assigned: #{platform_skills_assigned}"
-end
+# Platform-wide skill assignments moved to platform_skill_assignments_seed.rb,
+# which runs LAST in the demo section. They assigned skills to agents created by
+# LATER seeds (Powernode Assistant via ai_concierge, the industry agents via
+# autonomy_data), so running here — before those seeds — meant a first db:seed
+# skipped them and a second seed silently added them (non-idempotent).
 
 # ---------------------------------------------------------------------------
 # Role Profile Application

@@ -26,7 +26,7 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
   const [formData, setFormData] = useState({
     delegated_user_email: '',
     role_id: '',
-    permission_ids: [] as string[],
+    permission_names: [] as string[],
     expires_at: '',
     notes: '',
   });
@@ -58,8 +58,8 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
     setFormData(prev => ({ ...prev, role_id: roleId }));
   };
 
-  const handlePermissionChange = (permissionIds: string[]) => {
-    setFormData(prev => ({ ...prev, permission_ids: permissionIds }));
+  const handlePermissionChange = (permissionNames: string[]) => {
+    setFormData(prev => ({ ...prev, permission_names: permissionNames }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -72,7 +72,7 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
       case 1:
         return formData.delegated_user_email.trim() !== '';
       case 2:
-        return formData.role_id || formData.permission_ids.length > 0;
+        return formData.role_id || formData.permission_names.length > 0;
       default:
         return false;
     }
@@ -178,7 +178,7 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
                 
                 <PermissionSelector
                   selectedRoleId={formData.role_id}
-                  selectedPermissionIds={formData.permission_ids}
+                  selectedPermissionIds={formData.permission_names}
                   onRoleChange={handleRoleChange}
                   onPermissionChange={handlePermissionChange}
                   availableRoles={availableRoles}

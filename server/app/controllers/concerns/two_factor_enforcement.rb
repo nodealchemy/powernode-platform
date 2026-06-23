@@ -25,16 +25,26 @@ module TwoFactorEnforcement
     revoke_api_key
   ].freeze
 
-  # Permissions that require 2FA to be enabled
-  ADMIN_PERMISSIONS = %w[
+  # Core permissions that require 2FA. Extensions add theirs via
+  # Permissions.register_2fa_required (e.g. business -> business.billing.manage),
+  # so this core list names no extension. The effective set is
+  # two_factor_required_permissions (core + extension-registered).
+  CORE_TWO_FACTOR_PERMISSIONS = %w[
     system.admin
     accounts.manage
     users.manage
-    billing.manage
-    security.manage
-    audit_logs.export
-    data.export
+    audit.export
+    ai.security.manage
   ].freeze
+
+  def self.two_factor_required_permissions
+    extra = if defined?(::Permissions) && ::Permissions.respond_to?(:two_factor_required)
+              ::Permissions.two_factor_required
+            else
+              []
+            end
+    CORE_TWO_FACTOR_PERMISSIONS + extra
+  end
 
   private
 
@@ -57,7 +67,7 @@ module TwoFactorEnforcement
   def requires_admin_two_factor?
     return false unless current_user
 
-    ADMIN_PERMISSIONS.any? { |perm| current_user.has_permission?(perm) }
+    TwoFactorEnforcement.two_factor_required_permissions.any? { |perm| current_user.has_permission?(perm) }
   end
 
   def sensitive_action?
@@ -182,7 +192,7 @@ module RequiresTwoFactor
   def has_admin_permissions?
     return false unless respond_to?(:has_permission?)
 
-    TwoFactorEnforcement::ADMIN_PERMISSIONS.any? { |perm| has_permission?(perm) }
+    TwoFactorEnforcement.two_factor_required_permissions.any? { |perm| has_permission?(perm) }
   end
 
   def admin_role_assigned_at

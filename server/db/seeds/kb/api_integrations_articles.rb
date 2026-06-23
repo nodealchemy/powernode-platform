@@ -6,7 +6,6 @@
 puts "  🔌 Creating API & Integrations articles..."
 
 api_cat = KnowledgeBase::Category.find_by!(slug: "api-integrations")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 37: API Integration Fundamentals (Featured)
 api_fundamentals_content = <<~MARKDOWN
@@ -240,19 +239,22 @@ const subscription = await client.subscriptions.create({
 For webhook configuration, see [Webhook Configuration Guide](/kb/webhook-configuration-guide).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "api-integration-fundamentals") do |article|
-  article.title = "API Integration Fundamentals"
-  article.category = api_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = true
-  article.excerpt = "Build integrations with Powernode's REST API including authentication, CRUD operations, pagination, rate limiting, and SDK usage."
-  article.content = api_fundamentals_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "api-integration-fundamentals", account_id: nil)
+article.assign_attributes(
+  title: "API Integration Fundamentals",
+  slug: "api-integration-fundamentals",
+  category: api_cat,
+  status: "published",
+  is_public: true,
+  is_featured: true,
+  excerpt: "Build integrations with Powernode's REST API including authentication, CRUD operations, pagination, rate limiting, and SDK usage.",
+  content: api_fundamentals_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ API Integration Fundamentals"
 
@@ -382,7 +384,7 @@ X-Powernode-Event-ID: evt_01HQ7EXAMPLE
 
 ## Handling Webhooks
 
-### Best Practices
+Best practices:
 
 1. **Respond Quickly** - Return 200 within 30 seconds
 2. **Process Async** - Queue for background processing
@@ -431,7 +433,6 @@ Retry Schedule:
 
 ### Test Mode
 
-Send test events:
 1. Go to webhook settings
 2. Click **Send Test**
 3. Select event type
@@ -453,19 +454,22 @@ ngrok http 3000
 For API basics, see [API Integration Fundamentals](/kb/api-integration-fundamentals).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "webhook-configuration-guide") do |article|
-  article.title = "Webhook Configuration Guide"
-  article.category = api_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Configure webhooks for real-time event notifications with signature verification, retry logic, and best practices."
-  article.content = webhook_guide_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "webhook-configuration-guide", account_id: nil)
+article.assign_attributes(
+  title: "Webhook Configuration Guide",
+  slug: "webhook-configuration-guide",
+  category: api_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Configure webhooks for real-time event notifications with signature verification, retry logic, and best practices.",
+  content: webhook_guide_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Webhook Configuration Guide"
 

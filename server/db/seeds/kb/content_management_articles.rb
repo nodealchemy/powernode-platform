@@ -6,7 +6,6 @@
 puts "  📝 Creating Content Management articles..."
 
 content_cat = KnowledgeBase::Category.find_by!(slug: "content-management")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 21: Managing Pages and Content
 pages_content = <<~MARKDOWN
@@ -26,11 +25,7 @@ Create and manage public-facing pages for your Powernode platform.
 
 ### Page List
 
-Navigate to **Content > Pages**:
-- View all pages
-- Filter by status
-- Search by title
-- Sort by date
+Navigate to **Content > Pages** to view all pages, filter by status, search by title, and sort by date.
 
 ## Creating Pages
 
@@ -94,11 +89,7 @@ SEO Settings:
 
 ### Version History
 
-Track page changes:
-- View revision history
-- Compare versions
-- Restore previous versions
-- See who made changes
+Track page changes: view revision history, compare versions, restore previous versions, and see who made changes.
 
 ### Restore Version
 
@@ -131,19 +122,22 @@ Set future publish date:
 For file uploads, see [File Storage and Management](/kb/file-storage-management).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "managing-pages-content") do |article|
-  article.title = "Managing Pages and Content"
-  article.category = content_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Create and manage public pages with Markdown content, SEO optimization, versioning, and publishing workflows."
-  article.content = pages_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "managing-pages-content", account_id: nil)
+article.assign_attributes(
+  title: "Managing Pages and Content",
+  slug: "managing-pages-content",
+  category: content_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Create and manage public pages with Markdown content, SEO optimization, versioning, and publishing workflows.",
+  content: pages_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Managing Pages and Content"
 
@@ -155,13 +149,7 @@ Upload, organize, and manage files with Powernode's file storage system.
 
 ## My Files Dashboard
 
-### Overview
-
-Navigate to **Content > My Files**:
-- View uploaded files
-- Organize in folders
-- Search and filter
-- Manage storage
+Navigate to **Content > My Files** to view uploaded files, organize them in folders, search and filter, and manage storage.
 
 ### File List
 
@@ -203,7 +191,6 @@ Upload Limits:
 
 ### Folders
 
-Create folder structure:
 1. Click **New Folder**
 2. Enter folder name
 3. Move files into folder
@@ -211,9 +198,7 @@ Create folder structure:
 
 ### Moving Files
 
-- Drag to folder
-- Use move action
-- Bulk move selected
+Drag to a folder, use the move action, or bulk-move selected files.
 
 ## Storage Configuration
 
@@ -270,30 +255,29 @@ Generate shareable links:
 
 ### Monitoring Usage
 
-View storage usage:
-- Total used
-- Available space
-- Usage by folder
-- Large files
+View storage usage: total used, available space, usage by folder, and large files.
 
 ---
 
 For knowledge base articles, see [Knowledge Base Administration](/kb/knowledge-base-administration).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "file-storage-management") do |article|
-  article.title = "File Storage and Management"
-  article.category = content_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Upload and organize files with folder structures, storage providers (S3, local), sharing options, and quota management."
-  article.content = files_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "file-storage-management", account_id: nil)
+article.assign_attributes(
+  title: "File Storage and Management",
+  slug: "file-storage-management",
+  category: content_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Upload and organize files with folder structures, storage providers (S3, local), sharing options, and quota management.",
+  content: files_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ File Storage and Management"
 
@@ -321,11 +305,7 @@ Knowledge Base
 
 ### Dashboard
 
-Navigate to **Content > Knowledge Base**:
-- Total articles
-- Articles by status
-- Recent views
-- Search analytics
+Navigate to **Content > Knowledge Base** for total articles, articles by status, recent views, and search analytics.
 
 ## Category Management
 
@@ -347,10 +327,7 @@ Category Settings:
 
 ### Reordering
 
-Drag categories to reorder:
-- Affects navigation display
-- Updates sort order
-- Saves automatically
+Drag categories to reorder. This affects the navigation display, updates sort order, and saves automatically.
 
 ## Article Management
 
@@ -383,19 +360,13 @@ Author   Editor   Public
 
 ### Featured Articles
 
-Mark important articles:
-- Appear on homepage
-- Highlighted in search
-- Shown in category headers
+Mark important articles to surface them on the homepage, highlight them in search, and show them in category headers.
 
 ## Search Optimization
 
 ### Tags
 
-Add relevant tags:
-- Improve searchability
-- Enable filtering
-- Group related content
+Relevant tags improve searchability, enable filtering, and group related content.
 
 ### SEO Settings
 
@@ -408,63 +379,44 @@ Article SEO:
 
 ### Search Analytics
 
-Track search behavior:
-- Top search terms
-- No-result queries
-- Article click-through
-- Search success rate
+Track search behavior: top search terms, no-result queries, article click-through, and search success rate.
 
 ## Article Analytics
 
 ### View Tracking
 
-Monitor article performance:
-- View count
-- Unique viewers
-- Average time on page
-- Exit rate
+Monitor article performance: view count, unique viewers, average time on page, and exit rate.
 
 ### Feedback
 
-Collect article feedback:
-- Helpful/not helpful ratings
-- Comments (if enabled)
-- Improvement suggestions
+Collect helpful/not-helpful ratings, comments (if enabled), and improvement suggestions.
 
 ## Best Practices
 
-### Content Quality
-
-- Clear, concise writing
-- Step-by-step instructions
-- Screenshots where helpful
-- Regular updates
-
-### Organization
-
-- Logical category structure
-- Consistent naming
-- Cross-linking articles
-- Featured important content
+- **Content quality**: Clear, concise writing; step-by-step instructions; screenshots where helpful; regular updates.
+- **Organization**: Logical category structure, consistent naming, cross-linked articles, featured important content.
 
 ---
 
 For public page management, see [Managing Pages and Content](/kb/managing-pages-content).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "knowledge-base-administration") do |article|
-  article.title = "Knowledge Base Administration"
-  article.category = content_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Manage knowledge base categories, create articles with proper workflow, optimize search, and track analytics."
-  article.content = kb_admin_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "knowledge-base-administration", account_id: nil)
+article.assign_attributes(
+  title: "Knowledge Base Administration",
+  slug: "knowledge-base-administration",
+  category: content_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Manage knowledge base categories, create articles with proper workflow, optimize search, and track analytics.",
+  content: kb_admin_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Knowledge Base Administration"
 

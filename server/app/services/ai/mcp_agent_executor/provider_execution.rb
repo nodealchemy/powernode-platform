@@ -14,7 +14,7 @@ class Ai::McpAgentExecutor
     private
 
     def execute_with_provider(_provider_client, execution_context)
-      @logger.info "[MCP_AGENT_EXECUTOR] Executing with provider #{@agent.provider.provider_type}"
+      @logger.info "[MCP_AGENT_EXECUTOR] Executing with provider #{@agent.resolved_provider&.provider_type}"
 
       llm_client = build_llm_client
       messages = build_messages_for_llm(execution_context)
@@ -36,10 +36,12 @@ class Ai::McpAgentExecutor
       end
     end
 
-    # Build a WorkerLlmClient routed through the agent's provider config.
-    # The worker resolves provider + credential from the agent_id.
+    # Build a WorkerLlmClient routed through the agent's resolved provider config.
+    # The worker resolves the same triple via the internal provider_config endpoint;
+    # we gate on the resolved provider (not the raw agent.provider) so the check
+    # matches the provider that will actually serve the model.
     def build_llm_client
-      unless @agent.provider&.is_active?
+      unless @agent.resolved_provider&.is_active?
         raise ProviderError, "AI provider is not active"
       end
 
@@ -70,9 +72,9 @@ class Ai::McpAgentExecutor
     # Resolve model, temperature, max_tokens, and system prompt from agent config
     def resolve_model_config(execution_context)
       model_config = @agent.mcp_metadata&.dig("model_config") || {}
-      model = model_config["model"] ||
-              @agent.mcp_tool_manifest&.dig("model") ||
-              @agent.provider.supported_models.first&.dig("id")
+      # #37: resolve via the agent's selector triple (any active provider) rather
+      # than a hardcoded model_config/manifest read.
+      model = @agent.resolved_model
       max_tokens = execution_context.dig(:context, "max_tokens") ||
                    model_config["max_tokens"] || 2000
       temperature = execution_context.dig(:context, "temperature") ||
@@ -97,7 +99,7 @@ class Ai::McpAgentExecutor
           "completion_tokens" => result[:usage][:completion_tokens],
           "processing_time_ms" => ((Time.current - @start_time) * 1000).round,
           "model_used" => model,
-          "provider" => @agent.provider.provider_type,
+          "provider" => @agent.resolved_provider&.provider_type,
           "tool_calls" => result[:tool_calls_log],
           "tool_call_count" => result[:tool_calls_log].size
         }
@@ -113,7 +115,7 @@ class Ai::McpAgentExecutor
           "completion_tokens" => response.completion_tokens,
           "processing_time_ms" => ((Time.current - @start_time) * 1000).round,
           "model_used" => model,
-          "provider" => @agent.provider.provider_type
+          "provider" => @agent.resolved_provider&.provider_type
         }
       }
     end

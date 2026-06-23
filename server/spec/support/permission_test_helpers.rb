@@ -55,13 +55,12 @@ module PermissionTestHelpers
   def owner_user(**options)
     account = options.delete(:account) || create(:account)
     owner_permissions = %w[
-      accounts.read accounts.update accounts.manage
+      accounts.read accounts.manage
       users.read users.create users.update users.delete users.manage
-      roles.read roles.create roles.update roles.delete
-      billing.read billing.update billing.manage
+      admin.role.read admin.role.create admin.role.update admin.role.delete
       analytics.read
-      audit_logs.read
-      settings.read settings.update
+      audit.read
+      admin.settings.read admin.settings.update
     ]
     create(:user, account: account, permissions: owner_permissions, **options)
   end
@@ -74,7 +73,7 @@ module PermissionTestHelpers
     manager_permissions = %w[
       users.read users.create users.update
       analytics.read
-      settings.read
+      admin.settings.read
     ]
     create(:user, account: account, permissions: manager_permissions, **options)
   end
@@ -148,10 +147,11 @@ module PermissionTestHelpers
   def devops_user(**options)
     account = options.delete(:account) || create(:account)
     devops_permissions = %w[
-      devops.pipelines.read devops.pipelines.create devops.pipelines.update devops.pipelines.execute
-      devops.deployments.read devops.deployments.create devops.deployments.approve
-      devops.environments.read devops.environments.create devops.environments.update
-      git_providers.read git_providers.create
+      devops.pipelines.read devops.pipelines.write
+      devops.pipeline_runs.read devops.pipeline_runs.write
+      devops.providers.read devops.providers.write
+      devops.repositories.read devops.repositories.write
+      git.providers.read git.providers.create
     ]
     create(:user, account: account, permissions: devops_permissions, **options)
   end
@@ -181,70 +181,62 @@ module PermissionTestHelpers
   # PERMISSION SETUP HELPERS
   # =============================================================================
 
-  # Ensure common test permissions exist in the database
-  # Call this in a before(:all) or before(:suite) block
+  # Ensure common test permissions exist in the catalog.
+  #
+  # Permissions are code-defined (the Permissions catalog is the source of
+  # truth — there is no Permission AR model). Real catalog permissions already
+  # exist; any name here that isn't in the catalog is registered through the
+  # runtime seam so it can be granted by name. Call this in a before block when
+  # a spec relies on these names being grantable.
   def ensure_test_permissions_exist
     permission_sets = {
       'users' => %w[read create update delete manage],
-      'accounts' => %w[read update manage],
-      'billing' => %w[read create update delete manage],
-      'payments' => %w[read create],
-      'invoices' => %w[read create],
-      'subscriptions' => %w[read update],
+      'accounts' => %w[read manage],
       'analytics' => %w[read],
-      'audit_logs' => %w[read export],
-      'settings' => %w[read update],
-      'roles' => %w[read create update delete],
+      'audit' => %w[read export],
+      'admin.role' => %w[read create update delete assign],
       'ai.workflows' => %w[read create update delete execute export],
       'ai.agents' => %w[read create update delete execute],
-      'ai.conversations' => %w[read create update delete manage],
-      'ai.providers' => %w[read create update delete],
+      'ai.conversations' => %w[read create update delete manage participate],
+      'ai.providers' => %w[read create update delete test],
       'ai.analytics' => %w[read],
-      'devops.pipelines' => %w[read create update delete execute],
-      'devops.deployments' => %w[read create approve],
-      'devops.environments' => %w[read create update delete],
-      'git_providers' => %w[read create update delete],
+      'devops.pipelines' => %w[read write],
+      'git.providers' => %w[read create update delete],
       'admin' => %w[access]
     }
 
     permission_sets.each do |resource, actions|
       actions.each do |action|
-        Permission.find_or_create_by!(name: "#{resource}.#{action}") do |p|
-          p.resource = resource
-          p.action = action
-          p.category = resource.include?('.') ? resource.split('.').first : 'resource'
-        end
+        name = "#{resource}.#{action}"
+        Permissions.register_permissions(name => "Test permission") unless Permissions.permission_exists?(name)
       end
     end
   end
 
-  # Grant additional permissions to an existing user
+  # Grant additional permissions to an existing user, by NAME, through a role.
   # @param user [User] The user to grant permissions to
-  # @param permission_names [Array<String>] Permission names to grant
+  # @param permission_names [Array<String>] Catalog permission names to grant
   def grant_permissions(user, *permission_names)
     permission_names.flatten.each do |name|
-      permission = Permission.find_by(name: name)
-      next unless permission
-      next if user.permissions.include?(permission)
+      next if user.has_permission?(name)
 
-      # Find or create a role for this permission
+      # Auto-register ad-hoc names so the catalog-membership validation passes.
+      Permissions.register_permissions(name => "Test permission") unless Permissions.permission_exists?(name)
+
       role = user.roles.first || create(:role)
-      role.permissions << permission unless role.permissions.include?(permission)
+      role.role_permissions.find_or_create_by!(permission_name: name)
       user.roles << role unless user.roles.include?(role)
     end
     user.reload
   end
 
-  # Revoke permissions from an existing user
+  # Revoke permissions (by NAME) from an existing user's roles.
   # @param user [User] The user to revoke permissions from
-  # @param permission_names [Array<String>] Permission names to revoke
+  # @param permission_names [Array<String>] Catalog permission names to revoke
   def revoke_permissions(user, *permission_names)
     permission_names.flatten.each do |name|
-      permission = Permission.find_by(name: name)
-      next unless permission
-
       user.roles.each do |role|
-        role.permissions.delete(permission)
+        role.role_permissions.where(permission_name: name).delete_all
       end
     end
     user.reload

@@ -431,7 +431,7 @@ module Admin
       rate_limit_violations = 0
 
       begin
-        Rails.cache.redis.scan_each(match: "rate_limit:*") do |key|
+        Powernode::CacheRedis.scan_each(match: "rate_limit:*") do |key|
           current_count = Rails.cache.read(key) || 0
           parts = key.split(":")
           next if parts.length < 4

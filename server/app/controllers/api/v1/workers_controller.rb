@@ -3,10 +3,10 @@
 # Workers Controller
 # Manages worker authentication tokens and permissions
 class Api::V1::WorkersController < ApplicationController
-  before_action -> { require_permission("system.workers.read") }, only: [ :index, :show, :test_worker, :health_check, :stats, :show_config ]
-  before_action -> { require_permission("system.workers.create") }, only: [ :create ]
-  before_action -> { require_permission("system.workers.update") }, only: [ :update, :regenerate_token, :suspend, :activate, :revoke, :update_config, :reset_config ]
-  before_action -> { require_permission("system.workers.delete") }, only: [ :destroy ]
+  before_action -> { require_permission("admin.workers.read") }, only: [ :index, :show, :test_worker, :health_check, :stats, :show_config ]
+  before_action -> { require_permission("admin.workers.create") }, only: [ :create ]
+  before_action -> { require_permission("admin.workers.update") }, only: [ :update, :regenerate_token, :suspend, :activate, :revoke, :update_config, :reset_config ]
+  before_action -> { require_permission("admin.workers.delete") }, only: [ :destroy ]
   before_action :set_worker, only: [ :show, :update, :destroy, :regenerate_token, :suspend, :activate, :revoke, :test_worker, :health_check, :show_config, :update_config, :reset_config ]
 
   # GET /api/v1/workers/stats
@@ -49,7 +49,7 @@ class Api::V1::WorkersController < ApplicationController
   def index
     # Admin users can see all workers (including system workers)
     # Regular users can only see workers for their account
-    @workers = if current_user.has_permission?("system.workers.read") || current_user.has_permission?("super_admin")
+    @workers = if current_user.has_permission?("admin.workers.read") || current_user.has_permission?("system.admin")
                  Worker.order(:name)
     else
                  current_account.workers.order(:name)
@@ -294,7 +294,7 @@ class Api::V1::WorkersController < ApplicationController
   # System worker tokens are only available at creation or regeneration.
   # Use regenerate_token to obtain a new plaintext token.
   def current_token
-    unless @worker.system? && current_user.has_permission?("super_admin")
+    unless @worker.system? && current_user.has_permission?("system.admin")
       render_error("Access denied - requires super admin access to system worker", status: :forbidden)
       return
     end
@@ -457,7 +457,7 @@ class Api::V1::WorkersController < ApplicationController
   def set_worker
     # Admin users can access all workers (including system workers)
     # Regular users can only access workers for their account
-    @worker = if current_user.has_permission?("system.workers.view") || current_user.has_permission?("super_admin")
+    @worker = if current_user.has_permission?("admin.workers.read") || current_user.has_permission?("system.admin")
                 Worker.find(params[:id])
     else
                 current_account.workers.find(params[:id])
@@ -487,7 +487,7 @@ class Api::V1::WorkersController < ApplicationController
   end
 
   def ensure_admin_access
-    unless current_user.has_permission?("admin") || current_user.has_permission?("super_admin")
+    unless current_user.has_permission?("admin.access") || current_user.has_permission?("system.admin")
       render_error("Admin access required", status: :forbidden)
     end
   end

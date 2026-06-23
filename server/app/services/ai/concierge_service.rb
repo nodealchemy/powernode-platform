@@ -1067,10 +1067,11 @@ module Ai
 
       agent_type = valid_agent_type(agent_spec["agent_type"])
       recommendation = ::Ai::AgentModelSelector.recommend(
-        account:     @account,
-        agent_type:  agent_type,
-        role:        role,
-        description: agent_spec["system_prompt_summary"]
+        account:      @account,
+        agent_type:   agent_type,
+        role:         role,
+        description:  agent_spec["system_prompt_summary"],
+        requirements: agent_spec["model_requirements"] || {}
       )
       provider = recommendation[:provider]
       model    = recommendation[:model]

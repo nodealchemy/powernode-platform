@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { delegationApi, Delegation, DelegationRequest, CreateDelegationData, DELEGATION_PERMISSIONS } from '@/features/delegations/services/delegationApi';
+import {
+  delegationApi,
+  Delegation,
+  DelegationRequest,
+  CreateDelegationData,
+  DelegationPermissionOption,
+  deriveDelegationPermissions,
+  DELEGATION_PERMISSIONS
+} from '@/features/delegations/services/delegationApi';
+import { rolesApi } from '@/features/admin/roles/services/rolesApi';
 import { formatDate } from '@/shared/utils/formatters';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { CreateDelegationModal } from './CreateDelegationModal';
@@ -17,11 +26,27 @@ export const DelegationsManagement: React.FC = () => {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'outgoing' | 'incoming'>('outgoing');
+  // Delegatable permissions shown in the reference section, sourced from the catalog at
+  // runtime (seeded from the back-compat constant so the list is never extension-coupled).
+  const [permissionRefs, setPermissionRefs] = useState<DelegationPermissionOption[]>(DELEGATION_PERMISSIONS);
 
   useEffect(() => {
     loadDelegations();
     loadRequests();
+    loadPermissionRefs();
   }, []);
+
+  const loadPermissionRefs = async () => {
+    try {
+      const response = await rolesApi.getPermissions();
+      const derived = deriveDelegationPermissions(response.data || []);
+      if (derived.length > 0) {
+        setPermissionRefs(derived);
+      }
+    } catch (_error) {
+      // Reference list is non-critical; keep the existing (possibly empty) list.
+    }
+  };
 
   const loadDelegations = async () => {
     try {
@@ -302,7 +327,7 @@ export const DelegationsManagement: React.FC = () => {
         <div className="mt-8 pt-6 border-t border-theme">
           <h3 className="text-lg font-medium text-theme-primary mb-4">Available Permissions</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {DELEGATION_PERMISSIONS.map((permission) => (
+            {permissionRefs.map((permission) => (
               <div key={permission.key} className="bg-theme-background rounded-lg p-3">
                 <h4 className="font-medium text-theme-primary text-sm">{permission.label}</h4>
                 <p className="text-xs text-theme-secondary mt-1">{permission.description}</p>

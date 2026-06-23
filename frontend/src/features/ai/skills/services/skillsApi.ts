@@ -1,11 +1,16 @@
 import { api } from '@/shared/services/api';
+import { createScopedContentApi } from '@/features/content/scoped';
+import type { UpdateFromSourcePreview, ConflictResolutions } from '@/features/content/scoped';
 import type {
   SkillsListResponse,
   SkillResponse,
   CategoriesResponse,
   SkillFormData,
   SkillFilters,
+  AiSkill,
 } from '../types';
+
+const scopedApi = createScopedContentApi<AiSkill>('/ai/skills');
 
 const handleApiError = (error: unknown, defaultMessage: string): string => {
   if (error && typeof error === 'object' && 'response' in error) {
@@ -30,6 +35,7 @@ export const skillsApi = {
       if (filters?.status) params.append('status', filters.status);
       if (filters?.enabled) params.append('enabled', filters.enabled);
       if (filters?.search) params.append('search', filters.search);
+      if (filters?.scope) params.append('scope', filters.scope);
 
       const response = await api.get(`/ai/skills?${params}`);
       return response.data;
@@ -120,6 +126,23 @@ export const skillsApi = {
     } catch (error) {
       return { success: false, error: handleApiError(error, 'Failed to fetch skill agents') };
     }
+  },
+
+  // --- Globally-scoped content actions (clone + update-from-source) ---
+
+  /** Fork a global (read-only) skill into the account as an editable copy. */
+  async clone(id: string): Promise<AiSkill> {
+    return scopedApi.clone(id);
+  },
+
+  /** 3-way diff of an account-cloned skill against its origin (no save). */
+  async updateFromSourcePreview(id: string): Promise<UpdateFromSourcePreview> {
+    return scopedApi.updateFromSourcePreview(id);
+  },
+
+  /** Apply the update-from-source merge, optionally resolving conflicts. */
+  async updateFromSource(id: string, resolutions?: ConflictResolutions): Promise<AiSkill> {
+    return scopedApi.updateFromSource(id, resolutions);
   },
 
   async getCategories(): Promise<CategoriesResponse> {

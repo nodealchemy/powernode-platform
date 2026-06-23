@@ -1,3 +1,5 @@
+import type { ContentScope } from '@/features/content/scoped';
+
 export type SkillCategory =
   | 'productivity'
   | 'sales'
@@ -49,7 +51,16 @@ export interface McpServerInfo {
   } | null;
 }
 
-export interface AiSkill {
+// Globally-scoped foundational content provenance fields (see GloballyScopable).
+// `account_id == null` => GLOBAL platform skill (read-only); a set
+// `cloned_from_id` => an account copy forked from another skill.
+export interface ScopedSkillFields {
+  account_id?: string | null;
+  cloned_from_id?: string | null;
+  source_key?: string | null;
+}
+
+export interface AiSkill extends ScopedSkillFields {
   id: string;
   name: string;
   slug: string;
@@ -74,7 +85,7 @@ export interface AiSkill {
   updated_at: string;
 }
 
-export interface AiSkillSummary {
+export interface AiSkillSummary extends ScopedSkillFields {
   id: string;
   name: string;
   slug: string;
@@ -138,4 +149,5 @@ export interface SkillFilters {
   status?: SkillStatus;
   enabled?: string;
   search?: string;
+  scope?: ContentScope;
 }

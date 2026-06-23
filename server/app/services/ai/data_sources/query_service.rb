@@ -69,7 +69,7 @@ module Ai
       # One automatic retry on a transient transport failure for idempotent verbs.
       MAX_RETRIES = 1
 
-      # AuditLog action tokens (must be members of AuditActions::ALL_ACTIONS so the
+      # AuditLog action tokens (must be members of AuditActions.all_actions so the
       # companion audit entry — which carries the SHA256 hash-chain linkage —
       # validates). An outbound data-source fetch maps to api_request /
       # api_request_failed.

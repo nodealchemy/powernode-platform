@@ -4,15 +4,28 @@ module Api
   module V1
     module Ai
       class RagController < ApplicationController
+        include GloballyScopedContent
+
         before_action :authenticate_request
         before_action :set_rag_service
-        before_action :set_knowledge_base, only: %i[
+        # Read-only actions resolve GLOBAL (platform) KBs too, so the baseline
+        # library is browsable; mutations on a global KB are then guarded.
+        before_action :set_visible_knowledge_base, only: %i[
           show_knowledge_base update_knowledge_base delete_knowledge_base
+        ]
+        # Sub-resource actions stay account-scoped — they must never write into a
+        # global KB (documents/embeddings/queries/connectors).
+        before_action :set_knowledge_base, only: %i[
           list_documents create_document show_document delete_document process_document
           embed_chunks query query_history
           list_connectors create_connector sync_connector
           analytics
         ]
+
+        # The GloballyScopable model backing the clone / update_from_source actions.
+        def content_model
+          ::Ai::KnowledgeBase
+        end
 
         # ============================================================================
         # KNOWLEDGE BASES
@@ -41,12 +54,18 @@ module Api
 
         # PATCH /api/v1/ai/rag/knowledge_bases/:id
         def update_knowledge_base
+          require_editable_content!(@knowledge_base)
+          return if performed?
+
           kb = @rag_service.update_knowledge_base(@knowledge_base.id, knowledge_base_params)
           render_success(serialize_knowledge_base(kb))
         end
 
         # DELETE /api/v1/ai/rag/knowledge_bases/:id
         def delete_knowledge_base
+          require_editable_content!(@knowledge_base)
+          return if performed?
+
           @rag_service.delete_knowledge_base(@knowledge_base.id)
           render_success(success: true)
         end
@@ -162,8 +181,27 @@ module Api
           @knowledge_base = @rag_service.get_knowledge_base(params[:knowledge_base_id] || params[:id])
         end
 
+        # Read lookup that resolves global (platform) KBs as well as the account's.
+        def set_visible_knowledge_base
+          @knowledge_base = @rag_service.get_visible_knowledge_base(params[:knowledge_base_id] || params[:id])
+        end
+
+        # Override the concern's visible lookup: Ai::KnowledgeBase#for_account is
+        # account-only (shadows the GloballyScopable scope), so clone a global KB
+        # via an explicit global-inclusive column filter.
+        def find_visible_content(id)
+          record = ::Ai::KnowledgeBase.where(account_id: [ nil, current_account.id ]).find_by(id: id)
+          render_not_found("KnowledgeBase") unless record
+          record
+        end
+
+        # Richer serialization for clone / update_from_source responses.
+        def content_json(record)
+          serialize_knowledge_base(record, detailed: true)
+        end
+
         def filter_params
-          params.permit(:status, :source_type, :is_public, :page, :per_page)
+          params.permit(:status, :source_type, :is_public, :page, :per_page, :scope)
         end
 
         def knowledge_base_params
@@ -222,7 +260,7 @@ module Api
             data[:embedding_dimensions] = kb.embedding_dimensions
           end
 
-          data
+          data.merge(kb.scope_attributes)
         end
 
         def serialize_document(doc, detailed: false)

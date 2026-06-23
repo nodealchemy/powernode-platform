@@ -6,13 +6,12 @@
 puts "  📦 Creating DevOps articles..."
 
 devops_cat = KnowledgeBase::Category.find_by!(slug: "devops")
-author = User.find_by!(email: "admin@powernode.org")
 
 # Article 24: DevOps Overview (Featured)
 devops_overview_content = <<~MARKDOWN
 # DevOps Overview
 
-Powernode's DevOps integration provides comprehensive tools for modern software development workflows, enabling teams to connect repositories, automate builds, and streamline deployments from a unified platform.
+Powernode's DevOps integration gives teams a unified platform to connect repositories, automate builds, and streamline deployments.
 
 ## What You'll Learn
 
@@ -264,19 +263,22 @@ Ready to dive deeper? Explore these guides:
 Need help? Contact support@powernode.org or visit our [community forum](https://community.powernode.org).
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "devops-overview") do |article|
-  article.title = "DevOps Overview"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = true
-  article.excerpt = "Comprehensive introduction to Powernode's DevOps capabilities including Git integration, CI/CD pipelines, webhooks, and automation patterns."
-  article.content = devops_overview_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "devops-overview", account_id: nil)
+article.assign_attributes(
+  title: "DevOps Overview",
+  slug: "devops-overview",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: true,
+  excerpt: "Comprehensive introduction to Powernode's DevOps capabilities including Git integration, CI/CD pipelines, webhooks, and automation patterns.",
+  content: devops_overview_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ DevOps Overview"
 
@@ -284,13 +286,13 @@ puts "    ✅ DevOps Overview"
 git_providers_content = <<~MARKDOWN
 # Configuring Git Providers
 
-Connect your code repositories to Powernode for seamless integration with CI/CD pipelines, activity tracking, and automated workflows.
+Connect your code repositories to Powernode for integration with CI/CD pipelines, activity tracking, and automated workflows.
 
 ## Supported Providers
 
 ### GitHub
 
-GitHub is the most popular Git hosting service, offering extensive API support and OAuth integration.
+The most popular Git hosting service, with extensive API support and OAuth integration.
 
 **Features:**
 - Repository sync and mirroring
@@ -321,7 +323,7 @@ curl -X GET https://api.powernode.org/api/v1/devops/providers \\
 
 ### GitLab
 
-GitLab offers both cloud and self-hosted options with comprehensive DevOps features.
+Cloud and self-hosted options with comprehensive DevOps features.
 
 **Features:**
 - Self-hosted and GitLab.com support
@@ -355,7 +357,7 @@ GitLab Self-Hosted Setup:
 
 ### Gitea
 
-Gitea is a lightweight, self-hosted Git service ideal for smaller teams.
+A lightweight, self-hosted Git service ideal for smaller teams.
 
 **Features:**
 - Minimal resource requirements
@@ -383,7 +385,7 @@ Required Permissions:
 
 ### Bitbucket
 
-Bitbucket integrates with the Atlassian ecosystem for comprehensive project management.
+Integrates with the Atlassian ecosystem for comprehensive project management.
 
 **Features:**
 - Jira integration
@@ -404,7 +406,7 @@ Bitbucket integrates with the Atlassian ecosystem for comprehensive project mana
 
 ### Sync Configuration
 
-Control how repositories sync with Powernode:
+Control how repositories sync:
 
 ```yaml
 Sync Settings:
@@ -462,7 +464,7 @@ Track commit activity across repositories:
 
 ### Automatic Webhooks
 
-Powernode automatically configures webhooks when connecting providers:
+Powernode configures webhooks automatically when connecting providers:
 
 ```yaml
 Webhook Events (Auto-configured):
@@ -607,19 +609,22 @@ Debugging:
 Need help configuring your Git provider? Contact support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "configuring-git-providers") do |article|
-  article.title = "Configuring Git Providers"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Step-by-step guide to connecting GitHub, GitLab, Gitea, and Bitbucket to Powernode for repository synchronization and CI/CD integration."
-  article.content = git_providers_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "configuring-git-providers", account_id: nil)
+article.assign_attributes(
+  title: "Configuring Git Providers",
+  slug: "configuring-git-providers",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Step-by-step guide to connecting GitHub, GitLab, Gitea, and Bitbucket to Powernode for repository synchronization and CI/CD integration.",
+  content: git_providers_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Configuring Git Providers"
 
@@ -627,7 +632,7 @@ puts "    ✅ Configuring Git Providers"
 cicd_pipelines_content = <<~MARKDOWN
 # Creating CI/CD Pipelines
 
-Build automated pipelines to continuously integrate, test, and deploy your applications with Powernode's visual pipeline builder and YAML configuration.
+Build automated pipelines to continuously integrate, test, and deploy your applications with Powernode's visual builder and YAML configuration.
 
 ## Pipeline Concepts
 
@@ -1126,19 +1131,22 @@ notifications:
 Need help with pipeline configuration? Contact support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "creating-cicd-pipelines") do |article|
-  article.title = "Creating CI/CD Pipelines"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Complete guide to building automated CI/CD pipelines in Powernode with visual builder, YAML configuration, and advanced features."
-  article.content = cicd_pipelines_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "creating-cicd-pipelines", account_id: nil)
+article.assign_attributes(
+  title: "Creating CI/CD Pipelines",
+  slug: "creating-cicd-pipelines",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Complete guide to building automated CI/CD pipelines in Powernode with visual builder, YAML configuration, and advanced features.",
+  content: cicd_pipelines_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Creating CI/CD Pipelines"
 
@@ -1146,13 +1154,13 @@ puts "    ✅ Creating CI/CD Pipelines"
 webhook_content = <<~MARKDOWN
 # Webhook and Integration Management
 
-Configure webhook endpoints to receive real-time events and integrate Powernode with external services for automated workflows.
+Configure webhook endpoints to receive real-time events and integrate Powernode with external services.
 
 ## Understanding Webhooks
 
 ### What Are Webhooks?
 
-Webhooks are HTTP callbacks that notify your applications when events occur in Powernode. Instead of polling for changes, webhooks push data to your endpoints in real-time.
+Webhooks are HTTP callbacks that notify your applications when events occur in Powernode. Instead of polling for changes, they push data to your endpoints in real-time.
 
 ### Webhook Architecture
 
@@ -1289,7 +1297,7 @@ curl -X POST https://api.powernode.org/api/v1/webhooks \\
 
 ### Signature Verification
 
-Powernode signs all webhook payloads using HMAC-SHA256:
+Powernode signs all webhook payloads with HMAC-SHA256:
 
 ```
 X-Powernode-Signature: sha256=abc123...
@@ -1383,7 +1391,7 @@ function isTimestampValid(timestamp) {
 
 ### Automatic Retries
 
-Powernode automatically retries failed webhook deliveries:
+Powernode retries failed webhook deliveries automatically:
 
 ```yaml
 Retry Schedule:
@@ -1556,19 +1564,22 @@ ngrok http 3000
 Need help with webhook configuration? Contact support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "webhook-integration-management") do |article|
-  article.title = "Webhook and Integration Management"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Configure webhooks to receive real-time events from Powernode and integrate with external services like Slack, PagerDuty, and custom applications."
-  article.content = webhook_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "webhook-integration-management", account_id: nil)
+article.assign_attributes(
+  title: "Webhook and Integration Management",
+  slug: "webhook-integration-management",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Configure webhooks to receive real-time events from Powernode and integrate with external services like Slack, PagerDuty, and custom applications.",
+  content: webhook_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Webhook and Integration Management"
 
@@ -1576,7 +1587,7 @@ puts "    ✅ Webhook and Integration Management"
 runners_content = <<~MARKDOWN
 # Managing Pipeline Runners
 
-Configure and manage self-hosted runners for CI/CD pipeline execution with full control over your build environment.
+Configure and manage self-hosted runners for CI/CD pipeline execution, with full control over your build environment.
 
 ## What Are Runners?
 
@@ -1692,7 +1703,7 @@ sudo ./powernode-runner service start
 
 ### Docker Installation
 
-Run runner as Docker container:
+Run the runner as a Docker container:
 
 ```bash
 docker run -d \\
@@ -1708,7 +1719,7 @@ docker run -d \\
 
 ### Kubernetes Installation
 
-Deploy runners in Kubernetes:
+Deploy runners on Kubernetes:
 
 ```yaml
 # runner-deployment.yaml
@@ -2022,19 +2033,22 @@ journalctl -u powernode-runner -f
 Need help with runners? Contact devops-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "managing-pipeline-runners") do |article|
-  article.title = "Managing Pipeline Runners"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Configure self-hosted runners for CI/CD pipeline execution with Docker, Kubernetes, labels, monitoring, and security best practices."
-  article.content = runners_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "managing-pipeline-runners", account_id: nil)
+article.assign_attributes(
+  title: "Managing Pipeline Runners",
+  slug: "managing-pipeline-runners",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Configure self-hosted runners for CI/CD pipeline execution with Docker, Kubernetes, labels, monitoring, and security best practices.",
+  content: runners_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ Managing Pipeline Runners"
 
@@ -2458,19 +2472,22 @@ curl -X POST https://api.powernode.org/api/v1/api-keys/revoke-expired \\
 Need help with API keys? Contact devops-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "api-key-management") do |article|
-  article.title = "API Key Management"
-  article.category = devops_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Create, manage, and secure API keys with scoped permissions, IP restrictions, rotation policies, and usage monitoring."
-  article.content = api_keys_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(source_key: "api-key-management", account_id: nil)
+article.assign_attributes(
+  title: "API Key Management",
+  slug: "api-key-management",
+  category: devops_cat,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Create, manage, and secure API keys with scoped permissions, IP restrictions, rotation policies, and usage monitoring.",
+  content: api_keys_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.author_id = nil
+article.save!
 
 puts "    ✅ API Key Management"
 

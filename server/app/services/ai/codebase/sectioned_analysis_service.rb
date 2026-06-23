@@ -12,7 +12,7 @@ module Ai
 
       # Auto-discover sections from the indexed codebase by directory structure.
       # Groups code entities by their top-level directory paths.
-      # @param scope_path [String|nil] Limit discovery to a subtree (e.g. "extensions/private/trading")
+      # @param scope_path [String|nil] Limit discovery to a subtree (e.g. an extension dir under "extensions/")
       # @param depth [Integer] Directory depth for section grouping (default: auto)
       # @return [Hash] Available sections with node counts
       def list_sections(scope_path: nil, depth: nil)

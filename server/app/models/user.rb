@@ -101,8 +101,8 @@ class User < ApplicationRecord
   # or implicitly via the system.admin grant-all rule. The two cohorts are
   # union-ed via raw IDs to keep the query simple under both code paths.
   scope :with_permission, ->(permission_name) {
-    direct_ids = joins(roles: :permissions).where(permissions: { name: permission_name }).pluck(:id)
-    admin_ids  = joins(roles: :permissions).where(permissions: { name: "system.admin" }).pluck(:id)
+    direct_ids = joins(roles: :role_permissions).where(role_permissions: { permission_name: permission_name }).pluck(:id)
+    admin_ids  = joins(roles: :role_permissions).where(role_permissions: { permission_name: "system.admin" }).pluck(:id)
     where(id: (direct_ids + admin_ids).uniq)
   }
 
@@ -136,11 +136,11 @@ class User < ApplicationRecord
 
   # NEW: Permission-based access control methods
   def has_permission?(permission_name)
-    # Check if user has system.admin permission (equivalent to super admin)
-    return true if roles.joins(:permissions).exists?(permissions: { name: "system.admin" })
+    # system.admin (held through any role) grants every permission
+    return true if roles.joins(:role_permissions).exists?(role_permissions: { permission_name: "system.admin" })
 
-    # Check if user has permission through any of their roles
-    permissions.exists?(name: permission_name)
+    # Otherwise the user has it if any of their roles grants it
+    roles.joins(:role_permissions).exists?(role_permissions: { permission_name: permission_name })
   end
 
   def has_any_permission?(*permission_names)
@@ -151,14 +151,22 @@ class User < ApplicationRecord
     permission_names.all? { |p| has_permission?(p) }
   end
 
+  # Effective permission names for this user. The Permissions catalog is the
+  # source of truth; system.admin expands to the entire catalog. Array<String>.
   def permissions
-    # Users with system.admin permission have access to all permissions
-    if roles.joins(:permissions).exists?(permissions: { name: "system.admin" })
-      Permission.all
-    else
-      # Get all permissions through roles
-      Permission.joins(:roles).where(roles: { id: role_ids })
-    end
+    permission_names
+  end
+
+  # Permissions this user may GRANT to an account-scoped custom role. Enforces
+  # "no privilege escalation": you can only grant permissions you yourself hold,
+  # and never the SYSTEM tier (platform/infra control, incl system.admin).
+  # RESOURCE and ADMIN tier permissions are grantable iff held.
+  def grantable_permission_names
+    permission_names.reject { |name| name.start_with?("system.") }
+  end
+
+  def can_grant_permission?(permission_name)
+    grantable_permission_names.include?(permission_name)
   end
 
   def permission_names
@@ -167,15 +175,11 @@ class User < ApplicationRecord
     cache_key = "user:#{id}:permission_names:#{updated_at.to_i}:#{role_cache_key}"
 
     Rails.cache.fetch(cache_key, expires_in: 5.minutes) do
-      # Check if user has system.admin permission (cache this check too)
-      has_system_admin = roles.joins(:permissions).exists?(permissions: { name: "system.admin" })
-
-      if has_system_admin
-        # System admins get all permissions
-        Permission.pluck(:name).sort
+      if roles.joins(:role_permissions).exists?(role_permissions: { permission_name: "system.admin" })
+        # system.admin grants the entire catalog
+        Permissions.all_permissions.keys.sort
       else
-        # Regular users get permissions through their roles
-        permissions.pluck(:name).uniq.sort
+        roles.joins(:role_permissions).pluck("role_permissions.permission_name").uniq.sort
       end
     end
   end
@@ -203,10 +207,14 @@ class User < ApplicationRecord
       description: "Test role with custom permissions"
     )
 
-    # Assign permissions to the role (even if empty array)
+    # Grant permissions by name (the catalog is the source of truth). Tests may
+    # reference ad-hoc permission names, so register any unknown name at runtime
+    # to satisfy the catalog-membership validation.
     @pending_permissions.each do |permission_name|
-      permission = Permission.find_or_create_from_name!(permission_name)
-      role.permissions << permission unless role.permissions.include?(permission)
+      unless Permissions.permission_exists?(permission_name)
+        Permissions.register_permissions(permission_name => "Test permission")
+      end
+      role.role_permissions.find_or_create_by!(permission_name: permission_name)
     end
 
     # Assign role to user
@@ -242,13 +250,18 @@ class User < ApplicationRecord
     true
   end
 
-  # Alias for compatibility with tests
-  def assign_role(role_or_name)
-    if role_or_name.is_a?(Role)
-      roles << role_or_name unless roles.include?(role_or_name)
+  # Assign a role to this user. Accepts a Role or a role name; an optional
+  # assigned_by user is recorded on the user_roles join (via grant_to_user).
+  def assign_role(role_or_name, assigned_by: nil)
+    role = role_or_name.is_a?(Role) ? role_or_name : Role.find_by(name: role_or_name)
+    return false unless role
+
+    if assigned_by
+      role.grant_to_user(self, assigned_by)
     else
-      add_role(role_or_name)
+      roles << role unless roles.include?(role)
     end
+    true
   end
 
   def remove_role(role_name)
@@ -261,13 +274,11 @@ class User < ApplicationRecord
 
   # Grant a single permission to this user via their first role
   def grant_permission(permission_name)
-    permission = Permission.find_or_create_from_name!(permission_name)
-
     role = roles.first || Role.find_or_create_by!(name: "custom_#{id}") do |r|
       r.display_name = "Custom Role"
-      r.role_type = "custom"
+      r.role_type = "user"
     end
-    role.permissions << permission unless role.permissions.include?(permission)
+    role.add_permission(permission_name)
     self.roles << role unless self.roles.include?(role)
     reload
   end

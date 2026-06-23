@@ -98,9 +98,12 @@ check_pattern "Permission-based authorization" \
     "positive" "10"
 
 # Model Structure Compliance
-check_pattern "UUID primary key usage" \
-    "grep -r 'string :id, limit: 36' server/db/migrate/ | wc -l" \
-    "positive" "10"
+# Post-0.4.0 convention: native `id: :uuid` PKs with the `uuidv7()` DB default
+# (the old `string :id, limit: 36` string-PK form was eliminated in the squash —
+# decision #8 fixed the mis-set primary_key_type: :string).
+check_pattern "UUID primary key usage (native :uuid + uuidv7 default)" \
+    "grep -rh 'id: :uuid' server/db/migrate/ | wc -l" \
+    "positive" "50"
 
 check_pattern "Model frozen_string_literal pragma" \
     "find server/app/models -name '*.rb' -exec grep -L 'frozen_string_literal' {} \; | wc -l" \
@@ -225,6 +228,35 @@ check_pattern "Job service integration" \
 check_pattern "Forbidden submenu navigation (should be empty)" \
     "grep -c 'children:' frontend/src/config/navigation.tsx 2>/dev/null" \
     "empty"
+
+echo ""
+echo -e "${BLUE}## Schema Isolation${NC}"
+# Leak guard: the committed PUBLIC db/schema.rb must contain NO table owned by a
+# PRIVATE extension. Forbidden prefixes are derived dynamically from
+# extensions/private/* (no slug hardcoded — generic, mirrors core-purity-check.sh).
+# The enforcement is the SchemaDumper prepend (config/initializers/schema_dump_isolation.rb);
+# this is the belt-and-suspenders scan backstop.
+priv_prefixes=$(ls -d extensions/private/*/ 2>/dev/null | xargs -r -n1 basename | paste -sd'|')
+total_checks=$((total_checks + 1))
+echo -n "Checking: No private-extension table refs in public schema.rb (leak guard)... "
+if [ -z "$priv_prefixes" ]; then
+    leak_count=0
+else
+    # Any quoted private-table reference (create_table, add_foreign_key both args, add_index).
+    # Safe: core has no private-extension-prefixed COLUMNS (FK columns are publisher_id, etc.).
+    # NOTE: `grep -c` prints the count AND exits 1 on zero matches; under `set -e` we must
+    # swallow that exit with `|| true` (NOT `|| echo 0`, which double-emits "0" -> a
+    # multiline value that breaks the `-eq` test and falsely trips the FAIL branch).
+    leak_count=$(grep -cE "\"(${priv_prefixes})_" server/db/schema.rb 2>/dev/null || true)
+    leak_count=${leak_count:-0}
+fi
+if [ "$leak_count" -eq 0 ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Found $leak_count private-table refs in public schema.rb: $(grep -oE "\"(${priv_prefixes})_[a-z0-9_]*\"" server/db/schema.rb 2>/dev/null | sort -u | tr '\n' ' '))"
+    failed_checks=$((failed_checks + 1))
+fi
 
 echo ""
 echo -e "${BLUE}=== AUDIT SUMMARY ===${NC}"

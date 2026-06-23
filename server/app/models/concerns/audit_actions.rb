@@ -1,7 +1,17 @@
 # frozen_string_literal: true
 
-# Centralized audit action definitions organized by domain
-# All actions use dot notation for consistency (e.g., ai.agents.create)
+# Centralized audit action definitions organized by domain.
+# All actions use dot notation for consistency (e.g., ai.agents.create) except
+# for legacy flat tokens (e.g., subscription_created) kept for compatibility.
+#
+# Extension seam (mirrors Permissions.register_catalog / register_roles):
+# core declares its own actions/sources in the frozen CORE_* constants; an
+# extension registers ITS actions via AuditActions.register_actions(namespace, [...])
+# (and sources via register_sources) from its engine initializer. The runtime
+# allowlists are the dynamic unions AuditActions.all_actions / all_sources —
+# core ∪ everything registered by the currently-loaded extensions. A disabled
+# extension never runs its initializer, so it is naturally excluded. Nothing in
+# core (this file or any consumer) names an extension.
 module AuditActions
   extend ActiveSupport::Concern
 
@@ -25,34 +35,19 @@ module AuditActions
   ].freeze
 
   # =============================================================================
-  # PLAN MANAGEMENT ACTIONS
-  # =============================================================================
-  PLAN_ACTIONS = %w[
-    create_plan update_plan delete_plan toggle_plan_status
-    plan_upgraded plan_downgraded billing_updated
-  ].freeze
-
-  # =============================================================================
-  # ACCOUNT MANAGEMENT ACTIONS
+  # ACCOUNT MANAGEMENT ACTIONS (core-retained subset)
+  # impersonation_started / impersonation_ended are extension-owned (business).
   # =============================================================================
   ACCOUNT_ACTIONS = %w[
     suspend_account activate_account admin_settings_update
-    impersonation_started impersonation_ended
   ].freeze
 
   # =============================================================================
-  # SUBSCRIPTION ACTIONS
+  # WEBHOOK ACTIONS (core-retained — inbound/outbound webhook lifecycle)
+  # Regrouped out of the former PAYMENT_ACTIONS; the payment/invoice events
+  # that lived alongside them are extension-owned (business).
   # =============================================================================
-  SUBSCRIPTION_ACTIONS = %w[
-    subscription_created subscription_updated subscription_cancelled subscription_paused
-  ].freeze
-
-  # =============================================================================
-  # PAYMENT ACTIONS
-  # =============================================================================
-  PAYMENT_ACTIONS = %w[
-    payment_completed payment_failed payment_refunded payment_disputed
-    invoice_generated invoice_sent invoice_paid invoice_overdue
+  WEBHOOK_ACTIONS = %w[
     webhook_received webhook_failed webhook_retry
     webhook_created webhook_updated webhook_deleted
     webhook_test webhook_test_failed webhook_status_changed
@@ -180,16 +175,6 @@ module AuditActions
   ].freeze
 
   # =============================================================================
-  # AI MARKETPLACE ACTIONS
-  # =============================================================================
-  AI_MARKETPLACE_ACTIONS = %w[
-    ai.marketplace.installation_deleted ai.marketplace.template_created ai.marketplace.template_created_from_workflow
-    ai.marketplace.template_deleted ai.marketplace.template_installed ai.marketplace.template_published
-    ai.marketplace.template_rated ai.marketplace.template_updated ai.marketplace.workflow_published
-    marketplace_listing_resubmitted
-  ].freeze
-
-  # =============================================================================
   # AI MONITORING ACTIONS
   # =============================================================================
   AI_MONITORING_ACTIONS = %w[
@@ -213,16 +198,6 @@ module AuditActions
     ai_agent_team.created ai_agent_team.updated ai_agent_team.deleted
     ai_agent_team.member_added ai_agent_team.member_removed
     ai_agent_team.execution_started ai_agent_team.execution_completed ai_agent_team.execution_failed
-  ].freeze
-
-  # =============================================================================
-  # APP MANAGEMENT ACTIONS
-  # =============================================================================
-  APP_ACTIONS = %w[
-    app_created app_deleted app_updated app_published app_unpublished app_submitted_for_review
-    app_feature_created app_feature_updated app_feature_deleted app_feature_duplicated
-    app_feature_enabled_by_default app_feature_disabled_by_default
-    app_plan_created app_plan_updated app_plan_deleted app_plan_activated app_plan_deactivated app_plans_reordered
   ].freeze
 
   # =============================================================================
@@ -268,43 +243,6 @@ module AuditActions
   ].freeze
 
   # =============================================================================
-  # SUPPLY CHAIN ACTIONS
-  # =============================================================================
-  SUPPLY_CHAIN_ACTIONS = %w[
-    supply_chain.attestations.create supply_chain.attestations.delete supply_chain.attestations.read
-    supply_chain.attestations.record_to_rekor supply_chain.attestations.sign supply_chain.attestations.update
-    supply_chain.attestations.verify
-    supply_chain.container_images.create supply_chain.container_images.delete supply_chain.container_images.evaluate_policies
-    supply_chain.container_images.quarantine supply_chain.container_images.read supply_chain.container_images.scan
-    supply_chain.container_images.update supply_chain.container_images.verify
-    supply_chain.reports.create supply_chain.reports.delete supply_chain.reports.download
-    supply_chain.reports.generate_attribution supply_chain.reports.generate_compliance supply_chain.reports.generate_sbom
-    supply_chain.reports.generate_vendor_risk supply_chain.reports.generate_vulnerability supply_chain.reports.read
-    supply_chain.reports.regenerate supply_chain.reports.update
-    supply_chain.sboms.calculate_risk supply_chain.sboms.correlate_vulnerabilities supply_chain.sboms.create
-    supply_chain.sboms.delete supply_chain.sboms.export supply_chain.sboms.read supply_chain.sboms.update
-    supply_chain.vendors.assess supply_chain.vendors.create supply_chain.vendors.delete
-    supply_chain.vendors.read supply_chain.vendors.reassess supply_chain.vendors.update
-  ].freeze
-
-  # =============================================================================
-  # SYSTEM NODE INSTANCE LIFECYCLE ACTIONS
-  # Emitted by the System::NodeInstance Auditable decoration on every AASM
-  # transition. Consumed by the business extension's audit export for compliance.
-  # =============================================================================
-  SYSTEM_NODE_INSTANCE_ACTIONS = %w[
-    system.node_instance.start
-    system.node_instance.stop
-    system.node_instance.reboot
-    system.node_instance.terminate
-    system.node_instance.mark_provisioning
-    system.node_instance.mark_running
-    system.node_instance.mark_stopped
-    system.node_instance.mark_terminated
-    system.node_instance.mark_errored
-  ].freeze
-
-  # =============================================================================
   # REPORT REQUEST ACTIONS — fired by ReportRequest#log_status_change
   # =============================================================================
   REPORT_REQUEST_ACTIONS = %w[
@@ -329,15 +267,15 @@ module AuditActions
   ].freeze
 
   # =============================================================================
-  # ALL ACTIONS COMBINED
+  # CORE ALL ACTIONS — frozen union of the core-only groups above.
+  # Extension-contributed actions are NOT here; they join at runtime via
+  # the dynamic AuditActions.all_actions union. (Was the combined ALL_ACTIONS.)
   # =============================================================================
-  ALL_ACTIONS = [
+  CORE_ALL_ACTIONS = [
     CORE_ACTIONS,
     USER_ACTIONS,
-    PLAN_ACTIONS,
     ACCOUNT_ACTIONS,
-    SUBSCRIPTION_ACTIONS,
-    PAYMENT_ACTIONS,
+    WEBHOOK_ACTIONS,
     API_ACTIONS,
     OAUTH_ACTIONS,
     SYSTEM_ACTIONS,
@@ -350,20 +288,131 @@ module AuditActions
     AI_ANALYTICS_ACTIONS,
     AI_PROVIDER_ACTIONS,
     AI_PROMPT_TEMPLATE_ACTIONS,
-    AI_MARKETPLACE_ACTIONS,
     AI_MONITORING_ACTIONS,
     AI_ROI_ACTIONS,
     AI_AGENT_TEAM_ACTIONS,
-    APP_ACTIONS,
     DEVOPS_ACTIONS,
     MCP_ACTIONS,
     INVITATION_ACTIONS,
     SITE_SETTING_ACTIONS,
-    SUPPLY_CHAIN_ACTIONS,
-    SYSTEM_NODE_INSTANCE_ACTIONS,
     REPORT_REQUEST_ACTIONS,
     LEGACY_ACTIONS
   ].flatten.uniq.freeze
+
+  # =============================================================================
+  # CORE SOURCES — the audit-log `source` allowlist (relocated here from
+  # AuditLog so it can carry an extension seam symmetric with actions). No
+  # extension sources exist today; all current sources are core. all_sources
+  # is the dynamic core ∪ registered union (see below).
+  # =============================================================================
+  CORE_SOURCES = %w[
+    web api system webhook admin_panel mobile_app integration automation
+    scheduler worker security_system compliance_system
+  ].freeze
+
+  # =============================================================================
+  # EXTENSION SEAM — mutable accumulators populated by extension engines via
+  # register_actions / register_sources. Keyed registration is idempotent.
+  # =============================================================================
+  # namespace (String) => frozen Array of action tokens contributed by that ext.
+  @extension_actions = {}
+  # Flat Array of source tokens contributed by extensions.
+  @extension_sources = []
+
+  class << self
+    # Extension sink for audit ACTIONS — the audit twin of
+    # Permissions.register_catalog. `namespace` is purely for attribution /
+    # grouping (e.g. "business", "supply_chain", "system"); it is NOT enforced
+    # as a name prefix, because audit action names are legacy-flat
+    # (e.g. "subscription_created") as well as dotted. Idempotent: re-registering
+    # the same namespace replaces that namespace's set (so reloader cycles and
+    # double-loads converge instead of accumulating).
+    #
+    # Usage (extensions/<x>/server/lib/<engine>/engine.rb, after_initialize):
+    #   AuditActions.register_actions("business", %w[subscription_created ...])
+    def register_actions(namespace, actions)
+      @extension_actions[namespace.to_s] = Array(actions).map(&:to_s).uniq.freeze
+      nil
+    end
+
+    # Extension sink for audit SOURCES — symmetric with register_actions but
+    # flat (sources have no namespace grouping). Idempotent union.
+    def register_sources(sources)
+      @extension_sources = (@extension_sources + Array(sources).map(&:to_s)).uniq
+      nil
+    end
+
+    # Read-side accessors (parallel to Permissions.extension_* accessors).
+    def extension_actions = @extension_actions
+    def extension_sources = @extension_sources
+
+    # The full runtime action allowlist: core ∪ every loaded extension's
+    # registered actions. Computed dynamically at call time so actions
+    # registered during boot (engine after_initialize) are honored, and a
+    # disabled extension (whose initializer never runs) is naturally excluded.
+    # Consumers (validation, valid_action?) use this, never CORE_ALL_ACTIONS.
+    def all_actions
+      (CORE_ALL_ACTIONS + @extension_actions.values.flatten).uniq
+    end
+
+    # The full runtime source allowlist: core ∪ registered. Same dynamics.
+    def all_sources
+      (CORE_SOURCES + @extension_sources).uniq
+    end
+
+    def valid_action?(action)
+      all_actions.include?(action.to_s)
+    end
+
+    def valid_source?(source)
+      all_sources.include?(source.to_s)
+    end
+
+    def standardize_action(action)
+      MIGRATION_MAPPINGS[action.to_s] || action.to_s
+    end
+
+    def actions_for_domain(domain)
+      case domain.to_s
+      when "core" then CORE_ACTIONS
+      when "user" then USER_ACTIONS
+      when "account" then ACCOUNT_ACTIONS
+      when "webhook" then WEBHOOK_ACTIONS
+      when "api" then API_ACTIONS
+      when "system" then SYSTEM_ACTIONS
+      when "security" then SECURITY_ACTIONS
+      when "compliance" then COMPLIANCE_ACTIONS
+      when "notification" then NOTIFICATION_ACTIONS
+      when "ai_agent" then AI_AGENT_ACTIONS
+      when "ai_conversation" then AI_CONVERSATION_ACTIONS
+      when "ai_message" then AI_MESSAGE_ACTIONS
+      when "ai_analytics" then AI_ANALYTICS_ACTIONS
+      when "ai_provider" then AI_PROVIDER_ACTIONS
+      when "ai_prompt_template" then AI_PROMPT_TEMPLATE_ACTIONS
+      when "ai_monitoring" then AI_MONITORING_ACTIONS
+      when "ai_agent_team" then AI_AGENT_TEAM_ACTIONS
+      when "devops" then DEVOPS_ACTIONS
+      when "mcp" then MCP_ACTIONS
+      when "invitation" then INVITATION_ACTIONS
+      when "site_setting" then SITE_SETTING_ACTIONS
+      else []
+      end
+    end
+
+    def ai_actions
+      [
+        AI_AGENT_ACTIONS,
+        AI_CONVERSATION_ACTIONS,
+        AI_MESSAGE_ACTIONS,
+        AI_ANALYTICS_ACTIONS,
+        AI_PROVIDER_ACTIONS,
+        AI_PROMPT_TEMPLATE_ACTIONS,
+        AI_MONITORING_ACTIONS,
+        AI_ROI_ACTIONS,
+        AI_AGENT_TEAM_ACTIONS
+      ].flatten.uniq
+    end
+  end
 
   # =============================================================================
   # MIGRATION MAPPINGS
@@ -400,62 +449,28 @@ module AuditActions
   }.freeze
 
   # =============================================================================
-  # HELPER METHODS
+  # HELPER METHODS (instance/class via ActiveSupport::Concern) — delegate to the
+  # module-level class methods so includers (AuditLog) keep the same surface.
   # =============================================================================
   class_methods do
     def valid_action?(action)
-      ALL_ACTIONS.include?(action.to_s)
+      AuditActions.valid_action?(action)
+    end
+
+    def valid_source?(source)
+      AuditActions.valid_source?(source)
     end
 
     def standardize_action(action)
-      MIGRATION_MAPPINGS[action.to_s] || action.to_s
+      AuditActions.standardize_action(action)
     end
 
     def actions_for_domain(domain)
-      case domain.to_s
-      when "core" then CORE_ACTIONS
-      when "user" then USER_ACTIONS
-      when "plan" then PLAN_ACTIONS
-      when "account" then ACCOUNT_ACTIONS
-      when "subscription" then SUBSCRIPTION_ACTIONS
-      when "payment" then PAYMENT_ACTIONS
-      when "api" then API_ACTIONS
-      when "system" then SYSTEM_ACTIONS
-      when "security" then SECURITY_ACTIONS
-      when "compliance" then COMPLIANCE_ACTIONS
-      when "notification" then NOTIFICATION_ACTIONS
-      when "ai_agent" then AI_AGENT_ACTIONS
-      when "ai_conversation" then AI_CONVERSATION_ACTIONS
-      when "ai_message" then AI_MESSAGE_ACTIONS
-      when "ai_analytics" then AI_ANALYTICS_ACTIONS
-      when "ai_provider" then AI_PROVIDER_ACTIONS
-      when "ai_prompt_template" then AI_PROMPT_TEMPLATE_ACTIONS
-      when "ai_marketplace" then AI_MARKETPLACE_ACTIONS
-      when "ai_monitoring" then AI_MONITORING_ACTIONS
-      when "ai_agent_team" then AI_AGENT_TEAM_ACTIONS
-      when "app" then APP_ACTIONS
-      when "devops" then DEVOPS_ACTIONS
-      when "mcp" then MCP_ACTIONS
-      when "invitation" then INVITATION_ACTIONS
-      when "site_setting" then SITE_SETTING_ACTIONS
-      when "supply_chain" then SUPPLY_CHAIN_ACTIONS
-      else []
-      end
+      AuditActions.actions_for_domain(domain)
     end
 
     def ai_actions
-      [
-        AI_AGENT_ACTIONS,
-        AI_CONVERSATION_ACTIONS,
-        AI_MESSAGE_ACTIONS,
-        AI_ANALYTICS_ACTIONS,
-        AI_PROVIDER_ACTIONS,
-        AI_PROMPT_TEMPLATE_ACTIONS,
-        AI_MARKETPLACE_ACTIONS,
-        AI_MONITORING_ACTIONS,
-        AI_ROI_ACTIONS,
-        AI_AGENT_TEAM_ACTIONS
-      ].flatten.uniq
+      AuditActions.ai_actions
     end
   end
 end
