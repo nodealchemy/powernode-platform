@@ -22,12 +22,12 @@ module Ai
         }
 
         # 1. Scan for conflicts
-        results[:conflicts_found] = conflict_detection_service.scan_all
+        results[:conflicts_found] = conflict_detection_service.scan_all[:total]
         Rails.logger.info "[SkillGraph::Optimization] Daily: found #{results[:conflicts_found]} conflicts"
 
         # 2. Auto-resolve if enabled
         if Shared::FeatureFlagService.enabled?(:skill_conflict_auto_resolve, account)
-          results[:auto_resolved] = auto_repair_service.auto_resolve_all
+          results[:auto_resolved] = auto_repair_service.auto_resolve_all[:resolved]
           Rails.logger.info "[SkillGraph::Optimization] Daily: auto-resolved #{results[:auto_resolved]} conflicts"
         end
 
