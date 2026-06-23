@@ -64,7 +64,7 @@ class Api::V1::WorkerAuthController < ApplicationController
       session_token: session_token,
       user_email: user.email,
       expires_at: (Time.current + 24.hours).iso8601,
-      permissions: user.permissions.pluck(:resource, :action).map { |r, a| "#{r}.#{a}" }
+      permissions: user.permission_names
     })
   rescue StandardError => e
     Rails.logger.error "Worker authentication error: #{e.message}"
@@ -162,7 +162,7 @@ class Api::V1::WorkerAuthController < ApplicationController
       {
         user_id: user.id,
         user_email: user.email,
-        permissions: user.permissions.pluck(:resource, :action).map { |r, a| "#{r}.#{a}" },
+        permissions: user.permission_names,
         created_at: Time.current.iso8601
       },
       expires_in: 24.hours

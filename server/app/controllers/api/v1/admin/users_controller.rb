@@ -288,7 +288,7 @@ class Api::V1::Admin::UsersController < ApplicationController
       name: user.name,
       full_name: user.full_name,
       roles: user.role_names,  # Use multi-role system
-      permissions: user.permissions.pluck(:name),
+      permissions: user.permission_names,  # Array<String> from the code-defined catalog
       status: user.status,
       email_verified: user.email_verified?,
       locked: user.locked?,
