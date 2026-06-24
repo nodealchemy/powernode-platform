@@ -197,6 +197,46 @@ RSpec.describe "Api::V1::Ai::KnowledgeGraph", type: :request do
     end
   end
 
+  # Cross-tenant IDOR: extract resolves a Document by id; Document delegates its
+  # account to its knowledge_base. The document must be scoped to the acting
+  # account so a foreign account's document 404s (never disclose its content via
+  # extracted nodes/edges).
+  describe "POST /api/v1/ai/knowledge_graph/extract (IDOR)" do
+    let(:extraction_result) do
+      {
+        stats: { nodes_created: 0, nodes_existing: 0, edges_created: 0, edges_existing: 0 },
+        nodes: [],
+        edges: []
+      }
+    end
+
+    before do
+      # Stub extraction so the IDOR is observable via status alone (no live AI):
+      # under the unscoped find a foreign doc would resolve and 200; the fix 404s first.
+      allow_any_instance_of(::Ai::KnowledgeGraph::ExtractionService)
+        .to receive(:extract_from_document).and_return(extraction_result)
+    end
+
+    let(:own_kb) { create(:ai_knowledge_base, account: account) }
+    let(:own_document) { create(:ai_document, knowledge_base: own_kb) }
+    # Factory creates its own (foreign) account+knowledge_base for this document.
+    let(:foreign_document) { create(:ai_document) }
+
+    it "does not extract from a document in another account" do
+      post "/api/v1/ai/knowledge_graph/extract",
+           params: { document_id: foreign_document.id }.to_json, headers: headers
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "extracts from the acting account's own document" do
+      post "/api/v1/ai/knowledge_graph/extract",
+           params: { document_id: own_document.id }.to_json, headers: headers
+
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
   describe "GET /api/v1/ai/knowledge_graph/statistics" do
     before do
       create(:ai_knowledge_graph_node, account: account)

@@ -143,7 +143,13 @@ module Api
           document_id = params[:document_id]
           return render_error("document_id required", status: :bad_request) if document_id.blank?
 
-          document = ::Ai::Document.find(document_id)
+          # Scope to the acting account: a Document delegates its account to its
+          # knowledge_base, so resolve only within the current account's knowledge
+          # bases. A foreign document must 404 — never disclose its content.
+          document = ::Ai::Document
+                       .joins(:knowledge_base)
+                       .where(ai_knowledge_bases: { account_id: current_account.id })
+                       .find(document_id)
           extraction_service = ::Ai::KnowledgeGraph::ExtractionService.new(current_account)
           result = extraction_service.extract_from_document(document: document)
 
