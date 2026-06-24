@@ -11,11 +11,11 @@ class Api::V1::AuditLogsController < ApplicationController
     page = params[:page] || 1
     per_page = [ params[:per_page]&.to_i || 50, 200 ].min
 
-    logs = AuditLog.includes(:user, :account)
-                   .apply_filters(audit_log_filters)
-                   .order(created_at: :desc)
-                   .page(page)
-                   .per(per_page)
+    logs = scoped_audit_logs.includes(:user, :account)
+                            .apply_filters(audit_log_filters)
+                            .order(created_at: :desc)
+                            .page(page)
+                            .per(per_page)
 
     render_success(
       data: logs.map { |log| query_service.format_log(log) },
@@ -31,7 +31,7 @@ class Api::V1::AuditLogsController < ApplicationController
 
   # GET /api/v1/audit_logs/:id
   def show
-    log = AuditLog.includes(:user, :account).find(params[:id])
+    log = scoped_audit_logs.includes(:user, :account).find(params[:id])
     render_success(data: query_service.format_detailed_log(log))
   rescue ActiveRecord::RecordNotFound
     render_error("Audit log not found", status: :not_found)
@@ -81,10 +81,10 @@ class Api::V1::AuditLogsController < ApplicationController
         status: :accepted
       )
     else
-      logs = AuditLog.includes(:user, :account)
-                     .apply_filters(filters)
-                     .order(created_at: :desc)
-                     .limit(1000)
+      logs = scoped_audit_logs.includes(:user, :account)
+                              .apply_filters(filters)
+                              .order(created_at: :desc)
+                              .limit(1000)
 
       render_success(
         data: {
@@ -160,7 +160,19 @@ class Api::V1::AuditLogsController < ApplicationController
   private
 
   def query_service
-    @query_service ||= AuditLogQueryService.new
+    @query_service ||= AuditLogQueryService.new(scope: scoped_audit_logs)
+  end
+
+  # Base relation for all audit-log READS, scoped to the caller's account by
+  # default to prevent cross-tenant PII leakage. A caller holding the elevated
+  # admin.audit.read permission may read across ALL accounts.
+  def scoped_audit_logs
+    @scoped_audit_logs ||=
+      if current_user&.has_permission?("admin.audit.read")
+        AuditLog.all
+      else
+        current_user.account.audit_logs
+      end
   end
 
   def audit_log_filters
@@ -178,7 +190,7 @@ class Api::V1::AuditLogsController < ApplicationController
   end
 
   def should_use_background_export?
-    AuditLog.apply_filters(audit_log_filters).count > 5000
+    scoped_audit_logs.apply_filters(audit_log_filters).count > 5000
   end
 
   def extract_audit_params

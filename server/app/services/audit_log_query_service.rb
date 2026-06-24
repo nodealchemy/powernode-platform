@@ -14,7 +14,18 @@
 #   service = AuditLogQueryService.new
 #   stats = service.detailed_stats
 #
+# Pass a scope to restrict every query to a subset of audit logs (e.g. a single
+# account, for tenant isolation):
+#
+#   service = AuditLogQueryService.new(scope: current_user.account.audit_logs)
+#
 class AuditLogQueryService
+  # Base relation all queries derive from. Defaults to the full table; callers
+  # pass an account-scoped relation to enforce tenant isolation.
+  def initialize(scope: AuditLog.all)
+    @scope = scope
+  end
+
   SECURITY_ACTIONS = %w[login_failed unauthorized_access permission_denied password_change
                         account_locked suspicious_activity ip_blocked token_revoked].freeze
   FAILED_ACTIONS = %w[login_failed payment_failed operation_failed validation_failed].freeze
@@ -48,27 +59,27 @@ class AuditLogQueryService
 
   def basic_stats
     {
-      total_logs: AuditLog.count,
-      logs_today: AuditLog.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count,
-      logs_this_week: AuditLog.where(created_at: 1.week.ago..Time.current).count,
-      by_action: AuditLog.group(:action).order("count_id DESC").limit(10).count(:id),
-      by_source: AuditLog.group(:source).count,
-      by_level: AuditLog.joins("LEFT JOIN (#{LEVEL_SUBQUERY}) AS levels ON levels.action = audit_logs.action")
-                        .group("levels.level").count,
-      failed_logins_today: AuditLog.where(action: "login_failed", created_at: Date.current.beginning_of_day..Date.current.end_of_day).count,
+      total_logs: @scope.count,
+      logs_today: @scope.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count,
+      logs_this_week: @scope.where(created_at: 1.week.ago..Time.current).count,
+      by_action: @scope.group(:action).order("count_id DESC").limit(10).count(:id),
+      by_source: @scope.group(:source).count,
+      by_level: @scope.joins("LEFT JOIN (#{LEVEL_SUBQUERY}) AS levels ON levels.action = audit_logs.action")
+                      .group("levels.level").count,
+      failed_logins_today: @scope.where(action: "login_failed", created_at: Date.current.beginning_of_day..Date.current.end_of_day).count,
       suspicious_activity_count: detect_suspicious_activity_count
     }
   end
 
   def detailed_stats
     basic_stats.merge({
-      top_users: AuditLog.joins(:user).group("users.email").order("count_id DESC").limit(5).count(:id),
-      top_accounts: AuditLog.joins(:account).group("accounts.name").order("count_id DESC").limit(5).count(:id),
-      hourly_distribution: AuditLog.where(created_at: 24.hours.ago..Time.current)
-                                   .group("EXTRACT(hour FROM created_at)")
-                                   .count,
-      error_trend: AuditLog.where(action: ERROR_ACTIONS, created_at: 7.days.ago..Time.current)
-                           .group_by_day(:created_at).count
+      top_users: @scope.joins(:user).group("users.email").order("count_id DESC").limit(5).count(:id),
+      top_accounts: @scope.joins(:account).group("accounts.name").order("count_id DESC").limit(5).count(:id),
+      hourly_distribution: @scope.where(created_at: 24.hours.ago..Time.current)
+                                 .group("EXTRACT(hour FROM created_at)")
+                                 .count,
+      error_trend: @scope.where(action: ERROR_ACTIONS, created_at: 7.days.ago..Time.current)
+                         .group_by_day(:created_at).count
     })
   end
 
@@ -77,7 +88,7 @@ class AuditLogQueryService
   # =============================================================================
 
   def security_summary(start_time:)
-    logs = AuditLog.where("created_at >= ?", start_time)
+    logs = @scope.where("created_at >= ?", start_time)
 
     {
       totalEvents: logs.count,
@@ -98,7 +109,7 @@ class AuditLogQueryService
   # =============================================================================
 
   def compliance_summary(start_time:)
-    logs = AuditLog.where("created_at >= ?", start_time)
+    logs = @scope.where("created_at >= ?", start_time)
 
     base_data = {
       totalEvents: logs.count,
@@ -139,7 +150,7 @@ class AuditLogQueryService
   # =============================================================================
 
   def activity_timeline(start_time:, granularity:)
-    logs = AuditLog.where("created_at >= ?", start_time)
+    logs = @scope.where("created_at >= ?", start_time)
 
     timeline_data = timeline_by_granularity(logs, start_time, granularity)
     action_timeline = logs.group(:action).group_by_hour(:created_at, range: start_time..Time.current).count
@@ -170,7 +181,7 @@ class AuditLogQueryService
   # =============================================================================
 
   def risk_analysis(start_time:)
-    logs = AuditLog.where("created_at >= ?", start_time)
+    logs = @scope.where("created_at >= ?", start_time)
 
     high_risk_count = logs.where(action: HIGH_RISK_ACTIONS).count
     medium_risk_count = logs.where(action: MEDIUM_RISK_ACTIONS).count
@@ -313,15 +324,15 @@ class AuditLogQueryService
   def detect_suspicious_activity_count
     suspicious_count = 0
 
-    suspicious_count += AuditLog.where(action: "login_failed", created_at: 24.hours.ago..Time.current)
-                                .group(:ip_address)
-                                .having("count(*) > 10")
-                                .count
-                                .size
+    suspicious_count += @scope.where(action: "login_failed", created_at: 24.hours.ago..Time.current)
+                              .group(:ip_address)
+                              .having("count(*) > 10")
+                              .count
+                              .size
 
-    suspicious_count += AuditLog.where(action: ADMIN_ACTIONS, created_at: 24.hours.ago..Time.current)
-                                .select { |log| log.created_at.hour < 6 || log.created_at.hour > 22 }
-                                .count
+    suspicious_count += @scope.where(action: ADMIN_ACTIONS, created_at: 24.hours.ago..Time.current)
+                              .select { |log| log.created_at.hour < 6 || log.created_at.hour > 22 }
+                              .count
 
     suspicious_count
   end
@@ -401,12 +412,13 @@ class AuditLogQueryService
 
   def find_related_logs(log)
     time_window = 1.hour
-    related = AuditLog.where(created_at: (log.created_at - time_window)..(log.created_at + time_window))
-                      .where.not(id: log.id)
+    base = @scope.all
+    related = base.where(created_at: (log.created_at - time_window)..(log.created_at + time_window))
+                 .where.not(id: log.id)
 
     related = related.where(user: log.user) if log.user
-    related = related.or(AuditLog.where(ip_address: log.ip_address)) if log.ip_address
-    related = related.or(AuditLog.where(resource_type: log.resource_type, resource_id: log.resource_id)) if log.resource_type
+    related = related.or(base.where(ip_address: log.ip_address)) if log.ip_address
+    related = related.or(base.where(resource_type: log.resource_type, resource_id: log.resource_id)) if log.resource_type
 
     related.limit(10).map { |l| format_log(l) }
   end
@@ -426,7 +438,7 @@ class AuditLogQueryService
     score += 2 if hour < 6 || hour > 22
 
     if log.ip_address
-      recent_from_ip = AuditLog.where(ip_address: log.ip_address, created_at: log.created_at - 1.hour..log.created_at).count
+      recent_from_ip = @scope.where(ip_address: log.ip_address, created_at: log.created_at - 1.hour..log.created_at).count
       score += [ recent_from_ip / 5, 5 ].min
     end
 

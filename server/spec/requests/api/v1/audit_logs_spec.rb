@@ -364,6 +364,84 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
     end
   end
 
+  describe 'cross-account scoping (tenant isolation)' do
+    let(:account_a) { create(:account) }
+    let(:account_b) { create(:account) }
+
+    # Basic member of account A: holds per-account audit.read but NOT admin.audit.read
+    let(:account_a_member) { create(:user, account: account_a, permissions: [ 'audit.read', 'audit.export' ]) }
+    # Privileged user: holds admin.audit.read (sees ALL accounts)
+    let(:global_auditor) { create(:user, account: account_a, permissions: [ 'audit.read', 'audit.export', 'admin.audit.read', 'admin.audit.export' ]) }
+
+    let!(:log_a) { create(:audit_log, account: account_a, user: account_a_member, action: 'user_login') }
+    let!(:log_b) { create(:audit_log, account: account_b, user: create(:user, account: account_b), action: 'user_login') }
+
+    context 'as an account member with only audit.read' do
+      let(:headers) { auth_headers_for(account_a_member) }
+
+      it 'index returns ONLY the caller account logs' do
+        get '/api/v1/audit_logs', headers: headers, as: :json
+
+        expect_success_response
+        account_ids = json_response['data'].map { |log| log.dig('account', 'id') }.uniq
+        expect(account_ids).to eq([ account_a.id ])
+        ids = json_response['data'].map { |log| log['id'] }
+        expect(ids).to include(log_a.id)
+        expect(ids).not_to include(log_b.id)
+      end
+
+      it 'show returns the caller account log' do
+        get "/api/v1/audit_logs/#{log_a.id}", headers: headers, as: :json
+
+        expect_success_response
+        expect(json_response['data']['id']).to eq(log_a.id)
+      end
+
+      it 'show 404s for a foreign account log (IDOR closed)' do
+        get "/api/v1/audit_logs/#{log_b.id}", headers: headers, as: :json
+
+        expect_error_response('Audit log not found', 404)
+      end
+
+      it 'stats are scoped to the caller account' do
+        get '/api/v1/audit_logs/stats', headers: headers, as: :json
+
+        expect_success_response
+        # account_a has exactly one audit log in this context
+        expect(json_response['data']['total_logs']).to eq(account_a.audit_logs.count)
+      end
+
+      it 'export returns ONLY the caller account logs' do
+        post '/api/v1/audit_logs/export', params: { format: 'json' }, headers: headers, as: :json
+
+        expect_success_response
+        exported = JSON.parse(json_response['data']['content'])
+        exported_account_ids = exported.map { |log| log.dig('account', 'id') }.uniq
+        expect(exported_account_ids).to eq([ account_a.id ])
+      end
+    end
+
+    context 'as a user with admin.audit.read' do
+      let(:headers) { auth_headers_for(global_auditor) }
+
+      it 'index returns logs from ALL accounts' do
+        get '/api/v1/audit_logs', headers: headers, as: :json
+
+        expect_success_response
+        ids = json_response['data'].map { |log| log['id'] }
+        expect(ids).to include(log_a.id)
+        expect(ids).to include(log_b.id)
+      end
+
+      it 'show resolves a foreign account log' do
+        get "/api/v1/audit_logs/#{log_b.id}", headers: headers, as: :json
+
+        expect_success_response
+        expect(json_response['data']['id']).to eq(log_b.id)
+      end
+    end
+  end
+
   describe 'DELETE /api/v1/audit_logs/cleanup' do
     let(:headers) { auth_headers_for(admin_user) }
 
