@@ -158,7 +158,10 @@ module Ai
         end
 
         def get_template(template_id)
-          Ai::TeamTemplate.find(template_id)
+          # Scope to GLOBAL (platform) + this account's own templates, matching
+          # publish_template / get_role_profile — previously a bare .find leaked
+          # another account's custom template config.
+          Ai::TeamTemplate.for_account(account&.id).find(template_id)
         end
 
         def create_template(params, user: nil)

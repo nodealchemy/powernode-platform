@@ -143,6 +143,27 @@ RSpec.describe Ai::Teams::ConfigurationService, type: :service do
     end
   end
 
+  describe '#get_template' do
+    it 'returns the account\'s own template' do
+      template = create(:ai_team_template, account: account)
+      expect(service.get_template(template.id)).to eq(template)
+    end
+
+    it 'returns a global (platform) template' do
+      template = create(:ai_team_template, :system_template)
+      expect(service.get_template(template.id)).to eq(template)
+    end
+
+    it 'does not return another account\'s custom template (IDOR)' do
+      other_account = create(:account)
+      foreign_template = create(:ai_team_template, account: other_account)
+
+      expect {
+        service.get_template(foreign_template.id)
+      }.to raise_error(ActiveRecord::RecordNotFound)
+    end
+  end
+
   describe '#analyze_composition' do
     it 'returns composition analysis for a team' do
       result = service.analyze_composition(team)
