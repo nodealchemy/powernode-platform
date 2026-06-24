@@ -106,21 +106,21 @@ The system extension is the most likely to be co-released because its work caden
 
 ## Dual-remote push
 
-The platform parent and the system extension are **dual-remoted**: `origin` is the public GitHub mirror, and `ipnode` is the private Gitea upstream. Releases push to both.
+The platform parent and the system extension are **dual-remoted**: `origin` is the private Gitea upstream (`git.powernode.net`), and `github` is the public GitHub mirror. Releases push to both.
 
 ```bash
 # Parent
 git push origin master --tags
-git push ipnode master --tags
+git push github master --tags
 
 # System extension (from inside extensions/system/)
 git push origin master --tags
-git push ipnode master --tags
+git push github master --tags
 ```
 
 `git push --all` is dangerous on these repos because it can push unintended branches; always be explicit.
 
-The marketing and supply-chain extensions are also dual-remoted. The business extension is private only and pushes to `ipnode` exclusively.
+The marketing and supply-chain extensions are also dual-remoted. The business extension is private only and pushes to `origin` exclusively.
 
 ## Hotfixes
 
@@ -140,7 +140,7 @@ git checkout master
 git merge --no-ff hotfix/0.3.1
 git tag 0.3.1
 git push origin master --tags
-git push ipnode master --tags
+git push github master --tags
 
 # 5. Merge back to develop
 git checkout develop
@@ -184,7 +184,7 @@ Pre-release entries (`0.3.0-rc.1`) get their own section that gets squashed into
 |---------|-------------|
 | Prefixing tags with `v` | Breaks the changelog generator and release automation |
 | Merging `release/*` to `master` without merging back to `develop` | Fixes are lost on the next minor cut |
-| Pushing to only one remote of a dual-remoted repo | One mirror lags — push to both `origin` (GitHub) and `ipnode` (Gitea) |
+| Pushing to only one remote of a dual-remoted repo | One mirror lags — push to both `origin` (Gitea) and `github` (GitHub) |
 | Forgetting to bump the parent's submodule pointer after a coupled submodule release | Parent release ships against the previous submodule SHA |
 | Releasing on a Friday afternoon | Predictable consequences |
 
