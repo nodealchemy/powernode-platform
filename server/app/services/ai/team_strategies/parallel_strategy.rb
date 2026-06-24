@@ -30,8 +30,8 @@ module Ai
       def build_parallel_dag(members, _input)
         nodes = members.map do |member|
           {
-            id: "agent-#{member.agent_id}",
-            agent_id: member.agent_id,
+            id: "agent-#{member.ai_agent_id}",
+            agent_id: member.ai_agent_id,
             input_mapping: { "task" => "$.task" },
             config: { role: member.role || "worker" }
           }
@@ -43,8 +43,8 @@ module Ai
 
       def build_results_from_dag(dag_execution, members)
         results = members.map do |member|
-          node_id = "agent-#{member.agent_id}"
-          node_result = dag_execution.node_results&.dig(node_id)
+          node_id = "agent-#{member.ai_agent_id}"
+          node_result = dag_execution.final_outputs[node_id]
 
           record_task(
             agent: member.agent,
