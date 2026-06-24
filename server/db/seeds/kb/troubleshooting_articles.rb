@@ -225,9 +225,9 @@ Get help from the Powernode support team through multiple channels.
 
 ## Support Channels
 
-### Email Support
+### GitHub
 
-**General Support**: support@powernode.org
+**General Support**: [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 
 Best for:
 - Non-urgent issues
@@ -342,8 +342,8 @@ For technical questions: API documentation, GitHub discussions, Developer Slack,
 
 For emergencies (data breach, complete outage):
 
-**Security**: security@powernode.org
-**Emergency**: emergency@powernode.org
+**Security**: [GitHub security advisory](https://github.com/nodealchemy/powernode-platform/security/advisories/new)
+**Emergency**: [GitHub Issues](https://github.com/nodealchemy/powernode-platform/issues)
 
 ### What Qualifies as Emergency
 

@@ -20,7 +20,7 @@ RSpec.configure do |config|
         description: "API documentation for the Powernode subscription management platform.",
         contact: {
           name: "Powernode Support",
-          email: "support@powernode.io"
+          url: "https://github.com/nodealchemy/powernode-platform/issues"
         },
         license: {
           name: "Proprietary"

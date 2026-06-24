@@ -95,7 +95,7 @@ Issue templates live under `.github/ISSUE_TEMPLATE/`. The common ones are:
 
 - **Bug report** — what you saw, what you expected, repro steps, environment.
 - **Feature request** — problem statement, proposed solution, alternatives.
-- **Security report** — DO NOT use; email security@nodealchemy.com per [SECURITY.md](../../SECURITY.md).
+- **Security report** — DO NOT use; report privately via a [GitHub security advisory](https://github.com/nodealchemy/powernode-platform/security/advisories/new) per [SECURITY.md](../../SECURITY.md).
 
 If you cannot map your report to a template, file a blank issue and one of the maintainers will retag.
 

@@ -8,7 +8,7 @@ Powernode is maintained by a small team (effectively a solo maintainer today). T
 
 **Do not report security vulnerabilities through public GitHub issues, X (@nodealchemy), or any other public channel.** Public reports give attackers a window between disclosure and patch availability that we can't shorten.
 
-Email **security@nodealchemy.com** with:
+**[Open a private security advisory on GitHub](https://github.com/nodealchemy/powernode-platform/security/advisories/new)** with:
 
 - Description of the vulnerability + components affected
 - Steps to reproduce (proof-of-concept welcome but not required)
@@ -21,11 +21,11 @@ You can expect:
 - A coordinated-disclosure timeline proposal within **5 business days**
 - Status updates roughly weekly during active investigation, and promptly when the fix ships
 
-If you don't hear back within 48 hours, please re-send — mail does occasionally get filtered, and we'd rather hear about it twice than not at all.
+If you don't hear back within 48 hours, please add a comment to the advisory (or open a fresh one) — notifications do occasionally get missed, and we'd rather hear about it twice than not at all.
 
 ## Coordinated disclosure
 
-1. You report privately to security@nodealchemy.com
+1. You report privately via a GitHub security advisory
 2. We investigate, develop + verify a fix, and assign a CVE if warranted
 3. We release the fix + publish a security advisory on the repo
 4. You may publish your write-up after the advisory ships

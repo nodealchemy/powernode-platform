@@ -215,7 +215,7 @@ Built-in protections following OWASP guidelines:
 
 ---
 
-Questions about AI features? Contact ai-support@powernode.org
+Questions about AI features? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "ai-orchestration-overview", account_id: nil)
@@ -557,7 +557,7 @@ Test models interactively:
 
 ---
 
-Need help with provider configuration? Contact ai-support@powernode.org
+Need help with provider configuration? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "configuring-ai-providers", account_id: nil)
@@ -1047,7 +1047,7 @@ Monitoring:
 
 ---
 
-Need help creating agents? Contact ai-support@powernode.org
+Need help creating agents? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "creating-managing-ai-agents", account_id: nil)
@@ -1498,7 +1498,7 @@ Debugging:
 
 ---
 
-Need help with MCP or contexts? Contact ai-support@powernode.org
+Need help with MCP or contexts? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "mcp-servers-context-management", account_id: nil)
@@ -1988,7 +1988,7 @@ Team: Enterprise Support
 
 ---
 
-Need help with agent teams? Contact ai-support@powernode.org
+Need help with agent teams? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "agent-teams-multi-agent", account_id: nil)
@@ -2305,7 +2305,7 @@ Embed AI chat in your applications:
 
 ---
 
-Need help with conversations? Contact ai-support@powernode.org
+Need help with conversations? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "ai-conversations-guide", account_id: nil)
@@ -2655,7 +2655,7 @@ Access shared templates:
 
 ---
 
-Need help with templates? Contact ai-support@powernode.org
+Need help with templates? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "managing-prompt-templates", account_id: nil)
@@ -3015,7 +3015,7 @@ Log Entry:
 
 ---
 
-Need help with monitoring? Contact ai-support@powernode.org
+Need help with monitoring? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "ai-monitoring-dashboard", account_id: nil)
@@ -3399,7 +3399,7 @@ Model Review:
 
 ---
 
-Need help with governance? Contact compliance@powernode.org
+Need help with governance? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "ai-governance-policies", account_id: nil)
@@ -3871,7 +3871,7 @@ Production Readiness:
 
 ---
 
-Need help with the sandbox? Contact ai-support@powernode.org
+Need help with the sandbox? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "using-ai-sandbox", account_id: nil)
@@ -4221,7 +4221,7 @@ Listing Configuration:
 
 ---
 
-Need help with the marketplace? Contact marketplace@powernode.org
+Need help with the marketplace? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "agent-marketplace-guide", account_id: nil)
@@ -4714,7 +4714,7 @@ jobs:
 
 ---
 
-Need help with templates? Contact devops-support@powernode.org
+Need help with templates? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "devops-ai-templates", account_id: nil)

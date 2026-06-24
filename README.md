@@ -241,18 +241,10 @@ The platform and its public extensions — **platform, system, supply-chain, and
 
 ## Community
 
-**Discussion**
-
-- **GitHub Discussions** — [nodealchemy/powernode-platform/discussions](https://github.com/nodealchemy/powernode-platform/discussions) for questions, ideas, and show-and-tell
+- **GitHub Discussions** — [nodealchemy/powernode-platform/discussions](https://github.com/nodealchemy/powernode-platform/discussions) for questions, ideas, support, and commercial/enterprise inquiries
 - **GitHub Issues** — [nodealchemy/powernode-platform/issues](https://github.com/nodealchemy/powernode-platform/issues) for bugs + feature requests
+- **Security vulnerabilities** — [report a private advisory](https://github.com/nodealchemy/powernode-platform/security/advisories/new); see [SECURITY.md](./SECURITY.md)
 - **X (@nodealchemy)** — [@nodealchemy](https://x.com/nodealchemy) for updates and informal questions
-
-**Email**
-
-- [contact@nodealchemy.com](mailto:contact@nodealchemy.com) — general inquiries
-- [support@nodealchemy.com](mailto:support@nodealchemy.com) — technical support
-- [sales@nodealchemy.com](mailto:sales@nodealchemy.com) — commercial + enterprise-tier inquiries
-- [security@nodealchemy.com](mailto:security@nodealchemy.com) — security vulnerabilities; see [SECURITY.md](./SECURITY.md)
 
 Open source lives at **[github.com/nodealchemy](https://github.com/nodealchemy)**; commercial offerings at **[nodealchemy.com](https://nodealchemy.com)**.
 

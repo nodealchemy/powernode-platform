@@ -364,7 +364,7 @@ export const defaultNavigationConfig: NavigationConfig = {
     {
       id: 'help-support',
       name: 'Help & Support',
-      href: 'mailto:support@powernode.com',
+      href: 'https://github.com/nodealchemy/powernode-platform/discussions',
       icon: HelpCircle,
       description: 'Get help and contact support',
       isExternal: true

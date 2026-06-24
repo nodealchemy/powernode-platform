@@ -346,7 +346,7 @@ SiteSetting.set('copyright_text', 'Everett C. Haimes III', description: 'Copyrig
 SiteSetting.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
 
 # Contact information
-SiteSetting.set('contact_email', 'hello@powernode.org', description: 'Main contact email', setting_type: 'string', is_public: true)
+SiteSetting.set('contact_email', '', description: 'Main contact email (empty — community contact is via GitHub: see footer Contact page)', setting_type: 'string', is_public: true)
 SiteSetting.set('contact_phone', '+1 (555) 123-4567', description: 'Contact phone number', setting_type: 'string', is_public: true)
 SiteSetting.set('company_address', '123 Innovation Drive, Tech City, TC 12345', description: 'Company address', setting_type: 'string', is_public: true)
 

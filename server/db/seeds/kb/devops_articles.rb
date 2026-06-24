@@ -260,7 +260,7 @@ Ready to dive deeper? Explore these guides:
 
 ---
 
-Need help? Contact support@powernode.org or visit our [community forum](https://community.powernode.org).
+Need help? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions) or visit our [community forum](https://community.powernode.org).
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "devops-overview", account_id: nil)
@@ -606,7 +606,7 @@ Debugging:
 
 ---
 
-Need help configuring your Git provider? Contact support@powernode.org
+Need help configuring your Git provider? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "configuring-git-providers", account_id: nil)
@@ -1128,7 +1128,7 @@ notifications:
 
 ---
 
-Need help with pipeline configuration? Contact support@powernode.org
+Need help with pipeline configuration? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "creating-cicd-pipelines", account_id: nil)
@@ -1561,7 +1561,7 @@ ngrok http 3000
 
 ---
 
-Need help with webhook configuration? Contact support@powernode.org
+Need help with webhook configuration? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "webhook-integration-management", account_id: nil)
@@ -2030,7 +2030,7 @@ journalctl -u powernode-runner -f
 
 ---
 
-Need help with runners? Contact devops-support@powernode.org
+Need help with runners? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "managing-pipeline-runners", account_id: nil)
@@ -2469,7 +2469,7 @@ curl -X POST https://api.powernode.org/api/v1/api-keys/revoke-expired \\
 
 ---
 
-Need help with API keys? Contact devops-support@powernode.org
+Need help with API keys? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "api-key-management", account_id: nil)

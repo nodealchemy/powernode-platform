@@ -459,7 +459,7 @@ All connections are secured with TLS 1.2+, certificate validation, HSTS, and sec
 
 ### Reporting Security Issues
 
-Report to security@powernode.org. Describe the issue, include timestamps, preserve evidence, and don't share publicly.
+Report via a [GitHub security advisory](https://github.com/nodealchemy/powernode-platform/security/advisories/new). Describe the issue, include timestamps, preserve evidence, and don't share publicly.
 
 ---
 

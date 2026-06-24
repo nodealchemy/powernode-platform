@@ -743,7 +743,7 @@ Debug Options:
 
 ---
 
-Need help with workers? Contact ops-support@powernode.org
+Need help with workers? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "background-workers-jobs", account_id: nil)
@@ -890,7 +890,7 @@ Users see a friendly maintenance page:
 │                                                     │
 │  Expected completion: ~30 minutes                   │
 │                                                     │
-│  Questions? Contact support@powernode.org          │
+│  Questions? Contact support@example.com          │
 │                                                     │
 └─────────────────────────────────────────────────────┘
 ```
@@ -910,7 +910,7 @@ Page Customization:
     Footer: "Thank you for your patience."
 
   Contact:
-    Email: support@powernode.org
+    Email: support@example.com
     Status Page: https://status.powernode.org
 
   Countdown:
@@ -1131,7 +1131,7 @@ Emergency Maintenance:
 
 ---
 
-Need help with maintenance? Contact ops-support@powernode.org
+Need help with maintenance? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "system-maintenance-mode", account_id: nil)
@@ -1506,7 +1506,7 @@ Solution:
 
 ---
 
-Need help with impersonation? Contact security@powernode.org
+Need help with impersonation? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "user-impersonation-support", account_id: nil)

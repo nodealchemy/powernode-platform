@@ -160,7 +160,7 @@ create_or_find_data_source(admin_account, {
     "auth_type" => "user_agent",
     "response_format" => "geojson",
     "required_headers" => {
-      "User-Agent" => "(Powernode Trading Platform, contact@powernode.org)"
+      "User-Agent" => "(Powernode Trading Platform, +https://github.com/nodealchemy/powernode-platform)"
     },
     "key_endpoints" => {
       "points" => "/points/{lat},{lon}",

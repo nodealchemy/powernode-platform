@@ -920,7 +920,7 @@ system_publisher = if defined?(Ai::PublisherAccount)
       pending_payout_usd: 0.0,
       total_templates: 0,
       total_installations: 0,
-      support_email: 'support@powernode.org',
+      support_email: 'support@example.com',
       branding: {},
       payout_settings: {}
     )

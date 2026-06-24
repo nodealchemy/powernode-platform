@@ -175,7 +175,7 @@ Page.find_or_create_by!(slug: 'terms') do |page|
 
     ## Contact Information
 
-    Questions about these Terms of Service should be sent to: legal@powernode.org
+    Questions about these Terms of Service should be raised in our [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions).
   MARKDOWN
 end
 
@@ -311,9 +311,9 @@ Page.find_or_create_by!(slug: 'privacy') do |page|
 
     ## Contact Us
 
-    Questions about this Privacy Policy should be directed to: privacy@powernode.org
+    Questions about this Privacy Policy should be directed to our [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions).
 
-    For EU residents: You may also contact our Data Protection Officer at dpo@powernode.org
+    For EU residents: You may also reach us through [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions) for data-protection questions.
   MARKDOWN
 end
 
@@ -422,7 +422,7 @@ Page.find_or_create_by!(slug: 'help') do |page|
     Can't find what you're looking for? Our support team is here to help!
 
     ### Support Channels
-    - **Email Support**: support@powernode.org
+    - **GitHub Discussions**: [Ask the community](https://github.com/nodealchemy/powernode-platform/discussions)
     - **Live Chat**: Available 24/7 for paid plans
     - **Phone Support**: Available for Business and Enterprise plans
     - **Help Desk**: Submit a ticket through your dashboard
@@ -447,7 +447,7 @@ Page.find_or_create_by!(slug: 'help') do |page|
 
     ---
 
-    **Still need help?** [Contact our support team](mailto:support@powernode.org) - we're here to ensure your success!
+    **Still need help?** [Ask in GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions) - we're here to ensure your success!
   MARKDOWN
 end
 
@@ -559,7 +559,7 @@ Page.find_or_create_by!(slug: 'contact') do |page|
 
     Interested in Powernode for your business? Our sales team can help you find the right plan and answer any questions about enterprise features.
 
-    **Email**: sales@powernode.org
+    **GitHub**: [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
     **Response Time**: Within 24 hours
 
     ---
@@ -568,7 +568,7 @@ Page.find_or_create_by!(slug: 'contact') do |page|
 
     Need help with your existing account or experiencing technical issues? Our support team is ready to assist.
 
-    **Email**: support@powernode.org
+    **GitHub**: [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
     **Response Time**: Based on your plan tier (see [Help Center](/pages/help) for details)
 
     For faster resolution, please include:
@@ -583,7 +583,7 @@ Page.find_or_create_by!(slug: 'contact') do |page|
 
     Have general questions about Powernode, partnerships, or press inquiries?
 
-    **Email**: hello@powernode.org
+    **GitHub**: [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 
     ---
 

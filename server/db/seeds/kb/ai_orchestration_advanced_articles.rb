@@ -209,7 +209,7 @@ a2a_protocol_content = <<~MARKDOWN
 
   ---
 
-  Need help with A2A integration? Contact ai-support@powernode.org
+  Need help with A2A integration? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "a2a-protocol-agent-communication", account_id: nil)
@@ -386,7 +386,7 @@ trust_autonomy_content = <<~MARKDOWN
 
   ---
 
-  Need help configuring trust tiers? Contact ai-support@powernode.org
+  Need help configuring trust tiers? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "trust-autonomy-system", account_id: nil)
@@ -616,7 +616,7 @@ memory_tiers_content = <<~MARKDOWN
 
   ---
 
-  Need help with memory configuration? Contact ai-support@powernode.org
+  Need help with memory configuration? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "memory-tiers-knowledge-management", account_id: nil)
@@ -815,7 +815,7 @@ compound_learning_content = <<~MARKDOWN
 
   ---
 
-  Need help with compound learning? Contact ai-support@powernode.org
+  Need help with compound learning? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "compound-learning-system", account_id: nil)
@@ -1043,7 +1043,7 @@ worktree_sandboxes_content = <<~MARKDOWN
 
   ---
 
-  Need help with sandbox configuration? Contact ai-support@powernode.org
+  Need help with sandbox configuration? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "worktree-sandboxes-git-integration", account_id: nil)
@@ -1267,7 +1267,7 @@ review_workflows_content = <<~MARKDOWN
 
   ---
 
-  Need help configuring review workflows? Contact ai-support@powernode.org
+  Need help configuring review workflows? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "review-workflows", account_id: nil)
@@ -1506,7 +1506,7 @@ role_profiles_content = <<~MARKDOWN
 
   ---
 
-  Need help creating custom profiles? Contact ai-support@powernode.org
+  Need help creating custom profiles? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "role-profiles", account_id: nil)
@@ -1737,7 +1737,7 @@ agent_trajectories_content = <<~MARKDOWN
 
   ---
 
-  Need help with trajectory analysis? Contact ai-support@powernode.org
+  Need help with trajectory analysis? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "agent-trajectories", account_id: nil)
@@ -2045,7 +2045,7 @@ team_orchestration_content = <<~MARKDOWN
 
   ---
 
-  Need help designing your team structure? Contact ai-support@powernode.org
+  Need help designing your team structure? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "team-orchestration-patterns", account_id: nil)
@@ -2361,7 +2361,7 @@ cicd_pipeline_content = <<~MARKDOWN
 
   ---
 
-  Need help with pipeline integration? Contact ai-support@powernode.org
+  Need help with pipeline integration? Ask in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 MARKDOWN
 
 article = KnowledgeBase::Article.find_or_initialize_by(source_key: "cicd-pipeline-integration", account_id: nil)

@@ -119,7 +119,7 @@ Access key metrics and quick actions from the home dashboard.
 - **Video Tutorials** - Step-by-step walkthroughs
 
 ### Support Channels
-- **Email**: support@powernode.org
+- **GitHub**: [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions)
 - **Live Chat**: Available for paid plans
 - **Community**: community.powernode.org
 

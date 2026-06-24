@@ -32,7 +32,7 @@ New maintainers start with commit access to the open-source repositories. Admini
 
 ## Code of conduct
 
-Participation is governed by our **[Code of Conduct](CODE_OF_CONDUCT.md)** (Contributor Covenant). Report unacceptable behavior to **conduct@nodealchemy.com**, or for non-sensitive matters raise it in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions). Maintainers are responsible for enforcing it fairly.
+Participation is governed by our **[Code of Conduct](CODE_OF_CONDUCT.md)** (Contributor Covenant). Report unacceptable behavior **privately via a [GitHub security advisory](https://github.com/nodealchemy/powernode-platform/security/advisories/new)** (the maintainers' private-report channel), or for non-sensitive matters raise it in [GitHub Discussions](https://github.com/nodealchemy/powernode-platform/discussions). Maintainers are responsible for enforcing it fairly.
 
 ## Commercial stewardship and the open-core boundary
 
