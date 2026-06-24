@@ -7,6 +7,14 @@ module Api
         class SecretsController < ApplicationController
           include AuditLogging
 
+          # Authorization. Swarm secrets are sensitive credential material, so
+          # reads gate on devops.containers.read and writes on
+          # devops.container_templates.write -- the closest existing container-
+          # orchestration read/manage perms (the catalog has no dedicated
+          # devops.swarm.* / devops.docker.* permission). Without these gates
+          # any authenticated user could list/create/delete Swarm secrets.
+          before_action :require_secrets_read, only: %i[index show]
+          before_action :require_secrets_manage, only: %i[create destroy]
           before_action :set_cluster
 
           # GET /api/v1/devops/swarm/clusters/:cluster_id/secrets
@@ -64,6 +72,14 @@ module Api
           end
 
           private
+
+          def require_secrets_read
+            require_permission("devops.containers.read")
+          end
+
+          def require_secrets_manage
+            require_permission("devops.container_templates.write")
+          end
 
           def set_cluster
             @cluster = current_user.account.devops_swarm_clusters.find(params[:cluster_id])
