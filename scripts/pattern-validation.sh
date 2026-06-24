@@ -97,6 +97,23 @@ check_pattern "Permission-based authorization" \
     "grep -r 'require_permission' server/app/controllers/ | wc -l" \
     "positive" "10"
 
+# Cross-tenant IDOR guard: api/v1 controllers must not query account-scoped
+# models through a bare-constant receiver on a user param (Model.find(params[..]),
+# Model.find_by(id: params[..]), Model.all). The check-account-scoping.sh guard
+# baselines the current vetted set (allowlist + inline `# scoping-ok:`), so this
+# FAILS only on NEW/unvetted occurrences (a real regression). Run the guard
+# directly for per-file detail; here we surface PASS/FAIL into the audit.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No new cross-tenant IDOR (account-scoping guard)... "
+# Guard exits 1 on new hits; swallow under set -e and branch on the code.
+if bash scripts/check-account-scoping.sh >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (New unbaselined account-scoping hit(s); run: bash scripts/check-account-scoping.sh)"
+    failed_checks=$((failed_checks + 1))
+fi
+
 # Model Structure Compliance
 # Post-0.4.0 convention: native `id: :uuid` PKs with the `uuidv7()` DB default
 # (the old `string :id, limit: 36` string-PK form was eliminated in the squash —
