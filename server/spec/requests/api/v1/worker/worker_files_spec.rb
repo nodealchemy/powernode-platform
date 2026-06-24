@@ -79,6 +79,47 @@ RSpec.describe 'Api::V1::Worker::WorkerFiles', type: :request do
         expect(response).to have_http_status(:unauthorized)
       end
     end
+
+    # Defense-in-depth: account workers (is_system: false) must only reach
+    # their own account's files (whose #download returns file bytes); system
+    # workers process all accounts by design.
+    describe 'cross-account scoping' do
+      let(:other_account) { create(:account) }
+      let(:foreign_file_object) { create(:file_object, :image, account: other_account) }
+      let(:own_file_object) { create_file_object.call }
+
+      context 'as an account worker (is_system: false)' do
+        # worker (let above) belongs to `account`; other_account is foreign.
+        it 'CANNOT read another account\'s file (404)' do
+          get "/api/v1/worker/files/#{foreign_file_object.id}",
+              headers: worker_headers, as: :json
+
+          expect(response).to have_http_status(:not_found)
+        end
+
+        it 'CAN read its own account\'s file' do
+          get "/api/v1/worker/files/#{own_file_object.id}",
+              headers: worker_headers, as: :json
+
+          expect_success_response
+        end
+      end
+
+      context 'as a system worker (is_system: true)' do
+        let(:system_worker) { create(:worker, :system_worker, account: account) }
+        let(:system_worker_headers) do
+          jwt = Security::JwtService.encode({ type: "worker", sub: system_worker.id }, 5.minutes.from_now)
+          { 'Authorization' => "Bearer #{jwt}" }
+        end
+
+        it 'CAN read another account\'s file (cross-account preserved)' do
+          get "/api/v1/worker/files/#{foreign_file_object.id}",
+              headers: system_worker_headers, as: :json
+
+          expect_success_response
+        end
+      end
+    end
   end
 
   describe 'GET /api/v1/worker/files/:id/download' do

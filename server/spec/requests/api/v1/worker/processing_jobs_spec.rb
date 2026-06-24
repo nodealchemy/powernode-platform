@@ -89,6 +89,55 @@ RSpec.describe 'Api::V1::Worker::ProcessingJobs', type: :request do
         expect(response).to have_http_status(:unauthorized)
       end
     end
+
+    # Defense-in-depth: account workers (is_system: false) must only reach
+    # their own account's jobs; system workers process all accounts by design.
+    describe 'cross-account scoping' do
+      let(:other_account) { create(:account) }
+      let(:foreign_file_object) { create(:file_object, :image, account: other_account) }
+      let(:foreign_job) do
+        create(:file_processing_job, object: foreign_file_object, account: other_account)
+      end
+      let(:own_job) { create_processing_job.call }
+
+      before do
+        unless FileManagement::Object.method_defined?(:storage_path)
+          FileManagement::Object.define_method(:storage_path) { storage_key }
+        end
+      end
+
+      context 'as an account worker (is_system: false)' do
+        # worker (let above) belongs to `account`; other_account is foreign.
+        it 'CANNOT read another account\'s processing job (404)' do
+          get "/api/v1/worker/processing_jobs/#{foreign_job.id}",
+              headers: worker_headers, as: :json
+
+          expect(response).to have_http_status(:not_found)
+        end
+
+        it 'CAN read its own account\'s processing job' do
+          get "/api/v1/worker/processing_jobs/#{own_job.id}",
+              headers: worker_headers, as: :json
+
+          expect_success_response
+        end
+      end
+
+      context 'as a system worker (is_system: true)' do
+        let(:system_worker) { create(:worker, :system_worker, account: account) }
+        let(:system_worker_headers) do
+          jwt = Security::JwtService.encode({ type: "worker", sub: system_worker.id }, 5.minutes.from_now)
+          { 'Authorization' => "Bearer #{jwt}" }
+        end
+
+        it 'CAN read another account\'s processing job (cross-account preserved)' do
+          get "/api/v1/worker/processing_jobs/#{foreign_job.id}",
+              headers: system_worker_headers, as: :json
+
+          expect_success_response
+        end
+      end
+    end
   end
 
   describe 'PATCH /api/v1/worker/processing_jobs/:id' do

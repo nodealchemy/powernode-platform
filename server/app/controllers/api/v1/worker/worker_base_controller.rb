@@ -11,6 +11,8 @@ module Api
 
         private
 
+        attr_reader :current_worker
+
         def authenticate_worker_service!
           token = request.headers["Authorization"]&.split(" ")&.last
           return render_error("Service authentication required", status: :unauthorized) unless token
@@ -23,8 +25,22 @@ module Api
           end
 
           unless worker&.active?
-            render_error("Service authentication required", status: :unauthorized)
+            return render_error("Service authentication required", status: :unauthorized)
           end
+
+          @current_worker = worker
+        end
+
+        # Scope an account-owned relation to the authenticated worker's account.
+        #
+        # System workers (is_system: true) process all accounts' work by design,
+        # so they receive the relation unconstrained. Account workers
+        # (is_system: false) are constrained to their own account, preventing
+        # cross-account reads/mutations through the worker API.
+        def account_scoped(relation)
+          return relation if current_worker&.system?
+
+          relation.where(account: current_worker&.account)
         end
       end
     end
