@@ -69,7 +69,7 @@ module Ai
 
       def generate_self_challenge(params)
         service = Ai::SelfImprovement::ChallengeService.new(account: account)
-        skill = params["skill_id"] ? Ai::Skill.find_by(id: params["skill_id"]) : nil
+        skill = params["skill_id"] ? Ai::Skill.find_by(id: params["skill_id"], account: account) : nil
         challenge = service.generate_challenge!(
           agent: agent,
           skill: skill,
