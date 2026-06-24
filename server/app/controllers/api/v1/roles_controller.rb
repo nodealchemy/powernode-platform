@@ -140,7 +140,9 @@ class Api::V1::RolesController < ApplicationController
   end
 
   def find_user
-    @user = User.find(params[:user_id])
+    # Scope to the acting account's users: a foreign user_id must 404, never
+    # allow cross-tenant role grant/revoke (User belongs_to :account).
+    @user = current_user.account.users.find(params[:user_id])
   rescue ActiveRecord::RecordNotFound
     render_error("User not found", status: :not_found)
   end

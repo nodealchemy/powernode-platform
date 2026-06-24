@@ -416,4 +416,32 @@ RSpec.describe 'Api::V1::Roles', type: :request do
       end
     end
   end
+
+  # Cross-tenant IDOR: an account admin with admin.role.assign must NOT be able to
+  # target a user that belongs to a DIFFERENT account. find_user must scope to the
+  # acting account's users, so a foreign user_id resolves to "User not found".
+  describe 'cross-account role assignment (IDOR)' do
+    let(:assign_user) { create(:user, account: account, permissions: [ 'admin.role.assign' ]) }
+    let(:assign_headers) { auth_headers_for(assign_user) }
+    let(:role) { create(:role, is_system: false) }
+
+    let(:other_account) { create(:account) }
+    let(:foreign_user) { create(:user, account: other_account) }
+
+    it 'does not resolve a user in another account on assign_to_user' do
+      post "/api/v1/roles/#{role.id}/assign_to_user/#{foreign_user.id}",
+           headers: assign_headers,
+           as: :json
+
+      expect_error_response('User not found', 404)
+    end
+
+    it 'does not resolve a user in another account on remove_from_user' do
+      delete "/api/v1/roles/#{role.id}/remove_from_user/#{foreign_user.id}",
+             headers: assign_headers,
+             as: :json
+
+      expect_error_response('User not found', 404)
+    end
+  end
 end
