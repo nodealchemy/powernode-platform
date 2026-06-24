@@ -9,7 +9,7 @@ module Ai
     class DevLoopTool < BaseTool
       REQUIRED_PERMISSION = "ai.agents.update"
 
-      OUTCOMES = %w[passed failed blocked].freeze
+      OUTCOMES = %w[passed failed blocked skipped].freeze
 
       def self.definition
         {
@@ -19,8 +19,8 @@ module Ai
             action: { type: "string", required: true, description: "Action to perform" },
             loop_id: { type: "string", required: false, description: "Ralph loop ID or name" },
             task_key: { type: "string", required: false, description: "Task key being reported" },
-            outcome: { type: "string", required: false, description: "passed | failed | blocked" },
-            summary: { type: "string", required: false, description: "What was done / why it failed or blocked" },
+            outcome: { type: "string", required: false, description: "passed | failed | blocked | skipped" },
+            summary: { type: "string", required: false, description: "What was done / why it failed, blocked, or was skipped" },
             check_results: { type: "object", required: false, description: "Verification evidence (specs run, results)" },
             learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
             git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
@@ -46,13 +46,14 @@ module Ai
             }
           },
           "dev_complete_task" => {
-            description: "Report the outcome of a claimed task. Records a RalphIteration with verification " \
-                         "evidence, transitions the task (passed/failed/blocked), and captures learnings on the loop.",
+            description: "Report the outcome of a claimed (in_progress) task, OR resolve a blocked task " \
+                         "(operator disposition — no re-claim needed). Records a RalphIteration with verification " \
+                         "evidence, transitions the task (passed/failed/blocked/skipped), and captures learnings on the loop.",
             parameters: {
               loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
               task_key: { type: "string", required: true, description: "Task key being reported" },
-              outcome: { type: "string", required: true, description: "passed | failed | blocked" },
-              summary: { type: "string", required: true, description: "What was done / why it failed or blocked" },
+              outcome: { type: "string", required: true, description: "passed | failed | blocked | skipped" },
+              summary: { type: "string", required: true, description: "What was done / why it failed, blocked, or was skipped" },
               check_results: { type: "object", required: false, description: "Verification evidence (specs run, results)" },
               learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
               git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
@@ -138,7 +139,11 @@ module Ai
 
         task = loop_record.ralph_tasks.find_by(task_key: params[:task_key])
         return error_result("Task not found: #{params[:task_key]}") unless task
-        return error_result("Task is #{task.status}, not in_progress — claim it via dev_next_task first") unless task.in_progress?
+        # in_progress: report a claimed task. blocked: operator resolution of a
+        # task that stopped for a decision (no re-claim needed).
+        unless task.status.in?(%w[in_progress blocked])
+          return error_result("Task is #{task.status}, not in_progress or blocked — claim it via dev_next_task first, or resolve a blocked task directly")
+        end
 
         outcome = params[:outcome].to_s
         return error_result("Invalid outcome: #{outcome} (use #{OUTCOMES.join(' | ')})") unless OUTCOMES.include?(outcome)
@@ -146,8 +151,25 @@ module Ai
         summary = params[:summary].to_s
         return error_result("summary is required") if summary.blank?
 
-        iteration = prepare_iteration(loop_record, task, params)
-        record_outcome(loop_record, task, iteration, outcome, summary, params)
+        iteration = nil
+        pairing_error = nil
+        # Lock the task so the (status → outcome) pre-check, the iteration record, and
+        # the task transition are atomic. The entry guard admits in_progress|blocked,
+        # but not every outcome is legal for both (skipped is invalid for in_progress;
+        # blocked is invalid for an already-blocked task), so we re-validate against the
+        # task's own transition guards under the lock — BEFORE creating an iteration —
+        # and the autonomous loop can't flip a blocked task's status mid-transition and
+        # orphan a half-applied iteration.
+        task.with_lock do
+          unless transition_allowed?(task, outcome)
+            pairing_error = "Cannot mark #{task.status} task as #{outcome}"
+            next
+          end
+
+          iteration = prepare_iteration(loop_record, task, params)
+          record_outcome(loop_record, task, iteration, outcome, summary, params)
+        end
+        return error_result(pairing_error) if pairing_error
 
         response = {
           success: true,
@@ -181,6 +203,19 @@ module Ai
         iteration
       end
 
+      # Delegates to the task's state-machine guards so the (status, outcome)
+      # pairing is the single source of truth: in_progress → passed/failed/blocked;
+      # blocked → passed/failed/skipped (operator resolution).
+      def transition_allowed?(task, outcome)
+        case outcome
+        when "passed" then task.can_pass?
+        when "failed" then task.can_fail?
+        when "blocked" then task.can_block?
+        when "skipped" then task.can_skip?
+        else false
+        end
+      end
+
       def record_outcome(loop_record, task, iteration, outcome, summary, params)
         case outcome
         when "passed"
@@ -199,6 +234,10 @@ module Ai
         when "blocked"
           iteration.fail!(error_message: summary, error_code: "blocked")
           task.block!(reason: summary)
+          capture_learning(loop_record, task, iteration, params[:learning])
+        when "skipped"
+          iteration.skip!(reason: summary)
+          task.skip!(reason: summary)
           capture_learning(loop_record, task, iteration, params[:learning])
         end
       end

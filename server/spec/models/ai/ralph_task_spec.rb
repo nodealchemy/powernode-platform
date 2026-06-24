@@ -148,4 +148,43 @@ RSpec.describe Ai::RalphTask, type: :model do
       expect(create(:ai_ralph_task, ralph_loop: loop_record, metadata: { "blast_radius" => 999 }).blast_radius).to eq(10)
     end
   end
+
+  # ==========================================================================
+  # Operator resolution of a blocked task — a blocked task is "awaiting an
+  # operator decision"; resolving it dispositions it to a terminal outcome
+  # without the resume→reclaim→complete dance.
+  # ==========================================================================
+  describe "terminal transitions from blocked" do
+    let(:blocked_task) { create(:ai_ralph_task, :blocked, ralph_loop: loop_record) }
+
+    it "permits pass!/fail!/skip! from blocked" do
+      expect(blocked_task.can_pass?).to be true
+      expect(blocked_task.can_fail?).to be true
+      expect(blocked_task.can_skip?).to be true
+    end
+
+    it "pass! from blocked → passed, clearing the block reason" do
+      blocked_task.pass!(iteration_number: 7)
+      blocked_task.reload
+      expect(blocked_task.status).to eq("passed")
+      expect(blocked_task.error_message).to be_nil
+      expect(blocked_task.completed_in_iteration).to eq(7)
+    end
+
+    it "fail! from blocked → failed with the reason" do
+      blocked_task.fail!(error_message: "abandoned")
+      expect(blocked_task.reload.status).to eq("failed")
+      expect(blocked_task.error_message).to eq("abandoned")
+    end
+
+    it "skip! from blocked → skipped" do
+      blocked_task.skip!(reason: "superseded")
+      expect(blocked_task.reload.status).to eq("skipped")
+    end
+
+    it "still rejects pass! from a terminal status" do
+      passed = create(:ai_ralph_task, :passed, ralph_loop: loop_record)
+      expect { passed.pass! }.to raise_error(Ai::RalphTask::InvalidTransitionError)
+    end
+  end
 end

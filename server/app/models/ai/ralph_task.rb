@@ -222,12 +222,14 @@ module Ai
       status == "in_progress"
     end
 
+    # in_progress: normal completion of claimed work.
+    # blocked: operator resolution of a task that stopped for a decision.
     def can_pass?
-      status == "in_progress"
+      status.in?(%w[in_progress blocked])
     end
 
     def can_fail?
-      status == "in_progress"
+      status.in?(%w[in_progress blocked])
     end
 
     def can_block?

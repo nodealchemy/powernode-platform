@@ -101,8 +101,10 @@ module Ai
       status == "running"
     end
 
+    # pending: never started. running: started to record an operator disposition
+    # (e.g. resolving a blocked task as skipped) but the work itself is skipped.
     def can_skip?
-      status == "pending"
+      status.in?(%w[pending running])
     end
 
     def terminal?
