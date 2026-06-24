@@ -273,21 +273,6 @@ module CircuitBreaker
     breaker.call(&block)
   end
 
-  # Dedicated circuit breaker for long-running trading training sessions.
-  # Training runs 15-30 ticks × 60-150 strategies × external API calls per tick.
-  # A single tick can generate 100+ API calls — temporary 500s on one call
-  # should NOT trip the breaker and kill the entire session.
-  def with_trading_training_circuit_breaker(&block)
-    breaker = CircuitBreakerRegistry.instance.get_breaker(
-      'trading_training',
-      failure_threshold: 10,
-      recovery_timeout: 60,
-      timeout: 3600  # 60 minutes — training sessions with many strategies are very long-running
-    )
-
-    breaker.call(&block)
-  end
-
   # Dedicated circuit breaker for long-running codebase intelligence ops
   # (index / prune_stale). These drive synchronous server-side
   # scans — AST parse + embeddings over thousands of files, full-graph

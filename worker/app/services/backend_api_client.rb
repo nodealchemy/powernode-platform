@@ -330,14 +330,11 @@ class BackendApiClient
 
   # POST with a named circuit breaker instead of the default backend_api one.
   # Use for long-running requests that would exceed the default 120s timeout.
+  # circuit_breaker may be a known core symbol (:code_intel), nil (default
+  # backend_api breaker), or a Hash { name:, **opts } so an extension can supply
+  # its own breaker config without core naming it.
   def post_with_circuit_breaker(path, data = {}, circuit_breaker: nil)
-    breaker_method = case circuit_breaker
-                     when :trading_training then :with_trading_training_circuit_breaker
-                     when :code_intel then :with_code_intel_circuit_breaker
-                     else :with_backend_api_circuit_breaker
-                     end
-
-    send(breaker_method) do
+    request = lambda do
       start_time = Time.current
       response = @connection.post do |req|
         req.url path
@@ -353,6 +350,15 @@ class BackendApiClient
       duration = Time.current - start_time
       @logger.debug "[BackendAPI] POST #{path} completed in #{duration.round(3)}s"
       handle_response(response)
+    end
+
+    if circuit_breaker.is_a?(Hash)
+      CircuitBreakerRegistry.instance
+                            .get_breaker(circuit_breaker.fetch(:name), circuit_breaker.except(:name))
+                            .call(&request)
+    else
+      breaker_method = circuit_breaker == :code_intel ? :with_code_intel_circuit_breaker : :with_backend_api_circuit_breaker
+      send(breaker_method, &request)
     end
   rescue CircuitBreaker::CircuitOpenError => e
     @logger.warn "[BackendAPI] Circuit breaker OPEN: #{e.message}"
