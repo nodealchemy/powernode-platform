@@ -4,6 +4,7 @@ class Api::V1::AuditLogsController < ApplicationController
   skip_before_action :authenticate_request, only: [ :create ]
   before_action -> { require_permission("audit.read") }, only: [ :index, :show, :stats, :security_summary, :compliance_summary, :activity_timeline, :risk_analysis ]
   before_action -> { require_permission("audit.export") }, only: [ :export ]
+  before_action -> { require_permission("audit.manage") }, only: [ :cleanup ]
   before_action :authenticate_worker_or_admin, only: [ :create ]
 
   # GET /api/v1/audit_logs
@@ -137,7 +138,7 @@ class Api::V1::AuditLogsController < ApplicationController
     cutoff_date = params[:cutoff_date]&.to_date || 1.year.ago.to_date
     return render_error("Invalid cutoff date", status: :bad_request) if cutoff_date > Date.current
 
-    deleted_count = AuditLog.where("created_at < ?", cutoff_date).delete_all
+    deleted_count = scoped_audit_logs.where("created_at < ?", cutoff_date).delete_all
 
     AuditLog.create!(
       user: current_user,

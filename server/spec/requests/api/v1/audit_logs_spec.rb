@@ -483,5 +483,41 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
       cleanup_log = AuditLog.find_by(action: 'audit_log_cleanup')
       expect(cleanup_log).to be_present
     end
+
+    context 'without audit.manage permission' do
+      let(:headers) { auth_headers_for(regular_user) }
+
+      it 'returns forbidden and deletes nothing' do
+        expect {
+          delete '/api/v1/audit_logs/cleanup',
+                 params: { cutoff_date: 1.year.ago.to_date },
+                 headers: headers,
+                 as: :json
+        }.not_to change(AuditLog, :count)
+
+        expect_error_response('Permission denied', 403)
+      end
+    end
+
+    context 'cross-account isolation' do
+      let(:other_account) { create(:account) }
+      let(:caller) { create(:user, account: account, permissions: [ 'audit.manage' ]) }
+      let(:headers) { auth_headers_for(caller) }
+
+      let!(:foreign_old_log) do
+        create(:audit_log, account: other_account, user: create(:user, account: other_account),
+                           action: 'user_login', created_at: 2.years.ago)
+      end
+
+      it 'never deletes other accounts old logs' do
+        delete '/api/v1/audit_logs/cleanup',
+               params: { cutoff_date: 1.year.ago.to_date },
+               headers: headers,
+               as: :json
+
+        expect_success_response
+        expect(AuditLog.exists?(foreign_old_log.id)).to be(true)
+      end
+    end
   end
 end
