@@ -786,20 +786,45 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
         expect(json['message']).to include('broadcasted successfully')
       end
 
-      it 'returns error when account not found' do
-        post :broadcast_metrics, params: { account_id: 'nonexistent' }
+      it 'defaults to the current user account when account_id omitted' do
+        expect(ActionCable.server).to receive(:broadcast).with(
+          "ai_orchestration_#{account.id}",
+          hash_including(type: 'system_metrics_update')
+        )
 
-        expect(response).to have_http_status(:not_found)
-        json = JSON.parse(response.body)
-        expect(json['error']).to include('Account not found')
-      end
-
-      it 'returns error when account_id missing' do
         post :broadcast_metrics
 
-        expect(response).to have_http_status(:bad_request)
+        expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
-        expect(json['error']).to include('Missing account_id')
+        expect(json['data']['account_id']).to eq(account.id)
+      end
+    end
+
+    # IDOR: a user with only the account-operator ai.monitoring.manage
+    # permission (no admin-only cross-account scope) must NOT be able to
+    # read/broadcast another tenant's dashboard metrics by passing a foreign
+    # account_id. The action must operate on the caller's OWN account.
+    context 'cross-account isolation (IDOR)' do
+      let(:other_account) { create(:account) }
+
+      before { sign_in monitoring_manage_user }
+
+      it 'ignores a foreign account_id and operates on the caller account' do
+        expect(ActionCable.server).to receive(:broadcast).with(
+          "ai_orchestration_#{account.id}",
+          hash_including(type: 'system_metrics_update')
+        )
+        expect(ActionCable.server).not_to receive(:broadcast).with(
+          "ai_orchestration_#{other_account.id}",
+          anything
+        )
+
+        post :broadcast_metrics, params: { account_id: other_account.id }
+
+        expect(response).to have_http_status(:success)
+        json = JSON.parse(response.body)
+        expect(json['data']['account_id']).to eq(account.id)
+        expect(json['data']['account_id']).not_to eq(other_account.id)
       end
     end
   end

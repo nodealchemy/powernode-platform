@@ -201,20 +201,16 @@ module Api
 
         # POST /api/v1/ai/monitoring/broadcast
         def broadcast_metrics
-          unless params[:account_id].present?
-            return render_error("Missing account_id parameter", status: :bad_request)
-          end
-
-          account = Account.find(params[:account_id])
+          account = resolve_broadcast_account
           service = Monitoring::UnifiedService.new(account: account)
           metrics = service.get_dashboard(time_range: 1.hour, components: %w[system providers agents])
 
           ActionCable.server.broadcast(
-            "ai_orchestration_#{params[:account_id]}",
+            "ai_orchestration_#{account.id}",
             { type: "system_metrics_update", metrics: metrics, timestamp: Time.current.iso8601 }
           )
 
-          render_success(message: "Metrics broadcasted successfully", account_id: params[:account_id], timestamp: Time.current.iso8601)
+          render_success(message: "Metrics broadcasted successfully", account_id: account.id, timestamp: Time.current.iso8601)
         rescue ActiveRecord::RecordNotFound
           render_error("Account not found", status: :not_found)
         rescue StandardError => e
@@ -251,6 +247,21 @@ module Api
 
         def current_account
           current_worker&.account || current_user&.account
+        end
+
+        # Resolve the account whose metrics may be broadcast. Defaults to the
+        # caller's own account. A foreign account_id is honored ONLY for callers
+        # holding the admin-only cross-account scope (mirrors the analytics
+        # controller's set_account_scope). Otherwise params[:account_id] is
+        # ignored, preventing cross-tenant IDOR via ai.monitoring.manage alone.
+        def resolve_broadcast_account
+          return current_worker.account if current_worker
+
+          if params[:account_id].present? && current_user&.has_permission?("ai.analytics.global")
+            Account.find(params[:account_id])
+          else
+            current_user.account
+          end
         end
 
         def validate_permissions
