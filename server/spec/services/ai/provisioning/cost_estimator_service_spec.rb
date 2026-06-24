@@ -243,6 +243,32 @@ RSpec.describe Ai::Provisioning::CostEstimatorService, type: :service do
       expect(result[:confidence]).to eq("low")
     end
 
+    it "does not report high confidence when a pinned instance type has no price" do
+      unpriced_type = ::System::ProviderInstanceType.create!(
+        account: account, provider: system_provider,
+        name: "unpriced-#{SecureRandom.hex(2)}",
+        instance_type_code: "unpriced.#{SecureRandom.hex(2)}",
+        hourly_price: nil,
+        vcpus: 2, memory_mb: 4096
+      )
+
+      mission = build_mission
+      goal = build_goal(mission)
+      plan = build_plan(goal, steps: [
+        { config: { "skill" => "provision_full_stack",
+                    "inputs" => { "provider_instance_type_id" => unpriced_type.id } } }
+      ])
+      # Keep pricing fresh so staleness is NOT the reason for any downgrade.
+      unpriced_type.update_columns(updated_at: Time.current)
+
+      result = service.estimate(plan: plan)
+      compute_row = result[:by_resource].find { |r| r[:resource_type] == "compute" }
+      expect(compute_row[:monthly_usd]).to eq(0.0)
+      # The pinned compute couldn't be priced — defaulted storage/egress must not
+      # rescue confidence up to "high".
+      expect(result[:confidence]).not_to eq("high")
+    end
+
     it "ignores instance types that belong to other accounts" do
       other_account = create(:account)
       other_provider = ::System::Provider.create!(

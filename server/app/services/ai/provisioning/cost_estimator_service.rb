@@ -74,6 +74,7 @@ module Ai
         stale    = false
         priced_anything = false
         unpriceable = 0
+        compute_unpriced = false
 
         steps.each do |step|
           line_items = estimate_step(step: step, brief: brief)
@@ -85,13 +86,17 @@ module Ai
           stale ||= line_items[:stale]
           priced_anything ||= line_items[:priced]
           unpriceable += 1 if line_items[:unpriceable]
+          compute_unpriced ||= line_items[:compute_unpriced]
         end
 
         {
           monthly_usd:  monthly.round(2),
           one_time_usd: one_time.round(2),
           by_resource:  collapse_by_resource(by_resource),
-          confidence:   confidence_for(stale: stale, priced_anything: priced_anything, unpriceable: unpriceable)
+          confidence:   confidence_for(
+            stale: stale, priced_anything: priced_anything,
+            unpriceable: unpriceable, compute_unpriced: compute_unpriced
+          )
         }
       end
 
@@ -102,7 +107,7 @@ module Ai
       # @param brief [Hash, nil] optional fallback for scale/region defaults.
       # @return [Hash] {
       #   by_resource: [...], one_time_usd: Float, stale: Boolean, priced: Boolean,
-      #   unpriceable: Boolean
+      #   unpriceable: Boolean, compute_unpriced: Boolean
       # }
       def estimate_step(step:, brief: nil)
         cfg     = (step.respond_to?(:execution_config) ? step.execution_config : {}) || {}
@@ -122,7 +127,7 @@ module Ai
           # Skills we can't reliably price (drift_remediate, runbook_generate,
           # capacity_recommend, etc.). Surface them as unpriceable so confidence
           # downgrades to medium.
-          { by_resource: [], one_time_usd: 0.0, stale: false, priced: false, unpriceable: true }
+          { by_resource: [], one_time_usd: 0.0, stale: false, priced: false, unpriceable: true, compute_unpriced: false }
         end
       end
 
@@ -155,18 +160,23 @@ module Ai
             one_time_usd: 0.0,
             stale: false,
             priced: true,
-            unpriceable: false
+            unpriceable: false,
+            compute_unpriced: false
           }
         end
 
         compute_monthly = 0.0
         priced = false
         stale = false
+        compute_unpriced = false
 
         if instance_type
           hourly = price_for_instance(instance_type, region_id)
           compute_monthly = (hourly.to_f * HOURS_PER_MONTH * count).round(2)
           priced = compute_monthly > 0
+          # A pinned instance type that couldn't be priced (nil/zero hourly) must
+          # not be masked by defaulted storage/egress when confidence is judged.
+          compute_unpriced = count.positive? && compute_monthly <= 0
           stale = pricing_stale?(instance_type)
           name = "#{region_label} #{instance_type.name}"
         else
@@ -189,7 +199,8 @@ module Ai
           one_time_usd: one_time_for(skill),
           stale: stale,
           priced: priced || storage_monthly.positive? || egress_monthly.positive?,
-          unpriceable: false
+          unpriceable: false,
+          compute_unpriced: compute_unpriced
         }
       end
 
@@ -218,7 +229,8 @@ module Ai
           one_time_usd: ONE_TIME_PER_NETWORK_USD,
           stale: false,
           priced: true,
-          unpriceable: false
+          unpriceable: false,
+          compute_unpriced: false
         }
       end
 
@@ -324,9 +336,12 @@ module Ai
         end.values
       end
 
-      def confidence_for(stale:, priced_anything:, unpriceable:)
+      def confidence_for(stale:, priced_anything:, unpriceable:, compute_unpriced: false)
         return "low"  if stale
         return "low"  unless priced_anything
+        # A pinned-but-unpriceable compute line is a missing hard quote — downgrade
+        # to medium so defaulted storage/egress can't paint it as high confidence.
+        return "med"  if compute_unpriced
         return "med"  if unpriceable.positive?
         "high"
       end
