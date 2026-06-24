@@ -101,7 +101,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
 
   describe 'GET /api/v1/git/providers/:id' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
-    let(:provider) { create(:git_provider, :github) }
+    let(:provider) { create(:git_provider, :github, account: account) }
 
     context 'with git.providers.read permission' do
       it 'returns provider details' do
@@ -185,7 +185,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
 
   describe 'PATCH /api/v1/git/providers/:id' do
     let(:headers) { auth_headers_for(user_with_update_permission) }
-    let(:provider) { create(:git_provider) }
+    let(:provider) { create(:git_provider, account: account) }
 
     context 'with git.providers.update permission' do
       it 'updates provider successfully' do
@@ -204,7 +204,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
 
   describe 'DELETE /api/v1/git/providers/:id' do
     let(:headers) { auth_headers_for(user_with_delete_permission) }
-    let(:provider) { create(:git_provider) }
+    let(:provider) { create(:git_provider, account: account) }
 
     context 'with git.providers.delete permission' do
       it 'deletes provider successfully' do
@@ -251,7 +251,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
   # Nested credential endpoints
   describe 'GET /api/v1/git/providers/:id/credentials' do
     let(:headers) { auth_headers_for(user_with_credential_permissions) }
-    let(:provider) { create(:git_provider) }
+    let(:provider) { create(:git_provider, account: account) }
 
     before do
       create_list(:git_provider_credential, 2, account: account, provider: provider)
@@ -281,7 +281,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
 
   describe 'POST /api/v1/git/providers/:id/credentials' do
     let(:headers) { auth_headers_for(user_with_credential_permissions) }
-    let(:provider) { create(:git_provider) }
+    let(:provider) { create(:git_provider, account: account) }
 
     context 'with git.credentials.create permission' do
       let(:valid_params) do
@@ -318,7 +318,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
 
   describe 'DELETE /api/v1/git/providers/:id/credentials/:credential_id' do
     let(:headers) { auth_headers_for(user_with_credential_permissions) }
-    let(:provider) { create(:git_provider) }
+    let(:provider) { create(:git_provider, account: account) }
     # Create two credentials so the one being deleted isn't the only/default one
     let!(:other_credential) { create(:git_provider_credential, account: account, provider: provider, is_default: true) }
     let(:credential) { create(:git_provider_credential, account: account, provider: provider, is_default: false) }
@@ -339,7 +339,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
 
   describe 'POST /api/v1/git/providers/:id/credentials/:credential_id/test' do
     let(:headers) { auth_headers_for(user_with_credential_permissions) }
-    let(:provider) { create(:git_provider) }
+    let(:provider) { create(:git_provider, account: account) }
     let(:credential) { create(:git_provider_credential, account: account, provider: provider) }
 
     context 'with git.credentials.test permission' do
@@ -360,9 +360,42 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
     end
   end
 
+  # Cross-tenant IDOR: a provider belongs_to :account (required), and create uses
+  # current_user.account.git_providers. show/update/destroy must likewise scope to
+  # the acting account so a foreign provider id 404s (no read/mutate/disclose).
+  describe 'cross-account provider access (IDOR)' do
+    let(:other_account) { create(:account) }
+    let(:foreign_provider) { create(:git_provider, account: other_account) }
+
+    it 'does not disclose a provider in another account (show)' do
+      get "/api/v1/git/providers/#{foreign_provider.id}",
+          headers: auth_headers_for(user_with_read_permission), as: :json
+
+      expect_error_response('Provider not found', 404)
+    end
+
+    it 'does not update a provider in another account' do
+      patch "/api/v1/git/providers/#{foreign_provider.id}",
+            params: { provider: { description: 'hacked' } },
+            headers: auth_headers_for(user_with_update_permission), as: :json
+
+      expect_error_response('Provider not found', 404)
+      expect(foreign_provider.reload.description).not_to eq('hacked')
+    end
+
+    it 'does not destroy a provider in another account' do
+      foreign_provider # materialize before the request
+      delete "/api/v1/git/providers/#{foreign_provider.id}",
+             headers: auth_headers_for(user_with_delete_permission), as: :json
+
+      expect_error_response('Provider not found', 404)
+      expect(Devops::GitProvider.find_by(id: foreign_provider.id)).to be_present
+    end
+  end
+
   describe 'POST /api/v1/git/providers/:id/credentials/:credential_id/make_default' do
     let(:headers) { auth_headers_for(user_with_credential_permissions) }
-    let(:provider) { create(:git_provider) }
+    let(:provider) { create(:git_provider, account: account) }
     let(:credential) { create(:git_provider_credential, account: account, provider: provider, is_default: false) }
 
     context 'with git.credentials.update permission' do

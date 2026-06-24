@@ -89,7 +89,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   end
 
   describe 'GET #show' do
-    let(:provider) { create(:git_provider, :github) }
+    let(:provider) { create(:git_provider, :github, account: account) }
 
     context 'with valid permissions' do
       before { sign_in provider_read_user }
@@ -174,7 +174,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   end
 
   describe 'PATCH #update' do
-    let(:provider) { create(:git_provider, name: 'Original Name') }
+    let(:provider) { create(:git_provider, name: 'Original Name', account: account) }
     let(:update_params) do
       {
         id: provider.id,
@@ -207,7 +207,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   end
 
   describe 'DELETE #destroy' do
-    let!(:provider) { create(:git_provider) }
+    let!(:provider) { create(:git_provider, account: account) }
 
     context 'with valid permissions' do
       before { sign_in provider_manage_user }
@@ -237,7 +237,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   # =============================================================================
 
   describe 'GET #credentials' do
-    let(:provider) { create(:git_provider) }
+    let(:provider) { create(:git_provider, account: account) }
     let!(:credential1) { create(:git_provider_credential, provider: provider, account: account) }
     let!(:credential2) { create(:git_provider_credential, provider: provider, account: account) }
     let!(:other_account_cred) { create(:git_provider_credential, provider: provider) }
@@ -264,7 +264,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   end
 
   describe 'POST #create_credential' do
-    let(:provider) { create(:git_provider, :github) }
+    let(:provider) { create(:git_provider, :github, account: account) }
     let(:valid_params) do
       {
         id: provider.id,
@@ -307,7 +307,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   end
 
   describe 'DELETE #destroy_credential' do
-    let(:provider) { create(:git_provider) }
+    let(:provider) { create(:git_provider, account: account) }
     # Create two credentials so we can delete one (model prevents deleting last credential)
     let!(:credential) { create(:git_provider_credential, provider: provider, account: account) }
     let!(:other_credential) { create(:git_provider_credential, provider: provider, account: account) }
@@ -341,7 +341,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   # =============================================================================
 
   describe 'POST #test_credential' do
-    let(:provider) { create(:git_provider, :github) }
+    let(:provider) { create(:git_provider, :github, account: account) }
     let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
 
     before do
@@ -372,7 +372,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   end
 
   describe 'POST #make_default' do
-    let(:provider) { create(:git_provider) }
+    let(:provider) { create(:git_provider, account: account) }
     let!(:credential1) { create(:git_provider_credential, :default, provider: provider, account: account) }
     let!(:credential2) { create(:git_provider_credential, provider: provider, account: account) }
 
@@ -399,7 +399,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   # =============================================================================
 
   describe 'POST #oauth_authorize' do
-    let(:provider) { create(:git_provider, :github, supports_oauth: true) }
+    let(:provider) { create(:git_provider, :github, supports_oauth: true, account: account) }
 
     before do
       allow_any_instance_of(Devops::Git::OAuthService).to receive(:authorization_url)
@@ -421,7 +421,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
     end
 
     context 'when provider does not support OAuth' do
-      let(:no_oauth_provider) { create(:git_provider, supports_oauth: false) }
+      let(:no_oauth_provider) { create(:git_provider, supports_oauth: false, account: account) }
       before { sign_in provider_manage_user }
 
       it 'returns error' do

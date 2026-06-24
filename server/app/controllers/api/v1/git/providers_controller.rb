@@ -323,7 +323,10 @@ module Api
         private
 
         def set_provider
-          @provider = ::Devops::GitProvider.find(params[:id])
+          # Scope to the acting account (provider belongs_to :account, required;
+          # create uses current_user.account.git_providers). A foreign id must
+          # 404 — never read/mutate/disclose another account's provider.
+          @provider = current_user.account.git_providers.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Provider not found", status: :not_found)
         end
