@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::AuditLogs', type: :request do
   let(:account) { create(:account) }
   let(:admin_user) { create(:user, :admin, account: account) }
-  let(:user_with_audit_permission) { create(:user, account: account, permissions: [ 'audit_logs.read' ]) }
+  let(:user_with_audit_permission) { create(:user, account: account, permissions: [ 'audit.read' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   before do
@@ -16,7 +16,7 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
   end
 
   describe 'GET /api/v1/audit_logs' do
-    context 'with audit_logs.read permission' do
+    context 'with audit.read permission' do
       let(:headers) { auth_headers_for(user_with_audit_permission) }
 
       it 'returns paginated list of audit logs' do
@@ -81,7 +81,7 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
       end
     end
 
-    context 'without audit_logs.read permission' do
+    context 'without audit.read permission' do
       let(:headers) { auth_headers_for(regular_user) }
 
       it 'returns forbidden error' do
@@ -104,7 +104,7 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
     let(:headers) { auth_headers_for(user_with_audit_permission) }
     let(:audit_log) { AuditLog.first }
 
-    context 'with audit_logs.read permission' do
+    context 'with audit.read permission' do
       it 'returns audit log details' do
         get "/api/v1/audit_logs/#{audit_log.id}", headers: headers, as: :json
 
@@ -227,10 +227,10 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
   end
 
   describe 'POST /api/v1/audit_logs/export' do
-    let(:user_with_export_permission) { create(:user, account: account, permissions: [ 'audit_logs.export' ]) }
+    let(:user_with_export_permission) { create(:user, account: account, permissions: [ 'audit.export' ]) }
     let(:headers) { auth_headers_for(user_with_export_permission) }
 
-    context 'with audit_logs.export permission' do
+    context 'with audit.export permission' do
       it 'exports audit logs as CSV' do
         post '/api/v1/audit_logs/export',
              params: { format: 'csv' },
@@ -262,7 +262,7 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
       end
     end
 
-    context 'without audit_logs.export permission' do
+    context 'without audit.export permission' do
       let(:headers) { auth_headers_for(user_with_audit_permission) }
 
       it 'returns forbidden error' do
