@@ -49,6 +49,25 @@ RSpec.describe Ai::AgentTeam, type: :model do
       end
     end
 
+    describe 'coordination_strategy DB CHECK alignment' do
+      # The DB check_coordination_strategy constraint only permits:
+      #   manager_led, consensus, auction, round_robin, priority_based
+      # Values outside that set must be rejected by model validation so they
+      # never reach the database and raise ActiveRecord::StatementInvalid.
+      %w[self_organizing pressure_driven].each do |unsupported|
+        it "rejects unsupported coordination_strategy '#{unsupported}'" do
+          team = build(:ai_agent_team, team_type: 'parallel', coordination_strategy: unsupported)
+          expect(team).not_to be_valid
+          expect(team.errors[:coordination_strategy]).to be_present
+        end
+      end
+
+      it 'accepts a DB-permitted coordination_strategy (priority_based)' do
+        team = build(:ai_agent_team, team_type: 'parallel', coordination_strategy: 'priority_based')
+        expect(team).to be_valid
+      end
+    end
+
     describe 'coordination compatibility' do
       it 'warns when hierarchical team uses consensus coordination' do
         team = build(:ai_agent_team, team_type: 'hierarchical', coordination_strategy: 'consensus')
