@@ -227,6 +227,78 @@ RSpec.describe Ai::DataSources::TemplateLibrary, type: :service do
     end
   end
 
+  # ── Runtime alignment ─────────────────────────────────────────────────────
+  # The templates must speak the SAME dialect the runtime decoders/adapters
+  # parse: single-brace {placeholders} (RestAdapter), and response_mapping keys
+  # the decoders actually read (records_path for JSON, record_node for XML). A
+  # template that ships $.-style JSONPath values or {{double-brace}} placeholders
+  # is silently inert. We install each template and exercise the REAL adapter +
+  # decoder against the persisted endpoint, exactly as the query pipeline does.
+  describe "runtime alignment (placeholders + response_mapping)" do
+    def install_endpoint(slug, endpoint_slug)
+      result = described_class.install(slug, account: account)
+      expect(result[:errors]).to be_empty
+      result[:data_source].endpoints.find_by!(slug: endpoint_slug)
+    end
+
+    it "renders open-meteo query placeholders with the raw param value (single-brace)" do
+      endpoint = install_endpoint("open-meteo-weather", "forecast")
+
+      req = Ai::DataSources::Adapters::RestAdapter.new.build_request(
+        endpoint: endpoint, params: { "latitude" => 52, "longitude" => 13 }
+      )
+
+      # A correctly single-braced "{latitude}" yields the raw typed param (52),
+      # not the mangled "{52}" a "{{latitude}}" template produces.
+      expect(req[:query]["latitude"]).to eq(52)
+      expect(req[:query]["longitude"]).to eq(13)
+    end
+
+    it "renders generic-rest-json's limit placeholder with the raw param" do
+      endpoint = install_endpoint("generic-rest-json", "example-resource")
+
+      req = Ai::DataSources::Adapters::RestAdapter.new.build_request(
+        endpoint: endpoint, params: { "limit" => 25 }
+      )
+
+      expect(req[:query]["limit"]).to eq(25)
+    end
+
+    it "extracts open-meteo's records via response_mapping rather than wrapping the whole doc" do
+      endpoint = install_endpoint("open-meteo-weather", "forecast")
+      body = '{"latitude":52,"current":{"temperature_2m":18.3,"wind_speed_10m":4.1}}'
+
+      records = Ai::DataSources::Decoders::Json.new.decode(body, endpoint: endpoint)
+
+      # The mapping must select the "current" object as the record set; a whole-
+      # doc fallback would instead return the top-level hash (with latitude).
+      expect(records).to eq([{ "temperature_2m" => 18.3, "wind_speed_10m" => 4.1 }])
+    end
+
+    it "extracts generic-rest-json's records via response_mapping" do
+      endpoint = install_endpoint("generic-rest-json", "example-resource")
+      body = '{"data":[{"id":1},{"id":2}]}'
+
+      records = Ai::DataSources::Decoders::Json.new.decode(body, endpoint: endpoint)
+
+      expect(records).to eq([{ "id" => 1 }, { "id" => 2 }])
+    end
+
+    it "locates rss-feed items via the XML decoder's record_node" do
+      endpoint = install_endpoint("rss-feed", "feed")
+      body = <<~XML
+        <rss><channel>
+          <item><title>One</title></item>
+          <item><title>Two</title></item>
+        </channel></rss>
+      XML
+
+      records = Ai::DataSources::Decoders::Xml.new.decode(body, endpoint: endpoint)
+
+      expect(records.map { |r| r["title"] }).to eq(%w[One Two])
+    end
+  end
+
   describe ".find" do
     it "returns the matching catalog entry for a known slug" do
       tpl = described_class.find("open-meteo-weather")

@@ -144,8 +144,8 @@ module Ai
                 "path_template" => "/v1/resource",
                 "response_format" => "json",
                 "expected_content_type" => "application/json",
-                "query_template" => { "limit" => "{{limit}}" },
-                "response_mapping" => { "records" => "$.data" },
+                "query_template" => { "limit" => "{limit}" },
+                "response_mapping" => { "records_path" => "data" },
                 "metadata" => { "note" => "Edit path_template/query_template/response_mapping for your API." }
               }
             ]
@@ -192,7 +192,7 @@ module Ai
                 "change_detection" => "etag",
                 "monitorable" => true,
                 "cache_ttl_seconds" => 900,
-                "response_mapping" => { "records" => "channel.item" },
+                "response_mapping" => { "record_node" => "item" },
                 "metadata" => { "note" => "Set path_template to your feed's path (e.g. /rss, /atom.xml)." }
               }
             ]
@@ -239,11 +239,11 @@ module Ai
                 "expected_content_type" => "application/json",
                 "cache_ttl_seconds" => 600,
                 "query_template" => {
-                  "latitude" => "{{latitude}}",
-                  "longitude" => "{{longitude}}",
+                  "latitude" => "{latitude}",
+                  "longitude" => "{longitude}",
                   "current" => "temperature_2m,wind_speed_10m"
                 },
-                "response_mapping" => { "current" => "$.current" },
+                "response_mapping" => { "records_path" => "current" },
                 "metadata" => { "note" => "Provide latitude/longitude params at query time." }
               }
             ]
@@ -292,7 +292,7 @@ module Ai
                   "query" => "query { viewer { id } }",
                   "variables" => {}
                 },
-                "response_mapping" => { "data" => "$.data" },
+                "response_mapping" => { "records_path" => "data" },
                 "metadata" => { "note" => "Replace the body query/variables with your GraphQL operation." }
               }
             ]
