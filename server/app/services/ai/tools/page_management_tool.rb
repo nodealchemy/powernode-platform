@@ -78,7 +78,7 @@ module Ai
       private
 
       def list_pages(params)
-        scope = Page.all
+        scope = pages_scope
         scope = scope.where(status: params[:status]) if params[:status].present?
         pages = scope.order(updated_at: :desc).limit(50)
         {
@@ -130,10 +130,16 @@ module Ai
 
       def find_page(params)
         if params[:page_id].present?
-          Page.find_by(id: params[:page_id])
+          pages_scope.find_by(id: params[:page_id])
         elsif params[:slug].present?
-          Page.find_by(slug: params[:slug])
+          pages_scope.find_by(slug: params[:slug])
         end
+      end
+
+      # Account-scoped page relation — mirrors create_page's account binding so
+      # list/get/update can only ever touch the tool account's pages (no IDOR).
+      def pages_scope
+        (@account || Account.first).pages
       end
 
       def serialize_page_summary(page)
