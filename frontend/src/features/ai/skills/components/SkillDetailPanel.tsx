@@ -26,9 +26,12 @@ function AgentsList({ skillId }: { skillId: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Guard against the last-response-wins race on rapid skillId changes.
+    let cancelled = false;
     const load = async () => {
       setLoading(true);
       const res = await skillsApi.getSkillAgents(skillId);
+      if (cancelled) return;
       if (res.success && res.data?.agents) {
         setAgents(res.data.agents);
       } else {
@@ -37,6 +40,7 @@ function AgentsList({ skillId }: { skillId: string }) {
       setLoading(false);
     };
     load();
+    return () => { cancelled = true; };
   }, [skillId]);
 
   if (loading) return null;
@@ -150,9 +154,25 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated, canCreate = fals
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
-    loadSkill();
+    // Guard against a last-response-wins race: when skillId changes quickly, an
+    // earlier (slower) response must not overwrite the latest skill's data.
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      const response = await skillsApi.getSkill(skillId);
+      if (cancelled) return;
+      if (response.success && response.data) {
+        setSkill(response.data.skill);
+      } else {
+        showNotification(response.error || 'Failed to load skill', 'error');
+      }
+      setLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
   }, [skillId]);
 
+  // Manual refresh (toggle / update-from-source) — always applies its result.
   const loadSkill = async () => {
     setLoading(true);
     const response = await skillsApi.getSkill(skillId);
