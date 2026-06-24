@@ -200,6 +200,17 @@ RSpec.describe Ai::SkillConflict, type: :model do
         expect(results).to include(detected_conflict, reviewing_conflict, auto_resolvable_conflict)
         expect(results).not_to include(resolved_conflict, dismissed_conflict)
       end
+
+      it 'excludes auto_resolved conflicts (terminal, like the archiver treats them)' do
+        auto_resolved_conflict = create(:ai_skill_conflict,
+                                        account: account, skill_a: skill_a, skill_b: skill_e,
+                                        conflict_type: "duplicate", status: "auto_resolved")
+
+        results = described_class.active
+        expect(results).not_to include(auto_resolved_conflict)
+        # A detected conflict is still active.
+        expect(results).to include(detected_conflict)
+      end
     end
 
     describe '.unresolved' do

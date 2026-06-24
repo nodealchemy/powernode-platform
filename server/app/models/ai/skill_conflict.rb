@@ -30,7 +30,7 @@ module Ai
     # ==========================================
     # Scopes
     # ==========================================
-    scope :active, -> { where.not(status: %w[resolved dismissed]) }
+    scope :active, -> { where.not(status: %w[auto_resolved resolved dismissed]) }
     scope :unresolved, -> { where(status: %w[detected reviewing]) }
     scope :auto_resolvable, -> { where(auto_resolvable: true) }
     scope :by_priority, -> { order(priority_score: :desc) }
