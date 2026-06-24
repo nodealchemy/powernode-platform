@@ -102,15 +102,19 @@ module Ai
 
       def models_for_tier(tier, provider)
         tier_patterns = MODEL_TIERS[tier] || MODEL_TIERS["standard"]
-        provider_type = provider.provider_type.to_s.downcase
 
-        # Get available models from provider's synced model list
-        available = provider.ai_models&.active&.pluck(:model_id) || []
-        return available.first(3) if available.empty?
+        # Get available models from the provider's synced model list
+        available = Array(provider.available_models).compact
+        if available.empty?
+          # No synced models: fall back to the provider's configured default so
+          # downstream callers (route_and_build_client) never receive a nil model.
+          default = provider.default_model
+          return default.present? ? [default] : []
+        end
 
         # Match tier patterns against available models
         matched = available.select do |model_id|
-          downcased = model_id.downcase
+          downcased = model_id.to_s.downcase
           tier_patterns.any? { |pattern| downcased.include?(pattern) }
         end
 

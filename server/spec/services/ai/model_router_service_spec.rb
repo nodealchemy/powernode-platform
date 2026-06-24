@@ -94,6 +94,33 @@ RSpec.describe Ai::ModelRouterService do
     end
   end
 
+  describe "#models_for_tier (empty-models fallback)" do
+    let(:service) { described_class.new(account: account) }
+
+    it "returns a non-empty default when the provider has no models" do
+      empty_provider = create(
+        :ai_provider,
+        account: account,
+        provider_type: "openai",
+        is_active: false,
+        supported_models: []
+      )
+
+      result = service.send(:models_for_tier, "standard", empty_provider)
+
+      expect(result).not_to be_empty
+      expect(result.compact).to eq(result), "expected no nil model ids in #{result.inspect}"
+    end
+
+    it "still resolves tier-matched models when the provider has models" do
+      stocked_provider = create(:ai_provider, :openai, account: account)
+
+      result = service.send(:models_for_tier, "premium", stocked_provider)
+
+      expect(result).not_to be_empty
+    end
+  end
+
   describe "#client_for_routing" do
     let(:service) { described_class.new(account: account) }
 
