@@ -1,6 +1,6 @@
 # Core ↔ Extension Decoupling — audit & roadmap
 
-**Goal:** no private-extension name (`business`, `trading`, …) is hardcoded anywhere
+**Goal:** no private-extension name (`business`, `<slug>`, …) is hardcoded anywhere
 in core. Core integrates with extensions only through generic, slug-agnostic seams;
 extension-specific behavior lives in the extension.
 
@@ -14,7 +14,7 @@ This is the plan of record for the de-hardcoding sweep. Status checkboxes track 
   (those in `.gitmodules`) regardless of whether they're enabled. Bundling ≠
   enabling — enablement is runtime (`config/extensions_state.json` + Flipper).
 - **Private mode** (renamed from "full mode") — `server/Gemfile.private` (was
-  `Gemfile.full`): core + public + **private** extensions (business, trading).
+  `Gemfile.full`): core + public + **private** extensions.
   Selected explicitly via `BUNDLE_GEMFILE=server/Gemfile.private bundle install`
   (sets `POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1`, re-evals the base Gemfile).
   Its lock `Gemfile.private.lock` is gitignored. Only for checkouts that actually
@@ -77,32 +77,32 @@ capability-driven: the business extension **registers** the capability (e.g.
 submodule changes** (commit inside the submodule first).
 
 ### Phase 4 — Relocate extension logic out of core (submodules) ☑
-- `worker_job_service.rb` trading market-arms/discovery logic → trading extension
-  (pulled via a generic worker hook).
+- `worker_job_service.rb` extension-specific market-arms/discovery logic → the owning
+  private extension (pulled via a generic worker hook).
 - `knowledge_doc_sync_service.rb` `EXTENSION_TAG_ROUTES` slug map → each extension
   declares the doc tags it owns (extension.json / registry), core queries generically.
-- Audit `frontend` hardcoded `/app/business` and `/app/trading` routes + nav
+- Audit `frontend` hardcoded `/app/business` and `/app/<slug>` routes + nav
   `extensionSlug` entries → register routes/nav from the extension via
   `featureRegistry` instead of core `navigation.tsx`.
 
 ### Phase 5 — Verify & guard ☑
 rubocop + rspec + `tsc --noEmit`; boot in private mode and confirm business loads
 and the generic admin Extensions page works; run the AI smoke harness. Add a grep
-gate (CI) failing on new `"business"`/`"trading"` literals in core (excluding the
+gate (CI) failing on new private-extension slug literals in core (excluding the
 benign tier/plan names enumerated below).
 
 ## Benign (NOT coupling — leave as-is)
 Rate-limit/plan **tier** literals named `business` (`rate_limiting/tiered_service.rb`,
 `oauth_application.rb`, `webhook_endpoint.rb`, marketplace `tier` unions); skill
 type `business_search`; "business value"/"businesses" prose; doc/comment examples;
-domain scopes like `for_domain("trading")`. The CI grep gate must allowlist these.
+domain scopes like `for_domain("<slug>")`. The CI grep gate must allowlist these.
 
 ## Notes
-- `extensions/private/trading` is referenced only in maintainer-local docs; keep
-  its name out of public-facing core per the existing trading code-scrub.
+- Private extensions (`extensions/private/*`) are referenced only in maintainer-local
+  docs; keep their names out of public-facing core per the existing code-scrub.
 - Phases 3–4 touch the private submodules — follow submodule commit discipline
   (commit inside the submodule first; note `extensions/private/*` is gitignored in
-  the parent, so there is NO parent pointer to bump for business/trading).
+  the parent, so there is NO parent pointer to bump for private extensions).
 
 ## Phase 3 execution findings (IMPORTANT — affects how to finish)
 
@@ -183,11 +183,11 @@ Status (this pass):
   billing-enabled signal, giving exact parity (core ⇒ unlimited; provider+no-plan ⇒ restrictive)
   with no license-lapse footgun.
 - **Phase 4 backend done.** `worker_job_service.rb` `build_market_discovery_context` is now a
-  generic hook returning `{}`; the trading extension overrides it via a WorkerJobService
+  generic hook returning `{}`; the owning private extension overrides it via a WorkerJobService
   decorator. `knowledge_doc_sync_service.rb` `EXTENSION_TAG_ROUTES`/`PREFIX` constants replaced
-  by a manifest scan (`knowledge_doc_tags` declared in business/trading/supply-chain
+  by a manifest scan (`knowledge_doc_tags` declared in each extension's
   `extension.json`). Frontend nav/route decoupling delegated.
-- Verified: rubocop clean (core + business + trading touched files); core-mode rspec for
+- Verified: rubocop clean (core + touched private-extension files); core-mode rspec for
   every changed file + key consumers (extension_registry, feature_gate, usage_limit,
   approval_workflow, registrations, mcp_scanner, knowledge_doc_sync, adaptation_proposer,
   users_controller/config/users) all green; `tsc --noEmit` clean + frontend suite (6058
@@ -198,9 +198,10 @@ Status (this pass):
   this codebase — unrelated to these changes; the targeted+consumer coverage above is the
   relevant gate), and the live AI smoke harness (boot smokes already validate the runtime).
 
-### Out of scope (surfaced, not done) — broader trading coupling
-Core ships an extensive **trading MCP-tool surface** (`server/app/services/ai/tools/trading_*`,
-plus `enqueue_trading_*` dispatchers in `worker_job_service.rb`) that the roadmap's Phase 4
-bullet (worker discovery *logic*) did not scope. Fully relocating it to the trading extension is
-a separate epic. The Phase 5 CI grep gate must allowlist these existing trading references (or
-scope to specific files) rather than block on the entire trading tool surface.
+### Broader extension coupling — relocation complete
+The broader extension coupling that this roadmap originally surfaced as out of scope has
+since been **fully relocated** into the owning private extension via the generic seams above.
+That work moved the extension's worker dispatchers/queues and job lifecycle, its circuit
+breaker, its channels, its skill category, its prompt domain, its intervention categories, and
+its ephemeral-knowledge patterns out of core. Core now names **no private extension** and
+integrates with all of them only through the generic, slug-agnostic seams documented here.

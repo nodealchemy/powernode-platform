@@ -456,8 +456,9 @@ CATEGORIES = %w[
   productivity sales customer_support product_management marketing
   legal finance data business_search bio_research skill_management
   code_intelligence testing_qa devops security sre_observability
-  database_ops release_management research documentation trading
+  database_ops release_management research documentation
 ]
+# Extensions register additional categories at boot (Ai::Skill.register_categories).
 
 STATUSES = %w[active inactive draft]
 ```
