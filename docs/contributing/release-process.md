@@ -74,21 +74,25 @@ git checkout -b release/0.3.0
 # 6. During the freeze, fix bugs DIRECTLY on the release branch
 git commit -m "fix(scope): describe the fix"
 git push origin release/0.3.0
+git push github release/0.3.0
 
 # 7. When the release is verified, merge to master and tag
 git checkout master
 git merge --no-ff release/0.3.0
 git tag 0.3.0
 git push origin master --tags
+git push github master --tags
 
 # 8. Merge release branch back to develop so the fixes don't get lost
 git checkout develop
 git merge --no-ff release/0.3.0
 git push origin develop
+git push github develop
 
 # 9. Delete the release branch
 git branch -d release/0.3.0
 git push origin --delete release/0.3.0
+git push github --delete release/0.3.0
 ```
 
 ## Submodule coordination
@@ -146,6 +150,7 @@ git push github master --tags
 git checkout develop
 git merge --no-ff hotfix/0.3.1
 git push origin develop
+git push github develop
 ```
 
 ## Changelog
