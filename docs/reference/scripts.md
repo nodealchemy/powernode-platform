@@ -100,12 +100,12 @@ Repository scripts live under `scripts/` at the project root. Subdirectories gro
 
 ## Backup
 
-Inside `scripts/backup/`:
-
-| Script | Description |
-|--------|-------------|
-| `backup-database.sh` | PostgreSQL database backup (supports S3 upload) |
-| `restore-database.sh` | Database restore from backup |
+There are **no** backup shell scripts. Database backups and restores run as
+standalone-worker maintenance jobs (`Maintenance::ScheduledBackupJob`,
+`DatabaseBackupJob`, `DatabaseRestoreJob`, `BackupCleanupJob`) scheduled in
+`worker/config/sidekiq.yml`; they wrap `pg_dump -Fc` / `pg_restore`. For the
+operator runbook (manual backups, restores, retention) see
+[../operations/postgres-backup.md](../operations/postgres-backup.md).
 
 ## Systemd
 

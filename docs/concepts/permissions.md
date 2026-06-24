@@ -509,7 +509,7 @@ Defense in depth: every protected operation validates permissions at the control
 
 ## Agent-Specific Permission Examples
 
-Recap: every protected agent operation goes through `current_user.has_permission?('name')` on the backend and `currentUser?.permissions?.includes('name')` on the frontend. The AI subsystem uses the `ai.*` namespace, with one permission per resource cluster (agents, skills, missions, ralph loops, autonomy, ...). The strings below are the ones actually used in the backend tool registry, controllers, and `db/seeds/ai_autonomy_permissions.rb`.
+Recap: every protected agent operation goes through `current_user.has_permission?('name')` on the backend and `currentUser?.permissions?.includes('name')` on the frontend. The AI subsystem uses the `ai.*` namespace, with one permission per resource cluster (agents, skills, missions, ralph loops, autonomy, ...). The strings below are the ones actually used in the backend tool registry, controllers, and the `Permissions` catalog (`server/config/permissions.rb`).
 
 ### Common agent operations → required permission
 

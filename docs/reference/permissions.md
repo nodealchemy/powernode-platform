@@ -18,7 +18,7 @@
 
 ## Overview
 
-Powernode uses **permission-based** access control. The frontend MUST check permissions only, never roles. The backend uses `current_user.has_permission?('name')` for authorization. Roles exist only as a backend convenience for grouping permissions; they are never inspected by frontend code. The canonical registry is `Permission` records seeded by `server/app/services/permission_seeder.rb`.
+Powernode uses **permission-based** access control. The frontend MUST check permissions only, never roles. The backend uses `current_user.has_permission?('name')` for authorization. Roles exist only as a backend convenience for grouping permissions; they are never inspected by frontend code. The canonical registry is the code-defined `Permissions` catalog in `server/config/permissions.rb` — there is no `permissions` table and no `Permission` model.
 
 For the design rationale (why permissions instead of roles, ABAC vs RBAC trade-offs, etc.), see [../concepts/permissions.md](../concepts/permissions.md).
 
@@ -88,7 +88,7 @@ end
 
 ## Permission Categories
 
-Permissions are organised by prefix. The base platform ships **371 static permissions** (`Permissions::ALL_PERMISSIONS`); the live database total is higher when extensions are loaded (extension permissions register on boot), so query the runtime registry (`GET /api/v1/permissions`) for the current extension-inclusive count rather than relying on a hardcoded figure. The seeder is the source of truth for the base set.
+Permissions are organised by prefix. The base platform ships a core-only set in `Permissions::CORE_PERMISSIONS`; the runtime total is the dynamic union `Permissions.all_permissions` (core ∪ every enabled extension's permissions, roughly ~687 in full mode). The total depends on which extensions are loaded, so never hardcode it — query the runtime registry (`GET /api/v1/permissions`, or `cd server && rails runner "puts Permissions.all_permissions.size"`) for the current count. The code catalog (`server/config/permissions.rb`) is the source of truth for the core set.
 
 | Category | Description |
 |----------|-------------|
@@ -140,7 +140,7 @@ Permissions are organised by prefix. The base platform ships **371 static permis
 
 **Role assignments:** `ai.kill_switch.manage` is automatically assigned to `owner` and `admin` roles.
 
-> **Registration source:** Apart from `ai.autonomy.manage` (which lives in `Permissions::ALL_PERMISSIONS`), the AI Autonomy permissions above are defined and seeded by a separate file, `server/db/seeds/ai_autonomy_permissions.rb` — not by `permission_seeder.rb`.
+> **Registration source:** The AI Autonomy permissions above are defined in the code catalog (`server/config/permissions.rb`, surfaced via `Permissions::CORE_PERMISSIONS` / `Permissions.all_permissions`) like every other core permission — there is no separate seed file.
 
 ## Common Permission Patterns
 
@@ -215,7 +215,7 @@ const filteredNavItems = navigationItems.filter(item => {
 - [../guides/backend.md](../guides/backend.md) — `has_permission?` patterns
 - [../guides/frontend.md](../guides/frontend.md) — Permission-gated UI
 - [api/overview.md](api/overview.md) — Endpoint-level permission requirements
-- Source of truth: `server/config/permissions.rb` (`Permissions::ALL_PERMISSIONS`), seeded by `server/app/services/permission_seeder.rb`. AI Autonomy permissions are registered separately via `server/db/seeds/ai_autonomy_permissions.rb`.
+- Source of truth: the code-defined `Permissions` catalog in `server/config/permissions.rb` — core permissions in `Permissions::CORE_PERMISSIONS`, the runtime union via `Permissions.all_permissions`. There is no seeder and no separate seed file; AI Autonomy permissions live in the catalog like every other core permission.
 
 ## Materials previously at
 

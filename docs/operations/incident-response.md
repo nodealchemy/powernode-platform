@@ -178,7 +178,7 @@ After remediation, lift the kill switch and monitor `platform.recent_events()` f
 1. **Kill switch**.
 2. **Identify the access pattern**: query `audit_logs` for the actor and resource_type within the suspected window.
 3. **Pull the access logs** from the load balancer / reverse proxy (Traefik) for HTTP-level evidence.
-4. **Snapshot the database** before any remediation (`backup-database.sh "incident_$(date +%s)"`) — preserves evidence.
+4. **Snapshot the database** before any remediation — take an out-of-band dump (`sudo -u postgres pg_dump -Fc -d powernode_production -f /var/backups/powernode/incident_$(date +%s).dump`) to preserve evidence. See [postgres-backup.md#manual-ad-hoc-backup](./postgres-backup.md#manual-ad-hoc-backup).
 5. **Engage legal/compliance** per your regulatory obligations.
 
 ### Active code execution / shell access

@@ -199,7 +199,6 @@ export const AccountPage: React.FC = () => {
   size="md"
 >
 ```
-![Underline Tabs](underline-tabs.png)
 - Clean, minimal design
 - Clear active state with colored underline
 - Best for main navigation within a page
@@ -212,7 +211,6 @@ export const AccountPage: React.FC = () => {
   size="sm"
 >
 ```
-![Pill Tabs](pill-tabs.png)
 - Rounded, filled background for active state
 - Good for settings or configuration pages
 - Clear visual separation
@@ -225,7 +223,6 @@ export const AccountPage: React.FC = () => {
   size="lg"
 >
 ```
-![Default Tabs](default-tabs.png)
 - Subtle background change for active state
 - Good for nested tab groups
 - Less visual prominence

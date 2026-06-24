@@ -38,7 +38,7 @@ Each extension under `extensions/<name>/` is a self-contained git submodule with
 
 External clones from the public GitHub mirror will receive the three public extensions plus an empty parent pointer for the private `business` extension; the platform will boot in "core mode minus business" by default.
 
-The public submodules are dual-remoted: `origin` points at the public GitHub mirror, and `ipnode` points at the private Gitea upstream (used for releases). Maintainers push to both; external contributors only ever see the GitHub side.
+The public submodules are dual-remoted: `origin` points at the private Gitea upstream (`git.powernode.net`, used for releases), and `github` points at the public GitHub mirror. Maintainers push to both; external contributors only ever see the GitHub side.
 
 **Private and custom extensions** live under `extensions/private/<slug>/`. The entire `extensions/private/` directory is gitignored (it also matches the `*private*` rule in `.gitignore`), so anything placed there is never committed to the parent repo and never appears in public clones — no per-extension `.gitignore` entry, and no private name advertised in tracked files. The commercial `business` extension lives at `extensions/private/business`; maintainers drop additional private or local extensions alongside it. Discovery (Vite, the worker boot scanners, and the Rails feature gate) scans **both** `extensions/<slug>/` and `extensions/private/<slug>/`, so a private extension loads identically to a public one — the only difference is that its files stay out of git. The slug is always the leaf directory name (`business`), never `private`.
 

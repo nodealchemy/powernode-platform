@@ -28,7 +28,7 @@ Powernode uses a `develop` → `feature/*` → `release/*` → `master` workflow
 | `release/<x.y.z>` | Hardening branches cut from `develop` when preparing a release. Bug fixes during the freeze land here. |
 | `master` | Release-only. Tagged once a release branch is verified. Force-pushes are forbidden. |
 
-The platform parent and the `extensions/system` submodule are dual-remoted to the public GitHub mirror (`origin`) and the private Gitea upstream (`ipnode`). Releases push to both.
+The platform parent and the `extensions/system` submodule are dual-remoted to the private Gitea upstream (`origin`, `git.powernode.net`) and the public GitHub mirror (`github`). Releases push to both.
 
 ## Tag naming
 

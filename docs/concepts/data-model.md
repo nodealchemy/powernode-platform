@@ -180,7 +180,7 @@ The model layer is organized into 13 namespace directories (`account`, `ai`, `ch
 
 ```mermaid
 flowchart TB
-    Top[Top-level<br/>User, Account, Plan, Subscription, Invoice, Payment, Role, Permission, ...]
+    Top[Top-level<br/>User, Account, Plan, Subscription, Invoice, Payment, Role, ...]
     Ai[Ai::<br/>Agent, Team, Mission, RalphLoop, Provider, KnowledgeGraph*, Skill, Memory, CodeFactory, Autonomy, ...]
     Devops[Devops::<br/>Pipeline, Repository, Runner, Deployment, DockerHost, SwarmService, ...]
     KB[KnowledgeBase::<br/>Article, Category, Tag, Comment, Attachment, Workflow]
@@ -221,7 +221,6 @@ Core platform models not in a namespace include:
 | `User` | Platform users with authentication and permissions |
 | `Account` | Multi-tenant account (one per organization) |
 | `Role` | Permission grouping (`system.admin`, `account.manager`, ...) |
-| `Permission` | Individual permission |
 | `RolePermission` | Role-to-permission join table |
 | `Plan` | Subscription plan with features/limits |
 | `Subscription` | Account subscription (AASM state machine) |
@@ -300,7 +299,6 @@ flowchart TB
     Account[Account]
     User[User]
     Role[Role]
-    Perm[Permission]
     Sub[Subscription]
     Plan[Plan]
     Agent[Ai::Agent]
@@ -320,7 +318,6 @@ flowchart TB
 
     Account --> User
     User --> Role
-    Role --> Perm
     Account --> Sub
     Sub --> Plan
     Account --> Agent

@@ -33,7 +33,7 @@ user.role === 'manager'
 
 **Backend:** use `current_user.has_permission?('name')`. Never `current_user.permissions.include?(...)` — that compares against `Permission` objects, not strings, and will silently return `false`.
 
-The canonical permissions registry is seeded by `server/app/services/permission_seeder.rb` together with the topic-scoped seed files (e.g., `server/db/seeds/ai_autonomy_permissions.rb`). The reference page is [reference/permissions.md](../reference/permissions.md).
+The canonical permissions registry is the code-defined `Permissions` catalog in `server/config/permissions.rb` (there is no seeder and no `permissions` table — `Permissions::CORE_PERMISSIONS` plus the dynamic `Permissions.all_permissions`). The reference page is [reference/permissions.md](../reference/permissions.md).
 
 ## Frontend patterns
 

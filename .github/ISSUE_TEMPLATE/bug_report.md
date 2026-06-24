@@ -38,7 +38,7 @@ What actually happened. Include error messages, stack traces, or screenshots.
 ## Stability Tier
 
 Which tier does the affected subsystem fall under? See
-[`docs/STABILITY.md`](../docs/STABILITY.md) for the per-subsystem tables. This sets
+[`docs/STABILITY.md`](../../docs/STABILITY.md) for the per-subsystem tables. This sets
 our response expectation — pick your best guess and we will re-label if needed.
 
 - [ ] `tier:stable` — auth/permissions, agents & autonomy, MCP tools & runtime, A2A, DevOps/CI-CD, system extension core paths, cost/FinOps

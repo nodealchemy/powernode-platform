@@ -250,6 +250,90 @@ RSpec.describe Ai::Tools::DevLoopTool do
     end
   end
 
+  describe "dev_complete_task resolving a blocked task (operator disposition)" do
+    let!(:blocked_task) do
+      create(:ai_ralph_task, :blocked, ralph_loop: ralph_loop, task_key: "BLK-1")
+    end
+
+    before { ralph_loop.update!(status: "running", started_at: Time.current) }
+
+    it "resolves a blocked task as passed without re-claiming it" do
+      result = tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id,
+        task_key: "BLK-1", outcome: "passed",
+        summary: "Already fixed on develop; closing the stale blocked task",
+        check_results: { "rspec" => "27 examples, 0 failures" }
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:task_status]).to eq("passed")
+      expect(blocked_task.reload.error_message).to be_nil
+      iteration = ralph_loop.ralph_iterations.last
+      expect(iteration.status).to eq("completed")
+      expect(blocked_task.completed_in_iteration).to eq(iteration.iteration_number)
+    end
+
+    it "resolves a blocked task as failed" do
+      result = tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id,
+        task_key: "BLK-1", outcome: "failed", summary: "Abandoned; not worth fixing"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:task_status]).to eq("failed")
+      expect(ralph_loop.ralph_iterations.last.status).to eq("failed")
+    end
+
+    it "resolves a blocked task as skipped" do
+      result = tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id,
+        task_key: "BLK-1", outcome: "skipped", summary: "Superseded; won't do"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:task_status]).to eq("skipped")
+      expect(ralph_loop.ralph_iterations.last.status).to eq("skipped")
+    end
+
+    # An illegal (status, outcome) pairing must be rejected BEFORE an iteration is
+    # created — never half-applied (orphaned iteration + unchanged task).
+    it "rejects skipping an in_progress task without orphaning an iteration" do
+      create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop, task_key: "IP-1")
+
+      expect do
+        result = tool.execute(params: {
+          action: "dev_complete_task", loop_id: ralph_loop.id,
+          task_key: "IP-1", outcome: "skipped", summary: "nope"
+        })
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/Cannot mark in_progress task as skipped/)
+      end.not_to(change { ralph_loop.ralph_iterations.count })
+    end
+
+    it "rejects re-blocking an already-blocked task without orphaning an iteration" do
+      expect do
+        result = tool.execute(params: {
+          action: "dev_complete_task", loop_id: ralph_loop.id,
+          task_key: "BLK-1", outcome: "blocked", summary: "nope"
+        })
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/Cannot mark blocked task as blocked/)
+      end.not_to(change { ralph_loop.ralph_iterations.count })
+    end
+
+    it "still rejects completion of a pending (unclaimed) task" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "PEND-1")
+
+      result = tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id,
+        task_key: "PEND-1", outcome: "passed", summary: "nope"
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/not in_progress or blocked/)
+    end
+  end
+
   describe "governance" do
     it "registers the dev.* intervention categories" do
       %w[dev.pull_task dev.complete_task dev.commit_to_branch dev.multi_file_change dev.merge].each do |cat|

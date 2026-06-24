@@ -209,4 +209,4 @@ Why not the alternatives:
 5. **Verify & document:** both-mode tests, `tsc`/specs, update this doc + the system ingress docs, AI smoke.
 
 Cross-repo commit discipline: control-plane changes land **inside `extensions/system`** first
-(public mirror — push both `origin` + `ipnode`), then core/parent pointer + core baseline.
+(push both `origin` (Gitea) + `github` (public mirror)), then core/parent pointer + core baseline.
