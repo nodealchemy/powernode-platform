@@ -223,9 +223,9 @@ When adding new AI models:
 ## 📞 References
 
 ### Documentation
-- [AI Provider Model](../app/models/ai_provider.rb:273-298) - Cost calculation logic
-- [Comprehensive AI Providers Seed](../db/seeds/comprehensive_ai_providers_seed.rb) - Seed data
-- [BaseAiService Concern](../app/services/concerns/base_ai_service.rb:128-150) - Cost tracking service
+- [AI Provider Model](../../app/models/ai/provider.rb) - Cost calculation logic
+- [Comprehensive AI Providers Seed](../../db/seeds/comprehensive_ai_providers_seed.rb) - Seed data
+- [BaseAiService Concern](../../app/services/concerns/base_ai_service.rb:128-150) - Cost tracking service
 
 ### Official Pricing Pages
 - OpenAI: https://openai.com/api/pricing/
