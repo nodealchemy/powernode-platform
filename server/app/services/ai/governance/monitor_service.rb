@@ -189,9 +189,9 @@ module Ai
         total_reviews = (a_reviews_b + b_reviews_a).to_f
         reciprocity = total_reviews > 0 ? [total_reviews / 20.0, 1.0].min : 0.0
 
-        trust_a = Ai::AgentTrustScore.find_by(agent_id: agent_a_id)&.overall_score || 0
-        trust_b = Ai::AgentTrustScore.find_by(agent_id: agent_b_id)&.overall_score || 0
-        trust_coupling = 1.0 - (trust_a - trust_b).abs
+        trust_a = Ai::AgentTrustScore.find_by(agent_id: agent_a_id)&.overall_score
+        trust_b = Ai::AgentTrustScore.find_by(agent_id: agent_b_id)&.overall_score
+        trust_coupling = (trust_a && trust_b) ? 1.0 - (trust_a - trust_b).abs : 0.0
 
         (0.3 * reciprocity + 0.3 * trust_coupling + 0.4 * 0.0).round(4) # output_similarity TBD
       end
