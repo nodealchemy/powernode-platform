@@ -61,7 +61,10 @@ class MissionChannel < ApplicationCable::Channel
     when "account"
       current_user.account_id == resource_id
     when "mission"
-      true
+      # Verify the mission belongs to the current user's account before
+      # streaming its status/phase/PR/deploy events (was hardcoded true → IDOR).
+      mission = ::Ai::Mission.find_by(id: resource_id)
+      mission&.account_id == current_user.account_id
     else
       false
     end
