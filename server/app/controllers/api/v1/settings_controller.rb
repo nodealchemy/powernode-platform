@@ -238,8 +238,9 @@ class Api::V1::SettingsController < ApplicationController
   end
 
   def broadcast_settings_update(message_type, data)
-    # Broadcast to all sessions for the current user's account
-    NotificationChannel.broadcast_to(
+    # Broadcast to all sessions for the current user's account, using the same
+    # per-account stream NotificationChannel subscribers listen on.
+    NotificationChannel.broadcast_to_account(
       current_account,
       {
         type: message_type,

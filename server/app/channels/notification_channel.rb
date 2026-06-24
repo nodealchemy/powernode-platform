@@ -36,8 +36,12 @@ class NotificationChannel < ApplicationCable::Channel
 
   # Class method to broadcast notifications to account
   class << self
+    # Broadcast to the same per-account stream the subscriber listens on
+    # (`stream_for_account` -> `stream_from "account_#{id}"`). Rails'
+    # `broadcast_to` would publish to "notification:<gid>", which no client
+    # streams from, so notifications would be silently dropped.
     def broadcast_to_account(account, data)
-      broadcast_to(account, data)
+      ActionCable.server.broadcast("account_#{account.id}", data)
     end
 
     def broadcast_new_notification(notification)
