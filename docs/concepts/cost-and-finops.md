@@ -468,7 +468,6 @@ cost_efficiency_score = (success_rate × 0.5)
 
 This concept consolidates content from:
 
-- `docs/platform/COST_ATTRIBUTION_SYSTEM.md`
 - [`server/docs/platform/AI_PROVIDER_PRICING_REFERENCE.md`](../../server/docs/platform/AI_PROVIDER_PRICING_REFERENCE.md) — still a current standalone reference
 - AI provider routing (cost portions only; routing logic primary in [`concepts/agents-and-autonomy.md`](./agents-and-autonomy.md))
 

@@ -37,4 +37,17 @@ RSpec.describe 'cost-and-finops.md consolidation cross-references' do
       "Dead AI provider doc cross-refs in cost-and-finops.md:\n#{problems.join("\n")}"
     )
   end
+
+  # The docs/platform/ directory does not exist: those docs were either relocated
+  # under server/docs/platform/ (now linked explicitly) or removed during the
+  # OSS-native restructure. No bare `docs/platform/...md` path should remain — the
+  # lookbehind keeps the legitimate `server/docs/platform/...` reference.
+  it 'lists no bare docs/platform/ path' do
+    bare = doc.scan(%r{(?<![\w/])docs/platform/[\w./-]*\.md}).uniq
+
+    expect(bare).to(
+      be_empty,
+      "Bare docs/platform/ refs (dir absent; relocated to server/docs/platform/ or removed):\n#{bare.join("\n")}"
+    )
+  end
 end
