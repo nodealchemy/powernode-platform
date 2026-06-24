@@ -188,6 +188,34 @@ RSpec.describe Api::V1::Ai::SkillGraphController, type: :controller do
     end
   end
 
+  describe "POST #conflict_check" do
+    before do
+      allow_any_instance_of(Ai::SkillGraph::ConflictDetectionService).to receive(:detect_duplicates).and_return([])
+      allow_any_instance_of(Ai::SkillGraph::ConflictDetectionService).to receive(:detect_overlapping).and_return([])
+    end
+
+    it "runs the check for an own-account skill" do
+      skill = create(:ai_skill, account: account, name: "Own", category: "productivity")
+
+      post :conflict_check, params: { skill_id: skill.id }
+
+      expect(response).to have_http_status(:ok)
+      expect(json_response["data"]["skill_id"]).to eq(skill.id)
+    end
+
+    # Defensive scoping: a skill belonging to another account must not be
+    # resolvable here (it would otherwise echo a foreign skill's existence).
+    it "returns not found for a foreign-account skill (defensive scoping)" do
+      other_account = create(:account)
+      foreign_skill = create(:ai_skill, account: other_account, name: "Foreign", category: "productivity")
+
+      post :conflict_check, params: { skill_id: foreign_skill.id }
+
+      expect(response).to have_http_status(:not_found)
+      expect(json_response["error"]).to include("Skill not found")
+    end
+  end
+
   describe "authentication" do
     it "returns 401 without token" do
       @request.env.delete("HTTP_AUTHORIZATION")

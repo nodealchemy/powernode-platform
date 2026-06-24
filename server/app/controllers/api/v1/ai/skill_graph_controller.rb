@@ -391,7 +391,10 @@ module Api
         def conflict_check
           authorize_permission!("ai.knowledge_graph.manage") unless current_worker
 
-          skill = ::Ai::Skill.find_by(id: params[:skill_id])
+          # Defensive account scoping: for_account includes globally-scoped
+          # (nil account_id) skills, mirroring how skills are scoped elsewhere,
+          # so a foreign-tenant skill_id 404s instead of echoing its existence.
+          skill = ::Ai::Skill.for_account(current_account.id).find_by(id: params[:skill_id])
           return render_error("Skill not found", status: :not_found) unless skill
 
           # Run targeted duplicate + overlap detection for this skill
