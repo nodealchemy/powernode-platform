@@ -41,9 +41,6 @@
   - [reports, 2]                 # Report generation
   - [integrations, 2]            # Third-party integration processing
   - [mcp, 2]                     # MCP server operations
-  - [trading_critical, 3]         # Time-sensitive: live strategy ticks, price feeds, risk monitoring
-  - [trading_training, 2]         # Training/PG strategy ticks, session management
-  - [trading_batch, 1]            # Batch operations: evolution, metrics, sweeps, learning
   - [notifications, 1]           # Notification delivery
   - [analytics, 1]               # Analytics cache warmup and processing
   - [schedules, 1]               # General scheduled task processing
@@ -624,5 +621,6 @@
     # NOTE: Codebase intelligence re-indexing is handled by Claude Code hooks
     # (codebase-index-marker.sh + codebase-index-apply.sh), not cron.
 
-    # NOTE: Trading scheduled jobs have been moved to the trading extension:
-    # extensions/private/trading/worker/config/sidekiq_trading.yml
+    # NOTE: Extension scheduled jobs + queues live in each extension's
+    # worker/config/sidekiq_*.yml and are merged into the worker by
+    # config/application.rb's generic extension scan.

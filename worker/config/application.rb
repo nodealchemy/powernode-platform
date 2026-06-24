@@ -58,6 +58,13 @@ unless extension_specs.empty?
           schedule = scheduler_config[:schedule] ||= {}
           ext_yaml[:schedule].each { |k, v| schedule[k] = v }
         end
+
+        # Extensions may also contribute Sidekiq queues to the main worker's
+        # default capsule — the same generic seam as schedules. Core names none.
+        if ext_yaml&.dig(:queues)
+          config[:queues] ||= []
+          ext_yaml[:queues].each { |q| config[:queues] << q unless config[:queues].include?(q) }
+        end
       end
     end
 
