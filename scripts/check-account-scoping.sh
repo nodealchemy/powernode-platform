@@ -112,9 +112,11 @@ filtered_hits() {
         # rest is the line text (may itself contain ':')
         local linetext="$rest"
 
-        # Exclude internal/** (worker/server-authed)
+        # Exclude internal/** and worker/** (service-token authed, not user-facing —
+        # account context comes from the worker/service identity, scoped there).
         case "$file" in
             "${CONTROLLERS_DIR}/internal/"*) continue ;;
+            "${CONTROLLERS_DIR}/worker/"*)   continue ;;
         esac
 
         # Safe chain: scoped receiver immediately before a constant on the line

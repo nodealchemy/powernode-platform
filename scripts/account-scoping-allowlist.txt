@@ -23,10 +23,9 @@ server/app/controllers/api/v1/ai/learning_controller.rb:ebc6a418540cff12d86b7927
 server/app/controllers/api/v1/ai/mission_templates_controller.rb:ae1b4e67a533b1093bd38a4030a7f19d5306295b
 server/app/controllers/api/v1/ai/model_router_analytics_controller.rb:caf8bf3df8eab5b0cafce550b761588a57bfdc61
 server/app/controllers/api/v1/ai/model_router_controller.rb:83b98537e169619ade7f7dd0cda58470514c1719
-server/app/controllers/api/v1/ai/monitoring_controller.rb:f9e0cdfe77c00258f22ba4ebc6aa63b253b3c87c
+server/app/controllers/api/v1/ai/monitoring_controller.rb:e1e92a38a91959677bf0deefe3924b5f28347692
 server/app/controllers/api/v1/ai/prompt_templates_controller.rb:4b707aef56f3f965eb1d28fda3b5366f93c8183e
 server/app/controllers/api/v1/ai/roi_calculations_controller.rb:88a5c55511528c89043fb91f5523404f3556e605
-server/app/controllers/api/v1/ai/skill_graph_controller.rb:d9869a49d2f50a28e20b2ba4985789f30a66d6bd
 server/app/controllers/api/v1/api_keys_controller.rb:a00043a0ab8c384bf92bc8e8004360d9a3db0169
 server/app/controllers/api/v1/audit_logs_controller.rb:8c685cea066907beff8f353bfe2885aeaf098771
 server/app/controllers/api/v1/delegations_controller.rb:032bd92cc2c92f97df513f92febd3c8d9497dfd1
@@ -46,7 +45,4 @@ server/app/controllers/api/v1/reports_controller.rb:92e3861a96d158d0e9921a144a99
 server/app/controllers/api/v1/setup_controller.rb:98a93ff9e8c731ed7ec5d96bd1190ebc3d06ad61
 server/app/controllers/api/v1/site_settings_controller.rb:7277128b9ac0483dc7d8afcb15245fc28a343b98
 server/app/controllers/api/v1/site_settings_controller.rb:92c17565cfbe8ac74acda7c9d67f56904d493b07
-server/app/controllers/api/v1/webhooks_controller.rb:23e78b49f72e96fa04d5ffa399779ee932e2bb82
-server/app/controllers/api/v1/worker/processing_jobs_controller.rb:72332bbb4641023cf1fc8a62d51c58a411e10234
 server/app/controllers/api/v1/workers_controller.rb:a8dccf9d8854e7b5e1c8ec86e0e4dc5121db1bc4
-server/app/controllers/api/v1/worker/worker_files_controller.rb:9c23eddd41d62108fc2f18a3072128069974d3fa
