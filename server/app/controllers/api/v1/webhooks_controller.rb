@@ -14,10 +14,10 @@ class Api::V1::WebhooksController < ApplicationController
     per_page = [ (params[:per_page] || 20).to_i, 100 ].min
     offset = (page - 1) * per_page
 
-    total_count = WebhookEndpoint.count
+    total_count = current_account.webhook_endpoints.count
     total_pages = (total_count.to_f / per_page).ceil
 
-    webhooks = WebhookEndpoint.order(:created_at)
+    webhooks = current_account.webhook_endpoints.order(:created_at)
                               .limit(per_page)
                               .offset(offset)
 
@@ -359,7 +359,7 @@ class Api::V1::WebhooksController < ApplicationController
   end
 
   def find_webhook
-    @webhook = WebhookEndpoint.find(params[:id])
+    @webhook = current_account.webhook_endpoints.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     render_error("Webhook endpoint not found", status: :not_found)
   end
@@ -434,9 +434,9 @@ class Api::V1::WebhooksController < ApplicationController
 
   def webhook_stats
     {
-      total_endpoints: WebhookEndpoint.count,
-      active_endpoints: WebhookEndpoint.active.count,
-      inactive_endpoints: WebhookEndpoint.inactive.count,
+      total_endpoints: current_account.webhook_endpoints.count,
+      active_endpoints: current_account.webhook_endpoints.active.count,
+      inactive_endpoints: current_account.webhook_endpoints.inactive.count,
       total_deliveries_today: WebhookDelivery.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count,
       successful_deliveries_today: WebhookDelivery.successful.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count,
       failed_deliveries_today: WebhookDelivery.failed.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count

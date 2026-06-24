@@ -8,11 +8,55 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
   let(:user_with_webhook_permission) { create(:user, account: account, permissions: [ 'webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
+  describe 'cross-account isolation (IDOR)' do
+    let(:other_account) { create(:account) }
+    let!(:own_webhook) { create(:webhook_endpoint, account: account, created_by: admin_user) }
+    let!(:foreign_webhook) { create(:webhook_endpoint, account: other_account) }
+    let(:headers) { auth_headers_for(user_with_webhook_permission) }
+
+    it 'index only lists endpoints belonging to the requesting account' do
+      get '/api/v1/webhooks', headers: headers, as: :json
+
+      expect_success_response
+      ids = json_response['data']['webhooks'].map { |w| w['id'] }
+      expect(ids).to include(own_webhook.id)
+      expect(ids).not_to include(foreign_webhook.id)
+      expect(json_response['data']['pagination']['total_count']).to eq(1)
+    end
+
+    it 'index stats count only the requesting account endpoints' do
+      get '/api/v1/webhooks', headers: headers, as: :json
+
+      expect(json_response['data']['stats']['total_endpoints']).to eq(1)
+    end
+
+    it 'show returns 404 for a foreign-account endpoint' do
+      get "/api/v1/webhooks/#{foreign_webhook.id}", headers: headers, as: :json
+
+      expect_error_response('Webhook endpoint not found', 404)
+    end
+
+    it 'never leaks a foreign-account secret_key' do
+      get "/api/v1/webhooks/#{foreign_webhook.id}", headers: headers, as: :json
+
+      expect(response.body).not_to include(foreign_webhook.secret_key.to_s) if foreign_webhook.secret_key.present?
+      expect(json_response['data']).to be_nil.or(satisfy { |d| !d.key?('secret_key') })
+    end
+
+    it 'allows access to an own-account endpoint and exposes its secret_key' do
+      get "/api/v1/webhooks/#{own_webhook.id}", headers: headers, as: :json
+
+      expect_success_response
+      expect(json_response['data']['id']).to eq(own_webhook.id)
+      expect(json_response['data']).to have_key('secret_key')
+    end
+  end
+
   describe 'GET /api/v1/webhooks' do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
 
     before do
-      create_list(:webhook_endpoint, 5, created_by: admin_user)
+      create_list(:webhook_endpoint, 5, account: account, created_by: admin_user)
     end
 
     context 'with webhook.read permission' do
@@ -75,7 +119,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
 
   describe 'GET /api/v1/webhooks/:id' do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
-    let(:webhook) { create(:webhook_endpoint, created_by: admin_user) }
+    let(:webhook) { create(:webhook_endpoint, account: account, created_by: admin_user) }
 
     context 'with webhook.read permission' do
       it 'returns webhook details' do
@@ -190,7 +234,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
 
   describe 'PUT /api/v1/webhooks/:id' do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
-    let(:webhook) { create(:webhook_endpoint, created_by: admin_user) }
+    let(:webhook) { create(:webhook_endpoint, account: account, created_by: admin_user) }
 
     context 'with webhook.update permission' do
       it 'updates webhook successfully' do
@@ -234,7 +278,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
 
   describe 'DELETE /api/v1/webhooks/:id' do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
-    let(:webhook) { create(:webhook_endpoint, created_by: admin_user) }
+    let(:webhook) { create(:webhook_endpoint, account: account, created_by: admin_user) }
 
     context 'with webhook.delete permission' do
       it 'deletes webhook successfully' do
@@ -259,7 +303,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
 
   describe 'POST /api/v1/webhooks/:id/toggle_status' do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
-    let(:webhook) { create(:webhook_endpoint, status: 'active', created_by: admin_user) }
+    let(:webhook) { create(:webhook_endpoint, account: account, status: 'active', created_by: admin_user) }
 
     context 'with webhook.update permission' do
       it 'toggles from active to inactive' do
@@ -374,7 +418,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
 
   describe 'POST /api/v1/webhooks/:id/health_test' do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
-    let(:webhook) { create(:webhook_endpoint, created_by: admin_user) }
+    let(:webhook) { create(:webhook_endpoint, account: account, created_by: admin_user) }
 
     it 'performs health test on webhook' do
       allow_any_instance_of(WebhookHealthService).to receive(:test_endpoint).and_return({
