@@ -87,8 +87,9 @@ module Ai
       end
 
       def unsupersede_learning(params)
-        learning = Ai::CompoundLearning.find_by(id: params[:learning_id])
-        return { success: false, error: "Learning not found" } unless learning
+        learning = find_learning!(params[:learning_id])
+        return learning unless learning.is_a?(Ai::CompoundLearning)
+
         return { success: false, error: "Already active" } if learning.status == "active"
 
         learning.update!(status: "active", superseded_by_id: nil)
@@ -103,7 +104,7 @@ module Ai
         return { success: false, error: "User context required to verify" } unless user
 
         results = ids.map do |id|
-          learning = Ai::CompoundLearning.find_by(id: id)
+          learning = Ai::CompoundLearning.find_by(id: id, account: account)
           if learning.nil?
             { id: id, ok: false, reason: "not_found" }
           elsif learning.status != "active"
