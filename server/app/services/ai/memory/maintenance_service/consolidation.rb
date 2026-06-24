@@ -202,9 +202,12 @@ module Ai
               return :duplicate
             end
           else
+            # Drop truncate's "..." omission so the escaped fragment matches the
+            # stored content literally (otherwise text dedup never fires).
+            fragment = Ai::SharedKnowledge.sanitize_sql_like(learning.content.truncate(100, omission: ""))
             text_match = Ai::SharedKnowledge
               .where(account_id: account.id)
-              .where("content ILIKE ?", "%#{Ai::SharedKnowledge.sanitize_sql_like(learning.content.truncate(100))}%")
+              .where("content ILIKE ?", "%#{fragment}%")
               .first
 
             return :duplicate if text_match.present?

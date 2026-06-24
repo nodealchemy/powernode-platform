@@ -202,11 +202,13 @@ module Ai
         promoted_count = 0
 
         candidates.find_each do |learning|
-          # Check if already promoted globally
+          # Check if already promoted globally. Drop truncate's "..." omission
+          # and escape LIKE metacharacters so the fragment matches literally.
+          fragment = ActiveRecord::Base.sanitize_sql_like(learning.content.truncate(100, omission: ""))
           existing_global = Ai::CompoundLearning.active
             .for_account(@account.id)
             .global_scope
-            .where("content ILIKE ?", "%#{learning.content.truncate(100)}%")
+            .where("content ILIKE ?", "%#{fragment}%")
 
           if learning.embedding.present?
             similar = Ai::CompoundLearning.find_similar(
@@ -472,10 +474,14 @@ module Ai
             end
           end
         else
-          # Fallback text dedup
+          # Fallback text dedup. truncate must drop its "..." omission, and the
+          # fragment must escape LIKE metacharacters (% _) so it matches the
+          # stored content literally; otherwise dedup never fires and duplicate
+          # learnings accumulate during embedding outages.
+          fragment = ActiveRecord::Base.sanitize_sql_like(content.truncate(100, omission: ""))
           existing = Ai::CompoundLearning.active
             .for_account(@account.id)
-            .where("content ILIKE ?", "%#{content.truncate(100)}%")
+            .where("content ILIKE ?", "%#{fragment}%")
             .first
 
           if existing

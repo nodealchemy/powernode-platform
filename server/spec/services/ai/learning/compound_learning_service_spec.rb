@@ -88,6 +88,42 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
     end
   end
 
+  describe "#store_learning fallback dedup (no embedding)" do
+    # Long enough that String#truncate(100) actually truncates and would
+    # otherwise append a literal "..." omission. Includes a LIKE metacharacter
+    # ("%") to exercise SQL-LIKE escaping in the fallback fragment.
+    let(:long_content) do
+      "Always 100% reuse existing infrastructure before building anything new, " \
+      "and query the knowledge graph first to avoid duplicating prior learnings here."
+    end
+
+    let(:learning_data) do
+      {
+        content: long_content,
+        category: "best_practice",
+        importance: 0.6,
+        confidence: 0.6
+      }
+    end
+
+    before do
+      # Embedding outage -> nil -> fallback text dedup path
+      allow(embedding_service).to receive(:generate).and_return(nil)
+    end
+
+    it "dedupes against an existing identical learning instead of inserting a duplicate" do
+      expect(long_content.length).to be > 100 # ensures truncate(100) kicks in
+
+      first = service.send(:store_learning, learning_data)
+      expect(first).to be_truthy
+
+      expect {
+        second = service.send(:store_learning, learning_data)
+        expect(second).to be(false)
+      }.not_to change { Ai::CompoundLearning.where(account_id: account.id).count }
+    end
+  end
+
   describe "#build_compound_context" do
     let(:agent) { create(:ai_agent, account: account) }
 
