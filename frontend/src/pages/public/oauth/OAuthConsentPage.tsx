@@ -112,12 +112,12 @@ export const OAuthConsentPage: React.FC = () => {
     }
   };
 
-  const scopeDescriptions: Record<string, string> = {
-    read: 'Read access to your data',
-    write: 'Create and modify data',
-    workflows: 'Access AI workflows and automation',
-    files: 'Access file management',
-  };
+  const scopeDescriptions = new Map<string, string>([
+    ['read', 'Read access to your data'],
+    ['write', 'Create and modify data'],
+    ['workflows', 'Access AI workflows and automation'],
+    ['files', 'Access file management'],
+  ]);
 
   if (authLoading || loading) {
     return (
@@ -164,7 +164,7 @@ export const OAuthConsentPage: React.FC = () => {
               <li key={s} className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-theme-success-fg mt-0.5 flex-shrink-0" />
                 <span className="text-sm text-theme-primary">
-                  {scopeDescriptions[s] || s}
+                  {scopeDescriptions.get(s) || s}
                 </span>
               </li>
             ))}
