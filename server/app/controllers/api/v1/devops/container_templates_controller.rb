@@ -219,7 +219,7 @@ module Api
 
           parent_template = nil
           if repo_params[:parent_template_id].present?
-            parent_template = ::Devops::ContainerTemplate.find(repo_params[:parent_template_id])
+            parent_template = ::Devops::ContainerTemplate.accessible_by(current_user.account).find(repo_params[:parent_template_id])
           end
 
           result = ::Devops::ContainerImageRepoService
