@@ -65,8 +65,15 @@ class CodeFactoryChannel < ApplicationCable::Channel
     case resource_type
     when "account"
       current_user.account_id == resource_id
-    when "run", "contract"
-      true # Account-scoped via the resource itself
+    when "run", "review_state"
+      # A "run" is a code-factory review run (ReviewState). Verify it belongs
+      # to the current user's account before streaming its events (was
+      # hardcoded true → IDOR).
+      resource = ::Ai::CodeFactory::ReviewState.find_by(id: resource_id)
+      resource&.account_id == current_user.account_id
+    when "contract"
+      resource = ::Ai::CodeFactory::RiskContract.find_by(id: resource_id)
+      resource&.account_id == current_user.account_id
     else
       false
     end
