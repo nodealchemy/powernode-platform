@@ -50,6 +50,61 @@ RSpec.describe 'Api::V1::EmailSettings', type: :request do
       end
     end
 
+    context 'secret exposure to human (UI) callers' do
+      let(:plaintext_password) { 'sup3r-s3cret-smtp-pw' }
+      let(:plaintext_sendgrid) { 'SG.real-sendgrid-key' }
+
+      before do
+        # Persist secrets through the controller's write path so they are encrypted at rest
+        put '/api/v1/email_settings',
+            params: { email_settings: { smtp_password: plaintext_password, sendgrid_api_key: plaintext_sendgrid } },
+            headers: admin_headers, as: :json
+      end
+
+      it 'never returns plaintext secret values in show' do
+        get '/api/v1/email_settings', headers: admin_headers, as: :json
+
+        body = response.body
+        expect(body).not_to include(plaintext_password)
+        expect(body).not_to include(plaintext_sendgrid)
+
+        data = json_response['data']
+        expect(data['smtp_password']).not_to eq(plaintext_password)
+        expect(data['sendgrid_api_key']).not_to eq(plaintext_sendgrid)
+      end
+
+      it 'exposes set-indicators instead of secret values' do
+        get '/api/v1/email_settings', headers: admin_headers, as: :json
+
+        data = json_response['data']
+        expect(data['smtp_password_set']).to be(true)
+        expect(data['sendgrid_api_key_set']).to be(true)
+      end
+
+      it 'persists secrets encrypted at rest (not plaintext)' do
+        stored = AdminSetting.get('smtp_password_encrypted', '')
+        expect(stored).to be_present
+        expect(stored).not_to eq(plaintext_password)
+        # Round-trips back to the original via the credential encryption service
+        expect(Security::CredentialEncryptionService.decrypt_value(stored)).to eq(plaintext_password)
+      end
+
+      it 'returns real decrypted secrets to the worker (mail send path)' do
+        # The worker caller needs the real secrets to configure ActionMailer.
+        worker = create(:worker, status: 'active', account: account)
+        worker_jwt = Security::JwtService.encode(
+          { sub: worker.id, type: 'worker', version: Security::JwtService::CURRENT_TOKEN_VERSION }
+        )
+        worker_headers = { 'Authorization' => "Bearer #{worker_jwt}", 'Content-Type' => 'application/json' }
+
+        get '/api/v1/email_settings', headers: worker_headers, as: :json
+
+        data = json_response['data']
+        expect(data['smtp_password']).to eq(plaintext_password)
+        expect(data['sendgrid_api_key']).to eq(plaintext_sendgrid)
+      end
+    end
+
     context 'without admin permission' do
       it 'returns forbidden error' do
         get '/api/v1/email_settings', headers: user_headers, as: :json

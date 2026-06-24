@@ -4,9 +4,13 @@ class Api::V1::EmailSettingsController < ApplicationController
   before_action :require_admin_permission
 
   # GET /api/v1/email_settings
-  # Used by worker service to fetch SMTP configuration
+  # Used by worker service to fetch SMTP configuration.
+  #
+  # SECURITY: only the worker (which actually sends mail) receives the real
+  # decrypted secrets. Human/UI callers receive masked indicators so SMTP
+  # passwords and provider API keys are never exposed through the admin UI.
   def show
-    email_settings = fetch_email_settings
+    email_settings = fetch_email_settings(reveal_secrets: current_worker.present?)
 
     render_success(email_settings)
   end
@@ -111,14 +115,20 @@ class Api::V1::EmailSettingsController < ApplicationController
 
   private
 
-  def fetch_email_settings
+  def fetch_email_settings(reveal_secrets:)
+    smtp_password   = decrypt_password(AdminSetting.get("smtp_password_encrypted", ""))
+    sendgrid_api_key = decrypt_password(AdminSetting.get("sendgrid_api_key_encrypted", ""))
+    ses_secret_key  = decrypt_password(AdminSetting.get("ses_secret_key_encrypted", ""))
+    mailgun_api_key = decrypt_password(AdminSetting.get("mailgun_api_key_encrypted", ""))
+
     {
       provider: AdminSetting.get("email_provider", "smtp"),
       smtp_enabled: AdminSetting.get("smtp_enabled", false),
       smtp_host: AdminSetting.get("smtp_host", ""),
       smtp_port: AdminSetting.get("smtp_port", 587),
       smtp_username: AdminSetting.get("smtp_username", ""),
-      smtp_password: decrypt_password(AdminSetting.get("smtp_password_encrypted", "")),
+      smtp_password: secret_field(smtp_password, reveal_secrets),
+      smtp_password_set: smtp_password.present?,
       smtp_encryption: AdminSetting.get("smtp_encryption", "tls"),
       smtp_authentication: AdminSetting.get("smtp_authentication", true),
       smtp_from_address: AdminSetting.get("smtp_from_address", "noreply@powernode.dev"),
@@ -126,11 +136,14 @@ class Api::V1::EmailSettingsController < ApplicationController
       smtp_domain: AdminSetting.get("smtp_domain", "powernode.dev"),
 
       # Additional provider settings
-      sendgrid_api_key: decrypt_password(AdminSetting.get("sendgrid_api_key_encrypted", "")),
+      sendgrid_api_key: secret_field(sendgrid_api_key, reveal_secrets),
+      sendgrid_api_key_set: sendgrid_api_key.present?,
       ses_access_key: AdminSetting.get("ses_access_key", ""),
-      ses_secret_key: decrypt_password(AdminSetting.get("ses_secret_key_encrypted", "")),
+      ses_secret_key: secret_field(ses_secret_key, reveal_secrets),
+      ses_secret_key_set: ses_secret_key.present?,
       ses_region: AdminSetting.get("ses_region", "us-east-1"),
-      mailgun_api_key: decrypt_password(AdminSetting.get("mailgun_api_key_encrypted", "")),
+      mailgun_api_key: secret_field(mailgun_api_key, reveal_secrets),
+      mailgun_api_key_set: mailgun_api_key.present?,
       mailgun_domain: AdminSetting.get("mailgun_domain", ""),
 
       # Email behavior settings
@@ -141,20 +154,27 @@ class Api::V1::EmailSettingsController < ApplicationController
     }
   end
 
+  # Return the real secret only when the caller is allowed to see it (the worker,
+  # which sends the mail). For UI callers, never echo the value — return "".
+  def secret_field(value, reveal)
+    reveal ? value : ""
+  end
+
   def decrypt_password(encrypted_value)
     return "" if encrypted_value.blank?
 
-    # In production, use Rails credentials or encryption
-    # For now, return as-is (assuming it's stored encrypted)
+    ::Security::CredentialEncryptionService.decrypt_value(encrypted_value).to_s
+  rescue ::Security::CredentialEncryptionService::DecryptionError
+    # Backward compatibility: values written before encryption was added were
+    # stored as plaintext and cannot be decrypted. Treat them as their literal
+    # value so existing configs keep sending mail until next save re-encrypts.
     encrypted_value
   end
 
   def encrypt_password(value)
     return "" if value.blank?
 
-    # In production, use proper encryption
-    # For now, store as-is
-    value
+    ::Security::CredentialEncryptionService.encrypt_value(value)
   end
 
   def require_admin_permission
