@@ -98,7 +98,8 @@ module Ai
         llm_client = build_llm_client(evaluator_agent)
         completed = round_outputs.select { |r| r[:output].present? }
 
-        return { consensus_reached: true, synthesis: completed.first[:output] } if completed.size <= 1
+        return { consensus_reached: false, synthesis: nil } if completed.empty?
+        return { consensus_reached: true, synthesis: completed.first[:output] } if completed.size == 1
 
         summary = completed.map { |r| "[#{r[:agent_name]}]: #{r[:output]}" }.join("\n\n")
 
