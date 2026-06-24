@@ -188,7 +188,7 @@ module Ai
             {
               id: chunk.id,
               content: chunk.content,
-              document_id: chunk.ai_document_id,
+              document_id: chunk.document_id,
               source: "graph_rag",
               metadata: { sequence_number: chunk.sequence_number }
             }

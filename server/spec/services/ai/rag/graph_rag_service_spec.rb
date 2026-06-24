@@ -153,6 +153,34 @@ RSpec.describe Ai::Rag::GraphRagService, type: :service do
   end
 
   # ===========================================================================
+  # #collect_community_chunks
+  # ===========================================================================
+
+  describe "#collect_community_chunks (private)" do
+    let(:knowledge_base) { create(:ai_knowledge_base, account: account) }
+    let(:document) { create(:ai_document, knowledge_base: knowledge_base) }
+    let!(:chunk) do
+      create(:ai_document_chunk, document: document, knowledge_base: knowledge_base,
+             content: "graph rag passage")
+    end
+    let!(:node) do
+      create(:ai_knowledge_graph_node, account: account, status: "active",
+             source_document_id: document.id)
+    end
+
+    let(:communities) { [{ node_ids: [node.id] }] }
+
+    it "returns the document chunks for community nodes (not silently dropped)" do
+      chunks = service.send(:collect_community_chunks, communities)
+
+      expect(chunks).not_to be_empty
+      expect(chunks.first[:id]).to eq(chunk.id)
+      expect(chunks.first[:content]).to eq("graph rag passage")
+      expect(chunks.first[:document_id]).to eq(document.id)
+    end
+  end
+
+  # ===========================================================================
   # #build_context
   # ===========================================================================
 
