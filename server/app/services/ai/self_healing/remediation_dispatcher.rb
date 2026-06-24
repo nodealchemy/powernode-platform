@@ -81,7 +81,7 @@ module Ai
 
           # Find agents using this provider and switch to backup
           agents = Ai::Agent.where(account: account, ai_provider_id: provider_id, status: "active")
-          backup = Ai::Provider.where(provider_type: provider.provider_type)
+          backup = Ai::Provider.where(account: account, provider_type: provider.provider_type)
                                .where.not(id: provider_id)
                                .first
 
