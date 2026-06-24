@@ -90,7 +90,11 @@ class Api::V1::WorkerAuthController < ApplicationController
       return render_error("Invalid or expired token", status: :unauthorized)
     end
 
-    unless payload[:type].in?(%w[access refresh])
+    # Only a short-lived ACCESS token may mint a worker session. A refresh
+    # token is long-lived (7-day) and meant solely for /sessions/refresh —
+    # accepting one here would let a stolen refresh token open a 24h admin
+    # Sidekiq-web session.
+    unless payload[:type] == "access"
       return render_error("Invalid token type", status: :unauthorized)
     end
 

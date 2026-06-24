@@ -226,4 +226,49 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
       end
     end
   end
+
+  describe 'POST /api/v1/worker_auth/verify_platform_token' do
+    # The worker exchanges the USER's platform JWT for a 24h Sidekiq-web
+    # admin session. Only a short-lived ACCESS token is acceptable here — a
+    # long-lived (7-day, broader-exposure) REFRESH token is meant solely for
+    # /sessions/refresh and must NOT mint an admin worker session.
+    let(:access_token) do
+      Security::JwtService.encode({ sub: user.id, account_id: account.id, type: 'access', version: 2 })
+    end
+    let(:refresh_token) do
+      Security::JwtService.encode({ sub: user.id, account_id: account.id, type: 'refresh', version: 2 })
+    end
+
+    context 'with a platform access token' do
+      it 'mints a worker session' do
+        post '/api/v1/worker_auth/verify_platform_token', params: { token: access_token },
+          headers: worker_auth_headers, as: :json
+
+        expect_success_response
+        data = json_response_data
+        expect(data['valid']).to be true
+        expect(data['session_token']).to be_present
+        expect(data['user_email']).to eq(user.email)
+      end
+    end
+
+    context 'with a refresh token' do
+      it 'rejects it and does not mint a worker session' do
+        post '/api/v1/worker_auth/verify_platform_token', params: { token: refresh_token },
+          headers: worker_auth_headers, as: :json
+
+        expect_error_response('Invalid token type', 401)
+        expect(json_response_data&.dig('session_token')).to be_nil
+      end
+    end
+
+    context 'with a missing token' do
+      it 'returns bad request error' do
+        post '/api/v1/worker_auth/verify_platform_token',
+          headers: worker_auth_headers, as: :json
+
+        expect_error_response('Token is required', 400)
+      end
+    end
+  end
 end
