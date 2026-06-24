@@ -19,8 +19,7 @@ module Api
                   next
                 end
 
-                trading_overseer = trading_overseer_loop?(loop)
-                broadcast_trading_cycle(loop, "overseer_cycle_started") if trading_overseer
+                Powernode::ExtensionRegistry.provider(:ralph_loop_cycle_broadcast)&.call(loop, "overseer_cycle_started")
 
                 service = ::Ai::Ralph::ExecutionService.new(ralph_loop: loop)
                 result = service.run_iteration
@@ -33,7 +32,7 @@ module Api
                   loop.schedule_next_iteration! if loop.scheduling_mode.in?(%w[autonomous continuous])
                 end
 
-                broadcast_trading_cycle(loop, "overseer_cycle_completed", result) if trading_overseer
+                Powernode::ExtensionRegistry.provider(:ralph_loop_cycle_broadcast)&.call(loop, "overseer_cycle_completed", result)
                 processed += 1
               rescue StandardError => e
                 Rails.logger.error "[RalphLoopScheduler] Failed to process loop #{loop.id}: #{e.message}"
@@ -63,13 +62,12 @@ module Api
               return render_success(completed: true, message: "All iterations completed")
             end
 
-            trading_overseer = trading_overseer_loop?(ralph_loop)
-            broadcast_trading_cycle(ralph_loop, "overseer_cycle_started") if trading_overseer
+            Powernode::ExtensionRegistry.provider(:ralph_loop_cycle_broadcast)&.call(ralph_loop, "overseer_cycle_started")
 
             service = ::Ai::Ralph::ExecutionService.new(ralph_loop: ralph_loop)
             result = service.run_iteration
 
-            broadcast_trading_cycle(ralph_loop, "overseer_cycle_completed", result) if trading_overseer
+            Powernode::ExtensionRegistry.provider(:ralph_loop_cycle_broadcast)&.call(ralph_loop, "overseer_cycle_completed", result)
 
             if result[:success]
               render_success(
@@ -84,22 +82,6 @@ module Api
           end
 
           private
-
-          def trading_overseer_loop?(loop)
-            agent = loop.default_agent
-            agent&.agent_type == "monitor" && agent&.name&.in?(["Trading Overseer", "Trading Session Manager", "Trading Portfolio Manager"])
-          end
-
-          def broadcast_trading_cycle(loop, event_type, result = nil)
-            payload = { iteration: loop.current_iteration }
-            if event_type == "overseer_cycle_completed"
-              payload[:next_scheduled_at] = loop.reload.next_scheduled_at&.iso8601
-              payload[:pending] = loop.account.trading_overseer_decisions.where(status: "pending").count if loop.account.respond_to?(:trading_overseer_decisions)
-            end
-            TradingChannel.broadcast_to_account(loop.account_id, event_type, payload) if defined?(TradingChannel)
-          rescue StandardError => e
-            Rails.logger.warn("[RalphLoopScheduler] Trading broadcast failed: #{e.message}")
-          end
 
           def heal_stuck_autonomous_loops
             ::Ai::RalphLoop
