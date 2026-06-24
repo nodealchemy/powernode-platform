@@ -5,9 +5,9 @@ module Shared
   # Supports Liquid templating, versioning, and domain-scoped templates.
   #
   # Domains:
-  #   - trading: Templates for trading strategy agents and evaluation pipelines
   #   - cicd: Templates for CI/CD pipeline steps
   #   - general: Templates available to all systems
+  #   Extensions register additional domains at boot via .register_domains.
   #
   class PromptTemplate < ApplicationRecord
     include GloballyScopable
@@ -18,7 +18,20 @@ module Shared
     # Constants
     # ============================================
     CATEGORIES = %w[review implement security deploy docs custom general agent workflow].freeze
-    DOMAINS = %w[trading cicd general].freeze
+    DOMAINS = %w[cicd general].freeze
+
+    # Domains core ships, plus domains an extension registers at boot (its own)
+    # via Shared::PromptTemplate.register_domains. Validation consults both, so
+    # core needs no compile-time knowledge of extension domains.
+    @registered_domains = []
+
+    def self.register_domains(*names)
+      @registered_domains |= names.flatten.map(&:to_s)
+    end
+
+    def self.all_domains
+      DOMAINS + @registered_domains
+    end
 
     # ============================================
     # Associations
@@ -42,7 +55,7 @@ module Shared
                      uniqueness: { scope: :account_id },
                      format: { with: /\A[a-z0-9\-_]+\z/, message: "only allows lowercase letters, numbers, hyphens, and underscores" }
     validates :category, presence: true, inclusion: { in: CATEGORIES }
-    validates :domain, presence: true, inclusion: { in: DOMAINS }
+    validates :domain, presence: true, inclusion: { in: ->(_record) { all_domains } }
     validates :content, presence: true
     validates :version, numericality: { greater_than: 0 }
 
@@ -57,7 +70,6 @@ module Shared
     scope :user_templates, -> { where(is_system: false) }
     scope :by_category, ->(category) { where(category: category) }
     scope :for_domain, ->(domain) { where(domain: [ domain, "general" ]) }
-    scope :for_trading, -> { for_domain("trading") }
     scope :for_cicd, -> { for_domain("cicd") }
     scope :latest_versions, -> { where(parent_template_id: nil) }
     scope :search, ->(query) {

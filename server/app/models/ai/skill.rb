@@ -13,7 +13,7 @@ module Ai
       productivity sales customer_support product_management marketing
       legal finance data business_search bio_research skill_management
       code_intelligence testing_qa devops security sre_observability
-      database_ops release_management research documentation trading
+      database_ops release_management research documentation
     ].freeze
 
     STATUSES = %w[active inactive draft].freeze
@@ -63,6 +63,19 @@ module Ai
       @domain_registry_mutex.synchronize { @domain_registry.keys.dup }
     end
 
+    # Skill categories core ships, plus categories an extension registers at boot
+    # (its own category) via Ai::Skill.register_categories. The category
+    # validation consults both, so core needs no compile-time knowledge of them.
+    @registered_categories = []
+
+    def self.register_categories(*names)
+      @registered_categories |= names.flatten.map(&:to_s)
+    end
+
+    def self.all_categories
+      CATEGORIES + @registered_categories
+    end
+
     # ==========================================
     # Associations
     # ==========================================
@@ -92,7 +105,7 @@ module Ai
     # ==========================================
     validates :name, presence: true, uniqueness: { scope: :account_id }
     validates :slug, presence: true, uniqueness: true
-    validates :category, presence: true, inclusion: { in: CATEGORIES }
+    validates :category, presence: true, inclusion: { in: ->(_record) { all_categories } }
     validates :status, inclusion: { in: STATUSES }
 
     # ==========================================

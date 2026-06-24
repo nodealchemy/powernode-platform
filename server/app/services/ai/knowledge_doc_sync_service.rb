@@ -49,19 +49,24 @@ module Ai
     # ("knowledge_doc_tags": { "tags": [...], "prefixes": [...] }) and resolved
     # generically at runtime (see #tag_routes_pair) so core names no specific extension.
 
-    # Ephemeral learnings — individual trade records, not durable knowledge
-    EPHEMERAL_LEARNING_TITLE_PATTERNS = [
-      /\AWin: /,
-      /\ALoss: /
-    ].freeze
+    # Ephemeral title patterns: short-lived records (per-record logs, session
+    # summaries) that must NOT sync to durable knowledge. Core ships none —
+    # extensions register their own at boot via the seams below, so core needs no
+    # compile-time knowledge of any extension's ephemeral shapes.
+    @ephemeral_learning_title_patterns = []
+    @ephemeral_knowledge_title_patterns = []
 
-    # Ephemeral knowledge — raw session summaries with no analytical value
-    EPHEMERAL_KNOWLEDGE_TITLE_PATTERNS = [
-      /\ATrading session: /,
-      /\ASession idle: /,
-      /\ASession profitable: /,
-      /\ASession (R|r)egression /
-    ].freeze
+    class << self
+      def register_ephemeral_learning_title_patterns(*regexes)
+        @ephemeral_learning_title_patterns |= regexes.flatten
+      end
+
+      def register_ephemeral_knowledge_title_patterns(*regexes)
+        @ephemeral_knowledge_title_patterns |= regexes.flatten
+      end
+
+      attr_reader :ephemeral_learning_title_patterns, :ephemeral_knowledge_title_patterns
+    end
 
     def initialize(account:)
       @account = account
@@ -506,8 +511,8 @@ module Ai
     end
 
     def ephemeral_learning?(learning)
-      # Individual trade win/loss records — per-position P&L is runtime data
-      return true if EPHEMERAL_LEARNING_TITLE_PATTERNS.any? { |pat| learning.title&.match?(pat) }
+      # Extension-registered ephemeral learning titles (e.g. per-record logs)
+      return true if self.class.ephemeral_learning_title_patterns.any? { |pat| learning.title&.match?(pat) }
 
       # Zero-activity session idles that nobody has ever accessed
       return true if learning.title&.start_with?("Session idle:") && learning.access_count.to_i == 0
@@ -516,8 +521,8 @@ module Ai
     end
 
     def ephemeral_knowledge?(entry)
-      # Raw session summaries (e.g., "Trading session: Overseer Temporal Session (overnight)")
-      return true if EPHEMERAL_KNOWLEDGE_TITLE_PATTERNS.any? { |pat| entry.title&.match?(pat) }
+      # Extension-registered ephemeral knowledge titles (e.g. raw session summaries)
+      return true if self.class.ephemeral_knowledge_title_patterns.any? { |pat| entry.title&.match?(pat) }
 
       # System-generated entries with zero usage and low quality
       return true if entry.source_type == "system" && entry.usage_count.to_i == 0 && entry.quality_score.to_f < 0.6

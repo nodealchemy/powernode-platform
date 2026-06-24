@@ -14,19 +14,6 @@ module Ai
     STATIC_CATEGORIES = %w[
       approval proposal escalation status_update issue_alert
       feedback
-      trading.create_session trading.schedule_session trading.start_session
-      trading.resume_session
-      trading.prune_strategy trading.spawn_strategy
-      trading.cancel_session trading.extend_session trading.complete_session
-      trading.hold_session trading.force_close_position
-      trading.modify_params trading.promote_strategy
-      trading.advance_phase trading.advance_to_paper trading.advance_to_live_small trading.advance_to_live_full
-      trading.pause_strategy trading.resume_strategy
-      trading.decommission_strategy trading.rebalance_capital
-      trading.backtest_strategy trading.advance_backtest
-      trading.fast_track_strategy
-      trading.modify_schedule
-      trading.release_held_session trading.graduate_to_live trading.chain_session
       project.adapt project.cost_control project.scale_horizontal project.relocate project.schema_change project.security_change
       dev.pull_task dev.complete_task dev.commit_to_branch
       dev.multi_file_change dev.merge
