@@ -290,6 +290,44 @@ describe('ConsentManager', () => {
     });
   });
 
+  describe('prop sync', () => {
+    it('re-syncs local state when the consents prop changes', () => {
+      const { rerender } = render(<ConsentManager {...defaultProps} />);
+
+      // Analytics starts not granted (index 1)
+      let switches = screen.getAllByRole('switch');
+      expect(switches[1]).toHaveAttribute('aria-checked', 'false');
+
+      // Parent pushes updated consents (e.g. server-normalized values / WebSocket push)
+      const updatedConsents: ConsentPreferences = {
+        ...mockConsents,
+        analytics: { ...mockConsents.analytics, granted: true },
+      };
+      rerender(<ConsentManager {...defaultProps} consents={updatedConsents} />);
+
+      switches = screen.getAllByRole('switch');
+      expect(switches[1]).toHaveAttribute('aria-checked', 'true');
+    });
+
+    it('clears the unsaved-changes banner when the consents prop changes', () => {
+      const { rerender } = render(<ConsentManager {...defaultProps} />);
+
+      // Make a local change to surface the Save Changes button
+      const switches = screen.getAllByRole('switch');
+      fireEvent.click(switches[1]);
+      expect(screen.getByText('Save Changes')).toBeInTheDocument();
+
+      // A fresh prop from the parent should reset local edits
+      const updatedConsents: ConsentPreferences = {
+        ...mockConsents,
+        newsletter: { ...mockConsents.newsletter, granted: true },
+      };
+      rerender(<ConsentManager {...defaultProps} consents={updatedConsents} />);
+
+      expect(screen.queryByText('Save Changes')).not.toBeInTheDocument();
+    });
+  });
+
   describe('unknown consent types', () => {
     it('handles unknown consent types with default label', () => {
       const consentsWithUnknown = {

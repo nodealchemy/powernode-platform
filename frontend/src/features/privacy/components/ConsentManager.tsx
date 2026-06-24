@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import type { ConsentPreferences } from '../services/privacyApi';
 
@@ -27,6 +27,13 @@ export const ConsentManager: React.FC<ConsentManagerProps> = ({
   const [localConsents, setLocalConsents] = useState(consents);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Re-sync local state when the parent provides updated consents
+  // (e.g. server-normalized values after save, WebSocket pushes).
+  useEffect(() => {
+    setLocalConsents(consents);
+    setHasChanges(false);
+  }, [consents]);
 
   const handleToggle = (type: string, value: boolean) => {
     const consent = consents[type as keyof ConsentPreferences];
