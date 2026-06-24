@@ -184,10 +184,14 @@ module Ai
       end
 
       def collusion_score(agent_a_id, agent_b_id)
-        a_reviews_b = Ai::AgentReview.where(reviewer_id: agent_a_id, reviewed_agent_id: agent_b_id).where(outcome: "approved").count rescue 0
-        b_reviews_a = Ai::AgentReview.where(reviewer_id: agent_b_id, reviewed_agent_id: agent_a_id).where(outcome: "approved").count rescue 0
-        total_reviews = (a_reviews_b + b_reviews_a).to_f
-        reciprocity = total_reviews > 0 ? [total_reviews / 20.0, 1.0].min : 0.0
+        # Inter-agent mutual-approval reciprocity is not modeled yet: there is no peer-review
+        # table with reviewer/reviewed/outcome semantics (Ai::AgentReview is the marketplace
+        # template-review model — agent_template_id/user_id/rating/status). The prior query
+        # against it raised PG::UndefinedColumn on every call (silently rescued to 0) and left
+        # the surrounding transaction aborted, so subsequent queries failed with
+        # PG::InFailedSqlTransaction. Until a real peer-review model exists, reciprocity is an
+        # explicit 0.0 placeholder (mirrors the output_similarity TBD term below).
+        reciprocity = 0.0
 
         trust_a = Ai::AgentTrustScore.find_by(agent_id: agent_a_id)&.overall_score
         trust_b = Ai::AgentTrustScore.find_by(agent_id: agent_b_id)&.overall_score
