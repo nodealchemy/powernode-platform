@@ -69,18 +69,33 @@ module KnowledgeBase
     end
 
     def viewable_by?(user)
+      # Tenancy gate: an account-owned (account_id present) article is only
+      # viewable from within its owning account. Cross-account and unauthenticated
+      # requests are denied before any public/author/kb.manage rule runs, so a
+      # tenant-private article never leaks across accounts or to the world.
+      return false if account_id.present? && user&.account_id != account_id
+
+      # Global (account_id nil) public+published articles are world-shareable;
+      # for tenant-private rows we've already confirmed the requester is in the
+      # owning account above.
       return true if is_public && published?
       return false unless user
 
       # Author can always view their own articles
       return true if author_id == user.id
 
-      # Users with kb.manage permission can view any article
+      # Users with kb.manage permission can view any article they're allowed to
+      # reach (globals, or — per the gate above — their own account's rows).
       user.has_permission?("kb.manage")
     end
 
     def editable_by?(user)
       return false unless user
+      # Tenancy gate: account-owned articles are only editable within their
+      # owning account (cross-account managers/editors are denied). Globals
+      # (account_id nil) fall through to the existing permission policy.
+      return false if account_id.present? && user.account_id != account_id
+
       return true if author_id == user.id
       user.has_permission?("kb.manage") || user.has_permission?("kb.update")
     end
