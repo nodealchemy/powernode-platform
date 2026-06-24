@@ -433,7 +433,7 @@ module Api
 
         case params[:attachable_type]
         when "Page"
-          Page.find_by(id: params[:attachable_id])
+          current_account.pages.find_by(id: params[:attachable_id])
         when "SupplyChain::Sbom"
           current_account.supply_chain_sboms.find_by(id: params[:attachable_id])
         when "SupplyChain::Attestation"

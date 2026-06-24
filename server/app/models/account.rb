@@ -12,6 +12,7 @@ class Account < ApplicationRecord
   has_many :workers, dependent: :destroy
   has_many :api_keys, dependent: :destroy
   has_many :webhook_endpoints, dependent: :destroy
+  has_many :pages, dependent: :destroy
 
   # AI-related associations
   has_many :ai_providers, class_name: "Ai::Provider", dependent: :destroy

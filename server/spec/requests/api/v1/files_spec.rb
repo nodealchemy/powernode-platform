@@ -272,6 +272,38 @@ RSpec.describe 'Api::V1::Files', type: :request do
         expect_error_response('Permission denied: files.create', 403)
       end
     end
+
+    context 'attaching to a Page (cross-tenant isolation)' do
+      let(:same_account_page) { create(:page, account: account) }
+      let(:other_account) { create(:account) }
+      let(:foreign_page) { create(:page, account: other_account) }
+
+      it 'does not attach the file to a Page owned by another account' do
+        post '/api/v1/files/upload',
+             params: {
+               file: file_upload,
+               attachable_type: 'Page',
+               attachable_id: foreign_page.id
+             },
+             headers: auth_headers_for(user_with_create)
+
+        expect(file_service_double).to have_received(:upload_file)
+          .with(anything, hash_including(attachable: nil))
+      end
+
+      it 'attaches the file to a Page owned by the current account' do
+        post '/api/v1/files/upload',
+             params: {
+               file: file_upload,
+               attachable_type: 'Page',
+               attachable_id: same_account_page.id
+             },
+             headers: auth_headers_for(user_with_create)
+
+        expect(file_service_double).to have_received(:upload_file)
+          .with(anything, hash_including(attachable: same_account_page))
+      end
+    end
   end
 
   describe 'GET /api/v1/files/:id/download' do
