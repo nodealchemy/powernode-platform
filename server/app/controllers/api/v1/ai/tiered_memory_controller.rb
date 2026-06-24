@@ -124,7 +124,7 @@ module Api
 
         # POST /api/v1/ai/memory/consolidate_entry (event-driven, called by worker)
         def consolidate_entry
-          entry = ::Ai::AgentShortTermMemory.find_by(id: params[:entry_id])
+          entry = ::Ai::AgentShortTermMemory.where(account_id: current_account.id).find_by(id: params[:entry_id])
           return render_error("Entry not found", status: :not_found) unless entry
           return render_success(consolidated: false, reason: "expired") if entry.expired?
 

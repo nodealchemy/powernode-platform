@@ -325,4 +325,31 @@ RSpec.describe Api::V1::Ai::TieredMemoryController, type: :controller do
       expect(json_response['data']['entries']).to be_an(Array)
     end
   end
+
+  # ============================================================================
+  # CONSOLIDATE ENTRY (cross-account isolation)
+  # ============================================================================
+
+  describe 'POST #consolidate_entry' do
+    it 'consolidates an entry belonging to the current account' do
+      router = instance_double(Ai::Memory::RouterService)
+      allow(Ai::Memory::RouterService).to receive(:new).and_return(router)
+      allow(router).to receive(:consolidate!).and_return({ consolidated: 1 })
+
+      entry = create(:ai_agent_short_term_memory, account: account, agent: agent)
+
+      post :consolidate_entry, params: { entry_id: entry.id }
+      expect(response).to have_http_status(:ok)
+      expect(json_response['success']).to be true
+    end
+
+    it 'does not consolidate another account\'s memory entry (IDOR)' do
+      other_account = create(:account)
+      other_agent = create(:ai_agent, account: other_account)
+      foreign_entry = create(:ai_agent_short_term_memory, account: other_account, agent: other_agent)
+
+      post :consolidate_entry, params: { entry_id: foreign_entry.id }
+      expect(response).to have_http_status(:not_found)
+    end
+  end
 end
