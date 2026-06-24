@@ -122,6 +122,13 @@ RSpec.describe "Api::V1::Devops::Kubernetes::Clusters", type: :request do
   end
 
   describe "GET /api/v1/devops/kubernetes/clusters/:id/kubeconfig" do
+    # kubeconfig discloses the cluster ADMIN credential, so it is gated on the
+    # manage-tier devops.container_templates.write permission (no dedicated
+    # devops.kubernetes.* perm exists in the catalog). The default `user` above
+    # is created with permissions: [] and is intentionally NOT authorized.
+    let(:kube_user) { create(:user, account: account, permissions: %w[devops.container_templates.write]) }
+    let(:kube_headers) { auth_headers_for(kube_user) }
+
     it "returns kubeconfig YAML for an active cluster" do
       # Don't use the :with_kubeconfig trait — its randomized hex would
       # apply AFTER our explicit kwarg in some FactoryBot versions,
@@ -131,7 +138,7 @@ RSpec.describe "Api::V1::Devops::Kubernetes::Clusters", type: :request do
                        encrypted_kubeconfig: "apiVersion: v1\nkind: Config")
 
       get "/api/v1/devops/kubernetes/clusters/#{cluster.id}/kubeconfig",
-          headers: headers, as: :json
+          headers: kube_headers, as: :json
 
       expect(response).to have_http_status(:ok)
       data = JSON.parse(response.body).dig("data")
@@ -142,10 +149,23 @@ RSpec.describe "Api::V1::Devops::Kubernetes::Clusters", type: :request do
     it "returns 422 when cluster is still bootstrapping (no kubeconfig yet)" do
       cluster = create(:devops_kubernetes_cluster, account: account, status: "bootstrapping")
       get "/api/v1/devops/kubernetes/clusters/#{cluster.id}/kubeconfig",
-          headers: headers, as: :json
+          headers: kube_headers, as: :json
 
       expect(response).to have_http_status(:unprocessable_content)
       expect(JSON.parse(response.body)["error"]).to include("not yet available")
+    end
+
+    it "forbids an authenticated user without the manage permission" do
+      # Before the gate, ANY authenticated user could fetch the cluster admin
+      # kubeconfig. The default `user` holds no permissions.
+      cluster = create(:devops_kubernetes_cluster, :active,
+                       account: account,
+                       encrypted_kubeconfig: "apiVersion: v1\nkind: Config")
+
+      get "/api/v1/devops/kubernetes/clusters/#{cluster.id}/kubeconfig",
+          headers: headers, as: :json
+
+      expect(response).to have_http_status(:forbidden)
     end
   end
 end

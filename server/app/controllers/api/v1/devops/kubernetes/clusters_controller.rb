@@ -19,6 +19,13 @@ module Api
         class ClustersController < ApplicationController
           include ::Ai::GatedActions
 
+          # kubeconfig returns the cluster *admin* credential, so it is gated at
+          # the manage tier. The permission catalog has no dedicated
+          # devops.kubernetes.* perm; devops.container_templates.write is the
+          # closest existing manage-tier container/cluster-infrastructure
+          # permission (held by manager / ai_specialist). destroy is gated
+          # separately through Ai::AutonomyGate (gate! below).
+          before_action :require_kubeconfig_permission, only: %i[kubeconfig]
           before_action :set_cluster, only: %i[show destroy kubeconfig]
 
           # GET /api/v1/devops/kubernetes/clusters
@@ -94,6 +101,10 @@ module Api
           end
 
           private
+
+          def require_kubeconfig_permission
+            require_permission("devops.container_templates.write")
+          end
 
           def set_cluster
             @cluster = current_user.account.devops_kubernetes_clusters.find_by(id: params[:id]) ||
