@@ -60,6 +60,14 @@ unless extension_specs.empty?
         end
       end
     end
+
+    # Generic extension worker-lifecycle seam: an extension may ship a
+    # worker/config/lifecycle.rb that registers its own Sidekiq on(:startup)/
+    # on(:quiet) callbacks (e.g. venue WS-manager shutdown, startup recovery).
+    # Its worker classes are already loaded by config/boot.rb. Core names no
+    # specific extension here.
+    lifecycle = File.join(ext_root, slug, 'worker', 'config', 'lifecycle.rb')
+    load lifecycle if File.exist?(lifecycle)
   end
 end
 
@@ -79,41 +87,6 @@ Sidekiq.configure_server do |config|
     cap.queues = %w[code_intel]
   end
 
-  # Fast shutdown: on SIGTERM, signal training sessions to exit their tick loop
-  # immediately instead of waiting for Sidekiq's 300s timeout.
-  # Also stop venue WS managers to prevent reconnect loops during shutdown.
-  # Guarded with defined? so the worker boots without the trading extension.
-  config.on(:quiet) do
-    TradingTrainingSessionJob.shutdown_requested! if defined?(TradingTrainingSessionJob)
-    Trading::KalshiWsManager.instance.force_stop! rescue nil if defined?(Trading::KalshiWsManager)
-    Trading::PolymarketWsManager.instance.force_stop! rescue nil if defined?(Trading::PolymarketWsManager)
-  end
-
-  # Fast recovery: on startup, dispatch pending sessions via the runner and
-  # evaluate paused sessions via the overseer — no wait for the next cron tick.
-  # Also re-dispatch runners for active live strategies (they die on restart).
-  # The 3s sleep lets Redis and HTTP connections establish first.
-  # Guarded with defined? so the worker boots without the trading extension.
-  config.on(:startup) do
-    TradingTrainingSessionJob.reset_shutdown_flag! if defined?(TradingTrainingSessionJob)
-    Thread.new do
-      sleep 3
-
-      # Clear stale runner locks from the old process — they reference dead JIDs
-      Sidekiq.redis do |conn|
-        conn.keys("strategy_runner_lock:*").each { |k| conn.del(k) }
-        conn.keys("job_disabled:TradingStrategyRunnerJob:*").each { |k| conn.del(k) }
-        conn.keys("job_executions:TradingStrategyRunnerJob:*").each { |k| conn.del(k) }
-      end
-
-      TradingTrainingSessionRunnerJob.perform_async if defined?(TradingTrainingSessionRunnerJob)
-      TradingSessionManagerCycleJob.perform_async if defined?(TradingSessionManagerCycleJob)
-      TradingPortfolioManagerCycleJob.perform_async if defined?(TradingPortfolioManagerCycleJob)
-      TradingProvingGroundManagerCycleJob.perform_async if defined?(TradingProvingGroundManagerCycleJob)
-    rescue StandardError => e
-      PowernodeWorker.logger.warn("[StartupHook] Startup recovery dispatch failed: #{e.message}")
-    end
-  end
 end
 
 Sidekiq.configure_client do |config|
