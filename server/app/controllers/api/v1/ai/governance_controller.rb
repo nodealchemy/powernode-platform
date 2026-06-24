@@ -4,6 +4,27 @@ module Api
   module V1
     module Ai
       class GovernanceController < ApplicationController
+        # Authorization. Reads gate on the governance READ permission
+        # (`ai.governance.read`, catalog-defined); writes gate on the coarse
+        # manage-all-AI permission (`ai.manage`) — mirroring the sibling
+        # GovernanceReportsController, which gates every action on `ai.manage`.
+        # There is no `ai.governance.manage` in the catalog, so `ai.manage`
+        # is the closest correctly-scoped write gate.
+        READ_ACTIONS = %i[
+          policies violations approval_chains approval_requests
+          pending_approvals show_approval_request classifications
+          reports summary audit_log
+        ].freeze
+
+        WRITE_ACTIONS = %i[
+          create_policy activate_policy evaluate_policies
+          acknowledge_violation resolve_violation create_approval_chain
+          decide_approval create_classification scan_data mask_data
+          generate_report
+        ].freeze
+
+        before_action :require_governance_read, only: READ_ACTIONS
+        before_action :require_governance_manage, only: WRITE_ACTIONS
         before_action :set_service
 
         # Policies
@@ -280,6 +301,14 @@ module Api
         end
 
         private
+
+        def require_governance_read
+          require_permission("ai.governance.read")
+        end
+
+        def require_governance_manage
+          require_permission("ai.manage")
+        end
 
         def set_service
           @service = ::Ai::GovernanceService.new(current_account)

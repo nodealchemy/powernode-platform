@@ -4,7 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Governance', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
+  # Holds both the governance READ gate and the coarse manage gate so the
+  # existing read+write coverage exercises the happy path. Authorization is
+  # asserted separately in the "authorization" describe block below.
+  let(:user) { create(:user, account: account, permissions: %w[ai.governance.read ai.manage]) }
   let(:headers) { auth_headers_for(user) }
 
   describe 'GET /api/v1/ai/governance/policies' do
@@ -436,6 +439,82 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
       get "/api/v1/ai/governance/audit_log?resource_type=policy", headers: headers, as: :json
 
       expect_success_response
+    end
+  end
+
+  describe 'authorization' do
+    # An authenticated user holding NEITHER the governance read perm nor the
+    # coarse manage perm. Before the gate was added, every governance action
+    # was reachable by any authenticated user (decide approvals, create/activate
+    # policies, resolve violations, read the audit log, ...).
+    let(:unprivileged) { create(:user, account: account, permissions: []) }
+    let(:unprivileged_headers) { auth_headers_for(unprivileged) }
+
+    context 'without the governance read permission' do
+      it 'forbids reading the audit log' do
+        get '/api/v1/ai/governance/audit_log', headers: unprivileged_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids listing policies' do
+        get '/api/v1/ai/governance/policies', headers: unprivileged_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context 'without the manage permission' do
+      it 'forbids creating a policy' do
+        post '/api/v1/ai/governance/policies',
+             params: { name: 'X', policy_type: 'retention', enforcement_level: 'strict' },
+             headers: unprivileged_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids deciding an approval request' do
+        approval_request = create(:ai_approval_request, account: account, status: 'pending')
+        post "/api/v1/ai/governance/approval_requests/#{approval_request.id}/decide",
+             params: { decision: 'approve' }, headers: unprivileged_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids resolving a violation' do
+        violation = create(:ai_policy_violation, account: account, status: 'acknowledged')
+        put "/api/v1/ai/governance/violations/#{violation.id}/resolve",
+            params: { notes: 'x' }, headers: unprivileged_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context 'with the governance read permission' do
+      let(:reader) { create(:user, account: account, permissions: %w[ai.governance.read]) }
+
+      it 'permits reading the audit log' do
+        create(:ai_compliance_audit_entry, account: account)
+        get '/api/v1/ai/governance/audit_log', headers: auth_headers_for(reader), as: :json
+        expect(response).to have_http_status(:ok)
+      end
+
+      it 'still forbids a write (manage-gated) action' do
+        post '/api/v1/ai/governance/policies',
+             params: { name: 'X', policy_type: 'retention', enforcement_level: 'strict' },
+             headers: auth_headers_for(reader), as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context 'with the manage permission' do
+      let(:manager) { create(:user, account: account, permissions: %w[ai.manage]) }
+
+      it 'permits creating a policy (reaches the service, not 403)' do
+        allow_any_instance_of(Ai::GovernanceService).to receive(:create_policy)
+          .and_return(create(:ai_compliance_policy, account: account))
+
+        post '/api/v1/ai/governance/policies',
+             params: { name: 'X', policy_type: 'retention', enforcement_level: 'strict' },
+             headers: auth_headers_for(manager), as: :json
+        expect(response).not_to have_http_status(:forbidden)
+        expect(response).to have_http_status(:created)
+      end
     end
   end
 end
