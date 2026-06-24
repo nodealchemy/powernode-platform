@@ -94,7 +94,7 @@ module Api
         end
 
         def set_event
-          @event = WebhookEvent.find(params[:id])
+          @event = current_account.webhook_events.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Webhook event not found", status: :not_found)
         end

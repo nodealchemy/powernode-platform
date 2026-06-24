@@ -76,6 +76,42 @@ RSpec.describe 'Api::V1::Webhooks::Events', type: :request do
     end
   end
 
+  describe 'cross-account isolation (IDOR)' do
+    let(:other_account) { create(:account) }
+    let!(:foreign_event) do
+      WebhookEvent.create!(
+        account: other_account,
+        event_id: SecureRandom.uuid,
+        event_type: 'subscription.created',
+        provider: 'stripe',
+        external_id: "evt_#{SecureRandom.hex(12)}",
+        payload: { subscription_id: 'sub_foreign' }.to_json,
+        occurred_at: Time.current,
+        status: 'pending',
+        retry_count: 0
+      )
+    end
+
+    it 'returns 404 when fetching a foreign-account event' do
+      get "/api/v1/webhooks/events/#{foreign_event.id}", headers: headers, as: :json
+
+      expect_error_response('Webhook event not found', 404)
+    end
+
+    it 'never leaks a foreign-account event payload' do
+      get "/api/v1/webhooks/events/#{foreign_event.id}", headers: headers, as: :json
+
+      expect(response.body).not_to include('sub_foreign')
+    end
+
+    it 'still allows access to an own-account event' do
+      get "/api/v1/webhooks/events/#{webhook_event.id}", headers: headers, as: :json
+
+      expect_success_response
+      expect(json_response_data['webhook_event']['id']).to eq(webhook_event.id)
+    end
+  end
+
   describe 'GET /api/v1/webhooks/events/:id' do
     context 'with proper permissions' do
       it 'returns webhook event details' do
