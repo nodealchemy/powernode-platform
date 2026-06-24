@@ -135,6 +135,15 @@ module Api
 
           begin
             uri = URI.parse(@data_source.api_base_url.to_s)
+
+            # SSRF guard: resolve-and-pin the target BEFORE building the request or
+            # attaching the decrypted credential. This mirrors the query path
+            # (QueryService -> HttpConnectionFactory.validate_url!) and rejects any
+            # URL resolving to a private/loopback/link-local/metadata address, so an
+            # attacker-set api_base_url can neither reach internal services nor
+            # exfiltrate the Bearer credential to a host they control.
+            ::Ai::DataSources::HttpConnectionFactory.validate_url!(uri)
+
             start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
             http = Net::HTTP.new(uri.host, uri.port)
@@ -169,6 +178,17 @@ module Api
             })
 
             log_audit_event("ai.data_sources.test_connection", @data_source, success: success)
+          rescue ::Ai::DataSources::HttpConnectionFactory::SsrfError => e
+            # Blocked by the SSRF guard: no request was issued and the credential
+            # was never sent. The SsrfError message is deliberately non-secret
+            # (it does not echo the resolved internal IP).
+            credential.record_failure!("Blocked by SSRF guard")
+
+            render_success({
+              success: false,
+              error: e.message,
+              message: "Connection blocked: target URL is not permitted"
+            })
           rescue StandardError => e
             credential.record_failure!(e.message)
 
