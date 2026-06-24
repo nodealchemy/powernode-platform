@@ -9,6 +9,9 @@ class Api::V1::Kb::CommentsController < ApplicationController
   # GET /api/v1/kb/articles/:article_id/comments
   def index
     return render_error("Article not found", status: :not_found) unless @article
+    # Tenancy/visibility gate: never list comments on an article the caller
+    # cannot view (e.g. another account's private article).
+    return render_error("Access denied", status: :forbidden) unless @article.viewable_by?(current_user)
 
     comments = @article.comments.approved.top_level
       .includes(:author, :replies)

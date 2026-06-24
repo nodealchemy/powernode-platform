@@ -10,9 +10,17 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
   def show
     return render_error("Attachment not found", status: :not_found) unless @attachment
 
-    # For public access, ensure the attachment belongs to a published article
+    article = @attachment.article
+
+    # Tenancy gate (applies even to editors): an attachment on an account-owned
+    # article is only reachable from within its owning account. Globals
+    # (account_id nil) fall through to the existing editor/public policy.
+    if article&.account_id.present? && current_user&.account_id != article.account_id
+      return render_error("Access denied", status: :forbidden)
+    end
+
+    # For public access, ensure the attachment belongs to a viewable article.
     unless can_edit_kb?
-      article = @attachment.article
       return render_error("Access denied", status: :forbidden) unless article&.viewable_by?(current_user)
     end
 

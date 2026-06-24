@@ -60,7 +60,10 @@ class Api::V1::Kb::CategoriesController < ApplicationController
       # Public view - category with articles
       return render_error("Category not found", status: :not_found) unless @category.is_public
 
-      articles = @category.articles
+      # Tenancy-scoped: authenticated callers see global + their own account's
+      # articles; unauthenticated requests see globals only. A foreign account's
+      # private article must never surface in a category listing.
+      articles = tenant_scoped_articles(@category.articles)
         .published
         .public_articles
         .includes(:author, :tags)
@@ -118,6 +121,17 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   def set_category
     @category = KnowledgeBase::Category.find_by(id: params[:id])
+  end
+
+  # Restrict an article relation to the caller's tenancy: authenticated users
+  # see global + their own account's rows; unauthenticated requests see globals
+  # only. Keeps another account's private articles out of category listings.
+  def tenant_scoped_articles(relation)
+    if current_user
+      relation.for_account(current_account.id)
+    else
+      relation.global
+    end
   end
 
   def editing_mode?
@@ -182,7 +196,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
   def serialize_category_detailed(category)
     serialize_category_admin(category).merge(
       children: category.children.ordered.map { |child| serialize_category_admin(child) },
-      recent_articles: category.articles.recent.limit(5).map { |article| serialize_article_summary(article) }
+      recent_articles: tenant_scoped_articles(category.articles).recent.limit(5).map { |article| serialize_article_summary(article) }
     )
   end
 

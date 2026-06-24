@@ -18,8 +18,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       # Admin view was explicitly requested - check permission
       return render_error("Access denied", status: :forbidden) unless can_edit_kb?
 
-      # Admin view with all articles for editing
-      articles = KnowledgeBase::Article.includes(:author, :category, :tags)
+      # Admin view with all articles for editing — tenancy-scoped so an account
+      # sees only global rows + its own private rows, never another tenant's.
+      articles = tenant_scoped_articles.includes(:author, :category, :tags)
       articles = apply_admin_filters(articles)
       articles = articles.page(params[:page]).per(params[:per_page] || 20)
 
@@ -29,8 +30,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
         stats: calculate_article_stats
       })
     else
-      # Public view with only published articles
-      articles = KnowledgeBase::Article.published.public_articles
+      # Public view with only published articles — tenancy-scoped: authenticated
+      # users see global + their own; unauthenticated requests see globals only.
+      articles = tenant_scoped_articles.published.public_articles
       articles = apply_filters(articles)
       articles = articles.includes(:author, :category, :tags).page(params[:page]).per(params[:per_page] || 20)
 
@@ -76,6 +78,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   def create
     article = KnowledgeBase::Article.new(article_params)
     article.author = current_user
+    # Tenant-private by default: stamp the creating account so the article is
+    # owned by + visible only within it (globals are seed/platform-managed only).
+    article.account = current_account
 
     if article.save
       handle_tag_assignment(article) if params[:article][:tag_names].present?
@@ -144,7 +149,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     query = params[:q]
     return render_error("Search query is required", status: :bad_request) if query.blank?
 
-    articles = KnowledgeBase::Article.published.public_articles
+    articles = tenant_scoped_articles.published.public_articles
     articles = articles.search_by_text(query) if query.present?
     articles = apply_filters(articles)
     articles = articles.includes(:author, :category, :tags).page(params[:page]).per(params[:per_page] || 20)
@@ -178,7 +183,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     article_ids = params[:article_ids]
     return render_error("No article IDs provided", status: :bad_request) if article_ids.blank?
 
-    articles = KnowledgeBase::Article.where(id: article_ids)
+    articles = tenant_scoped_articles.where(id: article_ids)
     return render_error("No articles found", status: :not_found) if articles.empty?
 
     # Check permissions for all articles
@@ -208,7 +213,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     article_ids = params[:article_ids]
     return render_error("No article IDs provided", status: :bad_request) if article_ids.blank?
 
-    articles = KnowledgeBase::Article.where(id: article_ids)
+    articles = tenant_scoped_articles.where(id: article_ids)
     return render_error("No articles found", status: :not_found) if articles.empty?
 
     # Check permissions for all articles
@@ -240,8 +245,23 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   end
 
   def set_article
-    @article = KnowledgeBase::Article.find_by(id: params[:id]) ||
-               KnowledgeBase::Article.find_by(slug: params[:id])
+    # Resolve only within the caller's tenancy scope (global + own for an
+    # authenticated user; globals only for the public path), so another
+    # account's private article 404s here rather than being disclosed/edited.
+    scope = tenant_scoped_articles
+    @article = scope.find_by(id: params[:id]) || scope.find_by(slug: params[:id])
+  end
+
+  # Base relation honoring article tenancy: an authenticated user sees global
+  # rows + their own account's rows; an unauthenticated request sees globals
+  # only. The model's viewable_by?/editable_by? gates remain the per-record
+  # backstop; this keeps foreign-account rows out of indexes and lookups.
+  def tenant_scoped_articles
+    if current_user
+      KnowledgeBase::Article.for_account(current_account.id)
+    else
+      KnowledgeBase::Article.global
+    end
   end
 
   def editing_mode?
