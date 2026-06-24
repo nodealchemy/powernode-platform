@@ -3,7 +3,7 @@
 class Api::V1::WebhooksController < ApplicationController
   before_action -> { require_permission("webhook.read") }, only: [ :index, :show ]
   before_action -> { require_permission("webhook.create") }, only: [ :create ]
-  before_action -> { require_permission("webhook.update") }, only: [ :update, :toggle_status ]
+  before_action -> { require_permission("webhook.update") }, only: [ :update, :toggle_status, :retry_delivery ]
   before_action -> { require_permission("webhook.delete") }, only: [ :destroy ]
   before_action -> { require_permission("webhook.read") }, only: [ :test, :health_test ]
   before_action :find_webhook, only: [ :show, :update, :destroy, :test, :toggle_status, :health_test ]
@@ -280,7 +280,13 @@ class Api::V1::WebhooksController < ApplicationController
   # POST /api/v1/webhooks/:webhook_id/deliveries/:id/retry
   # Retry a single failed delivery
   def retry_delivery
-    delivery = WebhookDelivery.find(params[:id])
+    # Scope through the requesting account so a delivery belonging to another
+    # tenant (or one not under the named endpoint) 404s instead of being
+    # reset + requeued. The :webhook_id is the parent endpoint param.
+    delivery = current_account.webhook_endpoints
+                              .find(params[:webhook_id])
+                              .webhook_deliveries
+                              .find(params[:id])
 
     unless delivery.failed? || delivery.timed_out?
       return render_error("Delivery is not in a failed state", status: :unprocessable_content)

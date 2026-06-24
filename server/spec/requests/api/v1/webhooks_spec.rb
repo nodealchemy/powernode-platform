@@ -50,6 +50,43 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
       expect(json_response['data']['id']).to eq(own_webhook.id)
       expect(json_response['data']).to have_key('secret_key')
     end
+
+    context 'retry_delivery (IDOR + authz)' do
+      let!(:own_delivery) { create(:webhook_delivery, :failed, webhook_endpoint: own_webhook) }
+      let!(:foreign_delivery) { create(:webhook_delivery, :failed, webhook_endpoint: foreign_webhook) }
+
+      it 'returns 404 when retrying a foreign-account delivery and does not requeue it' do
+        post "/api/v1/webhooks/#{foreign_webhook.id}/deliveries/#{foreign_delivery.id}/retry",
+             headers: headers, as: :json
+
+        expect(response).to have_http_status(:not_found)
+        # Foreign delivery must remain untouched (not reset to pending).
+        expect(foreign_delivery.reload.status).to eq('failed')
+      end
+
+      it 'returns 404 when crossing a foreign delivery id into an own endpoint' do
+        post "/api/v1/webhooks/#{own_webhook.id}/deliveries/#{foreign_delivery.id}/retry",
+             headers: headers, as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(foreign_delivery.reload.status).to eq('failed')
+      end
+
+      it 'requires the webhook.update permission' do
+        post "/api/v1/webhooks/#{own_webhook.id}/deliveries/#{own_delivery.id}/retry",
+             headers: auth_headers_for(regular_user), as: :json
+
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'retries an own-account delivery with permission' do
+        post "/api/v1/webhooks/#{own_webhook.id}/deliveries/#{own_delivery.id}/retry",
+             headers: headers, as: :json
+
+        expect_success_response
+        expect(own_delivery.reload.status).to eq('pending')
+      end
+    end
   end
 
   describe 'GET /api/v1/webhooks' do
