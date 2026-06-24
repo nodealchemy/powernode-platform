@@ -72,7 +72,7 @@ function extractItems<T>(response: ApiListResponse<T>, key: 'providers' | 'agent
 }
 
 export function useOverviewData() {
-  const { subscribe, isConnected } = useAIOrchestrationMonitor();
+  const { subscribe, isConnected, onConnectionChange } = useAIOrchestrationMonitor();
 
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,6 +83,10 @@ export function useOverviewData() {
   const [isLiveUpdateActive, setIsLiveUpdateActive] = useState(true);
   const [recentUpdates, setRecentUpdates] = useState<string[]>([]);
   const [, setHasConnectionAttempted] = useState(false);
+  // Lift WS connection status into React state so a mid-session disconnect
+  // re-renders and re-runs the fallback-poll effect (imperative isConnected()
+  // alone never re-runs the effect -> the dashboard would freeze until reload).
+  const [isSocketConnected, setIsSocketConnected] = useState(() => isConnected());
 
   // Real-time metrics updates
   useEffect(() => {
@@ -134,6 +138,16 @@ export function useOverviewData() {
     }, 2000);
     return () => clearTimeout(timeoutId);
   }, []);
+
+  // Keep socket-connection state in sync with the monitor so connect/disconnect
+  // transitions trigger re-renders (and thus re-run the fallback-poll effect).
+  useEffect(() => {
+    setIsSocketConnected(isConnected());
+    const unsubscribe = onConnectionChange((connected) => {
+      setIsSocketConnected(connected);
+    });
+    return unsubscribe;
+  }, [onConnectionChange, isConnected]);
 
   const loadOverviewData = useCallback(async () => {
     try {
@@ -210,12 +224,14 @@ export function useOverviewData() {
     loadOverviewData();
   }, []);
 
-  // Fallback polling when WebSocket is down
+  // Fallback polling when WebSocket is down. Depends on the lifted connection
+  // state so the effect re-runs on disconnect (starts polling) and reconnect
+  // (clears the interval).
   useEffect(() => {
-    if (!isLiveUpdateActive || isConnected()) return;
+    if (!isLiveUpdateActive || isSocketConnected) return;
     const updateInterval = setInterval(() => { loadOverviewData(); }, 30000);
     return () => clearInterval(updateInterval);
-  }, [isLiveUpdateActive, isConnected, loadOverviewData]);
+  }, [isLiveUpdateActive, isSocketConnected, loadOverviewData]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);

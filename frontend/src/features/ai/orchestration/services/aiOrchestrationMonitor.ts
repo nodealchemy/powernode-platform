@@ -34,11 +34,13 @@ export interface AISystemMetrics {
 
 type EventHandler = (event: AISystemEvent) => void;
 type MetricsHandler = (metrics: AISystemMetrics) => void;
+type ConnectionHandler = (connected: boolean) => void;
 
 class AIOrchestrationMonitor {
   private ws: WebSocket | null = null;
   private eventHandlers: Set<EventHandler> = new Set();
   private metricsHandlers: Set<MetricsHandler> = new Set();
+  private connectionHandlers: Set<ConnectionHandler> = new Set();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
@@ -77,6 +79,7 @@ class AIOrchestrationMonitor {
         // AI Orchestration monitor connected
         this.reconnectAttempts = 0;
         this.startHeartbeat();
+        this.notifyConnectionHandlers(true);
         
         // Subscribe to AI system events with type and id parameters
         // The channel expects: type (subscription type) and id (resource id)
@@ -102,7 +105,8 @@ class AIOrchestrationMonitor {
       this.ws.onclose = () => {
         // AI Orchestration monitor disconnected
         this.stopHeartbeat();
-        
+        this.notifyConnectionHandlers(false);
+
         if (!this.isIntentionallyClosed && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.scheduleReconnect();
         }
@@ -192,6 +196,16 @@ class AIOrchestrationMonitor {
     });
   }
 
+  private notifyConnectionHandlers(connected: boolean) {
+    this.connectionHandlers.forEach(handler => {
+      try {
+        handler(connected);
+      } catch (error) {
+        console.error('Error in connection handler:', error);
+      }
+    });
+  }
+
   public onEvent(handler: EventHandler): () => void {
     this.eventHandlers.add(handler);
     return () => this.eventHandlers.delete(handler);
@@ -202,6 +216,13 @@ class AIOrchestrationMonitor {
     return () => this.metricsHandlers.delete(handler);
   }
 
+  // Subscribe to connection open/close transitions so consumers can lift the
+  // live connection status into React state (the poll fallback depends on it).
+  public onConnectionChange(handler: ConnectionHandler): () => void {
+    this.connectionHandlers.add(handler);
+    return () => this.connectionHandlers.delete(handler);
+  }
+
   public disconnect() {
     this.isIntentionallyClosed = true;
     this.stopHeartbeat();
@@ -209,6 +230,7 @@ class AIOrchestrationMonitor {
       this.ws.close(1000, 'Intentional disconnect');
       this.ws = null;
     }
+    this.notifyConnectionHandlers(false);
     // AI Orchestration monitor manually disconnected
   }
 
@@ -298,9 +320,14 @@ export function useAIOrchestrationMonitor() {
     return monitorRef.current?.isConnected() ?? false;
   }, []);
 
+  const onConnectionChange = useCallback((handler: ConnectionHandler) => {
+    return monitorRef.current?.onConnectionChange(handler) ?? (() => {});
+  }, []);
+
   return {
     subscribe,
     isConnected,
+    onConnectionChange,
     monitor: monitorRef.current
   };
 }

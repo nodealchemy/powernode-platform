@@ -106,6 +106,7 @@ describe('EnhancedAIOverview', () => {
     (aiOrchestrationMonitor.useAIOrchestrationMonitor as jest.Mock).mockReturnValue({
       subscribe: mockSubscribe,
       isConnected: mockIsConnected,
+      onConnectionChange: jest.fn(() => jest.fn()), // Return unsubscribe function
       monitor: null
     });
 
