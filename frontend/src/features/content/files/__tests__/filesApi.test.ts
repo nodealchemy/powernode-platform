@@ -284,5 +284,22 @@ describe('filesApi', () => {
       expect(formDataCall.get('attachable_type')).toBeNull();
       expect(formDataCall.get('attachable_id')).toBeNull();
     });
+
+    it('threads the AbortSignal into the axios request config so Cancel can abort', async () => {
+      const mockFile = new File(['test'], 'doc.pdf', { type: 'application/pdf' });
+      const mockResponseData = {
+        data: {
+          file: { id: 'file-123', filename: 'doc.pdf' },
+        },
+      };
+
+      mockApi.post.mockResolvedValue(createMockResponse(mockResponseData));
+
+      const controller = new AbortController();
+      await filesApi.uploadFile(mockFile, { signal: controller.signal });
+
+      const config = mockApi.post.mock.calls[0][2] as { signal?: AbortSignal };
+      expect(config.signal).toBe(controller.signal);
+    });
   });
 });

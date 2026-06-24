@@ -60,6 +60,7 @@ export interface UploadOptions {
   tags?: string[];
   attachableType?: string;
   attachableId?: string;
+  signal?: AbortSignal;
 }
 
 export interface PaginationInfo {
@@ -107,6 +108,7 @@ export const filesApi = {
 
     const response = await api.post('/files/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      signal: options.signal,
       onUploadProgress: (progressEvent) => {
         if (options.onProgress && progressEvent.total) {
           const percentage = Math.round((progressEvent.loaded * 100) / progressEvent.total);

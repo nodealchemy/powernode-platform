@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import axios from 'axios';
 import { Upload, X, File, CheckCircle, AlertCircle } from 'lucide-react';
 import { filesApi, FileObject, UploadOptions } from '../services/filesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -95,6 +96,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     const options: UploadOptions = {
       category,
       visibility,
+      signal: abortController.signal,
       onProgress: (progress) => {
         setUploadingFiles(prev =>
           prev.map(f =>
@@ -121,9 +123,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         setUploadingFiles(prev => prev.filter(f => f.file !== file));
       }, 2000);
     } catch (error) {
-      const err = error as { message?: string; response?: { data?: { error?: string } } };
-      // Check if it was cancelled
-      if (err.message === 'Upload cancelled') {
+      const err = error as { code?: string; message?: string; response?: { data?: { error?: string } } };
+      // Check if it was cancelled (axios aborts the request via the AbortController signal)
+      if (axios.isCancel(error) || err.code === 'ERR_CANCELED') {
         setUploadingFiles(prev =>
           prev.map(f =>
             f.file === file ? { ...f, status: 'cancelled', error: 'Upload cancelled' } : f
