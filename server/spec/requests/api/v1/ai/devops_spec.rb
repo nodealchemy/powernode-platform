@@ -53,7 +53,7 @@ RSpec.describe 'Api::V1::Ai::Devops', type: :request do
   end
 
   describe 'GET /api/v1/ai/devops/templates/:id' do
-    let(:template) { create(:ai_devops_template) }
+    let(:template) { create(:ai_devops_template, account: account) }
 
     context 'with proper permissions' do
       it 'returns template details' do
@@ -120,7 +120,7 @@ RSpec.describe 'Api::V1::Ai::Devops', type: :request do
   end
 
   describe 'POST /api/v1/ai/devops/templates/:template_id/install' do
-    let(:template) { create(:ai_devops_template) }
+    let(:template) { create(:ai_devops_template, account: account) }
     let(:install_params) do
       {
         variable_values: { key: 'value' },
@@ -154,6 +154,54 @@ RSpec.describe 'Api::V1::Ai::Devops', type: :request do
 
         expect_error_response('Installation failed', 422)
       end
+    end
+  end
+
+  # Cross-tenant IDOR: DevopsTemplate is GloballyScopable (global account_id nil,
+  # or account-owned). A caller may only see global templates or their own; a
+  # foreign account's PRIVATE (non-global) template must 404 on show/update/install,
+  # while legitimate global-template read + install is preserved.
+  describe 'cross-account template access (IDOR)' do
+    let(:other_account) { create(:account) }
+    let(:foreign_template) { create(:ai_devops_template, account: other_account, name: 'Foreign Secret') }
+    let(:global_template) { create(:ai_devops_template, :published, :public, account: nil, name: 'Global Shared') }
+
+    it 'does not disclose another account private template (show)' do
+      get "/api/v1/ai/devops/templates/#{foreign_template.id}", headers: headers, as: :json
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'does not mutate another account private template (update)' do
+      patch "/api/v1/ai/devops/templates/#{foreign_template.id}",
+            params: { name: 'hacked' }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:not_found)
+      expect(foreign_template.reload.name).to eq('Foreign Secret')
+    end
+
+    it 'does not install another account private template' do
+      post "/api/v1/ai/devops/templates/#{foreign_template.id}/install",
+           params: { variable_values: {}, custom_config: {} }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'still allows reading a global (platform) template' do
+      get "/api/v1/ai/devops/templates/#{global_template.id}", headers: headers, as: :json
+
+      expect_success_response
+      expect(json_response_data['template']['id']).to eq(global_template.id)
+    end
+
+    it 'still allows installing a global (platform) template' do
+      allow_any_instance_of(Ai::DevopsService).to receive(:install_template)
+        .and_return({ success: true, installation: create(:ai_devops_template_installation, account: account) })
+
+      post "/api/v1/ai/devops/templates/#{global_template.id}/install",
+           params: { variable_values: {}, custom_config: {} }, headers: headers, as: :json
+
+      expect_success_response
     end
   end
 

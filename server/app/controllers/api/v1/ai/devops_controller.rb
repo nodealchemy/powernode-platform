@@ -41,7 +41,11 @@ module Api
           authorize_action!("ai.devops.read")
           return if performed?
 
-          template = ::Ai::DevopsTemplate.find(params[:id])
+          # Scope to visible content (global + own); a foreign account's private
+          # template must 404, never be disclosed.
+          template = find_visible_content(params[:id])
+          return unless template
+
           render_success(template: template_json(template, detailed: true))
         end
 
@@ -70,7 +74,11 @@ module Api
           authorize_action!("ai.devops.manage")
           return if performed?
 
-          template = ::Ai::DevopsTemplate.find(params[:id])
+          # Scope to visible content (global + own); a foreign account's template
+          # must 404. require_editable_content! then 403s global (read-only)
+          # templates — only the caller's own templates are mutable.
+          template = find_visible_content(params[:id])
+          return unless template
 
           require_editable_content!(template)
           return if performed?
@@ -118,7 +126,11 @@ module Api
           authorize_action!("ai.devops.manage")
           return if performed?
 
-          template = ::Ai::DevopsTemplate.find(params[:template_id])
+          # Scope to visible content (global + own); a foreign account's private
+          # template must 404, never be installed/disclosed. Globals stay installable.
+          template = find_visible_content(params[:template_id])
+          return unless template
+
           result = @service.install_template(
             template: template,
             user: current_user,
