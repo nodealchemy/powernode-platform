@@ -8,9 +8,8 @@
 # metadata) — it never names a specific extension slug. This guard bans the exact
 # coupling patterns the decoupling sweep removed so they can't silently come back.
 #
-# Scope note: this checks for SPECIFIC coupling patterns, not every occurrence of the
-# word "business"/"trading" — benign tier/plan names, domain terms, and the
-# (out-of-scope, pre-existing) core trading MCP-tool surface are intentionally NOT
+# Scope note: this checks for SPECIFIC coupling patterns, not every occurrence of an
+# extension slug — benign tier/plan names and domain terms are intentionally NOT
 # flagged. See docs/contributing/core-extension-decoupling.md.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
@@ -42,15 +41,20 @@ done
 # --- Frontend (frontend/src): hardcoded extension-slug gates. Extensions self-register
 #     nav/routes via featureRegistry; nav visibility is driven by loadedExtensions, not
 #     by build-time slug literals in core. -----------------------------------------------
-declare -A frontend_patterns=(
-  ["extensionSlug: 'business'"]="extensionSlug:[[:space:]]*['\"]business['\"]"
-  ["__EXTENSIONS__.includes('business')"]="__EXTENSIONS__\.includes\(['\"]business['\"]\)"
-  ["__EXTENSIONS__.includes('trading')"]="__EXTENSIONS__\.includes\(['\"]trading['\"]\)"
-)
-if [ -d frontend/src ]; then
-  for label in "${!frontend_patterns[@]}"; do
-    hits=$(grep -rnE "${frontend_patterns[$label]}" frontend/src 2>/dev/null)
-    [ -n "$hits" ] && report "Core frontend hardcodes an extension slug ($label):" "$hits"
+# Derive extension slugs dynamically (public + private) — never hardcode them, so
+# this guard automatically covers any present/future extension.
+ext_slugs=()
+for d in extensions/*/ extensions/private/*/; do
+  b=$(basename "$d")
+  [ "$b" = "private" ] && continue
+  [ -d "$d" ] && ext_slugs+=("$b")
+done
+if [ -d frontend/src ] && [ "${#ext_slugs[@]}" -gt 0 ]; then
+  for slug in "${ext_slugs[@]}"; do
+    for pat in "extensionSlug:[[:space:]]*['\"]${slug}['\"]" "__EXTENSIONS__\.includes\(['\"]${slug}['\"]\)"; do
+      hits=$(grep -rnE "$pat" frontend/src 2>/dev/null)
+      [ -n "$hits" ] && report "Core frontend hardcodes an extension slug ('$slug'):" "$hits"
+    done
   done
 fi
 

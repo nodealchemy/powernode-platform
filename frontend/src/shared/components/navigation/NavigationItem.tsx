@@ -52,7 +52,7 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
     }
 
     // Section overview pages (like /app/ai, /app/business) - exact match only
-    // unless activeMatch is explicitly set to 'prefix' (e.g., Trading hub)
+    // unless activeMatch is explicitly set to 'prefix' (e.g., an extension hub)
     const hrefSegments = item.href.split('/').filter(Boolean);
     if (hrefSegments.length === 2 && hrefSegments[0] === 'app' && item.activeMatch !== 'prefix') {
       return false;
@@ -64,8 +64,8 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
       const nextChar = pathname.charAt(item.href.length);
       if (nextChar === '/' || nextChar === '') {
         // Yield to a more specific sibling nav item that also matches this path.
-        // E.g., /app/trading (prefix) should NOT stay active when on /app/trading/portfolio
-        // because /app/trading/portfolio is its own nav item.
+        // E.g., /app/foo (prefix) should NOT stay active when on /app/foo/bar
+        // because /app/foo/bar is its own nav item.
         const hasMoreSpecificMatch = Array.from(allNavHrefs).some(href =>
           href !== item.href
           && href.length > item.href.length

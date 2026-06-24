@@ -3,8 +3,8 @@
 # private extension. Core = any path NOT under extensions/. A *generic* reference
 # to the extensions/ or extensions/private/ directory (the decoupling seam) is
 # allowed; naming a specific private extension is a leak — its Ruby namespace
-# (e.g. Trading::), its submodule path (extensions/private/trading) or its import
-# alias (@ext/trading/, @business/).
+# (e.g. `<Namespace>::`), its submodule path (`extensions/private/<slug>`) or its
+# import alias (`@ext/<slug>/`, `@<slug>/`).
 #
 # Private-extension names are derived dynamically from extensions/private/* on
 # disk, so this public hook never hardcodes one. Fails OPEN (exit 0) on any

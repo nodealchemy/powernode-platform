@@ -9,7 +9,7 @@ name: Extensions bundle
 #      `bundle install --frozen`. Pure bash. (scripts/check-lockfile-public-only.sh)
 #
 #   2. core-mode-seed — a fresh CORE-mode checkout (public extensions only; no
-#      business/trading) must `rails db:seed` cleanly. Regression guard for the
+#      private extensions) must `rails db:seed` cleanly. Regression guard for the
 #      class of bug where a core seed reaches a business-only constant, a
 #      business-seeded NOT-NULL FK, an extension-owned skill, or a stale data
 #      shape that only fails on first create (all of which crashed a fresh
@@ -72,7 +72,7 @@ jobs:
         run: bash scripts/check-lockfile-public-only.sh
 
   # ---------------------------------------------------------------------------
-  # A core-mode checkout (public submodules only — business/trading aren't in
+  # A core-mode checkout (public submodules only — private extensions aren't in
   # .gitmodules, so they stay absent) must `rails db:seed` cleanly. Reproduces a
   # fresh core install's seed bootstrap.
   # ---------------------------------------------------------------------------
@@ -122,7 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Public submodules only == core mode. business/trading aren't in
+          # Public submodules only == core mode. Private extensions aren't in
           # .gitmodules, so recursive checkout leaves them absent — exactly the
           # tree a public clone / core install has.
           submodules: recursive

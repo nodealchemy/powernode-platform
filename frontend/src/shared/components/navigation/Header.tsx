@@ -23,8 +23,8 @@ export const Header: React.FC = () => {
 
   // Extension-contributed header widgets, shown when their route matches and
   // the user holds the (optional) required permission. Keyed by namespace —
-  // core never names a specific extension (e.g. the trading portfolio switcher
-  // is registered by the trading extension).
+  // core never names a specific extension (extension header widgets are
+  // registered by the owning extension via featureRegistry).
   const headerWidgets = featureRegistry.getHeaderWidgets().filter(
     (widget) =>
       widget.match(location.pathname) &&
