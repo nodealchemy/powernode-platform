@@ -13,19 +13,19 @@ RSpec.describe Ai::KnowledgeDocSyncService, type: :service do
   describe "#detect_extension (manifest-driven tag routing)" do
     before do
       allow(service).to receive(:tag_routes_pair).and_return([
-        { "trading" => "trading", "billing" => "business", "baas" => "business" },
-        { "venue:" => "trading", "strategy:" => "trading" }
+        { "demoext" => "demoext", "billing" => "business", "baas" => "business" },
+        { "venue:" => "demoext", "strategy:" => "demoext" }
       ])
     end
 
     it "routes an exact tag to its declaring extension" do
       expect(service.send(:detect_extension, [ "billing" ])).to eq("business")
-      expect(service.send(:detect_extension, [ "trading" ])).to eq("trading")
+      expect(service.send(:detect_extension, [ "demoext" ])).to eq("demoext")
     end
 
     it "routes a prefixed tag to its declaring extension" do
-      expect(service.send(:detect_extension, [ "venue:kalshi" ])).to eq("trading")
-      expect(service.send(:detect_extension, [ "strategy:momentum" ])).to eq("trading")
+      expect(service.send(:detect_extension, [ "venue:kalshi" ])).to eq("demoext")
+      expect(service.send(:detect_extension, [ "strategy:momentum" ])).to eq("demoext")
     end
 
     it "falls back to platform for unowned or blank tags" do

@@ -48,7 +48,7 @@ export interface FeatureSettingsTab {
 }
 
 /**
- * A widget injected into the global header slot (e.g. the trading portfolio
+ * A widget injected into the global header slot (e.g. an extension's portfolio
  * switcher). `match` decides, from the current pathname, whether the widget
  * should render — this keeps route-specific header chrome out of core. Keyed
  * by namespace; core never names an extension here.
@@ -260,7 +260,7 @@ export const featureRegistry = {
   },
 
   /**
-   * Register header widgets for a namespace (e.g. the trading portfolio
+   * Register header widgets for a namespace (e.g. an extension's portfolio
    * switcher). Consumed by the global Header; each widget decides via its
    * `match(pathname)` predicate whether it renders for the current route.
    */

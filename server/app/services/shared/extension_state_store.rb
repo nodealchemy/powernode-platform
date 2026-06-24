@@ -7,7 +7,7 @@ module Shared
   # database access at boot time.
   #
   # File format:
-  #   { "disabled": ["trading", "supply-chain"] }
+  #   { "disabled": ["example-extension", "supply-chain"] }
   #
   # Missing or malformed file => empty disabled list (extension stays enabled).
   class ExtensionStateStore

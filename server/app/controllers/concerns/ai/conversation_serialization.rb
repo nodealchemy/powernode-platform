@@ -24,7 +24,7 @@ module Ai
 
     # Enforce agent-level required_permissions (stored in mcp_metadata).
     # Agents can declare permissions beyond the generic ai.conversations.* check,
-    # e.g. the Trading Overseer requires "trading.view".
+    # e.g. an extension agent might require "<extension>.view".
     def enforce_agent_permissions
       return if current_worker
       return unless params[:agent_id].present?

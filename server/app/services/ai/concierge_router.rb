@@ -28,7 +28,7 @@ module Ai
   # plus whichever path fires. Routing decisions take <50ms.
   #
   # Skill metadata required for routing (see Ai::Skill):
-  #   metadata["domain"]           → "platform" | "system" | "trading" | ...
+  #   metadata["domain"]           → "platform" | "system" | "<extension>" | ...
   #   metadata["invocation_mode"]  → "one_shot" | "workflow_step"
   #
   # Auto-invocable skills must have a single required free-text input

@@ -186,7 +186,7 @@ module Ai
       tag_routes_pair.first
     end
 
-    # Tag-prefix → slug routing (e.g. "venue:" → trading), declared by extensions.
+    # Tag-prefix → slug routing (e.g. "venue:" → an extension), declared by extensions.
     def extension_tag_prefix_routes
       tag_routes_pair.last
     end

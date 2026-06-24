@@ -94,7 +94,7 @@ module AdminSettings
       masked_secret = vault_secret_id.present? ? ("••••" + vault_secret_id[-4..]) : ""
 
       # Key management stats — sourced from whichever extension manages
-      # cryptographic wallets/keys (e.g. trading) via the registry provider seam.
+      # cryptographic wallets/keys (e.g. a private extension) via the registry provider seam.
       # Core has no wallet/key concept, so it defaults to empty when no extension
       # registers a :vault_key_stats provider (core mode).
       key_stats = begin

@@ -35,21 +35,21 @@ RSpec.describe "discover_extension_gems" do
 
     it "excludes a slug listed under disabled" do
       FileUtils.mkdir_p(File.dirname(state_file))
-      File.write(state_file, JSON.generate("disabled" => ["trading"]))
+      File.write(state_file, JSON.generate("disabled" => ["demoext"]))
 
       slugs = discover_extension_gems.map(&:first)
 
-      expect(slugs).not_to include("trading")
+      expect(slugs).not_to include("demoext")
     end
 
     it "includes a slug not listed under disabled" do
       FileUtils.mkdir_p(File.dirname(state_file))
-      File.write(state_file, JSON.generate("disabled" => ["trading"]))
+      File.write(state_file, JSON.generate("disabled" => ["demoext"]))
 
-      # Only "trading" is filtered; any other present, enabled extension still shows.
+      # Only "demoext" is filtered; any other present, enabled extension still shows.
       slugs = discover_extension_gems.map(&:first)
 
-      present_private = a_present_enabled_private_slug(disabled: ["trading"])
+      present_private = a_present_enabled_private_slug(disabled: ["demoext"])
       expect(slugs).to include(present_private) if present_private
       expect(slugs).to include("supply-chain") if File.exist?(File.join(project_root, "extensions/supply-chain/extension.json"))
     end

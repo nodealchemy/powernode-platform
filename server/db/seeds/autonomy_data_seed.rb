@@ -51,8 +51,8 @@ KEEP_AGENT_NAMES = [
   "RAG Query Engine",
   "Intent Classifier",
   "Semantic Tool Scorer",
-  # Trading extension agents (dynamically created, must survive seeds)
-  "Trading Overseer"
+  # Example extension agents (dynamically created, must survive seeds)
+  "Example Overseer"
 ].freeze
 
 # Ensure the 4 extra agents exist (they may not have been created by earlier seeds)
@@ -208,7 +208,7 @@ TRUST_PROFILES = {
   "Finance Operations Analyst"       => { tier: "supervised", rel: 0.30, cost: 0.80, safety: 0.45, qual: 0.30, speed: 0.40, evals: 3  },
   "Sales Operations Specialist"      => { tier: "supervised", rel: 0.25, cost: 0.50, safety: 0.30, qual: 0.25, speed: 0.35, evals: 3  },
   "Customer Success Agent"           => { tier: "supervised", rel: 0.30, cost: 0.50, safety: 0.35, qual: 0.30, speed: 0.40, evals: 3  },
-  "Trading Overseer"                 => { tier: "trusted",    rel: 0.88, cost: 0.75, safety: 0.90, qual: 0.80, speed: 0.80, evals: 30 }
+  "Example Overseer"                 => { tier: "trusted",    rel: 0.88, cost: 0.75, safety: 0.90, qual: 0.80, speed: 0.80, evals: 30 }
 }.freeze
 
 trust_created = 0
@@ -272,7 +272,7 @@ BUDGET_PROFILES = {
   "Finance Operations Analyst"       => { total: 1000,  spent: 0 },
   "Sales Operations Specialist"      => { total: 1000,  spent: 0 },
   "Customer Success Agent"           => { total: 1500,  spent: 0 },
-  "Trading Overseer"                 => { total: 5000,  spent: 0 }
+  "Example Overseer"                 => { total: 5000,  spent: 0 }
 }.freeze
 
 period_start = Time.current.beginning_of_month

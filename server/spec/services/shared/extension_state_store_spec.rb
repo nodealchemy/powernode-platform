@@ -21,16 +21,16 @@ RSpec.describe Shared::ExtensionStateStore do
 
     it "parses an existing state file" do
       FileUtils.mkdir_p(state_file.dirname)
-      File.write(state_file, JSON.generate("disabled" => %w[trading business]))
+      File.write(state_file, JSON.generate("disabled" => %w[demoext business]))
 
-      expect(described_class.read).to eq("disabled" => %w[trading business])
+      expect(described_class.read).to eq("disabled" => %w[demoext business])
     end
 
     it "coerces non-string slugs to strings" do
       FileUtils.mkdir_p(state_file.dirname)
-      File.write(state_file, JSON.generate("disabled" => [:trading, "business"]))
+      File.write(state_file, JSON.generate("disabled" => [:demoext, "business"]))
 
-      expect(described_class.read["disabled"]).to eq(%w[trading business])
+      expect(described_class.read["disabled"]).to eq(%w[demoext business])
     end
 
     it "falls back to default state on malformed JSON" do
@@ -44,11 +44,11 @@ RSpec.describe Shared::ExtensionStateStore do
   describe ".disabled?" do
     before do
       FileUtils.mkdir_p(state_file.dirname)
-      File.write(state_file, JSON.generate("disabled" => ["trading"]))
+      File.write(state_file, JSON.generate("disabled" => ["demoext"]))
     end
 
     it "returns true when slug is in the list" do
-      expect(described_class.disabled?("trading")).to be true
+      expect(described_class.disabled?("demoext")).to be true
     end
 
     it "returns false when slug is not in the list" do
@@ -56,37 +56,37 @@ RSpec.describe Shared::ExtensionStateStore do
     end
 
     it "accepts symbols and stringifies them" do
-      expect(described_class.disabled?(:trading)).to be true
+      expect(described_class.disabled?(:demoext)).to be true
     end
   end
 
   describe ".set_disabled!" do
     it "creates the file and adds the slug when disabling for the first time" do
-      result = described_class.set_disabled!("trading", disabled: true)
+      result = described_class.set_disabled!("demoext", disabled: true)
 
       expect(state_file).to exist
-      expect(JSON.parse(state_file.read)).to eq("disabled" => ["trading"])
-      expect(result).to eq("disabled" => ["trading"])
+      expect(JSON.parse(state_file.read)).to eq("disabled" => ["demoext"])
+      expect(result).to eq("disabled" => ["demoext"])
     end
 
     it "does not duplicate slugs already in the list" do
-      described_class.set_disabled!("trading", disabled: true)
-      described_class.set_disabled!("trading", disabled: true)
+      described_class.set_disabled!("demoext", disabled: true)
+      described_class.set_disabled!("demoext", disabled: true)
 
-      expect(described_class.read["disabled"]).to eq(["trading"])
+      expect(described_class.read["disabled"]).to eq(["demoext"])
     end
 
     it "removes a slug when disabled: false" do
-      described_class.set_disabled!("trading", disabled: true)
-      described_class.set_disabled!("trading", disabled: false)
+      described_class.set_disabled!("demoext", disabled: true)
+      described_class.set_disabled!("demoext", disabled: false)
 
       expect(described_class.read["disabled"]).to eq([])
     end
 
     it "preserves other disabled slugs when toggling one" do
-      described_class.set_disabled!("trading", disabled: true)
+      described_class.set_disabled!("demoext", disabled: true)
       described_class.set_disabled!("business", disabled: true)
-      described_class.set_disabled!("trading", disabled: false)
+      described_class.set_disabled!("demoext", disabled: false)
 
       expect(described_class.read["disabled"]).to eq(["business"])
     end
@@ -96,7 +96,7 @@ RSpec.describe Shared::ExtensionStateStore do
       # canonical path (the helper deletes its temp file on failure).
       allow(File).to receive(:rename).and_raise(Errno::EACCES, "denied")
 
-      expect { described_class.set_disabled!("trading", disabled: true) }
+      expect { described_class.set_disabled!("demoext", disabled: true) }
         .to raise_error(Errno::EACCES)
       expect(state_file).not_to exist
       expect(Dir.children(state_file.dirname)).to be_empty

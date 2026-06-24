@@ -343,7 +343,7 @@ const DashboardOverview: React.FC = () => {
 };
 
 const DashboardPage: React.FC = () => {
-  // Re-render when extension routes are registered (e.g., trading, business)
+  // Re-render when extension routes are registered (e.g., business, supply-chain)
   const [, setRegistryVersion] = useState(() => featureRegistry.getVersion());
   useEffect(() => {
     return featureRegistry.subscribe(() => setRegistryVersion(featureRegistry.getVersion()));

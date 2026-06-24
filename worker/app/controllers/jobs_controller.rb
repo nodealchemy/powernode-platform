@@ -462,7 +462,7 @@ class JobsController
 
   def valid_job_class?(job_class)
     # Security: only loaded job classes (subclasses of BaseJob) may be enqueued.
-    # Extension jobs (billing, trading, system, supply-chain, ...) are validated
+    # Extension jobs (billing, system, supply-chain, ...) are validated
     # dynamically when their extension worker is loaded — core does not hardcode
     # extension job names. In core mode an absent extension's classes simply do not
     # resolve (NameError → false), so they cannot be enqueued.

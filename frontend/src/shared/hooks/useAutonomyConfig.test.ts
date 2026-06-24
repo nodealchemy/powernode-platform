@@ -82,12 +82,12 @@ describe('useAutonomyConfig', () => {
     expect(result.current.getPolicy('A', 'x')).toBe('block');
   });
 
-  it('handles Trading-shape (nested object) responses', async () => {
+  it('handles extension-shape (nested object) responses', async () => {
     mockGet.mockResolvedValue({
       data: {
         policies: {
           'Training Session Manager': {
-            'trading.create_session': { policy: 'auto_approve' },
+            'demoext.create_session': { policy: 'auto_approve' },
           },
         },
       },
@@ -96,6 +96,6 @@ describe('useAutonomyConfig', () => {
     const { result } = renderHook(() => useAutonomyConfig(source));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.getPolicy('Training Session Manager', 'trading.create_session')).toBe('auto_approve');
+    expect(result.current.getPolicy('Training Session Manager', 'demoext.create_session')).toBe('auto_approve');
   });
 });
