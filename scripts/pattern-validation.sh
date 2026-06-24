@@ -114,6 +114,23 @@ else
     failed_checks=$((failed_checks + 1))
 fi
 
+# Missing-authorization guard: a user-facing api/v1 controller (excl internal/
+# and worker/, which are service-token authed) must not ship a state-changing
+# action with NO authorization mechanism at all (require_permission / a gate /
+# authorize* before_action). check-authz-coverage.sh baselines the current
+# vetted set (allowlist + inline `# authz-ok:`), so this FAILS only on a NEW
+# zero-authz controller. Run the guard directly for per-file detail.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No new zero-authz controllers (authorization-coverage guard)... "
+# Guard exits 1 on new zero-authz controllers; swallow under set -e, branch on the code.
+if bash scripts/check-authz-coverage.sh >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (New zero-authz controller(s); run: bash scripts/check-authz-coverage.sh)"
+    failed_checks=$((failed_checks + 1))
+fi
+
 # Model Structure Compliance
 # Post-0.4.0 convention: native `id: :uuid` PKs with the `uuidv7()` DB default
 # (the old `string :id, limit: 36` string-PK form was eliminated in the squash —
