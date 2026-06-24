@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_01_01_000011) do
+ActiveRecord::Schema[8.1].define(version: 2025_01_01_000012) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -529,6 +529,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000011) do
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_ai_agent_lineages_on_account_id"
     t.index ["child_agent_id"], name: "index_ai_agent_lineages_on_child_agent_id"
+    t.index ["parent_agent_id", "child_agent_id"], name: "index_ai_agent_lineages_on_parent_agent_id_and_child_agent_id", unique: true
     t.index ["parent_agent_id"], name: "index_ai_agent_lineages_on_parent_agent_id"
   end
 
@@ -732,6 +733,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000011) do
     t.string "team_type", default: "hierarchical", null: false, comment: "Team coordination type: hierarchical, mesh, sequential, parallel"
     t.uuid "template_id"
     t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_ai_agent_teams_on_account_id_and_name", unique: true
     t.index ["account_id", "status"], name: "index_ai_agent_teams_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_agent_teams_on_account_id"
     t.index ["team_topology"], name: "index_ai_agent_teams_on_team_topology"
@@ -10852,6 +10854,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000011) do
     t.string "severity", default: "warning", null: false
     t.datetime "updated_at", null: false
     t.index ["category", "enabled"], name: "index_validation_rules_on_category_and_enabled"
+    t.index ["name"], name: "index_validation_rules_on_name", unique: true
     t.index ["severity"], name: "index_validation_rules_on_severity"
   end
 
