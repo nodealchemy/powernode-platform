@@ -108,7 +108,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ worktrees }) => {
                     width={w}
                     height={barHeight}
                     rx={3}
-                    fill={STATUS_COLORS[seg.status] || '#94a3b8'}
+                    fill={STATUS_COLORS[seg.status] || 'var(--color-text-tertiary, #94a3b8)'}
                     opacity={0.8}
                   />
                 );

@@ -9,15 +9,18 @@ const NODE_WIDTH = 120;
 const NODE_HEIGHT = 40;
 const NODE_MARGIN_X = 40;
 const NODE_MARGIN_Y = 20;
+// Theme tokens with the original hex as fallback (rendered as SVG fill/stroke,
+// where CSS vars resolve) — mirrors the sibling TimelineView so the graph is
+// theme-adaptive instead of hardcoded.
 const STATUS_COLORS: Record<string, string> = {
-  pending: '#94a3b8',
-  creating: '#60a5fa',
-  ready: '#38bdf8',
-  in_use: '#fbbf24',
-  completed: '#4ade80',
-  merged: '#22d3ee',
-  cleaned_up: '#a1a1aa',
-  failed: '#f87171',
+  pending: 'var(--color-text-tertiary, #94a3b8)',
+  creating: 'var(--color-info, #60a5fa)',
+  ready: 'var(--color-info, #38bdf8)',
+  in_use: 'var(--color-warning, #fbbf24)',
+  completed: 'var(--color-success, #4ade80)',
+  merged: 'var(--color-info, #22d3ee)',
+  cleaned_up: 'var(--color-text-tertiary, #a1a1aa)',
+  failed: 'var(--color-error, #f87171)',
 };
 
 export const DependencyGraph: React.FC<DependencyGraphProps> = ({ worktrees }) => {
@@ -51,7 +54,7 @@ export const DependencyGraph: React.FC<DependencyGraphProps> = ({ worktrees }) =
     <div className="overflow-auto">
       <svg width={svgWidth} height={svgHeight}>
         {layout.map((node) => {
-          const color = STATUS_COLORS[node.worktree.status] || '#94a3b8';
+          const color = STATUS_COLORS[node.worktree.status] || 'var(--color-text-tertiary, #94a3b8)';
           const label = node.worktree.agent_name || node.worktree.branch_name.split('/').pop() || '';
 
           return (
