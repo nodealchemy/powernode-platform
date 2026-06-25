@@ -50,5 +50,20 @@ RSpec.describe WebhookHealthService do
 
       expect(WebMock).to have_requested(:post, 'http://93.184.216.34/webhook')
     end
+
+    # DNS-rebinding TOCTOU: validating the host then connecting by hostname
+    # re-resolves at connect, so a sub-TTL rebind could reach an internal IP.
+    # make_test_request must resolve+validate ONCE and PIN the socket to that IP
+    # (Net::HTTP#ipaddr=), keeping the hostname for Host header / SNI / cert.
+    it 'pins the socket to the resolved+validated IP (closes the rebind TOCTOU)' do
+      endpoint.update_column(:url, 'http://hook.example.test/webhook')
+      stub_request(:post, 'http://hook.example.test/webhook').to_return(status: 200, body: 'ok')
+      allow(Ai::DataSources::HttpConnectionFactory).to receive(:resolve_host)
+        .with('hook.example.test').and_return([ IPAddr.new('93.184.216.34') ])
+
+      expect_any_instance_of(Net::HTTP).to receive(:ipaddr=).with('93.184.216.34')
+
+      service.send(:make_test_request, endpoint, payload)
+    end
   end
 end

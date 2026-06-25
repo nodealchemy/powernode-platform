@@ -90,6 +90,38 @@ RSpec.describe Ai::DataSources::HttpConnectionFactory, type: :service do
     end
   end
 
+  describe ".resolve_and_validate (resolve-once + return the pinnable IP)" do
+    it "returns the resolved IPAddr for a public host" do
+      allow(described_class).to receive(:resolve_host)
+        .with("api.example.com").and_return([ IPAddr.new("93.184.216.34") ])
+
+      expect(described_class.resolve_and_validate("https://api.example.com/hook"))
+        .to eq(IPAddr.new("93.184.216.34"))
+    end
+
+    it "raises SsrfError when the host resolves to an internal address" do
+      allow(described_class).to receive(:resolve_host)
+        .with("rebind.example.com").and_return([ IPAddr.new("169.254.169.254") ])
+
+      expect do
+        described_class.resolve_and_validate("https://rebind.example.com/hook")
+      end.to raise_error(described_class::SsrfError)
+    end
+
+    it "rejects a non-http(s) scheme" do
+      expect do
+        described_class.resolve_and_validate("file:///etc/passwd")
+      end.to raise_error(described_class::SsrfError, /scheme/i)
+    end
+
+    it "keeps validate_url! working (it delegates to the same checks)" do
+      allow(described_class).to receive(:resolve_host)
+        .with("api.example.com").and_return([ IPAddr.new("93.184.216.34") ])
+
+      expect(described_class.validate_url!("https://api.example.com/v1")).to be(true)
+    end
+  end
+
   describe ".blocked_address?" do
     it "flags loopback, link-local, and private ranges" do
       expect(described_class.blocked_address?("127.0.0.1")).to be(true)

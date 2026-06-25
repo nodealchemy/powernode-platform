@@ -167,6 +167,20 @@ module Ai
         # @param url [String, URI::Generic]
         # @return [true]
         def validate_url!(url)
+          resolve_and_validate(url)
+          true
+        end
+
+        # Same SSRF checks as validate_url! but RETURNS the validated IPAddr so the
+        # caller can PIN the connection to it (e.g. Net::HTTP#ipaddr=) and avoid a
+        # second DNS resolution at connect time — closing the DNS-rebinding TOCTOU
+        # where a sub-TTL rebind between validation and connect reaches an internal
+        # IP. The caller keeps the original hostname for the Host header, TLS SNI,
+        # and certificate verification.
+        #
+        # @param url [String, URI::Generic]
+        # @return [IPAddr] a safe, validated address to pin the connection to
+        def resolve_and_validate(url)
           uri = url.is_a?(URI::Generic) ? url : URI.parse(url.to_s)
 
           unless ALLOWED_SCHEMES.include?(uri.scheme&.downcase)
@@ -187,7 +201,10 @@ module Ai
             end
           end
 
-          true
+          # Every resolved address is safe; pin to the first (the address a fresh
+          # connect would use). Returning a concrete IP lets the caller bypass the
+          # second resolution a hostname-based connect would perform.
+          addresses.first
         rescue URI::InvalidURIError => e
           raise SsrfError, "Invalid URL: #{e.message}"
         rescue Resolv::ResolvError, SocketError => e

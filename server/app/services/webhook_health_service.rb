@@ -200,12 +200,16 @@ class WebhookHealthService
     # SSRF guard: resolve endpoint.url and reject private/loopback/link-local/
     # metadata targets BEFORE opening any socket. Without this the webhook health
     # test (reachable with webhook.read; url is user-settable) is a blind internal
-    # port-scan / reachability oracle. Reuses the platform's resolve-and-pin
-    # guard; the SsrfError propagates to test_endpoint's rescue.
-    Ai::DataSources::HttpConnectionFactory.validate_url!(endpoint.url)
+    # port-scan / reachability oracle. resolve_and_validate returns the validated
+    # IP so we PIN the socket to it (http.ipaddr=) — a sub-TTL DNS rebind between
+    # this check and connect cannot redirect to an internal IP, and the hostname
+    # is retained for the Host header, TLS SNI, and cert verification. The
+    # SsrfError propagates to test_endpoint's rescue.
+    pinned_ip = Ai::DataSources::HttpConnectionFactory.resolve_and_validate(endpoint.url)
 
     uri = URI(endpoint.url)
     http = Net::HTTP.new(uri.host, uri.port)
+    http.ipaddr = pinned_ip.to_s
     http.use_ssl = uri.scheme == "https"
     http.read_timeout = HEALTH_CHECK_TIMEOUT
     http.open_timeout = HEALTH_CHECK_TIMEOUT
