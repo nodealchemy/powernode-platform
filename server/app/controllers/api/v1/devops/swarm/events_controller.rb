@@ -7,6 +7,11 @@ module Api
         class EventsController < ApplicationController
           include AuditLogging
 
+          # Authorization on the swarm family: reads -> devops.swarm.read;
+          # acknowledge (state-changing) -> devops.swarm.manage. Gates run before
+          # set_cluster so a denied request 403s before any cluster lookup.
+          before_action -> { require_permission("devops.swarm.read") }, only: %i[index show]
+          before_action -> { require_permission("devops.swarm.manage") }, only: %i[acknowledge]
           before_action :set_cluster
 
           # GET /api/v1/devops/swarm/clusters/:cluster_id/events
