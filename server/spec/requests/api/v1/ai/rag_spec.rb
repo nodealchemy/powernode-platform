@@ -489,14 +489,17 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
   end
 
   # ============================================================================
-  # AUTHORIZATION (kb.* permission family)
+  # AUTHORIZATION (ai.rag.* permission family)
   #
   # Every RAG action runs behind authentication + a require_permission guard:
-  #   reads  -> kb.read    creates -> kb.create
-  #   updates-> kb.update  deletes -> kb.delete
-  # The guard is a before_action that halts BEFORE the RagService/KB lookup, so a
-  # denied user cannot even probe KB existence. These specs assert the guard;
-  # the per-action happy-path specs above run as a `member` (kb.read) or owner.
+  #   reads  -> ai.rag.read    creates -> ai.rag.create
+  #   updates-> ai.rag.update  deletes -> ai.rag.delete
+  # RAG vector-store authorization is DECOUPLED from the article-KB (kb.*)
+  # namespace: holding kb.* (help articles) no longer grants RAG access, and
+  # vice versa. The guard is a before_action that halts BEFORE the RagService/KB
+  # lookup, so a denied user cannot even probe KB existence. These specs assert
+  # the guard; the per-action happy-path specs above run as an owner (ai.rag.*
+  # via the *RESOURCE_PERMISSIONS.keys splat).
   # ============================================================================
   describe 'authorization' do
     # Minimal valid bodies — the authz gate runs before the request body is read,
@@ -551,8 +554,8 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
       end
     end
 
-    context 'as a read-only holder (kb.read) — read cannot write' do
-      let(:user) { create(:user, account: account, permissions: ['kb.read']) }
+    context 'as a read-only holder (ai.rag.read) — read cannot write' do
+      let(:user) { create(:user, account: account, permissions: [ 'ai.rag.read' ]) }
 
       it 'allows a read (GET index is NOT forbidden)' do
         allow(rag_service).to receive(:list_knowledge_bases).and_return([])
@@ -582,8 +585,8 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
       end
     end
 
-    context 'as a create holder (kb.create)' do
-      let(:user) { create(:user, account: account, permissions: ['kb.create']) }
+    context 'as a create holder (ai.rag.create)' do
+      let(:user) { create(:user, account: account, permissions: [ 'ai.rag.create' ]) }
 
       it 'allows create_knowledge_base (NOT forbidden)' do
         allow(knowledge_base).to receive(:scope_attributes).and_return({})
@@ -599,8 +602,8 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
       end
     end
 
-    context 'as a delete holder (kb.delete)' do
-      let(:user) { create(:user, account: account, permissions: ['kb.delete']) }
+    context 'as a delete holder (ai.rag.delete)' do
+      let(:user) { create(:user, account: account, permissions: [ 'ai.rag.delete' ]) }
 
       it 'allows delete_knowledge_base (NOT forbidden)' do
         allow(rag_service).to receive(:get_visible_knowledge_base).with('kb123').and_return(knowledge_base)
@@ -609,6 +612,30 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
         delete '/api/v1/ai/rag/knowledge_bases/kb123', headers: headers, as: :json
         expect(response).not_to have_http_status(:forbidden)
         expect(response).to have_http_status(:ok)
+      end
+    end
+
+    # The whole point of the ai.rag.* family: RAG vector-store authorization is
+    # DECOUPLED from the article-KB (kb.*) namespace. An article-KB holder (help
+    # articles) must NOT inherit RAG access just because they can manage articles.
+    context 'as an article-KB holder (kb.* only) — decoupled from RAG' do
+      let(:user) do
+        create(:user, account: account, permissions: %w[kb.read kb.create kb.update kb.delete])
+      end
+
+      it 'forbids a RAG read (GET index)' do
+        get '/api/v1/ai/rag/knowledge_bases', headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids a RAG create (POST create_knowledge_base)' do
+        post '/api/v1/ai/rag/knowledge_bases', params: kb_body, headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids a RAG delete (DELETE delete_knowledge_base)' do
+        delete '/api/v1/ai/rag/knowledge_bases/kb123', headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
       end
     end
   end

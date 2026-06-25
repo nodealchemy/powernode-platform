@@ -279,6 +279,14 @@ module Permissions
     "ai.knowledge_graph.read" => "View knowledge graph nodes and relationships",
     "ai.knowledge_graph.manage" => "Create and manage knowledge graph nodes and edges",
 
+    # AI RAG (retrieval-augmented-generation vector stores: knowledge bases,
+    # documents, embeddings, queries, connectors). Distinct from the kb.* article
+    # knowledge base — these scopes manage RAG vector infrastructure, not help articles.
+    "ai.rag.read" => "View RAG knowledge bases, documents, queries, connectors, and analytics",
+    "ai.rag.create" => "Create RAG knowledge bases, documents, and connectors",
+    "ai.rag.update" => "Update RAG knowledge bases, embeddings, and sync connectors",
+    "ai.rag.delete" => "Delete RAG knowledge bases and documents",
+
     # DevOps Pipeline Management
     "devops.pipelines.read" => "View DevOps pipelines",
     "devops.pipelines.write" => "Create, update, and delete DevOps pipelines",
@@ -697,7 +705,9 @@ module Permissions
         "files.read", "files.create", "files.download", "files.update", "files.delete",
         "storage.read",
         # Chat channels & sessions (read-only)
-        "chat.channels.read", "chat.sessions.read"
+        "chat.channels.read", "chat.sessions.read",
+        # AI RAG (read-only) — distinct from kb.* article knowledge base
+        "ai.rag.read"
       ]
     },
 
@@ -794,6 +804,8 @@ module Permissions
         # Chat channels & sessions
         "chat.channels.read", "chat.channels.manage",
         "chat.sessions.read", "chat.sessions.manage",
+        # AI RAG (vector stores) — distinct from kb.* article knowledge base
+        "ai.rag.read", "ai.rag.create", "ai.rag.update", "ai.rag.delete",
         # AI Missions
         "ai.missions.read", "ai.missions.manage",
         # AI Knowledge Graph
@@ -1037,6 +1049,8 @@ module Permissions
         # Chat channels & sessions
         "chat.channels.read", "chat.channels.manage",
         "chat.sessions.read", "chat.sessions.manage",
+        # AI RAG (vector stores) — distinct from kb.* article knowledge base
+        "ai.rag.read", "ai.rag.create", "ai.rag.update", "ai.rag.delete",
         # AI Knowledge Graph
         "ai.knowledge_graph.read", "ai.knowledge_graph.manage"
       ]
