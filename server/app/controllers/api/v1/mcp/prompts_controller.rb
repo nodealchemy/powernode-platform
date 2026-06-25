@@ -4,6 +4,8 @@ module Api
   module V1
     module Mcp
       class PromptsController < ApplicationController
+        before_action -> { require_permission("mcp.tools.read") }, only: %i[index show]
+        before_action -> { require_permission("mcp.tools.execute") }, only: %i[execute]
         before_action :set_mcp_server
         before_action :set_prompt, only: %i[show execute]
 
