@@ -53,14 +53,10 @@ module AdminSettings
       result = security_service.regenerate_jwt_secret(reason: params[:reason])
 
       if result[:success]
-        render_success(
-          message: "JWT secret regenerated successfully",
-          new_secret: result[:new_secret],
-          grace_period_hours: result[:grace_period_hours],
-          grace_period_ends_at: result[:grace_period_ends_at],
-          warning: result[:warning],
-          instructions: result[:instructions]
-        )
+        # Render the algorithm-specific result as-is. RS256 carries no key
+        # material (keypair is rotated + stored server-side); HS256 (dev/test)
+        # returns the new secret + env-update instructions.
+        render_success(result.except(:success))
       else
         render_error(result[:error], status: :unprocessable_content)
       end

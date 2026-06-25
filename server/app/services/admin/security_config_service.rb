@@ -86,48 +86,18 @@ module Admin
       }
     end
 
-    # Regenerate JWT secret with grace period
+    # Rotate the JWT signing key with a grace period for in-flight tokens.
+    #
+    # Algorithm-aware: RS256 (production) rotates the RSA keypair via
+    # Security::JwtKeyStore; HS256 (dev/test) rotates the in-memory HMAC secret.
     # @param reason [String] Reason for regeneration
-    # @return [Hash] Result with new secret info
+    # @return [Hash] Result (RS256 NEVER includes key material)
     def regenerate_jwt_secret(reason: nil)
-      new_secret = SecureRandom.hex(64) # 128-character secret (512 bits)
-      old_secret = Rails.application.config.jwt_secret_key
-
-      grace_period_ends_at = JWT_ROTATION_GRACE_PERIOD.hours.from_now
-
-      # Store both secrets with grace period
-      Rails.cache.write("jwt_secret_rotation", {
-        old_secret: old_secret,
-        new_secret: new_secret,
-        rotated_at: Time.current,
-        grace_period_ends_at: grace_period_ends_at
-      }, expires_in: (JWT_ROTATION_GRACE_PERIOD + 1).hours)
-
-      # Update current secret (immediately effective for new tokens)
-      Rails.application.config.jwt_secret_key = new_secret
-
-      log_critical_security_event("jwt_secret_regenerated", {
-        regenerated_by: user.email,
-        grace_period_hours: JWT_ROTATION_GRACE_PERIOD,
-        grace_period_ends_at: grace_period_ends_at.iso8601,
-        old_secret_length: old_secret.length,
-        new_secret_length: new_secret.length,
-        reason: reason || "Admin-initiated rotation"
-      })
-
-      {
-        success: true,
-        new_secret: new_secret,
-        grace_period_hours: JWT_ROTATION_GRACE_PERIOD,
-        grace_period_ends_at: grace_period_ends_at.iso8601,
-        warning: "Store this secret securely. After #{JWT_ROTATION_GRACE_PERIOD} hours, all sessions using the old secret will be invalidated.",
-        instructions: [
-          "Save the new secret to your environment variables (JWT_SECRET_KEY)",
-          "Update production credentials if using Rails credentials",
-          "Restart application servers after updating environment",
-          "Users will need to re-authenticate after grace period expires"
-        ]
-      }
+      if Rails.application.config.jwt_algorithm == "RS256"
+        regenerate_rs256_keypair(reason: reason)
+      else
+        regenerate_hmac_secret(reason: reason)
+      end
     end
 
     # Clear expired blacklisted tokens
@@ -201,6 +171,94 @@ module Admin
     end
 
     private
+
+    # RS256 rotation: generate + store a fresh RSA keypair via JwtKeyStore (key
+    # generation happens IN CODE, never on a CLI). The previous public key is kept
+    # for the grace window so in-flight tokens still verify; new tokens sign with
+    # the new key once each process's key cache refreshes. Returns metadata only —
+    # NO private key material is returned, logged, or rendered.
+    def regenerate_rs256_keypair(reason: nil)
+      result =
+        begin
+          Security::JwtKeyStore.rotate!(grace_hours: JWT_ROTATION_GRACE_PERIOD)
+        rescue StandardError => e
+          # Audit failed key ops too — a partial/failed rotation must not be silent.
+          log_critical_security_event("jwt_secret_regenerated", {
+            regenerated_by: user.email,
+            algorithm: "RS256",
+            status: "failed",
+            error: e.class.name,
+            reason: reason || "Admin-initiated rotation"
+          })
+          raise
+        end
+
+      log_critical_security_event("jwt_secret_regenerated", {
+        regenerated_by: user.email,
+        algorithm: "RS256",
+        status: "success",
+        grace_period_hours: JWT_ROTATION_GRACE_PERIOD,
+        grace_period_ends_at: result[:grace_ends_at].iso8601,
+        reason: reason || "Admin-initiated rotation"
+      })
+
+      {
+        success: true,
+        algorithm: "RS256",
+        grace_period_hours: JWT_ROTATION_GRACE_PERIOD,
+        grace_period_ends_at: result[:grace_ends_at].iso8601,
+        message: "RSA signing keypair rotated. The new key is active across all " \
+                 "servers within #{Security::JwtKeyStore::CACHE_TTL}s — no env update or restart required.",
+        warning: "Tokens signed with the previous key remain valid until the grace period ends."
+      }
+    end
+
+    # HS256 rotation (dev/test): rotate the in-memory HMAC secret with a grace
+    # window held in Rails.cache. The new secret is returned so the operator can
+    # persist it to JWT_SECRET_KEY (HMAC has no durable store seam like RS256).
+    def regenerate_hmac_secret(reason: nil)
+      new_secret = SecureRandom.hex(64) # 128-character secret (512 bits)
+      old_secret = Rails.application.config.jwt_secret_key
+
+      grace_period_ends_at = JWT_ROTATION_GRACE_PERIOD.hours.from_now
+
+      # Store both secrets with grace period
+      Rails.cache.write("jwt_secret_rotation", {
+        old_secret: old_secret,
+        new_secret: new_secret,
+        rotated_at: Time.current,
+        grace_period_ends_at: grace_period_ends_at
+      }, expires_in: (JWT_ROTATION_GRACE_PERIOD + 1).hours)
+
+      # Update current secret (immediately effective for new tokens)
+      Rails.application.config.jwt_secret_key = new_secret
+
+      log_critical_security_event("jwt_secret_regenerated", {
+        regenerated_by: user.email,
+        algorithm: "HS256",
+        grace_period_hours: JWT_ROTATION_GRACE_PERIOD,
+        grace_period_ends_at: grace_period_ends_at.iso8601,
+        old_secret_length: old_secret.length,
+        new_secret_length: new_secret.length,
+        reason: reason || "Admin-initiated rotation"
+      })
+
+      {
+        success: true,
+        algorithm: "HS256",
+        message: "JWT secret regenerated successfully",
+        new_secret: new_secret,
+        grace_period_hours: JWT_ROTATION_GRACE_PERIOD,
+        grace_period_ends_at: grace_period_ends_at.iso8601,
+        warning: "Store this secret securely. After #{JWT_ROTATION_GRACE_PERIOD} hours, all sessions using the old secret will be invalidated.",
+        instructions: [
+          "Save the new secret to your environment variables (JWT_SECRET_KEY)",
+          "Update production credentials if using Rails credentials",
+          "Restart application servers after updating environment",
+          "Users will need to re-authenticate after grace period expires"
+        ]
+      }
+    end
 
     def csrf_config
       {

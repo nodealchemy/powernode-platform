@@ -59,24 +59,14 @@ module Security
           decoded = JWT.decode(token, verification_key(algorithm), true, decode_options)[0]
           payload = HashWithIndifferentAccess.new(decoded)
         rescue JWT::VerificationError => e
-          # If verification fails, check if we're in a secret rotation grace period
-          rotation_data = Rails.cache.read("jwt_secret_rotation")
+          # Active key failed to verify — retry against the rotation grace key(s).
+          # (Replaces the prior dead ternary that fed the HMAC old_secret to an
+          # RS256 verify.)
+          decoded = decode_with_grace_keys(token, decode_options, algorithm)
+          raise StandardError, "Invalid token: #{e.message}" unless decoded
 
-          if rotation_data && Time.current < rotation_data[:grace_period_ends_at]
-            # Try decoding with old secret during grace period
-            begin
-              old_key = algorithm == "HS256" ? rotation_data[:old_secret] : rotation_data[:old_secret]
-              decoded = JWT.decode(token, old_key, true, decode_options)[0]
-              payload = HashWithIndifferentAccess.new(decoded)
-
-              Rails.logger.info "Token verified with old secret during grace period (expires: #{rotation_data[:grace_period_ends_at]})"
-            rescue JWT::DecodeError
-              # If it fails with old secret too, raise original error
-              raise StandardError, "Invalid token: #{e.message}"
-            end
-          else
-            raise StandardError, "Invalid token: #{e.message}"
-          end
+          payload = HashWithIndifferentAccess.new(decoded)
+          Rails.logger.info "Token verified with a rotation grace key (#{algorithm})"
         rescue JWT::InvalidIssuerError, JWT::InvalidAudError => e
           # Grace period for tokens issued before claims enforcement
           # Allow tokens without iss/aud for 7 days after deployment
@@ -350,19 +340,81 @@ module Security
         end
       end
 
-      # Get secret key for HMAC
+      # HMAC secret (dev/test). Read LIVE from config — not memoized — so an HS256
+      # rotation that reassigns config.jwt_secret_key takes effect immediately for
+      # newly-signed tokens (a memo here silently kept signing with the old secret).
       def secret_key
-        @secret_key ||= Rails.application.config.jwt_secret_key
+        Rails.application.config.jwt_secret_key
       end
 
-      # Get private key for RSA signing
+      # Active RSA private key for signing — sourced from JwtKeyStore (store-backed,
+      # rotation-aware, ENV fail-safe fallback). Memoized by PEM: the parsed key is
+      # reused until the PEM actually changes (after a rotation propagates), so a
+      # rotation takes effect within the store's cache TTL with no per-call parse
+      # and no process restart.
       def private_key
-        @private_key ||= OpenSSL::PKey::RSA.new(Rails.application.config.jwt_private_key)
+        pem = Security::JwtKeyStore.active_private_key_pem
+        if pem != @private_key_pem
+          key = OpenSSL::PKey::RSA.new(pem)
+          @private_key = key
+          @private_key_pem = pem # gate set LAST: readers never see a new PEM with a stale key
+        end
+        @private_key
       end
 
-      # Get public key for RSA verification
+      # Active RSA public key for verification (store-backed; ENV fallback). Same
+      # PEM-gated memoization as #private_key.
       def public_key
-        @public_key ||= OpenSSL::PKey::RSA.new(Rails.application.config.jwt_public_key)
+        pem = Security::JwtKeyStore.active_public_key_pem
+        if pem != @public_key_pem
+          key = OpenSSL::PKey::RSA.new(pem)
+          @public_key = key
+          @public_key_pem = pem # gate set LAST: readers never see a new PEM with a stale key
+        end
+        @public_key
+      end
+
+      # Attempt to decode TOKEN with the rotation grace key(s) after the active key
+      # failed. Returns the decoded payload hash, or nil if none verify.
+      # RS256: try the freshly-refreshed active key (so a worker lagging a rotation
+      # accepts new-key tokens) plus every retired public key still inside its
+      # grace window (multi-generation — overlapping rotations all keep verifying).
+      # HS256 (dev/test): the old HMAC secret from the rotation cache.
+      def decode_with_grace_keys(token, decode_options, algorithm)
+        case algorithm
+        when "RS256"
+          grace_rsa_keys(Security::JwtKeyStore.grace_verification_pems).each do |key|
+            return JWT.decode(token, key, true, decode_options)[0]
+          rescue JWT::DecodeError
+            next
+          end
+          nil
+        when "HS256"
+          data = Rails.cache.read("jwt_secret_rotation")
+          return nil unless data && data[:grace_period_ends_at] && Time.current < data[:grace_period_ends_at]
+
+          begin
+            JWT.decode(token, data[:old_secret], true, decode_options)[0]
+          rescue JWT::DecodeError
+            nil
+          end
+        end
+      end
+
+      # Parse grace-candidate PEMs into RSA keys, reusing previously-parsed objects
+      # (keyed by PEM) and pruning any no longer in the candidate set — so a flood
+      # of invalid tokens can't re-parse the same keys on every verification miss.
+      def grace_rsa_keys(pems)
+        @grace_key_cache ||= {}
+        @grace_key_cache.select! { |pem, _| pems.include?(pem) }
+        pems.filter_map do |pem|
+          @grace_key_cache[pem] ||=
+            begin
+              OpenSSL::PKey::RSA.new(pem)
+            rescue OpenSSL::PKey::RSAError
+              nil
+            end
+        end
       end
     end
   end

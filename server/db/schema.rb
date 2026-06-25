@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_01_01_000012) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_25_185024) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -7266,7 +7266,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000012) do
   end
 
   create_table "security_secrets", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
+    t.uuid "account_id"
     t.datetime "created_at", null: false
     t.string "key", null: false
     t.string "scope", null: false
@@ -7274,6 +7274,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_01_01_000012) do
     t.text "value"
     t.index ["account_id", "scope", "key"], name: "index_security_secrets_on_account_id_and_scope_and_key", unique: true
     t.index ["account_id"], name: "index_security_secrets_on_account_id"
+    t.index ["scope", "key"], name: "index_security_secrets_platform_global_on_scope_and_key", unique: true, where: "(account_id IS NULL)"
   end
 
   create_table "shared_prompt_templates", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
