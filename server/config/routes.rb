@@ -659,8 +659,9 @@ Rails.application.routes.draw do
           get ":token/verify", to: "webhooks#verify", as: :webhook_verify
         end
 
-        # Channel management
-        resources :channels do
+        # Channel management. Constrained to the implemented RESTful actions
+        # (no new/edit) so no ungatable, unimplemented action is routed.
+        resources :channels, only: %i[index show create update destroy] do
           member do
             post :connect
             post :disconnect
@@ -676,8 +677,12 @@ Rails.application.routes.draw do
           end
         end
 
-        # Session management
-        resources :sessions do
+        # Session management. SessionsController implements index/show/update/
+        # destroy (+ the custom member/collection actions below) — NOT create/
+        # new/edit. Constrain to the implemented set so an unimplemented,
+        # ungatable create/new/edit is never routed (a future create body would
+        # otherwise ship un-authorized; Rails 8 forbids gating a missing action).
+        resources :sessions, only: %i[index show update destroy] do
           member do
             post :transfer
             post :close
