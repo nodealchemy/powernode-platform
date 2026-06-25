@@ -661,3 +661,5 @@ export const MessageList = React.memo<MessageListProps>(({
     </div>
   );
 });
+
+MessageList.displayName = 'MessageList';

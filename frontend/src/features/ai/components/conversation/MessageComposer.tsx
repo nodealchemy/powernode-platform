@@ -195,3 +195,5 @@ export const MessageComposer = React.memo<MessageComposerProps>(({
     </div>
   );
 });
+
+MessageComposer.displayName = 'MessageComposer';
