@@ -242,6 +242,16 @@ module Authentication
 
   # Check if current entity (user or worker) has permission without rendering error
   def has_permission?(permission_name)
+    # Account-switch / delegation session: the JWT carries a delegation_id and the
+    # session's authority is the DELEGATION's scope — NOT the user's own-account
+    # roles (User#has_permission? is not current_account-scoped, so falling through
+    # would leak the user's own/global permissions into the delegated account).
+    # Resolve from the live Account::Delegation so revocation/expiry takes effect
+    # immediately, and do NOT fall through to current_user.
+    if (delegation_id = @current_jwt_payload&.dig(:delegation_id)).present?
+      return delegated_permission?(delegation_id, permission_name)
+    end
+
     # For JWT tokens, check permissions directly from token payload (faster)
     if @current_jwt_payload&.dig(:permissions)&.include?(permission_name)
       return true
@@ -251,6 +261,17 @@ module Authentication
     return current_user.has_permission?(permission_name) if current_user
     return current_worker.has_permission?(permission_name) if current_worker
     false
+  end
+
+  # Resolve a permission for a delegated/account-switch session from the live
+  # Account::Delegation's effective_permissions. Returns false for a missing,
+  # revoked, or expired delegation so revocation is honored immediately (not
+  # deferred to token expiry).
+  def delegated_permission?(delegation_id, permission_name)
+    delegation = ::Account::Delegation.find_by(id: delegation_id)
+    return false unless delegation&.active?
+
+    delegation.effective_permissions.include?(permission_name)
   end
 
   # Alias for backwards compatibility
