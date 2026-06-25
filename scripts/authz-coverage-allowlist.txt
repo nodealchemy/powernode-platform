@@ -17,8 +17,6 @@ api/v1/ai/team_channel_messages_controller.rb
 api/v1/ai/team_execution_controller.rb
 api/v1/ai/team_roles_channels_controller.rb
 api/v1/ai/teams_controller.rb
-api/v1/chat/channels_controller.rb
-api/v1/chat/sessions_controller.rb
 api/v1/devops/containers_controller.rb
 api/v1/devops/container_templates_controller.rb
 api/v1/devops/docker/activities_controller.rb

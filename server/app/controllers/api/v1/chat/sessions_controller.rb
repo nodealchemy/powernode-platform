@@ -7,6 +7,10 @@ module Api
         include AuditLogging
         include ::Ai::ResourceFiltering
 
+        before_action -> { require_permission("chat.sessions.read") },
+                      only: %i[index show messages active stats]
+        before_action -> { require_permission("chat.sessions.manage") },
+                      only: %i[update destroy transfer close send_message]
         before_action :set_session, only: %i[show update destroy transfer close messages send_message]
 
         # GET /api/v1/chat/sessions

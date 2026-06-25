@@ -8,6 +8,21 @@ RSpec.describe 'Api::V1::Chat::Channels - Metrics & Cleanup', type: :request do
   let(:headers) { auth_headers_for(user) }
   let(:channel) { create(:chat_channel, account: account) }
 
+  # cleanup_sessions is worker-internal (ChatSessionCleanupJob), so its
+  # functional tests authenticate as a worker rather than a user.
+  let(:worker) { create(:worker, account: account) }
+
+  def worker_headers(w)
+    payload = {
+      sub: w.id,
+      account_id: w.account_id,
+      type: "worker",
+      permissions: w.permission_names,
+      version: Security::JwtService::CURRENT_TOKEN_VERSION
+    }
+    { "Authorization" => "Bearer #{Security::JwtService.encode(payload)}", "Content-Type" => "application/json" }
+  end
+
   describe 'GET /api/v1/chat/channels/:id/metrics' do
     context 'with no data' do
       it 'returns all expected fields with zero/null values' do
@@ -83,7 +98,7 @@ RSpec.describe 'Api::V1::Chat::Channels - Metrics & Cleanup', type: :request do
 
   describe 'POST /api/v1/chat/channels/cleanup_sessions' do
     it 'returns cleanup counts' do
-      post '/api/v1/chat/channels/cleanup_sessions', headers: headers, as: :json
+      post '/api/v1/chat/channels/cleanup_sessions', headers: worker_headers(worker), as: :json
 
       expect_success_response
       data = json_response_data
@@ -99,7 +114,7 @@ RSpec.describe 'Api::V1::Chat::Channels - Metrics & Cleanup', type: :request do
       let!(:fresh_active) { create(:chat_session, :active, channel: channel, last_activity_at: 1.hour.ago) }
 
       it 'idles stale active and closes stale idle sessions' do
-        post '/api/v1/chat/channels/cleanup_sessions', headers: headers, as: :json
+        post '/api/v1/chat/channels/cleanup_sessions', headers: worker_headers(worker), as: :json
 
         expect_success_response
         data = json_response_data

@@ -326,7 +326,13 @@ module Permissions
 
     # DevOps Kubernetes (clusters / nodes)
     "devops.kubernetes.read" => "View Kubernetes clusters and nodes",
-    "devops.kubernetes.manage" => "Manage Kubernetes clusters and nodes"
+    "devops.kubernetes.manage" => "Manage Kubernetes clusters and nodes",
+
+    # Chat channels & sessions (external messaging-platform integrations: Slack, Discord, Telegram, WhatsApp, etc.)
+    "chat.channels.read" => "View chat channels and their sessions/metrics",
+    "chat.channels.manage" => "Connect, configure, and manage chat channels (incl. credential rotation)",
+    "chat.sessions.read" => "View chat sessions and their messages",
+    "chat.sessions.manage" => "Manage chat sessions (transfer, close, send messages)"
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -689,7 +695,9 @@ module Permissions
         "ai.knowledge_graph.read",
         # File management permissions
         "files.read", "files.create", "files.download", "files.update", "files.delete",
-        "storage.read"
+        "storage.read",
+        # Chat channels & sessions (read-only)
+        "chat.channels.read", "chat.sessions.read"
       ]
     },
 
@@ -783,6 +791,9 @@ module Permissions
         "ai.memory_pools.read", "ai.memory_pools.manage",
         "ai.code_reviews.read", "ai.code_reviews.manage",
         "ai.autonomy.configure", "ai.autonomy.manage", "ai.autonomy.approve",
+        # Chat channels & sessions
+        "chat.channels.read", "chat.channels.manage",
+        "chat.sessions.read", "chat.sessions.manage",
         # AI Missions
         "ai.missions.read", "ai.missions.manage",
         # AI Knowledge Graph
@@ -1023,6 +1034,9 @@ module Permissions
         "ai.memory_pools.read", "ai.memory_pools.manage",
         "ai.code_reviews.read", "ai.code_reviews.manage",
         "ai.autonomy.configure", "ai.autonomy.manage", "ai.autonomy.approve",
+        # Chat channels & sessions
+        "chat.channels.read", "chat.channels.manage",
+        "chat.sessions.read", "chat.sessions.manage",
         # AI Knowledge Graph
         "ai.knowledge_graph.read", "ai.knowledge_graph.manage"
       ]

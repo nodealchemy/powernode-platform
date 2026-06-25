@@ -7,6 +7,17 @@ module Api
         include AuditLogging
         include ::Ai::ResourceFiltering
 
+        # test is a read-effect connectivity probe (no channel mutation).
+        before_action -> { require_permission("chat.channels.read") },
+                      only: %i[index show sessions metrics platforms test]
+        before_action -> { require_permission("chat.channels.manage") },
+                      only: %i[create update destroy connect disconnect regenerate_token]
+        # cleanup_sessions is worker-internal — called by ChatSessionCleanupJob
+        # (@current_user is nil for worker tokens; it operates on current_account).
+        # Require WORKER auth so a regular user cannot POST it to purge their
+        # account's chat sessions (mirrors ai/teams cleanup_messages).
+        before_action -> { render_forbidden("Worker authentication required") unless worker_authenticated? },
+                      only: %i[cleanup_sessions]
         before_action :set_channel, only: %i[show update destroy connect disconnect test regenerate_token sessions metrics]
 
         # GET /api/v1/chat/channels
