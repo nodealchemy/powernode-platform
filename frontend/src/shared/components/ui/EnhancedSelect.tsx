@@ -6,7 +6,7 @@ export interface SelectOption {
   label: string;
   description?: string;
   disabled?: boolean;
-  icon?: React.ComponentType<any>;
+  icon?: React.ComponentType<{ className?: string }>;
 }
 
 export interface EnhancedSelectProps {

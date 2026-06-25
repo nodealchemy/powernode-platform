@@ -94,8 +94,8 @@ export interface ConnectionTestResult {
   error?: string;    // Error message (for failures)
   response_time_ms?: number;  // Response time in milliseconds
   error_code?: string;  // Error code
-  provider_info?: Record<string, any>;  // Provider information
-  model_info?: Record<string, any>;  // Model information
+  provider_info?: Record<string, unknown>;  // Provider information
+  model_info?: Record<string, unknown>;  // Model information
 }
 
 export interface ProviderAvailability {

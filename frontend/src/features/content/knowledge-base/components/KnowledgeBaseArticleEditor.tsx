@@ -125,9 +125,9 @@ export function KnowledgeBaseArticleEditor() {
           status: (article.status as 'draft' | 'review' | 'published') || 'published',
           is_featured: article.is_featured || false,
           is_public: article.is_public !== undefined ? article.is_public : true,
-          meta_title: article.meta_title || article.metadata?.meta_title || '',
-          meta_description: article.meta_description || article.metadata?.meta_description || '',
-          sort_order: article.sort_order || article.metadata?.sort_order || 0
+          meta_title: article.meta_title || (article.metadata?.meta_title as string) || '',
+          meta_description: article.meta_description || (article.metadata?.meta_description as string) || '',
+          sort_order: article.sort_order || (article.metadata?.sort_order as number) || 0
         });
       } catch (_error) {
         dispatch(addNotification({ type: 'error', message: 'Failed to load article' }));
@@ -148,18 +148,18 @@ export function KnowledgeBaseArticleEditor() {
 
   // Handle form field updates
    
-  const updateField = (field: keyof ArticleFormData, value: any) => {
+  const updateField = (field: keyof ArticleFormData, value: ArticleFormData[keyof ArticleFormData]) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
       
       // Auto-generate slug from title if slug is empty
       if (field === 'title' && !prev.slug) {
-        updated.slug = generateSlug(value);
+        updated.slug = generateSlug(value as string);
       }
-      
+
       // Auto-generate meta title if empty
       if (field === 'title' && !prev.meta_title) {
-        updated.meta_title = value;
+        updated.meta_title = value as string;
       }
       
       return updated;

@@ -15,7 +15,7 @@ interface NotificationProps {
   id: string;
   type: 'success' | 'error' | 'warning' | 'info';
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   onRemove: (id: string) => void;
 }
 

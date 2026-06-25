@@ -28,7 +28,7 @@ interface ActivityEvent {
   ip_address?: string;
   user_agent?: string;
   status: 'success' | 'warning' | 'error';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ActivityStats {

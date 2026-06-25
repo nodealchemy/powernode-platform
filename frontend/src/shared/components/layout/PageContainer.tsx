@@ -6,7 +6,7 @@ import { useBreadcrumb } from '@/shared/hooks/BreadcrumbContext';
 export interface BreadcrumbItem {
   label: string;
   href?: string;
-  icon?: React.ComponentType<any> | string;
+  icon?: React.ComponentType<{ className?: string }> | string;
 }
 
 export interface PageAction {
@@ -14,7 +14,7 @@ export interface PageAction {
   label: string;
   onClick: () => void;
   variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'warning' | 'success';
-  icon?: React.ComponentType<any> | string;
+  icon?: React.ComponentType<{ className?: string }> | string;
   disabled?: boolean;
   size?: 'sm' | 'md' | 'lg';
   permission?: string;
@@ -68,7 +68,7 @@ export const PageContainer: React.FC<PageContainerProps> = ({
     return `${baseClasses} ${variantClass} ${sizeClass}`.trim();
   };
 
-  const renderIcon = (icon: React.ComponentType<any> | string | undefined, className: string = '') => {
+  const renderIcon = (icon: React.ComponentType<{ className?: string }> | string | undefined, className: string = '') => {
     if (!icon) return null;
     
     if (typeof icon === 'string') {

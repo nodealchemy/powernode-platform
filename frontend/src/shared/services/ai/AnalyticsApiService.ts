@@ -104,7 +104,7 @@ export interface Insight {
   description: string;
   impact: string;
   recommendation?: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export interface Recommendation {
@@ -159,7 +159,7 @@ export interface ReportType {
 export interface CreateReportRequest {
   name: string;
   report_type: string;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
   format?: 'pdf' | 'excel' | 'csv';
 }
 

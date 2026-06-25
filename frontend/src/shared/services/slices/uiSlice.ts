@@ -10,7 +10,7 @@ interface UIState {
     type: 'success' | 'error' | 'warning' | 'info';
     message: string;
     timestamp: number;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }>;
 }
 

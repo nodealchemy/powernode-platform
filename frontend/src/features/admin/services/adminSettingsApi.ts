@@ -86,7 +86,7 @@ export interface SystemLog {
   message: string;
   timestamp: string;
   source: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface RateLimitingSettings {

@@ -2,6 +2,8 @@
  * Token utility functions for handling authentication tokens
  */
 
+import type { AxiosError } from 'axios';
+
 /**
  * Checks if an error indicates token invalidity that requires immediate clearing
  */
@@ -17,11 +19,11 @@ export const isTokenInvalidError = (error: unknown): boolean => {
   } else if (error && typeof error === 'object') {
     // Handle axios-style errors
     if ('response' in error && error.response && typeof error.response === 'object') {
-      const response = error.response as any;
-      if ('status' in response) statusCode = response.status;
-      if ('data' in response && response.data && typeof response.data === 'object') {
-        const responseData = response.data as any;
-        errorMessage = responseData.error || responseData.message || errorMessage;
+      const response = (error as AxiosError).response;
+      if (response && 'status' in response) statusCode = response.status;
+      if (response && 'data' in response && response.data && typeof response.data === 'object') {
+        const responseData = response.data as Record<string, unknown>;
+        errorMessage = String(responseData.error || responseData.message || errorMessage);
       }
     }
   }

@@ -27,7 +27,7 @@ export interface KbCategory {
   is_public: boolean;
   created_at: string;
   updated_at: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface KbArticle {
@@ -55,7 +55,7 @@ export interface KbArticle {
   tags: string[];
   attachments?: KbAttachment[];
   can_edit?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   meta_title?: string;
   meta_description?: string;
   created_at?: string;
@@ -118,7 +118,7 @@ export interface KbArticleCreateParams {
   is_featured?: boolean;
   sort_order?: number;
   tag_names?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface KbCategoryCreateParams {
@@ -127,7 +127,7 @@ export interface KbCategoryCreateParams {
   parent_id?: string;
   sort_order?: number;
   is_public?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface KbCommentCreateParams {

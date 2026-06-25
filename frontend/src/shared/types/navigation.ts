@@ -4,7 +4,7 @@ export interface NavigationItem {
   id: string;
   name: string;
   href: string;
-  icon: React.ComponentType<any> | string;
+  icon: React.ComponentType<{ className?: string }> | string;
   description?: string;
   permissions?: string[];
   roles?: string[];

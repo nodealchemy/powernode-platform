@@ -270,7 +270,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}>
-          {React.cloneElement(trigger as React.ReactElement<any>, {
+          {React.cloneElement(trigger as React.ReactElement<Record<string, unknown>>, {
             'aria-expanded': isOpen,
             'aria-haspopup': true
           })}

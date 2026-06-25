@@ -7,9 +7,9 @@ export interface SubscriptionHistoryEvent {
   action: string;
   summary: string;
   changes: string | null;
-  old_values: Record<string, any>;
-  new_values: Record<string, any>;
-  metadata: Record<string, any>;
+  old_values: Record<string, unknown>;
+  new_values: Record<string, unknown>;
+  metadata: Record<string, unknown>;
   user: {
     id: string;
     name: string;
@@ -153,7 +153,7 @@ export const subscriptionHistoryApi = {
     }
 
     if (event.event_type === 'payment' && event.new_values.amount_cents) {
-      return `$${(event.new_values.amount_cents / 100).toFixed(2)} - ${event.new_values.status}`;
+      return `$${(Number(event.new_values.amount_cents) / 100).toFixed(2)} - ${event.new_values.status}`;
     }
 
     if (event.event_type === 'plan_changed') {

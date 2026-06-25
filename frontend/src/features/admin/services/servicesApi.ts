@@ -398,7 +398,7 @@ export const servicesApi = {
 
   async exportServices(environment: string): Promise<{
     environment: string;
-    services: Record<string, any>;
+    services: Record<string, unknown>;
     export_format: string;
     filename: string;
   }> {
@@ -406,7 +406,7 @@ export const servicesApi = {
     return response.data.data;
   },
 
-  async importServices(environment: string, services: Record<string, any>): Promise<{
+  async importServices(environment: string, services: Record<string, unknown>): Promise<{
     imported_count: number;
     skipped_count: number;
     errors: string[];

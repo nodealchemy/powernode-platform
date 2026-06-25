@@ -283,7 +283,7 @@ export interface AiAgentExecution {
   };
   input_data: {
     prompt: string;
-    parameters: Record<string, any>;
+    parameters: Record<string, unknown>;
   };
   status: 'queued' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled';
   started_at?: string;

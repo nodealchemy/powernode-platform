@@ -3,7 +3,7 @@ import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 export interface BreadcrumbItem {
   label: string;
   href?: string;
-  icon?: React.ComponentType<any> | string;
+  icon?: React.ComponentType<{ className?: string }> | string;
   isActive?: boolean;
 }
 

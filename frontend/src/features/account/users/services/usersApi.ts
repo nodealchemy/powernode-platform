@@ -14,7 +14,7 @@ export interface User {
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
-  preferences: Record<string, any>;
+  preferences: Record<string, unknown>;
   account: {
     id: string;
     name: string;

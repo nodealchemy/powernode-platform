@@ -103,7 +103,7 @@ export interface AdminLog {
     name: string;
   } | null;
   ip_address: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   created_at: string;
 }
 
@@ -161,7 +161,7 @@ export interface AdminSettingsUpdateRequest {
   };
   
   // System Features
-  system_notifications?: Record<string, any>;
+  system_notifications?: Record<string, unknown>;
   feature_flags?: Record<string, boolean>;
 }
 

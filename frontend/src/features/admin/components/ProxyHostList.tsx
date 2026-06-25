@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   DndContext,
   DragEndEvent,
+  DragStartEvent,
   DragOverlay,
   PointerSensor,
   useSensor,
@@ -153,8 +154,8 @@ export const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHo
   };
 
    
-  const handleDragStart = (event: any) => {
-    setActiveId(event.active.id);
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {

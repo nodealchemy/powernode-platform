@@ -32,7 +32,7 @@ export interface WorkerActivity {
   response_status?: number;
   request_path?: string;
   error_message?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface WorkerListResponse {

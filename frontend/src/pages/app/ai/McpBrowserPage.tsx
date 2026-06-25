@@ -164,7 +164,7 @@ export const McpBrowserContent: React.FC = () => {
   };
 
   // Execute a tool via the MCP API
-  const handleExecuteTool = useCallback(async (toolId: string, params: Record<string, any>) => {
+  const handleExecuteTool = useCallback(async (toolId: string, params: Record<string, unknown>) => {
     // Find the tool to get its server_id
     const tool = tools.find(t => t.id === toolId);
     if (!tool) {
