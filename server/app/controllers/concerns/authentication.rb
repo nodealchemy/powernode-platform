@@ -89,16 +89,18 @@ module Authentication
     end
   end
 
-  # Resolve the worker from a reverse-proxy-forwarded verified mTLS client-cert
-  # subject (CN = NodeInstance.id). Returns true and sets @current_worker /
-  # @current_account on success. The header is set only by the reverse proxy
-  # for verified certs (and by the worker itself in development) — the same
-  # trust the Internal::* / system worker_api mTLS filters already rely on.
+  # Resolve the worker from a reverse-proxy-forwarded mTLS client cert. Returns
+  # true and sets @current_worker / @current_account on success.
+  #
+  # Routes through Security::MtlsTrust.verify_request — the SAME trust path the
+  # worker_auth / Internal::* mTLS filters use — rather than parsing the raw
+  # X-Forwarded-Tls-Client-Cert-Info header here: when a cert PEM is forwarded it
+  # is cryptographically verified against OUR internal CA (a foreign-CA cert that
+  # clones a worker's CN is rejected), falling back to the forwarded subject CN
+  # only in the no-PEM posture where Traefik's chain-check is authoritative. This
+  # closes the impersonation vector of trusting a client-forgeable Info header.
   def authenticate_worker_via_forwarded_cert
-    info = request.headers["X-Forwarded-Tls-Client-Cert-Info"].presence
-    return false unless info
-
-    cn = CGI.unescape(info)[/\bCN\s*=\s*"?([^,"]+)"?/i, 1]&.strip
+    cn = Security::MtlsTrust.verify_request(request)
     return false if cn.blank?
 
     worker = Worker.find_by(node_instance_id: cn)
