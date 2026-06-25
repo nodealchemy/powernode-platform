@@ -10,6 +10,7 @@ import { featureRegistry } from '@/shared/services/featureRegistry';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { BarChart3, Users } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
+import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
 import { DashboardAIOverview } from '@/features/ai/monitoring/components/DashboardAIOverview';
 
 // Context providers used inline in route elements (must be synchronous)
@@ -473,31 +474,33 @@ const DashboardPage: React.FC = () => {
         {/* Sandboxes */}
         <Route path="/devops/sandboxes/*" element={<ContainersPage />} />
 
-        {/* Swarm - static tab routes before :clusterId to prevent "services" etc. matching as an ID */}
-        <Route path="/devops/swarm/services" element={<SwarmHubPage />} />
-        <Route path="/devops/swarm/stacks" element={<SwarmHubPage />} />
-        <Route path="/devops/swarm/networks" element={<SwarmHubPage />} />
-        <Route path="/devops/swarm/secrets" element={<SwarmHubPage />} />
-        <Route path="/devops/swarm/operations" element={<SwarmHubPage />} />
+        {/* Swarm - gated on devops.swarm.read (defense-in-depth; backend API also enforces).
+            Static tab routes before :clusterId to prevent "services" etc. matching as an ID. */}
+        <Route path="/devops/swarm/services" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
+        <Route path="/devops/swarm/stacks" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
+        <Route path="/devops/swarm/networks" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
+        <Route path="/devops/swarm/secrets" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
+        <Route path="/devops/swarm/operations" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
         {/* Swarm - detail routes before catch-all */}
-        <Route path="/devops/swarm/:clusterId/services/:serviceId/*" element={<ClusterProvider><SwarmServiceDetailPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/:clusterId/nodes" element={<ClusterProvider><SwarmNodesPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/:clusterId" element={<ClusterProvider><ClusterDashboardPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/*" element={<SwarmHubPage />} />
+        <Route path="/devops/swarm/:clusterId/services/:serviceId/*" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><ClusterProvider><SwarmServiceDetailPage /></ClusterProvider></ProtectedRoute>} />
+        <Route path="/devops/swarm/:clusterId/nodes" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><ClusterProvider><SwarmNodesPage /></ClusterProvider></ProtectedRoute>} />
+        <Route path="/devops/swarm/:clusterId" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><ClusterProvider><ClusterDashboardPage /></ClusterProvider></ProtectedRoute>} />
+        <Route path="/devops/swarm/*" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
 
-        {/* Docker - static tab routes before :hostId to prevent "containers" etc. matching as an ID */}
-        <Route path="/devops/docker/containers" element={<DockerHubPage />} />
-        <Route path="/devops/docker/images" element={<DockerHubPage />} />
-        <Route path="/devops/docker/networks" element={<DockerHubPage />} />
-        <Route path="/devops/docker/volumes" element={<DockerHubPage />} />
-        <Route path="/devops/docker/monitoring" element={<DockerHubPage />} />
+        {/* Docker - gated on devops.docker.read (defense-in-depth; backend API also enforces).
+            Static tab routes before :hostId to prevent "containers" etc. matching as an ID. */}
+        <Route path="/devops/docker/containers" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
+        <Route path="/devops/docker/images" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
+        <Route path="/devops/docker/networks" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
+        <Route path="/devops/docker/volumes" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
+        <Route path="/devops/docker/monitoring" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
         {/* Docker - detail routes before catch-all */}
-        <Route path="/devops/docker/:hostId/containers/:containerId/*" element={<HostProvider><ContainerDetailPage /></HostProvider>} />
-        <Route path="/devops/docker/:hostId" element={<HostProvider><HostDashboardPage /></HostProvider>} />
-        <Route path="/devops/docker/*" element={<DockerHubPage />} />
+        <Route path="/devops/docker/:hostId/containers/:containerId/*" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><HostProvider><ContainerDetailPage /></HostProvider></ProtectedRoute>} />
+        <Route path="/devops/docker/:hostId" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><HostProvider><HostDashboardPage /></HostProvider></ProtectedRoute>} />
+        <Route path="/devops/docker/*" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
 
-        {/* Kubernetes (Phase 2 — K3s today, kubeadm in Phase 3) */}
-        <Route path="/devops/kubernetes/*" element={<KubernetesHubPage />} />
+        {/* Kubernetes (Phase 2 — K3s today, kubeadm in Phase 3) — gated on devops.kubernetes.read */}
+        <Route path="/devops/kubernetes/*" element={<ProtectedRoute requiredPermissions={['devops.kubernetes.read']}><KubernetesHubPage /></ProtectedRoute>} />
 
         {/* Audit Logs */}
         <Route path="/admin/audit-logs/*" element={<AuditLogsPage />} />
