@@ -10,6 +10,7 @@ class AiChatResponseJob < BaseJob
   include AiJobsConcern
   include ChatStreamingConcern
   include ChatFallbackProvidersConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_conversations', retry: 2
 
@@ -19,6 +20,9 @@ class AiChatResponseJob < BaseJob
         'agent_id' => agent_id, 'account_id' => account_id },
       'conversation_id', 'message_id', 'agent_id', 'account_id'
     )
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(account_id)
 
     # Idempotency check
     idempotency_key = "chat_response:#{message_id}"

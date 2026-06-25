@@ -3,6 +3,7 @@
 class AiCodeFactoryPrdJob < BaseJob
   include AiJobsConcern
   include AiLlmProxyConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_execution', retry: 3
 
@@ -13,6 +14,9 @@ class AiCodeFactoryPrdJob < BaseJob
     account_id = prd_params['account_id']
     contract_id = prd_params['contract_id']
     prd_input = prd_params['prd_input'] || ''
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(account_id)
 
     log_info("Starting Code Factory PRD generation", ralph_loop_id: ralph_loop_id)
 

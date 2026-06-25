@@ -5,6 +5,7 @@
 # existing AiChatResponseJob flow which handles streaming AI responses.
 class AiConversationResponseJob < BaseJob
   include AiJobsConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_conversations', retry: 2
 
@@ -46,6 +47,9 @@ class AiConversationResponseJob < BaseJob
       log_warn("Could not resolve account_id", conversation_id: conversation_id)
       return
     end
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(account_id)
 
     # Delegate to AiChatResponseJob which has the full streaming implementation
     AiChatResponseJob.new.execute(conversation_id, user_message_id, agent_id, account_id)
