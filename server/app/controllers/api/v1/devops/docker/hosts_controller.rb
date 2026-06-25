@@ -7,6 +7,9 @@ module Api
         class HostsController < ApplicationController
           include AuditLogging
 
+          # test_connection is a read-effect connectivity probe (no host mutation).
+          before_action -> { require_permission("devops.docker.read") }, only: %i[index show health test_connection]
+          before_action -> { require_permission("devops.docker.manage") }, only: %i[create update destroy sync]
           before_action :set_host, only: %i[show update destroy test_connection sync health]
 
           # GET /api/v1/devops/docker/hosts

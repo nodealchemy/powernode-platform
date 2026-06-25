@@ -314,7 +314,11 @@ module Permissions
     "devops.container_templates.read" => "View container templates",
     "devops.container_templates.write" => "Create, update, and delete container templates",
     "devops.container_quotas.read" => "View resource quotas",
-    "devops.container_quotas.manage" => "Manage resource quotas"
+    "devops.container_quotas.manage" => "Manage resource quotas",
+
+    # DevOps Docker Engine (hosts / containers / images / networks / volumes)
+    "devops.docker.read" => "View Docker hosts, containers, images, networks, and volumes",
+    "devops.docker.manage" => "Manage Docker hosts, containers, images, networks, and volumes"
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -755,6 +759,7 @@ module Permissions
         "devops.containers.read", "devops.containers.execute", "devops.containers.cancel",
         "devops.container_templates.read", "devops.container_templates.write",
         "devops.container_quotas.read", "devops.container_quotas.manage",
+        "devops.docker.read", "devops.docker.manage",
         # AI Skills permissions
         "ai.skills.read", "ai.skills.create", "ai.skills.update", "ai.skills.delete",
         # AI Context permissions
@@ -992,6 +997,7 @@ module Permissions
         "devops.containers.read", "devops.containers.execute", "devops.containers.cancel",
         "devops.container_templates.read", "devops.container_templates.write",
         "devops.container_quotas.read", "devops.container_quotas.manage",
+        "devops.docker.read", "devops.docker.manage",
         # AI Skills permissions
         "ai.skills.read", "ai.skills.create", "ai.skills.update", "ai.skills.delete",
         # AI Context permissions

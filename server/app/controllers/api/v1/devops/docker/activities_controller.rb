@@ -5,6 +5,7 @@ module Api
     module Devops
       module Docker
         class ActivitiesController < ApplicationController
+          before_action -> { require_permission("devops.docker.read") }, only: %i[index show]
           before_action :set_host
 
           # GET /api/v1/devops/docker/hosts/:host_id/activities

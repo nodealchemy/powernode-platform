@@ -7,6 +7,8 @@ module Api
         class ContainersController < ApplicationController
           include AuditLogging
 
+          before_action -> { require_permission("devops.docker.read") }, only: %i[index available show logs stats]
+          before_action -> { require_permission("devops.docker.manage") }, only: %i[import create destroy start stop restart]
           before_action :set_host
           before_action :set_container, only: %i[show destroy start stop restart logs stats]
 

@@ -7,6 +7,8 @@ module Api
         class ImagesController < ApplicationController
           include AuditLogging
 
+          before_action -> { require_permission("devops.docker.read") }, only: %i[index available show registries]
+          before_action -> { require_permission("devops.docker.manage") }, only: %i[import pull destroy tag]
           before_action :set_host
           before_action :set_image, only: %i[show destroy tag]
 

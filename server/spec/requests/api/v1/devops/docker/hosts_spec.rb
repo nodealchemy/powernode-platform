@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::Docker::Hosts', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read) { create(:user, account: account, permissions: ['docker.hosts.read']) }
-  let(:user_with_manage) { create(:user, account: account, permissions: ['docker.hosts.read', 'docker.hosts.manage']) }
+  let(:user_with_read) { create(:user, account: account, permissions: ['devops.docker.read']) }
+  let(:user_with_manage) { create(:user, account: account, permissions: ['devops.docker.read', 'devops.docker.manage']) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/docker/hosts' do

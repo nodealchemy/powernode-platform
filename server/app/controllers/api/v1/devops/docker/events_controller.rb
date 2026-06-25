@@ -7,6 +7,8 @@ module Api
         class EventsController < ApplicationController
           include AuditLogging
 
+          before_action -> { require_permission("devops.docker.read") }, only: %i[index show]
+          before_action -> { require_permission("devops.docker.manage") }, only: %i[acknowledge]
           before_action :set_host
 
           # GET /api/v1/devops/docker/hosts/:host_id/events

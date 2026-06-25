@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::Docker::Activities', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read) { create(:user, account: account, permissions: ['docker.activities.read']) }
+  let(:user_with_read) { create(:user, account: account, permissions: ['devops.docker.read']) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:host) { create(:devops_docker_host, :connected, account: account) }
 
