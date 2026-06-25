@@ -4,7 +4,9 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: [ 'mcp.hosting.read', 'mcp.hosting.write' ]) }
+  # Hosting is gated on the mcp.* family: reads -> mcp.servers.read; lifecycle/
+  # publish/subscribe -> mcp.servers.write; start/stop/restart -> mcp.executions.write.
+  let(:user) { create(:user, account: account, permissions: [ 'mcp.servers.read', 'mcp.servers.write', 'mcp.executions.write' ]) }
   let(:headers) { auth_headers_for(user) }
 
   let(:hosting_service) { instance_double(Mcp::HostingService) }

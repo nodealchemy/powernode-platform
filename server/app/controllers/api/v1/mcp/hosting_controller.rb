@@ -9,6 +9,16 @@ module Api
       #
       class HostingController < ApplicationController
         before_action :authenticate_request
+        # Authorization on the mcp.* family: reads -> mcp.servers.read; server
+        # lifecycle + marketplace publish/subscribe -> mcp.servers.write; runtime
+        # control (start/stop/restart) -> mcp.executions.write. (Hosting routes
+        # live in the business extension; the controller is core.)
+        before_action -> { require_permission("mcp.servers.read") },
+                      only: %i[index show deployments metrics health marketplace subscriptions]
+        before_action -> { require_permission("mcp.servers.write") },
+                      only: %i[create update destroy deploy rollback publish unpublish subscribe]
+        before_action -> { require_permission("mcp.executions.write") },
+                      only: %i[start stop restart]
 
         # GET /api/v1/mcp/hosting/servers
         def index

@@ -12,7 +12,6 @@ api/v1/ai/roi_calculations_controller.rb
 api/v1/ai/roi_controller.rb
 api/v1/jobs_controller.rb
 api/v1/kb/tags_controller.rb
-api/v1/mcp/hosting_controller.rb
 api/v1/mcp/resources_controller.rb
 api/v1/notifications_controller.rb
 api/v1/onboarding_controller.rb
