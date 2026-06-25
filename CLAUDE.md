@@ -86,7 +86,7 @@ Generic key-handling principles — apply to ALL key material. Private-extension
 ### Worker Architecture (CRITICAL)
 - **server** (`server/`) is a Rails API — it does **NOT** run Sidekiq.
 - **worker** (`worker/`) is standalone Sidekiq — talks to server via HTTP API only.
-- **NEVER** create job classes in `server/app/jobs/`; **NEVER** add Sidekiq gems to `server/Gemfile`; **NEVER** modify `worker/` when fixing server issues.
+- **NEVER** create job classes in `server/app/jobs/`; **NEVER** add Sidekiq gems to `server/Gemfile`. Keep the server/worker boundary clean (server stays Sidekiq-free; cross-app comms via the HTTP API). `worker/` **MAY** be modified when a change genuinely belongs there — there is no blanket prohibition on touching it.
 
 ### Bulk Operation Safety
 - **State the count** before ANY bulk operation: "This will affect N items."
