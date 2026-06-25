@@ -469,4 +469,55 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
       expect_success_response
     end
   end
+
+  # ==========================================================================
+  # REAL test paths (no test_endpoint stub)
+  #
+  # Regression guard: test_endpoint previously persisted each ping as a
+  # webhook_delivery using non-existent columns, so health_test 500'd on every
+  # real call; #test called a non-existent WebhookService and was dead. The fix
+  # routes both through the SSRF-guarded WebhookHealthService#test_endpoint and
+  # does NOT persist diagnostics as deliveries (which would skew health metrics).
+  # ==========================================================================
+  describe 'real test paths (no stub)' do
+    let(:headers) { auth_headers_for(user_with_webhook_permission) }
+    let(:endpoint) { create(:webhook_endpoint, account: account, created_by: admin_user) }
+
+    before do
+      # Public literal IP so the SSRF guard passes without DNS; stub the POST.
+      endpoint.update_column(:url, 'http://93.184.216.34/webhook')
+      stub_request(:post, 'http://93.184.216.34/webhook').to_return(status: 200, body: 'ok')
+    end
+
+    it 'POST /health_test succeeds end-to-end (no 500) without persisting a delivery' do
+      expect do
+        post "/api/v1/webhooks/#{endpoint.id}/health_test", headers: headers, as: :json
+      end.not_to change(WebhookDelivery, :count)
+
+      expect_success_response
+      expect(json_response['data']['success']).to be true
+      expect(json_response['data']['status_code']).to eq(200)
+    end
+
+    it 'POST /test succeeds end-to-end (no missing WebhookService) without persisting a delivery' do
+      expect do
+        post "/api/v1/webhooks/#{endpoint.id}/test", headers: headers, as: :json
+      end.not_to change(WebhookDelivery, :count)
+
+      expect_success_response
+      data = json_response['data']
+      expect(data['response']['success']).to be true
+      expect(data['response']['status']).to eq(200)
+    end
+
+    it 'health_test reports failure (not 500) when the target is SSRF-blocked' do
+      endpoint.update_column(:url, 'http://169.254.169.254/')
+      stub_request(:post, 'http://169.254.169.254/').to_return(status: 200)
+
+      post "/api/v1/webhooks/#{endpoint.id}/health_test", headers: headers, as: :json
+
+      expect_success_response
+      expect(json_response['data']['success']).to be false
+    end
+  end
 end

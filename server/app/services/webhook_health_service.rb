@@ -86,23 +86,19 @@ class WebhookHealthService
 
       success = response_successful?(response)
 
-      # Record the test delivery
-      delivery = endpoint.webhook_deliveries.create!(
-        event_type: "test_event",
-        payload: test_event.to_json,
-        status: success ? "success" : "failed",
-        response_code: response&.code&.to_i,
-        response_body: truncate_response_body(response&.body),
-        delivery_attempts: 1,
-        delivered_at: success ? Time.current : nil
-      )
-
+      # A connectivity/health test is a DIAGNOSTIC, not a real event delivery —
+      # do NOT persist it as a webhook_delivery. The controller audit-logs the
+      # attempt separately, and recording it here would (a) require a synthetic
+      # webhook_event (webhook_event_id is NOT NULL) and (b) skew the endpoint's
+      # success-rate metrics, which check_endpoint_health computes from
+      # webhook_deliveries. (The previous create! also used non-existent columns,
+      # so this path 500'd on every call.)
       {
         success: success,
         status_code: response&.code&.to_i,
         response_time: duration,
         message: success ? "Test webhook delivered successfully" : "Test webhook delivery failed",
-        delivery_id: delivery.id,
+        delivery_id: nil,
         response_body: response&.body&.truncate(500),
         tested_at: Time.current.iso8601
       }
@@ -110,21 +106,12 @@ class WebhookHealthService
     rescue StandardError => e
       duration = ((Time.current - start_time) * 1000).round(2)
 
-      # Record the failed test delivery
-      delivery = endpoint.webhook_deliveries.create!(
-        event_type: "test_event",
-        payload: test_event.to_json,
-        status: "failed",
-        error_message: e.message,
-        delivery_attempts: 1
-      )
-
       {
         success: false,
         status_code: nil,
         response_time: duration,
         message: "Test webhook failed: #{e.message}",
-        delivery_id: delivery.id,
+        delivery_id: nil,
         error: e.message,
         tested_at: Time.current.iso8601
       }

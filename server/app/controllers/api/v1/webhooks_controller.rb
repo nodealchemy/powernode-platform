@@ -102,7 +102,17 @@ class Api::V1::WebhooksController < ApplicationController
     test_payload = generate_test_payload(params[:event_type] || "test.webhook")
 
     begin
-      response = WebhookService.deliver_webhook(@webhook, test_payload, "test.webhook")
+      # Route through the (SSRF-guarded) health service rather than the missing
+      # WebhookService.deliver_webhook. test_endpoint rescues internally and
+      # returns a result hash; map it to the legacy {status,response_time,success}
+      # response shape so existing clients are unaffected.
+      result = WebhookHealthService.new(current_user.account).test_endpoint(@webhook, test_payload)
+      response = {
+        status: result[:status_code],
+        response_time: result[:response_time],
+        success: result[:success],
+        message: result[:message]
+      }
 
       # Log test attempt
       log_webhook_action("webhook_test", @webhook, {
