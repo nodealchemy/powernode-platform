@@ -7,6 +7,8 @@ module Api
         class ConfigsController < ApplicationController
           include AuditLogging
 
+          before_action -> { require_permission("devops.swarm.read") }, only: %i[index show]
+          before_action -> { require_permission("devops.swarm.manage") }, only: %i[create destroy]
           before_action :set_cluster
 
           # GET /api/v1/devops/swarm/clusters/:cluster_id/configs

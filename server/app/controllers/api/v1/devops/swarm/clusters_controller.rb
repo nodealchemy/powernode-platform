@@ -7,6 +7,8 @@ module Api
         class ClustersController < ApplicationController
           include AuditLogging
 
+          before_action -> { require_permission("devops.swarm.read") }, only: %i[index show health test_connection]
+          before_action -> { require_permission("devops.swarm.manage") }, only: %i[create update destroy sync]
           before_action :set_cluster, only: %i[show update destroy test_connection sync health]
 
           # GET /api/v1/devops/swarm/clusters

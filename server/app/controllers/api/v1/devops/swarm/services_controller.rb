@@ -7,6 +7,8 @@ module Api
         class ServicesController < ApplicationController
           include AuditLogging
 
+          before_action -> { require_permission("devops.swarm.read") }, only: %i[index available show logs tasks]
+          before_action -> { require_permission("devops.swarm.manage") }, only: %i[import create update destroy scale rollback]
           before_action :set_cluster
           before_action :set_service, only: %i[show update destroy scale rollback logs tasks]
 

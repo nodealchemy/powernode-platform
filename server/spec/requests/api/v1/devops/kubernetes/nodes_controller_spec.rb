@@ -4,7 +4,7 @@ require "rails_helper"
 
 RSpec.describe "Api::V1::Devops::Kubernetes::Nodes", type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: []) }
+  let(:user) { create(:user, account: account, permissions: ["devops.kubernetes.read"]) }
   let(:headers) { auth_headers_for(user) }
 
   let(:node) { sdwan_test_node(account: account) }

@@ -7,6 +7,7 @@ module Api
         class DeploymentsController < ApplicationController
           include AuditLogging
 
+          before_action -> { require_permission("devops.swarm.read") }, only: %i[index show]
           before_action :set_cluster
 
           # GET /api/v1/devops/swarm/clusters/:cluster_id/deployments

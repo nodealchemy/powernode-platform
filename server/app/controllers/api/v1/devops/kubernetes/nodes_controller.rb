@@ -14,6 +14,7 @@ module Api
         #   GET /api/v1/devops/kubernetes/clusters/:cluster_id/nodes/:id
         class NodesController < ApplicationController
 
+          before_action -> { require_permission("devops.kubernetes.read") }, only: %i[index show]
           before_action :set_cluster
           before_action :set_node, only: %i[show]
 

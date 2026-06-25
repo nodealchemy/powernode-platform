@@ -318,7 +318,15 @@ module Permissions
 
     # DevOps Docker Engine (hosts / containers / images / networks / volumes)
     "devops.docker.read" => "View Docker hosts, containers, images, networks, and volumes",
-    "devops.docker.manage" => "Manage Docker hosts, containers, images, networks, and volumes"
+    "devops.docker.manage" => "Manage Docker hosts, containers, images, networks, and volumes",
+
+    # DevOps Docker Swarm orchestration (services / stacks / clusters / nodes / configs / networks / volumes)
+    "devops.swarm.read" => "View Docker Swarm services, stacks, clusters, nodes, configs, networks, and volumes",
+    "devops.swarm.manage" => "Manage Docker Swarm services, stacks, clusters, nodes, configs, networks, and volumes",
+
+    # DevOps Kubernetes (clusters / nodes)
+    "devops.kubernetes.read" => "View Kubernetes clusters and nodes",
+    "devops.kubernetes.manage" => "Manage Kubernetes clusters and nodes"
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -760,6 +768,8 @@ module Permissions
         "devops.container_templates.read", "devops.container_templates.write",
         "devops.container_quotas.read", "devops.container_quotas.manage",
         "devops.docker.read", "devops.docker.manage",
+        "devops.swarm.read", "devops.swarm.manage",
+        "devops.kubernetes.read", "devops.kubernetes.manage",
         # AI Skills permissions
         "ai.skills.read", "ai.skills.create", "ai.skills.update", "ai.skills.delete",
         # AI Context permissions
@@ -998,6 +1008,8 @@ module Permissions
         "devops.container_templates.read", "devops.container_templates.write",
         "devops.container_quotas.read", "devops.container_quotas.manage",
         "devops.docker.read", "devops.docker.manage",
+        "devops.swarm.read", "devops.swarm.manage",
+        "devops.kubernetes.read", "devops.kubernetes.manage",
         # AI Skills permissions
         "ai.skills.read", "ai.skills.create", "ai.skills.update", "ai.skills.delete",
         # AI Context permissions

@@ -7,6 +7,8 @@ module Api
         class NodesController < ApplicationController
           include AuditLogging
 
+          before_action -> { require_permission("devops.swarm.read") }, only: %i[index show]
+          before_action -> { require_permission("devops.swarm.manage") }, only: %i[promote demote drain activate remove]
           before_action :set_cluster
           before_action :set_node, only: %i[show promote demote drain activate remove]
 
