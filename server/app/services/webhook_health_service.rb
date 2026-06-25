@@ -210,6 +210,13 @@ class WebhookHealthService
   end
 
   def make_test_request(endpoint, payload)
+    # SSRF guard: resolve endpoint.url and reject private/loopback/link-local/
+    # metadata targets BEFORE opening any socket. Without this the webhook health
+    # test (reachable with webhook.read; url is user-settable) is a blind internal
+    # port-scan / reachability oracle. Reuses the platform's resolve-and-pin
+    # guard; the SsrfError propagates to test_endpoint's rescue.
+    Ai::DataSources::HttpConnectionFactory.validate_url!(endpoint.url)
+
     uri = URI(endpoint.url)
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = uri.scheme == "https"
@@ -221,8 +228,8 @@ class WebhookHealthService
     request["User-Agent"] = "Powernode-Webhook-Health-Check/1.0"
 
     # Add any authentication headers if configured
-    if endpoint.secret.present?
-      signature = generate_signature(payload.to_json, endpoint.secret)
+    if endpoint.signature_secret.present?
+      signature = generate_signature(payload.to_json, endpoint.signature_secret)
       request["X-Powernode-Signature"] = signature
     end
 
