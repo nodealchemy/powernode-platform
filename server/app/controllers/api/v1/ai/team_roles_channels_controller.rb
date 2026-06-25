@@ -9,6 +9,19 @@ module Api
         end
 
         before_action :authenticate_request
+        # READ (GET) actions: members (ai.teams.manage, no execute) keep read access.
+        before_action -> { require_any_permission("ai.teams.manage", "ai.teams.execute") },
+                      only: %i[list_roles list_channels show_channel]
+        # MUTATION actions: members cannot mutate (lack ai.teams.execute).
+        # NOTE: cleanup_messages is intentionally excluded — it is a worker-internal
+        # maintenance endpoint (AiTeamMessageCleanupJob, worker JWT, @current_user nil)
+        # and remains gated only by authenticate_request; a user-permission gate would
+        # 403 the scheduled worker, whose roles do not carry ai.teams.execute.
+        before_action -> { require_permission("ai.teams.execute") },
+                      only: %i[
+                        create_role update_role delete_role assign_agent_to_role apply_role_profile
+                        create_channel update_channel delete_channel
+                      ]
         before_action :set_team_service
         before_action :set_team, only: %i[
           list_roles create_role update_role delete_role assign_agent_to_role apply_role_profile

@@ -9,6 +9,10 @@ module Api
         end
 
         before_action :authenticate_request
+        before_action -> { require_any_permission("ai.teams.manage", "ai.teams.execute") },
+                      only: %i[index show analytics composition_health]
+        before_action -> { require_permission("ai.teams.execute") },
+                      only: %i[create update destroy update_review_config]
         before_action :set_team_service
         before_action :set_team, only: %i[
           show update destroy analytics composition_health update_review_config

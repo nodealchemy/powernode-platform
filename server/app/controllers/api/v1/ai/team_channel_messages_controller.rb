@@ -5,6 +5,12 @@ module Api
     module Ai
       class TeamChannelMessagesController < ApplicationController
         before_action :authenticate_request
+        # READ (GET) actions: members (ai.teams.manage, no execute) keep read access.
+        before_action -> { require_any_permission("ai.teams.manage", "ai.teams.execute") },
+                      only: %i[my_channels messages]
+        # MUTATION actions: members cannot mutate (lack ai.teams.execute).
+        before_action -> { require_permission("ai.teams.execute") },
+                      only: %i[send_message link_chat_channel unlink_chat_channel]
         before_action :set_team, only: %i[messages send_message link_chat_channel unlink_chat_channel]
         before_action :set_channel, only: %i[messages send_message link_chat_channel unlink_chat_channel]
 

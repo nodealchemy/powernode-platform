@@ -4,7 +4,13 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Teams', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: [ 'ai.teams.read', 'ai.teams.write' ]) }
+  # Grant the real catalog permissions for AI teams. The previous list
+  # ('ai.teams.read'/'ai.teams.write') are not defined in config/permissions.rb;
+  # the actual permissions are ai.teams.manage (read) and ai.teams.execute
+  # (mutate), now enforced by the controller authorization guards. Both are
+  # granted so these happy-path "valid authentication" specs exercise the
+  # action bodies rather than the authz gate.
+  let(:user) { create(:user, account: account, permissions: [ 'ai.teams.manage', 'ai.teams.execute' ]) }
 
   let(:headers) { auth_headers_for(user) }
 

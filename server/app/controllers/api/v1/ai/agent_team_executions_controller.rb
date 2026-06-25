@@ -7,6 +7,12 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
+        # READ (GET) actions: members (ai.teams.manage, no execute) keep read access.
+        before_action -> { require_any_permission("ai.teams.manage", "ai.teams.execute") },
+                      only: %i[index show]
+        # MUTATION actions: members cannot mutate (lack ai.teams.execute).
+        before_action -> { require_permission("ai.teams.execute") },
+                      only: %i[cancel pause resume retry_execution]
         before_action :set_team
         before_action :set_execution, only: [:show, :cancel, :pause, :resume, :retry_execution]
 
