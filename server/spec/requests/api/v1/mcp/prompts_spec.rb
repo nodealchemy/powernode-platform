@@ -95,4 +95,37 @@ RSpec.describe "Api::V1::Mcp::Prompts", type: :request do
       end
     end
   end
+
+  # The prompt-dispatch path: #execute must run the prompt synchronously through
+  # the server-side Mcp::PromptService and return its messages. (It previously
+  # called WorkerJobService.execute_mcp_prompt — a method that does not exist —
+  # which raised NoMethodError -> 500 on every connected-server dispatch.)
+  describe "prompt execution dispatch" do
+    let(:user) { create(:user, account: account, permissions: [ "mcp.tools.execute" ]) }
+    let(:json_headers) { auth_headers_for(user).merge("Content-Type" => "application/json") }
+
+    it "executes the prompt via Mcp::PromptService and returns its messages" do
+      messages = [ { "role" => "user", "content" => "Summarize: hello" } ]
+      expect_any_instance_of(Mcp::PromptService)
+        .to receive(:execute_prompt).with("summarize", anything)
+        .and_return({ success: true, messages: messages, description: "Summarize text" })
+
+      post execute_path, params: { arguments: { text: "hello" } }.to_json, headers: json_headers
+
+      expect(response).to have_http_status(:ok)
+      data = json_response["data"]
+      expect(data["prompt_id"]).to eq("prompt_1")
+      expect(data["messages"]).to eq(messages)
+    end
+
+    it "returns 422 with the service error when prompt execution fails" do
+      allow_any_instance_of(Mcp::PromptService)
+        .to receive(:execute_prompt)
+        .and_return({ success: false, error: "upstream prompt error" })
+
+      post execute_path, params: { arguments: { text: "hello" } }.to_json, headers: json_headers
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+  end
 end

@@ -94,26 +94,20 @@ module Api
           end
         end
 
-        # Execute a prompt on the MCP server
+        # Execute a prompt on the MCP server synchronously (JSON-RPC prompts/get)
+        # via the server-side Mcp::PromptService. (Previously called
+        # WorkerJobService.execute_mcp_prompt, which does not exist — there is no
+        # async worker prompt job — so every connected-server dispatch 500'd.)
+        # PromptService returns { success:, messages:, description: } or
+        # { success: false, error: }.
         def execute_prompt(name, arguments)
           return { success: false, error: "Server not connected" } unless @mcp_server.connected?
 
-          # Queue prompt execution via worker service
-          begin
-            result = WorkerJobService.execute_mcp_prompt(
-              @mcp_server.id,
-              prompt_name: name,
-              arguments: arguments
-            )
-
-            {
-              success: true,
-              messages: result[:messages] || []
-            }
-          rescue WorkerJobService::WorkerServiceError => e
-            Rails.logger.error("Failed to execute MCP prompt: #{e.message}")
-            { success: false, error: e.message }
-          end
+          ::Mcp::PromptService.new(server: @mcp_server, account: current_user.account)
+                              .execute_prompt(name, arguments)
+        rescue StandardError => e
+          Rails.logger.error("Failed to execute MCP prompt: #{e.message}")
+          { success: false, error: e.message }
         end
       end
     end
