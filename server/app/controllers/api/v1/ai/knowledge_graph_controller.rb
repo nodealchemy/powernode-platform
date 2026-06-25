@@ -5,6 +5,14 @@ module Api
     module Ai
       class KnowledgeGraphController < ApplicationController
         before_action :authenticate_request
+        # Per-action authorization. before_action halts the filter chain when it
+        # renders (forbidden), so the action body never runs without the right
+        # permission. READ actions require ai.knowledge_graph.read; mutations
+        # require ai.knowledge_graph.manage.
+        before_action -> { require_permission("ai.knowledge_graph.read") },
+                      only: %i[nodes show_node edges neighbors shortest_path subgraph statistics multi_hop_reason hybrid_search]
+        before_action -> { require_permission("ai.knowledge_graph.manage") },
+                      only: %i[create_node update_node destroy_node create_edge destroy_edge extract]
 
         # ============================================================================
         # NODES

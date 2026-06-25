@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe Api::V1::Ai::KnowledgeGraphController, type: :controller do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.create', 'ai.agents.update', 'ai.agents.delete']) }
+  let(:user) { create(:user, account: account, permissions: ['ai.knowledge_graph.read', 'ai.knowledge_graph.manage']) }
   let(:user_no_perms) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
 
