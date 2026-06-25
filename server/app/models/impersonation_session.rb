@@ -12,8 +12,12 @@ class ImpersonationSession < ApplicationRecord
   validates :ip_address, length: { maximum: 45 }, allow_blank: true
   validates :user_agent, length: { maximum: 500 }, allow_blank: true
   validates :started_at, presence: true
-  validate :same_account_validation
-  validate :prevent_self_impersonation
+  # Creation-time authority gates — NOT perpetual invariants. Running them on
+  # every update wrongly blocked ending a session whose impersonator later lost
+  # authority. Ongoing authority is re-checked per request by the Authentication
+  # concern via #impersonator_currently_authorized?.
+  validate :same_account_validation, on: :create
+  validate :prevent_self_impersonation, on: :create
 
   scope :active, -> { where(ended_at: nil) }
   scope :ended, -> { where.not(ended_at: nil) }
@@ -46,6 +50,17 @@ class ImpersonationSession < ApplicationRecord
 
   def end_session!
     update!(ended_at: Time.current)
+  end
+
+  # Re-validate per request (Authentication concern) that the impersonator still
+  # holds the authority that was required to START the session: they must be
+  # active AND either a system admin (cross-account) or in the impersonated
+  # user's account. Mirrors #same_account_validation so a session cannot outlive
+  # the impersonator's own access/authority.
+  def impersonator_currently_authorized?
+    return false unless impersonator&.active?
+
+    impersonator.admin? || impersonator.account_id == impersonated_user.account_id
   end
 
   def self.cleanup_expired_sessions

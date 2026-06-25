@@ -156,6 +156,17 @@ module Authentication
     @current_user = @impersonation_session.impersonated_user
     @current_account = @current_user.account
     @impersonator = @impersonation_session.impersonator
+
+    # An impersonation session must not outlive the impersonator's own access.
+    # Re-validate per request that the impersonator is still active AND still
+    # authorized to impersonate this user; otherwise end the session. Without
+    # this, deactivating or de-authorizing the impersonator leaves the session
+    # fully usable until expiry (up to MAX_SESSION_DURATION).
+    unless @impersonation_session.impersonator_currently_authorized?
+      @impersonation_session.end_session!
+      raise StandardError, "Impersonator no longer authorized"
+    end
+
     @current_jwt_payload = payload
 
     # Add impersonation header for client identification
