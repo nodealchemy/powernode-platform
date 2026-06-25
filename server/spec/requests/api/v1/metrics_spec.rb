@@ -164,8 +164,14 @@ RSpec.describe 'Api::V1::Metrics', type: :request do
     end
 
     context 'without analytics.read permission' do
+      # NOTE: the default factory user gets the 'member' role, which DOES grant
+      # analytics.read (config/permissions.rb). Use an explicit no-permission
+      # user so this case actually exercises the denied path.
+      let(:no_perm_user) { create(:user, account: account, permissions: []) }
+
       it 'returns forbidden error' do
-        get '/api/v1/metrics/application', headers: headers, as: :json
+        get '/api/v1/metrics/application',
+            headers: auth_headers_for(no_perm_user), as: :json
 
         expect(response).to have_http_status(:forbidden)
       end
@@ -176,6 +182,31 @@ RSpec.describe 'Api::V1::Metrics', type: :request do
         get '/api/v1/metrics/application', as: :json
 
         expect_error_response('Access token required', 401)
+      end
+    end
+
+    # =========================================================================
+    # AUTHORIZATION GATE
+    #
+    # #application enforced `analytics.read` with an INLINE require_permission as
+    # the first body line. render_forbidden RENDERS but does NOT halt, so a
+    # denied user's body kept running (gathering metrics) and the trailing
+    # render double-rendered. The gate must short-circuit before the body runs.
+    # =========================================================================
+    describe 'analytics.read authorization gate' do
+      let(:no_perm_user) { create(:user, account: account, permissions: []) }
+      let(:analytics_user) { create(:user, account: account, permissions: [ 'analytics.read' ]) }
+
+      it 'forbids a user without analytics.read' do
+        get '/api/v1/metrics/application',
+            headers: auth_headers_for(no_perm_user), as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a user with analytics.read' do
+        get '/api/v1/metrics/application',
+            headers: auth_headers_for(analytics_user), as: :json
+        expect(response).not_to have_http_status(:forbidden)
       end
     end
   end

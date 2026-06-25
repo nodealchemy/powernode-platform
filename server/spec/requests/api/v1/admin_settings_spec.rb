@@ -476,4 +476,92 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
       end
     end
   end
+
+  # ===========================================================================
+  # SECURITY-CONFIG ACTION AUTHORIZATION
+  #
+  # The class-wide `admin.settings.read` gate authorizes READS. Each
+  # security-config action must additionally require `admin.settings.security`.
+  #
+  # The bug under fix: the security actions enforced this with an INLINE
+  # `require_permission("admin.settings.security")` as the first line of the
+  # action body. render_forbidden only RENDERS — it does NOT halt — so for a
+  # holder of only `admin.settings.read` the class-level before_action passes,
+  # the inline check renders a 403 but the body keeps running, the privileged
+  # mutation executes, and the trailing render then double-renders. The
+  # `jwt_secret_rotation` cache assertion proves the mutator ran despite the 403.
+  # ===========================================================================
+  describe 'security-config action authorization' do
+    before do
+      allow(Audit::LoggingService.instance).to receive(:log).and_return(nil)
+      # Clear the rotation cache so we can assert the mutator did NOT write it.
+      Rails.cache.delete('jwt_secret_rotation')
+    end
+
+    let(:read_only_headers) { auth_headers_for(user_with_settings_view) }
+    let(:security_headers) { auth_headers_for(user_with_security_permission) }
+
+    describe 'POST /api/v1/admin_settings/security/regenerate_jwt_secret' do
+      it 'forbids a read-only admin' do
+        post '/api/v1/admin_settings/security/regenerate_jwt_secret',
+             headers: read_only_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'does not regenerate the JWT secret for a read-only admin (no side-effect)' do
+        post '/api/v1/admin_settings/security/regenerate_jwt_secret',
+             headers: read_only_headers, as: :json
+        # Under the bug the mutator runs despite the 403 and writes this key.
+        expect(Rails.cache.read('jwt_secret_rotation')).to be_nil
+      end
+
+      it 'allows a holder of admin.settings.security' do
+        post '/api/v1/admin_settings/security/regenerate_jwt_secret',
+             headers: security_headers, as: :json
+        expect(response).not_to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'PUT /api/v1/admin_settings/security (update_security_config)' do
+      let(:params) { { security_config: { jwt: { access_token_ttl: 999 } } } }
+
+      it 'forbids a read-only admin' do
+        put '/api/v1/admin_settings/security', params: params,
+            headers: read_only_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a holder of admin.settings.security' do
+        put '/api/v1/admin_settings/security', params: params,
+            headers: security_headers, as: :json
+        expect(response).not_to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'DELETE /api/v1/admin_settings/security/blacklisted_tokens (clear_blacklisted_tokens)' do
+      it 'forbids a read-only admin' do
+        delete '/api/v1/admin_settings/security/blacklisted_tokens',
+               headers: read_only_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a holder of admin.settings.security' do
+        delete '/api/v1/admin_settings/security/blacklisted_tokens',
+               headers: security_headers, as: :json
+        expect(response).not_to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'GET /api/v1/admin_settings/security (security_config, read)' do
+      it 'forbids a read-only admin' do
+        get '/api/v1/admin_settings/security', headers: read_only_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a holder of admin.settings.security' do
+        get '/api/v1/admin_settings/security', headers: security_headers, as: :json
+        expect(response).not_to have_http_status(:forbidden)
+      end
+    end
+  end
 end

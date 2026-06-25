@@ -5,6 +5,11 @@ module Api
     class MetricsController < ApplicationController
       skip_before_action :authenticate_request, only: [ :health, :prometheus ]
 
+      # Use a before_action (halts on render) instead of an inline
+      # require_permission inside #application — inline does not halt the action
+      # body, so a denied user's metrics gathering would run before the 403.
+      before_action -> { require_permission("analytics.read") }, only: [ :application ]
+
       # Prometheus metrics endpoint - DISABLED
       def prometheus
         render_error("Prometheus metrics disabled in development", status: :service_unavailable)
@@ -31,8 +36,6 @@ module Api
 
       # Detailed application metrics (authenticated)
       def application
-        require_permission("analytics.read")
-
         metrics = {
           users: user_metrics,
           subscriptions: subscription_metrics,

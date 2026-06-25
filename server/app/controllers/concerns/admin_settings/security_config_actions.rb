@@ -4,10 +4,20 @@ module AdminSettings
   module SecurityConfigActions
     extend ActiveSupport::Concern
 
+    included do
+      # Each security-config action requires admin.settings.security. Use a
+      # before_action (halts on render) instead of inline require_permission —
+      # inline does not halt the action body, so a denied user's mutation
+      # (e.g. regenerate_jwt_secret) would run before the 403.
+      before_action -> { require_permission("admin.settings.security") }, only: %i[
+        security_config update_security_config test_security_config
+        regenerate_jwt_secret clear_blacklisted_tokens
+        blacklist_statistics security_audit_summary
+      ]
+    end
+
     # GET /api/v1/admin_settings/security
     def security_config
-      require_permission("admin.settings.security")
-
       render_success(security_service.get_config)
     rescue StandardError => e
       Rails.logger.error "Security config load failed: #{e.class.name}: #{e.message}"
@@ -16,8 +26,6 @@ module AdminSettings
 
     # PUT /api/v1/admin_settings/security
     def update_security_config
-      require_permission("admin.settings.security")
-
       result = security_service.update_config(security_config_params)
 
       if result[:success]
@@ -35,8 +43,6 @@ module AdminSettings
 
     # POST /api/v1/admin_settings/security/test
     def test_security_config
-      require_permission("admin.settings.security")
-
       result = security_service.test_config
 
       render_success(result)
@@ -44,8 +50,6 @@ module AdminSettings
 
     # POST /api/v1/admin_settings/security/regenerate_jwt_secret
     def regenerate_jwt_secret
-      require_permission("admin.settings.security")
-
       result = security_service.regenerate_jwt_secret(reason: params[:reason])
 
       if result[:success]
@@ -64,8 +68,6 @@ module AdminSettings
 
     # DELETE /api/v1/admin_settings/security/blacklisted_tokens
     def clear_blacklisted_tokens
-      require_permission("admin.settings.security")
-
       result = security_service.clear_blacklisted_tokens
 
       if result[:success]
@@ -80,15 +82,11 @@ module AdminSettings
 
     # GET /api/v1/admin_settings/security/blacklist_stats
     def blacklist_statistics
-      require_permission("admin.settings.security")
-
       render_success(security_service.blacklist_statistics)
     end
 
     # GET /api/v1/admin_settings/security/audit_summary
     def security_audit_summary
-      require_permission("admin.settings.security")
-
       days = params[:days]&.to_i || 30
       render_success(security_service.security_audit_summary(days: days))
     end
