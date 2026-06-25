@@ -42,3 +42,23 @@ describe('defaultNavigationConfig — AI category consolidation', () => {
     expect(allItemIds).not.toContain('developer-traces');
   });
 });
+
+describe('defaultNavigationConfig — DevOps nav permission alignment', () => {
+  const devopsItem = (id: string) =>
+    (section('devops')?.items ?? []).find((i) => i.id === id);
+
+  it('gates Swarm/Docker/Kubernetes on the dedicated devops.* families', () => {
+    expect(devopsItem('swarm')?.permissions).toContain('devops.swarm.read');
+    expect(devopsItem('docker')?.permissions).toContain('devops.docker.read');
+    expect(devopsItem('kubernetes')?.permissions).toContain('devops.kubernetes.read');
+  });
+
+  it('references no catalog-absent swarm.clusters.read/docker.hosts.read/kubernetes.clusters.read', () => {
+    const allPerms = sections.flatMap((s) =>
+      (s.permissions ?? []).concat((s.items ?? []).flatMap((i) => i.permissions ?? [])),
+    );
+    expect(allPerms).not.toContain('swarm.clusters.read');
+    expect(allPerms).not.toContain('docker.hosts.read');
+    expect(allPerms).not.toContain('kubernetes.clusters.read');
+  });
+});

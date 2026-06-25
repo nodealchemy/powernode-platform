@@ -302,7 +302,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/devops/swarm',
           icon: Server,
           description: 'Docker Swarm clusters, services, stacks, and operations',
-          permissions: ['swarm.clusters.read'],
+          permissions: ['devops.swarm.read'],
           order: 6
         },
         {
@@ -311,7 +311,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/devops/docker',
           icon: HardDrive,
           description: 'Docker hosts, containers, images, and monitoring',
-          permissions: ['docker.hosts.read'],
+          permissions: ['devops.docker.read'],
           order: 7
         },
         {
@@ -320,7 +320,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/devops/kubernetes',
           icon: Boxes,
           description: 'K3s and kubeadm clusters, nodes, and workloads',
-          permissions: ['kubernetes.clusters.read'],
+          permissions: ['devops.kubernetes.read'],
           order: 8
         },
         {
@@ -333,7 +333,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 9
         }
       ],
-      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'git.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'swarm.clusters.read', 'docker.hosts.read', 'kubernetes.clusters.read'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'git.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'devops.swarm.read', 'devops.docker.read', 'devops.kubernetes.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 11
