@@ -46,6 +46,13 @@ module Authentication
         return render_unauthorized("No account associated") unless @current_account
         return render_unauthorized("Account suspended") unless @current_account.active?
         @current_user.record_login! if should_record_login?
+      elsif @current_worker
+        # Worker tokens are long-lived (30d). Re-validate the worker and its
+        # account are still active on every request so a revoked/suspended worker
+        # or a suspended account cannot keep operating until token expiry.
+        return render_unauthorized("Worker inactive") unless @current_worker.active?
+        return render_unauthorized("No account associated") unless @current_account
+        return render_unauthorized("Account suspended") unless @current_account.active?
       end
 
       return
@@ -95,8 +102,10 @@ module Authentication
         end
       when "worker"
         worker = Worker.find(payload[:sub])
-        @current_worker = worker if worker&.active?
-        @current_account = @current_worker&.account
+        if worker&.active? && worker.account&.active?
+          @current_worker = worker
+          @current_account = worker.account
+        end
       when "impersonation"
         handle_impersonation_jwt_token(payload)
       end
