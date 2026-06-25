@@ -2,6 +2,7 @@
 
 class Api::V1::AccountsController < ApplicationController
   before_action :set_account, only: [ :show, :update ]
+  before_action -> { require_permission("admin.settings.update") }, only: [ :update ]
 
   # GET /api/v1/accounts/:id
   def show

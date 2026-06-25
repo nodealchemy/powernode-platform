@@ -6,6 +6,8 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
   let(:account) { create(:account) }
   let(:admin_user) { create(:user, :admin, account: account) }
   let(:user_with_settings_view) { create(:user, account: account, permissions: [ 'admin.settings.read' ]) }
+  let(:user_with_settings_update) { create(:user, account: account, permissions: [ 'admin.settings.read', 'admin.settings.update' ]) }
+  let(:user_with_account_suspend) { create(:user, account: account, permissions: [ 'admin.settings.read', 'admin.account.suspend' ]) }
   let(:user_with_security_permission) { create(:user, account: account, permissions: [ 'admin.settings.read', 'admin.settings.security' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
@@ -40,18 +42,18 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
   end
 
   describe 'PUT /api/v1/admin_settings' do
-    let(:headers) { auth_headers_for(user_with_settings_view) }
-
-    context 'with admin.settings.read permission' do
-      let(:valid_params) do
-        {
-          admin_settings: {
-            maintenance_mode: false,
-            registration_enabled: true,
-            session_timeout_minutes: 60
-          }
+    let(:valid_params) do
+      {
+        admin_settings: {
+          maintenance_mode: false,
+          registration_enabled: true,
+          session_timeout_minutes: 60
         }
-      end
+      }
+    end
+
+    context 'with admin.settings.update permission' do
+      let(:headers) { auth_headers_for(user_with_settings_update) }
 
       before do
         allow(Audit::LoggingService.instance).to receive(:log).and_return(nil)
@@ -64,6 +66,19 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
             as: :json
 
         expect_success_response
+      end
+    end
+
+    context 'with only admin.settings.read permission' do
+      let(:headers) { auth_headers_for(user_with_settings_view) }
+
+      it 'returns forbidden error (read tier must not write)' do
+        put '/api/v1/admin_settings',
+            params: valid_params,
+            headers: headers,
+            as: :json
+
+        expect(response).to have_http_status(:forbidden)
       end
     end
   end
@@ -134,7 +149,7 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
   end
 
   describe 'POST /api/v1/admin_settings/suspend_account' do
-    let(:headers) { auth_headers_for(user_with_settings_view) }
+    let(:headers) { auth_headers_for(user_with_account_suspend) }
     let(:target_account) { create(:account) }
 
     it 'suspends an account' do
@@ -148,7 +163,7 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
   end
 
   describe 'POST /api/v1/admin_settings/activate_account' do
-    let(:headers) { auth_headers_for(user_with_settings_view) }
+    let(:headers) { auth_headers_for(user_with_account_suspend) }
     let(:target_account) { create(:account, status: 'suspended') }
 
     it 'activates a suspended account' do
@@ -267,7 +282,7 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
   end
 
   describe 'PUT /api/v1/admin_settings/extensions/:slug/toggle' do
-    let(:headers) { auth_headers_for(user_with_settings_view) }
+    let(:headers) { auth_headers_for(user_with_settings_update) }
     # Use 'business' since its manifest is present in this checkout. The toggle
     # endpoint requires the manifest to exist on disk.
     let(:slug) { 'business' }
@@ -324,6 +339,140 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
 
         expect(response).to have_http_status(:not_found)
         expect(Shared::ExtensionStateStore).not_to have_received(:set_disabled!)
+      end
+    end
+  end
+
+  # ===========================================================================
+  # WRITE-ACTION AUTHORIZATION
+  #
+  # The class-wide `admin.settings.read` gate authorizes READS. Each WRITE
+  # action must additionally require a write-tier permission. Without these
+  # guards, a read-only admin can suspend accounts, rewrite Vault credentials,
+  # toggle extensions, and mutate system settings — the vulnerability under fix.
+  #
+  # For each write action: a holder of ONLY 'admin.settings.read' must get 403;
+  # a holder of the REQUIRED write permission must NOT get 403 (the request may
+  # still 200/422/4xx for unrelated reasons, but it must pass the authz gate).
+  # ===========================================================================
+  describe 'write-action authorization' do
+    before do
+      allow(Audit::LoggingService.instance).to receive(:log).and_return(nil)
+    end
+
+    let(:read_only_headers) { auth_headers_for(user_with_settings_view) }
+
+    describe 'PUT /api/v1/admin_settings (update) requires admin.settings.update' do
+      let(:params) { { admin_settings: { maintenance_mode: false } } }
+
+      it 'forbids a read-only admin' do
+        put '/api/v1/admin_settings', params: params, headers: read_only_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a holder of admin.settings.update' do
+        put '/api/v1/admin_settings', params: params,
+            headers: auth_headers_for(user_with_settings_update), as: :json
+        expect(response).not_to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'PUT /api/v1/admin_settings/extensions/:slug/toggle requires admin.settings.update' do
+      let(:slug) { 'business' }
+
+      before do
+        allow(Shared::ExtensionStateStore).to receive(:set_disabled!).and_return('disabled' => [])
+      end
+
+      it 'forbids a read-only admin' do
+        put "/api/v1/admin_settings/extensions/#{slug}/toggle",
+            params: { enabled: false }.to_json,
+            headers: read_only_headers.merge('Content-Type' => 'application/json')
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a holder of admin.settings.update' do
+        put "/api/v1/admin_settings/extensions/#{slug}/toggle",
+            params: { enabled: false }.to_json,
+            headers: auth_headers_for(user_with_settings_update).merge('Content-Type' => 'application/json')
+        expect(response).not_to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'PUT /api/v1/admin_settings/development (update_development) requires admin.settings.update' do
+      let(:params) { { slug: 'business', enabled: false } }
+
+      it 'forbids a read-only admin' do
+        put '/api/v1/admin_settings/development', params: params, headers: read_only_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a holder of admin.settings.update' do
+        put '/api/v1/admin_settings/development', params: params,
+            headers: auth_headers_for(user_with_settings_update), as: :json
+        expect(response).not_to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'POST /api/v1/admin_settings/suspend_account requires admin.account.suspend' do
+      let(:target_account) { create(:account) }
+      let(:params) { { account_id: target_account.id, reason: 'Violation of terms' } }
+
+      it 'forbids a read-only admin' do
+        post '/api/v1/admin_settings/suspend_account', params: params, headers: read_only_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a holder of admin.account.suspend' do
+        post '/api/v1/admin_settings/suspend_account', params: params,
+             headers: auth_headers_for(user_with_account_suspend), as: :json
+        expect(response).not_to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'POST /api/v1/admin_settings/activate_account requires admin.account.suspend' do
+      let(:target_account) { create(:account, status: 'suspended') }
+      let(:params) { { account_id: target_account.id, reason: 'Issue resolved' } }
+
+      it 'forbids a read-only admin' do
+        post '/api/v1/admin_settings/activate_account', params: params, headers: read_only_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a holder of admin.account.suspend' do
+        post '/api/v1/admin_settings/activate_account', params: params,
+             headers: auth_headers_for(user_with_account_suspend), as: :json
+        expect(response).not_to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'PUT /api/v1/admin_settings/infrastructure (update_infrastructure_config) requires admin.settings.security' do
+      let(:params) { { redis: { host: '127.0.0.1', port: 6379 } } }
+
+      it 'forbids a read-only admin' do
+        put '/api/v1/admin_settings/infrastructure', params: params, headers: read_only_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a holder of admin.settings.security' do
+        put '/api/v1/admin_settings/infrastructure', params: params,
+            headers: auth_headers_for(user_with_security_permission), as: :json
+        expect(response).not_to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'PUT /api/v1/admin_settings/vault (update_vault_config) requires admin.settings.security' do
+      let(:params) { { vault: { vault_addr: 'http://vault.example.internal:8200' } } }
+
+      it 'forbids a read-only admin' do
+        put '/api/v1/admin_settings/vault', params: params, headers: read_only_headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'allows a holder of admin.settings.security' do
+        put '/api/v1/admin_settings/vault', params: params,
+            headers: auth_headers_for(user_with_security_permission), as: :json
+        expect(response).not_to have_http_status(:forbidden)
       end
     end
   end

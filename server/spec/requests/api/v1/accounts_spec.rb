@@ -6,6 +6,8 @@ RSpec.describe 'Api::V1::Accounts', type: :request do
   let(:account) { create(:account) }
   let(:other_account) { create(:account) }
   let(:user) { create(:user, account: account) }
+  # Updating an account requires the admin.settings.update write permission.
+  let(:account_updater) { create(:user, account: account, permissions: [ 'admin.settings.update' ]) }
   let(:plan) { create(:plan) }
 
   before(:each) do
@@ -131,7 +133,7 @@ RSpec.describe 'Api::V1::Accounts', type: :request do
   end
 
   describe 'PATCH /api/v1/accounts/:id' do
-    let(:headers) { auth_headers_for(user) }
+    let(:headers) { auth_headers_for(account_updater) }
 
     context 'when updating own account with valid data' do
       let(:update_params) do
@@ -230,7 +232,7 @@ RSpec.describe 'Api::V1::Accounts', type: :request do
   end
 
   describe 'PUT /api/v1/accounts/:id' do
-    let(:headers) { auth_headers_for(user) }
+    let(:headers) { auth_headers_for(account_updater) }
 
     it 'updates account via PUT method' do
       put "/api/v1/accounts/#{account.id}",
@@ -242,6 +244,46 @@ RSpec.describe 'Api::V1::Accounts', type: :request do
       response_data = json_response
 
       expect(response_data['data']['name']).to eq('PUT Update Test')
+    end
+  end
+
+  # ===========================================================================
+  # PATCH /api/v1/accounts/:id (update) AUTHORIZATION
+  #
+  # Updating the current account (name/settings/billing_email/tax_id) is a
+  # privileged write. Without a permission gate, ANY account member could
+  # mutate billing/tax data. The update action requires admin.settings.update
+  # (held by the 'owner' role, not by 'member').
+  # ===========================================================================
+  describe 'PATCH /api/v1/accounts/:id (update) authorization' do
+    let(:plain_member) { create(:user, account: account, permissions: []) }
+    let(:update_params) { { account: { name: 'Authz Test Name' } } }
+
+    context 'when the user lacks admin.settings.update' do
+      it 'returns forbidden and does not mutate the account' do
+        original_name = account.name
+
+        patch "/api/v1/accounts/#{account.id}",
+              params: update_params,
+              headers: auth_headers_for(plain_member),
+              as: :json
+
+        expect(response).to have_http_status(:forbidden)
+        expect(account.reload.name).to eq(original_name)
+      end
+    end
+
+    context 'when the user holds admin.settings.update' do
+      it 'is not forbidden and updates the account' do
+        patch "/api/v1/accounts/#{account.id}",
+              params: update_params,
+              headers: auth_headers_for(account_updater),
+              as: :json
+
+        expect(response).not_to have_http_status(:forbidden)
+        expect_success_response
+        expect(account.reload.name).to eq('Authz Test Name')
+      end
     end
   end
 
