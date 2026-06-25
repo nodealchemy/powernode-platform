@@ -11,6 +11,10 @@ module Api
         end
 
         before_action :authenticate_request
+        before_action -> { require_any_permission("ai.teams.manage", "ai.teams.execute") },
+                      only: %i[list_executions show_execution execution_details list_tasks show_task list_task_reviews list_messages]
+        before_action -> { require_permission("ai.teams.execute") },
+                      only: %i[start_execution pause_execution resume_execution cancel_execution complete_execution create_task assign_task start_task complete_task fail_task delegate_task send_message reply_to_message]
         before_action :set_team_service
         before_action :set_team, only: %i[list_executions]
         before_action :set_execution, only: %i[
