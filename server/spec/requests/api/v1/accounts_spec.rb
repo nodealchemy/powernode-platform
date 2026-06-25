@@ -83,7 +83,7 @@ RSpec.describe 'Api::V1::Accounts', type: :request do
       end
     end
 
-    context 'when accessing another account without permission' do
+    context 'when accessing another account without the platform admin.account.read permission' do
       it 'returns forbidden error' do
         get "/api/v1/accounts/#{other_account.id}", headers: headers, as: :json
 
@@ -91,9 +91,21 @@ RSpec.describe 'Api::V1::Accounts', type: :request do
       end
     end
 
-    context 'when accessing another account with accounts.read permission' do
+    context 'when accessing another account with only the tenant accounts.read permission' do
+      # accounts.read is a tenant-level resource perm every account owner holds; it
+      # must NOT grant cross-tenant reads (that requires platform admin.account.read).
+      let(:tenant_user) { create(:user, account: account, permissions: [ 'accounts.read' ]) }
+
+      it 'is denied — cross-tenant IDOR is closed' do
+        get "/api/v1/accounts/#{other_account.id}", headers: auth_headers_for(tenant_user), as: :json
+
+        expect_error_response('Access denied', 403)
+      end
+    end
+
+    context 'when accessing another account with admin.account.read permission' do
       let(:user_with_permission) do
-        create(:user, account: account, permissions: [ 'accounts.read' ])
+        create(:user, account: account, permissions: [ 'admin.account.read' ])
       end
       let(:headers) { auth_headers_for(user_with_permission) }
 
@@ -112,7 +124,7 @@ RSpec.describe 'Api::V1::Accounts', type: :request do
 
     context 'when account does not exist' do
       let(:user_with_permission) do
-        create(:user, account: account, permissions: [ 'accounts.read' ])
+        create(:user, account: account, permissions: [ 'admin.account.read' ])
       end
       let(:headers) { auth_headers_for(user_with_permission) }
 

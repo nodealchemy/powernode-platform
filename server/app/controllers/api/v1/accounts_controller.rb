@@ -92,8 +92,12 @@ class Api::V1::AccountsController < ApplicationController
   def set_account
     @account = current_account
 
-    # Workers operate cross-account when fetching account data for report generation.
-    if !worker_authenticated? && params[:id] != current_account.id && !has_permission?("accounts.read")
+    # Cross-account reads require the PLATFORM-admin "view all accounts" permission.
+    # `accounts.read` is a tenant-level resource permission that every account owner
+    # holds, so gating on it let any owner read any other tenant's account by id
+    # (cross-tenant IDOR). Workers stay cross-account for report generation;
+    # delegated access goes through #switch (which makes the target current_account).
+    if !worker_authenticated? && params[:id] != current_account.id && !has_permission?("admin.account.read")
       return render_error("Access denied", status: :forbidden)
     end
 
