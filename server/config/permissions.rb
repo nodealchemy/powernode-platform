@@ -633,7 +633,8 @@ module Permissions
     resource :security, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
     # FE-enforced AI surfaces lacking a backend gate (audit/governance/teams views).
     resource :audits, actions: %i[view manage], grant: { owner: :all, admin: :all, manager: %i[view], ai_specialist: :all }
-    resource :governance, actions: %i[read], grant: { owner: :all, admin: :all, manager: :all, member: :all, ai_specialist: :all }
+    resource :governance, actions: %i[read manage],
+             grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all, member: %i[read] }
     resource :teams, actions: %i[read], grant: { owner: :all, admin: :all, manager: :all, member: :all, ai_specialist: :all }
   end
 

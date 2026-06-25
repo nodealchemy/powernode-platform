@@ -4,7 +4,14 @@ module Api
   module V1
     module Ai
       class GovernanceReportsController < ApplicationController
-        before_action :validate_permissions
+        # Authorization on the dedicated ai.governance.* family: reads gate on
+        # ai.governance.read, resolve (write) on ai.governance.manage. Decoupled
+        # from the coarse ai.manage gate (mirrors GovernanceController).
+        READ_ACTIONS  = %i[index show summary collusion_indicators collusion_summary].freeze
+        WRITE_ACTIONS = %i[resolve].freeze
+
+        before_action -> { require_permission("ai.governance.read") },   only: READ_ACTIONS
+        before_action -> { require_permission("ai.governance.manage") }, only: WRITE_ACTIONS
 
         # GET /api/v1/ai/governance_reports
         def index
@@ -98,13 +105,6 @@ module Api
         end
 
         private
-
-        def validate_permissions
-          # require_permission is the canonical helper (Authentication concern);
-          # authorize_permission! does not exist and raised NoMethodError (500)
-          # on every governance_reports endpoint.
-          require_permission("ai.manage")
-        end
 
         def serialize_report(report, detailed: false)
           data = {

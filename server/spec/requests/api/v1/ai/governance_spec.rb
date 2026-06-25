@@ -4,10 +4,11 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Governance', type: :request do
   let(:account) { create(:account) }
-  # Holds both the governance READ gate and the coarse manage gate so the
-  # existing read+write coverage exercises the happy path. Authorization is
-  # asserted separately in the "authorization" describe block below.
-  let(:user) { create(:user, account: account, permissions: %w[ai.governance.read ai.manage]) }
+  # Holds the dedicated governance READ + MANAGE gates so the existing read+write
+  # coverage exercises the happy path. Authorization (incl. that the coarse
+  # ai.manage no longer grants governance writes) is asserted separately in the
+  # "authorization" describe block below.
+  let(:user) { create(:user, account: account, permissions: %w[ai.governance.read ai.governance.manage]) }
   let(:headers) { auth_headers_for(user) }
 
   describe 'GET /api/v1/ai/governance/policies' do
@@ -502,8 +503,8 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
       end
     end
 
-    context 'with the manage permission' do
-      let(:manager) { create(:user, account: account, permissions: %w[ai.manage]) }
+    context 'with the dedicated governance manage permission' do
+      let(:manager) { create(:user, account: account, permissions: %w[ai.governance.read ai.governance.manage]) }
 
       it 'permits creating a policy (reaches the service, not 403)' do
         allow_any_instance_of(Ai::GovernanceService).to receive(:create_policy)
@@ -514,6 +515,27 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
              headers: auth_headers_for(manager), as: :json
         expect(response).not_to have_http_status(:forbidden)
         expect(response).to have_http_status(:created)
+      end
+    end
+
+    # Governance writes are DECOUPLED from the coarse manage-all-AI gate: holding
+    # only ai.manage (e.g. an AI operator without governance authority) must no
+    # longer be able to create policies, decide approvals, or resolve violations.
+    context 'with only the coarse ai.manage permission (decoupled from governance writes)' do
+      let(:coarse) { create(:user, account: account, permissions: %w[ai.manage]) }
+
+      it 'forbids creating a policy' do
+        post '/api/v1/ai/governance/policies',
+             params: { name: 'X', policy_type: 'retention', enforcement_level: 'strict' },
+             headers: auth_headers_for(coarse), as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids deciding an approval request' do
+        approval_request = create(:ai_approval_request, account: account, status: 'pending')
+        post "/api/v1/ai/governance/approval_requests/#{approval_request.id}/decide",
+             params: { decision: 'approve' }, headers: auth_headers_for(coarse), as: :json
+        expect(response).to have_http_status(:forbidden)
       end
     end
   end
