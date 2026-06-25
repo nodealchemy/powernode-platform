@@ -4,7 +4,10 @@ require 'rails_helper'
 
 RSpec.describe Api::V1::Ai::RagController, type: :controller do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.create', 'ai.agents.update', 'ai.agents.delete']) }
+  # RAG endpoints are gated by the kb.* permission family (reads -> kb.read,
+  # creates -> kb.create, updates -> kb.update, deletes -> kb.delete). Grant the
+  # full set so each per-action example exercises its own behavior, not the guard.
+  let(:user) { create(:user, account: account, permissions: ['kb.read', 'kb.create', 'kb.update', 'kb.delete']) }
   let(:no_perms_user) { create(:user, account: account, permissions: []) }
 
   let!(:knowledge_base) { create(:ai_knowledge_base, account: account) }
@@ -14,6 +17,8 @@ RSpec.describe Api::V1::Ai::RagController, type: :controller do
     sign_in_as_user(user)
     allow(Ai::RagService).to receive(:new).and_return(rag_service)
     allow(rag_service).to receive(:get_knowledge_base).and_return(knowledge_base)
+    # show/update/delete_knowledge_base resolve via the global-inclusive lookup.
+    allow(rag_service).to receive(:get_visible_knowledge_base).and_return(knowledge_base)
   end
 
   # ============================================================================

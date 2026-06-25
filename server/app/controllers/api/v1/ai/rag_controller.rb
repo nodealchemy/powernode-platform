@@ -7,6 +7,13 @@ module Api
         include GloballyScopedContent
 
         before_action :authenticate_request
+        # Authorization (kb.* family). Placed BEFORE set_rag_service so the guard
+        # halts before any RagService / KB lookup — a denied user cannot probe KB
+        # existence. before_action halts the chain when require_permission renders.
+        before_action -> { require_permission("kb.read") },   only: %i[content_model index show_knowledge_base list_documents show_document query query_history list_connectors analytics update_from_source_preview]
+        before_action -> { require_permission("kb.create") }, only: %i[create_knowledge_base create_document create_connector perform_clone]
+        before_action -> { require_permission("kb.update") }, only: %i[update_knowledge_base process_document embed_chunks sync_connector update_from_source]
+        before_action -> { require_permission("kb.delete") }, only: %i[delete_knowledge_base delete_document]
         before_action :set_rag_service
         # Read-only actions resolve GLOBAL (platform) KBs too, so the baseline
         # library is browsable; mutations on a global KB are then guarded.

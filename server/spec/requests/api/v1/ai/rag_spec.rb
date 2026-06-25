@@ -31,7 +31,9 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
       last_queried_at: Time.current,
       created_at: Time.current,
       metadata_schema: {},
-      settings: {}
+      settings: {},
+      # serialize_knowledge_base merges scope_attributes (GloballyScopable).
+      scope_attributes: {}
     }
   end
 
@@ -130,7 +132,8 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
 
   describe 'GET /api/v1/ai/rag/knowledge_bases/:id' do
     before do
-      allow(rag_service).to receive(:get_knowledge_base).with('kb123').and_return(knowledge_base)
+      # show_knowledge_base resolves via the global-inclusive visible lookup.
+      allow(rag_service).to receive(:get_visible_knowledge_base).with('kb123').and_return(knowledge_base)
     end
 
     context 'with authentication' do
@@ -186,7 +189,9 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
     let(:update_params) { { name: 'Updated KB' } }
 
     before do
-      allow(rag_service).to receive(:get_knowledge_base).with('kb123').and_return(knowledge_base)
+      # update_knowledge_base resolves via the visible lookup and guards globals.
+      allow(rag_service).to receive(:get_visible_knowledge_base).with('kb123').and_return(knowledge_base)
+      allow(knowledge_base).to receive(:global?).and_return(false)
       allow(rag_service).to receive(:update_knowledge_base).and_return(knowledge_base)
     end
 
@@ -202,7 +207,9 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
 
   describe 'DELETE /api/v1/ai/rag/knowledge_bases/:id' do
     before do
-      allow(rag_service).to receive(:get_knowledge_base).with('kb123').and_return(knowledge_base)
+      # delete_knowledge_base resolves via the visible lookup and guards globals.
+      allow(rag_service).to receive(:get_visible_knowledge_base).with('kb123').and_return(knowledge_base)
+      allow(knowledge_base).to receive(:global?).and_return(false)
       allow(rag_service).to receive(:delete_knowledge_base).and_return(true)
     end
 
@@ -477,6 +484,131 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
 
         expect_success_response
         expect(rag_service).to have_received(:get_analytics).with('kb123', period_days: 7)
+      end
+    end
+  end
+
+  # ============================================================================
+  # AUTHORIZATION (kb.* permission family)
+  #
+  # Every RAG action runs behind authentication + a require_permission guard:
+  #   reads  -> kb.read    creates -> kb.create
+  #   updates-> kb.update  deletes -> kb.delete
+  # The guard is a before_action that halts BEFORE the RagService/KB lookup, so a
+  # denied user cannot even probe KB existence. These specs assert the guard;
+  # the per-action happy-path specs above run as a `member` (kb.read) or owner.
+  # ============================================================================
+  describe 'authorization' do
+    # Minimal valid bodies — the authz gate runs before the request body is read,
+    # so these only need to satisfy routing.
+    let(:kb_body)        { { name: 'KB' } }
+    let(:document_body)  { { name: 'D', source_type: 'text', content: 'x' } }
+    let(:connector_body) { { name: 'C', connector_type: 'github' } }
+
+    context 'with no permissions' do
+      let(:user) { create(:user, account: account, permissions: []) }
+
+      it 'forbids a read (GET index)' do
+        get '/api/v1/ai/rag/knowledge_bases', headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids a create (POST create_knowledge_base)' do
+        post '/api/v1/ai/rag/knowledge_bases', params: kb_body, headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids an update (PATCH update_knowledge_base)' do
+        patch '/api/v1/ai/rag/knowledge_bases/kb123', params: kb_body, headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids a delete (DELETE delete_knowledge_base)' do
+        delete '/api/v1/ai/rag/knowledge_bases/kb123', headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      # GloballyScopedContent concern actions are also gated (kb.create/update/read).
+      it 'forbids perform_clone (POST :id/clone)' do
+        post '/api/v1/ai/rag/knowledge_bases/kb123/clone', params: kb_body, headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids update_from_source (POST :id/update_from_source)' do
+        post '/api/v1/ai/rag/knowledge_bases/kb123/update_from_source', headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids update_from_source_preview (GET :id/update_from_source/preview)' do
+        get '/api/v1/ai/rag/knowledge_bases/kb123/update_from_source/preview', headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'does not touch the RagService when forbidden (guard halts first)' do
+        expect(Ai::RagService).not_to receive(:new)
+        post '/api/v1/ai/rag/knowledge_bases', params: kb_body, headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context 'as a read-only holder (kb.read) — read cannot write' do
+      let(:user) { create(:user, account: account, permissions: ['kb.read']) }
+
+      it 'allows a read (GET index is NOT forbidden)' do
+        allow(rag_service).to receive(:list_knowledge_bases).and_return([])
+        get '/api/v1/ai/rag/knowledge_bases', headers: headers, as: :json
+        expect(response).not_to have_http_status(:forbidden)
+        expect(response).to have_http_status(:ok)
+      end
+
+      it 'forbids create_knowledge_base' do
+        post '/api/v1/ai/rag/knowledge_bases', params: kb_body, headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids delete_knowledge_base' do
+        delete '/api/v1/ai/rag/knowledge_bases/kb123', headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids create_document' do
+        post '/api/v1/ai/rag/knowledge_bases/kb123/documents', params: document_body, headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'forbids create_connector' do
+        post '/api/v1/ai/rag/knowledge_bases/kb123/connectors', params: connector_body, headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context 'as a create holder (kb.create)' do
+      let(:user) { create(:user, account: account, permissions: ['kb.create']) }
+
+      it 'allows create_knowledge_base (NOT forbidden)' do
+        allow(knowledge_base).to receive(:scope_attributes).and_return({})
+        allow(rag_service).to receive(:create_knowledge_base).and_return(knowledge_base)
+        post '/api/v1/ai/rag/knowledge_bases', params: kb_body, headers: headers, as: :json
+        expect(response).not_to have_http_status(:forbidden)
+        expect(response).to have_http_status(:created)
+      end
+
+      it 'still forbids a read it is not granted (GET index)' do
+        get '/api/v1/ai/rag/knowledge_bases', headers: headers, as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context 'as a delete holder (kb.delete)' do
+      let(:user) { create(:user, account: account, permissions: ['kb.delete']) }
+
+      it 'allows delete_knowledge_base (NOT forbidden)' do
+        allow(rag_service).to receive(:get_visible_knowledge_base).with('kb123').and_return(knowledge_base)
+        allow(knowledge_base).to receive(:global?).and_return(false)
+        allow(rag_service).to receive(:delete_knowledge_base).and_return(true)
+        delete '/api/v1/ai/rag/knowledge_bases/kb123', headers: headers, as: :json
+        expect(response).not_to have_http_status(:forbidden)
+        expect(response).to have_http_status(:ok)
       end
     end
   end
