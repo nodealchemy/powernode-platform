@@ -3,9 +3,37 @@
 module Authentication
   extend ActiveSupport::Concern
 
+  # Raised by require_permission/require_any_permission/require_all_permissions
+  # when the current entity lacks the permission.
+  #
+  # Inherits from Exception (NOT StandardError) DELIBERATELY. Many action bodies
+  # wrap logic in `rescue StandardError` / `rescue => e`, and ApiResponse
+  # registers a global `rescue_from StandardError` that renders a generic 500.
+  # If this were a StandardError, an inline require_permission call inside such a
+  # body — or that global handler — would swallow a clean 403 into a 500. Living
+  # outside the StandardError hierarchy, it bypasses every `rescue StandardError`
+  # and is handled ONLY by the dedicated rescue_from below, so the permission
+  # check halts safely whether used as a before_action or (accidentally) inline.
+  class PermissionDenied < Exception # rubocop:disable Lint/InheritException
+    attr_reader :permission
+
+    def initialize(message = "Permission denied", permission: nil)
+      @permission = permission
+      super(message)
+    end
+  end
+
   included do
     before_action :authenticate_request
     attr_reader :current_user, :current_account, :current_worker, :current_jwt_payload
+
+    # Self-halting permission checks raise PermissionDenied; render the canonical
+    # 403 shape here. Registered in Authentication (included before ApiResponse),
+    # but since PermissionDenied is not a StandardError the ordering vs the global
+    # rescue_from StandardError is irrelevant — only this handler matches it.
+    rescue_from PermissionDenied do |exception|
+      render_forbidden(exception.message) unless performed?
+    end
   end
 
   private
@@ -186,22 +214,24 @@ module Authentication
   end
 
   # Permission checking methods (NEVER use roles for access control)
+  # Self-halting: raises PermissionDenied (handled by the rescue_from above) so
+  # the check halts whether used as a before_action OR inline in an action body.
   def require_permission(permission_name)
-    unless has_permission?(permission_name)
-      render_forbidden("Permission denied: #{permission_name}")
-    end
+    return if has_permission?(permission_name)
+
+    raise PermissionDenied.new("Permission denied: #{permission_name}", permission: permission_name)
   end
 
   def require_any_permission(*permission_names)
-    unless permission_names.any? { |p| has_permission?(p) }
-      render_forbidden("Permission denied: requires one of #{permission_names.join(', ')}")
-    end
+    return if permission_names.any? { |p| has_permission?(p) }
+
+    raise PermissionDenied, "Permission denied: requires one of #{permission_names.join(', ')}"
   end
 
   def require_all_permissions(*permission_names)
-    unless permission_names.all? { |p| has_permission?(p) }
-      render_forbidden("Permission denied: requires all of #{permission_names.join(', ')}")
-    end
+    return if permission_names.all? { |p| has_permission?(p) }
+
+    raise PermissionDenied, "Permission denied: requires all of #{permission_names.join(', ')}"
   end
 
   # Deprecated: Use permission checks instead

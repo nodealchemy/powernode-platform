@@ -131,6 +131,21 @@ else
     failed_checks=$((failed_checks + 1))
 fi
 
+# Inline-permission-check guard: require_permission* now raise + self-halt, but
+# an inline check in an action body still runs after preceding side effects. The
+# correct usage is a before_action gate. check-inline-require-permission.sh flags
+# a require_permission* statement in a PUBLIC action body (excludes before_action
+# lambdas, private helpers, and the `return require_permission` dispatch pattern).
+total_checks=$((total_checks + 1))
+echo -n "Checking: No inline require_permission in action bodies... "
+if bash scripts/check-inline-require-permission.sh >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Inline require_permission in an action body; run: bash scripts/check-inline-require-permission.sh)"
+    failed_checks=$((failed_checks + 1))
+fi
+
 # Model Structure Compliance
 # Post-0.4.0 convention: native `id: :uuid` PKs with the `uuidv7()` DB default
 # (the old `string :id, limit: 36` string-PK form was eliminated in the squash —
