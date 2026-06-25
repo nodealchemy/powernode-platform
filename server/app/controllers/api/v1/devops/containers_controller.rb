@@ -7,6 +7,9 @@ module Api
         include AuditLogging
         include ::Ai::ResourceFiltering
 
+        before_action -> { require_permission("devops.containers.read") }, only: %i[index show logs artifacts active stats]
+        before_action -> { require_permission("devops.containers.execute") }, only: %i[execute]
+        before_action -> { require_permission("devops.containers.cancel") }, only: %i[cancel]
         before_action :set_instance, only: %i[show cancel logs artifacts]
 
         # GET /api/v1/mcp/containers

@@ -7,6 +7,8 @@ module Api
         include AuditLogging
         include ::Ai::ResourceFiltering
 
+        before_action -> { require_permission("devops.container_templates.read") }, only: %i[index show executions stats categories featured builds]
+        before_action -> { require_permission("devops.container_templates.write") }, only: %i[create update destroy publish unpublish trigger_build create_image_repo]
         before_action :set_template, only: %i[show update destroy publish unpublish executions stats trigger_build builds]
 
         # GET /api/v1/mcp/templates
