@@ -6,11 +6,11 @@ RSpec.describe "Api::V1::Devops::Swarm::Secrets", type: :request do
   let(:account) { create(:account) }
   let(:cluster) { create(:devops_swarm_cluster, account: account) }
 
-  # Swarm secrets are sensitive credential material. Reads gate on
-  # devops.containers.read; writes (create/destroy) on
-  # devops.container_templates.write (no dedicated devops.swarm.* perm exists).
-  let(:reader)  { create(:user, account: account, permissions: %w[devops.containers.read]) }
-  let(:manager) { create(:user, account: account, permissions: %w[devops.containers.read devops.container_templates.write]) }
+  # Swarm secrets are sensitive credential material, gated on the dedicated
+  # swarm family: reads -> devops.swarm.read; writes (create/destroy) ->
+  # devops.swarm.manage.
+  let(:reader)  { create(:user, account: account, permissions: %w[devops.swarm.read]) }
+  let(:manager) { create(:user, account: account, permissions: %w[devops.swarm.read devops.swarm.manage]) }
   let(:unprivileged) { create(:user, account: account, permissions: []) }
 
   let(:manager_stub) { instance_double(::Devops::Docker::SecretManager) }

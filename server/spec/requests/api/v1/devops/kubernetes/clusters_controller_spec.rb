@@ -4,8 +4,13 @@ require "rails_helper"
 
 RSpec.describe "Api::V1::Devops::Kubernetes::Clusters", type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: []) }
+  # K8s clusters gate on the dedicated devops.kubernetes.* family: reads
+  # (index/show) -> devops.kubernetes.read; destroy + kubeconfig (discloses the
+  # cluster ADMIN credential) -> devops.kubernetes.manage.
+  let(:user) { create(:user, account: account, permissions: %w[devops.kubernetes.read devops.kubernetes.manage]) }
   let(:headers) { auth_headers_for(user) }
+  let(:unprivileged) { create(:user, account: account, permissions: []) }
+  let(:unprivileged_headers) { auth_headers_for(unprivileged) }
 
   describe "GET /api/v1/devops/kubernetes/clusters" do
     let!(:active_cluster) { create(:devops_kubernetes_cluster, :active, account: account, name: "prod") }
@@ -123,10 +128,8 @@ RSpec.describe "Api::V1::Devops::Kubernetes::Clusters", type: :request do
 
   describe "GET /api/v1/devops/kubernetes/clusters/:id/kubeconfig" do
     # kubeconfig discloses the cluster ADMIN credential, so it is gated on the
-    # manage-tier devops.container_templates.write permission (no dedicated
-    # devops.kubernetes.* perm exists in the catalog). The default `user` above
-    # is created with permissions: [] and is intentionally NOT authorized.
-    let(:kube_user) { create(:user, account: account, permissions: %w[devops.container_templates.write]) }
+    # manage-tier devops.kubernetes.manage permission.
+    let(:kube_user) { create(:user, account: account, permissions: %w[devops.kubernetes.manage]) }
     let(:kube_headers) { auth_headers_for(kube_user) }
 
     it "returns kubeconfig YAML for an active cluster" do
@@ -157,14 +160,48 @@ RSpec.describe "Api::V1::Devops::Kubernetes::Clusters", type: :request do
 
     it "forbids an authenticated user without the manage permission" do
       # Before the gate, ANY authenticated user could fetch the cluster admin
-      # kubeconfig. The default `user` holds no permissions.
+      # kubeconfig. The unprivileged user holds no permissions.
       cluster = create(:devops_kubernetes_cluster, :active,
                        account: account,
                        encrypted_kubeconfig: "apiVersion: v1\nkind: Config")
 
       get "/api/v1/devops/kubernetes/clusters/#{cluster.id}/kubeconfig",
-          headers: headers, as: :json
+          headers: unprivileged_headers, as: :json
 
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "forbids a read-only holder (kubeconfig is manage-tier)" do
+      reader = create(:user, account: account, permissions: %w[devops.kubernetes.read])
+      cluster = create(:devops_kubernetes_cluster, :active,
+                       account: account,
+                       encrypted_kubeconfig: "apiVersion: v1\nkind: Config")
+
+      get "/api/v1/devops/kubernetes/clusters/#{cluster.id}/kubeconfig",
+          headers: auth_headers_for(reader), as: :json
+
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
+
+  # The index/show/destroy actions were ungated before the devops.kubernetes.*
+  # family existed; lock in the gates here.
+  describe "authorization (index/show/destroy)" do
+    let!(:cluster) { create(:devops_kubernetes_cluster, :active, account: account) }
+
+    it "forbids index without devops.kubernetes.read" do
+      get "/api/v1/devops/kubernetes/clusters", headers: unprivileged_headers, as: :json
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "forbids show without devops.kubernetes.read" do
+      get "/api/v1/devops/kubernetes/clusters/#{cluster.id}", headers: unprivileged_headers, as: :json
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "forbids destroy without devops.kubernetes.manage" do
+      reader = create(:user, account: account, permissions: %w[devops.kubernetes.read])
+      delete "/api/v1/devops/kubernetes/clusters/#{cluster.id}", headers: auth_headers_for(reader), as: :json
       expect(response).to have_http_status(:forbidden)
     end
   end
