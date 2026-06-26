@@ -202,9 +202,13 @@ module Maintenance
 
       stdout, stderr, status = Open3.capture3(env, *command)
 
-      # pg_restore may return non-zero even on success with warnings
-      # Check for critical errors in stderr
-      if status.success? || !stderr.include?('FATAL') && !stderr.include?('could not connect')
+      # pg_restore exits non-zero on ERRORS, not on benign warnings. It reports
+      # constraint/type/missing-relation/disk-full failures at severity ERROR
+      # ("pg_restore: error:" / "ERROR:") — not only FATAL. Fail closed on any
+      # non-zero exit: a partial/failed restore must never be reported as
+      # success, especially after --clean --if-exists has already dropped objects.
+      if status.success?
+        # Verbose (-v) progress goes to stderr; keep it for stats extraction.
         [true, stdout + stderr]
       else
         [false, stderr.presence || stdout]

@@ -4,10 +4,12 @@ require 'rails_helper'
 
 # Regression coverage for the data-critical pg_restore job.
 #
-# SCOPE NOTE: a sibling change owns the pg_restore success-vs-error *detection*
-# logic (the `status.success? || !stderr.include?('FATAL') ...` condition in
-# #execute_command). These specs deliberately stay clear of that branch: they
-# only exercise orthogonal, safe behavior — pg_restore command construction, the
+# Covers pg_restore success-vs-error *detection* in #execute_command: a non-zero
+# exit (pg_restore emits severity-ERROR, e.g. "pg_restore: error: ... ERROR:",
+# for constraint/type/missing-relation/disk-full failures — NOT just FATAL) must
+# fail closed (mark the restore FAILED and raise), never report 'completed' and
+# mask data corruption after --clean --if-exists has already dropped objects.
+# Also exercises orthogonal, safe behavior — pg_restore command construction, the
 # missing-backup-file guard clause, the status-update API contract, and the
 # happy path with a clean (zero-exit) Open3 success. Nothing shells out or
 # touches a real database/filesystem.
@@ -142,6 +144,41 @@ RSpec.describe Maintenance::DatabaseRestoreJob, type: :job do
           .ordered
 
         job.execute(restore_id)
+      end
+    end
+
+    context 'when pg_restore exits non-zero with an ERROR-level failure (no FATAL)' do
+      # pg_restore reports constraint/type/missing-relation/disk-full failures
+      # at severity ERROR (not FATAL) and exits non-zero. This stderr contains
+      # neither 'FATAL' nor 'could not connect', so the old substring allowlist
+      # would have masked it as success after --clean --if-exists dropped objects.
+      let(:error_stderr) do
+        'pg_restore: error: could not execute query: ERROR: relation "accounts" does not exist'
+      end
+
+      before do
+        allow(File).to receive(:exist?).with(backup_path).and_return(true)
+        allow(Open3).to receive(:capture3)
+          .and_return(['', error_stderr, double('Process::Status', success?: false)])
+      end
+
+      it 'fails closed: marks the restore FAILED and raises, never completed' do
+        expect(api_client).not_to receive(:patch)
+          .with("/api/v1/internal/maintenance/restores/#{restore_id}", hash_including(status: 'completed'))
+        expect(api_client).to receive(:patch)
+          .with("/api/v1/internal/maintenance/restores/#{restore_id}", hash_including(status: 'failed'))
+
+        expect { job.execute(restore_id) }.to raise_error(/Restore failed/)
+      end
+
+      it 'surfaces the pg_restore ERROR text in the failure error_message' do
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/maintenance/restores/#{restore_id}",
+            hash_including(status: 'failed', error_message: a_string_including('relation "accounts" does not exist'))
+          )
+
+        expect { job.execute(restore_id) }.to raise_error(/Restore failed/)
       end
     end
   end
