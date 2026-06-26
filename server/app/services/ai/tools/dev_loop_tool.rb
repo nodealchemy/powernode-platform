@@ -61,6 +61,14 @@ module Ai
               files_changed: { type: "array", required: false, description: "Paths touched by this task" }
             }
           },
+          "dev_list_tasks" => {
+            description: "List tasks in a Ralph Loop queue, optionally filtered by status (pending | in_progress | passed | failed | blocked | skipped). Use to inspect blocked tasks awaiting disposition or audit the queue. Ordered by position then priority.",
+            parameters: {
+              loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
+              status:  { type: "string", required: false, description: "Filter by status: pending | in_progress | passed | failed | blocked | skipped (omit for all)" },
+              limit:   { type: "integer", required: false, description: "Max tasks to return (default 50, max 200)" }
+            }
+          },
           "delegate_ralph_task" => {
             description: "Hand a pending/in-progress Ralph task to a platform agent (A2A) instead of executing it " \
                          "yourself. Reuses spawn_task's capability-matrix + delegation-authority checks. With await, " \
@@ -86,6 +94,7 @@ module Ai
         case params[:action]
         when "dev_next_task" then next_task(params)
         when "dev_complete_task" then complete_task(params)
+        when "dev_list_tasks" then list_tasks(params)
         when "delegate_ralph_task" then delegate_ralph_task(params)
         else
           error_result("Unknown action: #{params[:action]}")
@@ -109,6 +118,34 @@ module Ai
         result
       rescue Ai::RalphTask::InvalidTransitionError, ActiveRecord::RecordInvalid => e
         error_result(e.message)
+      end
+
+      def list_tasks(params)
+        loop_record = find_loop(params[:loop_id])
+        return error_result("Ralph loop not found") unless loop_record
+
+        status = params[:status].to_s.strip
+        scope = loop_record.ralph_tasks
+        if status.present?
+          unless Ai::RalphTask::STATUSES.include?(status)
+            return error_result("Invalid status '#{status}'; expected one of: #{Ai::RalphTask::STATUSES.join(', ')}")
+          end
+          scope = scope.where(status: status)
+        end
+
+        total = scope.count
+        limit = params[:limit].present? ? params[:limit].to_i.clamp(1, 200) : 50
+        tasks = scope.ordered.limit(limit)
+
+        {
+          success: true,
+          loop: { id: loop_record.id, name: loop_record.name },
+          status: status.presence,
+          count: tasks.size,
+          total_matching: total,
+          tasks: tasks.map(&:task_details),
+          queue: queue_snapshot(loop_record)
+        }
       end
 
       def claim_under_lock(loop_record)

@@ -17,7 +17,7 @@ RSpec.describe Ai::Tools::DevLoopTool do
 
     it "exposes the bridge actions" do
       expect(described_class.action_definitions.keys)
-        .to contain_exactly("dev_next_task", "dev_complete_task", "delegate_ralph_task")
+        .to contain_exactly("dev_next_task", "dev_complete_task", "delegate_ralph_task", "dev_list_tasks")
     end
   end
 
@@ -145,6 +145,64 @@ RSpec.describe Ai::Tools::DevLoopTool do
 
       expect(result[:success]).to be false
       expect(result[:error]).to match(/not found/)
+    end
+  end
+
+  describe "dev_list_tasks" do
+    it "returns only tasks of the requested status with full task_details" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "pend-1")
+      create(:ai_ralph_task, :passed, ralph_loop: ralph_loop, task_key: "pass-1")
+      create(:ai_ralph_task, :blocked, ralph_loop: ralph_loop, task_key: "blk-1")
+      create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop, task_key: "ip-1")
+
+      result = tool.execute(params: { action: "dev_list_tasks", loop_id: ralph_loop.id, status: "blocked" })
+
+      expect(result[:success]).to be true
+      expect(result[:status]).to eq("blocked")
+      expect(result[:count]).to eq(1)
+      expect(result[:total_matching]).to eq(1)
+      expect(result[:tasks].map { |t| t[:task_key] }).to contain_exactly("blk-1")
+      # same shape as dev_next_task's task object (task_details)
+      task = result[:tasks].first
+      expect(task[:status]).to eq("blocked")
+      expect(task).to include(:description, :acceptance_criteria, :metadata, :created_at)
+    end
+
+    it "returns all tasks when no status filter is given (respecting limit)" do
+      create_list(:ai_ralph_task, 3, ralph_loop: ralph_loop)
+
+      result = tool.execute(params: { action: "dev_list_tasks", loop_id: ralph_loop.id })
+
+      expect(result[:success]).to be true
+      expect(result[:status]).to be_nil
+      expect(result[:count]).to eq(3)
+      expect(result[:total_matching]).to eq(3)
+      expect(result[:queue]).to include(:pending, :in_progress, :passed, :failed, :blocked)
+    end
+
+    it "rejects an invalid status" do
+      result = tool.execute(params: { action: "dev_list_tasks", loop_id: ralph_loop.id, status: "frozen" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Invalid status/)
+    end
+
+    it "returns an error for an unknown loop" do
+      result = tool.execute(params: { action: "dev_list_tasks", loop_id: "nope" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/not found/)
+    end
+
+    it "clamps the limit into the 1..200 range" do
+      create_list(:ai_ralph_task, 3, ralph_loop: ralph_loop)
+
+      lowered = tool.execute(params: { action: "dev_list_tasks", loop_id: ralph_loop.id, limit: 0 })
+      expect(lowered[:count]).to eq(1)            # clamped up to 1
+      expect(lowered[:total_matching]).to eq(3)
+
+      raised = tool.execute(params: { action: "dev_list_tasks", loop_id: ralph_loop.id, limit: 9999 })
+      expect(raised[:count]).to eq(3)             # clamped down to 200; only 3 exist
     end
   end
 
