@@ -6,7 +6,18 @@ module Api
       class MetricsController < InternalBaseController
         # GET /api/v1/internal/metrics/jobs
         def jobs
+          # This Rails API does not run an in-process Sidekiq — the fleet's
+          # background jobs run on the standalone worker, and the server's own
+          # ActiveJob work runs on solid_queue (a separate queue DB, prod-only).
+          # `defined?(Sidekiq)` is therefore permanently false here, so the
+          # per-section stats below are not collected in this process. Surface
+          # an explicit `available` flag + the configured adapter rather than
+          # fabricating empty/100%-healthy numbers that read as "healthy" by
+          # construction. Wiring real job-processor metrics (server solid_queue
+          # vs the worker's Sidekiq via the worker API) is a follow-up decision.
           stats = {
+            available: defined?(Sidekiq) ? true : false,
+            adapter: ActiveJob::Base.queue_adapter_name,
             queues: fetch_queue_stats,
             processed: fetch_processed_stats,
             failed: fetch_failed_stats,
@@ -102,7 +113,9 @@ module Api
               success_rate: calculate_success_rate(stats)
             }
           else
-            { total: 0, today: 0, success_rate: 100.0 }
+            # No in-process job processor here — report nil success_rate rather
+            # than a fabricated 100.0 that misreads as "healthy".
+            { total: 0, today: 0, success_rate: nil }
           end
         end
 
