@@ -24,7 +24,7 @@ class OllamaConnectivityTestJob < BaseJob
     }
 
     begin
-      log_ai_operation('ollama_connectivity_test', 'ollama', @test_config)
+      log_info('AI operation started: ollama_connectivity_test', provider: 'ollama', test_config: @test_config)
 
       # Run comprehensive connectivity tests via the tester service
       outcome = ollama_tester.run
@@ -81,7 +81,7 @@ class OllamaConnectivityTestJob < BaseJob
   end
 
   def handle_test_error(error)
-    log_ai_error('ollama_connectivity_test', 'ollama', error, @test_config)
+    log_error('AI operation failed: ollama_connectivity_test', error, provider: 'ollama', test_config: @test_config)
 
     @results[:overall_status] = 'failed'
     @results[:fatal_error] = {

@@ -46,7 +46,7 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
 
   describe 'job configuration' do
     it 'is configured with compliance queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('compliance')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('compliance')
     end
   end
 
@@ -65,17 +65,17 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/data_retention_policies', { active: true })
-          .and_return(success: true, data: [audit_log_policy, activity_policy])
+          .and_return('success' => true, 'data' => [audit_log_policy, activity_policy])
         allow(api_client).to receive(:post)
           .with('/api/v1/internal/retention/audit_logs/archive', anything)
-          .and_return(success: true, data: { 'count' => 100 })
+          .and_return('success' => true, 'data' => { 'count' => 100 })
         allow(api_client).to receive(:delete)
           .with('/api/v1/internal/retention/activity', anything)
-          .and_return(success: true, data: { 'count' => 50 })
-        allow(api_client).to receive(:patch).and_return(success: true)
+          .and_return('success' => true, 'data' => { 'count' => 50 })
+        allow(api_client).to receive(:patch).and_return('success' => true)
         allow(api_client).to receive(:post)
           .with('/api/v1/internal/audit_logs', anything)
-          .and_return(success: true)
+          .and_return('success' => true)
       end
 
       it 'fetches active retention policies' do
@@ -127,8 +127,8 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/data_retention_policies', { active: true })
-          .and_return(success: true, data: [])
-        allow(api_client).to receive(:post).and_return(success: true)
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:post).and_return('success' => true)
       end
 
       it 'completes without processing' do
@@ -143,7 +143,7 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/data_retention_policies', { active: true })
-          .and_return(success: false, error: 'Service unavailable')
+          .and_return('success' => false, 'error' => 'Service unavailable')
       end
 
       it 'raises an error' do
@@ -156,13 +156,13 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/data_retention_policies', { active: true })
-          .and_return(success: true, data: [audit_log_policy])
+          .and_return('success' => true, 'data' => [audit_log_policy])
         allow(api_client).to receive(:post)
           .with('/api/v1/internal/retention/audit_logs/archive', anything)
           .and_raise(StandardError, 'Archive failed')
         allow(api_client).to receive(:post)
           .with('/api/v1/internal/audit_logs', anything)
-          .and_return(success: true)
+          .and_return('success' => true)
       end
 
       it 'logs error and continues' do
@@ -180,14 +180,14 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
         before do
           allow(api_client).to receive(:get)
             .with('/api/v1/internal/data_retention_policies', { active: true })
-            .and_return(success: true, data: [audit_log_policy])
+            .and_return('success' => true, 'data' => [audit_log_policy])
           allow(api_client).to receive(:post)
             .with('/api/v1/internal/retention/audit_logs/archive', anything)
-            .and_return(success: true, data: { 'count' => 100 })
-          allow(api_client).to receive(:patch).and_return(success: true)
+            .and_return('success' => true, 'data' => { 'count' => 100 })
+          allow(api_client).to receive(:patch).and_return('success' => true)
           allow(api_client).to receive(:post)
             .with('/api/v1/internal/audit_logs', anything)
-            .and_return(success: true)
+            .and_return('success' => true)
         end
 
         it 'archives audit logs' do
@@ -204,12 +204,12 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
         before do
           allow(api_client).to receive(:get)
             .with('/api/v1/internal/data_retention_policies', { active: true })
-            .and_return(success: true, data: [anonymize_policy])
+            .and_return('success' => true, 'data' => [anonymize_policy])
           allow(api_client).to receive(:patch)
             .with('/api/v1/internal/retention/audit_logs/anonymize', anything)
-            .and_return(success: true, data: { 'count' => 100 })
-          allow(api_client).to receive(:patch).and_return(success: true)
-          allow(api_client).to receive(:post).and_return(success: true)
+            .and_return('success' => true, 'data' => { 'count' => 100 })
+          allow(api_client).to receive(:patch).and_return('success' => true)
+          allow(api_client).to receive(:post).and_return('success' => true)
         end
 
         it 'anonymizes audit logs' do
@@ -226,14 +226,14 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
         before do
           allow(api_client).to receive(:get)
             .with('/api/v1/internal/data_retention_policies', { active: true })
-            .and_return(success: true, data: [delete_policy])
+            .and_return('success' => true, 'data' => [delete_policy])
           allow(api_client).to receive(:post)
             .with('/api/v1/internal/retention/audit_logs/archive', anything)
-            .and_return(success: true, data: { 'count' => 100 })
-          allow(api_client).to receive(:patch).and_return(success: true)
+            .and_return('success' => true, 'data' => { 'count' => 100 })
+          allow(api_client).to receive(:patch).and_return('success' => true)
           allow(api_client).to receive(:post)
             .with('/api/v1/internal/audit_logs', anything)
-            .and_return(success: true)
+            .and_return('success' => true)
         end
 
         it 'archives instead of deleting (audit logs should never be deleted)' do
@@ -269,10 +269,10 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/data_retention_policies', { active: true })
-          .and_return(success: true, data: [session_policy, webhook_policy])
-        allow(api_client).to receive(:delete).and_return(success: true, data: { 'count' => 25 })
-        allow(api_client).to receive(:patch).and_return(success: true)
-        allow(api_client).to receive(:post).and_return(success: true)
+          .and_return('success' => true, 'data' => [session_policy, webhook_policy])
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 25 })
+        allow(api_client).to receive(:patch).and_return('success' => true)
+        allow(api_client).to receive(:post).and_return('success' => true)
       end
 
       it 'deletes session logs' do
@@ -304,12 +304,12 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/data_retention_policies', { active: true })
-          .and_return(success: true, data: [analytics_policy])
+          .and_return('success' => true, 'data' => [analytics_policy])
         allow(api_client).to receive(:patch)
           .with('/api/v1/internal/retention/analytics/anonymize', anything)
-          .and_return(success: true, data: { 'count' => 500 })
-        allow(api_client).to receive(:patch).and_return(success: true)
-        allow(api_client).to receive(:post).and_return(success: true)
+          .and_return('success' => true, 'data' => { 'count' => 500 })
+        allow(api_client).to receive(:patch).and_return('success' => true)
+        allow(api_client).to receive(:post).and_return('success' => true)
       end
 
       it 'anonymizes analytics data' do
@@ -334,12 +334,12 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/data_retention_policies', { active: true })
-          .and_return(success: true, data: [file_policy])
+          .and_return('success' => true, 'data' => [file_policy])
         allow(api_client).to receive(:delete)
           .with('/api/v1/internal/retention/files', anything)
-          .and_return(success: true, data: { 'count' => 10 })
-        allow(api_client).to receive(:patch).and_return(success: true)
-        allow(api_client).to receive(:post).and_return(success: true)
+          .and_return('success' => true, 'data' => { 'count' => 10 })
+        allow(api_client).to receive(:patch).and_return('success' => true)
+        allow(api_client).to receive(:post).and_return('success' => true)
       end
 
       it 'deletes expired file uploads' do
@@ -364,9 +364,9 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/data_retention_policies', { active: true })
-          .and_return(success: true, data: [unsupported_policy])
-        allow(api_client).to receive(:patch).and_return(success: true)
-        allow(api_client).to receive(:post).and_return(success: true)
+          .and_return('success' => true, 'data' => [unsupported_policy])
+        allow(api_client).to receive(:patch).and_return('success' => true)
+        allow(api_client).to receive(:post).and_return('success' => true)
       end
 
       it 'handles gracefully with zero records' do
