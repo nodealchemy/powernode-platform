@@ -12,6 +12,17 @@ module Devops
     def execute(webhook_event_id)
       log_info "Processing webhook event", webhook_event_id: webhook_event_id
 
+      # Idempotency guard: one Gitea webhook fans out to N pipeline runs plus
+      # N /execute calls (which run real deploys/PRs/commands). Sidekiq retries
+      # re-run the WHOLE job, so without this guard a failure late in the loop
+      # (e.g. a later create_pipeline_run or update_event_status) would duplicate
+      # every pipeline run and CI/CD execution on retry.
+      idempotency_key = "devops_webhook:#{webhook_event_id}"
+      if already_processed?(idempotency_key)
+        log_info "Webhook event already processed, skipping", webhook_event_id: webhook_event_id
+        return { skipped: true, reason: "already_processed" }
+      end
+
       # Fetch webhook event data
       event = fetch_webhook_event(webhook_event_id)
 
@@ -29,6 +40,7 @@ module Devops
       if matching_pipelines.empty?
         log_info "No matching pipelines found", event_type: event_type
         update_event_status(webhook_event_id, "processed", matched_pipelines: 0)
+        mark_processed(idempotency_key)
         return
       end
 
@@ -48,6 +60,8 @@ module Devops
         matched_pipelines: matching_pipelines.count,
         pipeline_run_ids: pipeline_run_ids
       )
+
+      mark_processed(idempotency_key)
 
       log_info "Webhook event processed",
                webhook_event_id: webhook_event_id,
