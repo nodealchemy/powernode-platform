@@ -69,8 +69,8 @@ export const FeatureModal: React.FC<FeatureModalProps> = ({ isOpen, feature, onC
                 <span className="font-medium text-theme-error-fg">Please fix the following errors:</span>
               </div>
               <ul className="list-disc list-inside text-sm text-theme-error-fg space-y-1">
-                {errors.map((error, index) => (
-                  <li key={index}>{error}</li>
+                {errors.map((error) => (
+                  <li key={error}>{error}</li>
                 ))}
               </ul>
             </div>
