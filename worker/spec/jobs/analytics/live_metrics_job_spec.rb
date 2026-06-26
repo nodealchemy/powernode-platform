@@ -177,7 +177,7 @@ RSpec.describe Analytics::LiveMetricsJob, type: :job do
 
   describe 'sidekiq options' do
     it 'uses analytics queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('analytics')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('analytics')
     end
   end
 

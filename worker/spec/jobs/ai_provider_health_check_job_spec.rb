@@ -27,7 +27,7 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
 
   describe 'job configuration' do
     it 'is configured with correct queue' do
-      expect(described_class.get_sidekiq_options['queue']).to eq('ai_orchestration')
+      expect(described_class.get_sidekiq_options['queue'].to_s).to eq('ai_orchestration')
     end
   end
 

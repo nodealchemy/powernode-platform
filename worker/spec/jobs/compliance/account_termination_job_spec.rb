@@ -42,7 +42,7 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
 
   describe 'job configuration' do
     it 'is configured with compliance queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('compliance')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('compliance')
     end
   end
 

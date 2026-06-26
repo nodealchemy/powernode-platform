@@ -40,7 +40,7 @@ RSpec.describe Notifications::EmailDeliveryJob, type: :job do
 
   describe 'job configuration' do
     it 'uses email queue' do
-      expect(subject.sidekiq_options['queue']).to eq('email')
+      expect(subject.sidekiq_options['queue'].to_s).to eq('email')
     end
 
     it 'has retry count of 3' do

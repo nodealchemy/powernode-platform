@@ -28,8 +28,8 @@ RSpec.describe 'Job Queue Management', type: :integration do
         expect(Services::HealthCheckJob.jobs.size).to eq(1)
         
         # Verify queue configuration via job options
-        expect(Notifications::EmailDeliveryJob.sidekiq_options['queue']).to eq('email')
-        expect(Services::HealthCheckJob.sidekiq_options['queue']).to eq('services')
+        expect(Notifications::EmailDeliveryJob.sidekiq_options['queue'].to_s).to eq('email')
+        expect(Services::HealthCheckJob.sidekiq_options['queue'].to_s).to eq('services')
       end
     end
 
@@ -46,7 +46,7 @@ RSpec.describe 'Job Queue Management', type: :integration do
         
         # In fake mode, check job class directly
         expect(test_job_class.jobs.size).to eq(1)
-        expect(test_job_class.sidekiq_options['queue']).to eq('default')
+        expect(test_job_class.sidekiq_options['queue'].to_s).to eq('default')
       end
     end
 
@@ -401,8 +401,8 @@ RSpec.describe 'Job Queue Management', type: :integration do
       email_options = Notifications::EmailDeliveryJob.sidekiq_options
       services_options = Services::HealthCheckJob.sidekiq_options
       
-      expect(email_options['queue']).to eq('email')
-      expect(services_options['queue']).to eq('services')
+      expect(email_options['queue'].to_s).to eq('email')
+      expect(services_options['queue'].to_s).to eq('services')
       
       # Different retry policies
       expect(email_options['retry']).to eq(3)

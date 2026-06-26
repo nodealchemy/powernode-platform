@@ -280,7 +280,7 @@ RSpec.describe AiExecutionCancellationJob, type: :job do
 
   describe 'sidekiq options' do
     it 'uses ai_cancellations queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('ai_cancellations')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('ai_cancellations')
     end
 
     it 'has retry count of 1' do

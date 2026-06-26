@@ -43,7 +43,7 @@ RSpec.describe Git::PipelineApprovalExpiryJob, type: :job do
     it_behaves_like 'a base job', described_class
 
     it 'uses maintenance queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('maintenance')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('maintenance')
     end
 
     it 'has 3 retries configured' do

@@ -52,7 +52,7 @@ RSpec.describe Reports::GenerateReportJob, type: :job do
 
   describe 'job configuration' do
     it 'is configured with reports queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('reports')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('reports')
     end
 
     it 'has 2 retries configured' do

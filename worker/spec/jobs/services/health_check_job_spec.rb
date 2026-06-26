@@ -24,7 +24,7 @@ RSpec.describe Services::HealthCheckJob, type: :job do
 
   describe 'job configuration' do
     it 'uses services queue' do
-      expect(subject.sidekiq_options['queue']).to eq('services')
+      expect(subject.sidekiq_options['queue'].to_s).to eq('services')
     end
 
     it 'has retry count of 1' do

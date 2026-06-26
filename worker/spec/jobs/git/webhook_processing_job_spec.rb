@@ -43,7 +43,7 @@ RSpec.describe Git::WebhookProcessingJob, type: :job do
     it_behaves_like 'a base job', described_class
 
     it 'uses webhooks queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('webhooks')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('webhooks')
     end
 
     it 'has 3 retries configured' do

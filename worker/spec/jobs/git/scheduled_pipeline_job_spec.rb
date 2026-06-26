@@ -55,7 +55,7 @@ RSpec.describe Git::ScheduledPipelineJob, type: :job do
     it_behaves_like 'a base job', described_class
 
     it 'uses schedules queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('schedules')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('schedules')
     end
 
     it 'has 3 retries configured' do

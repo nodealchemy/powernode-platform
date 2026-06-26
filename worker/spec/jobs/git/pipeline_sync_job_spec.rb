@@ -118,7 +118,7 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
     it_behaves_like 'a base job', described_class
 
     it 'uses services queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('services')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('services')
     end
 
     it 'has 3 retries configured' do

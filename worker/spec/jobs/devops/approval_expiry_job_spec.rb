@@ -113,7 +113,7 @@ RSpec.describe Devops::ApprovalExpiryJob do
 
   describe 'job configuration' do
     it 'uses the default queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('default')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('default')
     end
 
     it 'retries up to 3 times' do

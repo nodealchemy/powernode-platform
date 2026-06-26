@@ -23,7 +23,7 @@ RSpec.describe Maintenance::DatabaseBackupJob, type: :job do
 
   describe 'job configuration' do
     it 'runs on the maintenance queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('maintenance')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('maintenance')
     end
 
     it 'retries at most twice' do

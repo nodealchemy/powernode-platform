@@ -189,7 +189,7 @@ RSpec.describe TestEmailJob do
 
   describe 'job configuration' do
     it 'uses the email queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('email')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('email')
     end
 
     it 'retries once' do

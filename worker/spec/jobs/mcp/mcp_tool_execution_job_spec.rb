@@ -52,7 +52,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
 
   describe 'job configuration' do
     it 'is configured with mcp queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('mcp')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('mcp')
     end
 
     it 'has 3 retries configured' do

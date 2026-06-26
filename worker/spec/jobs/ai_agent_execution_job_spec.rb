@@ -90,7 +90,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
   describe 'job configuration' do
     it 'is configured with correct queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('ai_agents')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('ai_agents')
     end
 
     it 'is configured with correct retry count' do

@@ -51,7 +51,7 @@ RSpec.describe Devops::WebhookHandlerJob, type: :job do
 
   describe 'class configuration' do
     it 'uses devops_webhooks queue' do
-      expect(described_class.sidekiq_options['queue']).to eq('devops_webhooks')
+      expect(described_class.sidekiq_options['queue'].to_s).to eq('devops_webhooks')
     end
 
     it 'has 3 retries configured' do
