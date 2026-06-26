@@ -119,6 +119,8 @@ module Ai
 
       # Run full maintenance pipeline (consolidation + decay)
       def run_full_maintenance(agent: nil)
+        return ai_suspension_skip("full_maintenance") if account.ai_suspended?
+
         {
           consolidation: run_consolidation_pipeline(agent: agent),
           decay: run_decay_pipeline(agent: agent)
@@ -126,6 +128,18 @@ module Ai
       end
 
       private
+
+      # Kill-switch gate: global memory maintenance/consolidation is triggered by
+      # account-less worker jobs, so the per-account skip happens here at the
+      # per-account boundary. When an account's AI is suspended (ai_suspended?),
+      # none of its agents/memories must be touched. Logged so the skip is
+      # observable in worker/maintenance output.
+      def ai_suspension_skip(pipeline)
+        Rails.logger.info(
+          "[MemoryMaintenance] Skipping #{pipeline} for ai_suspended account=#{account.id}"
+        )
+        { skipped: true, reason: "account_ai_suspended", account_id: account.id }
+      end
 
       def account_agents
         Ai::Agent.where(account_id: account.id).limit(100)

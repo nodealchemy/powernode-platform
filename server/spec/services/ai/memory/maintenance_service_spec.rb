@@ -769,4 +769,71 @@ RSpec.describe Ai::Memory::MaintenanceService, type: :service do
       expect(result).to include(:consolidation, :decay)
     end
   end
+
+  # ============================================================
+  # AI kill-switch gating (account.ai_suspended?)
+  #
+  # The global memory maintenance/consolidation worker jobs are account-less,
+  # so suspended accounts are skipped server-side at the per-account boundary
+  # (the service entry methods). A suspended account's agents/memories must NOT
+  # be processed; a non-suspended account is processed normally.
+  # ============================================================
+  describe 'AI kill-switch gating' do
+    before do
+      allow(Ai::CompoundLearning).to receive(:find_similar).and_return(Ai::CompoundLearning.none)
+
+      # A high-access STM that WOULD be promoted to long-term if maintenance runs.
+      create(:ai_agent_short_term_memory,
+             agent: agent,
+             account: account,
+             memory_key: "kill_switch_key",
+             memory_value: { "data" => "promote_me" },
+             memory_type: "observation",
+             access_count: 5)
+    end
+
+    context 'when the account is ai_suspended' do
+      before { account.suspend_ai! }
+
+      it '#run_consolidation_pipeline skips and performs no consolidation work' do
+        result = nil
+        expect {
+          result = service.run_consolidation_pipeline
+        }.not_to change(Ai::CompoundLearning, :count)
+
+        expect(result[:skipped]).to be true
+        expect(result[:reason]).to eq("account_ai_suspended")
+        expect(result[:account_id]).to eq(account.id)
+      end
+
+      it '#run_full_maintenance skips entirely and runs no pipeline work' do
+        expect(service).not_to receive(:run_consolidation_pipeline)
+        expect(service).not_to receive(:run_decay_pipeline)
+
+        result = service.run_full_maintenance
+
+        expect(result[:skipped]).to be true
+        expect(result[:reason]).to eq("account_ai_suspended")
+      end
+    end
+
+    context 'when the account is not ai_suspended' do
+      it '#run_consolidation_pipeline processes the account and promotes memories' do
+        result = nil
+        expect {
+          result = service.run_consolidation_pipeline
+        }.to change(Ai::CompoundLearning, :count).by(1)
+
+        expect(result[:skipped]).to be_nil
+        expect(result).to include(:short_term_consolidation)
+      end
+
+      it '#run_full_maintenance runs both pipelines' do
+        result = service.run_full_maintenance
+
+        expect(result).to include(:consolidation, :decay)
+        expect(result[:skipped]).to be_nil
+      end
+    end
+  end
 end

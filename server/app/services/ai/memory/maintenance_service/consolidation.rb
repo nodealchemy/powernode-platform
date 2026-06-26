@@ -92,6 +92,8 @@ module Ai
 
         # Run full consolidation pipeline
         def run_consolidation_pipeline(agent: nil)
+          return ai_suspension_skip("consolidation_pipeline") if account.ai_suspended?
+
           pipeline_stats = {
             short_term_consolidation: {},
             shared_consolidation: {},
