@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::ApiKeysController < ApplicationController
-  before_action :require_admin_access
+  before_action -> { require_admin_access("accounts.manage") }
   before_action :find_api_key, only: [ :show, :update, :destroy, :regenerate, :toggle_status ]
 
   # GET /api/v1/api_keys
@@ -202,12 +202,6 @@ class Api::V1::ApiKeysController < ApplicationController
   end
 
   private
-
-  def require_admin_access
-    unless current_user.has_permission?("accounts.manage") || current_user.has_permission?("admin.access")
-      render_error("Access denied: Admin privileges required", status: :forbidden)
-    end
-  end
 
   def find_api_key
     @api_key = ApiKey.find(params[:id])

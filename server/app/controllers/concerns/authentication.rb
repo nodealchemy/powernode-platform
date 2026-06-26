@@ -236,6 +236,16 @@ module Authentication
     raise PermissionDenied, "Permission denied: requires all of #{permission_names.join(', ')}"
   end
 
+  # Admin-surface guard shared by the admin/account/settings controllers.
+  # `admin.access` is the baseline that always grants; callers pass any
+  # resource-specific permissions that ALSO grant (e.g. "accounts.manage",
+  # "settings.manage"). Centralizes the admin baseline so a permission rename
+  # is a one-line change instead of four hand-rolled checks that drift.
+  # Denies via PermissionDenied (→ 403), like every other permission check.
+  def require_admin_access(*also_allow)
+    require_any_permission("admin.access", *also_allow)
+  end
+
   # Deprecated: Use permission checks instead
   def require_admin!
     # Legacy method - redirects to permission check

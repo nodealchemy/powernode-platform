@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::ApiKeys', type: :request do
   let(:account) { create(:account) }
   let(:admin_user) { create(:user, :admin, account: account) }
-  let(:user_with_account_manage) { create(:user, account: account, permissions: [ 'account.manage' ]) }
+  let(:user_with_account_manage) { create(:user, account: account, permissions: [ 'accounts.manage' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/api_keys' do
@@ -70,7 +70,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
       it 'returns forbidden error' do
         get '/api/v1/api_keys', headers: headers, as: :json
 
-        expect_error_response('Access denied: Admin privileges required', 403)
+        expect_error_response('Permission denied: requires one of admin.access, accounts.manage', 403)
       end
     end
 
@@ -428,6 +428,34 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
 
       expect(response_data['data']['valid']).to be false
       expect(response_data['data']['reason']).to be_present
+    end
+  end
+
+  # Regression for the consolidated require_admin_access helper (Authentication
+  # concern). admin.access is the baseline that ALWAYS grants; the resource
+  # permission (accounts.manage) ALSO grants; a user with neither is denied 403.
+  # Guards against a wrong consolidation that drops the resource permission.
+  describe 'require_admin_access (admin baseline + resource permission)' do
+    let(:admin_access_only) { create(:user, account: account, permissions: [ 'admin.access' ]) }
+    let(:accounts_manage_only) { create(:user, account: account, permissions: [ 'accounts.manage' ]) }
+    let(:no_admin_perms) { create(:user, account: account, permissions: []) }
+
+    it 'allows a user with ONLY admin.access' do
+      get '/api/v1/api_keys', headers: auth_headers_for(admin_access_only), as: :json
+
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'allows a user with ONLY the resource permission (accounts.manage)' do
+      get '/api/v1/api_keys', headers: auth_headers_for(accounts_manage_only), as: :json
+
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'denies a user with NEITHER admin.access nor accounts.manage' do
+      get '/api/v1/api_keys', headers: auth_headers_for(no_admin_perms), as: :json
+
+      expect_error_response('Permission denied: requires one of admin.access, accounts.manage', 403)
     end
   end
 end

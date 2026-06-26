@@ -4,7 +4,7 @@ module Api
   module V1
     module Admin
       class ProxySettingsController < ApplicationController
-        before_action :require_admin_access
+        before_action -> { require_admin_access }
 
         # GET /api/v1/admin/proxy_settings/url_config
         def url_config
@@ -331,10 +331,6 @@ module Api
         end
 
         private
-
-        def require_admin_access
-          require_permission("admin.access")
-        end
 
         def proxy_url_params
           # Handle both direct params and nested proxy_setting params

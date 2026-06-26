@@ -2,7 +2,7 @@
 
 class Api::V1::SiteSettingsController < ApplicationController
   before_action :authenticate_request, except: [ :public_footer ]
-  before_action :require_admin_access, except: [ :public_footer ]
+  before_action -> { require_admin_access("settings.manage") }, except: [ :public_footer ]
   before_action :set_site_setting, only: [ :show, :update, :destroy ]
 
   # GET /api/v1/public/footer (public endpoint)
@@ -200,12 +200,6 @@ class Api::V1::SiteSettingsController < ApplicationController
     @site_setting = SiteSetting.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     render_error("Setting not found", status: :not_found)
-  end
-
-  def require_admin_access
-    unless current_user.has_permission?("admin.access") || current_user.has_permission?("settings.manage")
-      render_error("Permission denied: requires admin.access or settings.manage", status: :forbidden)
-    end
   end
 
   def site_setting_params
