@@ -335,11 +335,15 @@ class WorkerJobService
       })
     end
 
-    # Enqueue goal plan step execution for autonomous goal pursuit
+    # Enqueue goal plan step execution for autonomous goal pursuit.
+    # Resolve the owning account_id (via the step's goal plan) and thread it into
+    # the payload so the worker can honor the per-account kill switch. Falls back
+    # to nil when unresolvable (the worker bail no-ops on nil — fail-open).
     def enqueue_ai_goal_plan_step_execution(step_id)
+      account_id = Ai::GoalPlanStep.find_by(id: step_id)&.plan&.account_id
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiGoalPlanExecutionJob",
-        "args" => [ step_id ],
+        "args" => [ step_id, account_id ],
         "queue" => "ai_orchestration"
       })
     end
@@ -353,11 +357,15 @@ class WorkerJobService
       })
     end
 
-    # Enqueue self-challenge pipeline (generate → execute → validate → complete)
+    # Enqueue self-challenge pipeline (generate → execute → validate → complete).
+    # Resolve the owning account_id from the challenge record and thread it into
+    # the payload so the worker can honor the per-account kill switch. Falls back
+    # to nil when unresolvable (the worker bail no-ops on nil — fail-open).
     def enqueue_ai_self_challenge(challenge_id)
+      account_id = Ai::SelfChallenge.find_by(id: challenge_id)&.account_id
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiSelfChallengeJob",
-        "args" => [ challenge_id ],
+        "args" => [ challenge_id, account_id ],
         "queue" => "ai_orchestration"
       })
     end

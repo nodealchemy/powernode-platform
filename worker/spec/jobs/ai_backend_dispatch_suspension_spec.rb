@@ -8,13 +8,14 @@ require 'rails_helper'
 # missing concern means emergency_halt / per-account suspension silently fails
 # to stop them. Regression spec for IMP-7f395d55d15b.
 #
-# Two scopes are excluded by design:
+# One scope is excluded by design:
 #   * ai_memory_consolidation_job / ai_memory_maintenance_job — global, cross-account
 #     (handled separately; no single account to gate on).
-#   * ai_goal_plan_execution_job / ai_self_challenge_job — the worker receives only a
-#     step_id / challenge_id and there is NO worker-visible endpoint that returns the
-#     owning account_id, so they cannot be gated worker-side without a server change
-#     (pass account_id in the enqueue payload). Tracked in the task report.
+#
+# ai_goal_plan_execution_job / ai_self_challenge_job previously could not be gated
+# worker-side because the worker received only a step_id / challenge_id. The server
+# now resolves the owning account_id at enqueue (from the step's goal plan / the
+# challenge record) and threads it into the job payload, so both are gated here.
 RSpec.describe 'Backend-dispatch AI job kill-switch compliance' do
   let(:account_id) { 'account-202' }
 
@@ -187,6 +188,43 @@ RSpec.describe 'Backend-dispatch AI job kill-switch compliance' do
       expect(api).not_to receive(:post)
 
       job.execute('exec-1')
+    end
+  end
+
+  # ---- account_id threaded in via a positional arg ------------------------
+  # The server resolves the owning account_id at enqueue time and passes it as
+  # the trailing positional arg (the worker has no endpoint to resolve it from
+  # the bare step_id / challenge_id).
+
+  describe AiGoalPlanExecutionJob do
+    it 'includes AiSuspensionCheckConcern' do
+      expect(described_class.include?(AiSuspensionCheckConcern)).to be true
+    end
+
+    it 'bails before dispatching step execution when AI is suspended' do
+      job = described_class.new
+      api = instance_double('BackendApiClient')
+      allow(job).to receive(:api_client).and_return(api)
+      allow(job).to receive(:ai_suspended?).with(account_id).and_return(true)
+      expect(api).not_to receive(:post)
+
+      job.execute('step-1', account_id)
+    end
+  end
+
+  describe AiSelfChallengeJob do
+    it 'includes AiSuspensionCheckConcern' do
+      expect(described_class.include?(AiSuspensionCheckConcern)).to be true
+    end
+
+    it 'bails before processing the challenge when AI is suspended' do
+      job = described_class.new
+      api = instance_double('BackendApiClient')
+      allow(job).to receive(:api_client).and_return(api)
+      allow(job).to receive(:ai_suspended?).with(account_id).and_return(true)
+      expect(api).not_to receive(:post)
+
+      job.execute('challenge-1', account_id)
     end
   end
 end

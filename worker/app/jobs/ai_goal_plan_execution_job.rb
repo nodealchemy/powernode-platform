@@ -1,10 +1,18 @@
 # frozen_string_literal: true
 
 class AiGoalPlanExecutionJob < BaseJob
+  include AiSuspensionCheckConcern
+
   sidekiq_options queue: "ai_orchestration", retry: 2
 
-  def execute(step_id)
+  # account_id is resolved server-side at enqueue (from the step's goal plan) and
+  # threaded through so the worker can honor the per-account kill switch. It is
+  # optional for backward compatibility with any in-flight old-format jobs.
+  def execute(step_id, account_id = nil)
     validate_required_params({ "step_id" => step_id }, "step_id")
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(account_id)
 
     log_info("Executing goal plan step", step_id: step_id)
 
