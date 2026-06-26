@@ -23,6 +23,19 @@ module Compliance
 
       log_info "Account termination job complete: #{results[:processed]} processed, #{results[:reminders_sent]} reminders sent"
 
+      # Fail loud: a per-account termination that errored was swallowed into
+      # results[:errors] and the job would otherwise return normally, so Sidekiq
+      # would see success and retry:3 would never fire — stranding a
+      # partially-terminated account. Failed terminations are reverted to
+      # 'grace_period' (re-selectable) in process_termination's rescue; succeeded
+      # ones are 'completed'/'terminated' (outside the re-fetch filter, so the
+      # retry only re-attempts the failed ones). Raise so the failure is surfaced
+      # and Sidekiq retries.
+      if results[:errors].any?
+        failed_ids = results[:errors].map { |error| error[:termination_id] }.join(', ')
+        raise "Account termination failed for: #{failed_ids}"
+      end
+
       results
     end
 
@@ -94,9 +107,14 @@ module Compliance
       rescue => e
         log_error "Account termination failed: #{e.message}"
 
+        # Re-selectability: revert status from 'processing' back to 'grace_period'
+        # so the next run's re-fetch (status: 'grace_period', grace_period_expired:
+        # true) re-selects this partially-terminated account instead of stranding
+        # it forever in 'processing' (which no query re-selects).
         api_client.patch(
           "/api/v1/internal/account_terminations/#{termination_id}",
           {
+            status: 'grace_period',
             termination_log: termination_log + [{
               event: 'error',
               error: e.message,

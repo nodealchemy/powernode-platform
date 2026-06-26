@@ -137,6 +137,29 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
         expect(result[:processed]).to eq(1)
         expect(result[:errors]).to be_empty
       end
+
+      it 'finalizes a succeeded termination as completed so it is not re-selected' do
+        # The re-fetch query filters status: 'grace_period'; a 'completed'
+        # termination falls outside that filter and is never re-processed.
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/account_terminations/#{termination_id}",
+            hash_including(status: 'completed')
+          )
+
+        job.execute
+      end
+
+      it 'never reverts a succeeded termination back to grace_period' do
+        # A succeeded account must NOT be made re-selectable (no double-termination).
+        expect(api_client).not_to receive(:patch)
+          .with(
+            "/api/v1/internal/account_terminations/#{termination_id}",
+            hash_including(status: 'grace_period')
+          )
+
+        job.execute
+      end
     end
 
     context 'when no terminations are ready' do
@@ -210,16 +233,37 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/accounts/#{account_id}/users")
           .and_return(success: true, data: users_data)
-        allow(api_client).to receive(:patch)
+        allow(api_client).to receive(:patch).and_return(success: true)
+        allow(api_client).to receive(:post).and_return(success: true)
+        # Data deletion fails AFTER the account was marked 'processing' (the
+        # exact scenario that previously stranded the account in 'processing').
+        allow(api_client).to receive(:delete)
           .and_raise(StandardError, 'API error')
       end
 
-      it 'logs error and continues' do
+      it 'logs the per-account failure' do
         expect(job).to receive(:log_error).with(/Failed to process termination/)
 
-        result = job.execute
+        expect { job.execute }.to raise_error(StandardError)
+      end
 
-        expect(result[:errors]).not_to be_empty
+      it 'fails loud so Sidekiq retries instead of reporting a false success' do
+        # Previously the job swallowed the failure into results[:errors] and
+        # returned normally, so Sidekiq saw success and retry:3 never fired.
+        expect { job.execute }.to raise_error(/Account termination failed/)
+      end
+
+      it 'reverts the failed termination to grace_period so it is re-selectable' do
+        # grace_period matches the re-fetch filter
+        # (status: 'grace_period', grace_period_expired: true), so the next run
+        # re-attempts it instead of stranding it forever in 'processing'.
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/account_terminations/#{termination_id}",
+            hash_including(status: 'grace_period')
+          )
+
+        expect { job.execute }.to raise_error(StandardError)
       end
     end
   end
