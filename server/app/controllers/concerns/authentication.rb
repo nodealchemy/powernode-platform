@@ -273,6 +273,15 @@ module Authentication
     delegation = ::Account::Delegation.find_by(id: delegation_id)
     return false unless delegation&.active?
 
+    # Defense in depth: the delegation must actually delegate to THIS user. The
+    # delegation_id is server-minted into the JWT bound to the switching user
+    # (AccountSwitchService only embeds delegations from active_delegations.for_user),
+    # so this always holds for a legitimately issued token — reject anything else.
+    # (Target-account scoping is intentionally NOT asserted here: switched sessions
+    # resolve current_account to the user's PRIMARY account, not the delegation
+    # target, so a target == current_account check would forbid legitimate access.)
+    return false unless current_user && delegation.delegated_user_id == current_user.id
+
     delegation.effective_permissions.include?(permission_name)
   end
 

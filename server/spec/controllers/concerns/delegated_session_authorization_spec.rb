@@ -68,4 +68,14 @@ RSpec.describe "delegated session authorization", type: :controller do
     get :read
     expect(response).to have_http_status(:forbidden)
   end
+
+  it "denies when the delegation belongs to a DIFFERENT user (defense in depth)" do
+    other_user = create(:user, account: home_account)
+    foreign_delegation = create(:account_delegation, account: target_account, delegated_user: other_user)
+    controller.instance_variable_set(:@current_jwt_payload, { delegation_id: foreign_delegation.id })
+    # Even though it's active and would grant the permission, it does not delegate
+    # to the current_user, so the session must not borrow its scope.
+    get :read
+    expect(response).to have_http_status(:forbidden)
+  end
 end
