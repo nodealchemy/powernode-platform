@@ -36,8 +36,24 @@ class Api::V1::Admin::UsersController < ApplicationController
     @user.password_confirmation = temp_password
 
     if @user.save
-      # Send welcome email with login instructions via worker service
-      WorkerJobService.enqueue_welcome_email(@user.id, temp_password)
+      # Send a welcome email so the new user can verify their address and set up
+      # their account. Best-effort: a worker/email outage must not fail the
+      # creation or skip the audit log below. The temporary password is NEVER
+      # passed as a job argument (secret-in-arg → worker HTTP body/logs risk) —
+      # the user onboards via the verification/password-reset flow.
+      begin
+        WorkerJobService.enqueue_notification_email(
+          "welcome",
+          {
+            user_id: @user.id,
+            email: @user.email,
+            verification_token: @user.email_verification_token,
+            user_name: @user.full_name
+          }
+        )
+      rescue StandardError => e
+        Rails.logger.error("Failed to enqueue welcome email for user #{@user.id}: #{e.message}")
+      end
 
       AuditLog.create!(
         account: @account,

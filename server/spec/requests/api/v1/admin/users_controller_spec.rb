@@ -150,6 +150,74 @@ RSpec.describe 'Api::V1::Admin::UsersController', type: :request do
 
         expect(response).to have_http_status(:unprocessable_content)
       end
+
+      # Regression coverage for IMP-796128658b83. The create action previously called
+      # WorkerJobService.enqueue_welcome_email (a method that does NOT exist) AFTER the
+      # user was persisted but BEFORE the audit log + render — raising NoMethodError, so
+      # admin user creation returned HTTP 500 every time, leaving an orphaned user with no
+      # audit entry. It also leaked the plaintext temp password as a job argument.
+      context 'welcome email enqueue (regression IMP-796128658b83)' do
+        it 'returns 201, persists the user, and writes the audit log' do
+          allow(WorkerJobService).to receive(:enqueue_notification_email)
+
+          expect {
+            post '/api/v1/admin/users',
+                 params: {
+                   account_id: account.id,
+                   user: { email: 'welcome@example.com', name: 'Welcome User' }
+                 }.to_json,
+                 headers: headers
+          }.to change { AuditLog.where(action: 'create', resource_type: 'User').count }.by(1)
+
+          expect(response).to have_http_status(:created)
+          created = account.users.find_by(email: 'welcome@example.com')
+          expect(created).to be_present
+          audit = AuditLog.where(action: 'create', resource_type: 'User').order(:created_at).last
+          expect(audit.resource_id).to eq(created.id)
+        end
+
+        it 'never passes the temporary password as a job argument' do
+          captured = nil
+          allow(WorkerJobService).to receive(:enqueue_notification_email) do |type, opts|
+            captured = [ type, opts ]
+            nil
+          end
+
+          post '/api/v1/admin/users',
+               params: {
+                 account_id: account.id,
+                 user: { email: 'nosecret@example.com', name: 'No Secret' }
+               }.to_json,
+               headers: headers
+
+          expect(response).to have_http_status(:created)
+          type, opts = captured
+          expect(type).to eq('welcome')
+          # Exactly the non-secret onboarding fields — no password key smuggled in.
+          expect(opts.keys).to match_array([ :user_id, :email, :verification_token, :user_name ])
+          expect(opts.keys.map(&:to_s)).not_to include('password', 'temp_password')
+          # And no value carries password material (e.g. the bcrypt digest).
+          created = account.users.find_by(email: 'nosecret@example.com')
+          expect(opts.values.map(&:to_s)).not_to include(created.password_digest)
+        end
+
+        it 'still creates the user + audit log when the email enqueue fails' do
+          allow(WorkerJobService).to receive(:enqueue_notification_email)
+            .and_raise(WorkerJobService::WorkerServiceError, 'worker down')
+
+          expect {
+            post '/api/v1/admin/users',
+                 params: {
+                   account_id: account.id,
+                   user: { email: 'resilient@example.com', name: 'Resilient User' }
+                 }.to_json,
+                 headers: headers
+          }.to change { AuditLog.where(action: 'create', resource_type: 'User').count }.by(1)
+
+          expect(response).to have_http_status(:created)
+          expect(account.users.find_by(email: 'resilient@example.com')).to be_present
+        end
+      end
     end
 
     context 'without admin user create permission' do
