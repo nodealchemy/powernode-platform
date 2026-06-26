@@ -5,6 +5,7 @@
 # internal API. Per worker convention, the worker is API-only with the server.
 class AiProvisioningComposePlanJob < BaseJob
   include AiJobsConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: "ai_execution", retry: 3
 
@@ -13,6 +14,10 @@ class AiProvisioningComposePlanJob < BaseJob
     validate_required_params(params, "mission_id", "account_id")
 
     mission_id = params["mission_id"]
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(params["account_id"])
+
     log_info("Provisioning compose_plan starting", mission_id: mission_id)
 
     result = backend_api_post(

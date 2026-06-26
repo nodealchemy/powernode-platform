@@ -3,6 +3,7 @@
 class AiMissionExecuteJob < BaseJob
   include AiJobsConcern
   include MissionReportingConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_execution', retry: 3
 
@@ -15,6 +16,9 @@ class AiMissionExecuteJob < BaseJob
 
     mission_id = params['mission_id']
     poll_count = params['poll_count'].to_i
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(params['account_id'])
 
     # Fetch mission to get ralph_loop_id
     mission_response = backend_api_get("/api/v1/ai/missions/#{mission_id}")

@@ -3,6 +3,8 @@
 # AiAgentTeamExecutionJob - Executes AI agent teams asynchronously
 # Handles team orchestration in the background with progress tracking and error handling
 class AiAgentTeamExecutionJob < BaseJob
+  include AiSuspensionCheckConcern
+
   # Job configuration
   sidekiq_options queue: :ai_orchestration, retry: 3
 
@@ -16,6 +18,10 @@ class AiAgentTeamExecutionJob < BaseJob
 
     # Fetch team and user from backend API
     team_data = fetch_team
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(team_data['account_id'])
+
     user_data = fetch_user
 
     # Execute team via orchestrator

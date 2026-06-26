@@ -3,6 +3,7 @@
 class AiMissionPlanJob < BaseJob
   include AiJobsConcern
   include MissionReportingConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_execution', retry: 3
 
@@ -10,6 +11,10 @@ class AiMissionPlanJob < BaseJob
     validate_required_params(params, 'mission_id', 'account_id')
 
     mission_id = params['mission_id']
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(params['account_id'])
+
     log_info("Starting mission planning", mission_id: mission_id)
 
     # Fetch mission

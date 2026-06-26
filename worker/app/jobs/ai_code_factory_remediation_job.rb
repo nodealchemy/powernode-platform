@@ -2,6 +2,7 @@
 
 class AiCodeFactoryRemediationJob < BaseJob
   include AiJobsConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_execution', retry: 2
 
@@ -11,6 +12,9 @@ class AiCodeFactoryRemediationJob < BaseJob
     review_state_id = remediation_params['review_state_id']
     findings = remediation_params['findings'] || []
     account_id = remediation_params['account_id']
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(account_id)
 
     log_info("Starting Code Factory remediation",
       review_state_id: review_state_id, findings_count: findings.size)

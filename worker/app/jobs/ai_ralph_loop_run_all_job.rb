@@ -2,6 +2,7 @@
 
 class AiRalphLoopRunAllJob < BaseJob
   include AiJobsConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_execution', retry: 0
 
@@ -15,6 +16,12 @@ class AiRalphLoopRunAllJob < BaseJob
 
     start_time = Time.current
     iteration = 0
+
+    # Kill switch check — resolve the owning account from the loop record and
+    # bail if AI activity is suspended before running any iteration.
+    loop_record = api_client.get("/api/v1/ai/ralph_loops/#{ralph_loop_id}")
+    account_id = loop_record.dig('data', 'ralph_loop', 'account_id')
+    return if bail_if_ai_suspended!(account_id)
 
     loop do
       # Check timeout

@@ -2,6 +2,7 @@
 
 class AiA2aExternalTaskJob < BaseJob
   include AiJobsConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_agents', retry: 3
 
@@ -16,6 +17,9 @@ class AiA2aExternalTaskJob < BaseJob
     # Fetch the A2A task from backend
     @task = fetch_a2a_task(a2a_task_id)
     return unless @task
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(@task['account_id'])
 
     # Validate this is an external task
     unless @task['is_external']

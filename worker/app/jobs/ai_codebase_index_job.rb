@@ -4,6 +4,7 @@
 # Supports full and incremental indexing modes.
 class AiCodebaseIndexJob < BaseJob
   include AiJobsConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: "code_intel", retry: 2
 
@@ -15,6 +16,9 @@ class AiCodebaseIndexJob < BaseJob
     repository_id = params["repository_id"]
     path = params["path"]
     incremental = params.fetch("incremental", true)
+
+    # Kill switch check — bail if AI activity is suspended for the account
+    return if bail_if_ai_suspended!(account_id)
 
     log_info("Starting codebase indexing",
              account_id: account_id,

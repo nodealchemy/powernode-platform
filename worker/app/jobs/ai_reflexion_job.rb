@@ -1,12 +1,20 @@
 # frozen_string_literal: true
 
 class AiReflexionJob < BaseJob
+  include AiSuspensionCheckConcern
+
   sidekiq_options queue: "ai_orchestration", retry: 1
 
   def execute(execution_id)
     validate_required_params({ "execution_id" => execution_id }, "execution_id")
 
     log_info("Starting reflexion analysis", execution_id: execution_id)
+
+    # Kill switch check — resolve the owning account from the execution record
+    # and bail if AI activity is suspended before triggering reflexion.
+    execution = api_client.get("/api/v1/internal/ai/executions/#{execution_id}")
+    account_id = execution.dig("data", "agent_execution", "account_id")
+    return if bail_if_ai_suspended!(account_id)
 
     # Trigger reflexion via API
     response = with_api_retry do
