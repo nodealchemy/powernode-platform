@@ -143,6 +143,16 @@ RSpec.describe 'Api::V1::Ai::A2aTasks', type: :request do
 
       expect_success_response
     end
+
+    # The worker (AiA2aExternalTaskJob) reads @task['account_id'] from this
+    # /details payload to honor the AI kill switch; account_id must be top-level.
+    it 'includes account_id for the worker kill-switch read location' do
+      get "/api/v1/ai/a2a/tasks/#{task.task_id}/details", headers: headers, as: :json
+
+      expect_success_response
+      full_response = json_response_full
+      expect(full_response['data']['task']['account_id']).to eq(task.account_id)
+    end
   end
 
   describe 'POST /api/v1/ai/a2a/tasks' do

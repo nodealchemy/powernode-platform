@@ -122,6 +122,16 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
         expect(data['ralph_loop']).to have_key('tasks')
         expect(data['ralph_loop']).to have_key('recent_iterations')
       end
+
+      # The worker (AiRalphLoopRunAllJob) reads
+      # loop_record.dig('data', 'ralph_loop', 'account_id') to honor the AI
+      # kill switch; account_id must be nested under data.ralph_loop.
+      it 'includes account_id for the worker kill-switch read location' do
+        get "/api/v1/ai/ralph_loops/#{ralph_loop.id}", headers: headers, as: :json
+
+        data = json_response_data
+        expect(data['ralph_loop']['account_id']).to eq(ralph_loop.account_id)
+      end
     end
 
     context 'when ralph loop does not exist' do

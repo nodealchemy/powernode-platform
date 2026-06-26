@@ -9,6 +9,7 @@ module Ai
     def serialize_team(team)
       {
         id: team.id,
+        account_id: team.account_id,
         name: team.name,
         description: team.description,
         team_type: team.team_type,

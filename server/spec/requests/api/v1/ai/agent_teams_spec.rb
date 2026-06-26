@@ -160,6 +160,16 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
         expect(full_response['data']['stats']).to have_key('member_count')
         expect(full_response['data']['stats']).to have_key('has_lead')
       end
+
+      # The worker (AiAgentTeamExecutionJob) reads team_data['account_id'] from this
+      # response to honor the AI kill switch; account_id must be at the top level.
+      it 'includes account_id for the worker kill-switch read location' do
+        get "/api/v1/ai/agent_teams/#{team.id}", headers: headers, as: :json
+
+        expect_success_response
+        full_response = json_response_full
+        expect(full_response['data']['account_id']).to eq(team.account_id)
+      end
     end
 
     context 'with team from another account' do

@@ -311,6 +311,7 @@ module Ai
 
     def task_details
       task_summary.merge(
+        account_id: account_id,
         message: message,
         input: input,
         output: output,

@@ -63,6 +63,7 @@ module Api
 
             {
               id: execution.id,
+              account_id: execution.account_id,
               status: execution.status,
               input_parameters: execution.input_parameters,
               output_data: execution.output_data,

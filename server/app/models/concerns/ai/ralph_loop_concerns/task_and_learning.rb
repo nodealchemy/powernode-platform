@@ -103,6 +103,7 @@ module Ai
 
       def loop_details
         loop_summary.merge(
+          account_id: account_id,
           description: description,
           repository_url: repository_url,
           branch: branch,
