@@ -3,7 +3,7 @@
 class Api::V1::WebhooksController < ApplicationController
   before_action -> { require_permission("webhook.read") }, only: [ :index, :show ]
   before_action -> { require_permission("webhook.create") }, only: [ :create ]
-  before_action -> { require_permission("webhook.update") }, only: [ :update, :toggle_status, :retry_delivery ]
+  before_action -> { require_permission("webhook.update") }, only: [ :update, :toggle_status, :retry_delivery, :retry_failed ]
   before_action -> { require_permission("webhook.delete") }, only: [ :destroy ]
   before_action -> { require_permission("webhook.read") }, only: [ :test, :health_test ]
   before_action :find_webhook, only: [ :show, :update, :destroy, :test, :toggle_status, :health_test ]
@@ -214,6 +214,7 @@ class Api::V1::WebhooksController < ApplicationController
   # POST /api/v1/webhooks/retry_failed
   def retry_failed
     failed_deliveries = WebhookDelivery.failed
+                                      .where(webhook_endpoint: current_account.webhook_endpoints)
                                       .where(created_at: 24.hours.ago..Time.current)
                                       .includes(:webhook_endpoint)
 

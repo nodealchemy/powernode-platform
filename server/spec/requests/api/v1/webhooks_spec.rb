@@ -443,6 +443,70 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
     end
   end
 
+  # ==========================================================================
+  # POST /api/v1/webhooks/retry_failed  (IMP-70b19d1bb6dc)
+  #
+  # Security regression guard for two defects on the unfixed action:
+  #   1. Ungated: it was absent from every require_permission before_action, so
+  #      ANY authenticated user (no webhook.update) could invoke it.
+  #   2. Cross-tenant: the failed-delivery query (WebhookDelivery.failed) was NOT
+  #      scoped to the caller's account, so one tenant could trigger a
+  #      platform-wide retry storm across every other tenant's failed deliveries.
+  #
+  # WebhookRetryJob is defined only in the standalone worker app; the Rails
+  # server never loads it. We stub it as a constant spy so we can both (a) keep
+  # the unconditional perform_later call from raising NameError and (b) observe
+  # exactly which deliveries get enqueued.
+  # ==========================================================================
+  describe 'POST /api/v1/webhooks/retry_failed' do
+    let(:retry_job) { spy('WebhookRetryJob') }
+    let(:caller_user) { create(:user, account: account, permissions: [ 'webhook.update' ]) }
+    let(:caller_headers) { auth_headers_for(caller_user) }
+
+    # Account A (the caller): one failed delivery that is retryable now
+    # (next_retry_at in the past) on an active endpoint.
+    let(:endpoint_a) { create(:webhook_endpoint, account: account, status: 'active') }
+    let!(:delivery_a) do
+      create(:webhook_delivery, :failed, webhook_endpoint: endpoint_a, next_retry_at: 1.minute.ago)
+    end
+
+    # Account B (a different tenant): likewise a retryable failed delivery on an
+    # active endpoint. It must NEVER be enqueued when account A retries.
+    let(:other_account) { create(:account) }
+    let(:endpoint_b) { create(:webhook_endpoint, account: other_account, status: 'active') }
+    let!(:delivery_b) do
+      create(:webhook_delivery, :failed, webhook_endpoint: endpoint_b, next_retry_at: 1.minute.ago)
+    end
+
+    before { stub_const('WebhookRetryJob', retry_job) }
+
+    it 'requires the webhook.update permission' do
+      post '/api/v1/webhooks/retry_failed', headers: auth_headers_for(regular_user), as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(retry_job).not_to have_received(:perform_later)
+    end
+
+    it 'only retries the calling account deliveries (no cross-tenant retry storm)' do
+      post '/api/v1/webhooks/retry_failed', headers: caller_headers, as: :json
+
+      expect_success_response
+      expect(retry_job).to have_received(:perform_later).with(delivery_a.id)
+      expect(retry_job).not_to have_received(:perform_later).with(delivery_b.id)
+
+      expect(json_response['data']['retry_count']).to eq(1)
+      expect(json_response['data']['total_failed']).to eq(1)
+    end
+
+    it 'queues the calling account retryable delivery (happy path)' do
+      post '/api/v1/webhooks/retry_failed', headers: caller_headers, as: :json
+
+      expect_success_response
+      expect(json_response['data']['retry_count']).to eq(1)
+      expect(retry_job).to have_received(:perform_later).with(delivery_a.id).once
+    end
+  end
+
   describe 'GET /api/v1/webhooks/health' do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
 
