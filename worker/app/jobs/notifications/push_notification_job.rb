@@ -10,6 +10,15 @@ class Notifications::PushNotificationJob < BaseJob
   def execute(notification_id, options = {})
     log_info("Processing push notification #{notification_id}")
 
+    # Idempotency guard: if a previous attempt already dispatched the push, a
+    # Sidekiq retry (e.g. triggered by a failed delivery-mark PATCH) must NOT
+    # dispatch it again — that would deliver a duplicate push to the device(s).
+    idempotency_key = "push_delivery:#{notification_id}"
+    if already_processed?(idempotency_key)
+      log_info("Push already sent for notification #{notification_id}, skipping duplicate send")
+      return { skipped: true, reason: 'already_processed' }
+    end
+
     # Get notification details from backend
     notification = fetch_notification(notification_id)
     return log_error("Notification #{notification_id} not found") unless notification
@@ -45,6 +54,11 @@ class Notifications::PushNotificationJob < BaseJob
           options: notification_options(notification)
         )
 
+        # The push has been dispatched to Firebase. Mark it processed BEFORE the
+        # bookkeeping PATCH so a retry (e.g. from a failed delivery-mark) can't
+        # re-dispatch a duplicate push.
+        mark_processed(idempotency_key)
+
         handle_single_result(notification_id, result)
       else
         # Multiple devices
@@ -54,6 +68,9 @@ class Notifications::PushNotificationJob < BaseJob
           body: body,
           data: data
         )
+
+        # Multicast dispatched — guard against a duplicate re-send on retry.
+        mark_processed(idempotency_key)
 
         handle_multicast_result(notification_id, result, notification)
       end
@@ -66,6 +83,13 @@ class Notifications::PushNotificationJob < BaseJob
       log_error("Firebase delivery error: #{e.message}")
       mark_notification_failed(notification_id, e.message)
       raise # Allow retry
+    rescue BackendApiClient::ApiError => e
+      # Raised by the status-update PATCH (mark_notification_delivered/failed/
+      # partial) AFTER the push was already dispatched and guarded above. Don't
+      # bubble into a Sidekiq retry that would just no-op on the guard.
+      log_error("Failed to update notification status after push dispatch", e,
+                notification_id: notification_id)
+      nil
     end
   end
 

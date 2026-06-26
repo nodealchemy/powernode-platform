@@ -10,6 +10,15 @@ class Notifications::SmsDeliveryJob < BaseJob
   def execute(notification_id, options = {})
     log_info("Processing SMS notification #{notification_id}")
 
+    # Idempotency guard: if a previous attempt already dispatched the SMS, a
+    # Sidekiq retry (e.g. triggered by a failed delivery-mark PATCH) must NOT
+    # re-send it — re-sending means a duplicate SMS and a double Twilio charge.
+    idempotency_key = "sms_delivery:#{notification_id}"
+    if already_processed?(idempotency_key)
+      log_info("SMS already sent for notification #{notification_id}, skipping duplicate send")
+      return { skipped: true, reason: 'already_processed' }
+    end
+
     # Get notification details from backend
     notification = fetch_notification(notification_id)
     return log_error("Notification #{notification_id} not found") unless notification
@@ -39,11 +48,24 @@ class Notifications::SmsDeliveryJob < BaseJob
 
       if result[:success]
         log_info("SMS sent successfully: #{result[:message_sid]}")
-        mark_notification_delivered(notification_id, {
-          channel: 'sms',
-          message_sid: result[:message_sid],
-          segments: result[:segments]
-        })
+
+        # Mark the (already-charged) send as processed BEFORE the bookkeeping
+        # PATCH. If mark_notification_delivered then raises and Sidekiq retries,
+        # the idempotency guard above short-circuits and the SMS is not re-sent.
+        mark_processed(idempotency_key)
+
+        begin
+          mark_notification_delivered(notification_id, {
+            channel: 'sms',
+            message_sid: result[:message_sid],
+            segments: result[:segments]
+          })
+        rescue BackendApiClient::ApiError => e
+          # The SMS already went out; don't bubble into a retry that would just
+          # no-op (the guard would skip the re-send anyway). Log and move on.
+          log_error("Failed to mark SMS notification delivered after successful send", e,
+                    notification_id: notification_id)
+        end
       else
         log_error("SMS delivery failed: #{result[:error]}")
         mark_notification_failed(notification_id, result[:error])

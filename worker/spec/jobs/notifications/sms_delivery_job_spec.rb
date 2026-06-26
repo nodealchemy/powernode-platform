@@ -146,6 +146,49 @@ RSpec.describe Notifications::SmsDeliveryJob do
           .to raise_error(TwilioService::ConfigurationError)
       end
     end
+
+    # Regression: a delivery-mark PATCH failure must NOT cause a duplicate SMS
+    # (double Twilio charge) when Sidekiq retries the job. The provider send is
+    # guarded by mark_processed BEFORE the bookkeeping PATCH, so a retry skips it.
+    context 'when the delivery-mark PATCH fails after a successful send' do
+      # In-memory idempotency store shared across job instances (simulates Redis).
+      let(:processed_keys) { [] }
+
+      before do
+        allow_any_instance_of(described_class).to receive(:already_processed?) do |_job, key, **_opts|
+          processed_keys.include?(key)
+        end
+        allow_any_instance_of(described_class).to receive(:mark_processed) do |_job, key, **_opts|
+          processed_keys << key
+        end
+
+        allow(mock_twilio_service).to receive(:send_sms).and_return({
+          success: true,
+          message_sid: 'SM999999',
+          segments: 1
+        })
+
+        # The provider send succeeds, but marking the notification delivered raises.
+        allow(mock_api_client).to receive(:patch)
+          .with("/api/v1/notifications/#{notification_id}", hash_including(status: 'delivered'))
+          .and_raise(BackendApiClient::ApiError.new('backend rejected update', 400))
+      end
+
+      # Sidekiq would catch a propagating error and re-enqueue the job; simulate
+      # that by swallowing it so we can drive a second execute (the "retry").
+      def execute_once
+        described_class.new.execute(notification_id)
+      rescue BackendApiClient::ApiError
+        # Sidekiq retry would be scheduled here.
+      end
+
+      it 'does not re-send the SMS on the retry' do
+        execute_once # first attempt: SMS sent, delivery-mark fails
+        execute_once # retry attempt: must short-circuit, NOT re-send
+
+        expect(mock_twilio_service).to have_received(:send_sms).once
+      end
+    end
   end
 
   describe 'message building' do

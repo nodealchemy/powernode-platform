@@ -206,6 +206,51 @@ RSpec.describe Notifications::PushNotificationJob do
           .to raise_error(FirebaseService::ConfigurationError)
       end
     end
+
+    # Regression: a delivery-mark PATCH failure must NOT cause a duplicate push
+    # when Sidekiq retries the job. The provider send is guarded by mark_processed
+    # immediately after Firebase dispatch, so a retry short-circuits the re-send.
+    context 'when the delivery-mark PATCH fails after a successful send' do
+      let(:devices) { [{ 'id' => '1', 'push_token' => 'token_abc123', 'push_enabled' => true }] }
+
+      # In-memory idempotency store shared across job instances (simulates Redis).
+      let(:processed_keys) { [] }
+
+      before do
+        allow_any_instance_of(described_class).to receive(:already_processed?) do |_job, key, **_opts|
+          processed_keys.include?(key)
+        end
+        allow_any_instance_of(described_class).to receive(:mark_processed) do |_job, key, **_opts|
+          processed_keys << key
+        end
+
+        allow(mock_firebase_service).to receive(:send_notification).and_return({
+          success: true,
+          message_id: 'msg_999',
+          device_token: 'token_abc123'
+        })
+
+        # The provider send succeeds, but marking the notification delivered raises.
+        allow(mock_api_client).to receive(:patch)
+          .with("/api/v1/notifications/#{notification_id}", hash_including(status: 'delivered'))
+          .and_raise(BackendApiClient::ApiError.new('backend rejected update', 400))
+      end
+
+      # Sidekiq would catch a propagating error and re-enqueue the job; simulate
+      # that by swallowing it so we can drive a second execute (the "retry").
+      def execute_once
+        described_class.new.execute(notification_id)
+      rescue BackendApiClient::ApiError
+        # Sidekiq retry would be scheduled here.
+      end
+
+      it 'does not re-send the push on the retry' do
+        execute_once # first attempt: push sent, delivery-mark fails
+        execute_once # retry attempt: must short-circuit, NOT re-send
+
+        expect(mock_firebase_service).to have_received(:send_notification).once
+      end
+    end
   end
 
   describe 'title and body building' do
