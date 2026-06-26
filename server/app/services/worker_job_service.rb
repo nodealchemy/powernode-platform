@@ -97,6 +97,18 @@ class WorkerJobService
       })
     end
 
+    # Enqueue external A2A agent-card fetch. The worker performs the slow
+    # external HTTP GET of agent_card_url, then posts the raw outcome back to
+    # the internal card_result endpoint (server does the A2A parse/validate/
+    # persist). Pattern B: keep all model/DB access on the server.
+    def enqueue_external_agent_card_fetch(external_agent)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "ExternalAgentCardFetchJob",
+        "args" => [ external_agent.id, external_agent.agent_card_url ],
+        "queue" => "default"
+      })
+    end
+
     # Enqueue AI agent execution job
     def enqueue_ai_agent_execution(agent_execution_id)
       new.make_worker_request("POST", "/api/v1/jobs", {

@@ -17,12 +17,22 @@ module A2a
           response = get(url, headers: default_headers, timeout: 10)
 
           if response.success?
-            card = JSON.parse(response.body)
-            validate_card!(card)
-            { success: true, card: card }
+            parse_card(response.body)
           else
             { success: false, error: "HTTP #{response.code}: #{response.message}" }
           end
+        rescue StandardError => e
+          { success: false, error: e.message }
+        end
+
+        # Parse + validate a raw agent-card response body (JSON string).
+        # Split out from fetch_card so the same A2A parse/validate logic can be
+        # applied to a body fetched elsewhere (e.g. by the worker, which performs
+        # the network I/O and posts the raw body back to the server for parsing).
+        def parse_card(body)
+          card = JSON.parse(body.to_s)
+          validate_card!(card)
+          { success: true, card: card }
         rescue JSON::ParserError => e
           { success: false, error: "Invalid JSON: #{e.message}" }
         rescue StandardError => e

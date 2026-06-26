@@ -122,6 +122,14 @@ Rails.application.routes.draw do
         # Background job tracking
         resources :jobs, only: [ :show, :update ]
 
+        # External A2A agent-card fetch result callback (from worker's
+        # ExternalAgentCardFetchJob — worker fetches the card, server persists)
+        resources :external_agents, only: [] do
+          member do
+            post :card_result
+          end
+        end
+
         # Webhook deliveries
         resources :webhook_deliveries, only: [ :show, :update ] do
           member do

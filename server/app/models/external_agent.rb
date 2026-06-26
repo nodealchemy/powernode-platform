@@ -37,29 +37,15 @@ class ExternalAgent < ApplicationRecord
 
   # === Instance Methods ===
 
-  # Fetch and cache the agent card from the remote URL
+  # Fetch and cache the agent card from the remote URL (synchronous path).
+  # Used by to_a2a_json/health refresh; the async path lives in the worker
+  # (ExternalAgentCardFetchJob), which posts its raw fetch outcome back to the
+  # internal card_result endpoint, which then calls #apply_card_result. Both
+  # paths share #apply_card_result so persistence behavior is identical.
   def fetch_agent_card!
     response = A2a::Client::AgentDiscovery.fetch_card(agent_card_url)
 
-    if response[:success]
-      update!(
-        cached_card: response[:card],
-        card_cached_at: Time.current,
-        card_version: response[:card]["version"],
-        skills: extract_skills(response[:card]),
-        capabilities: extract_capabilities(response[:card]),
-        health_status: "healthy",
-        last_health_check: Time.current
-      )
-      true
-    else
-      update!(
-        health_status: "unhealthy",
-        health_details: { error: response[:error] },
-        last_health_check: Time.current
-      )
-      false
-    end
+    apply_card_result(success: response[:success], card: response[:card], error: response[:error])
   rescue StandardError => e
     update!(
       status: "error",
@@ -68,6 +54,32 @@ class ExternalAgent < ApplicationRecord
       last_health_check: Time.current
     )
     false
+  end
+
+  # Persist the outcome of an agent-card fetch. Shared by the synchronous
+  # #fetch_agent_card! path and the worker callback (Internal::ExternalAgents#
+  # card_result). `card` is the parsed+validated A2A card hash on success;
+  # `error` is the failure reason. Returns true on success, false on failure.
+  def apply_card_result(success:, card: nil, error: nil)
+    if success
+      update!(
+        cached_card: card,
+        card_cached_at: Time.current,
+        card_version: card["version"],
+        skills: extract_skills(card),
+        capabilities: extract_capabilities(card),
+        health_status: "healthy",
+        last_health_check: Time.current
+      )
+      true
+    else
+      update!(
+        health_status: "unhealthy",
+        health_details: { error: error },
+        last_health_check: Time.current
+      )
+      false
+    end
   end
 
   # Check health of the external agent
@@ -165,7 +177,15 @@ class ExternalAgent < ApplicationRecord
   end
 
   def fetch_agent_card_async
-    ExternalAgentCardFetchJob.perform_later(id)
+    # Relocated to the standalone worker (server runs no Sidekiq and holds no
+    # job classes). The worker does the slow external HTTP GET, then posts the
+    # raw outcome back to Internal::ExternalAgents#card_result, which performs
+    # the A2A parse/validate/persist via #apply_card_result.
+    WorkerJobService.enqueue_external_agent_card_fetch(self)
+  rescue WorkerJobService::WorkerServiceError => e
+    # Don't let an unreachable worker block agent creation — the card can still
+    # be fetched lazily on demand via to_a2a_json (synchronous fetch_agent_card!).
+    Rails.logger.warn("[ExternalAgent] Failed to enqueue card fetch for #{id}: #{e.message}")
   end
 
   def extract_skills(card)

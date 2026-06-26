@@ -135,6 +135,46 @@ RSpec.describe ExternalAgent, type: :model do
     end
   end
 
+  describe "#apply_card_result" do
+    let(:agent) { create(:external_agent, account: account, health_status: "unknown") }
+
+    # apply_card_result is the shared persistence used by both the synchronous
+    # #fetch_agent_card! path and the worker callback (Internal::ExternalAgents#
+    # card_result). #fetch_agent_card! coverage above exercises it via the sync
+    # path; these pin the result-application behavior directly.
+    context "on success" do
+      let(:card) do
+        {
+          "name" => "External Agent",
+          "version" => "2.1.0",
+          "skills" => [ { "id" => "test.skill", "name" => "Test" } ],
+          "capabilities" => { "streaming" => true }
+        }
+      end
+
+      it "caches the card, extracts skills/capabilities, and marks healthy" do
+        expect(agent.apply_card_result(success: true, card: card)).to be true
+
+        agent.reload
+        expect(agent.cached_card["name"]).to eq("External Agent")
+        expect(agent.card_version).to eq("2.1.0")
+        expect(agent.skills.first["id"]).to eq("test.skill")
+        expect(agent.capabilities["streaming"]).to be true
+        expect(agent.health_status).to eq("healthy")
+      end
+    end
+
+    context "on failure" do
+      it "marks the agent unhealthy with the error detail" do
+        expect(agent.apply_card_result(success: false, error: "boom")).to be false
+
+        agent.reload
+        expect(agent.health_status).to eq("unhealthy")
+        expect(agent.health_details["error"]).to eq("boom")
+      end
+    end
+  end
+
   describe "#has_skill?" do
     let(:agent) do
       create(:external_agent, account: account, skills: [
