@@ -50,6 +50,28 @@ module Compliance
           deletion_log = process_anonymization(deletion_request)
         end
 
+        # GDPR/compliance safety: a per-data-type erasure that did not succeed
+        # must NEVER be reported as a completed deletion. Surface the partial
+        # failure (with per-type detail) and raise so Sidekiq retries — leaving
+        # PII undeleted while claiming success is a legal/compliance exposure.
+        failed_deletions = deletion_log.select { |entry| entry[:action] == 'failed' }
+        if failed_deletions.any?
+          failed_types = failed_deletions.map { |entry| entry[:data_type] }.join(', ')
+          failure_message = "Data deletion failed for: #{failed_types}"
+
+          api_client.patch(
+            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+            {
+              status: 'failed',
+              deletion_log: deletion_log,
+              retention_log: retention_log,
+              error_message: failure_message
+            }
+          )
+
+          raise failure_message
+        end
+
         # Complete the request
         api_client.patch(
           "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
@@ -98,13 +120,7 @@ module Compliance
             processed_at: Time.current.iso8601
           }
         else
-          result = delete_data_type(data_type, user_id, account_id)
-          deletion_log << {
-            data_type: data_type,
-            action: 'deleted',
-            records_affected: result[:count],
-            processed_at: Time.current.iso8601
-          }
+          deletion_log << deletion_log_entry(data_type, delete_data_type(data_type, user_id, account_id))
         end
       end
 
@@ -126,13 +142,7 @@ module Compliance
       deletion_log = []
 
       data_types.each do |data_type|
-        result = delete_data_type(data_type, user_id, account_id)
-        deletion_log << {
-          data_type: data_type,
-          action: 'deleted',
-          records_affected: result[:count],
-          processed_at: Time.current.iso8601
-        }
+        deletion_log << deletion_log_entry(data_type, delete_data_type(data_type, user_id, account_id))
       end
 
       deletion_log
@@ -169,6 +179,27 @@ module Compliance
     rescue => e
       log_warn "Failed to delete #{data_type}: #{e.message}"
       { count: 0, error: e.message }
+    end
+
+    # Build a deletion-log entry that distinguishes a genuine zero-record delete
+    # (nothing matched) from a FAILED delete. A swallowed failure must not be
+    # recorded as a successful `action: 'deleted', records_affected: 0`.
+    def deletion_log_entry(data_type, result)
+      if result[:error]
+        {
+          data_type: data_type,
+          action: 'failed',
+          error: result[:error],
+          processed_at: Time.current.iso8601
+        }
+      else
+        {
+          data_type: data_type,
+          action: 'deleted',
+          records_affected: result[:count],
+          processed_at: Time.current.iso8601
+        }
+      end
     end
 
     def anonymize_user(user_id)

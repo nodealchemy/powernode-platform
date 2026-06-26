@@ -208,5 +208,66 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
         job.execute(deletion_request_id)
       end
     end
+
+    context 'when a per-data-type deletion fails (partial GDPR erasure)' do
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(success: true, data: deletion_request_data)
+        allow(api_client).to receive(:patch).and_return(success: true)
+        allow(api_client).to receive(:post).and_return(success: true)
+        # Most data types delete cleanly...
+        allow(api_client).to receive(:delete)
+          .and_return(success: true, data: { 'deleted_count' => 5 })
+        # ...but one data type's deletion raises (e.g. storage backend down).
+        allow(api_client).to receive(:delete)
+          .with('/api/v1/internal/data_deletion/files', anything)
+          .and_raise(BackendApiClient::ApiError.new('storage backend unavailable'))
+      end
+
+      it 'does not mark the request completed and re-raises so Sidekiq retries' do
+        expect { job.execute(deletion_request_id) }.to raise_error(/files/)
+
+        expect(api_client).not_to have_received(:patch).with(
+          "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+          hash_including(status: 'completed')
+        )
+      end
+
+      it 'marks the request failed and records the per-type error (not a phantom delete)' do
+        expect { job.execute(deletion_request_id) }.to raise_error(StandardError)
+
+        # The failed type is surfaced with its error, NOT recorded as a
+        # successful zero-record deletion (which would be indistinguishable
+        # from "nothing to delete").
+        expect(api_client).to have_received(:patch).with(
+          "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+          hash_including(
+            status: 'failed',
+            deletion_log: array_including(
+              hash_including(data_type: 'files', action: 'failed')
+            )
+          )
+        )
+
+        expect(api_client).not_to have_received(:patch).with(
+          "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+          hash_including(
+            deletion_log: array_including(
+              hash_including(data_type: 'files', action: 'deleted', records_affected: 0)
+            )
+          )
+        )
+      end
+
+      it 'does not send the completion notification for a failed erasure' do
+        expect { job.execute(deletion_request_id) }.to raise_error(StandardError)
+
+        expect(api_client).not_to have_received(:post).with(
+          '/api/v1/internal/notifications/send',
+          hash_including(type: 'data_deletion_complete')
+        )
+      end
+    end
   end
 end
