@@ -80,25 +80,29 @@ module Api
           end
         end
 
-        # Read resource content from the MCP server
+        # Read resource content from the MCP server synchronously (JSON-RPC
+        # resources/read) via the server-side Mcp::ResourceService. (Previously
+        # called WorkerJobService.execute_mcp_resource_read, which does not exist
+        # — there is no async worker resource-read job — so every connected-server
+        # read raised NoMethodError that escaped the WorkerServiceError rescue and
+        # 500'd. Same fix as the sibling PromptsController#execute_prompt.)
+        # ResourceService#read_resource returns
+        # { success:, content:, mime_type:, uri: } or { success: false, error: }.
         def read_resource_content(uri)
           return { content: nil, mime_type: nil } unless @mcp_server.connected?
 
-          # Queue resource read via worker service
-          begin
-            result = WorkerJobService.execute_mcp_resource_read(
-              @mcp_server.id,
-              uri: uri
-            )
+          result = ::Mcp::ResourceService.new(server: @mcp_server, account: current_user.account)
+                                         .read_resource(uri)
 
-            {
-              content: result[:content],
-              mime_type: result[:mime_type]
-            }
-          rescue WorkerJobService::WorkerServiceError => e
-            Rails.logger.error("Failed to read MCP resource: #{e.message}")
-            { content: nil, mime_type: nil, error: e.message }
+          if result[:success]
+            { content: result[:content], mime_type: result[:mime_type] }
+          else
+            Rails.logger.error("Failed to read MCP resource: #{result[:error]}")
+            { content: nil, mime_type: nil, error: result[:error] }
           end
+        rescue StandardError => e
+          Rails.logger.error("Failed to read MCP resource: #{e.message}")
+          { content: nil, mime_type: nil, error: e.message }
         end
       end
     end
