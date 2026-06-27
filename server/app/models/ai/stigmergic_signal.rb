@@ -4,13 +4,21 @@ module Ai
   class StigmergicSignal < ApplicationRecord
     self.table_name = "ai_stigmergic_signals"
 
+    # Base coordination categories used by core. Signal types are NOT limited to
+    # these: core and other subsystems emit namespaced/semantic types (e.g.
+    # "entry", "system.capacity_pressure") and perceivers query by exactly those,
+    # so signal_type is an open, format-validated token — a new type needs no core
+    # change. SIGNAL_TYPES is kept for documentation/reference of the base set.
     SIGNAL_TYPES = %w[pheromone pressure beacon warning discovery].freeze
+
+    # Lowercase token, optionally dot-namespaced: "warning", "system.region_busy".
+    SIGNAL_TYPE_FORMAT = /\A[a-z][a-z0-9_]*(\.[a-z0-9_]+)*\z/
 
     belongs_to :account
     belongs_to :emitter_agent, class_name: "Ai::Agent", foreign_key: "emitter_agent_id", optional: true
     belongs_to :memory_pool, class_name: "Ai::MemoryPool", foreign_key: "memory_pool_id", optional: true
 
-    validates :signal_type, presence: true, inclusion: { in: SIGNAL_TYPES }
+    validates :signal_type, presence: true, format: { with: SIGNAL_TYPE_FORMAT }
     validates :signal_key, presence: true
     validates :strength, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
     validates :decay_rate, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
