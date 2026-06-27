@@ -42,8 +42,12 @@ module ApiTestHelpers
       stub = stub.with(query: with_query)
     end
 
-    # Only match critical Authorization header (partial matching)
-    stub = stub.with(headers: { 'Authorization' => expected_request_headers['Authorization'] })
+    # Auth is mTLS at the transport layer — the worker sends no Authorization header
+    # (it sets X-Forwarded-Tls-Client-Cert-Info instead). The previous
+    # `.with(headers: { 'Authorization' => expected_request_headers['Authorization'] })`
+    # demanded an Authorization header that expected_request_headers does not define, so
+    # this stub never matched the real request and error responses were never simulated
+    # (requests fell through / leaked). Match like stub_backend_api_success: no auth header.
 
     stub.to_return(
       status: status,
