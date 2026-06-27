@@ -80,6 +80,9 @@ const TrajectoryInsights = React.lazy(() => import('@/features/ai/learning/Traje
 // AI Missions
 const MissionsPageWrapper = React.lazy(() => import('./ai/MissionsPage').then(m => ({ default: m.MissionsPageWrapper })));
 
+// AI Improvement Campaigns
+const CampaignsPageWrapper = React.lazy(() => import('./ai/CampaignsPage').then(m => ({ default: m.CampaignsPageWrapper })));
+
 // Containers
 const ContainersPage = React.lazy(() => import('@/features/devops/containers/pages/ContainersPage').then(m => ({ default: m.ContainersPage })));
 
@@ -407,6 +410,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/missions/all" element={<MissionsPageWrapper />} />
         <Route path="/ai/missions/:missionId" element={<MissionsPageWrapper />} />
         <Route path="/ai/missions" element={<MissionsPageWrapper />} />
+
+        {/* AI Improvement Campaigns */}
+        <Route path="/ai/campaigns" element={<ProtectedRoute requiredPermissions={['ai.campaigns.read']}><CampaignsPageWrapper /></ProtectedRoute>} />
 
         {/* AI Redirects - Absorbed pages */}
         <Route path="/ai/code-factory/*" element={<Navigate to="/app/ai/missions/code-factory" replace />} />

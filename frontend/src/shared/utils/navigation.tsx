@@ -6,7 +6,7 @@ import {
   HardDrive, Workflow, Server, GitBranch,
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Boxes,
-  Play, Rocket, DollarSign, Code2, Gauge, Building2
+  Play, Rocket, DollarSign, Code2, Gauge, Building2, Megaphone
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -64,6 +64,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'AI-assisted development missions',
           permissions: ['ai.missions.read'],
           order: 4
+        },
+        {
+          id: 'ai-campaigns',
+          name: 'Campaigns',
+          href: '/app/ai/campaigns',
+          icon: Megaphone,
+          description: 'Autonomous, repeatable improvement campaigns',
+          permissions: ['ai.campaigns.read'],
+          order: 5
         },
         {
           id: 'ai-execution',

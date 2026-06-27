@@ -1,0 +1,226 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { HelpCircle, GitBranch, ListChecks, StopCircle } from 'lucide-react';
+import { Modal } from '@/shared/components/ui/Modal';
+import { Button } from '@/shared/components/ui/Button';
+import { Badge } from '@/shared/components/ui/Badge';
+import { Progress } from '@/shared/components/ui/Progress';
+import { Textarea } from '@/shared/components/ui/Textarea';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { campaignsApi } from '../api/campaignsApi';
+import type { CampaignDetail } from '../types/campaign';
+import { STATUS_CONFIG, DECISION_AUTHORITY_LABELS } from '../constants/campaign';
+
+interface CampaignDetailModalProps {
+  campaignId: string | null;
+  isOpen: boolean;
+  onClose: () => void;
+  canManage: boolean;
+  onChanged: () => void;
+}
+
+const TERMINAL = ['completed', 'archived'];
+
+export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
+  campaignId,
+  isOpen,
+  onClose,
+  canManage,
+  onChanged,
+}) => {
+  const [detail, setDetail] = useState<CampaignDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!campaignId) return;
+    setLoading(true);
+    try {
+      const response = await campaignsApi.getCampaign(campaignId);
+      setDetail(response.data);
+    } finally {
+      setLoading(false);
+    }
+  }, [campaignId]);
+
+  useEffect(() => {
+    if (isOpen && campaignId) {
+      setAnswers({});
+      load();
+    }
+  }, [isOpen, campaignId, load]);
+
+  const handleAnswer = async (questionId: string) => {
+    if (!campaignId) return;
+    const answer = (answers[questionId] || '').trim();
+    if (!answer) return;
+    setBusy(questionId);
+    try {
+      await campaignsApi.answerQuestion(campaignId, questionId, answer);
+      await load();
+      onChanged();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleStop = async () => {
+    if (!campaignId) return;
+    setBusy('stop');
+    try {
+      await campaignsApi.stopCampaign(campaignId, 'Stopped from dashboard');
+      await load();
+      onChanged();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const statusConfig = detail ? (STATUS_CONFIG[detail.status] || { label: detail.status, variant: 'outline' as const }) : null;
+  const isTerminal = detail ? TERMINAL.includes(detail.status) : false;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={detail?.name || 'Campaign'}
+      subtitle={detail?.description || undefined}
+      size="3xl"
+      footer={
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-theme-tertiary">
+            {detail && `${DECISION_AUTHORITY_LABELS[detail.decision_authority]} authority`}
+          </span>
+          <div className="flex gap-2">
+            {canManage && detail && !isTerminal && (
+              <Button variant="danger" size="sm" onClick={handleStop} loading={busy === 'stop'}>
+                <StopCircle size={14} className="mr-1" />
+                Stop Campaign
+              </Button>
+            )}
+            <Button variant="ghost" onClick={onClose}>Close</Button>
+          </div>
+        </div>
+      }
+    >
+      {loading || !detail ? (
+        <div className="flex justify-center py-12"><LoadingSpinner /></div>
+      ) : (
+        <div className="space-y-6">
+          {/* Header stats */}
+          <div className="flex flex-wrap items-center gap-4">
+            {statusConfig && <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>}
+            <div className="flex-1 min-w-[12rem]">
+              <Progress value={detail.completion_pct} />
+              <div className="mt-1 text-xs text-theme-tertiary">{detail.completion_pct}% complete</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Stat label="Loops" value={detail.loop_count} />
+            <Stat label="Completed" value={detail.completed_tasks} tone="success" />
+            <Stat label="Failed" value={detail.failed_tasks} tone={detail.failed_tasks > 0 ? 'error' : undefined} />
+            <Stat label="Blocked" value={detail.blocked_tasks} tone={detail.blocked_tasks > 0 ? 'warning' : undefined} />
+          </div>
+
+          {/* Open questions */}
+          <Section icon={HelpCircle} title={`Open Questions (${detail.open_questions_list.length})`}>
+            {detail.open_questions_list.length === 0 ? (
+              <p className="text-sm text-theme-tertiary">No parked questions awaiting an answer.</p>
+            ) : (
+              <div className="space-y-3">
+                {detail.open_questions_list.map((q) => (
+                  <div key={q.id} className="rounded-md border border-theme bg-theme-tertiary p-3">
+                    <div className="text-sm font-medium text-theme-primary">{q.question}</div>
+                    {q.context && <div className="mt-1 text-xs text-theme-tertiary">{q.context}</div>}
+                    {canManage && (
+                      <div className="mt-2 flex items-end gap-2">
+                        <Textarea
+                          value={answers[q.id] || ''}
+                          onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                          placeholder="Answer to unblock the campaign…"
+                          rows={2}
+                          className="flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => handleAnswer(q.id)}
+                          loading={busy === q.id}
+                          disabled={!(answers[q.id] || '').trim()}
+                        >
+                          Answer
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          {/* Loops */}
+          <Section icon={GitBranch} title={`Loops (${detail.loops.length})`}>
+            {detail.loops.length === 0 ? (
+              <p className="text-sm text-theme-tertiary">No loops driven yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {detail.loops.map((l) => (
+                  <div key={l.id} className="flex items-center justify-between rounded-md border border-theme px-3 py-2 text-sm">
+                    <span className="font-mono text-theme-secondary">{l.branch || l.name}</span>
+                    <span className="flex items-center gap-3 text-theme-tertiary">
+                      <Badge variant="outline" size="xs">{l.status}</Badge>
+                      <span>{l.total_tasks} tasks</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          {/* Decision log */}
+          <Section icon={ListChecks} title={`Recent Decisions (${detail.recent_decisions.length})`}>
+            {detail.recent_decisions.length === 0 ? (
+              <p className="text-sm text-theme-tertiary">No decisions recorded yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {detail.recent_decisions.map((d) => (
+                  <div key={d.id} className="rounded-md border border-theme px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" size="xs">{d.decision_type}</Badge>
+                      <span className="text-sm font-medium text-theme-primary">{d.title}</span>
+                    </div>
+                    {d.rationale && <div className="mt-1 text-xs text-theme-tertiary">{d.rationale}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+        </div>
+      )}
+    </Modal>
+  );
+};
+
+const Stat: React.FC<{ label: string; value: number; tone?: 'success' | 'error' | 'warning' }> = ({ label, value, tone }) => {
+  const toneClass =
+    tone === 'success' ? 'text-theme-success'
+      : tone === 'error' ? 'text-theme-error-fg'
+        : tone === 'warning' ? 'text-theme-warning'
+          : 'text-theme-primary';
+  return (
+    <div className="rounded-md border border-theme bg-theme-tertiary p-3">
+      <div className={`text-2xl font-semibold ${toneClass}`}>{value}</div>
+      <div className="text-xs uppercase tracking-wider text-theme-tertiary">{label}</div>
+    </div>
+  );
+};
+
+const Section: React.FC<{ icon: React.ElementType; title: string; children: React.ReactNode }> = ({ icon: Icon, title, children }) => (
+  <div>
+    <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-theme-primary">
+      <Icon size={16} />
+      {title}
+    </h4>
+    {children}
+  </div>
+);
