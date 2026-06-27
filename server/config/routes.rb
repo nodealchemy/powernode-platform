@@ -2740,6 +2740,16 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # IMPROVEMENT CAMPAIGNS - durable wrapper that drives the dev-improve loop
+        # ===================================================================
+        resources :campaigns, controller: "campaigns", only: %i[index show create] do
+          member do
+            post :answer_question
+            post :stop
+          end
+        end
+
+        # ===================================================================
         # INTERVENTION POLICIES - User-configurable agent notification rules
         # ===================================================================
         resources :intervention_policies, controller: "intervention_policies" do
