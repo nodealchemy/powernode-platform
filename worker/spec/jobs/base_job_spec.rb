@@ -321,16 +321,18 @@ RSpec.describe BaseJob, type: :job do
       it 'includes exponential backoff delay' do
         call_count = 0
         _start_time = Time.current
-        
+
         begin
           job_instance.send(:with_api_retry, max_attempts: 3) do
             call_count += 1
-            raise BackendApiClient::ApiError.new('Server Error', 503)
+            # 500 is retryable at the job layer; 502/503/504 are owned by the Faraday
+            # transport-level retry and are intentionally NOT retried here (A-W9c).
+            raise BackendApiClient::ApiError.new('Server Error', 500)
           end
         rescue BackendApiClient::ApiError
           # Expected to fail after retries
         end
-        
+
         # Should have waited for retries (2^1 + 2^2 = 6 seconds minimum)
         expect(call_count).to eq(3)
       end
@@ -340,8 +342,10 @@ RSpec.describe BaseJob, type: :job do
   describe 'private methods' do
     describe '#retryable_error?' do
       it 'identifies retryable HTTP status codes' do
-        retryable_statuses = [408, 429, 500, 502, 503, 504]
-        
+        # 502/503/504 are retried at the transport layer (Faraday retry middleware), so the
+        # job layer intentionally retries only what Faraday does not — 408/429/500 (A-W9c).
+        retryable_statuses = [408, 429, 500]
+
         retryable_statuses.each do |status|
           error = BackendApiClient::ApiError.new('Error', status)
           expect(job_instance.send(:retryable_error?, error)).to be true
@@ -349,8 +353,9 @@ RSpec.describe BaseJob, type: :job do
       end
 
       it 'identifies non-retryable HTTP status codes' do
-        non_retryable_statuses = [400, 401, 403, 404, 422]
-        
+        # 502/503/504 are owned by the Faraday transport-level retry — not re-retried here.
+        non_retryable_statuses = [400, 401, 403, 404, 422, 502, 503, 504]
+
         non_retryable_statuses.each do |status|
           error = BackendApiClient::ApiError.new('Error', status)
           expect(job_instance.send(:retryable_error?, error)).to be false

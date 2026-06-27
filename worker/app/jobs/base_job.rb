@@ -335,8 +335,12 @@ class BaseJob
   end
 
   def retryable_error?(error)
+    # 502/503/504 (and connection/timeout) are retried at the transport layer by the
+    # BackendApiClient Faraday retry middleware. Re-retrying them here would multiply the
+    # attempts (Faraday's 5x * this layer's Nx). Only retry statuses Faraday does NOT:
+    # 408 (request timeout), 429 (rate limit), 500 (server error). See A-W9c.
     case error.status
-    when 408, 429, 500, 502, 503, 504
+    when 408, 429, 500
       true
     else
       false

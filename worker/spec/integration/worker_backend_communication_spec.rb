@@ -182,12 +182,6 @@ RSpec.describe 'Worker-Backend Communication', type: :integration do
       end
 
       it 'automatically retries transient server errors' do
-        # PENDING A-W9c (IMP-c8bc376d1cb4): the Faraday retry middleware is registered after the
-        # request/response :json middleware, so it raises Faraday::RetriableResponse without ever
-        # retrying (verified attempts=1). Transport-level auto-retry does not currently work.
-        # Un-pend once the middleware is reordered (+ test-env interval gating + retryable_error?
-        # reconciliation per A-W9c).
-        pending('A-W9c: Faraday retry middleware ineffective (registered after json middleware)')
         # The BackendApiClient should retry 503 errors automatically
         result = api_client.health_check
 

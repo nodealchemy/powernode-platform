@@ -296,6 +296,10 @@ class BackendApiClient
   private
 
   def build_connection
+    # In test, collapse the retry backoff to 0 so 5xx specs don't sleep through the
+    # ~31s production window. (RAILS_ENV/WORKER_ENV are set to 'test' by spec_helper.)
+    test_env = ENV['WORKER_ENV'] == 'test' || ENV['RAILS_ENV'] == 'test'
+
     Faraday.new(url: @config.backend_api_url, ssl: WorkerCertManager.instance.ssl_options) do |conn|
       # Request/response middleware
       conn.request :json
@@ -306,14 +310,18 @@ class BackendApiClient
       # sequence in UTF-8" when Rack::Deflater compresses the response.
 
       # Retry middleware with graduated exponential backoff
-      # Covers ~31s window (1s → 2s → 4s → 8s → 16s) to ride through backend restarts
+      # Covers ~31s window (1s → 2s → 4s → 8s → 16s) to ride through backend restarts.
+      # NOTE: Faraday::RetriableResponse MUST be in `exceptions` — faraday-retry signals a
+      # status-based retry by raising it, and overriding `exceptions` drops it from the default
+      # list, which silently disables retry_statuses (the middleware raises RetriableResponse but
+      # never catches it to retry → only one attempt). See A-W9c.
       conn.request :retry,
                    max: 5,
-                   interval: 1.0,
-                   interval_randomness: 0.25,
+                   interval: test_env ? 0 : 1.0,
+                   interval_randomness: test_env ? 0 : 0.25,
                    backoff_factor: 2,
                    retry_statuses: [502, 503, 504],
-                   exceptions: [Faraday::ConnectionFailed, Faraday::TimeoutError],
+                   exceptions: [Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::RetriableResponse],
                    methods: [:get, :post, :put, :patch, :delete]
 
       # Timeout configuration
