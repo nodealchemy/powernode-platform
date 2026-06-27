@@ -270,6 +270,19 @@ class BackendApiClient
       rescue Faraday::ConnectionFailed => e
         @logger.error "[BackendAPI] Connection failed for #{method.upcase} #{path}: #{e.message}"
         raise ApiError.new("Connection failed: #{e.message}", 503)
+      rescue Faraday::RetriableResponse => e
+        # The retry middleware (retry_statuses 502/503/504) re-raised the retryable response.
+        # Surface the real HTTP status via handle_response instead of a generic status-less
+        # "Request failed", so callers can tell it was a 5xx. (When A-W9c makes the middleware
+        # actually retry, base_job#retryable_error? must drop 502/503/504 so a single 5xx does
+        # not become a Faraday-5x * job-3x retry storm.)
+        if e.response.respond_to?(:status)
+          @logger.error "[BackendAPI] Retryable response exhausted for #{method.upcase} #{path}: #{e.response.status}"
+          handle_response(e.response)
+        else
+          @logger.error "[BackendAPI] Retryable response exhausted for #{method.upcase} #{path}: #{e.message}"
+          raise ApiError.new("Request failed after retries: #{e.message}")
+        end
       rescue Faraday::Error => e
         @logger.error "[BackendAPI] Request failed for #{method.upcase} #{path}: #{e.message}"
         raise ApiError.new("Request failed: #{e.message}")
