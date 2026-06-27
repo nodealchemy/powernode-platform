@@ -154,6 +154,16 @@
       queue: maintenance
       description: 'Reap old DiskImagePublications: retire above N per platform, purge retired past grace window'
 
+    # MCP OAuth housekeeping — prune the debris of normal connect/disconnect churn:
+    # stale MCP sessions, revoked Doorkeeper tokens/grants past retention, and
+    # orphaned Dynamic-Client-Registration apps. The worker has no DB access, so the
+    # job calls the backend internal endpoint where the pruning actually runs.
+    mcp_oauth_housekeeping:
+      cron: '40 3 * * *'  # Every day at 3:40 AM UTC (after the other reapers)
+      class: Maintenance::McpHousekeepingJob
+      queue: maintenance
+      description: 'Prune stale MCP sessions, revoked OAuth tokens/grants, and orphaned DCR client registrations'
+
     # System extension — package repository metadata sync. Daily fetch of
     # upstream apt/rpm package indexes for enabled repos (account-scoped +
     # shared), upserts system_packages rows, marks obsoleted entries.
