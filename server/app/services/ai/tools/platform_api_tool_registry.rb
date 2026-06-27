@@ -340,6 +340,11 @@ module Ai
         "dev_complete_task" => "Ai::Tools::DevLoopTool",
         "dev_list_tasks" => "Ai::Tools::DevLoopTool",
         "delegate_ralph_task" => "Ai::Tools::DevLoopTool",
+        # Autonomous Improvement Campaigns: a durable wrapper that drives the dev-improve loop
+        "campaign_start" => "Ai::Tools::CampaignTool",
+        "campaign_status" => "Ai::Tools::CampaignTool",
+        "campaign_answer_question" => "Ai::Tools::CampaignTool",
+        "campaign_stop" => "Ai::Tools::CampaignTool",
         # Improvement-discovery loop (Tier-1): offer -> approve -> dev-improve task
         "discover_improvements" => "Ai::Tools::ImprovementTool",
         "create_improvement" => "Ai::Tools::ImprovementTool",

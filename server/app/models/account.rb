@@ -76,6 +76,7 @@ class Account < ApplicationRecord
 
   # AI Ralph Loops - Iterative development execution
   has_many :ai_ralph_loops, class_name: "Ai::RalphLoop", dependent: :destroy
+  has_many :ai_campaigns, class_name: "Ai::Campaign", dependent: :destroy
 
   # AI Task Reviews & Trajectories
   has_many :ai_task_reviews, class_name: "Ai::TaskReview", dependent: :destroy

@@ -72,7 +72,8 @@ namespace :mcp do
       "Ai::Tools::AgentMemoryManagementTool" => "Memory Management",
       "Ai::Tools::GovernanceTool" => "AI Safety & Autonomy",
       "Ai::Tools::CoordinationTool" => "AI Safety & Autonomy",
-      "Ai::Tools::SelfImprovementTool" => "AI Safety & Autonomy"
+      "Ai::Tools::SelfImprovementTool" => "AI Safety & Autonomy",
+      "Ai::Tools::CampaignTool" => "Improvement Campaigns"
     }
 
     # Collect action definitions grouped by category
