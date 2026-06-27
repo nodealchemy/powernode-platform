@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_26_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_28_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1021,6 +1021,46 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_26_120000) do
     t.index ["ai_agent_execution_id"], name: "index_ai_budget_transactions_on_ai_agent_execution_id"
     t.index ["created_at"], name: "index_ai_budget_transactions_on_created_at"
     t.index ["transaction_type"], name: "index_ai_budget_transactions_on_transaction_type"
+  end
+
+  create_table "ai_campaign_decisions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "campaign_id", null: false
+    t.datetime "created_at", null: false
+    t.string "decision_type", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "ralph_task_id"
+    t.text "rationale"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id"
+    t.index ["campaign_id", "created_at"], name: "index_ai_campaign_decisions_on_campaign_id_and_created_at"
+    t.index ["ralph_task_id"], name: "index_ai_campaign_decisions_on_ralph_task_id"
+  end
+
+  create_table "ai_campaigns", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.integer "blocked_tasks", default: 0, null: false
+    t.datetime "completed_at"
+    t.integer "completed_tasks", default: 0, null: false
+    t.text "completion_summary"
+    t.jsonb "configuration", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.string "decision_authority", default: "supervised", null: false
+    t.text "description"
+    t.integer "failed_tasks", default: 0, null: false
+    t.integer "loop_count", default: 0, null: false
+    t.string "name", null: false
+    t.integer "open_questions", default: 0, null: false
+    t.datetime "paused_at"
+    t.string "paused_reason"
+    t.datetime "started_at"
+    t.string "status", default: "created", null: false
+    t.jsonb "stop_conditions", default: {}, null: false
+    t.integer "total_tasks", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_campaigns_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_campaigns_on_account_id"
   end
 
   create_table "ai_circuit_breakers", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -2842,6 +2882,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_26_120000) do
     t.check_constraint "rule_type::text = ANY (ARRAY['capability_based'::character varying::text, 'cost_based'::character varying::text, 'latency_based'::character varying::text, 'quality_based'::character varying::text, 'custom'::character varying::text, 'ml_optimized'::character varying::text])", name: "check_routing_rule_type"
   end
 
+  create_table "ai_parked_questions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.text "answer"
+    t.datetime "answered_at"
+    t.uuid "answered_by_id"
+    t.uuid "campaign_id", null: false
+    t.text "context"
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "question", null: false
+    t.uuid "ralph_task_id"
+    t.string "status", default: "open", null: false
+    t.datetime "updated_at", null: false
+    t.index ["campaign_id", "status"], name: "index_ai_parked_questions_on_campaign_id_and_status"
+    t.index ["ralph_task_id"], name: "index_ai_parked_questions_on_ralph_task_id"
+  end
+
   create_table "ai_performance_benchmarks", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.jsonb "baseline_metrics", default: {}
@@ -2994,6 +3050,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_26_120000) do
     t.index ["account_id", "field_type"], name: "index_ai_pressure_fields_on_account_id_and_field_type"
     t.index ["account_id"], name: "index_ai_pressure_fields_on_account_id"
     t.index ["pressure_value"], name: "index_ai_pressure_fields_on_pressure_value"
+  end
+
+  create_table "ai_progress_entries", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.integer "blocked_tasks", default: 0, null: false
+    t.uuid "campaign_id", null: false
+    t.integer "completed_tasks", default: 0, null: false
+    t.decimal "completion_pct", precision: 5, scale: 2, default: "0.0"
+    t.datetime "created_at", null: false
+    t.integer "failed_tasks", default: 0, null: false
+    t.jsonb "improvement_metrics", default: {}, null: false
+    t.jsonb "per_loop_summary", default: {}, null: false
+    t.datetime "recorded_at", null: false
+    t.integer "total_tasks", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["campaign_id", "recorded_at"], name: "index_ai_progress_entries_on_campaign_id_and_recorded_at"
   end
 
   create_table "ai_provider_credentials", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -3226,6 +3297,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_26_120000) do
     t.uuid "account_id", null: false
     t.string "ai_tool"
     t.string "branch", default: "main"
+    t.uuid "campaign_id"
     t.boolean "code_factory_mode", default: false
     t.datetime "completed_at"
     t.integer "completed_tasks", default: 0
@@ -3266,6 +3338,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_26_120000) do
     t.index ["account_id", "status"], name: "index_ai_ralph_loops_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_ralph_loops_on_account_id"
     t.index ["ai_tool"], name: "index_ai_ralph_loops_on_ai_tool"
+    t.index ["campaign_id"], name: "index_ai_ralph_loops_on_campaign_id"
     t.index ["created_at"], name: "index_ai_ralph_loops_on_created_at"
     t.index ["default_agent_id"], name: "index_ai_ralph_loops_on_default_agent_id"
     t.index ["mission_id"], name: "index_ai_ralph_loops_on_mission_id"
