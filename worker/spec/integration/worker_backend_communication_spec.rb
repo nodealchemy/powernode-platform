@@ -133,14 +133,12 @@ RSpec.describe 'Worker-Backend Communication', type: :integration do
           { month: '2024-01' }
         )
         
+        # get_report_data unwraps the {success:, data:} envelope and returns the data payload.
         expect(result).to include(
-          'success' => true,
-          'data' => hash_including(
-            'report_type' => 'monthly_summary',
-            'records' => array_including(
-              hash_including('revenue' => 5000),
-              hash_including('revenue' => 7500)
-            )
+          'report_type' => 'monthly_summary',
+          'records' => array_including(
+            hash_including('revenue' => 5000),
+            hash_including('revenue' => 7500)
           )
         )
       end
@@ -213,9 +211,10 @@ RSpec.describe 'Worker-Backend Communication', type: :integration do
       
       api_client.health_check
       
+      # Auth is mTLS at the transport layer — the worker sends no Authorization header
+      # (see the file-level note above; the JWT/Bearer path was removed in #110).
       expect(a_request(:get, "#{backend_url}/api/v1/health")
         .with(headers: {
-          'Authorization' => "Bearer #{service_token}",
           'Content-Type' => 'application/json',
           'Accept' => 'application/json',
           'User-Agent' => 'PowernodeWorker/1.0'

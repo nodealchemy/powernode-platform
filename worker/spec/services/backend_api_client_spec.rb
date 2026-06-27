@@ -248,7 +248,8 @@ RSpec.describe BackendApiClient, type: :service do
         stub_backend_api_success(:get, '/api/v1/analytics/export', report_data)
         
         result = client.get_report_data('analytics', 'account-123', { period: 'monthly' })
-        expect(result).to eq(JSON.parse(report_data.to_json))
+        # get_report_data unwraps the {data: ...} envelope and returns the payload.
+        expect(result).to eq(JSON.parse(report_data[:data].to_json))
       end
 
       it 'works without account_id' do
@@ -256,7 +257,8 @@ RSpec.describe BackendApiClient, type: :service do
         stub_backend_api_success(:get, '/api/v1/analytics/export', report_data)
         
         result = client.get_report_data('system', nil, { scope: 'global' })
-        expect(result).to eq(JSON.parse(report_data.to_json))
+        # get_report_data unwraps the {data: ...} envelope and returns the payload.
+        expect(result).to eq(JSON.parse(report_data[:data].to_json))
       end
     end
 
