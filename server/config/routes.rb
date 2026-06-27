@@ -173,6 +173,11 @@ Rails.application.routes.draw do
         end
         resources :mcp_tool_executions, only: [ :show, :update ]
 
+        # MCP OAuth housekeeping — invoked by the worker on a recurring schedule.
+        namespace :mcp do
+          post :housekeeping, to: "housekeeping#create"
+        end
+
         # Metrics tracking for worker jobs
         namespace :metrics do
           post :jobs
