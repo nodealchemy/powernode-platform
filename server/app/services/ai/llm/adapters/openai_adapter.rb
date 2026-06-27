@@ -27,6 +27,48 @@ module Ai
           end
         end
 
+        # Audio transcription via OpenAI's multipart /audio/transcriptions API
+        # (whisper-1, gpt-4o-transcribe, …). Returns the transcript string, or
+        # nil when the response carries no text. Raises RequestError on non-2xx
+        # so the caller (Ai::AudioTranscriptionService, which rescues) surfaces a
+        # clean reason rather than a fabricated transcript.
+        #
+        # @param audio_bytes [String] raw audio file bytes
+        # @param filename [String] original filename (its extension hints the format)
+        # @param content_type [String] audio MIME type
+        # @param model [String] transcription model id (resolved from the provider)
+        # @return [String, nil]
+        def transcribe(audio_bytes:, filename:, content_type:, model:)
+          require "tempfile"
+
+          ext = File.extname(filename.to_s)
+          ext = ".ogg" if ext.empty?
+          tmp = Tempfile.new([ "powernode_transcribe_", ext ])
+          tmp.binmode
+          tmp.write(audio_bytes)
+          tmp.rewind
+
+          # Multipart upload — only the Bearer auth header; HTTParty sets the
+          # multipart/form-data Content-Type + boundary itself.
+          response = HTTParty.post(
+            "#{base_url}/audio/transcriptions",
+            headers: { "Authorization" => "Bearer #{api_key}", "User-Agent" => "Powernode-AI/2.0" },
+            body: { model: model, file: File.open(tmp.path, "rb"), response_format: "json" },
+            multipart: true,
+            timeout: 300
+          )
+
+          unless response.code.to_i.between?(200, 299)
+            raise RequestError.new("HTTP #{response.code}: #{response.body}", status_code: response.code.to_i)
+          end
+
+          parsed = response.parsed_response
+          parsed.is_a?(Hash) ? (parsed["text"] || parsed[:text]) : nil
+        ensure
+          tmp&.close
+          tmp&.unlink
+        end
+
         def stream(messages:, model:, **opts, &block)
           raise ArgumentError, "Block required for streaming" unless block_given?
 

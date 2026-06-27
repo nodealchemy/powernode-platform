@@ -44,6 +44,25 @@ module Ai
                 }
               end
 
+              # Also collect audio transcription models (whisper-1,
+              # gpt-4o-transcribe, …) — consumed by the chat-attachment
+              # transcription seam (Ai::AudioTranscriptionService), which resolves
+              # the model from this list by the audio_transcription capability.
+              transcription_models = models.select { |m| openai_transcription_model?(m["id"]) }
+              transcription_models.each do |model|
+                supported_models << {
+                  "name" => format_openai_model_name(model["id"]),
+                  "id" => model["id"],
+                  "context_length" => 0,
+                  "max_output_tokens" => 0,
+                  "description" => "Audio transcription model",
+                  "capabilities" => %w[audio_transcription],
+                  "cost_per_1k_tokens" => model_pricing_for(model["id"]),
+                  "owned_by" => model["owned_by"],
+                  "created_at" => model["created"] ? Time.at(model["created"]).iso8601 : nil
+                }
+              end
+
               supported_models.sort_by! { |m| -openai_model_priority(m["id"]) }
               supported_models
             end
@@ -55,6 +74,10 @@ module Ai
 
           def openai_image_model?(model_id)
             model_id.match?(/^dall-e/i)
+          end
+
+          def openai_transcription_model?(model_id)
+            model_id.match?(/whisper|transcribe/i)
           end
 
           def format_openai_model_name(model_id)
