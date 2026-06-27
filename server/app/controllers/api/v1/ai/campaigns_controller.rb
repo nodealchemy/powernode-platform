@@ -80,7 +80,7 @@ module Api
             description: campaign.description,
             configuration: campaign.configuration,
             stop_conditions: campaign.stop_conditions,
-            open_questions: campaign.open_questions_list.map(&:summary),
+            open_questions_list: campaign.open_questions_list.map(&:summary),
             recent_decisions: campaign.campaign_decisions.recent(20).map(&:summary),
             progress: campaign.progress_entries.latest_first.limit(20).map(&:summary),
             loops: campaign.ralph_loops.map do |l|

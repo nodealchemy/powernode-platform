@@ -45,7 +45,8 @@ RSpec.describe "Api::V1::Ai::Campaigns", type: :request do
       get "/api/v1/ai/campaigns/#{campaign.id}", headers: headers, as: :json
       expect_success_response
       data = json_response_data
-      expect(data["open_questions"].length).to eq(1)
+      expect(data["open_questions"]).to eq(1)
+      expect(data["open_questions_list"].length).to eq(1)
       expect(data["recent_decisions"].length).to eq(1)
       expect(data["loops"].length).to eq(1)
     end
