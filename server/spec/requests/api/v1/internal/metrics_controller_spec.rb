@@ -2,13 +2,11 @@
 
 require "rails_helper"
 
-# IMP-3515f2ebc25a — the job-processor metrics were gated on defined?(Sidekiq),
-# which is permanently false in this Rails API (it runs no in-process Sidekiq;
-# the worker runs the fleet jobs and the server's own ActiveJob work runs on
-# solid_queue). The endpoint therefore returned empty queues + a fabricated
-# 100% success_rate that read as "healthy" by construction. These pin the
-# honest degradation: an explicit availability flag + the real adapter, and NO
-# fake 100% success_rate.
+# IMP-3515f2ebc25a + D10 — the Rails API runs no in-process Sidekiq, so the real
+# fleet job-processing metrics come from the worker's Sidekiq via its HTTP API.
+# When the worker is reachable the endpoint proxies its live stats; when it is
+# NOT, it reports an honest available:false + the server's ActiveJob adapter,
+# never a fabricated 100% success_rate.
 RSpec.describe "Api::V1::Internal::Metrics#jobs", type: :request do
   let(:account)       { create(:account) }
   let(:system_worker) { create(:worker, :system_worker, account: account) }
@@ -26,25 +24,44 @@ RSpec.describe "Api::V1::Internal::Metrics#jobs", type: :request do
     expect(response).to have_http_status(:unauthorized)
   end
 
-  it "reports job metrics as unavailable (no in-process Sidekiq) instead of fabricated healthy stats" do
-    fetch_job_metrics
+  context "when the worker is unreachable" do
+    before { allow(WorkerJobService).to receive(:fetch_sidekiq_stats).and_raise(WorkerJobService::WorkerServiceError) }
 
-    expect(response).to have_http_status(:ok)
-    metrics = JSON.parse(response.body).dig("data", "job_metrics")
+    it "reports available:false + the server adapter, never a fabricated healthy stat" do
+      fetch_job_metrics
+      expect(response).to have_http_status(:ok)
+      metrics = JSON.parse(response.body).dig("data", "job_metrics")
 
-    # Honest signal: this process has no in-process Sidekiq.
-    expect(metrics["available"]).to be(false)
-    # And the actually-configured ActiveJob adapter is surfaced (test env → "test").
-    expect(metrics["adapter"]).to eq(ActiveJob::Base.queue_adapter_name)
+      expect(metrics["available"]).to be(false)
+      expect(metrics["adapter"]).to eq(ActiveJob::Base.queue_adapter_name)
+      expect(metrics["success_rate"]).to be_nil
+      expect(metrics["success_rate"]).not_to eq(100.0)
+    end
   end
 
-  it "does NOT fabricate a 100% success_rate that reads as healthy" do
-    fetch_job_metrics
+  context "when the worker returns live Sidekiq stats" do
+    before do
+      allow(WorkerJobService).to receive(:fetch_sidekiq_stats).and_return(
+        "processed" => 90, "failed" => 10, "enqueued" => 3,
+        "scheduled_size" => 2, "retry_size" => 1, "dead_size" => 0,
+        "workers_size" => 4, "default_queue_latency" => 0.5,
+        "queues" => { "default" => { "size" => 3, "latency" => 0.5 } },
+        "timestamp" => "2026-06-26T00:00:00Z"
+      )
+    end
 
-    processed = JSON.parse(response.body).dig("data", "job_metrics", "processed")
-    # The misleading constant is gone — success_rate is nil (not collected here),
-    # never the old 100.0.
-    expect(processed["success_rate"]).to be_nil
-    expect(processed["success_rate"]).not_to eq(100.0)
+    it "proxies the worker's real job metrics" do
+      fetch_job_metrics
+      metrics = JSON.parse(response.body).dig("data", "job_metrics")
+
+      expect(metrics["available"]).to be(true)
+      expect(metrics["source"]).to eq("worker_sidekiq")
+      expect(metrics["processed"]).to eq(90)
+      expect(metrics["failed"]).to eq(10)
+      expect(metrics["workers"]).to eq(4)
+      expect(metrics["queues"]).to eq("default" => { "size" => 3, "latency" => 0.5 })
+      # 90 / (90+10) = 90.0 — a real computed rate, not a fabricated constant.
+      expect(metrics["success_rate"]).to eq(90.0)
+    end
   end
 end

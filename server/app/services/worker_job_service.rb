@@ -575,6 +575,16 @@ class WorkerJobService
       })
     end
 
+    # Fetch the worker's live Sidekiq job-processing stats (queues, processed,
+    # failed, scheduled, retries, dead, workers). The Rails API runs no
+    # in-process Sidekiq, so the real fleet job metrics live on the standalone
+    # worker — this GETs the worker's existing /api/sidekiq/stats endpoint.
+    # Raises WorkerServiceError when the worker is unreachable; callers surface
+    # an honest available:false rather than fabricating healthy numbers.
+    def fetch_sidekiq_stats
+      new.make_worker_request("GET", "/api/sidekiq/stats")
+    end
+
     private
 
     # Legacy aliases for backwards compatibility

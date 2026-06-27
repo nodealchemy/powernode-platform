@@ -6,24 +6,49 @@ module Api
       class MetricsController < InternalBaseController
         # GET /api/v1/internal/metrics/jobs
         def jobs
-          # This Rails API does not run an in-process Sidekiq — the fleet's
-          # background jobs run on the standalone worker, and the server's own
-          # ActiveJob work runs on solid_queue (a separate queue DB, prod-only).
-          # `defined?(Sidekiq)` is therefore permanently false here, so the
-          # per-section stats below are not collected in this process. Surface
-          # an explicit `available` flag + the configured adapter rather than
-          # fabricating empty/100%-healthy numbers that read as "healthy" by
-          # construction. Wiring real job-processor metrics (server solid_queue
-          # vs the worker's Sidekiq via the worker API) is a follow-up decision.
-          stats = {
-            available: defined?(Sidekiq) ? true : false,
-            adapter: ActiveJob::Base.queue_adapter_name,
-            queues: fetch_queue_stats,
-            processed: fetch_processed_stats,
-            failed: fetch_failed_stats,
-            scheduled: fetch_scheduled_stats,
-            workers: fetch_worker_stats
-          }
+          # This Rails API runs NO in-process Sidekiq — the fleet's background
+          # jobs run on the standalone worker. So the real job-processing metrics
+          # come from the worker's Sidekiq via its HTTP API (consistent with the
+          # strict server/worker boundary). When the worker is unreachable we
+          # report an honest available:false + the server's own ActiveJob adapter
+          # rather than fabricating empty/100%-healthy numbers.
+          worker_stats = fetch_worker_job_metrics
+
+          stats =
+            if worker_stats
+              {
+                available: true,
+                source: "worker_sidekiq",
+                adapter: "sidekiq",
+                processed: worker_stats["processed"],
+                failed: worker_stats["failed"],
+                enqueued: worker_stats["enqueued"],
+                scheduled: worker_stats["scheduled_size"],
+                retries: worker_stats["retry_size"],
+                dead: worker_stats["dead_size"],
+                workers: worker_stats["workers_size"],
+                default_queue_latency: worker_stats["default_queue_latency"],
+                queues: worker_stats["queues"] || {},
+                # Lifetime success rate from cumulative counters — real, if coarse.
+                success_rate: compute_success_rate(worker_stats["processed"], worker_stats["failed"]),
+                as_of: worker_stats["timestamp"]
+              }
+            else
+              {
+                available: false,
+                source: "worker_unreachable",
+                adapter: ActiveJob::Base.queue_adapter_name,
+                processed: nil,
+                failed: nil,
+                enqueued: nil,
+                scheduled: nil,
+                retries: nil,
+                dead: nil,
+                workers: nil,
+                queues: {},
+                success_rate: nil
+              }
+            end
 
           render_success({ job_metrics: stats })
         end
@@ -88,76 +113,24 @@ module Api
 
         private
 
-        def fetch_queue_stats
-          queues = {}
+        # Fetch the worker's live Sidekiq stats via the worker HTTP API. Returns
+        # the flat stats hash, or nil when the worker is unreachable (honest
+        # available:false fallback — never fabricated numbers).
+        def fetch_worker_job_metrics
+          response = WorkerJobService.fetch_sidekiq_stats
+          return nil unless response.is_a?(Hash)
 
-          # Get stats from Sidekiq or similar job processor
-          if defined?(Sidekiq)
-            Sidekiq::Queue.all.each do |queue|
-              queues[queue.name] = {
-                size: queue.size,
-                latency: queue.latency.round(2)
-              }
-            end
-          end
-
-          queues
+          response["data"].is_a?(Hash) ? response["data"] : response
+        rescue StandardError => e
+          Rails.logger.warn("[Internal::Metrics#jobs] worker Sidekiq stats unavailable: #{e.message}")
+          nil
         end
 
-        def fetch_processed_stats
-          if defined?(Sidekiq)
-            stats = Sidekiq::Stats.new
-            {
-              total: stats.processed,
-              today: stats.processed - (stats.processed_at_midnight || 0),
-              success_rate: calculate_success_rate(stats)
-            }
-          else
-            # No in-process job processor here — report nil success_rate rather
-            # than a fabricated 100.0 that misreads as "healthy".
-            { total: 0, today: 0, success_rate: nil }
-          end
-        end
+        def compute_success_rate(processed, failed)
+          total = processed.to_i + failed.to_i
+          return nil if total.zero?
 
-        def fetch_failed_stats
-          if defined?(Sidekiq)
-            stats = Sidekiq::Stats.new
-            retry_set = Sidekiq::RetrySet.new
-            dead_set = Sidekiq::DeadSet.new
-
-            {
-              total: stats.failed,
-              today: stats.failed - (stats.failed_at_midnight || 0),
-              retry_queue: retry_set.size,
-              dead_queue: dead_set.size
-            }
-          else
-            { total: 0, today: 0, retry_queue: 0, dead_queue: 0 }
-          end
-        end
-
-        def fetch_scheduled_stats
-          if defined?(Sidekiq)
-            scheduled = Sidekiq::ScheduledSet.new
-            {
-              count: scheduled.size,
-              next_job_at: scheduled.first&.at&.iso8601
-            }
-          else
-            { count: 0, next_job_at: nil }
-          end
-        end
-
-        def fetch_worker_stats
-          if defined?(Sidekiq)
-            workers = Sidekiq::Workers.new
-            {
-              active: workers.size,
-              processes: Sidekiq::ProcessSet.new.size
-            }
-          else
-            { active: 0, processes: 0 }
-          end
+          ((processed.to_f / total) * 100).round(2)
         end
 
         def fetch_custom_metric(name, since, interval)
@@ -266,12 +239,6 @@ module Api
           when "30d" then 30.days.ago
           else 24.hours.ago
           end
-        end
-
-        def calculate_success_rate(stats)
-          total = stats.processed + stats.failed
-          return 100.0 if total == 0
-          ((stats.processed.to_f / total) * 100).round(2)
         end
 
         def calculate_percentile(values, percentile)
