@@ -36,8 +36,7 @@ module Api
                 service.measure!(
                   artifact_ref: field.artifact_ref,
                   artifact_type: field.artifact_type,
-                  field_type: field.field_type,
-                  team_id: field.ai_agent_team_id
+                  field_type: field.field_type
                 )
                 total_measured += 1
               rescue StandardError => e
