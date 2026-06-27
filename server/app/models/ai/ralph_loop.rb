@@ -22,6 +22,7 @@ module Ai
     belongs_to :risk_contract, class_name: "Ai::CodeFactory::RiskContract",
                foreign_key: "risk_contract_id", optional: true
     belongs_to :mission, class_name: "Ai::Mission", foreign_key: "mission_id", optional: true
+    belongs_to :campaign, class_name: "Ai::Campaign", foreign_key: "campaign_id", optional: true
 
     has_many :ralph_tasks, class_name: "Ai::RalphTask",
              foreign_key: "ralph_loop_id", dependent: :destroy
