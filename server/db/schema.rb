@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_25_185024) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_26_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10242,6 +10242,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_185024) do
     t.boolean "publicly_reachable", default: false, null: false
     t.uuid "sdwan_network_id", null: false
     t.string "status", default: "pending", null: false
+    t.string "tags", default: [], null: false, array: true
     t.datetime "updated_at", null: false
     t.index ["account_id", "assigned_address"], name: "index_system_sdwan_peers_on_account_id_and_assigned_address", unique: true
     t.index ["account_id"], name: "index_system_sdwan_peers_on_account_id"
@@ -10255,6 +10256,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_185024) do
     t.index ["sdwan_network_id", "node_instance_id"], name: "idx_on_sdwan_network_id_node_instance_id_81e55720ce", unique: true
     t.index ["sdwan_network_id"], name: "index_system_sdwan_peers_on_sdwan_network_id"
     t.index ["status"], name: "index_system_sdwan_peers_on_status"
+    t.index ["tags"], name: "index_system_sdwan_peers_on_tags", using: :gin
   end
 
   create_table "system_sdwan_port_mappings", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
