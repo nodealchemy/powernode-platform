@@ -7,34 +7,29 @@ FactoryBot.define do
     sequence(:platform_file_id) { |n| "file_#{n}_#{SecureRandom.hex(8)}" }
     mime_type { 'image/jpeg' }
     file_size { 102_400 }
-    file_name { 'image.jpg' }
-    storage_path { "chat/attachments/#{SecureRandom.uuid}/image.jpg" }
-    malware_scanned { false }
+    filename { 'image.jpg' }
+    storage_url { "https://storage.example.com/chat/attachments/#{SecureRandom.uuid}/image.jpg" }
+    scanned_for_malware { false }
     malware_detected { false }
     metadata { {} }
 
     trait :image do
       attachment_type { 'image' }
       mime_type { 'image/jpeg' }
-      file_name { 'photo.jpg' }
+      filename { 'photo.jpg' }
     end
 
     trait :audio do
       attachment_type { 'audio' }
       mime_type { 'audio/ogg' }
-      file_name { 'voice.ogg' }
-      metadata do
-        {
-          'duration' => 15,
-          'transcription' => nil
-        }
-      end
+      filename { 'voice.ogg' }
+      metadata { { 'duration' => 15 } }
     end
 
     trait :video do
       attachment_type { 'video' }
       mime_type { 'video/mp4' }
-      file_name { 'video.mp4' }
+      filename { 'video.mp4' }
       metadata do
         {
           'duration' => 30,
@@ -47,33 +42,32 @@ FactoryBot.define do
     trait :document do
       attachment_type { 'document' }
       mime_type { 'application/pdf' }
-      file_name { 'document.pdf' }
+      filename { 'document.pdf' }
+    end
+
+    # Links a real FileManagement::Object so the scan pipeline can resolve bytes.
+    trait :with_file_object do
+      association :file_object, factory: :file_object
     end
 
     trait :scanned do
-      malware_scanned { true }
+      scanned_for_malware { true }
       malware_detected { false }
+      scanned_at { Time.current }
     end
 
     trait :malware_detected do
-      malware_scanned { true }
+      scanned_for_malware { true }
       malware_detected { true }
-      metadata do
-        {
-          'threat_name' => 'Test.Threat.Detected',
-          'scan_date' => Time.current.iso8601
-        }
-      end
+      scanned_at { Time.current }
+      metadata { { 'threat' => 'Test.Threat.Detected' } }
     end
 
     trait :transcribed do
       attachment_type { 'audio' }
-      metadata do
-        {
-          'duration' => 15,
-          'transcription' => 'This is the transcribed text from the voice message.'
-        }
-      end
+      mime_type { 'audio/ogg' }
+      filename { 'voice.ogg' }
+      transcription { 'This is the transcribed text from the voice message.' }
     end
   end
 end

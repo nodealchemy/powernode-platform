@@ -22,7 +22,7 @@ module Chat
 
     # Associations
     belongs_to :message, class_name: "Chat::Message"
-    belongs_to :file_object, class_name: "FileManagement::FileObject", optional: true
+    belongs_to :file_object, class_name: "FileManagement::Object", optional: true
 
     # Delegations
     delegate :session, to: :message
@@ -83,6 +83,23 @@ module Chat
       update!(malware_detected: true)
       # Move to quarantine storage or delete
       Rails.logger.warn "Quarantined malicious attachment: #{id}"
+    end
+
+    # Applies the worker's ClamAV verdict (called by the internal scan_result
+    # endpoint). Idempotent. On a "completed" verdict the attachment is marked
+    # scanned (and quarantined when malware was found); on "skipped"/"error" the
+    # attachment is LEFT pending (scanned_for_malware stays false) so safe_to_use?
+    # remains false until a real scan succeeds — fail-closed.
+    def apply_scan_result(status:, malware_detected: false, threat: nil)
+      if status.to_s == "completed"
+        mark_scanned!(malware_found: malware_detected)
+        if malware_detected
+          update!(metadata: metadata.merge("threat" => threat).compact) if threat.present?
+          quarantine!
+        end
+      else
+        Rails.logger.info "[Chat::MessageAttachment ##{id}] scan #{status} (#{threat || 'no detail'}) — left pending"
+      end
     end
 
     # Transcription

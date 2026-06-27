@@ -2,6 +2,8 @@
 
 module FileProcessing
   class VirusScanJob < BaseJob
+    include ClamavScanner
+
     sidekiq_options queue: "file_processing", retry: 2
 
     def execute(processing_job_id)
@@ -59,28 +61,7 @@ module FileProcessing
 
     private
 
-    def clamav_available?
-      system("which clamdscan > /dev/null 2>&1") || system("which clamscan > /dev/null 2>&1")
-    end
-
-    def scan_file(file_path)
-      # Prefer clamdscan (daemon mode, faster) over clamscan (standalone, slower)
-      scanner = system("which clamdscan > /dev/null 2>&1") ? "clamdscan" : "clamscan"
-
-      output = `#{scanner} --no-summary "#{file_path}" 2>&1`
-      exit_code = $?.exitstatus
-
-      case exit_code
-      when 0
-        { status: :clean, output: output.strip }
-      when 1
-        # Extract threat name from output (format: "/path/file: ThreatName FOUND")
-        threat = output.match(/:\s*(.+)\s*FOUND/)&.captures&.first || "Unknown threat"
-        { status: :infected, output: output.strip, threat: threat.strip }
-      else
-        { status: :error, output: output.strip }
-      end
-    end
+    # clamav_available? and scan_file are provided by FileProcessing::ClamavScanner.
 
     def download_file(file_id)
       require "tempfile"

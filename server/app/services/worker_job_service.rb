@@ -548,6 +548,33 @@ class WorkerJobService
       })
     end
 
+    # ==========================================
+    # Chat Attachment Processing (malware scan + transcription)
+    # ==========================================
+
+    # Enqueue a malware scan for a chat attachment. The worker downloads the
+    # file, runs ClamAV, and posts the verdict back to the internal scan_result
+    # endpoint (server marks scanned / quarantines). Pattern B — model/DB access
+    # stays on the server. Called from Chat::MessageAttachment#enqueue_malware_scan.
+    def enqueue_chat_attachment_scan(attachment_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Chat::AttachmentScanJob",
+        "args" => [ attachment_id ],
+        "queue" => "file_processing"
+      })
+    end
+
+    # Enqueue transcription for an audio chat attachment. The worker triggers the
+    # server transcription seam off the request path (the server owns the AI
+    # providers). Called from Chat::MessageAttachment#enqueue_transcription.
+    def enqueue_chat_transcription(attachment_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Chat::AttachmentTranscriptionJob",
+        "args" => [ attachment_id ],
+        "queue" => "file_processing"
+      })
+    end
+
     private
 
     # Legacy aliases for backwards compatibility

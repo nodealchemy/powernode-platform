@@ -130,6 +130,18 @@ Rails.application.routes.draw do
           end
         end
 
+        # Chat-attachment scan + transcription worker callbacks (from the
+        # worker's Chat::AttachmentScanJob / Chat::AttachmentTranscriptionJob)
+        namespace :chat do
+          resources :attachments, only: [] do
+            member do
+              get :scan_payload
+              post :scan_result
+              post :transcribe
+            end
+          end
+        end
+
         # Webhook deliveries
         resources :webhook_deliveries, only: [ :show, :update ] do
           member do
