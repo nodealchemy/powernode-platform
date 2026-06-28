@@ -185,13 +185,16 @@ module FileManagement
       save
     end
 
-    # URL generation
+    # URL generation. The public base URL is DB-driven and tenant-aware (per-account override →
+    # global SiteSetting → ENV), falling back to a HOST-RELATIVE path when no domain is configured.
+    # (Previously referenced an unset Rails.application.config.base_url, which raised NoMethodError
+    # in every environment.) See PublicUrlResolver.
     def share_url
-      "#{Rails.application.config.base_url}/shared/#{share_token}"
+      PublicUrlResolver.url_for("/shared/#{share_token}", account: account)
     end
 
     def download_url
-      "#{Rails.application.config.base_url}/shared/#{share_token}/download"
+      PublicUrlResolver.url_for("/shared/#{share_token}/download", account: account)
     end
 
     # Recipients management
@@ -223,7 +226,7 @@ module FileManagement
         status: status,
         file: object.filename,
         share_url: share_url,
-        created_by: created_by.display_name,
+        created_by: created_by&.full_name,
         created_at: created_at.iso8601,
         expires_at: expires_at&.iso8601,
         download_count: download_count,

@@ -57,7 +57,7 @@ module FileManagement
         human_file_size: human_file_size,
         checksum_sha256: checksum_sha256,
         change_description: change_description,
-        created_by: created_by.display_name,
+        created_by: created_by&.full_name,
         created_at: created_at.iso8601
       }
     end
