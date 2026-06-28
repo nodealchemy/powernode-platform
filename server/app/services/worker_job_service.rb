@@ -329,15 +329,6 @@ class WorkerJobService
       })
     end
 
-    # Enqueue AI trajectory build job
-    def enqueue_ai_trajectory_build(account_id:, execution_id:)
-      new.make_worker_request("POST", "/api/v1/jobs", {
-        "job_class" => "AiTrajectoryBuildJob",
-        "args" => [ { "account_id" => account_id, "execution_id" => execution_id } ],
-        "queue" => "ai_orchestration"
-      })
-    end
-
     # Enqueue skill conflict check after skill creation/update
     def enqueue_ai_skill_conflict_check(skill_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
