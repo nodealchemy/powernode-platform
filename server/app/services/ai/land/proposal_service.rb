@@ -48,8 +48,14 @@ module Ai
 
       private
 
-      # Who should approve: the campaign creator, else up to N account users.
+      # Who should approve: users holding ai.campaigns.manage; else the campaign
+      # creator; else up to N account users (so a proposal is never undeliverable).
       def approvers
+        managers = @campaign.account.users.select do |u|
+          u.respond_to?(:has_permission?) && u.has_permission?("ai.campaigns.manage")
+        end
+        return managers.first(MAX_APPROVERS) if managers.any?
+
         [ @campaign.created_by ].compact.presence || @campaign.account.users.limit(MAX_APPROVERS).to_a
       end
     end
