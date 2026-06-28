@@ -528,6 +528,14 @@
       queue: ai_orchestration
       description: 'Pick eligible campaign lands and dispatch the land pipeline'
 
+    # Campaign discovery: turn standing improvement signals into deduped campaign
+    # proposals (the discovery half of the discovery/delegation control plane).
+    ai_campaign_discovery:
+      cron: '*/30 * * * *'  # Every 30 minutes
+      class: AiCampaignDiscoveryJob
+      queue: ai_orchestration
+      description: 'Continual discovery: turn improvement signals into campaign proposals'
+
     # Stigmergic signal decay - apply temporal decay to signal strengths
     ai_stigmergic_signal_decay:
       cron: '*/30 * * * *'  # Every 30 minutes

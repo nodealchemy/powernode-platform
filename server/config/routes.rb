@@ -517,6 +517,10 @@ Rails.application.routes.draw do
           # Trajectory analysis endpoint (worker → server)
           post "trajectory/analyze_all", to: "trajectory#analyze_all"
 
+          # Continual campaign-proposal discovery (worker cron → server): turn standing
+          # improvement signals into deduped campaign proposals across active accounts.
+          post "campaign_discovery/scan", to: "campaign_discovery#scan"
+
           # Worktree session management (worker → server)
           resources :worktree_sessions, only: [:show] do
             member do
