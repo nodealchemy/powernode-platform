@@ -16,19 +16,28 @@ module Ai
         "After 3 failed attempts on the same task, report outcome=failed and stop"
       ].freeze
 
+      # What a campaign drives: drain improvements, build a feature, or stand up a
+      # new project. The loop body + guardrails are shared; the workload tags the
+      # loop so /campaign run picks the right posture and discovery refill.
+      WORKLOADS = %w[improvement-campaign feature-development new-project].freeze
+      DEFAULT_WORKLOAD = "improvement-campaign"
+
       def initialize(account:, user: nil)
         @account = account
         @user = user
       end
 
       # Create the campaign + its dedicated Ralph loop, mark it active, take a first snapshot.
-      def start(name:, description: nil, configuration: {}, decision_authority: "trusted", stop_conditions: {})
+      def start(name:, description: nil, configuration: {}, decision_authority: "trusted",
+                stop_conditions: {}, workload: DEFAULT_WORKLOAD)
+        workload = DEFAULT_WORKLOAD unless WORKLOADS.include?(workload)
+        config = (configuration || {}).merge("workload" => workload)
         campaign = @account.ai_campaigns.create!(
           name: name, description: description, created_by_id: @user&.id,
-          configuration: configuration || {}, decision_authority: decision_authority,
+          configuration: config, decision_authority: decision_authority,
           stop_conditions: stop_conditions || {}, status: "created"
         )
-        loop = create_campaign_loop(campaign)
+        loop = create_campaign_loop(campaign, workload: workload)
         campaign.start!
         campaign.snapshot_progress!
         { campaign: campaign, loop: loop }
@@ -183,20 +192,20 @@ module Ai
 
       private
 
-      def create_campaign_loop(campaign)
+      def create_campaign_loop(campaign, workload: DEFAULT_WORKLOAD)
         campaign.ralph_loops.create!(
           account: @account,
           # Human campaign name for the execution interface (loops are referenced by
           # id / campaign_id / branch, never by this name — safe to be display-friendly).
           name: campaign.name,
-          description: "Drives campaign: #{campaign.name}",
+          description: "Drives #{workload} campaign: #{campaign.name}",
           ai_tool: "claude_code",
           scheduling_mode: "manual",
           status: "pending",
           branch: "campaign/#{campaign.id}",
           max_iterations: 500,
           configuration: {
-            "workload" => "improvement-campaign",
+            "workload" => workload,
             "campaign_id" => campaign.id,
             "guardrails" => DEFAULT_GUARDRAILS
           }
