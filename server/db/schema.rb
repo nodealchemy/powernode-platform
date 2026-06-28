@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_28_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_28_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -6051,6 +6051,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_28_000001) do
     t.check_constraint "trust_level >= 1 AND trust_level <= 5", name: "federation_partners_trust_check"
   end
 
+  create_table "file_bundles", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "bundle_type", default: "mixed", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "mission_id"
+    t.string "name", null: false
+    t.uuid "primary_object_id"
+    t.string "status", default: "draft", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_file_bundles_on_account_id_and_status"
+    t.index ["account_id"], name: "index_file_bundles_on_account_id"
+    t.index ["mission_id"], name: "index_file_bundles_on_mission_id"
+    t.index ["primary_object_id"], name: "index_file_bundles_on_primary_object_id"
+  end
+
   create_table "file_object_tags", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
@@ -6068,6 +6085,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_28_000001) do
     t.uuid "account_id", null: false
     t.uuid "attachable_id"
     t.string "attachable_type"
+    t.uuid "bundle_id"
+    t.integer "bundle_position"
+    t.string "bundle_role"
     t.string "category"
     t.string "checksum_md5"
     t.string "checksum_sha256"
@@ -6102,6 +6122,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_28_000001) do
     t.index ["account_id", "visibility"], name: "index_file_objects_on_account_id_and_visibility"
     t.index ["account_id"], name: "index_file_objects_on_account_id"
     t.index ["attachable_type", "attachable_id"], name: "index_file_objects_on_attachable_type_and_attachable_id"
+    t.index ["bundle_id", "bundle_position"], name: "index_file_objects_on_bundle_id_and_bundle_position"
+    t.index ["bundle_id"], name: "index_file_objects_on_bundle_id"
     t.index ["checksum_sha256"], name: "index_file_objects_on_checksum_sha256"
     t.index ["deleted_at"], name: "index_file_objects_on_deleted_at"
     t.index ["deleted_by_id"], name: "index_file_objects_on_deleted_by_id"

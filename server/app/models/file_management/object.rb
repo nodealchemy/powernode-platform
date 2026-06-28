@@ -4,12 +4,19 @@ module FileManagement
   class Object < ApplicationRecord
     include Auditable
 
+    # Roles an object can play inside a FileManagement::Bundle (see Bundle#add_object!).
+    BUNDLE_ROLES = %w[scene voiceover music document thumbnail artifact].freeze
+
     # Associations
     belongs_to :account
     belongs_to :storage, class_name: "FileManagement::Storage", foreign_key: :file_storage_id
     belongs_to :uploaded_by, class_name: "User", foreign_key: "uploaded_by_id"
     belongs_to :deleted_by, class_name: "User", foreign_key: "deleted_by_id", optional: true
     belongs_to :parent_file, class_name: "FileManagement::Object", foreign_key: "parent_file_id", optional: true
+
+    # Media asset bundle membership (a content production's scenes/voiceover/music).
+    belongs_to :bundle, class_name: "FileManagement::Bundle", foreign_key: "bundle_id",
+                        inverse_of: :objects, optional: true
 
     # Polymorphic attachment
     belongs_to :attachable, polymorphic: true, optional: true
@@ -56,6 +63,7 @@ module FileManagement
       allow_nil: true
     }
     validates :version, presence: true, numericality: { only_integer: true, greater_than: 0 }
+    validates :bundle_role, inclusion: { in: BUNDLE_ROLES }, allow_nil: true
     validate :validate_storage_has_space, on: :create
     validate :validate_file_size_limits, on: :create
 
@@ -83,6 +91,9 @@ module FileManagement
     scope :archives, -> { where(file_type: "archive") }
     scope :uploaded_by_user, ->(user_id) { where(uploaded_by_id: user_id) }
     scope :attached_to, ->(attachable_type, attachable_id) { where(attachable_type: attachable_type, attachable_id: attachable_id) }
+    scope :in_bundle, ->(bundle_id) { where(bundle_id: bundle_id) }
+    scope :by_bundle_role, ->(role) { where(bundle_role: role) }
+    scope :bundle_scenes, -> { where(bundle_role: "scene").order(:bundle_position) }
     scope :processing_completed, -> { where(processing_status: "completed") }
     scope :processing_failed, -> { where(processing_status: "failed") }
     scope :pending_processing, -> { where(processing_status: "pending") }
