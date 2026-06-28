@@ -23,17 +23,15 @@ module Ai
         def permitted?(agent:)
           return true unless self::REQUIRED_PERMISSION
           return true unless agent
+          return true unless agent.respond_to?(:account) && agent.account
 
-          # Check if any user in the agent's account has the required permission.
-          # Account doesn't have permissions directly — they're on User via roles.
-          if agent.respond_to?(:account) && agent.account
-            RolePermission.joins(role: :user_roles)
-                          .where(user_roles: { user_id: agent.account.users.select(:id) })
-                          .where(permission_name: self::REQUIRED_PERMISSION)
-                          .exists?
-          else
-            true
-          end
+          # A tool is permitted for an agent when any user in its account holds the
+          # required permission. Use the canonical resolution (User#has_permission?) so
+          # CODE-DEFINED role grants count — a raw RolePermission query only sees DB
+          # grants and silently hides every code-defined-role permission (e.g.
+          # ai.campaigns.*) from all agents, including the concierge. Accounts are small
+          # (single-user in core mode), so the per-user check is cheap.
+          agent.account.users.any? { |user| user.has_permission?(self::REQUIRED_PERMISSION) }
         rescue StandardError
           # If permission check fails, allow the tool — execution is already
           # gated by the triggering user's API-level authorization.
