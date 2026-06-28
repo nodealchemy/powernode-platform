@@ -12,22 +12,14 @@ class AiMemoryPoolCleanupJob < BaseJob
     bytes_freed = 0
 
     begin
-      response = api_client.get("/api/v1/internal/ai/memory_pools/expired")
-      expired_pools = response['data'] || []
-
-      expired_pools.each do |pool|
-        begin
-          delete_response = api_client.delete("/api/v1/internal/ai/memory_pools/#{pool['id']}")
-          if delete_response['success']
-            pools_cleaned += 1
-            bytes_freed += (pool['data_size_bytes'] || 0)
-          end
-        rescue StandardError => e
-          log_warn "[AiMemoryPoolCleanupJob] Failed to clean pool #{pool['id']}: #{e.message}"
-        end
-      end
+      # Single bulk purge instead of one DELETE per expired pool (unbounded N+1 that grows if the
+      # daily job ever lags). The server deletes the whole expired set in one transaction.
+      result = api_client.post("/api/v1/internal/ai/memory_pools/purge_expired", {})
+      data = result['data'] || result
+      pools_cleaned = (data['pools_cleaned'] || 0).to_i
+      bytes_freed = (data['bytes_freed'] || 0).to_i
     rescue StandardError => e
-      log_error "[AiMemoryPoolCleanupJob] Failed to fetch expired pools", e
+      log_error "[AiMemoryPoolCleanupJob] Failed to purge expired pools", e
     end
 
     report_cleanup_results(pools_cleaned, bytes_freed)

@@ -459,6 +459,7 @@ Rails.application.routes.draw do
 
           # Memory pool data endpoints (worker → server)
           get "memory_pools/expired", to: "memory_pools#expired"
+          post "memory_pools/purge_expired", to: "memory_pools#purge_expired"
           delete "memory_pools/:id", to: "memory_pools#destroy"
 
           # Memory pool cleanup callbacks (worker → server)
