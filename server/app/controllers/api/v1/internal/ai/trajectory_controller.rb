@@ -10,8 +10,10 @@ module Api
             accounts_processed = 0
 
             Account.find_each do |account|
-              next unless account.feature_enabled?(:trajectory_analysis)
-              next if account.respond_to?(:ai_suspended?) && account.ai_suspended? # kill-switch (gate #3)
+              # Account does not implement feature_enabled?; the recommender self-gates on
+              # the global :trajectory_analysis flag. Here we only skip inactive/suspended
+              # accounts (kill-switch), matching the other internal controllers.
+              next unless account.active? && !account.ai_suspended?
 
               begin
                 recommender = ::Ai::Learning::ImprovementRecommender.new(account: account)
