@@ -53,6 +53,10 @@ RSpec.describe "Ai::Deploy foundation" do
       saved.each_value { |klass| described_class.register(klass) }
     end
 
+    # Isolate the core-registry resolution tests from whichever extensions happen to be
+    # installed (the public system extension contributes :kubernetes via the provider seam).
+    before { allow(described_class).to receive(:extension_methods).and_return({}) }
+
     it "resolves by default order (first available) and by explicit override" do
       described_class.register(workload_method)
       described_class.register(unavailable_docker)
@@ -66,10 +70,24 @@ RSpec.describe "Ai::Deploy foundation" do
       expect(described_class.available.keys).to contain_exactly(:workload)
     end
 
-    it "is core-mode safe when no extension provider is present" do
+    it "merges only core methods when no extension provider is present" do
       described_class.register(workload_method)
-      expect(described_class.extension_methods).to eq({})
       expect(described_class.all.keys).to contain_exactly(:workload)
+    end
+  end
+
+  describe "#{Ai::Deploy::MethodRegistry} extension provider seam" do
+    let(:fake_method) { Class.new(Ai::Deploy::Method) { def self.key = :ext_method } }
+
+    it "merges extension-provided methods resolved via ExtensionRegistry (core never names them)" do
+      provider = Module.new
+      methods_map = { ext_method: fake_method }
+      provider.define_singleton_method(:deploy_methods) { methods_map }
+      allow(::Powernode::ExtensionRegistry).to receive(:provider)
+        .with(:deploy_method_providers).and_return(provider)
+
+      expect(Ai::Deploy::MethodRegistry.extension_methods).to eq(ext_method: fake_method)
+      expect(Ai::Deploy::MethodRegistry.all.keys).to include(:ext_method)
     end
   end
 

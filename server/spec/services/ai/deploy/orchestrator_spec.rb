@@ -54,6 +54,11 @@ RSpec.describe Ai::Deploy::Orchestrator do
     saved.each_value { |klass| Ai::Deploy::MethodRegistry.register(klass) }
   end
 
+  # Isolate from whichever extensions are installed (the system extension contributes a
+  # :kubernetes method via the provider seam) so the registry resolves only what each test
+  # explicitly registers.
+  before { allow(Ai::Deploy::MethodRegistry).to receive(:extension_methods).and_return({}) }
+
   def orchestrator(repo: nil)
     described_class.new(account: account, user: user, repository_path: repo)
   end
