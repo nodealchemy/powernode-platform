@@ -24,8 +24,8 @@ module Ai
     belongs_to :spawned_campaign, class_name: "Ai::Campaign", optional: true
     belongs_to :reviewed_by, class_name: "User", optional: true
 
-    validates :title, presence: true
-    validates :objective, presence: true
+    validates :title, presence: true, length: { maximum: 255 }
+    validates :objective, presence: true, length: { maximum: 5_000 }
     validates :source, presence: true, inclusion: { in: SOURCES }
     validates :status, presence: true, inclusion: { in: STATUSES }
     validates :suggested_workload, presence: true, inclusion: { in: WORKLOADS }

@@ -27,6 +27,14 @@ RSpec.describe "Api::V1::Ai::CampaignProposals", type: :request do
       get "/api/v1/ai/campaign_proposals", headers: auth_headers_for(stranger), as: :json
       expect(response).to have_http_status(:forbidden)
     end
+
+    it "reports the TRUE total_count, not the limited page size" do
+      3.times { create(:ai_campaign_proposal, account: account) }
+      get "/api/v1/ai/campaign_proposals?limit=1", headers: headers, as: :json
+      expect_success_response
+      expect(json_response_data["proposals"].size).to eq(1)
+      expect(json_response_data["total_count"]).to eq(3)
+    end
   end
 
   describe "POST /api/v1/ai/campaign_proposals" do

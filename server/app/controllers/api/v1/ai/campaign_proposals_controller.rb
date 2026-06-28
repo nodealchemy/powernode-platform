@@ -17,12 +17,13 @@ module Api
         before_action :reject_if_ai_suspended, only: %i[spawn]
 
         def index
-          proposals = current_user.account.ai_campaign_proposals
-          proposals = proposals.by_status(params[:status]) if params[:status].present?
-          proposals = proposals.recent(params.fetch(:limit, 100).to_i)
+          scope = current_user.account.ai_campaign_proposals
+          scope = scope.by_status(params[:status]) if params[:status].present?
+          total = scope.count # true total for the filter, not the limited page size
+          proposals = scope.recent(params.fetch(:limit, 100).to_i)
           render_success(
             proposals: proposals.map { |p| serialize(p) },
-            total_count: proposals.size
+            total_count: total
           )
         end
 
@@ -102,8 +103,10 @@ module Api
         def permitted_hash(key)
           raw = params[key]
           return {} if raw.blank?
+          return raw.to_unsafe_h if raw.respond_to?(:to_unsafe_h)
+          return raw if raw.is_a?(Hash)
 
-          raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : raw.to_h
+          {} # a scalar/array for an object param is ignored rather than 500-ing on .to_h
         end
       end
     end

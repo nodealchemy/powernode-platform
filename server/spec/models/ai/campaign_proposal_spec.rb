@@ -20,6 +20,11 @@ RSpec.describe Ai::CampaignProposal, type: :model do
       expect(build(:ai_campaign_proposal, account: account, suggested_workload: "nope")).not_to be_valid
     end
 
+    it "bounds title (<=255) and objective (<=5000) length" do
+      expect(build(:ai_campaign_proposal, account: account, title: "x" * 256)).not_to be_valid
+      expect(build(:ai_campaign_proposal, account: account, objective: "y" * 5001)).not_to be_valid
+    end
+
     it "auto-derives a fingerprint before validation" do
       p = build(:ai_campaign_proposal, account: account, fingerprint: nil)
       p.valid?
