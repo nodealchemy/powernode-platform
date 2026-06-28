@@ -71,7 +71,7 @@ export interface ProgressEntry {
 }
 
 // Who drives a campaign loop's task queue (delegation control plane).
-export type DriverKind = 'claude_code' | 'platform_agent' | 'platform_group' | 'platform_mission';
+export type DriverKind = 'claude_code' | 'platform_agent' | 'platform_team' | 'platform_mission';
 
 export interface CampaignLoop {
   id: string;

@@ -39,9 +39,16 @@ RSpec.describe Ai::DevLoop::CampaignDriver, "delegation security" do
         .to raise_error(ArgumentError, /requires target.mission_id/)
     end
 
-    it "rejects platform_group (execution not wired yet)" do
-      expect { driver.delegate(campaign, driver_kind: "platform_group", target: { group_id: SecureRandom.uuid }) }
-        .to raise_error(ArgumentError, /not yet supported/)
+    it "rejects a foreign-account team (platform_team — agent 'group' unified into teams)" do
+      foreign_team = create(:ai_agent_team)
+      expect { driver.delegate(campaign, driver_kind: "platform_team", target: { team_id: foreign_team.id }) }
+        .to raise_error(ArgumentError, /team not found in this account/)
+    end
+
+    it "accepts a platform_team target owned by the account" do
+      team = create(:ai_agent_team, account: account)
+      driver.delegate(campaign, driver_kind: "platform_team", target: { team_id: team.id })
+      expect(loop_record.reload.driver_target).to eq("team_id" => team.id)
     end
   end
 

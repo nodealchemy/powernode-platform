@@ -22,7 +22,7 @@ module Ai
                                    "campaign_record_increment | campaign_check_rebase | campaign_stop" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
             proposal_id: { type: "string", required: false, description: "CampaignProposal UUID (campaign_approve_proposal)" },
-            driver_kind: { type: "string", required: false, description: "claude_code|platform_agent|platform_group|platform_mission (campaign_delegate)" },
+            driver_kind: { type: "string", required: false, description: "claude_code|platform_agent|platform_team|platform_mission (campaign_delegate)" },
             target: { type: "object", required: false, description: "Platform target ref: { agent_id|group_id|mission_id } (campaign_delegate)" },
             holder: { type: "string", required: false, description: "Driver identity for the single-driver lease (campaign_claim/release/delegate)" },
             name: { type: "string", required: false, description: "Campaign name (campaign_start)" },
@@ -31,7 +31,7 @@ module Ai
             source: { type: "string", required: false, description: "discovery | trajectory | improvement | manual (campaign_propose)" },
             scope: { type: "string", required: false, description: "Target/repo scope label for dedupe (campaign_propose)" },
             suggested_workload: { type: "string", required: false, description: "improvement-campaign | feature-development | new-project" },
-            suggested_driver: { type: "string", required: false, description: "claude_code | platform_agent | platform_group | platform_mission" },
+            suggested_driver: { type: "string", required: false, description: "claude_code | platform_agent | platform_team | platform_mission" },
             description: { type: "string", required: false, description: "Optional campaign description" },
             configuration: { type: "object", required: false,
                              description: "Durable config: scope/posture/ordering/keep-going" },
@@ -60,7 +60,7 @@ module Ai
               source: { type: "string", required: false, description: "discovery|trajectory|improvement|manual (default manual)" },
               scope: { type: "string", required: false, description: "Target/repo scope label (used for per-target dedupe)" },
               suggested_workload: { type: "string", required: false, description: "improvement-campaign|feature-development|new-project" },
-              suggested_driver: { type: "string", required: false, description: "claude_code|platform_agent|platform_group|platform_mission" },
+              suggested_driver: { type: "string", required: false, description: "claude_code|platform_agent|platform_team|platform_mission" },
               decision_authority: { type: "string", required: false, description: "supervised|monitored|trusted|autonomous (default trusted)" },
               configuration: { type: "object", required: false, description: "Spawn configuration (scope/posture/plan_increments/...)" }
             }
@@ -92,13 +92,13 @@ module Ai
           },
           "campaign_delegate" => {
             description: "Route a campaign's dev-loop to a driver — claude_code (a Claude Code session " \
-                         "drains the pull queue) or platform_agent|platform_group|platform_mission (the " \
+                         "drains the pull queue) or platform_agent|platform_team|platform_mission (the " \
                          "platform executor drains it). Reassignment releases the current single-driver " \
                          "lease so the new driver can claim it; for claude_code, pass holder to take the " \
                          "lease immediately.",
             parameters: {
               campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
-              driver_kind: { type: "string", required: true, description: "claude_code|platform_agent|platform_group|platform_mission" },
+              driver_kind: { type: "string", required: true, description: "claude_code|platform_agent|platform_team|platform_mission" },
               target: { type: "object", required: false, description: "Platform target ref: { agent_id|group_id|mission_id }" },
               holder: { type: "string", required: false, description: "Driver identity (claude_code: take the lease now)" }
             }

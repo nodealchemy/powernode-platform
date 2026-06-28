@@ -15,7 +15,7 @@ module Ai
     TERMINAL_STATUSES = %w[rejected spawned].freeze
     SOURCES = %w[discovery trajectory improvement manual].freeze
     # Where an approved proposal's campaign loop can be delegated to drain (increment 4).
-    SUGGESTED_DRIVERS = %w[claude_code platform_agent platform_group platform_mission].freeze
+    SUGGESTED_DRIVERS = %w[claude_code platform_agent platform_team platform_mission].freeze
     # Workloads mirror the campaign driver's — a proposal spawns one of these.
     WORKLOADS = Ai::DevLoop::CampaignDriver::WORKLOADS
     DEFAULT_WORKLOAD = Ai::DevLoop::CampaignDriver::DEFAULT_WORKLOAD

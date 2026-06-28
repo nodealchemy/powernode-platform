@@ -21,14 +21,14 @@ export const PROPOSAL_STATUS_CONFIG: Record<ProposalStatus, { label: string; var
 export const DRIVER_KIND_OPTIONS: Array<{ value: DriverKind; label: string }> = [
   { value: 'claude_code', label: 'Claude Code (dev-loop)' },
   { value: 'platform_agent', label: 'Platform agent' },
-  { value: 'platform_group', label: 'Platform group' },
+  { value: 'platform_team', label: 'Platform team' },
   { value: 'platform_mission', label: 'Platform mission' },
 ];
 
 export const DRIVER_KIND_LABELS: Record<DriverKind, string> = {
   claude_code: 'Claude Code',
   platform_agent: 'Platform agent',
-  platform_group: 'Platform group',
+  platform_team: 'Platform team',
   platform_mission: 'Platform mission',
 };
 

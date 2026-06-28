@@ -18,8 +18,8 @@ module Ai
     # Who drives this loop's task queue (campaign discovery/delegation control plane).
     # claude_code = a Claude Code session drains it via the dev-loop pull queue;
     # platform_* = the platform executor drains it. nil = legacy (scheduling-mode-driven).
-    DRIVER_KINDS = %w[claude_code platform_agent platform_group platform_mission].freeze
-    PLATFORM_DRIVER_KINDS = %w[platform_agent platform_group platform_mission].freeze
+    DRIVER_KINDS = %w[claude_code platform_agent platform_team platform_mission].freeze
+    PLATFORM_DRIVER_KINDS = %w[platform_agent platform_team platform_mission].freeze
 
     # ==================== Associations ====================
     belongs_to :account

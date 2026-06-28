@@ -282,9 +282,14 @@ module Ai
           raise ArgumentError, "mission not found in this account" unless @account.ai_missions.exists?(id: id)
 
           { "mission_id" => id }
-        when "platform_group"
-          # Group execution is not wired yet (would leave a runnable loop with no executor).
-          raise ArgumentError, "platform_group delegation is not yet supported"
+        when "platform_team"
+          # "Agent group" is unified into Ai::AgentTeam (the canonical agent grouping) — a
+          # platform_team delegation routes the loop to a team the account owns.
+          id = target["team_id"].presence
+          raise ArgumentError, "platform_team delegation requires target.team_id" if id.blank?
+          raise ArgumentError, "team not found in this account" unless @account.ai_agent_teams.exists?(id: id)
+
+          { "team_id" => id }
         else
           raise ArgumentError, "unknown driver_kind: #{driver_kind}"
         end
@@ -298,7 +303,7 @@ module Ai
           # CC pulls manually; keep it off the platform scheduler.
           attrs[:scheduling_mode] = "manual"
           attrs[:next_scheduled_at] = nil
-        else # platform_agent | platform_group | platform_mission
+        else # platform_agent | platform_team | platform_mission
           attrs[:default_agent_id] = target["agent_id"] if target["agent_id"].present?
           attrs[:mission_id] = target["mission_id"] if target["mission_id"].present?
           attrs[:scheduling_mode] = "continuous"

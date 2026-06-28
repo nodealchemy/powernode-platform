@@ -16,7 +16,7 @@ import { STATUS_CONFIG, DECISION_AUTHORITY_LABELS, DRIVER_KIND_OPTIONS, DRIVER_K
 // Map a platform driver_kind to the target key its delegate call expects.
 const TARGET_KEY: Partial<Record<DriverKind, string>> = {
   platform_agent: 'agent_id',
-  platform_group: 'group_id',
+  platform_team: 'team_id',
   platform_mission: 'mission_id',
 };
 
