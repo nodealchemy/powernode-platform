@@ -114,7 +114,7 @@ export function ExecutionHistoryTable({
                           e.stopPropagation();
                           onRetry(execution.id);
                         }}
-                        className="px-2 py-1 text-xs text-theme-primary hover:bg-theme-primary hover:bg-theme-primary/10 rounded transition-colors"
+                        className="px-2 py-1 text-xs text-theme-primary hover:bg-theme-interactive-primary hover:bg-theme-primary/10 rounded transition-colors"
                       >
                         Retry
                       </button>

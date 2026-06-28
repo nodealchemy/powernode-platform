@@ -160,7 +160,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
       case 'cancelled':
         return 'bg-theme-error-bg';
       case 'in_progress':
-        return 'bg-theme-primary';
+        return 'bg-theme-interactive-primary';
       default:
         return 'bg-theme-surface';
     }

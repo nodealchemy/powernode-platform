@@ -98,7 +98,7 @@ export function ResearchModal({ isOpen, onClose, onProposalCreated }: ResearchMo
                   onClick={() => toggleSource(source.id)}
                   className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                     sources.includes(source.id)
-                      ? 'bg-theme-primary text-white border-transparent'
+                      ? 'bg-theme-interactive-primary text-white border-transparent'
                       : 'text-theme-secondary border-theme hover:bg-theme-surface-hover'
                   }`}
                 >

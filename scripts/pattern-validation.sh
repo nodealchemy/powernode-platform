@@ -203,6 +203,15 @@ check_pattern "Forbidden color-on-color badges (should be empty)" \
     "grep -rlP 'bg-theme-(success|error|warning|info|danger)(?![-a-z])[^\"]*text-theme-\\1(?![-a-z])' frontend/src/ extensions/*/frontend/src extensions/private/*/frontend/src 2>/dev/null | wc -l" \
     "empty"
 
+# theme-{primary,secondary,tertiary,quaternary} are TEXT tokens; using one as a solid
+# BACKGROUND paints a text color as a surface (white-on-white in dark mode). Opacity tints
+# (/N), the -fg/-bg/-border triad, and comment lines are excluded. border-/ring- with these
+# text tokens render high-contrast (not invisibility bugs) so are not flagged. See
+# docs/reference/theme-system.md ("The #1 footgun").
+check_pattern "Forbidden text-token-as-background (should be empty)" \
+    "grep -rnP 'bg-theme-(primary|secondary|tertiary|quaternary)(?![\\w/-])' frontend/src/ extensions/*/frontend/src extensions/private/*/frontend/src 2>/dev/null | grep -vP ':\\s*(\\*|//|/\\*)' | wc -l" \
+    "empty"
+
 # Component Structure
 check_pattern "React component forwardRef usage" \
     "grep -r 'forwardRef' frontend/src/ | wc -l" \

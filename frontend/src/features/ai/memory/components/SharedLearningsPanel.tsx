@@ -109,7 +109,7 @@ export function SharedLearningsPanel({ poolId }: SharedLearningsPanelProps) {
         <button
           type="button"
           onClick={load}
-          className="px-3 py-1.5 text-sm rounded-lg bg-theme-primary text-white hover:bg-theme-primary/90 transition-colors"
+          className="px-3 py-1.5 text-sm rounded-lg bg-theme-interactive-primary text-white hover:bg-theme-primary/90 transition-colors"
         >
           Retry
         </button>

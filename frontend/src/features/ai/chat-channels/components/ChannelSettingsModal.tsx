@@ -305,7 +305,7 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
             auto_handoff_enabled: !prev.auto_handoff_enabled,
           }))}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            routingConfig.auto_handoff_enabled ? 'bg-theme-primary' : 'bg-theme-surface'
+            routingConfig.auto_handoff_enabled ? 'bg-theme-interactive-primary' : 'bg-theme-surface'
           }`}
         >
           <span

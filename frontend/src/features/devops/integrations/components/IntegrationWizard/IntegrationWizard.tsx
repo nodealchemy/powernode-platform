@@ -130,7 +130,7 @@ export function IntegrationWizard() {
                     index < currentStepIndex
                       ? 'bg-theme-success-bg text-white'
                       : index === currentStepIndex
-                        ? 'bg-theme-primary text-white'
+                        ? 'bg-theme-interactive-primary text-white'
                         : 'bg-theme-surface text-theme-tertiary'
                   }`}
                 >

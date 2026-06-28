@@ -76,7 +76,7 @@ export const EvalComparison: React.FC = () => {
                   }}
                   className={`px-3 py-1.5 text-sm rounded-full border transition-colors cursor-pointer ${
                     selectedAgents.includes(t.agent_id)
-                      ? 'bg-theme-primary text-white border-theme-primary'
+                      ? 'bg-theme-interactive-primary text-white border-theme-primary'
                       : 'bg-theme-surface text-theme-secondary border-theme hover:border-theme-primary'
                   }`}
                 >

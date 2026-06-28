@@ -127,7 +127,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -154,7 +154,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
               onClick={() => setStatusFilter(status)}
               className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                 statusFilter === status
-                  ? 'bg-theme-primary text-white'
+                  ? 'bg-theme-interactive-primary text-white'
                   : 'bg-theme-background-secondary text-theme-secondary hover:bg-theme-surface-hover'
               }`}
             >

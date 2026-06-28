@@ -97,7 +97,7 @@ export const StepApprovalSettings: React.FC<StepApprovalSettingsProps> = ({
             disabled={disabled}
             className="sr-only peer"
           />
-          <div className="w-11 h-6 bg-theme-surface/30 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-theme-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-theme-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-theme-surface after:border-theme after:border after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm peer-checked:bg-theme-primary peer-checked:after:bg-theme-surface"></div>
+          <div className="w-11 h-6 bg-theme-surface/30 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-theme-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-theme-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-theme-surface after:border-theme after:border after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm peer-checked:bg-theme-interactive-primary peer-checked:after:bg-theme-surface"></div>
         </label>
       </div>
 

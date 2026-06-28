@@ -214,7 +214,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
         <button
           type="submit"
           disabled={disabled || isSubmitting}
-          className="px-4 py-2 text-sm font-medium bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-4 py-2 text-sm font-medium bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isSubmitting ? 'Saving...' : 'Save Branch Filter'}
         </button>
