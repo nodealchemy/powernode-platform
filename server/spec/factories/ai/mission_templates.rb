@@ -65,6 +65,23 @@ FactoryBot.define do
       rejection_mappings { {} }
     end
 
+    trait :content_production do
+      mission_type { "content_production" }
+      phases do
+        [
+          { "key" => "brief", "label" => "Brief", "order" => 0, "requires_approval" => false },
+          { "key" => "script", "label" => "Script", "order" => 1, "requires_approval" => false },
+          { "key" => "asset_generation", "label" => "Asset Generation", "order" => 2, "requires_approval" => false },
+          { "key" => "composition", "label" => "Composition", "order" => 3, "requires_approval" => false },
+          { "key" => "render", "label" => "Render", "order" => 4, "requires_approval" => false },
+          { "key" => "deliver", "label" => "Deliver", "order" => 5, "requires_approval" => false },
+          { "key" => "completed", "label" => "Completed", "order" => 6 }
+        ]
+      end
+      approval_gates { [] }
+      rejection_mappings { {} }
+    end
+
     trait :account_template do
       template_type { "account" }
       account

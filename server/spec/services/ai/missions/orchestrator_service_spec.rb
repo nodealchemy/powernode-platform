@@ -208,6 +208,36 @@ RSpec.describe Ai::Missions::OrchestratorService do
     end
   end
 
+  describe "content_production mission" do
+    let(:cp_mission) { create(:ai_mission, :content_production, account: account, created_by: user) }
+    let(:cp_service) { described_class.new(mission: cp_mission) }
+
+    it "starts at the brief phase" do
+      cp_service.start!
+      expect(cp_mission.reload.status).to eq("active")
+      expect(cp_mission.current_phase).to eq("brief")
+    end
+
+    it "drives the full content pipeline to completion via advance!" do
+      cp_service.start!
+
+      %w[script asset_generation composition render deliver].each do |phase|
+        cp_service.advance!
+        expect(cp_mission.reload.current_phase).to eq(phase)
+      end
+
+      cp_service.advance! # deliver -> completed (terminal sentinel)
+      expect(cp_mission.reload.status).to eq("completed")
+      expect(cp_mission.current_phase).to eq("completed")
+    end
+
+    it "needs no objective to start (only development missions require one)" do
+      cp_mission.update!(objective: nil)
+      expect { cp_service.start! }.not_to raise_error
+      expect(cp_mission.reload.current_phase).to eq("brief")
+    end
+  end
+
   describe "dynamic job resolution" do
     it "resolves job class from template" do
       job = service.send(:job_class_for_phase, "analyzing")

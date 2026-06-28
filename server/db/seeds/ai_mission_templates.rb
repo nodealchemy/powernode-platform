@@ -60,6 +60,24 @@ templates = [
     ],
     approval_gates: [],
     rejection_mappings: {}
+  },
+  {
+    name: "Content Production",
+    description: "Multi-modal content generation: brief, script, asset generation, composition, render, and delivery as a shared download link.",
+    template_type: "system",
+    mission_type: "content_production",
+    is_default: true,
+    phases: [
+      { "key" => "brief", "label" => "Brief", "description" => "Capture the content brief: goal, format, audience, constraints", "order" => 0, "requires_approval" => false },
+      { "key" => "script", "label" => "Script", "description" => "Generate the script / shot list / document outline", "order" => 1, "requires_approval" => false },
+      { "key" => "asset_generation", "label" => "Asset Generation", "description" => "Generate the individual assets (images, audio, document sections)", "order" => 2, "requires_approval" => false },
+      { "key" => "composition", "label" => "Composition", "description" => "Arrange generated assets into the composition (scene order, layout)", "order" => 3, "requires_approval" => false },
+      { "key" => "render", "label" => "Render", "description" => "Render the final artifact (stitch scenes into video / build the document)", "order" => 4, "requires_approval" => false },
+      { "key" => "deliver", "label" => "Deliver", "description" => "Package the artifact and produce a shared, expiring download link", "order" => 5, "requires_approval" => false },
+      { "key" => "completed", "label" => "Completed", "description" => "Production complete", "order" => 6 }
+    ],
+    approval_gates: [],
+    rejection_mappings: {}
   }
 ]
 

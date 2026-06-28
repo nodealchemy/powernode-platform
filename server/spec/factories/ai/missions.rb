@@ -15,6 +15,7 @@ FactoryBot.define do
         trait = case mission.mission_type
                 when "research" then :research
                 when "operations" then :operations
+                when "content_production" then :content_production
                 else nil
                 end
         mission.mission_template = if trait
@@ -41,6 +42,11 @@ FactoryBot.define do
 
     trait :operations do
       mission_type { "operations" }
+      repository { nil }
+    end
+
+    trait :content_production do
+      mission_type { "content_production" }
       repository { nil }
     end
 

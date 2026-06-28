@@ -36,6 +36,15 @@ RSpec.describe Ai::Mission, type: :model do
     it { is_expected.to validate_inclusion_of(:mission_type).in_array(Ai::Mission::MISSION_TYPES) }
     it { is_expected.to validate_inclusion_of(:status).in_array(Ai::Mission::STATUSES) }
 
+    it "includes content_production as a supported mission_type" do
+      expect(Ai::Mission::MISSION_TYPES).to include("content_production")
+    end
+
+    it "is valid as a content_production mission (no repository required)" do
+      mission = build(:ai_mission, :content_production)
+      expect(mission).to be_valid
+    end
+
     # Regression: OrchestratorService#complete_mission! writes the terminal
     # sentinel current_phase="completed" for EVERY mission type, even when a
     # template's own phase pipeline ends earlier (e.g. reap, adapting). Before
@@ -90,6 +99,13 @@ RSpec.describe Ai::Mission, type: :model do
       mission = build(:ai_mission, :operations)
       expect(mission.phases_for_type).to include("configuring", "executing", "verifying", "completed")
       expect(mission.phases_for_type.length).to eq(4)
+    end
+
+    it "returns phases from template for content_production type" do
+      mission = build(:ai_mission, :content_production)
+      expect(mission.phases_for_type).to eq(
+        %w[brief script asset_generation composition render deliver completed]
+      )
     end
 
     it "returns empty array without template or custom phases" do

@@ -7,7 +7,7 @@ module Ai
     include Auditable
 
     # ==================== Constants ====================
-    MISSION_TYPES = %w[development research operations infrastructure agent_fleet custom].freeze
+    MISSION_TYPES = %w[development research operations infrastructure agent_fleet content_production custom].freeze
 
     STATUSES = %w[draft active paused completed failed cancelled].freeze
     TERMINAL_STATUSES = %w[completed failed cancelled].freeze
@@ -58,6 +58,7 @@ module Ai
     scope :research, -> { where(mission_type: "research") }
     scope :operations, -> { where(mission_type: "operations") }
     scope :infrastructure, -> { where(mission_type: "infrastructure") }
+    scope :content_production, -> { where(mission_type: "content_production") }
     scope :recent, -> { order(created_at: :desc) }
     scope :with_deployment, -> { where.not(deployed_port: nil) }
 
@@ -92,6 +93,10 @@ module Ai
 
     def infrastructure?
       mission_type == "infrastructure"
+    end
+
+    def content_production?
+      mission_type == "content_production"
     end
 
     def terminal?
