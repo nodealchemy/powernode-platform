@@ -223,7 +223,10 @@ module Ai
         # Guarded so the code tolerates the column being absent during the migration
         # window (expand-contract / running ahead of the schema).
         last_activity_at: (last_activity_at if has_attribute?(:last_activity_at)),
-        driver_lease: (driver_lease_info if has_attribute?(:driver_lease_holder))
+        driver_lease: (driver_lease_info if has_attribute?(:driver_lease_holder)),
+        # Set by Ai::Land::RebaseAdvisor when the target branch advances past this
+        # campaign's branch — surfaces "rebase needed" + likely conflicts on the dashboard.
+        rebase_advisory: (configuration.is_a?(Hash) ? configuration["rebase_advisory"] : nil)
       }
     end
   end

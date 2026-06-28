@@ -51,6 +51,7 @@ module Api
             when :success
               @land.land!
               service.cleanup!
+              advise_other_campaigns_to_rebase
             when :failure
               service.rollback!
             end
@@ -70,6 +71,16 @@ module Api
           end
 
           private
+
+          # A land just advanced the target branch, so every OTHER open campaign is now
+          # behind it. Advise their drivers to rebase early (conflict avoidance). Best-effort:
+          # never let an advisory failure affect the land response.
+          def advise_other_campaigns_to_rebase
+            ::Ai::Land::RebaseAdvisor.new(account: @land.account)
+                                     .notify_stale!(target_branch: @land.target_branch, exclude: @land.campaign)
+          rescue StandardError => e
+            Rails.logger.warn("[CampaignLands#verify] rebase advisory failed: #{e.message}")
+          end
 
           def set_land
             @land = ::Ai::CampaignLand.find(params[:id])

@@ -15,8 +15,15 @@ RSpec.describe Ai::Tools::CampaignTool do
     expect(described_class::REQUIRED_PERMISSION).to eq("ai.campaigns.manage")
     expect(described_class.action_definitions.keys).to contain_exactly(
       "campaign_start", "campaign_status", "campaign_claim", "campaign_release",
-      "campaign_answer_question", "campaign_record_increment", "campaign_stop"
+      "campaign_answer_question", "campaign_record_increment", "campaign_check_rebase", "campaign_stop"
     )
+  end
+
+  it "campaign_check_rebase advises behind campaigns and returns the advised set" do
+    res = exec(action: "campaign_check_rebase", target_branch: "develop")
+    expect(res[:success]).to be true
+    expect(res[:data][:target_branch]).to eq("develop")
+    expect(res[:data]).to have_key(:advised)
   end
 
   it "campaign_claim takes the single-driver lease and campaign_release frees it" do

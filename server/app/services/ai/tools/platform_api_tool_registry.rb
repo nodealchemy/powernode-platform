@@ -347,6 +347,7 @@ module Ai
         "campaign_release" => "Ai::Tools::CampaignTool",
         "campaign_answer_question" => "Ai::Tools::CampaignTool",
         "campaign_record_increment" => "Ai::Tools::CampaignTool",
+        "campaign_check_rebase" => "Ai::Tools::CampaignTool",
         "campaign_stop" => "Ai::Tools::CampaignTool",
         # Improvement-discovery loop (Tier-1): offer -> approve -> dev-improve task
         "discover_improvements" => "Ai::Tools::ImprovementTool",

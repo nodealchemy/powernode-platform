@@ -89,6 +89,16 @@ module Ai
               status: { type: "string", required: false, description: "passed (default) | failed | skipped" }
             }
           },
+          "campaign_check_rebase" => {
+            description: "Advise the drivers of any open campaign whose branch is behind the target " \
+                         "branch (default develop) that a rebase is needed — notifies them + flags " \
+                         "likely conflicts. Run after a manual land or on a schedule (auto-lands trigger " \
+                         "it automatically). Deduped per target tip.",
+            parameters: {
+              target_branch: { type: "string", required: false, description: "Target branch (default develop)" },
+              exclude_campaign_id: { type: "string", required: false, description: "Campaign UUID to skip (e.g. the one just landed)" }
+            }
+          },
           "campaign_stop" => {
             description: "Stop a campaign: pauses its loops (executors stop pulling) and marks it completed.",
             parameters: {
@@ -109,6 +119,7 @@ module Ai
         when "campaign_release" then campaign_release(params)
         when "campaign_answer_question" then campaign_answer_question(params)
         when "campaign_record_increment" then campaign_record_increment(params)
+        when "campaign_check_rebase" then campaign_check_rebase(params)
         when "campaign_stop" then campaign_stop(params)
         else error_result("Unknown action: #{params[:action]}")
         end
@@ -171,6 +182,17 @@ module Ai
         return error_result("Campaign not found") unless campaign
 
         success_result(driver.release(campaign, holder: params[:holder]))
+      end
+
+      def campaign_check_rebase(params)
+        return success_result(halted: true) if halted?
+
+        exclude = params[:exclude_campaign_id].present? ? find_campaign(params[:exclude_campaign_id]) : nil
+        success_result(
+          driver.notify_rebase_advisories(
+            target_branch: params[:target_branch].presence || "develop", exclude: exclude
+          )
+        )
       end
 
       def campaign_answer_question(params)

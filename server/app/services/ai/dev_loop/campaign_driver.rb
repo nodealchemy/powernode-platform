@@ -190,6 +190,16 @@ module Ai
         )
       end
 
+      # Advise the drivers of any open campaign whose branch is behind `target_branch`
+      # that a rebase is needed (conflict avoidance). Covers target advances from ANY
+      # source — auto-lands, manual lands (operator ff), other-repo pushes — so it can
+      # be invoked on a schedule or after a manual land. Deduped per target tip.
+      def notify_rebase_advisories(target_branch: "develop", exclude: nil)
+        advised = Ai::Land::RebaseAdvisor.new(account: @account)
+                                         .notify_stale!(target_branch: target_branch, exclude: exclude)
+        { target_branch: target_branch, advised: advised.map { |c| { id: c.id, name: c.name } } }
+      end
+
       private
 
       def create_campaign_loop(campaign, workload: DEFAULT_WORKLOAD)
