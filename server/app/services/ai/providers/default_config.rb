@@ -3,7 +3,7 @@
 module Ai
   module Providers
     class DefaultConfig
-      PROVIDER_TYPES = %w[openai anthropic google azure_openai groq mistral cohere grok].freeze
+      PROVIDER_TYPES = %w[openai anthropic google azure_openai groq mistral cohere grok runway elevenlabs].freeze
 
       def self.types
         PROVIDER_TYPES
@@ -85,6 +85,29 @@ module Ai
               default_model: "grok-3-mini",
               supported_models: %w[grok-3 grok-3-mini grok-3-fast grok-3-mini-fast grok-2],
               capabilities: %w[chat completions function_calling]
+            }
+          },
+          # Runway — text/image→video generation. Async API (submit task → poll →
+          # download). Endpoint paths + model are config-driven; validate against
+          # the live API before production use.
+          "runway" => {
+            name: "Runway",
+            configuration: {
+              api_base_url: "https://api.dev.runwayml.com/v1",
+              default_model: "gen3a_turbo",
+              supported_models: %w[gen3a_turbo gen4_turbo],
+              capabilities: %w[video_generation]
+            }
+          },
+          # ElevenLabs — text→speech (voiceover). Synchronous: POST returns audio
+          # bytes. Voice id + model are config/param-driven.
+          "elevenlabs" => {
+            name: "ElevenLabs",
+            configuration: {
+              api_base_url: "https://api.elevenlabs.io/v1",
+              default_model: "eleven_multilingual_v2",
+              supported_models: %w[eleven_multilingual_v2 eleven_turbo_v2_5 eleven_flash_v2_5],
+              capabilities: %w[audio_generation]
             }
           }
         }

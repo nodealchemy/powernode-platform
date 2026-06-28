@@ -145,6 +145,36 @@ FactoryBot.define do
       capabilities { [ "text_generation", "chat", "code_execution" ] }
     end
 
+    trait :runway do
+      name { "Runway" }
+      sequence(:slug) { |n| "runway-#{n}" }
+      provider_type { "runway" }
+      api_base_url { "https://api.dev.runwayml.com/v1" }
+      api_endpoint { "https://api.dev.runwayml.com/v1" }
+      capabilities { [ "video_generation" ] }
+      supported_models do
+        [
+          { "name" => "gen3a_turbo", "id" => "gen3a_turbo" },
+          { "name" => "gen4_turbo", "id" => "gen4_turbo" }
+        ]
+      end
+    end
+
+    trait :elevenlabs do
+      name { "ElevenLabs" }
+      sequence(:slug) { |n| "elevenlabs-#{n}" }
+      provider_type { "elevenlabs" }
+      api_base_url { "https://api.elevenlabs.io/v1" }
+      api_endpoint { "https://api.elevenlabs.io/v1" }
+      capabilities { [ "audio_generation" ] }
+      supported_models do
+        [
+          { "name" => "eleven_multilingual_v2", "id" => "eleven_multilingual_v2" },
+          { "name" => "eleven_turbo_v2_5", "id" => "eleven_turbo_v2_5" }
+        ]
+      end
+    end
+
     trait :openai do
       name { "OpenAI" }
       slug { "openai" }
