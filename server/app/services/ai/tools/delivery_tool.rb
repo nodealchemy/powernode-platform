@@ -81,20 +81,10 @@ module Ai
       def deliver(params)
         return success_result(halted: true) if halted?
 
-        kind = (params[:target_kind].presence || "project").to_sym
-        repository = nil
-        if kind == :project && params[:repository_id].present?
-          repository = account.git_repositories.find_by(id: params[:repository_id])
-          return error_result("repository not found in this account") unless repository
-        end
-
-        config = (params[:config] || {}).deep_stringify_keys
-        config["strategy"] = params[:strategy].to_s if params[:strategy].present?
-        target = Ai::Deploy::Target.new(
-          kind: kind, repository: repository,
-          environment: params[:environment].presence || "production", config: config
+        target = Ai::Delivery::TargetBuilder.from_params(
+          account: account, target_kind: params[:target_kind], repository_id: params[:repository_id],
+          environment: params[:environment], strategy: params[:strategy], config: params[:config]
         )
-
         run = Ai::Delivery::Orchestrator.new(account: account, user: user).deliver(
           target: target, ref: params[:ref], base_ref: params[:base_ref],
           dry_run: params.key?(:dry_run) ? ActiveModel::Type::Boolean.new.cast(params[:dry_run]) : true
