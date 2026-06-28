@@ -2769,6 +2769,16 @@ Rails.application.routes.draw do
           end
         end
 
+        # Campaign proposal queue — discovery/delegation control plane: a deduped queue
+        # of proposed campaigns (review -> queue -> approve -> spawn).
+        resources :campaign_proposals, controller: "campaign_proposals", only: %i[index show create] do
+          member do
+            post :queue
+            post :approve
+            post :reject
+          end
+        end
+
         # ===================================================================
         # INTERVENTION POLICIES - User-configurable agent notification rules
         # ===================================================================

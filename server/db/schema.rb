@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000005) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1065,6 +1065,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000004) do
     t.index ["account_id", "status"], name: "index_ai_campaign_lands_on_account_id_and_status"
     t.index ["campaign_id"], name: "index_ai_campaign_lands_on_campaign_id"
     t.index ["target_branch", "status"], name: "index_ai_campaign_lands_on_target_branch_and_status"
+  end
+
+  create_table "ai_campaign_proposals", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "configuration", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.string "decision_authority", default: "trusted", null: false
+    t.jsonb "evidence", default: {}, null: false
+    t.string "fingerprint", null: false
+    t.text "objective", null: false
+    t.text "rejection_reason"
+    t.datetime "reviewed_at"
+    t.uuid "reviewed_by_id"
+    t.string "scope"
+    t.string "source", default: "manual", null: false
+    t.uuid "spawned_campaign_id"
+    t.string "status", default: "proposed", null: false
+    t.string "suggested_driver"
+    t.string "suggested_workload", default: "improvement-campaign", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "fingerprint"], name: "index_ai_campaign_proposals_on_account_id_and_fingerprint", unique: true
+    t.index ["account_id", "status"], name: "index_ai_campaign_proposals_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_campaign_proposals_on_account_id"
+    t.index ["spawned_campaign_id"], name: "index_ai_campaign_proposals_on_spawned_campaign_id"
   end
 
   create_table "ai_campaigns", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|

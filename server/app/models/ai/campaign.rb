@@ -31,6 +31,9 @@ module Ai
     has_many :parked_questions, class_name: "Ai::ParkedQuestion", foreign_key: "campaign_id", dependent: :destroy
     has_many :progress_entries, class_name: "Ai::ProgressEntry", foreign_key: "campaign_id", dependent: :destroy
     has_many :campaign_lands, class_name: "Ai::CampaignLand", foreign_key: "campaign_id", dependent: :destroy
+    # The proposal this campaign was spawned from (discovery/delegation control plane), if any.
+    has_one :source_proposal, class_name: "Ai::CampaignProposal", foreign_key: "spawned_campaign_id",
+                              inverse_of: :spawned_campaign, dependent: :nullify
 
     validates :name, presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }
