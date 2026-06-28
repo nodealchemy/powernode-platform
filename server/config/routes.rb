@@ -580,6 +580,20 @@ Rails.application.routes.draw do
             post :decay_fields
           end
 
+          # Campaign auto-land (worker ↔ server)
+          resources :campaign_lands, only: [ :show ] do
+            collection { post :process_queue }
+            member do
+              post :stage
+              post :merge
+              get :ci_status
+              post :verify
+              post :park
+              post :rollback
+              post :cleanup
+            end
+          end
+
           # Phase 4: Self-challenges (worker → server)
           scope "self_challenges", controller: "self_challenges" do
             post :process, action: :process_challenge
