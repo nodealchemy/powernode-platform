@@ -141,7 +141,9 @@ module Ai
         loop_count: loop_count, total_tasks: total_tasks, completed_tasks: completed_tasks,
         failed_tasks: failed_tasks, blocked_tasks: blocked_tasks, open_questions: open_questions,
         completion_pct: completion_pct, started_at: started_at, completed_at: completed_at,
-        last_activity_at: last_activity_at
+        # Guarded so the code tolerates the column being absent during the migration
+        # window (expand-contract / running ahead of the schema).
+        last_activity_at: (last_activity_at if has_attribute?(:last_activity_at))
       }
     end
   end
