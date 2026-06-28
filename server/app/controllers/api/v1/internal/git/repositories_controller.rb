@@ -5,7 +5,7 @@ module Api
     module Internal
       module Git
         class RepositoriesController < InternalBaseController
-          before_action :set_repository, except: [ :create, :lookup ]
+          before_action :set_repository, except: [ :create, :lookup, :sync_all_pipelines ]
           before_action :validate_internal_permissions
 
           # GET /api/v1/internal/git/repositories/lookup?full_name=owner/repo
@@ -106,6 +106,18 @@ module Api
               synced_count: synced.count,
               pipeline_ids: synced.map(&:id)
             })
+          end
+
+          # POST /api/v1/internal/git/repositories/sync_all_pipelines
+          # Worker-scheduled: enqueue a PipelineSyncJob for every active git repo
+          # with a credential, so Devops::GitPipeline (CI status) stays populated.
+          def sync_all_pipelines
+            enqueued = 0
+            ::Devops::GitRepository.active.where.not(git_provider_credential_id: nil).find_each do |repo|
+              WorkerJobService.enqueue_job("Git::PipelineSyncJob", args: [ repo.id ], queue: "services")
+              enqueued += 1
+            end
+            render_success(enqueued: enqueued)
           end
 
           private

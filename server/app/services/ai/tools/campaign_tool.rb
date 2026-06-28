@@ -15,8 +15,10 @@ module Ai
                        "check status, answer parked questions, and stop it.",
           parameters: {
             action: { type: "string", required: true,
-                      description: "campaign_start | campaign_status | campaign_answer_question | campaign_stop" },
+                      description: "campaign_start | campaign_status | campaign_claim | campaign_release | " \
+                                   "campaign_answer_question | campaign_record_increment | campaign_stop" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
+            holder: { type: "string", required: false, description: "Driver identity for the single-driver lease (campaign_claim/release)" },
             name: { type: "string", required: false, description: "Campaign name (campaign_start)" },
             description: { type: "string", required: false },
             configuration: { type: "object", required: false,
@@ -38,10 +40,10 @@ module Ai
                          "campaign-scoped Ralph loop that /dev-loop drains. Returns the campaign + loop.",
             parameters: {
               name: { type: "string", required: true, description: "Campaign name" },
-              description: { type: "string", required: false },
+              description: { type: "string", required: false, description: "Optional campaign description" },
               configuration: { type: "object", required: false, description: "scope/posture/ordering/keep-going" },
               decision_authority: { type: "string", required: false, description: "supervised|monitored|trusted|autonomous" },
-              stop_conditions: { type: "object", required: false }
+              stop_conditions: { type: "object", required: false, description: "e.g. { max_failed:, completion_pct: }" }
             }
           },
           "campaign_status" => {
@@ -49,18 +51,58 @@ module Ai
                          "questions, recent decisions, and its loops.",
             parameters: { campaign_id: { type: "string", required: true, description: "Campaign UUID or name" } }
           },
+          "campaign_claim" => {
+            description: "Become the single active driver for a campaign before driving it. Returns " \
+                         "ok:true with the lease when acquired/renewed, or ok:false with held_by when " \
+                         "another driver holds it (back off instead of double-driving the campaign/<id> branch).",
+            parameters: {
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
+              holder: { type: "string", required: false, description: "Driver identity (defaults to your user id)" }
+            }
+          },
+          "campaign_release" => {
+            description: "Release a campaign's single-driver lease when done driving it.",
+            parameters: {
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
+              holder: { type: "string", required: false, description: "Driver identity (defaults to your user id)" }
+            }
+          },
           "campaign_answer_question" => {
             description: "Answer a parked question (can unblock its associated task).",
             parameters: {
-              campaign_id: { type: "string", required: true },
-              question_id: { type: "string", required: true },
-              answer: { type: "string", required: true }
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
+              question_id: { type: "string", required: true, description: "Parked question UUID" },
+              answer: { type: "string", required: true, description: "The operator's answer to the parked question" }
+            }
+          },
+          "campaign_record_increment" => {
+            description: "Record one completed campaign increment: marks a passed RalphTask on the campaign " \
+                         "loop, logs a decision, and snapshots progress (so completion% reflects real work). " \
+                         "Idempotent on task_key.",
+            parameters: {
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
+              title: { type: "string", required: true, description: "Short increment title" },
+              summary: { type: "string", required: false, description: "What was done" },
+              task_key: { type: "string", required: false, description: "Stable key for idempotency" },
+              decision_type: { type: "string", required: false, description: "build|unblock|skip|remove|defer|policy|escalate (default build)" },
+              rationale: { type: "string", required: false, description: "Why this increment was done / decided" },
+              status: { type: "string", required: false, description: "passed (default) | failed | skipped" }
+            }
+          },
+          "campaign_check_rebase" => {
+            description: "Advise the drivers of any open campaign whose branch is behind the target " \
+                         "branch (default develop) that a rebase is needed — notifies them + flags " \
+                         "likely conflicts. Run after a manual land or on a schedule (auto-lands trigger " \
+                         "it automatically). Deduped per target tip.",
+            parameters: {
+              target_branch: { type: "string", required: false, description: "Target branch (default develop)" },
+              exclude_campaign_id: { type: "string", required: false, description: "Campaign UUID to skip (e.g. the one just landed)" }
             }
           },
           "campaign_stop" => {
             description: "Stop a campaign: pauses its loops (executors stop pulling) and marks it completed.",
             parameters: {
-              campaign_id: { type: "string", required: true },
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
               summary: { type: "string", required: false, description: "Completion summary" }
             }
           }
@@ -73,7 +115,11 @@ module Ai
         case params[:action]
         when "campaign_start" then campaign_start(params)
         when "campaign_status" then campaign_status(params)
+        when "campaign_claim" then campaign_claim(params)
+        when "campaign_release" then campaign_release(params)
         when "campaign_answer_question" then campaign_answer_question(params)
+        when "campaign_record_increment" then campaign_record_increment(params)
+        when "campaign_check_rebase" then campaign_check_rebase(params)
         when "campaign_stop" then campaign_stop(params)
         else error_result("Unknown action: #{params[:action]}")
         end
@@ -120,6 +166,35 @@ module Ai
         success_result(driver.status(campaign))
       end
 
+      def campaign_claim(params)
+        return success_result(halted: true) if halted?
+
+        campaign = find_campaign(params[:campaign_id])
+        return error_result("Campaign not found") unless campaign
+
+        success_result(driver.claim(campaign, holder: params[:holder]))
+      rescue ArgumentError => e
+        error_result(e.message)
+      end
+
+      def campaign_release(params)
+        campaign = find_campaign(params[:campaign_id])
+        return error_result("Campaign not found") unless campaign
+
+        success_result(driver.release(campaign, holder: params[:holder]))
+      end
+
+      def campaign_check_rebase(params)
+        return success_result(halted: true) if halted?
+
+        exclude = params[:exclude_campaign_id].present? ? find_campaign(params[:exclude_campaign_id]) : nil
+        success_result(
+          driver.notify_rebase_advisories(
+            target_branch: params[:target_branch].presence || "develop", exclude: exclude
+          )
+        )
+      end
+
       def campaign_answer_question(params)
         campaign = find_campaign(params[:campaign_id])
         return error_result("Campaign not found") unless campaign
@@ -128,6 +203,24 @@ module Ai
         success_result(question: driver.answer_question(campaign, question_id: params[:question_id], answer: params[:answer]))
       rescue ActiveRecord::RecordNotFound
         error_result("Question not found")
+      end
+
+      def campaign_record_increment(params)
+        campaign = find_campaign(params[:campaign_id])
+        return error_result("Campaign not found") unless campaign
+        return error_result("title is required") if params[:title].blank?
+
+        success_result(
+          driver.record_increment!(
+            campaign,
+            title: params[:title], summary: params[:summary], task_key: params[:task_key],
+            decision_type: params[:decision_type].presence || "build",
+            rationale: params[:rationale], status: params[:status].presence || "passed",
+            metadata: params[:metadata] || {}
+          )
+        )
+      rescue ArgumentError => e
+        error_result(e.message)
       end
 
       def campaign_stop(params)

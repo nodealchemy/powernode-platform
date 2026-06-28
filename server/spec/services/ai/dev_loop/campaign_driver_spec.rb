@@ -39,6 +39,31 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
     end
   end
 
+  describe "#claim / #release (single-driver lease)" do
+    it "claims a free campaign, blocks a second driver, and frees it on release" do
+      campaign = driver.start(name: "X")[:campaign]
+      other = described_class.new(account: account, user: create(:user, account: account))
+
+      first = driver.claim(campaign, holder: "sess-a")
+      expect(first[:ok]).to be true
+      expect(first[:lease]).to include(holder: "sess-a")
+
+      blocked = other.claim(campaign, holder: "sess-b")
+      expect(blocked[:ok]).to be false
+      expect(blocked[:held_by]).to eq("sess-a")
+
+      expect(driver.release(campaign, holder: "sess-a")).to eq({ ok: true })
+      expect(other.claim(campaign, holder: "sess-b")[:ok]).to be true
+    end
+
+    it "defaults the holder to the driver's user id" do
+      campaign = driver.start(name: "X")[:campaign]
+      res = driver.claim(campaign)
+      expect(res[:ok]).to be true
+      expect(campaign.reload.driver_lease_holder).to eq(user.id.to_s)
+    end
+  end
+
   describe "#answer_question" do
     it "answers a parked question and clears the open count" do
       campaign = driver.start(name: "X")[:campaign]

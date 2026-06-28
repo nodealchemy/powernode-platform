@@ -174,6 +174,10 @@ module Ai
         create_team_from_spec(params)
       when "approve_mission_gate"
         approve_mission_gate(params)
+      when "approve_campaign_land"
+        approve_campaign_land(params)
+      when "reject_campaign_land"
+        reject_campaign_land(params)
       else
         @conversation.add_assistant_message("Unknown action type: #{action_type}")
       end
@@ -658,6 +662,33 @@ module Ai
           "↩️ Sent **#{mission.name}** back from **#{gate.humanize}** for revision."
         )
       end
+    end
+
+    def approve_campaign_land(params)
+      land = find_campaign_land(params)
+      return unless land
+
+      land.operator_approve!(user: @user)
+      @conversation.add_assistant_message(
+        "✅ Approved land for `#{land.source_branch}` → `#{land.target_branch}` — queued (#{land.reload.status})."
+      )
+    end
+
+    def reject_campaign_land(params)
+      land = find_campaign_land(params)
+      return unless land
+
+      land.operator_reject!(user: @user, reason: params["reason"] || params[:reason])
+      @conversation.add_assistant_message(
+        "↩️ Rejected land for `#{land.source_branch}` → `#{land.target_branch}`."
+      )
+    end
+
+    def find_campaign_land(params)
+      id = params["campaign_land_id"] || params[:campaign_land_id] || params["land_id"] || params[:land_id]
+      land = ::Ai::CampaignLand.where(account: @account).find_by(id: id)
+      @conversation.add_assistant_message("I couldn't find that campaign land to act on.") unless land
+      land
     end
 
     def summarize_tool_result(tool_name, result)

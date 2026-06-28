@@ -11,11 +11,49 @@ RSpec.describe Ai::Tools::CampaignTool do
     tool.execute(params: params.with_indifferent_access)
   end
 
-  it "registers a campaign permission + declares its 4 actions" do
+  it "registers a campaign permission + declares its actions" do
     expect(described_class::REQUIRED_PERMISSION).to eq("ai.campaigns.manage")
     expect(described_class.action_definitions.keys).to contain_exactly(
-      "campaign_start", "campaign_status", "campaign_answer_question", "campaign_stop"
+      "campaign_start", "campaign_status", "campaign_claim", "campaign_release",
+      "campaign_answer_question", "campaign_record_increment", "campaign_check_rebase", "campaign_stop"
     )
+  end
+
+  it "campaign_check_rebase advises behind campaigns and returns the advised set" do
+    res = exec(action: "campaign_check_rebase", target_branch: "develop")
+    expect(res[:success]).to be true
+    expect(res[:data][:target_branch]).to eq("develop")
+    expect(res[:data]).to have_key(:advised)
+  end
+
+  it "campaign_claim takes the single-driver lease and campaign_release frees it" do
+    id = exec(action: "campaign_start", name: "X")[:data][:campaign][:id]
+
+    claimed = exec(action: "campaign_claim", campaign_id: id, holder: "sess-a")
+    expect(claimed[:success]).to be true
+    expect(claimed[:data][:ok]).to be true
+    expect(claimed[:data][:lease][:holder]).to eq("sess-a")
+
+    blocked = exec(action: "campaign_claim", campaign_id: id, holder: "sess-b")
+    expect(blocked[:data][:ok]).to be false
+    expect(blocked[:data][:held_by]).to eq("sess-a")
+
+    released = exec(action: "campaign_release", campaign_id: id, holder: "sess-a")
+    expect(released[:data][:ok]).to be true
+    expect(exec(action: "campaign_claim", campaign_id: id, holder: "sess-b")[:data][:ok]).to be true
+  end
+
+  it "campaign_record_increment records a passed task + decision and reflects completion" do
+    id = exec(action: "campaign_start", name: "Obs")[:data][:campaign][:id]
+    res = exec(action: "campaign_record_increment", campaign_id: id, title: "Increment 1", summary: "did it")
+    expect(res[:success]).to be true
+    expect(res[:data][:campaign][:completion_pct]).to eq(100.0)
+    expect(res[:data][:status]).to eq("passed")
+  end
+
+  it "campaign_record_increment requires a title" do
+    id = exec(action: "campaign_start", name: "Obs")[:data][:campaign][:id]
+    expect(exec(action: "campaign_record_increment", campaign_id: id)[:success]).to be false
   end
 
   it "campaign_start creates a campaign + a campaign-scoped loop" do

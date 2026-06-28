@@ -316,6 +316,7 @@ Rails.application.routes.draw do
           resources :repositories, only: [ :show, :create, :update ] do
             collection do
               get :lookup
+              post :sync_all_pipelines
             end
             member do
               post :sync_branches
@@ -578,6 +579,20 @@ Rails.application.routes.draw do
             post :decay_signals
             post :measure_all_fields
             post :decay_fields
+          end
+
+          # Campaign auto-land (worker ↔ server)
+          resources :campaign_lands, only: [ :show ] do
+            collection { post :process_queue }
+            member do
+              post :stage
+              post :merge
+              get :ci_status
+              post :verify
+              post :park
+              post :rollback
+              post :cleanup
+            end
           end
 
           # Phase 4: Self-challenges (worker → server)

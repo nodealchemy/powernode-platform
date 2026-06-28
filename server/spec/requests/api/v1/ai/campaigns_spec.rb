@@ -49,6 +49,10 @@ RSpec.describe "Api::V1::Ai::Campaigns", type: :request do
       expect(data["open_questions_list"].length).to eq(1)
       expect(data["recent_decisions"].length).to eq(1)
       expect(data["loops"].length).to eq(1)
+      # Observability: detail surfaces the unified activity feed + heartbeat.
+      expect(data).to have_key("activity")
+      expect(data["activity"]).to be_an(Array).and(be_present)
+      expect(data).to have_key("last_activity_at")
     end
   end
 

@@ -82,6 +82,7 @@ module Api
             stop_conditions: campaign.stop_conditions,
             open_questions_list: campaign.open_questions_list.map(&:summary),
             recent_decisions: campaign.campaign_decisions.recent(20).map(&:summary),
+            activity: campaign.activity_feed(limit: 20),
             progress: campaign.progress_entries.latest_first.limit(20).map(&:summary),
             loops: campaign.ralph_loops.map do |l|
               { id: l.id, name: l.name, branch: l.branch, status: l.status, total_tasks: l.ralph_tasks.count }

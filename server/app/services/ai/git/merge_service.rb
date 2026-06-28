@@ -20,7 +20,12 @@ module Ai
         target = session.base_branch
         protection_check = branch_protection_service.validate_merge_target(target)
 
-        if protection_check[:requires_approval]
+        # A prior approve_merge! records merge_approved_by; treat that as satisfying
+        # the protection gate so the approved merge proceeds (otherwise the static
+        # branch-protection check re-gates on every execute and never merges).
+        already_approved = session.metadata&.dig("merge_approved_by").present?
+
+        if protection_check[:requires_approval] && !already_approved
           session.update!(metadata: (session.metadata || {}).merge(
             "awaiting_merge_approval" => true,
             "merge_target" => target,
@@ -189,7 +194,11 @@ module Ai
                        ["merge", "--no-ff", source_branch]
         end
 
-        _stdout, stderr, status = run_git(*merge_args)
+        stdout, stderr, status = run_git(*merge_args)
+        # git writes the "CONFLICT (...)" / "Merge conflict in ..." lines to STDOUT,
+        # not stderr — check both so a real conflict is classified as :conflict
+        # (parkable) rather than :failed.
+        combined_output = "#{stdout}#{stderr}"
 
         if status.success?
           # For squash merges, we need to commit
@@ -201,7 +210,7 @@ module Ai
           operation.complete!(merge_commit_sha: sha)
 
           { status: "completed", merge_commit_sha: sha, merge_operation_id: operation.id }
-        elsif stderr.include?("CONFLICT") || stderr.include?("Merge conflict")
+        elsif combined_output.include?("CONFLICT") || combined_output.include?("Merge conflict")
           conflict_files = parse_conflict_files
           operation.mark_conflict!(
             conflict_files: conflict_files,

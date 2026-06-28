@@ -343,7 +343,11 @@ module Ai
         # Autonomous Improvement Campaigns: a durable wrapper that drives the dev-improve loop
         "campaign_start" => "Ai::Tools::CampaignTool",
         "campaign_status" => "Ai::Tools::CampaignTool",
+        "campaign_claim" => "Ai::Tools::CampaignTool",
+        "campaign_release" => "Ai::Tools::CampaignTool",
         "campaign_answer_question" => "Ai::Tools::CampaignTool",
+        "campaign_record_increment" => "Ai::Tools::CampaignTool",
+        "campaign_check_rebase" => "Ai::Tools::CampaignTool",
         "campaign_stop" => "Ai::Tools::CampaignTool",
         # Improvement-discovery loop (Tier-1): offer -> approve -> dev-improve task
         "discover_improvements" => "Ai::Tools::ImprovementTool",

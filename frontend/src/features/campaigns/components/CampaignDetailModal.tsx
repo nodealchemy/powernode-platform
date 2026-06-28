@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { HelpCircle, GitBranch, ListChecks, StopCircle } from 'lucide-react';
+import { HelpCircle, GitBranch, ListChecks, StopCircle, Activity, Lock } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -110,6 +110,12 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
           {/* Header stats */}
           <div className="flex flex-wrap items-center gap-4">
             {statusConfig && <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>}
+            {detail.driver_lease && (
+              <Badge variant="outline" size="xs" className="flex items-center gap-1">
+                <Lock className="h-3 w-3" />
+                Driven by {detail.driver_lease.holder} · until {new Date(detail.driver_lease.expires_at).toLocaleTimeString()}
+              </Badge>
+            )}
             <div className="flex-1 min-w-[12rem]">
               <Progress value={detail.completion_pct} />
               <div className="mt-1 text-xs text-theme-tertiary">{detail.completion_pct}% complete</div>
@@ -193,6 +199,26 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
                   </div>
                 ))}
               </div>
+            )}
+          </Section>
+
+          {/* Unified activity feed (decisions + parked questions + completed tasks) */}
+          <Section icon={Activity} title={`Activity (${detail.activity.length})`}>
+            {detail.activity.length === 0 ? (
+              <p className="text-sm text-theme-tertiary">No activity yet.</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {detail.activity.map((e, i) => (
+                  <li key={`${e.kind}-${e.at}-${i}`} className="flex items-center gap-2 text-sm">
+                    <Badge variant="secondary" size="xs">{e.kind.replace('_', ' ')}</Badge>
+                    <span className="text-theme-secondary">{e.status}</span>
+                    <span className="truncate text-theme-primary">{e.title}</span>
+                    <span className="ml-auto shrink-0 text-xs text-theme-tertiary">
+                      {new Date(e.at).toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
           </Section>
         </div>
