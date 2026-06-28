@@ -89,5 +89,60 @@ module FileManagement
         created_at: created_at&.iso8601
       }
     end
+
+    # ---- shared download links (reuses FileManagement::Share verbatim) ----
+
+    # Public, expiring, download-limited link for the finished render
+    # (primary_object). Raises when the bundle hasn't been rendered yet.
+    def share_primary!(created_by:, expires_in: 7.days, max_downloads: nil, access_level: "download")
+      raise ArgumentError, "bundle has no primary render to share" unless primary_object
+
+      build_share(primary_object, created_by: created_by, expires_in: expires_in,
+                  max_downloads: max_downloads, access_level: access_level)
+    end
+
+    # One public expiring link per member object — the source for a whole-bundle
+    # signed-URL download manifest.
+    def share_all!(created_by:, expires_in: 7.days, max_downloads: nil, access_level: "download")
+      objects.map do |obj|
+        build_share(obj, created_by: created_by, expires_in: expires_in,
+                    max_downloads: max_downloads, access_level: access_level)
+      end
+    end
+
+    # Manifest of the bundle members' active public links — handed to a consumer
+    # to download the whole production (one entry per shared member). Paths are
+    # host-relative (the public share route is /shared/<token>), so callers
+    # resolve them against whatever host serves the links.
+    def download_manifest
+      objects.flat_map do |obj|
+        obj.active_shares.select(&:public_link?).map do |share|
+          {
+            filename: obj.filename,
+            bundle_role: obj.bundle_role,
+            bundle_position: obj.bundle_position,
+            share_token: share.share_token,
+            share_path: "/shared/#{share.share_token}",
+            download_path: "/shared/#{share.share_token}/download",
+            expires_at: share.expires_at&.iso8601
+          }
+        end
+      end
+    end
+
+    private
+
+    def build_share(object, created_by:, expires_in:, max_downloads:, access_level:)
+      FileManagement::Share.create!(
+        account: account,
+        object: object,
+        created_by: created_by,
+        share_type: "public_link",
+        access_level: access_level,
+        status: "active",
+        expires_at: expires_in ? expires_in.from_now : nil,
+        max_downloads: max_downloads
+      )
+    end
   end
 end

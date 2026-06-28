@@ -100,6 +100,63 @@ RSpec.describe FileManagement::Bundle do
     end
   end
 
+  describe "shared download links (reuses FileManagement::Share)" do
+    let(:render) { create(:file_object, account: account, uploaded_by: user) }
+
+    describe "#share_primary!" do
+      before { bundle.update!(primary_object: render) }
+
+      it "creates a public, expiring, download-limited share for the finished render" do
+        share = bundle.share_primary!(created_by: user, expires_in: 7.days, max_downloads: 5)
+
+        expect(share).to be_a(FileManagement::Share)
+        expect(share.object).to eq(render)
+        expect(share.account).to eq(account)
+        expect(share.created_by).to eq(user)
+        expect(share).to be_public_link
+        expect(share.download_allowed?).to be(true)
+        expect(share).to be_active
+        expect(share.max_downloads).to eq(5)
+        expect(share.expires_at).to be_within(1.minute).of(7.days.from_now)
+        expect(share.share_token).to be_present
+      end
+
+      it "raises when the bundle has no finished render" do
+        bundle.update!(primary_object: nil)
+        expect { bundle.share_primary!(created_by: user) }.to raise_error(ArgumentError, /no primary/i)
+      end
+    end
+
+    describe "#share_all! + #download_manifest" do
+      let(:scene) { create(:file_object, account: account, uploaded_by: user) }
+      let(:audio) { create(:file_object, account: account, uploaded_by: user) }
+
+      before do
+        bundle.add_object!(scene, role: "scene")
+        bundle.add_object!(audio, role: "music")
+      end
+
+      it "creates one public expiring share per member object" do
+        shares = bundle.share_all!(created_by: user, expires_in: 1.day)
+        expect(shares.length).to eq(2)
+        expect(shares).to all(be_a(FileManagement::Share))
+        expect(shares.map(&:file_object_id)).to contain_exactly(scene.id, audio.id)
+        expect(shares).to all(be_public_link)
+      end
+
+      it "returns a download manifest with a host-relative link per shared member" do
+        bundle.share_all!(created_by: user, expires_in: 1.day)
+        manifest = bundle.download_manifest
+
+        expect(manifest.length).to eq(2)
+        entry = manifest.first
+        expect(entry).to include(:filename, :bundle_role, :share_token, :share_path, :download_path, :expires_at)
+        expect(entry[:download_path]).to include("/shared/")
+        expect(entry[:download_path]).to end_with("/download")
+      end
+    end
+  end
+
   describe "object membership (FileManagement::Object side)" do
     let(:obj) { create(:file_object, account: account, uploaded_by: user) }
 
