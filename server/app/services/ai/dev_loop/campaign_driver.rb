@@ -85,15 +85,42 @@ module Ai
         task.metadata = (task.metadata || {}).merge(metadata)
         task.save!
 
+        iteration = record_iteration!(loop_record, task, status: status, summary: summary.presence || title, metadata: metadata)
+
         decision = campaign.record_decision!(
           decision_type: decision_type, title: title, rationale: rationale,
           task: task, user: @user, metadata: metadata
         )
         campaign.snapshot_progress!
         {
-          task_key: task.task_key, status: task.status, decision_id: decision.id,
+          task_key: task.task_key, status: task.status,
+          iteration_number: iteration&.iteration_number, decision_id: decision.id,
           campaign: campaign.reload.summary
         }
+      end
+
+      # Record a Ralph iteration for a CC-driven increment. The platform executor
+      # writes RalphIteration rows per run; loops driven from Claude Code (composing
+      # /improve + /dev-loop) otherwise have NO iteration history. This fills it in.
+      # Idempotent-ish: re-recording the same task adds a new iteration row (each run
+      # is a real iteration); callers pass a stable task_key for the task itself.
+      def record_iteration!(loop_record, task, status:, summary:, metadata: {})
+        iter_status = case status
+                      when "failed" then "failed"
+                      when "skipped" then "skipped"
+                      else "completed"
+                      end
+        now = Time.current
+        number = (loop_record.ralph_iterations.maximum(:iteration_number) || 0) + 1
+        loop_record.ralph_iterations.create!(
+          iteration_number: number, ralph_task: task, status: iter_status,
+          started_at: now, completed_at: now, duration_ms: 0,
+          checks_passed: (status == "passed"), ai_output: summary,
+          git_branch: loop_record.branch, git_commit_sha: metadata["commit"]
+        )
+      rescue ActiveRecord::RecordInvalid => e
+        Rails.logger.warn("[CampaignDriver] record_iteration! failed: #{e.message}")
+        nil
       end
 
       # Backfill: give existing campaign loops their campaign's display name (for the

@@ -21,6 +21,29 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
       expect(campaign.campaign_decisions.where(decision_type: "build").count).to eq(1)
     end
 
+    it "records a RalphIteration (fills CC-driven iteration history)" do
+      result = driver.record_increment!(campaign, title: "Increment 1", summary: "did it",
+                                        metadata: { "commit" => "abc1234" })
+      loop_ = campaign.ralph_loops.first
+      iter = loop_.ralph_iterations.order(:iteration_number).last
+      expect(iter).to have_attributes(status: "completed", iteration_number: 1,
+                                      git_commit_sha: "abc1234", checks_passed: true)
+      expect(iter.git_branch).to eq(loop_.branch)
+      expect(result[:iteration_number]).to eq(1)
+    end
+
+    it "increments iteration_number across runs (each run is a real iteration)" do
+      driver.record_increment!(campaign, title: "A", task_key: "a")
+      driver.record_increment!(campaign, title: "B", task_key: "b")
+      expect(campaign.ralph_loops.first.ralph_iterations.pluck(:iteration_number).sort).to eq([ 1, 2 ])
+    end
+
+    it "maps a failed increment to a failed iteration" do
+      driver.record_increment!(campaign, title: "Broke", task_key: "x", status: "failed")
+      iter = campaign.ralph_loops.first.ralph_iterations.last
+      expect(iter).to have_attributes(status: "failed", checks_passed: false)
+    end
+
     it "is idempotent on task_key (re-recording does not double-count)" do
       driver.record_increment!(campaign, title: "Inc", task_key: "inc-1")
       driver.record_increment!(campaign, title: "Inc", task_key: "inc-1")
