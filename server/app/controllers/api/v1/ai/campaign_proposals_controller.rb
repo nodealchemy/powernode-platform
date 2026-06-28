@@ -13,6 +13,8 @@ module Api
         before_action :require_read, only: %i[index show]
         before_action :require_manage, only: %i[create queue approve reject spawn]
         before_action :set_proposal, only: %i[show queue approve reject spawn]
+        # Kill-switch: spawning arms an autonomous campaign loop — refuse while AI is suspended.
+        before_action :reject_if_ai_suspended, only: %i[spawn]
 
         def index
           proposals = current_user.account.ai_campaign_proposals
@@ -85,6 +87,12 @@ module Api
 
         def require_manage
           require_permission("ai.campaigns.manage")
+        end
+
+        def reject_if_ai_suspended
+          return unless current_user.account.ai_suspended?
+
+          render_error("AI activity is suspended for this account", status: :conflict)
         end
 
         def serialize(proposal)

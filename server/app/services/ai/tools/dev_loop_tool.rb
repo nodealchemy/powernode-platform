@@ -208,6 +208,12 @@ module Ai
         loop_record = find_loop(params[:loop_id])
         return error_result("Ralph loop not found") unless loop_record
 
+        # Kill-switch: while the account's AI is emergency-halted, do not let an executor
+        # write task transitions / iterations / learnings (mirrors next_task's halt guard).
+        if account.respond_to?(:ai_suspended?) && account.ai_suspended?
+          return { success: true, halted: true, reason: "emergency_halt", task_key: params[:task_key] }
+        end
+
         task = loop_record.ralph_tasks.find_by(task_key: params[:task_key])
         return error_result("Task not found: #{params[:task_key]}") unless task
         # in_progress: report a claimed task. blocked: operator resolution of a

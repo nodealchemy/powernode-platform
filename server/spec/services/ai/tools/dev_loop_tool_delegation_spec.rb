@@ -46,4 +46,13 @@ RSpec.describe Ai::Tools::DevLoopTool, "campaign delegation gating" do
     res = tool.execute(params: { action: "dev_next_task", loop_id: legacy.id }.with_indifferent_access)
     expect(res[:halted]).to be_falsey
   end
+
+  it "dev_complete_task is halted when the account AI is suspended (kill-switch)" do
+    task = loop_record.ralph_tasks.create!(task_key: "t1", description: "x", status: "in_progress", priority: 1)
+    account.update!(ai_suspended: true)
+    res = tool.execute(params: { action: "dev_complete_task", loop_id: loop_record.id,
+                                 task_key: "t1", outcome: "passed", summary: "done" }.with_indifferent_access)
+    expect(res[:halted]).to be true
+    expect(task.reload.status).to eq("in_progress") # not transitioned while suspended
+  end
 end

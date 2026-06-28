@@ -314,6 +314,8 @@ module Ai
       end
 
       def campaign_record_increment(params)
+        return success_result(halted: true) if halted? # kill-switch: no ledger writes while AI-suspended
+
         campaign = find_campaign(params[:campaign_id])
         return error_result("Campaign not found") unless campaign
         return error_result("title is required") if params[:title].blank?

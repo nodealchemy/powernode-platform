@@ -42,6 +42,7 @@ module Ai
     validates :scheduling_mode, inclusion: { in: SCHEDULING_MODES }
     validates :driver_kind, inclusion: { in: DRIVER_KINDS }, allow_nil: true
     validate :default_agent_belongs_to_account, if: :default_agent_id_changed?
+    validate :mission_belongs_to_account, if: :mission_id_changed?
     validates :current_iteration, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
     validates :max_iterations, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
     validates :repository_url, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https git ssh]),
@@ -120,6 +121,12 @@ module Ai
       return unless default_agent && default_agent.account_id != account_id
 
       errors.add(:default_agent, "must belong to the same account")
+    end
+
+    def mission_belongs_to_account
+      return unless mission && mission.account_id != account_id
+
+      errors.add(:mission, "must belong to the same account")
     end
 
     def calculate_duration

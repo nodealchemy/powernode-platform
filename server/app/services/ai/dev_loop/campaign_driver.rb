@@ -102,7 +102,10 @@ module Ai
       def delegate(campaign, driver_kind:, target: {}, holder: nil)
         raise ArgumentError, "unknown driver_kind: #{driver_kind}" unless Ai::RalphLoop::DRIVER_KINDS.include?(driver_kind)
 
-        normalized_target = (target || {}).deep_stringify_keys
+        # Validate + account-scope the target BEFORE any mutation: a caller may only wire
+        # THEIR OWN account's agent/mission onto a loop (cross-account IDOR guard), and a
+        # platform_* delegation must carry the executor ref it needs (no wedged loops).
+        normalized_target = validate_and_resolve_target!(driver_kind, (target || {}).deep_stringify_keys)
 
         lease = nil
         # Atomic reassignment under the campaign row lock: release the incumbent lease
@@ -245,6 +248,34 @@ module Ai
       end
 
       private
+
+      # Validate the delegation target and resolve it to account-owned refs. Raises
+      # ArgumentError (→ REST 422 / MCP error_result) on a missing-or-foreign ref. The
+      # model-level mission_belongs_to_account / default_agent_belongs_to_account
+      # validations are the defense-in-depth backstop.
+      def validate_and_resolve_target!(driver_kind, target)
+        case driver_kind
+        when "claude_code"
+          {}
+        when "platform_agent"
+          id = target["agent_id"].presence
+          raise ArgumentError, "platform_agent delegation requires target.agent_id" if id.blank?
+          raise ArgumentError, "agent not found in this account" unless @account.ai_agents.exists?(id: id)
+
+          { "agent_id" => id }
+        when "platform_mission"
+          id = target["mission_id"].presence
+          raise ArgumentError, "platform_mission delegation requires target.mission_id" if id.blank?
+          raise ArgumentError, "mission not found in this account" unless @account.ai_missions.exists?(id: id)
+
+          { "mission_id" => id }
+        when "platform_group"
+          # Group execution is not wired yet (would leave a runnable loop with no executor).
+          raise ArgumentError, "platform_group delegation is not yet supported"
+        else
+          raise ArgumentError, "unknown driver_kind: #{driver_kind}"
+        end
+      end
 
       # Apply one loop's driver routing + scheduling for #delegate (see its docs).
       def apply_driver_routing!(loop_record, driver_kind, target)

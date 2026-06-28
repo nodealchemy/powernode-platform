@@ -138,4 +138,13 @@ RSpec.describe Ai::Tools::CampaignTool do
   it "returns an error for an unknown campaign" do
     expect(exec(action: "campaign_status", campaign_id: "nope")[:success]).to be false
   end
+
+  it "campaign_record_increment is a no-op (halted) when the account AI is suspended (kill-switch)" do
+    id = exec(action: "campaign_start", name: "Killable")[:data][:campaign][:id]
+    account.update!(ai_suspended: true)
+    res = exec(action: "campaign_record_increment", campaign_id: id, title: "should not record")
+    expect(res[:success]).to be true
+    expect(res[:data][:halted]).to be true
+    expect(account.ai_campaigns.find(id).campaign_decisions.count).to eq(0)
+  end
 end

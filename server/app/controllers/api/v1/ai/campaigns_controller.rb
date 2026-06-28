@@ -9,6 +9,8 @@ module Api
         before_action :require_read, only: %i[index show]
         before_action :require_manage, only: %i[create answer_question stop delegate]
         before_action :set_campaign, only: %i[show answer_question stop delegate]
+        # Kill-switch: create/delegate arm autonomous loops — refuse while AI is suspended.
+        before_action :reject_if_ai_suspended, only: %i[create delegate]
 
         # GET /api/v1/ai/campaigns
         def index
@@ -68,6 +70,12 @@ module Api
 
         def require_manage
           require_permission("ai.campaigns.manage")
+        end
+
+        def reject_if_ai_suspended
+          return unless current_user.account.ai_suspended?
+
+          render_error("AI activity is suspended for this account", status: :conflict)
         end
 
         def set_campaign
