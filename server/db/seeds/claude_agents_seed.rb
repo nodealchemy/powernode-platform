@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# Claude-Powered Agents Seed Data
-# Creates specialized agents that leverage Claude AI capabilities
+# Reasoning & Analysis Agents Seed Data
+# Creates provider-agnostic specialized agents (model chosen at runtime by Ai::AgentModelSelector)
 
-puts "🧠 Creating Claude-Powered Workflow Agents..."
+puts "🧠 Creating reasoning/analysis workflow agents..."
 
 admin_account = Account.find_by(name: "Powernode Admin")
 raise "claude_agents_seed: admin account 'Powernode Admin' not found — seed accounts first" unless admin_account
@@ -36,14 +36,26 @@ ActiveRecord::Base.transaction do
     puts "  ⏭️  Claude provider already has configuration - preserving existing credentials"
   end
 
-  # Claude-Powered Strategic Planning Agent
+  # Provider-agnostic rename (agents must not be named after a provider —
+  # model/provider is chosen at runtime by Ai::AgentModelSelector). Idempotent:
+  # updates any pre-rename rows in place so the find_or_create_by calls below
+  # match them instead of creating duplicates on an already-seeded DB.
+  {
+    'claude-strategic-planner' => [ 'strategic-planner', 'Strategic Planner' ],
+    'claude-research-analyst'  => [ 'research-analyst',  'Research Analyst' ]
+  }.each do |old_slug, (new_slug, new_name)|
+    Ai::Agent.where(account: admin_account, slug: old_slug)
+             .update_all(slug: new_slug, name: new_name)
+  end
+
+  # Strategic Planning Agent (provider-agnostic; reasoning-tier via model_requirements)
   strategic_planner = Ai::Agent.find_or_create_by(
     account: admin_account,
-    slug: 'claude-strategic-planner',
+    slug: 'strategic-planner',
     agent_type: 'assistant'
   ) do |agent|
-    agent.name = "Claude Strategic Planner"
-    agent.description = "Advanced strategic planning and analysis agent powered by Claude's reasoning capabilities"
+    agent.name = "Strategic Planner"
+    agent.description = "Advanced strategic planning and analysis agent with strong long-horizon reasoning"
     agent.provider = claude_provider
     agent.creator = admin_user
     agent.status = 'active'
@@ -55,7 +67,7 @@ ActiveRecord::Base.transaction do
       'version' => '1.0.0',
       'configuration' => {
         'system_prompt' => <<~PROMPT.strip,
-        You are a Claude Strategic Planner, an AI agent specialized in strategic planning, business analysis, and long-term decision support using Claude's advanced reasoning capabilities.
+        You are a Strategic Planner, an AI agent specialized in strategic planning, business analysis, and long-term decision support using advanced reasoning capabilities.
 
         ## Core Responsibilities:
         - **Strategic Planning**: Develop comprehensive strategic plans, roadmaps, and implementation frameworks
@@ -93,7 +105,7 @@ ActiveRecord::Base.transaction do
         - Risk assessment and mitigation strategies
         - Success metrics and monitoring framework
 
-        Leverage Claude's reasoning strength to provide deep, thoughtful strategic guidance that drives sustainable business success.
+        Apply deep reasoning to provide deep, thoughtful strategic guidance that drives sustainable business success.
       PROMPT
         'temperature' => 0.3,
         'max_tokens' => 4096,
@@ -116,23 +128,25 @@ ActiveRecord::Base.transaction do
     }
   end
 
-  # System-extension skills (system-capacity-recommend / -platform-deploy /
-  # -platform-resilience / -runbook-generate) are bound to this agent by the
-  # SYSTEM extension itself — each executor declares `binds_to "Claude Strategic
-  # Planner"`, materialized by system_skill_bindings_seed.rb (the single source
-  # of truth for agent↔skill bindings). A core seed must not bind or hard-require
-  # extension skills: doing so crashed a fresh db:seed, which runs core seeds
-  # before extension seeds, so the skills did not exist yet.
+  # Domain skills for the Strategic Planner are assigned by
+  # platform_skill_assignments_seed.rb (loaded last, after all target agents
+  # exist). It previously inherited SYSTEM-extension infra skills
+  # (system-platform-deploy / -capacity-recommend / -resilience /
+  # -runbook-generate) via each executor's `binds_to`, but a generic strategy
+  # agent owning fleet-infra skills was a domain mismatch (2026-06-28 audit) —
+  # those `binds_to` were removed, so this agent now carries only planning-domain
+  # skills. (A core seed still must not bind/hard-require extension skills: a
+  # fresh db:seed runs core before extensions, so the skills don't exist yet.)
 
   # Research Analyst — now on Ollama for cost optimization
   ollama_provider = Ai::Provider.find_by(provider_type: 'ollama')
   research_analyst = Ai::Agent.find_or_create_by(
     account: admin_account,
-    slug: 'claude-research-analyst',
+    slug: 'research-analyst',
     agent_type: 'data_analyst'
   ) do |agent|
-    agent.name = "Claude Research Analyst"
-    agent.description = "Comprehensive research and analysis agent leveraging Claude's analytical capabilities"
+    agent.name = "Research Analyst"
+    agent.description = "Comprehensive research and analysis agent with strong analytical reasoning"
     agent.provider = ollama_provider || claude_provider
     agent.creator = admin_user
     agent.status = 'active'
@@ -144,7 +158,7 @@ ActiveRecord::Base.transaction do
       'version' => '1.0.0',
       'configuration' => {
         'system_prompt' => <<~PROMPT.strip,
-        You are a Claude Research Analyst, an AI agent specialized in comprehensive research, data analysis, and insight generation using Claude's analytical reasoning capabilities.
+        You are a Research Analyst, an AI agent specialized in comprehensive research, data analysis, and insight generation using rigorous analytical reasoning.
 
         ## Core Responsibilities:
         - **Research Coordination**: Design and execute comprehensive research projects across multiple domains
@@ -190,7 +204,7 @@ ActiveRecord::Base.transaction do
         - Actionable recommendations
         - Areas for further research
 
-        Use Claude's analytical strength to provide thorough, nuanced research that supports informed decision-making.
+        Use rigorous analytical reasoning to provide thorough, nuanced research that supports informed decision-making.
       PROMPT
         'temperature' => 0.2,
         'max_tokens' => 4096,
@@ -213,22 +227,24 @@ ActiveRecord::Base.transaction do
     }
   end
 
-  # System-extension skills (system-attribute-failure / -cve-runbook-generate /
-  # -suggest-architectures-for-fleet / -discover-packages-by-intent) are bound to
-  # this agent by the SYSTEM extension itself — each executor declares
-  # `binds_to "Claude Research Analyst"`, materialized by
-  # system_skill_bindings_seed.rb. See the note on Strategic Planner above.
+  # Research Analyst's domain skills (technical-researcher / data /
+  # knowledge-system-curator / business-search / user-research) are assigned by
+  # platform_skill_assignments_seed.rb. It previously inherited SYSTEM-extension
+  # infra skills (system-attribute-failure / -cve-runbook-generate /
+  # -suggest-architectures-for-fleet / -discover-packages-by-intent) via each
+  # executor's `binds_to` — removed in the 2026-06-28 domain-purity audit, since
+  # a generic research agent should not own fleet-infra skills.
 
 
-  puts "✅ Created Claude Strategic Planner (ID: #{strategic_planner.id})"
-  puts "✅ Created Claude Research Analyst (ID: #{research_analyst.id})"
+  puts "✅ Created Strategic Planner (ID: #{strategic_planner.id})"
+  puts "✅ Created Research Analyst (ID: #{research_analyst.id})"
 
-  puts "\n📊 Claude-Powered Agents Summary:"
+  puts "\n📊 Reasoning/Analysis Agents Summary:"
   claude_agents = Ai::Agent.where(provider: claude_provider)
-  puts "   Total Claude Agents: #{claude_agents.count}"
+  puts "   Total reasoning/analysis agents: #{claude_agents.count}"
   puts "   Strategic Planning: #{claude_agents.where(agent_type: 'assistant').count}"
   puts "   Research Analysis: #{claude_agents.where(agent_type: 'data_analyst').count}"
   puts "   Content Creation: #{claude_agents.where(agent_type: 'content_generator').count}"
 end
 
-puts "✅ Claude-powered agents seeding completed!"
+puts "✅ Reasoning/analysis agents seeding completed!"

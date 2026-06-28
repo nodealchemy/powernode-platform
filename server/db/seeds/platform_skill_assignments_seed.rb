@@ -38,9 +38,16 @@ platform_skill_assignments = {
     content-localization marketing product-management
     user-research
   ],
-  'Claude Research Analyst' => %w[
+  'Research Analyst' => %w[
     technical-researcher data knowledge-system-curator
     business-search user-research
+  ],
+  # Strategic Planner — planning/analysis domain skills. Previously inherited
+  # SYSTEM-extension infra skills (system-platform-deploy etc.) via the
+  # executors' binds_to (removed in the 2026-06-28 domain-purity audit). This
+  # rebinds it to its OWN domain so it isn't left with zero skills.
+  'Strategic Planner' => %w[
+    product-management business-search technical-researcher data
   ],
   'Legal & Compliance Analyst' => %w[
     legal compliance-review security-audit

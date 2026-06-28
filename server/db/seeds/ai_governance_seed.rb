@@ -297,8 +297,8 @@ puts "\n  🃏 Creating A2A Agent Cards..."
 
 agent_cards_data = [
   {
-    agent_slug: 'claude-strategic-planner',
-    name: 'Claude Strategic Planner',
+    agent_slug: 'strategic-planner',
+    name: 'Strategic Planner',
     description: 'Strategic planning and task decomposition agent with advanced reasoning for complex goal-oriented workflows.',
     visibility: 'internal',
     capabilities: {
@@ -315,8 +315,8 @@ agent_cards_data = [
     default_output_modes: ['application/json']
   },
   {
-    agent_slug: 'claude-research-analyst',
-    name: 'Claude Research Analyst',
+    agent_slug: 'research-analyst',
+    name: 'Research Analyst',
     description: 'Comprehensive research and data analysis agent with source validation and evidence synthesis capabilities.',
     visibility: 'internal',
     capabilities: {

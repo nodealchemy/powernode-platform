@@ -16,8 +16,8 @@ end
 # Resolve agents by slug
 agents = {}
 %w[
-  claude-strategic-planner
-  claude-research-analyst
+  strategic-planner
+  research-analyst
   claude-content-creator
   workflow-performance-monitor
   workflow-analytics-intelligence
@@ -56,7 +56,7 @@ teams_data = [
       {
         role_name: 'Review Lead',
         role_type: 'manager',
-        agent_slug: 'claude-strategic-planner',
+        agent_slug: 'strategic-planner',
         role_description: 'Coordinates review tasks and synthesizes findings into reports',
         responsibilities: 'Assign review tasks, resolve conflicting findings, produce summary reports',
         goals: 'Comprehensive coverage and actionable feedback',
@@ -73,7 +73,7 @@ teams_data = [
       {
         role_name: 'Code Reviewer',
         role_type: 'specialist',
-        agent_slug: 'claude-research-analyst',
+        agent_slug: 'research-analyst',
         role_description: 'Analyzes code for correctness, patterns, and security issues',
         responsibilities: 'Analyze code diffs, identify bugs and anti-patterns, suggest improvements',
         goals: 'Find all significant code quality issues',
@@ -144,7 +144,7 @@ teams_data = [
       {
         role_name: 'Lead Researcher',
         role_type: 'coordinator',
-        agent_slug: 'claude-research-analyst',
+        agent_slug: 'research-analyst',
         role_description: 'Coordinates research and ensures comprehensive coverage',
         responsibilities: 'Define research scope, coordinate data gathering, validate sources',
         goals: 'Thorough and accurate research coverage',
@@ -234,7 +234,7 @@ teams_data = [
       {
         role_name: 'Pipeline Orchestrator',
         role_type: 'manager',
-        agent_slug: 'claude-strategic-planner',
+        agent_slug: 'strategic-planner',
         role_description: 'Orchestrates pipeline stages and manages transitions',
         responsibilities: 'Coordinate pipeline stages, handle failures, gate stage transitions',
         goals: 'Reliable end-to-end pipeline execution',
