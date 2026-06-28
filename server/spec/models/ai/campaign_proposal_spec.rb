@@ -73,6 +73,17 @@ RSpec.describe Ai::CampaignProposal, type: :model do
       p = described_class.propose!(account: account, title: "T", objective: "No workload given")
       expect(p.suggested_workload).to eq(Ai::DevLoop::CampaignDriver::DEFAULT_WORKLOAD)
     end
+
+    it "converges (no 500) on a concurrent unique-index race (TOCTOU)" do
+      existing = described_class.propose!(account: account, title: "First", objective: "Race target", scope: "repo-z")
+      # Simulate the race: our initial find_by misses, then create! loses the unique-index
+      # race to a concurrent insert. propose! must converge to the existing row, not 500.
+      allow(account.ai_campaign_proposals).to receive(:find_by).and_return(nil)
+      allow(account.ai_campaign_proposals).to receive(:create!).and_raise(ActiveRecord::RecordNotUnique.new("duplicate"))
+
+      result = described_class.propose!(account: account, title: "Second", objective: "Race target", scope: "repo-z")
+      expect(result.id).to eq(existing.id)
+    end
   end
 
   describe "review transitions" do

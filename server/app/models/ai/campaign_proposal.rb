@@ -84,6 +84,11 @@ module Ai
         decision_authority: decision_authority, configuration: configuration || {},
         evidence: evidence || {}, fingerprint: fp, status: "proposed"
       )
+    rescue ActiveRecord::RecordNotUnique
+      # TOCTOU: a concurrent propose! (e.g. discovery cron vs manual create) won the
+      # (account_id, fingerprint) unique index between our find_by and create!. Converge
+      # to the existing row instead of surfacing a 500.
+      account.ai_campaign_proposals.find_by!(fingerprint: fp)
     end
 
     def queue!

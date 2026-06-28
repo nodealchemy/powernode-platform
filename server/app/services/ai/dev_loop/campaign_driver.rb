@@ -32,13 +32,18 @@ module Ai
                 stop_conditions: {}, workload: DEFAULT_WORKLOAD)
         workload = DEFAULT_WORKLOAD unless WORKLOADS.include?(workload)
         config = (configuration || {}).merge("workload" => workload)
-        campaign = @account.ai_campaigns.create!(
-          name: name, description: description, created_by_id: @user&.id,
-          configuration: config, decision_authority: decision_authority,
-          stop_conditions: stop_conditions || {}, status: "created"
-        )
-        loop = create_campaign_loop(campaign, workload: workload)
-        campaign.start!
+        # Atomic: a mid-way failure must not leave an orphan campaign with no loop.
+        campaign = nil
+        loop = nil
+        Ai::Campaign.transaction do
+          campaign = @account.ai_campaigns.create!(
+            name: name, description: description, created_by_id: @user&.id,
+            configuration: config, decision_authority: decision_authority,
+            stop_conditions: stop_conditions || {}, status: "created"
+          )
+          loop = create_campaign_loop(campaign, workload: workload)
+          campaign.start!
+        end
         campaign.snapshot_progress!
         { campaign: campaign, loop: loop }
       end
@@ -158,20 +163,28 @@ module Ai
 
         key = (task_key.presence || "increment-#{title}").to_s.parameterize
         key = "increment-#{SecureRandom.hex(4)}" if key.blank?
-        task = loop_record.ralph_tasks.find_or_initialize_by(task_key: key[0, 120])
-        task.description = summary.presence || title
-        task.status = status
-        task.iteration_completed_at = Time.current if Ai::RalphTask::TERMINAL_STATUSES.include?(status)
-        task.metadata = (task.metadata || {}).merge(metadata)
-        task.save!
 
-        iteration = record_iteration!(loop_record, task, status: status, summary: summary.presence || title, metadata: metadata)
+        task = nil
+        iteration = nil
+        decision = nil
+        # Atomic: the task transition + iteration + decision + snapshot are one unit, so a
+        # mid-way failure can't leave a passed task with an orphan iteration and no decision.
+        campaign.transaction do
+          task = loop_record.ralph_tasks.find_or_initialize_by(task_key: key[0, 120])
+          task.description = summary.presence || title
+          task.status = status
+          task.iteration_completed_at = Time.current if Ai::RalphTask::TERMINAL_STATUSES.include?(status)
+          task.metadata = (task.metadata || {}).merge(metadata)
+          task.save!
 
-        decision = campaign.record_decision!(
-          decision_type: decision_type, title: title, rationale: rationale,
-          task: task, user: @user, metadata: metadata
-        )
-        campaign.snapshot_progress!
+          iteration = record_iteration!(loop_record, task, status: status, summary: summary.presence || title, metadata: metadata)
+
+          decision = campaign.record_decision!(
+            decision_type: decision_type, title: title, rationale: rationale,
+            task: task, user: @user, metadata: metadata
+          )
+          campaign.snapshot_progress!
+        end
         {
           task_key: task.task_key, status: task.status,
           iteration_number: iteration&.iteration_number, decision_id: decision.id,

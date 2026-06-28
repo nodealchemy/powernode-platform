@@ -36,4 +36,22 @@ RSpec.describe Ai::CampaignProposals::SpawnService, type: :service do
     other = create(:ai_campaign_proposal, account: create(:account))
     expect { service.spawn!(other) }.to raise_error(ArgumentError)
   end
+
+  it "refuses to resurrect a rejected proposal" do
+    proposal = create(:ai_campaign_proposal, account: account)
+    proposal.reject!(reason: "no")
+    expect { service.spawn!(proposal) }.to raise_error(ArgumentError, /rejected/)
+    expect(account.ai_campaigns.count).to eq(0)
+  end
+
+  it "refuses to spawn an unreviewed (proposed) proposal" do
+    proposal = create(:ai_campaign_proposal, account: account, status: "proposed")
+    expect { service.spawn!(proposal) }.to raise_error(ArgumentError, /proposed/)
+    expect(account.ai_campaigns.count).to eq(0)
+  end
+
+  it "spawns from a queued proposal" do
+    proposal = create(:ai_campaign_proposal, :queued, account: account)
+    expect { service.spawn!(proposal) }.to change { account.ai_campaigns.count }.by(1)
+  end
 end
