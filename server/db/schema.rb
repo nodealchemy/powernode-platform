@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1960,6 +1960,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000003) do
     t.index ["account_id"], name: "index_ai_delegation_policies_on_account_id"
     t.index ["agent_id"], name: "index_ai_delegation_policies_on_agent_id", unique: true
     t.check_constraint "inheritance_policy::text = ANY (ARRAY['conservative'::character varying::text, 'moderate'::character varying::text, 'permissive'::character varying::text])", name: "check_delegation_inheritance_policy"
+  end
+
+  create_table "ai_deploy_runs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "base_ref"
+    t.uuid "campaign_id"
+    t.uuid "campaign_land_id"
+    t.jsonb "commands", default: [], null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.text "detail"
+    t.boolean "dry_run", default: true, null: false
+    t.string "environment", default: "production", null: false
+    t.text "error_message"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "method_key", null: false
+    t.string "ref"
+    t.uuid "repository_id"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.string "target_kind", null: false
+    t.uuid "triggered_by_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_deploy_runs_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_deploy_runs_on_account_id"
+    t.index ["campaign_land_id"], name: "index_ai_deploy_runs_on_campaign_land_id"
+    t.index ["repository_id"], name: "index_ai_deploy_runs_on_repository_id"
   end
 
   create_table "ai_deployment_risks", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|

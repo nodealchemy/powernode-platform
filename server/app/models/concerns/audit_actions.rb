@@ -267,6 +267,15 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # DEPLOY ACTIONS — Ai::Deploy::Orchestrator lifecycle (self-deploy + project deploy).
+  # The privilege/irreversibility crossing is audited at every phase.
+  # =============================================================================
+  DEPLOY_ACTIONS = %w[
+    deploy.initiated deploy.dry_run deploy.succeeded deploy.failed
+    deploy.unhealthy deploy.rolled_back deploy.skipped deploy.blocked deploy.completed
+  ].freeze
+
+  # =============================================================================
   # CORE ALL ACTIONS — frozen union of the core-only groups above.
   # Extension-contributed actions are NOT here; they join at runtime via
   # the dynamic AuditActions.all_actions union. (Was the combined ALL_ACTIONS.)
@@ -292,6 +301,7 @@ module AuditActions
     AI_ROI_ACTIONS,
     AI_AGENT_TEAM_ACTIONS,
     DEVOPS_ACTIONS,
+    DEPLOY_ACTIONS,
     MCP_ACTIONS,
     INVITATION_ACTIONS,
     SITE_SETTING_ACTIONS,
