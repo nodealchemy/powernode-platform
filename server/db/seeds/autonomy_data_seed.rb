@@ -62,11 +62,16 @@ ollama_provider   = Ai::Provider.find_by(provider_type: "ollama")
 
 extra_agents = [
   {
+    # NOTE: classified content_generator (text/spec output), NOT image_generator.
+    # This agent writes design briefs, UI mockup specs, brand-asset specs, and
+    # image-generation PROMPTS — all text — and resolves a reasoning-tier text
+    # model. The old image_generator type would have steered model selection to
+    # an image model (wrong). See reclassification data-fix below the loop.
     name: "Visual Design Assistant",
     slug: "visual-design-assistant",
-    agent_type: "image_generator",
+    agent_type: "content_generator",
     provider: openai_provider,
-    description: "Visual design and image generation assistant using DALL-E capabilities"
+    description: "Visual design assistant — design briefs, UI mockup specs, brand-asset specs, and image-generation prompts (text/spec output)"
   },
   {
     name: "Infrastructure Health Monitor",
@@ -132,6 +137,13 @@ extra_agents.each do |ad|
     a.description = ad[:description]
   end
 end
+
+# Reclassification data-fix (idempotent): find_or_create_by!(name:) only sets
+# agent_type on CREATE, so an already-seeded "Visual Design Assistant" keeps its
+# stale image_generator type. It produces text/specs, not images — correct it
+# in place so model selection resolves a text model, not an image model.
+Ai::Agent.where(account: admin_account, slug: "visual-design-assistant", agent_type: "image_generator")
+         .update_all(agent_type: "content_generator")
 
 # Reassign providers for the dev team agents to match the plan
 provider_assignments = {

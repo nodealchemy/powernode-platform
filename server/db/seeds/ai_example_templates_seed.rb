@@ -206,8 +206,10 @@ agents_data = [
     }
   },
   {
+    # content_generator (text/spec output), NOT image_generator — this writes
+    # design briefs / UI specs / image-generation PROMPTS, all text.
     name: 'Visual Design Assistant',
-    agent_type: 'image_generator',
+    agent_type: 'content_generator',
     provider: openai_provider,
     description: 'Creates design briefs, UI mockup specs, brand asset specs, and visual concept directions via structured prompts.',
     mcp_metadata: {
@@ -216,13 +218,13 @@ agents_data = [
       'execution_mode' => 'generative',
       'capabilities_version' => '1.0',
       'cost_tier' => 'high',
+      # No pinned provider/model — model_requirements (tier) drives provider-
+      # agnostic selection at runtime via Ai::AgentModelSelector.
       'model_config' => {
-        'provider' => 'openai',
         'model_requirements' => { 'tier' => 'reasoning' },
         'temperature' => 0.6,
         'max_tokens' => 4096,
-        'response_format' => 'design_specification',
-        'cost_per_1k' => { 'input' => 0.005, 'output' => 0.015 }
+        'response_format' => 'design_specification'
       },
       'system_prompt' => <<~PROMPT.strip
         Visual design assistant for UI/UX and brand projects.
