@@ -163,4 +163,31 @@ RSpec.describe System::NodeInstanceProvisionJob, type: :job do
       expect(result[:error]).to eq('quota exceeded')
     end
   end
+
+  # The retry:1 policy means a raise after the VM is created re-runs execute → a SECOND billable
+  # VM. Post-creation bookkeeping must therefore never propagate.
+  describe 'idempotency: never re-provision on a post-creation failure' do
+    before { provision_result['allocate_public_ip'] = true }
+
+    it 'does not raise when the public-IP enqueue fails after the VM is created' do
+      allow(System::NodeInstanceIpJob).to receive(:perform_async).and_raise(StandardError, 'redis down')
+
+      expect { job.execute(node_id, operation_id) }.not_to raise_error
+    end
+
+    it 'requests provisioning exactly once even when post-creation bookkeeping fails' do
+      allow(System::NodeInstanceIpJob).to receive(:perform_async).and_raise(StandardError, 'redis down')
+
+      expect(api_client).to receive(:post).with(provision_path, anything).once.and_return(provision_result)
+      job.execute(node_id, operation_id)
+    end
+
+    it 'tolerates a malformed (nil) node_instance in the success payload' do
+      allow(System::NodeInstanceIpJob).to receive(:perform_async)
+      allow(api_client).to receive(:post).with(provision_path, anything)
+        .and_return('success' => true, 'node_instance' => nil, 'allocate_public_ip' => false)
+
+      expect { job.execute(node_id, operation_id) }.not_to raise_error
+    end
+  end
 end

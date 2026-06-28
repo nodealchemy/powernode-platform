@@ -155,21 +155,20 @@ module System
     end
 
     def handle_provision_success(operation_id, result, start_time)
-      instance = result['node_instance']
+      instance = result['node_instance'] || {}
       log_info('Instance provisioned successfully',
                operation_id: operation_id,
                instance_id: instance['id'],
                instance_name: instance['name'])
 
-      # Add success event to operation
+      # The billable cloud instance now EXISTS. Everything below is post-creation bookkeeping —
+      # its failure must NEVER propagate, or Sidekiq retries `execute` and provisions a SECOND
+      # billable VM (orphaning the first). The operation-status/event helpers already swallow
+      # their own errors; guard the IP-association enqueue (Redis) and never re-raise from here.
       add_operation_event(operation_id, :info,
                           "Created #{instance['variety']} instance #{instance['name']}.")
 
-      # If node has allocate_public_ip, queue IP association
-      if result['allocate_public_ip']
-        log_info('Queueing public IP association', instance_id: instance['id'])
-        System::NodeInstanceIpJob.perform_async(instance['id'], nil, 'associate')
-      end
+      enqueue_ip_association(result, instance)
 
       # Mark operation as complete
       update_operation_status(operation_id, 'complete')
@@ -179,6 +178,24 @@ module System
       increment_counter('system_instances_provisioned')
 
       { success: true, instance_id: instance['id'], duration: duration }
+    rescue StandardError => e
+      # Defensive: the VM is already provisioned; record but do not re-raise (a retry re-provisions).
+      log_error('Post-provision bookkeeping failed (instance already created; not retrying)', e,
+                operation_id: operation_id)
+      update_operation_status(operation_id, 'complete')
+      { success: true, instance_id: (result['node_instance'] || {})['id'] }
+    end
+
+    # Enqueue public-IP association without ever propagating an enqueue (Redis) failure — the
+    # instance already exists, so a failure here must not trigger a re-provision.
+    def enqueue_ip_association(result, instance)
+      return unless result['allocate_public_ip'] && instance['id']
+
+      log_info('Queueing public IP association', instance_id: instance['id'])
+      System::NodeInstanceIpJob.perform_async(instance['id'], nil, 'associate')
+    rescue StandardError => e
+      log_warn('Failed to enqueue public IP association (instance already provisioned; not retrying)',
+               instance_id: instance['id'], error: e.message)
     end
 
     def handle_provision_failure(operation_id, result)

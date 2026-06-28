@@ -11,11 +11,21 @@ module Devops
 
     # Execute deployment with AI assistance
     # @param deployment_id [String] The deployment ID
+    TERMINAL_STATUSES = %w[success validation_failed rejected].freeze
+
     def execute(deployment_id)
       log_info "Starting deployment", deployment_id: deployment_id
 
       # Fetch deployment config
       deployment = fetch_deployment(deployment_id)
+
+      # Idempotency: a Sidekiq retry must never re-run the deploy command. If a prior attempt
+      # already drove this deployment to a terminal state, there is nothing left to redo.
+      if TERMINAL_STATUSES.include?(deployment["status"].to_s)
+        log_warn "Deployment already in terminal state; skipping to avoid re-running the deploy command",
+                 deployment_id: deployment_id, status: deployment["status"]
+        return
+      end
 
       # Update status to in_progress
       update_deployment(deployment_id, status: "in_progress", started_at: Time.current.iso8601)
@@ -37,26 +47,15 @@ module Devops
         return
       end
 
-      # Execute deployment steps
+      # --- irreversible boundary: the deploy command runs exactly once per job lifetime ---
       execute_deployment(deployment)
 
-      # Run post-deployment validation
-      validation_result = run_post_deployment_validation(deployment)
-
-      # Update final status
-      final_status = validation_result[:healthy] ? "success" : "validation_failed"
-
-      update_deployment(
-        deployment_id,
-        status: final_status,
-        completed_at: Time.current.iso8601,
-        validation_results: validation_result
-      )
-
-      log_info "Deployment completed",
-               deployment_id: deployment_id,
-               status: final_status
+      # Post-deploy steps must NOT trigger a Sidekiq retry — the command already ran, and a retry
+      # would re-run it. Their failures are recorded, never re-raised.
+      finalize_deployment(deployment_id, deployment)
     rescue StandardError => e
+      # Reached only for PRE-command failures (fetch / review / the deploy command itself) — those
+      # are safe to retry because the command has not taken effect.
       log_error "Deployment failed", e, deployment_id: deployment_id
 
       update_deployment(
@@ -70,6 +69,37 @@ module Devops
     end
 
     private
+
+    # Post-deployment validation + final status. Guaranteed not to raise: the deploy command has
+    # already run, so a retry here would double-deploy. Failures are recorded best-effort.
+    def finalize_deployment(deployment_id, deployment)
+      validation_result = run_post_deployment_validation(deployment)
+      final_status = validation_result[:healthy] ? "success" : "validation_failed"
+
+      update_deployment(
+        deployment_id,
+        status: final_status,
+        completed_at: Time.current.iso8601,
+        validation_results: validation_result
+      )
+
+      log_info "Deployment completed", deployment_id: deployment_id, status: final_status
+    rescue StandardError => e
+      log_error "Post-deployment finalize failed (deploy command already ran; not retrying)", e,
+                deployment_id: deployment_id
+      safe_update_deployment(
+        deployment_id,
+        status: "validation_failed",
+        completed_at: Time.current.iso8601,
+        error_message: e.message
+      )
+    end
+
+    def safe_update_deployment(deployment_id, **attributes)
+      update_deployment(deployment_id, **attributes)
+    rescue StandardError => e
+      log_warn "Failed to record deployment finalize status (ignored)", deployment_id: deployment_id, error: e.message
+    end
 
     def fetch_deployment(deployment_id)
       response = api_client.get("/api/v1/internal/devops/deployments/#{deployment_id}")
