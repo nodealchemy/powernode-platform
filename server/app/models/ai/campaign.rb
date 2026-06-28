@@ -30,6 +30,7 @@ module Ai
     has_many :campaign_decisions, class_name: "Ai::CampaignDecision", foreign_key: "campaign_id", dependent: :destroy
     has_many :parked_questions, class_name: "Ai::ParkedQuestion", foreign_key: "campaign_id", dependent: :destroy
     has_many :progress_entries, class_name: "Ai::ProgressEntry", foreign_key: "campaign_id", dependent: :destroy
+    has_many :campaign_lands, class_name: "Ai::CampaignLand", foreign_key: "campaign_id", dependent: :destroy
 
     validates :name, presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }
