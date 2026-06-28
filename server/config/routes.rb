@@ -316,6 +316,7 @@ Rails.application.routes.draw do
           resources :repositories, only: [ :show, :create, :update ] do
             collection do
               get :lookup
+              post :sync_all_pipelines
             end
             member do
               post :sync_branches

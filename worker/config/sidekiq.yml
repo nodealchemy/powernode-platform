@@ -240,6 +240,13 @@
       queue: devops_default
       description: 'Reconcile Git runner statuses from the provider; mark offline only runners the provider no longer reports'
 
+    # Git CI pipeline status ingestion - every 10 minutes (keeps Devops::GitPipeline populated)
+    git_pipeline_sync:
+      every: '10m'
+      class: Git::PipelineSyncSchedulerJob
+      queue: services
+      description: 'Enqueue PipelineSyncJob for active git repos so CI pipeline status (Devops::GitPipeline) stays current'
+
     # Docker Host health check - every 10 minutes
     docker_health_check:
       every: '10m'
