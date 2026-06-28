@@ -88,4 +88,23 @@ RSpec.describe Ai::Land::RebaseAdvisor, type: :integration do
       expect { expect(advisor.notify_stale!).to be_empty }.not_to change(Notification, :count)
     end
   end
+
+  describe "Ai::DevLoop::CampaignDriver#notify_rebase_advisories (caller contract)" do
+    before do
+      write("base.txt", "moved\n"); git!("add", "."); git!("commit", "-m", "dev advance")
+      allow(Ai::Land::LandService).to receive(:default_repository_path).and_return(work)
+    end
+
+    it "returns the advised campaigns' id/name/commits_behind (not raw Advisory structs)" do
+      driver = Ai::DevLoop::CampaignDriver.new(account: account, user: user)
+      result = driver.notify_rebase_advisories(target_branch: "develop")
+
+      expect(result[:target_branch]).to eq("develop")
+      expect(result[:advised].size).to eq(1)
+      advised = result[:advised].first
+      expect(advised[:id]).to eq(campaign.id)
+      expect(advised[:name]).to eq(campaign.name)
+      expect(advised[:commits_behind]).to eq(1)
+    end
+  end
 end

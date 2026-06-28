@@ -197,7 +197,13 @@ module Ai
       def notify_rebase_advisories(target_branch: "develop", exclude: nil)
         advised = Ai::Land::RebaseAdvisor.new(account: @account)
                                          .notify_stale!(target_branch: target_branch, exclude: exclude)
-        { target_branch: target_branch, advised: advised.map { |c| { id: c.id, name: c.name } } }
+        {
+          target_branch: target_branch,
+          advised: advised.map do |adv|
+            { id: adv.campaign.id, name: adv.campaign.name,
+              commits_behind: adv.commits_behind, likely_conflicts: adv.likely_conflicts }
+          end
+        }
       end
 
       private
