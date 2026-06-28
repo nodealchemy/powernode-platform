@@ -59,7 +59,7 @@ export const ProposalsQueuePanel: React.FC<ProposalsQueuePanelProps> = ({ canMan
       {loading && proposals.length === 0 ? (
         <div className="flex justify-center py-8"><LoadingSpinner /></div>
       ) : proposals.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-theme-tertiary">
+        <p className="px-4 py-6 text-center text-sm text-theme-secondary">
           No proposed campaigns yet. Discovery and the concierge feed this queue.
         </p>
       ) : (
@@ -112,7 +112,7 @@ const ProposalRow: React.FC<ProposalRowProps> = ({
             <Badge variant="outline" size="xs">{p.source}</Badge>
             <span className="text-sm font-medium text-theme-primary">{p.title}</span>
           </div>
-          <p className="mt-1 line-clamp-2 text-xs text-theme-tertiary">{p.objective}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-theme-secondary">{p.objective}</p>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-theme-tertiary">
             {p.scope && <span>scope: <span className="font-mono">{p.scope}</span></span>}
             <span>workload: {p.suggested_workload}</span>

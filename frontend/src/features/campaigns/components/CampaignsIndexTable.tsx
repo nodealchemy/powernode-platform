@@ -56,7 +56,7 @@ export const CampaignsIndexTable: React.FC<CampaignsIndexTableProps> = ({
   return (
     <div className="overflow-x-auto rounded-lg border border-theme">
       <table className="min-w-full divide-y divide-theme">
-        <thead className="bg-theme-tertiary">
+        <thead className="bg-theme-surface-hover">
           <tr>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-theme-secondary">Campaign</th>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-theme-secondary">Status</th>
@@ -66,14 +66,14 @@ export const CampaignsIndexTable: React.FC<CampaignsIndexTableProps> = ({
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-theme-secondary">Questions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-theme bg-theme-primary">
+        <tbody className="divide-y divide-theme bg-theme-surface">
           {campaigns.map((c) => {
             const statusConfig = STATUS_CONFIG[c.status] || { label: c.status, variant: 'outline' as const };
             return (
               <tr
                 key={c.id}
                 onClick={() => onSelect(c.id)}
-                className="cursor-pointer transition-colors hover:bg-theme-tertiary"
+                className="cursor-pointer transition-colors hover:bg-theme-surface-hover"
               >
                 <td className="px-4 py-3">
                   <div className="font-medium text-theme-primary">{c.name}</div>
@@ -87,17 +87,17 @@ export const CampaignsIndexTable: React.FC<CampaignsIndexTableProps> = ({
                 </td>
                 <td className="px-4 py-3 w-40">
                   <Progress value={c.completion_pct} size="sm" />
-                  <div className="mt-1 text-xs text-theme-tertiary">{c.completion_pct}%</div>
+                  <div className="mt-1 text-xs text-theme-secondary">{c.completion_pct}%</div>
                 </td>
                 <td className="px-4 py-3 text-sm text-theme-secondary">
-                  <span className="text-theme-success">{c.completed_tasks}</span>
+                  <span className="text-theme-success-fg">{c.completed_tasks}</span>
                   {' / '}
                   {c.total_tasks}
                   {c.failed_tasks > 0 && <span className="ml-1 text-theme-error-fg">({c.failed_tasks} failed)</span>}
                 </td>
                 <td className="px-4 py-3 text-sm">
                   {c.open_questions > 0 ? (
-                    <span className="inline-flex items-center gap-1 text-theme-warning">
+                    <span className="inline-flex items-center gap-1 text-theme-warning-fg">
                       <HelpCircle size={14} />
                       {c.open_questions}
                     </span>

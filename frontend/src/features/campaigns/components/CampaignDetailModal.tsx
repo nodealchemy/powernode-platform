@@ -152,7 +152,7 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
             )}
             <div className="flex-1 min-w-[12rem]">
               <Progress value={detail.completion_pct} />
-              <div className="mt-1 text-xs text-theme-tertiary">{detail.completion_pct}% complete</div>
+              <div className="mt-1 text-xs text-theme-secondary">{detail.completion_pct}% complete</div>
             </div>
           </div>
 
@@ -166,13 +166,13 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
           {/* Open questions */}
           <Section icon={HelpCircle} title={`Open Questions (${detail.open_questions_list.length})`}>
             {detail.open_questions_list.length === 0 ? (
-              <p className="text-sm text-theme-tertiary">No parked questions awaiting an answer.</p>
+              <p className="text-sm text-theme-secondary">No parked questions awaiting an answer.</p>
             ) : (
               <div className="space-y-3">
                 {detail.open_questions_list.map((q) => (
-                  <div key={q.id} className="rounded-md border border-theme bg-theme-tertiary p-3">
+                  <div key={q.id} className="rounded-md border border-theme bg-theme-surface-hover p-3">
                     <div className="text-sm font-medium text-theme-primary">{q.question}</div>
-                    {q.context && <div className="mt-1 text-xs text-theme-tertiary">{q.context}</div>}
+                    {q.context && <div className="mt-1 text-xs text-theme-secondary">{q.context}</div>}
                     {canManage && (
                       <div className="mt-2 flex items-end gap-2">
                         <Textarea
@@ -201,13 +201,13 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
           {/* Loops */}
           <Section icon={GitBranch} title={`Loops (${detail.loops.length})`}>
             {detail.loops.length === 0 ? (
-              <p className="text-sm text-theme-tertiary">No loops driven yet.</p>
+              <p className="text-sm text-theme-secondary">No loops driven yet.</p>
             ) : (
               <div className="space-y-2">
                 {detail.loops.map((l) => (
                   <div key={l.id} className="flex items-center justify-between rounded-md border border-theme px-3 py-2 text-sm">
                     <span className="font-mono text-theme-secondary">{l.branch || l.name}</span>
-                    <span className="flex items-center gap-3 text-theme-tertiary">
+                    <span className="flex items-center gap-3 text-theme-secondary">
                       {l.driver_kind && (
                         <Badge variant="primary" size="xs">{DRIVER_KIND_LABELS[l.driver_kind]}</Badge>
                       )}
@@ -223,7 +223,7 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
           {/* Delegation: route the campaign's dev-loop to a driver (claude_code | platform_*) */}
           {canManage && !isTerminal && (
             <Section icon={Send} title="Delegate driver">
-              <p className="mb-2 text-xs text-theme-tertiary">
+              <p className="mb-2 text-xs text-theme-secondary">
                 Route this campaign's loop to a Claude Code session (dev-loop pull queue) or the
                 platform executor. The single-driver lease enforces one active driver at a time.
               </p>
@@ -253,7 +253,7 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
           {/* Decision log */}
           <Section icon={ListChecks} title={`Recent Decisions (${detail.recent_decisions.length})`}>
             {detail.recent_decisions.length === 0 ? (
-              <p className="text-sm text-theme-tertiary">No decisions recorded yet.</p>
+              <p className="text-sm text-theme-secondary">No decisions recorded yet.</p>
             ) : (
               <div className="space-y-2">
                 {detail.recent_decisions.map((d) => (
@@ -262,7 +262,7 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
                       <Badge variant="secondary" size="xs">{d.decision_type}</Badge>
                       <span className="text-sm font-medium text-theme-primary">{d.title}</span>
                     </div>
-                    {d.rationale && <div className="mt-1 text-xs text-theme-tertiary">{d.rationale}</div>}
+                    {d.rationale && <div className="mt-1 text-xs text-theme-secondary">{d.rationale}</div>}
                   </div>
                 ))}
               </div>
@@ -272,7 +272,7 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
           {/* Unified activity feed (decisions + parked questions + completed tasks) */}
           <Section icon={Activity} title={`Activity (${detail.activity.length})`}>
             {detail.activity.length === 0 ? (
-              <p className="text-sm text-theme-tertiary">No activity yet.</p>
+              <p className="text-sm text-theme-secondary">No activity yet.</p>
             ) : (
               <ul className="space-y-1.5">
                 {detail.activity.map((e, i) => (
@@ -296,12 +296,12 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
 
 const Stat: React.FC<{ label: string; value: number; tone?: 'success' | 'error' | 'warning' }> = ({ label, value, tone }) => {
   const toneClass =
-    tone === 'success' ? 'text-theme-success'
+    tone === 'success' ? 'text-theme-success-fg'
       : tone === 'error' ? 'text-theme-error-fg'
-        : tone === 'warning' ? 'text-theme-warning'
+        : tone === 'warning' ? 'text-theme-warning-fg'
           : 'text-theme-primary';
   return (
-    <div className="rounded-md border border-theme bg-theme-tertiary p-3">
+    <div className="rounded-md border border-theme bg-theme-surface-hover p-3">
       <div className={`text-2xl font-semibold ${toneClass}`}>{value}</div>
       <div className="text-xs uppercase tracking-wider text-theme-tertiary">{label}</div>
     </div>
