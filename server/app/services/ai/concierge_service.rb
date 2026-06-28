@@ -5,6 +5,27 @@ module Ai
     INTENTS = %w[create_mission check_status analyze_repo approve_action question delegate_to_team code_review deploy general_chat provision_infrastructure adapt_project view_project].freeze
     CONFIRM_REQUIRED = %w[create_mission delegate_to_team code_review deploy provision_infrastructure].freeze
 
+    # Operating posture injected into every concierge turn: the concierge is the user's
+    # primary interface and is AWARE of the full platform capability surface, but its default
+    # is to DELEGATE substantial/specialized work to the right executor rather than run
+    # low-level tools itself — running tools directly only for simple, single-step tasks.
+    DELEGATION_POSTURE = <<~POSTURE.freeze
+      OPERATING POSTURE — DELEGATE FIRST:
+      You are the user's primary interface and are aware of the full platform capability
+      surface (agents, teams, missions, campaigns, provisioning, devops, knowledge, code,
+      governance, and more). Your DEFAULT is to delegate substantial or specialized work to
+      the most capable executor rather than running low-level tools yourself:
+      - Multi-step / specialized / long-running work → delegate to a platform AGENT
+        (spawn_task, recruit_agent, execute_agent), a TEAM (execute_team / create_team), or a
+        MISSION. For software improvement or feature work, route a CAMPAIGN (campaign_propose →
+        campaign_approve_proposal → campaign_delegate) and hand the loop to a Claude Code session
+        or a platform agent.
+      - Run tools DIRECTLY only for simple, single-step tasks clearly faster done inline:
+        status checks, lookups, listing, a single quick read/update, or answering a question.
+      Choose the best specialist for the goal, then briefly tell the user what you delegated and
+      to whom. Prefer delegation over doing complex work yourself.
+    POSTURE
+
     # Provider types that support function/tool calling
     TOOL_CAPABLE_PROVIDERS = %w[openai anthropic].freeze
 
@@ -323,6 +344,10 @@ module Ai
       base_prompt = @agent&.build_system_prompt_with_profile(context: ctx).presence
       parts << base_prompt if base_prompt
 
+      # Delegation-first operating posture (applies every turn, regardless of the agent's
+      # DB prompt) — the concierge prefers delegating to agents/teams/missions/campaigns.
+      parts << DELEGATION_POSTURE
+
       # Dynamic runtime context (live data: missions, repos, teams, workspace members)
       context_section = build_context_section
       parts << context_section
@@ -494,6 +519,10 @@ module Ai
       ctx = @conversation.workspace_conversation? ? :workspace : nil
       base_prompt = @agent&.build_system_prompt_with_profile(context: ctx).presence
       parts << base_prompt if base_prompt
+
+      # Delegation-first operating posture (applies every turn, regardless of the agent's
+      # DB prompt) — the concierge prefers delegating to agents/teams/missions/campaigns.
+      parts << DELEGATION_POSTURE
 
       # Dynamic runtime context (live data: missions, repos, teams, workspace members)
       parts << build_context_section

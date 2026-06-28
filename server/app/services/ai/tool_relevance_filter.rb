@@ -59,7 +59,13 @@ module Ai
       # Autonomous Improvement Campaigns + discovery/delegation control plane: surface the
       # campaign_* queue/delegation tools and the dev-loop drain tools when the user talks
       # about campaigns, the proposal/discovery queue, delegation, or draining a loop.
-      "campaign" => /\A(campaign_|dev_next_task|dev_complete_task|dev_list_tasks|delegate_ralph_task)/
+      "campaign" => /\A(campaign_|dev_next_task|dev_complete_task|dev_list_tasks|delegate_ralph_task)/,
+      # Remaining feature areas — so the concierge can reach EVERY platform capability.
+      "mission" => /\A(get_mission_status|mission_|list_missions|create_mission|start_mission)/,
+      "rag" => /\A(query_knowledge_base|list_knowledge_bases|create_knowledge_base|add_document|process_document|search_documents|delete_document)/,
+      "content" => /\A(list_pages|get_page|create_page|update_page|list_kb_articles|get_kb_article|create_kb_article|update_kb_article)/,
+      "image_generation" => /\A(generate_image|list_generated_images)/,
+      "monitoring" => /\A(get_activity_feed|recent_events|get_notifications|mark_all_notifications_read|dismiss_notification|dismiss_all_notifications|integration_health|get_system_health|active_sessions)/
     }.freeze
 
     # Maps free-text keywords to intent labels. Multiple keywords can match
@@ -71,11 +77,16 @@ module Ai
       "knowledge" => /\b(search|find|article|wiki|knowledge|learning|how do i|how to|kb |knowledge base)\b/i,
       "skill" => /\b(skill|capability)\b/i,
       "graph" => /\b(knowledge graph|graph node|relationship)\b/i,
-      "team" => /\b(team|workspace|delegate|coordinate)\b|@\w+/i,
+      "team" => /\b(team|workspace|delegate|coordinate|hand off|hand-off|assign to)\b|@\w+/i,
       "code" => /\b(code|symbol|class|function|file in (the )?repo|grep|codebase)\b/i,
-      "agent_management" => /\b(agent|spawn|sub.?agent|execute (the )?agent)\b/i,
+      "agent_management" => /\b(agent|spawn|sub.?agent|execute (the )?agent|launch (an? )?agent|recruit)\b/i,
       "governance" => /\b(escalate|propose|goal|approve|reject|kill switch|emergency|halt|policy|trust)\b/i,
-      "campaign" => /\b(campaign|discovery queue|proposal queue|dev.?loop|ralph loop|improvement campaign|drain (the )?(backlog|queue|loop))\b/i
+      "campaign" => /\b(campaign|discovery queue|proposal queue|dev.?loop|ralph loop|improvement campaign|drain (the )?(backlog|queue|loop))\b/i,
+      "mission" => /\b(mission|launch (a )?mission|run (a )?mission)\b/i,
+      "rag" => /\b(document|rag|upload|index|knowledge base|embed|vectoriz|ingest)/i,
+      "content" => /\b(page|wiki|article|kb article|documentation|content)\b/i,
+      "image_generation" => /\b(image|picture|logo|diagram|render|illustration|generate (an? )?(image|picture|logo))\b/i,
+      "monitoring" => /\b(status|health|monitor|activity|notification|recent events|what.?s happening|dashboard|metrics)\b/i
     }.freeze
 
     # @param tool_definitions [Array<Hash>] tool defs in LLM function-calling shape

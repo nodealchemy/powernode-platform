@@ -394,5 +394,11 @@ RSpec.describe Ai::ConciergeService do
       prompt = service.send(:legacy_system_prompt)
       expect(prompt).to include("None currently active")
     end
+
+    it "injects the delegate-first operating posture into the system prompt" do
+      prompt = service.send(:legacy_system_prompt)
+      expect(prompt).to include("DELEGATE FIRST")
+      expect(prompt).to include("campaign_propose")
+    end
   end
 end
