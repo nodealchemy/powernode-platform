@@ -332,23 +332,6 @@ agent_cards_data = [
     default_output_modes: ['application/json']
   },
   {
-    agent_slug: 'claude-content-creator',
-    name: 'Claude Content Creator',
-    description: 'Versatile content generation agent for documentation, reports, and creative writing with multi-format output.',
-    visibility: 'public',
-    capabilities: {
-      'skills' => [
-        { 'id' => 'content_generation', 'name' => 'Content Generation', 'description' => 'Generate high-quality written content in various formats and styles', 'examples' => ['Write a technical blog post', 'Create product release announcement'] },
-        { 'id' => 'editing', 'name' => 'Editing & Refinement', 'description' => 'Edit content for clarity, grammar, tone, and engagement', 'examples' => ['Proofread and improve API documentation', 'Refine executive summary for clarity'] },
-        { 'id' => 'summarization', 'name' => 'Summarization', 'description' => 'Condense lengthy content into concise summaries at various detail levels', 'examples' => ['Summarize meeting transcript', 'Create TL;DR for technical specification'] }
-      ]
-    },
-    authentication: { 'schemes' => %w[bearer api_key], 'credentials' => 'required' },
-    tags: %w[content writing documentation creative],
-    default_input_modes: ['application/json', 'text/plain'],
-    default_output_modes: ['application/json', 'text/plain', 'text/markdown']
-  },
-  {
     agent_slug: 'workflow-performance-monitor',
     name: 'Workflow Performance Monitor',
     description: 'Real-time performance monitoring agent with anomaly detection and alerting for workflow execution health.',

@@ -219,97 +219,9 @@ ActiveRecord::Base.transaction do
   # `binds_to "Claude Research Analyst"`, materialized by
   # system_skill_bindings_seed.rb. See the note on Strategic Planner above.
 
-  # Claude-Powered Creative Content Generator
-  content_creator = Ai::Agent.find_or_create_by(
-    account: admin_account,
-    slug: 'claude-content-creator',
-    agent_type: 'content_generator'
-  ) do |agent|
-    agent.name = "Claude Content Creator"
-    agent.description = "Advanced content creation agent utilizing Claude's language and creative capabilities"
-    agent.provider = claude_provider
-    agent.creator = admin_user
-    agent.status = 'active'
-    agent.version = '1.0.0'
-    agent.mcp_tool_manifest = {
-      'name' => 'claude_content_creator',
-      'description' => 'Advanced content creation and copywriting agent',
-      'type' => 'ai_agent',
-      'version' => '1.0.0',
-      'configuration' => {
-        'system_prompt' => <<~PROMPT.strip,
-        You are a Claude Content Creator, an AI agent specialized in creating high-quality, engaging content across multiple formats and channels using Claude's language and creative capabilities.
-
-        ## Core Responsibilities:
-        - **Content Strategy**: Develop comprehensive content strategies aligned with business objectives
-        - **Creative Writing**: Produce engaging, original content across various formats and styles
-        - **Brand Voice**: Maintain consistent brand voice and messaging across all content
-        - **Content Optimization**: Optimize content for specific audiences, platforms, and objectives
-        - **Technical Documentation**: Create clear, comprehensive technical and educational content
-
-        ## Content Expertise:
-        1. **Marketing Content**: Blog posts, social media, email campaigns, landing pages
-        2. **Technical Content**: Documentation, tutorials, guides, specifications
-        3. **Creative Content**: Stories, scripts, creative campaigns, brand narratives
-        4. **Business Content**: Reports, proposals, presentations, case studies
-        5. **Educational Content**: Training materials, courses, workshops, webinars
-
-        ## Writing Styles:
-        - **Persuasive**: Compelling copy that drives action and engagement
-        - **Informative**: Clear, educational content that builds understanding
-        - **Narrative**: Engaging stories that connect emotionally with audiences
-        - **Technical**: Precise, detailed explanations for expert audiences
-        - **Conversational**: Friendly, approachable content for broad appeal
-
-        ## Content Strategy Framework:
-        1. **Audience Analysis**: Target audience identification and persona development
-        2. **Content Planning**: Editorial calendars, content pillars, topic research
-        3. **Content Creation**: Writing, editing, and optimization processes
-        4. **Performance Optimization**: A/B testing, analytics, continuous improvement
-        5. **Brand Consistency**: Voice, tone, style guide adherence
-
-        ## Quality Standards:
-        - **Clarity**: Clear, concise communication that serves the audience
-        - **Engagement**: Compelling content that captures and holds attention
-        - **Accuracy**: Factual correctness and attention to detail
-        - **Originality**: Fresh perspectives and unique value proposition
-        - **Purposefulness**: Content that serves specific business and audience goals
-
-        ## Response Format:
-        Deliver content with:
-        - Clear structure and logical flow
-        - Compelling headlines and openings
-        - Supporting evidence and examples
-        - Strong calls-to-action when appropriate
-        - SEO optimization when relevant
-        - Brand voice consistency
-
-        Leverage Claude's language expertise to create content that resonates with audiences and drives meaningful engagement.
-      PROMPT
-        'temperature' => 0.7,
-        'max_tokens' => 4096,
-        'response_format' => 'creative_content'
-      }
-    }
-    agent.mcp_metadata = {
-      'specialization' => 'content_creation',
-      'priority_level' => 'medium',
-      'execution_mode' => 'creative',
-      'capabilities_version' => '1.0',
-      'claude_optimized' => true,
-      'reasoning_focus' => 'creative_language',
-      'model_config' => {
-        'model_requirements' => { 'tier' => 'reasoning' },
-        'temperature' => 0.7,
-        'max_tokens' => 4096,
-        'response_format' => 'creative_content'
-      }
-    }
-  end
 
   puts "✅ Created Claude Strategic Planner (ID: #{strategic_planner.id})"
   puts "✅ Created Claude Research Analyst (ID: #{research_analyst.id})"
-  puts "✅ Created Claude Content Creator (ID: #{content_creator.id})"
 
   puts "\n📊 Claude-Powered Agents Summary:"
   claude_agents = Ai::Agent.where(provider: claude_provider)
