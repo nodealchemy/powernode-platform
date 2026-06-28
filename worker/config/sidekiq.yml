@@ -513,6 +513,14 @@
       queue: ai_orchestration
       description: 'Check for due ralph loops and execute scheduled iterations'
 
+    # Campaign auto-land: drain the approved-land queue (one active land per
+    # account/target) and drive each through stage → CI → merge → verify.
+    ai_campaign_land_scheduler:
+      cron: '* * * * *'  # Every minute
+      class: AiCampaignLandSchedulerJob
+      queue: ai_orchestration
+      description: 'Pick eligible campaign lands and dispatch the land pipeline'
+
     # Stigmergic signal decay - apply temporal decay to signal strengths
     ai_stigmergic_signal_decay:
       cron: '*/30 * * * *'  # Every 30 minutes
