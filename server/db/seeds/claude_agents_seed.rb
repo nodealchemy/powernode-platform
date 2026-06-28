@@ -28,7 +28,7 @@ ActiveRecord::Base.transaction do
 
     claude_provider.configuration = {
       'models' => all_models,
-      'default_model' => 'claude-3.5-sonnet',
+      'default_model' => 'claude-haiku-4-5-20251001',
       'api_key' => 'YOUR_ANTHROPIC_API_KEY_HERE'
     }
     puts "  Set default Claude provider configuration (no existing config found)"
