@@ -4,9 +4,14 @@ import type {
   CampaignDetail,
   CreateCampaignParams,
   ParkedQuestion,
+  CampaignProposal,
+  CreateProposalParams,
+  DelegateParams,
+  DelegateResult,
 } from '../types/campaign';
 
 const BASE_PATH = '/ai/campaigns';
+const PROPOSALS_PATH = '/ai/campaign_proposals';
 
 interface ApiEnvelope<T> {
   success: boolean;
@@ -40,5 +45,34 @@ export const campaignsApi = {
   stopCampaign: (id: string, summary?: string) =>
     unwrap<{ campaign: CampaignSummary }>(
       apiClient.post(`${BASE_PATH}/${id}/stop`, { summary }),
+    ),
+
+  // Route a spawned campaign's loop to a driver (claude_code | platform_*).
+  delegateCampaign: (id: string, data: DelegateParams) =>
+    unwrap<DelegateResult>(apiClient.post(`${BASE_PATH}/${id}/delegate`, data)),
+
+  // ----- Discovery/delegation control plane: the proposal queue -----
+  getProposals: (params?: { status?: string; limit?: number }) =>
+    unwrap<{ proposals: CampaignProposal[]; total_count: number }>(
+      apiClient.get(PROPOSALS_PATH, { params }),
+    ),
+
+  createProposal: (data: CreateProposalParams) =>
+    unwrap<CampaignProposal>(apiClient.post(PROPOSALS_PATH, data)),
+
+  queueProposal: (id: string) =>
+    unwrap<CampaignProposal>(apiClient.post(`${PROPOSALS_PATH}/${id}/queue`)),
+
+  approveProposal: (id: string) =>
+    unwrap<CampaignProposal>(apiClient.post(`${PROPOSALS_PATH}/${id}/approve`)),
+
+  rejectProposal: (id: string, reason?: string) =>
+    unwrap<CampaignProposal>(apiClient.post(`${PROPOSALS_PATH}/${id}/reject`, { reason })),
+
+  // Approve already happened; spawn creates the campaign + dev-loop. Returns the proposal
+  // (now `spawned`) plus the spawned campaign summary.
+  spawnProposal: (id: string) =>
+    unwrap<CampaignProposal & { spawned_campaign?: CampaignSummary }>(
+      apiClient.post(`${PROPOSALS_PATH}/${id}/spawn`),
     ),
 };

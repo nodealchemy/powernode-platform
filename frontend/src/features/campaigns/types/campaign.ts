@@ -70,12 +70,41 @@ export interface ProgressEntry {
   improvement_metrics: Record<string, unknown>;
 }
 
+// Who drives a campaign loop's task queue (delegation control plane).
+export type DriverKind = 'claude_code' | 'platform_agent' | 'platform_group' | 'platform_mission';
+
 export interface CampaignLoop {
   id: string;
   name: string;
   branch: string | null;
   status: string;
+  driver_kind: DriverKind | null;
+  driver_target: Record<string, unknown>;
   total_tasks: number;
+}
+
+// ----- Discovery/delegation control plane: the campaign-proposal queue -----
+export type ProposalStatus = 'proposed' | 'queued' | 'approved' | 'rejected' | 'spawned';
+export type ProposalSource = 'discovery' | 'trajectory' | 'improvement' | 'manual';
+
+// Mirrors Ai::CampaignProposal#summary
+export interface CampaignProposal {
+  id: string;
+  title: string;
+  objective: string;
+  source: ProposalSource;
+  scope: string | null;
+  status: ProposalStatus;
+  suggested_workload: string;
+  suggested_driver: DriverKind | null;
+  decision_authority: DecisionAuthority;
+  fingerprint: string;
+  spawned_campaign_id: string | null;
+  reviewed_by_id: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // Mirrors CampaignsController#serialize_detail (summary + nested collections)
@@ -96,4 +125,30 @@ export interface CreateCampaignParams {
   decision_authority?: DecisionAuthority;
   configuration?: Record<string, unknown>;
   stop_conditions?: Record<string, unknown>;
+}
+
+export interface CreateProposalParams {
+  title: string;
+  objective: string;
+  source?: ProposalSource;
+  scope?: string;
+  suggested_workload?: string;
+  suggested_driver?: DriverKind;
+  decision_authority?: DecisionAuthority;
+  configuration?: Record<string, unknown>;
+}
+
+export interface DelegateParams {
+  driver_kind: DriverKind;
+  target?: Record<string, unknown>;
+  holder?: string;
+}
+
+// Mirrors CampaignDriver#delegate's return
+export interface DelegateResult {
+  campaign_id: string;
+  driver_kind: DriverKind;
+  target: Record<string, unknown>;
+  lease: DriverLease | null;
+  loops: Array<{ id: string; driver_kind: DriverKind | null; scheduling_mode: string; status: string }>;
 }

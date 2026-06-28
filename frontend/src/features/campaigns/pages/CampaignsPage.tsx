@@ -6,6 +6,7 @@ import { useCampaigns } from '../hooks/useCampaigns';
 import { CampaignsIndexTable } from '../components/CampaignsIndexTable';
 import { NewCampaignModal } from '../components/NewCampaignModal';
 import { CampaignDetailModal } from '../components/CampaignDetailModal';
+import { ProposalsQueuePanel } from '../components/ProposalsQueuePanel';
 import type { CreateCampaignParams } from '../types/campaign';
 
 export const CampaignsContent: React.FC<{
@@ -60,6 +61,11 @@ export const CampaignsContent: React.FC<{
   return (
     <>
       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
+
+      <ProposalsQueuePanel
+        canManage={hasManagePermission}
+        onSpawned={(campaignId) => { setSelectedId(campaignId); fetchCampaigns(); }}
+      />
 
       <CampaignsIndexTable
         campaigns={campaigns}

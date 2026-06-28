@@ -1,14 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { HelpCircle, GitBranch, ListChecks, StopCircle, Activity, Lock } from 'lucide-react';
+import { HelpCircle, GitBranch, ListChecks, StopCircle, Activity, Lock, Send } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Progress } from '@/shared/components/ui/Progress';
 import { Textarea } from '@/shared/components/ui/Textarea';
+import { Input } from '@/shared/components/ui/Input';
+import { Select } from '@/shared/components/ui/Select';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { campaignsApi } from '../api/campaignsApi';
-import type { CampaignDetail } from '../types/campaign';
-import { STATUS_CONFIG, DECISION_AUTHORITY_LABELS } from '../constants/campaign';
+import type { CampaignDetail, DriverKind } from '../types/campaign';
+import { STATUS_CONFIG, DECISION_AUTHORITY_LABELS, DRIVER_KIND_OPTIONS, DRIVER_KIND_LABELS } from '../constants/campaign';
+
+// Map a platform driver_kind to the target key its delegate call expects.
+const TARGET_KEY: Partial<Record<DriverKind, string>> = {
+  platform_agent: 'agent_id',
+  platform_group: 'group_id',
+  platform_mission: 'mission_id',
+};
 
 interface CampaignDetailModalProps {
   campaignId: string | null;
@@ -31,6 +41,9 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [driverKind, setDriverKind] = useState<DriverKind>('claude_code');
+  const [targetId, setTargetId] = useState('');
+  const { addNotification } = useNotifications();
 
   const load = useCallback(async () => {
     if (!campaignId) return;
@@ -71,6 +84,27 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
       await campaignsApi.stopCampaign(campaignId, 'Stopped from dashboard');
       await load();
       onChanged();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleDelegate = async () => {
+    if (!campaignId) return;
+    const targetKey = TARGET_KEY[driverKind];
+    if (targetKey && !targetId.trim()) {
+      addNotification({ type: 'error', message: `A ${targetKey.replace('_', ' ')} is required for ${DRIVER_KIND_LABELS[driverKind]}` });
+      return;
+    }
+    setBusy('delegate');
+    try {
+      const target = targetKey && targetId.trim() ? { [targetKey]: targetId.trim() } : {};
+      await campaignsApi.delegateCampaign(campaignId, { driver_kind: driverKind, target });
+      addNotification({ type: 'success', message: `Delegated to ${DRIVER_KIND_LABELS[driverKind]}` });
+      await load();
+      onChanged();
+    } catch (err) {
+      addNotification({ type: 'error', message: err instanceof Error ? err.message : 'Delegation failed' });
     } finally {
       setBusy(null);
     }
@@ -174,6 +208,9 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
                   <div key={l.id} className="flex items-center justify-between rounded-md border border-theme px-3 py-2 text-sm">
                     <span className="font-mono text-theme-secondary">{l.branch || l.name}</span>
                     <span className="flex items-center gap-3 text-theme-tertiary">
+                      {l.driver_kind && (
+                        <Badge variant="primary" size="xs">{DRIVER_KIND_LABELS[l.driver_kind]}</Badge>
+                      )}
                       <Badge variant="outline" size="xs">{l.status}</Badge>
                       <span>{l.total_tasks} tasks</span>
                     </span>
@@ -182,6 +219,36 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
               </div>
             )}
           </Section>
+
+          {/* Delegation: route the campaign's dev-loop to a driver (claude_code | platform_*) */}
+          {canManage && !isTerminal && (
+            <Section icon={Send} title="Delegate driver">
+              <p className="mb-2 text-xs text-theme-tertiary">
+                Route this campaign's loop to a Claude Code session (dev-loop pull queue) or the
+                platform executor. The single-driver lease enforces one active driver at a time.
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <Select
+                  value={driverKind}
+                  options={DRIVER_KIND_OPTIONS}
+                  onChange={(v) => setDriverKind(v as DriverKind)}
+                  className="min-w-[12rem]"
+                />
+                {TARGET_KEY[driverKind] && (
+                  <Input
+                    value={targetId}
+                    onChange={(e) => setTargetId(e.target.value)}
+                    placeholder={`${TARGET_KEY[driverKind]?.replace('_', ' ')}…`}
+                    className="min-w-[14rem] flex-1 font-mono"
+                  />
+                )}
+                <Button size="sm" onClick={handleDelegate} loading={busy === 'delegate'}>
+                  <Send size={14} className="mr-1" />
+                  Delegate
+                </Button>
+              </div>
+            </Section>
+          )}
 
           {/* Decision log */}
           <Section icon={ListChecks} title={`Recent Decisions (${detail.recent_decisions.length})`}>

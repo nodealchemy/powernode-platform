@@ -1,4 +1,4 @@
-import type { CampaignStatus, DecisionAuthority } from '../types/campaign';
+import type { CampaignStatus, DecisionAuthority, ProposalStatus, DriverKind } from '../types/campaign';
 
 type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info' | 'outline';
 
@@ -8,6 +8,28 @@ export const STATUS_CONFIG: Record<CampaignStatus, { label: string; variant: Bad
   paused: { label: 'Paused', variant: 'warning' },
   completed: { label: 'Completed', variant: 'info' },
   archived: { label: 'Archived', variant: 'outline' },
+};
+
+export const PROPOSAL_STATUS_CONFIG: Record<ProposalStatus, { label: string; variant: BadgeVariant }> = {
+  proposed: { label: 'Proposed', variant: 'secondary' },
+  queued: { label: 'Queued', variant: 'info' },
+  approved: { label: 'Approved', variant: 'primary' },
+  rejected: { label: 'Rejected', variant: 'danger' },
+  spawned: { label: 'Spawned', variant: 'success' },
+};
+
+export const DRIVER_KIND_OPTIONS: Array<{ value: DriverKind; label: string }> = [
+  { value: 'claude_code', label: 'Claude Code (dev-loop)' },
+  { value: 'platform_agent', label: 'Platform agent' },
+  { value: 'platform_group', label: 'Platform group' },
+  { value: 'platform_mission', label: 'Platform mission' },
+];
+
+export const DRIVER_KIND_LABELS: Record<DriverKind, string> = {
+  claude_code: 'Claude Code',
+  platform_agent: 'Platform agent',
+  platform_group: 'Platform group',
+  platform_mission: 'Platform mission',
 };
 
 export const DECISION_AUTHORITY_OPTIONS: Array<{ value: DecisionAuthority; label: string; description: string }> = [
