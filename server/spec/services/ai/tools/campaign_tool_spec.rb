@@ -14,10 +14,29 @@ RSpec.describe Ai::Tools::CampaignTool do
   it "registers a campaign permission + declares its actions" do
     expect(described_class::REQUIRED_PERMISSION).to eq("ai.campaigns.manage")
     expect(described_class.action_definitions.keys).to contain_exactly(
-      "campaign_propose", "campaign_approve_proposal", "campaign_delegate",
-      "campaign_start", "campaign_status", "campaign_claim", "campaign_release",
+      "campaign_propose", "campaign_list_proposals", "campaign_approve_proposal", "campaign_delegate",
+      "campaign_start", "campaign_list", "campaign_status", "campaign_claim", "campaign_release",
       "campaign_answer_question", "campaign_record_increment", "campaign_check_rebase", "campaign_stop"
     )
+  end
+
+  it "campaign_list_proposals returns the deduped proposal queue (filterable by status)" do
+    create(:ai_campaign_proposal, account: account, status: "proposed")
+    create(:ai_campaign_proposal, :queued, account: account)
+
+    res = exec(action: "campaign_list_proposals")
+    expect(res[:success]).to be true
+    expect(res[:data][:proposals].size).to eq(2)
+
+    res = exec(action: "campaign_list_proposals", status: "queued")
+    expect(res[:data][:proposals].size).to eq(1)
+  end
+
+  it "campaign_list returns the account's campaigns" do
+    exec(action: "campaign_start", name: "Listable")
+    res = exec(action: "campaign_list")
+    expect(res[:success]).to be true
+    expect(res[:data][:campaigns].map { |c| c[:name] }).to include("Listable")
   end
 
   it "campaign_delegate routes a campaign loop to a driver (claude_code takes the lease)" do

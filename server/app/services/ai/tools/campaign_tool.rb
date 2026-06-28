@@ -16,10 +16,10 @@ module Ai
                        "campaign directly (and its dev-loop), check status, answer parked questions, stop it.",
           parameters: {
             action: { type: "string", required: true,
-                      description: "campaign_propose | campaign_approve_proposal | campaign_delegate | " \
-                                   "campaign_start | campaign_status | campaign_claim | campaign_release | " \
-                                   "campaign_answer_question | campaign_record_increment | " \
-                                   "campaign_check_rebase | campaign_stop" },
+                      description: "campaign_propose | campaign_list_proposals | campaign_approve_proposal | " \
+                                   "campaign_delegate | campaign_start | campaign_list | campaign_status | " \
+                                   "campaign_claim | campaign_release | campaign_answer_question | " \
+                                   "campaign_record_increment | campaign_check_rebase | campaign_stop" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
             proposal_id: { type: "string", required: false, description: "CampaignProposal UUID (campaign_approve_proposal)" },
             driver_kind: { type: "string", required: false, description: "claude_code|platform_agent|platform_group|platform_mission (campaign_delegate)" },
@@ -40,7 +40,9 @@ module Ai
             stop_conditions: { type: "object", required: false, description: "e.g. { max_failed:, completion_pct: }" },
             question_id: { type: "string", required: false, description: "Parked question UUID" },
             answer: { type: "string", required: false, description: "Answer to a parked question" },
-            summary: { type: "string", required: false, description: "Increment/completion summary" }
+            summary: { type: "string", required: false, description: "Increment/completion summary" },
+            status: { type: "string", required: false, description: "Status filter (campaign_list / campaign_list_proposals)" },
+            limit: { type: "integer", required: false, description: "Max rows to return (list actions, default 50)" }
           }
         }
       end
@@ -48,8 +50,10 @@ module Ai
       def self.action_definitions
         {
           "campaign_propose" => {
-            description: "Propose a campaign into the discovery/delegation queue (deduped per target). " \
-                         "Use this to enqueue a campaign idea for review before spawning. Returns the proposal.",
+            description: "Propose a new improvement/feature CAMPAIGN into the discovery/delegation queue " \
+                         "(deduped per target). Use THIS for any request to create, propose, or queue a " \
+                         "CAMPAIGN — NOT the generic create_proposal (which is for agent change-proposals). " \
+                         "Returns the proposal; approve it with campaign_approve_proposal to spawn the campaign.",
             parameters: {
               title: { type: "string", required: true, description: "Short proposal title" },
               objective: { type: "string", required: true, description: "What the campaign should accomplish" },
@@ -59,6 +63,23 @@ module Ai
               suggested_driver: { type: "string", required: false, description: "claude_code|platform_agent|platform_group|platform_mission" },
               decision_authority: { type: "string", required: false, description: "supervised|monitored|trusted|autonomous (default trusted)" },
               configuration: { type: "object", required: false, description: "Spawn configuration (scope/posture/plan_increments/...)" }
+            }
+          },
+          "campaign_list_proposals" => {
+            description: "List the CAMPAIGN PROPOSAL QUEUE (the discovery/delegation control plane) for this " \
+                         "account — the proposed/queued/approved/rejected/spawned campaign proposals awaiting " \
+                         "review. Use THIS to answer 'what campaigns are proposed / in the discovery queue'.",
+            parameters: {
+              status: { type: "string", required: false, description: "Filter: proposed|queued|approved|rejected|spawned" },
+              limit: { type: "integer", required: false, description: "Max rows (default 50)" }
+            }
+          },
+          "campaign_list" => {
+            description: "List this account's Autonomous Improvement CAMPAIGNS (spawned/active/completed), " \
+                         "newest first. Use to answer 'what campaigns are running / exist'.",
+            parameters: {
+              status: { type: "string", required: false, description: "Filter: created|active|paused|completed|archived" },
+              limit: { type: "integer", required: false, description: "Max rows (default 50)" }
             }
           },
           "campaign_approve_proposal" => {
@@ -163,6 +184,8 @@ module Ai
         when "campaign_propose" then campaign_propose(params)
         when "campaign_approve_proposal" then campaign_approve_proposal(params)
         when "campaign_delegate" then campaign_delegate(params)
+        when "campaign_list_proposals" then campaign_list_proposals(params)
+        when "campaign_list" then campaign_list(params)
         when "campaign_start" then campaign_start(params)
         when "campaign_status" then campaign_status(params)
         when "campaign_claim" then campaign_claim(params)
@@ -195,6 +218,18 @@ module Ai
         return nil if id.blank?
 
         account.ai_campaign_proposals.where(id: id).first
+      end
+
+      def campaign_list_proposals(params)
+        scope = account.ai_campaign_proposals
+        scope = scope.by_status(params[:status]) if params[:status].present?
+        success_result(proposals: scope.recent(params[:limit].presence&.to_i || 50).map(&:summary))
+      end
+
+      def campaign_list(params)
+        scope = account.ai_campaigns
+        scope = scope.where(status: params[:status]) if params[:status].present?
+        success_result(campaigns: scope.recent(params[:limit].presence&.to_i || 50).map(&:summary))
       end
 
       def campaign_propose(params)
