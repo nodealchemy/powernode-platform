@@ -25,7 +25,9 @@ module Ai
         run = @account.ai_delivery_runs.create!(
           campaign: campaign, campaign_land: campaign_land, repository: target.repository,
           triggered_by: @user, target_kind: target.kind.to_s, environment: target.environment,
-          strategy: strategy.to_s, ref: ref, base_ref: base_ref, dry_run: dry_run, status: "pending"
+          strategy: strategy.to_s, ref: ref, base_ref: base_ref, dry_run: dry_run, status: "pending",
+          # Persist the target config so the progressive executor (Inc 3) can run the strategy.
+          metadata: { "config" => target.config }
         )
         run.start!
 
