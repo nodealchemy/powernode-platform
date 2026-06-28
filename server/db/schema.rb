@@ -1037,6 +1037,36 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000003) do
     t.index ["ralph_task_id"], name: "index_ai_campaign_decisions_on_ralph_task_id"
   end
 
+  create_table "ai_campaign_lands", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "base_sha"
+    t.uuid "campaign_id", null: false
+    t.datetime "completed_at"
+    t.jsonb "conflict_files", default: [], null: false
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.uuid "merge_operation_id"
+    t.string "merged_sha"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "parked_at"
+    t.text "parked_reason"
+    t.uuid "post_ci_pipeline_id"
+    t.uuid "pre_ci_pipeline_id"
+    t.integer "priority", default: 0, null: false
+    t.datetime "queued_at"
+    t.string "source_branch", null: false
+    t.string "staged_sha"
+    t.string "staging_branch"
+    t.datetime "started_at"
+    t.string "status", default: "pending_approval", null: false
+    t.string "target_branch", default: "develop", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "worktree_session_id"
+    t.index ["account_id", "status"], name: "index_ai_campaign_lands_on_account_id_and_status"
+    t.index ["campaign_id"], name: "index_ai_campaign_lands_on_campaign_id"
+    t.index ["target_branch", "status"], name: "index_ai_campaign_lands_on_target_branch_and_status"
+  end
+
   create_table "ai_campaigns", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.integer "blocked_tasks", default: 0, null: false
