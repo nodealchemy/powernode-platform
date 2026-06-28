@@ -55,7 +55,11 @@ module Ai
       "team" => /\A(team_|workspace_|create_team|add_team_member|execute_team|get_team|list_teams|update_team|optimize_team|invite_agent|active_sessions|create_workspace|list_workspaces|send_message|list_messages)/,
       "code" => /\Acode_/,
       "agent_management" => /\A(create_agent|list_agents|get_agent|update_agent|execute_agent|spawn_task|check_task_status|wait_for_task|recruit_agent|get_mission_status)/,
-      "governance" => /\A(governance_|create_agent_goal|update_agent_goal|list_agent_goals|decompose_goal|escalate|create_proposal|propose_feature|report_issue|request_feedback|approve_plan|validate_plan|generate_self_challenge|list_challenges|get_challenge_result|detect_collusion|emit_signal|perceive_signals|reinforce_signal|measure_pressure|perceive_pressure|send_proactive_notification|emergency_|kill_switch_status)/
+      "governance" => /\A(governance_|create_agent_goal|update_agent_goal|list_agent_goals|decompose_goal|escalate|create_proposal|propose_feature|report_issue|request_feedback|approve_plan|validate_plan|generate_self_challenge|list_challenges|get_challenge_result|detect_collusion|emit_signal|perceive_signals|reinforce_signal|measure_pressure|perceive_pressure|send_proactive_notification|emergency_|kill_switch_status)/,
+      # Autonomous Improvement Campaigns + discovery/delegation control plane: surface the
+      # campaign_* queue/delegation tools and the dev-loop drain tools when the user talks
+      # about campaigns, the proposal/discovery queue, delegation, or draining a loop.
+      "campaign" => /\A(campaign_|dev_next_task|dev_complete_task|dev_list_tasks|delegate_ralph_task)/
     }.freeze
 
     # Maps free-text keywords to intent labels. Multiple keywords can match
@@ -70,7 +74,8 @@ module Ai
       "team" => /\b(team|workspace|delegate|coordinate)\b|@\w+/i,
       "code" => /\b(code|symbol|class|function|file in (the )?repo|grep|codebase)\b/i,
       "agent_management" => /\b(agent|spawn|sub.?agent|execute (the )?agent)\b/i,
-      "governance" => /\b(escalate|propose|goal|approve|reject|kill switch|emergency|halt|policy|trust)\b/i
+      "governance" => /\b(escalate|propose|goal|approve|reject|kill switch|emergency|halt|policy|trust)\b/i,
+      "campaign" => /\b(campaign|discovery queue|proposal queue|dev.?loop|ralph loop|improvement campaign|drain (the )?(backlog|queue|loop))\b/i
     }.freeze
 
     # @param tool_definitions [Array<Hash>] tool defs in LLM function-calling shape

@@ -95,6 +95,19 @@ RSpec.describe Ai::ToolRelevanceFilter do
     end
   end
 
+  describe ".filter campaign intent" do
+    it "surfaces campaign_* + dev-loop tools for a campaign/proposal-queue message" do
+      campaign_tools = %w[campaign_list_proposals campaign_propose campaign_delegate
+                          dev_next_task dev_list_tasks].map { |n| tool(n) }
+      tools = always_on_tools + provisioning_tools + devops_tools + knowledge_tools + noise_tools + campaign_tools
+      result = described_class.filter(
+        tools, user_message: "what campaign proposals are in the discovery queue?", max_tools: 25
+      )
+      names = result.map { |t| t[:name] }
+      expect(names).to include("campaign_list_proposals", "campaign_propose")
+    end
+  end
+
   describe ".detect_intents" do
     it "returns provision_infrastructure for provisioning keywords" do
       expect(described_class.detect_intents("I need to provision a server")).to include("provision_infrastructure")
@@ -102,6 +115,11 @@ RSpec.describe Ai::ToolRelevanceFilter do
 
     it "returns deploy for pipeline keywords" do
       expect(described_class.detect_intents("trigger the gitea pipeline")).to include("deploy")
+    end
+
+    it "returns campaign for campaign / proposal-queue keywords" do
+      expect(described_class.detect_intents("what campaign proposals are in the discovery queue?")).to include("campaign")
+      expect(described_class.detect_intents("propose a new improvement campaign")).to include("campaign")
     end
 
     it "returns multiple intents when multiple keywords match" do
