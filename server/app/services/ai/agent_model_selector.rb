@@ -16,9 +16,22 @@ module Ai
   #   * +0.25 tier_bonus when model's capability tier matches profile's
   #          desired tier (reasoning / standard / light — see Ai::ModelTiers).
   #   * +cost_bonus (cheaper is better; capped at +0.3).
-  #   * +0.4 × empirical_success_rate from ProviderMetric.model_breakdown
-  #          (30-day window, min 5 requests). Defaults to 0.5 when absent
+  #   * +(0.4..1.4) × empirical_success_rate from Ai::AgentModelPerformance,
+  #          confidence-weighted by sample size. Defaults to 0.5 when absent
   #          so cold-start doesn't permanently disadvantage new models.
+  #   * +exploration_bonus — a deterministic UCB term that rewards
+  #          under-sampled candidates (see EXPLORATION_COEFFICIENT). This is the
+  #          DISCOVERY half of the learning loop: empirical_success_rate exploits
+  #          what's proven; the UCB term explores under-tried models (newly added,
+  #          newly credentialed, or never selected) so a genuinely better/cheaper
+  #          model gets sampled and can win once its own empirical signal grows —
+  #          instead of the selector greedily locking onto an early winner.
+  #
+  # Learning loop: Ai::AgentExecution#record_model_performance feeds outcomes
+  # (success / cost / latency) into Ai::AgentModelPerformance after every run;
+  # this selector reads that signal (exploit) and adds UCB (explore). Over time
+  # the per-(account, agent_type, provider, model) record converges to the best
+  # available model for each agent profile without manual model pinning.
   class AgentModelSelector
     AGENT_TYPE_PROFILES = {
       "assistant"         => { required: %w[text_generation chat], preferred: %w[function_calling],                              tier: :standard },
@@ -33,6 +46,14 @@ module Ai
     EMPIRICAL_WINDOW    = 30.days
     EMPIRICAL_MIN_RUNS  = 5
     EMPIRICAL_DEFAULT   = 0.5
+
+    # UCB exploration coefficient — how strongly to favor under-sampled models
+    # so new / under-tried (possibly better or cheaper) models get DISCOVERED
+    # instead of the selector greedily exploiting an early winner. Kept near the
+    # tier/cost-bonus magnitude (~0.25–0.3) so it nudges discovery without
+    # overriding capability fit or a confident empirical signal. Set to 0 to
+    # disable exploration (pure exploitation). ENV-tunable per deployment.
+    EXPLORATION_COEFFICIENT = (ENV["AI_MODEL_SELECTOR_EXPLORATION_C"] || 0.3).to_f
 
     def self.recommend(account:, agent_type:, role: nil, description: nil, requirements: {}, provider: nil)
       new(account: account, agent_type: agent_type, role: role, description: description,
@@ -58,7 +79,13 @@ module Ai
       candidates = enumerate_candidates
       return fallback if candidates.empty?
 
-      scored = candidates.map { |c| score(c, profile) }
+      # UCB exploration baseline: total observed runs across all candidate arms
+      # (this account + agent_type). Under-sampled arms earn an exploration bonus
+      # relative to this total — at true cold-start (no arm has any runs) the
+      # term is 0 for everyone and the static priors decide.
+      total_observed = candidates.sum { |c| empirical_signal(c[:provider], c[:model_id])[:n] }
+
+      scored = candidates.map { |c| score(c, profile, total_observed: total_observed) }
 
       # Hard-filter to candidates satisfying required capabilities; degrade
       # gracefully to the full set when nothing matches (e.g. no model in
@@ -142,7 +169,7 @@ module Ai
     # rival candidate has tier and cost advantages.
     EMPIRICAL_FULL_CONFIDENCE_SAMPLE = 30
 
-    def score(c, profile)
+    def score(c, profile, total_observed: 0)
       req_satisfied = (profile[:required] - c[:capabilities]).empty?
       pref_match    = profile[:preferred].empty? ? 0.5 : (profile[:preferred] & c[:capabilities]).size.to_f / profile[:preferred].size
       tier_bonus    = c[:tier] == profile[:tier] ? 0.25 : 0.0
@@ -153,22 +180,41 @@ module Ai
       confidence     = empirical_data[:confidence]  # 0..1
       empirical_weight = 0.4 + (confidence * 1.0)   # 0.4 cold-start → 1.4 fully confident
 
+      exploration = exploration_bonus(empirical_data[:n], total_observed)
+
       total = (req_satisfied ? 1.0 : 0.0) +
               (pref_match * 0.5) +
               tier_bonus +
               cost_bonus +
-              (empirical * empirical_weight)
+              (empirical * empirical_weight) +
+              exploration
 
       c.merge(
-        req_satisfied:    req_satisfied,
-        pref_match_score: pref_match.round(3),
-        tier_bonus:       tier_bonus,
-        cost_bonus:       cost_bonus.round(3),
-        empirical_score:  empirical.round(3),
-        empirical_n:      empirical_data[:n],
-        empirical_weight: empirical_weight.round(3),
-        total_score:      total.round(3)
+        req_satisfied:      req_satisfied,
+        pref_match_score:   pref_match.round(3),
+        tier_bonus:         tier_bonus,
+        cost_bonus:         cost_bonus.round(3),
+        empirical_score:    empirical.round(3),
+        empirical_n:        empirical_data[:n],
+        empirical_weight:   empirical_weight.round(3),
+        exploration_bonus:  exploration.round(3),
+        total_score:        total.round(3)
       )
+    end
+
+    # UCB1-style exploration term: high for under-sampled arms, decaying as a
+    # candidate accrues runs (and rising slowly with the total observed across
+    # all arms). Deterministic — no RNG — so selection stays reproducible and
+    # testable. Returns 0 at true cold-start (total_observed == 0) so the static
+    # priors decide the first pick; thereafter an unsampled arm (candidate_runs
+    # == 0) gets the largest bonus, letting it be tried and gather its own
+    # empirical signal. A capability-incapable model is never promoted by this:
+    # eligibility is filtered on req_satisfied BEFORE the max_by, so exploration
+    # only moves selection among models that already clear the hard gate.
+    def exploration_bonus(candidate_runs, total_observed)
+      return 0.0 if EXPLORATION_COEFFICIENT <= 0.0 || total_observed.to_i <= 0
+
+      EXPLORATION_COEFFICIENT * Math.sqrt(Math.log(total_observed + 1) / (candidate_runs.to_i + 1))
     end
 
     # Reads from Ai::AgentModelPerformance — populated by
@@ -181,6 +227,13 @@ module Ai
     # well may struggle on data_analyst or content_generator, and we
     # don't want false-positive signals biasing the selector.
     def empirical_signal(provider, model_id)
+      # Memoized — called once for the total_observed sum and once per candidate
+      # in score; one DB read per (provider, model) per recommend().
+      (@empirical_cache ||= {})[[ provider.id, model_id ]] ||=
+        compute_empirical_signal(provider, model_id)
+    end
+
+    def compute_empirical_signal(provider, model_id)
       record = ::Ai::AgentModelPerformance
                .find_by(account: @account, provider: provider, model: model_id, agent_type: @agent_type)
       return { rate: nil, n: 0, confidence: 0.0 } unless record
@@ -220,7 +273,8 @@ module Ai
         "tier=#{best[:tier]}(want=#{profile[:tier]})",
         "req=#{best[:req_satisfied] ? 'OK' : 'PARTIAL'}",
         "pref_match=#{best[:pref_match_score]}",
-        "empirical=#{best[:empirical_score]}",
+        "empirical=#{best[:empirical_score]}(n=#{best[:empirical_n]})",
+        "explore=#{best[:exploration_bonus]}",
         "score=#{best[:total_score]}"
       ].join(" ")
     end
