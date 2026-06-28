@@ -530,6 +530,9 @@ module Ai
         # Content production missions (multi-modal content generation)
         "start_content_production" => "Ai::Tools::ContentProductionMissionTool",
         "content_production_status" => "Ai::Tools::ContentProductionMissionTool",
+        # Paid media generation — Runway (video) + ElevenLabs (audio/voiceover)
+        "generate_video" => "Ai::Tools::VideoGenerationTool",
+        "generate_audio" => "Ai::Tools::AudioGenerationTool",
         # Docker infrastructure management — containers
         "docker_list_containers" => "Ai::Tools::DockerContainerTool",
         "docker_get_container" => "Ai::Tools::DockerContainerTool",
