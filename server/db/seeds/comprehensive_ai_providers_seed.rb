@@ -443,6 +443,19 @@ if admin_account && admin_user
         'recommended_for' => [ 'complex_workflows', 'strategic_analysis', 'advanced_reasoning', 'research', 'critical_decision_making', 'multi_hour_tasks' ]
       },
       {
+        'name' => 'claude-sonnet-4-6',
+        'id' => 'claude-sonnet-4-6',
+        'display_name' => 'Claude Sonnet 4.6',
+        'context_length' => 200000,
+        'max_output_tokens' => 64000,
+        'cost_per_1k_tokens' => {
+          'input' => 0.003,
+          'output' => 0.015
+        },
+        'capabilities' => [ 'text', 'code', 'analysis', 'reasoning', 'vision', 'long_context', 'best_coding', 'complex_agents', 'computer_use' ],
+        'recommended_for' => [ 'coding', 'complex_agents', 'workflow_orchestration', 'agentic_tasks', 'general_purpose' ]
+      },
+      {
         'name' => 'claude-sonnet-4.5',
         'id' => 'claude-sonnet-4-5-20250929',
         'display_name' => 'Claude Sonnet 4.5',
