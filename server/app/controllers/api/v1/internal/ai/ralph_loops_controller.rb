@@ -12,9 +12,18 @@ module Api
             processed = 0
             skipped = 0
 
-            ::Ai::RalphLoop.due_for_execution.includes(:account, :default_agent).find_each do |loop|
+            ::Ai::RalphLoop.due_for_execution.includes(:account, :default_agent, :campaign).find_each do |loop|
               begin
                 if loop.account&.ai_suspended?
+                  skipped += 1
+                  next
+                end
+
+                # Campaign loops are gated by driver_kind + the single-driver lease so the
+                # platform executor and a Claude Code session never drain the same campaign
+                # at once. Skip CC-driven campaign loops; for platform-driven ones, take the
+                # lease (skip if a different driver — e.g. a CC session — already holds it).
+                if platform_drain_blocked?(loop)
                   skipped += 1
                   next
                 end
@@ -82,6 +91,23 @@ module Api
           end
 
           private
+
+          # True when the platform executor must NOT drain this loop right now. Legacy loops
+          # (no campaign / nil driver_kind) are never blocked. A CC-driven campaign loop is
+          # always skipped (a Claude Code session drains it). A platform-driven campaign loop
+          # is drained only if this executor can hold the single-driver lease — if a different
+          # driver (e.g. a CC session mid-handoff) holds it, skip until it's released.
+          PLATFORM_LEASE_HOLDER = "platform-executor"
+
+          def platform_drain_blocked?(loop)
+            return false if loop.campaign_id.blank? || loop.driver_kind.blank?
+            return true if loop.claude_code_driven?
+
+            campaign = loop.campaign
+            return false unless campaign
+
+            !campaign.acquire_driver_lease!(holder: PLATFORM_LEASE_HOLDER)
+          end
 
           def heal_stuck_autonomous_loops
             ::Ai::RalphLoop

@@ -29,7 +29,8 @@ module Ai
             agent_id: { type: "string", required: false, description: "Platform agent to delegate a task to" },
             await: { type: "boolean", required: false, description: "Block until the delegated agent finishes" },
             timeout: { type: "integer", required: false, description: "Await timeout seconds (max 300)" },
-            budget_cents: { type: "integer", required: false, description: "Budget for the delegated task" }
+            budget_cents: { type: "integer", required: false, description: "Budget for the delegated task" },
+            holder: { type: "string", required: false, description: "Driver identity (lease holder) for campaign-loop pulls" }
           }
         }
       end
@@ -42,7 +43,11 @@ module Ai
                          "Idempotent: re-claiming returns your own in-progress task. " \
                          "Refuses when the loop is halted (kill switch, paused, terminal, max iterations).",
             parameters: {
-              loop_id: { type: "string", required: true, description: "Ralph loop ID or name" }
+              loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
+              holder: { type: "string", required: false,
+                        description: "Driver identity (lease holder). For a campaign loop the single-driver " \
+                                     "lease gates pulls — pass the same holder you claimed the campaign with; " \
+                                     "the pull renews the lease so another driver can't race in." }
             }
           },
           "dev_complete_task" => {
@@ -110,6 +115,9 @@ module Ai
         if (reason = halt_reason(loop_record))
           return { success: true, halted: true, reason: reason, task: nil }
         end
+        if (reason = delegation_block_reason(loop_record, params[:holder]))
+          return { success: true, halted: true, reason: reason, task: nil }
+        end
 
         result = nil
         loop_record.with_lock do
@@ -118,6 +126,26 @@ module Ai
         result
       rescue Ai::RalphTask::InvalidTransitionError, ActiveRecord::RecordInvalid => e
         error_result(e.message)
+      end
+
+      # Campaign loops are gated by their driver routing + the single-driver lease so a
+      # Claude Code session and the platform executor never drain the same campaign at once.
+      # Legacy loops (no campaign, or driver_kind unset) are unaffected. Returns a halt
+      # reason string when this caller must back off, else nil (and renews the lease).
+      def delegation_block_reason(loop_record, holder)
+        return nil if loop_record.campaign_id.blank? || loop_record.driver_kind.blank?
+        return "delegated_to_platform" if loop_record.platform_driven?
+
+        campaign = loop_record.campaign
+        return nil unless campaign
+
+        if campaign.driver_lease_active? && campaign.driver_lease_holder != holder
+          return "leased_to:#{campaign.driver_lease_holder}"
+        end
+
+        # Take/renew the lease for this CC holder so a second driver can't race in.
+        campaign.acquire_driver_lease!(holder: holder) if holder.present?
+        nil
       end
 
       def list_tasks(params)
