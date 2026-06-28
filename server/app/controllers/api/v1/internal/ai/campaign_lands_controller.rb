@@ -52,6 +52,7 @@ module Api
               @land.land!
               service.cleanup!
               advise_other_campaigns_to_rebase
+              deploy_landed_change
             when :failure
               service.rollback!
             end
@@ -71,6 +72,16 @@ module Api
           end
 
           private
+
+          # The change is on the target branch — run the deploy orchestrator. dry-run by
+          # default (records a DeployRun + audit without touching infra); a REAL deploy only
+          # happens when the campaign/land opted in (deploy config auto_deploy/dry_run:false).
+          # Best-effort: a deploy-orchestration failure must never affect the land response.
+          def deploy_landed_change
+            ::Ai::Deploy::Orchestrator.new(account: @land.account).deploy_for_land(@land)
+          rescue StandardError => e
+            Rails.logger.warn("[CampaignLands#verify] deploy orchestration failed: #{e.message}")
+          end
 
           # A land just advanced the target branch, so every OTHER open campaign is now
           # behind it. Advise their drivers to rebase early (conflict avoidance). Best-effort:
