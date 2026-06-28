@@ -527,6 +527,9 @@ module Ai
         # Image generation
         "generate_image" => "Ai::Tools::ImageGenerationTool",
         "list_generated_images" => "Ai::Tools::ImageGenerationTool",
+        # Content production missions (multi-modal content generation)
+        "start_content_production" => "Ai::Tools::ContentProductionMissionTool",
+        "content_production_status" => "Ai::Tools::ContentProductionMissionTool",
         # Docker infrastructure management — containers
         "docker_list_containers" => "Ai::Tools::DockerContainerTool",
         "docker_get_container" => "Ai::Tools::DockerContainerTool",
