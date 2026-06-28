@@ -2,6 +2,12 @@ export type CampaignStatus = 'created' | 'active' | 'paused' | 'completed' | 'ar
 export type DecisionAuthority = 'supervised' | 'monitored' | 'trusted' | 'autonomous';
 export type ParkedQuestionStatus = 'open' | 'answered' | 'dismissed';
 
+// Mirrors Ai::Campaign#driver_lease_info — the active single-driver lease, or null when free
+export interface DriverLease {
+  holder: string;
+  expires_at: string;
+}
+
 // Mirrors Ai::Campaign#summary
 export interface CampaignSummary {
   id: string;
@@ -18,6 +24,7 @@ export interface CampaignSummary {
   started_at: string | null;
   completed_at: string | null;
   last_activity_at: string | null;
+  driver_lease: DriverLease | null;
 }
 
 // Mirrors one entry of Ai::Campaign#activity_feed

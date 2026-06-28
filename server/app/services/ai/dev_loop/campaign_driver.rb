@@ -50,6 +50,36 @@ module Ai
         }
       end
 
+      # Become (or renew being) the single active driver for this campaign before
+      # driving it. A campaign/<id> branch + the progress ledger are mutated by
+      # whoever drives the campaign; two concurrent drivers race. Returns
+      # { ok: true, lease: {holder:, expires_at:} } when this holder now holds the
+      # lease, or { ok: false, held_by:, expires_at: } when another driver holds it —
+      # the caller backs off instead of double-driving. `holder` identifies the driver
+      # (e.g. a session id); defaults to the driver's user id.
+      def claim(campaign, holder: nil, ttl: nil)
+        who = (holder.presence || @user&.id&.to_s)
+        ok = if ttl
+               campaign.acquire_driver_lease!(holder: who, ttl: ttl)
+             else
+               campaign.acquire_driver_lease!(holder: who)
+             end
+        campaign.reload
+        if ok
+          campaign.touch_activity!
+          { ok: true, lease: campaign.driver_lease_info }
+        else
+          { ok: false, held_by: campaign.driver_lease_holder, expires_at: campaign.driver_lease_expires_at }
+        end
+      end
+
+      # Release this campaign's single-driver lease (call when done driving). Returns
+      # { ok: true } once the lease is free, { ok: false } if a different driver holds it.
+      def release(campaign, holder: nil)
+        who = (holder.presence || @user&.id&.to_s)
+        { ok: campaign.release_driver_lease!(holder: who) }
+      end
+
       # Answer a parked question (which can unblock its associated task downstream).
       def answer_question(campaign, question_id:, answer:)
         q = campaign.parked_questions.find(question_id)

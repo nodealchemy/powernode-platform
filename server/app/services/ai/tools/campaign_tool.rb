@@ -15,8 +15,10 @@ module Ai
                        "check status, answer parked questions, and stop it.",
           parameters: {
             action: { type: "string", required: true,
-                      description: "campaign_start | campaign_status | campaign_answer_question | campaign_record_increment | campaign_stop" },
+                      description: "campaign_start | campaign_status | campaign_claim | campaign_release | " \
+                                   "campaign_answer_question | campaign_record_increment | campaign_stop" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
+            holder: { type: "string", required: false, description: "Driver identity for the single-driver lease (campaign_claim/release)" },
             name: { type: "string", required: false, description: "Campaign name (campaign_start)" },
             description: { type: "string", required: false },
             configuration: { type: "object", required: false,
@@ -48,6 +50,22 @@ module Ai
             description: "Live status: refreshes the ledger and returns the campaign summary, open parked " \
                          "questions, recent decisions, and its loops.",
             parameters: { campaign_id: { type: "string", required: true, description: "Campaign UUID or name" } }
+          },
+          "campaign_claim" => {
+            description: "Become the single active driver for a campaign before driving it. Returns " \
+                         "ok:true with the lease when acquired/renewed, or ok:false with held_by when " \
+                         "another driver holds it (back off instead of double-driving the campaign/<id> branch).",
+            parameters: {
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
+              holder: { type: "string", required: false, description: "Driver identity (defaults to your user id)" }
+            }
+          },
+          "campaign_release" => {
+            description: "Release a campaign's single-driver lease when done driving it.",
+            parameters: {
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
+              holder: { type: "string", required: false, description: "Driver identity (defaults to your user id)" }
+            }
           },
           "campaign_answer_question" => {
             description: "Answer a parked question (can unblock its associated task).",
@@ -87,6 +105,8 @@ module Ai
         case params[:action]
         when "campaign_start" then campaign_start(params)
         when "campaign_status" then campaign_status(params)
+        when "campaign_claim" then campaign_claim(params)
+        when "campaign_release" then campaign_release(params)
         when "campaign_answer_question" then campaign_answer_question(params)
         when "campaign_record_increment" then campaign_record_increment(params)
         when "campaign_stop" then campaign_stop(params)
@@ -133,6 +153,24 @@ module Ai
         return error_result("Campaign not found") unless campaign
 
         success_result(driver.status(campaign))
+      end
+
+      def campaign_claim(params)
+        return success_result(halted: true) if halted?
+
+        campaign = find_campaign(params[:campaign_id])
+        return error_result("Campaign not found") unless campaign
+
+        success_result(driver.claim(campaign, holder: params[:holder]))
+      rescue ArgumentError => e
+        error_result(e.message)
+      end
+
+      def campaign_release(params)
+        campaign = find_campaign(params[:campaign_id])
+        return error_result("Campaign not found") unless campaign
+
+        success_result(driver.release(campaign, holder: params[:holder]))
       end
 
       def campaign_answer_question(params)

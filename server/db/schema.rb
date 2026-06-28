@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_28_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1048,7 +1048,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_28_000004) do
     t.uuid "created_by_id"
     t.string "decision_authority", default: "supervised", null: false
     t.text "description"
+    t.datetime "driver_lease_expires_at"
+    t.string "driver_lease_holder"
     t.integer "failed_tasks", default: 0, null: false
+    t.datetime "last_activity_at"
     t.integer "loop_count", default: 0, null: false
     t.string "name", null: false
     t.integer "open_questions", default: 0, null: false
@@ -1061,6 +1064,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_28_000004) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_ai_campaigns_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_campaigns_on_account_id"
+    t.index ["last_activity_at"], name: "index_ai_campaigns_on_last_activity_at"
   end
 
   create_table "ai_circuit_breakers", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|

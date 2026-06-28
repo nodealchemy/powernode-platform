@@ -18,6 +18,11 @@ module Ai
     #   autonomous — trusted + auto-refill the backlog and keep going until empty/halted.
     DECISION_AUTHORITY = %w[supervised monitored trusted autonomous].freeze
 
+    # How long a driver holds the single-driver lease before it must renew (drivers
+    # renew on each unit of work). Sized so a crashed/abandoned driver's lease frees
+    # itself without operator intervention, but long enough to span a normal iteration.
+    DEFAULT_LEASE_TTL = 30.minutes
+
     belongs_to :account
     belongs_to :created_by, class_name: "User", foreign_key: "created_by_id", optional: true
 
@@ -64,6 +69,60 @@ module Ai
 
     def terminal?
       status.in?(TERMINAL_STATUSES)
+    end
+
+    # ---- single-driver lease ----------------------------------------------
+    # Advisory, expiring claim ensuring one driver works a campaign at a time. A
+    # campaign/<id> branch + this progress ledger are mutated by whoever drives the
+    # campaign; two concurrent drivers (e.g. two CC sessions, or a CC session + the
+    # platform executor) race on git and the ledger. Drivers cooperatively claim the
+    # lease before driving and renew it as they work; a second driver sees it held and
+    # backs off. Atomic via row lock; expired leases are freely re-acquirable so a
+    # crashed driver never wedges the campaign. Guarded with has_attribute? so the code
+    # tolerates the columns being absent during the migration window (expand-contract).
+
+    def driver_lease_active?
+      return false unless has_attribute?(:driver_lease_holder)
+
+      driver_lease_holder.present? && driver_lease_expires_at.present? && driver_lease_expires_at > Time.current
+    end
+
+    def driver_lease_info
+      return nil unless driver_lease_active?
+
+      { holder: driver_lease_holder, expires_at: driver_lease_expires_at }
+    end
+
+    # Acquire or renew the lease for `holder`. Returns true if `holder` now holds it,
+    # false if a different driver holds an unexpired lease. The current holder renewing
+    # always succeeds (extends the expiry). No-op allow before the columns exist.
+    def acquire_driver_lease!(holder:, ttl: DEFAULT_LEASE_TTL)
+      return true unless has_attribute?(:driver_lease_holder)
+      raise ArgumentError, "lease holder is required" if holder.blank?
+
+      acquired = false
+      with_lock do
+        if !driver_lease_active? || driver_lease_holder == holder
+          update_columns(driver_lease_holder: holder, driver_lease_expires_at: Time.current + ttl)
+          acquired = true
+        end
+      end
+      acquired
+    end
+
+    # Release the lease iff `holder` holds it (or it's already free). Returns true when
+    # the lease is free afterward, false when a different driver still holds it.
+    def release_driver_lease!(holder:)
+      return true unless has_attribute?(:driver_lease_holder)
+
+      released = false
+      with_lock do
+        if driver_lease_holder.blank? || driver_lease_holder == holder
+          update_columns(driver_lease_holder: nil, driver_lease_expires_at: nil)
+          released = true
+        end
+      end
+      released
     end
 
     # ---- decisions + parked questions -------------------------------------
@@ -162,7 +221,8 @@ module Ai
         completion_pct: completion_pct, started_at: started_at, completed_at: completed_at,
         # Guarded so the code tolerates the column being absent during the migration
         # window (expand-contract / running ahead of the schema).
-        last_activity_at: (last_activity_at if has_attribute?(:last_activity_at))
+        last_activity_at: (last_activity_at if has_attribute?(:last_activity_at)),
+        driver_lease: (driver_lease_info if has_attribute?(:driver_lease_holder))
       }
     end
   end

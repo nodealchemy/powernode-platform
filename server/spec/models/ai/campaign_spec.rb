@@ -81,6 +81,54 @@ RSpec.describe Ai::Campaign, type: :model do
     end
   end
 
+  describe "single-driver lease" do
+    it "acquires when free and reports the lease as active" do
+      expect(campaign.driver_lease_active?).to be false
+      expect(campaign.acquire_driver_lease!(holder: "sess-a")).to be true
+      expect(campaign.reload.driver_lease_active?).to be true
+      expect(campaign.driver_lease_info).to include(holder: "sess-a")
+    end
+
+    it "refuses a second holder while a lease is active, but lets the holder renew" do
+      campaign.acquire_driver_lease!(holder: "sess-a", ttl: 30.minutes)
+      first_expiry = campaign.reload.driver_lease_expires_at
+
+      expect(campaign.acquire_driver_lease!(holder: "sess-b")).to be false
+      expect(campaign.reload.driver_lease_holder).to eq("sess-a")
+
+      expect(campaign.acquire_driver_lease!(holder: "sess-a", ttl: 60.minutes)).to be true
+      expect(campaign.reload.driver_lease_expires_at).to be > first_expiry
+    end
+
+    it "lets a new holder acquire once the prior lease has expired" do
+      campaign.acquire_driver_lease!(holder: "sess-a", ttl: 30.minutes)
+      campaign.update_columns(driver_lease_expires_at: 1.minute.ago)
+
+      expect(campaign.driver_lease_active?).to be false
+      expect(campaign.acquire_driver_lease!(holder: "sess-b")).to be true
+      expect(campaign.reload.driver_lease_holder).to eq("sess-b")
+    end
+
+    it "only the holder (or no-one) may release; a non-holder release is a no-op" do
+      campaign.acquire_driver_lease!(holder: "sess-a")
+      expect(campaign.release_driver_lease!(holder: "sess-b")).to be false
+      expect(campaign.reload.driver_lease_holder).to eq("sess-a")
+
+      expect(campaign.release_driver_lease!(holder: "sess-a")).to be true
+      expect(campaign.reload.driver_lease_holder).to be_nil
+      expect(campaign.driver_lease_active?).to be false
+    end
+
+    it "requires a holder to acquire" do
+      expect { campaign.acquire_driver_lease!(holder: "") }.to raise_error(ArgumentError)
+    end
+
+    it "exposes the lease in #summary" do
+      campaign.acquire_driver_lease!(holder: "sess-a")
+      expect(campaign.reload.summary[:driver_lease]).to include(holder: "sess-a")
+    end
+  end
+
   describe "#should_stop?" do
     it "stops on a terminal status" do
       campaign.complete!
