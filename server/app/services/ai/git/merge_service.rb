@@ -20,7 +20,12 @@ module Ai
         target = session.base_branch
         protection_check = branch_protection_service.validate_merge_target(target)
 
-        if protection_check[:requires_approval]
+        # A prior approve_merge! records merge_approved_by; treat that as satisfying
+        # the protection gate so the approved merge proceeds (otherwise the static
+        # branch-protection check re-gates on every execute and never merges).
+        already_approved = session.metadata&.dig("merge_approved_by").present?
+
+        if protection_check[:requires_approval] && !already_approved
           session.update!(metadata: (session.metadata || {}).merge(
             "awaiting_merge_approval" => true,
             "merge_target" => target,
