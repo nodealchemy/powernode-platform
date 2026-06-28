@@ -17,6 +17,15 @@ export interface CampaignSummary {
   completion_pct: number;
   started_at: string | null;
   completed_at: string | null;
+  last_activity_at: string | null;
+}
+
+// Mirrors one entry of Ai::Campaign#activity_feed
+export interface ActivityEvent {
+  kind: 'decision' | 'parked_question' | 'task';
+  status: string;
+  title: string | null;
+  at: string;
 }
 
 // Mirrors Ai::ParkedQuestion#summary
@@ -69,6 +78,7 @@ export interface CampaignDetail extends CampaignSummary {
   stop_conditions: Record<string, unknown>;
   open_questions_list: ParkedQuestion[];
   recent_decisions: CampaignDecision[];
+  activity: ActivityEvent[];
   progress: ProgressEntry[];
   loops: CampaignLoop[];
 }
