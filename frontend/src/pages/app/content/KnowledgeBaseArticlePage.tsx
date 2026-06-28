@@ -192,7 +192,7 @@ export default function KnowledgeBaseArticlePage() {
         <div className="bg-theme-surface rounded-xl border border-theme p-8 shadow-sm">
           <div className="flex flex-wrap items-center gap-6 text-sm">
             <div className="flex items-center gap-2 text-theme-secondary">
-              <div className="w-8 h-8 bg-theme-primary rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-theme-interactive-primary rounded-full flex items-center justify-center">
                 <UserIcon className="h-4 w-4 text-white" />
               </div>
               <div>
@@ -263,7 +263,7 @@ export default function KnowledgeBaseArticlePage() {
                     <Badge 
                       variant="secondary" 
                       size="lg"
-                      className="font-medium px-3 py-1 group-hover:bg-theme-primary group-hover:text-white transition-all group-hover:scale-105"
+                      className="font-medium px-3 py-1 group-hover:bg-theme-interactive-primary group-hover:text-white transition-all group-hover:scale-105"
                     >
                       {tag}
                     </Badge>

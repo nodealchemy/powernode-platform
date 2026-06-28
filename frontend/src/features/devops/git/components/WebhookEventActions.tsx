@@ -156,7 +156,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
                 </button>
                 <button
                   onClick={handleRedeliver}
-                  className="px-4 py-2 text-sm font-medium bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
+                  className="px-4 py-2 text-sm font-medium bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors"
                 >
                   Redeliver
                 </button>
@@ -296,7 +296,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
                   </button>
                   <button
                     onClick={handleRedeliver}
-                    className="px-4 py-2 text-sm font-medium bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
+                    className="px-4 py-2 text-sm font-medium bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors"
                   >
                     Redeliver Event
                   </button>

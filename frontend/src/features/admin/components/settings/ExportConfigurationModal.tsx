@@ -249,7 +249,7 @@ export const ExportConfigurationModal: React.FC<ExportConfigurationModalProps> =
                   <div className="text-sm text-theme-secondary space-y-2">
                     {generatedConfig.instructions.split('\n').map((line, index) => (
                       <div key={index} className="flex items-start">
-                        <span className="w-6 h-6 bg-theme-primary text-white text-xs rounded-full flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
+                        <span className="w-6 h-6 bg-theme-interactive-primary text-white text-xs rounded-full flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
                           {index + 1}
                         </span>
                         <code className="bg-theme-surface px-2 py-1 rounded text-theme-primary font-mono text-xs">

@@ -205,7 +205,7 @@ export function KbArticleContent({ article }: KbArticleContentProps) {
                 key={index} 
                 variant="secondary" 
                 size="lg"
-                className="cursor-pointer hover:bg-theme-primary hover:text-white transition-all hover:scale-105 font-medium px-3 py-1"
+                className="cursor-pointer hover:bg-theme-interactive-primary hover:text-white transition-all hover:scale-105 font-medium px-3 py-1"
               >
                 {tag}
               </Badge>
@@ -286,7 +286,7 @@ function AttachmentCard({ attachment }: AttachmentCardProps) {
   return (
     <div className="bg-theme-surface rounded-lg border border-theme p-6 hover:shadow-md transition-all hover:border-theme-primary group">
       <div className="flex items-start gap-4">
-        <div className="flex-shrink-0 w-12 h-12 bg-theme-background rounded-lg flex items-center justify-center group-hover:bg-theme-primary group-hover:text-white transition-colors">
+        <div className="flex-shrink-0 w-12 h-12 bg-theme-background rounded-lg flex items-center justify-center group-hover:bg-theme-interactive-primary group-hover:text-white transition-colors">
           <Icon className="h-6 w-6" />
         </div>
         <div className="flex-1 min-w-0">
@@ -302,7 +302,7 @@ function AttachmentCard({ attachment }: AttachmentCardProps) {
             onClick={handleDownload}
             variant="secondary"
             size="sm"
-            className="font-medium hover:bg-theme-primary hover:text-white"
+            className="font-medium hover:bg-theme-interactive-primary hover:text-white"
           >
             <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
             Download File

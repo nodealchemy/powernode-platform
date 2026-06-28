@@ -383,7 +383,7 @@ const RepositoryCard: React.FC<{
             </div>
             {repository.primary_language && (
               <div className="flex items-center gap-1 text-theme-secondary">
-                <span className="w-2 h-2 rounded-full bg-theme-primary" />
+                <span className="w-2 h-2 rounded-full bg-theme-interactive-primary" />
                 <span>{repository.primary_language}</span>
               </div>
             )}
@@ -596,7 +596,7 @@ const RepositoryCard: React.FC<{
                             <GitBranch className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate flex-1">{branch.name}</span>
                             {branch.is_default && (
-                              <span className="px-1 py-0.5 text-[9px] rounded bg-theme-primary text-white flex-shrink-0">
+                              <span className="px-1 py-0.5 text-[9px] rounded bg-theme-interactive-primary text-white flex-shrink-0">
                                 default
                               </span>
                             )}
@@ -649,7 +649,7 @@ const RepositoryCard: React.FC<{
                               <div className="flex items-start gap-2">
                                 <div className="flex flex-col items-center pt-1">
                                   <div className={`w-2 h-2 rounded-full border-2 ${
-                                    index === 0 ? 'border-theme-primary bg-theme-primary' : 'border-theme-secondary bg-theme-surface'
+                                    index === 0 ? 'border-theme-primary bg-theme-interactive-primary' : 'border-theme-secondary bg-theme-surface'
                                   }`} />
                                   {index < commits.length - 1 && (
                                     <div className="w-0.5 h-full min-h-[16px] bg-theme-surface/30 mt-1" />
@@ -953,7 +953,7 @@ export function RepositoriesPage({ onActionsReady }: RepositoriesPageProps) {
               <Filter className="w-4 h-4" />
               Filters
               {hasActiveFilters && (
-                <span className="w-2 h-2 rounded-full bg-theme-primary" />
+                <span className="w-2 h-2 rounded-full bg-theme-interactive-primary" />
               )}
             </button>
 

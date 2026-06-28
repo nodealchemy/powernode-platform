@@ -23,7 +23,7 @@ export const MessageAvatar: React.FC<MessageAvatarProps> = ({
   const isUser = senderType === 'user';
 
   const avatarClass = isUser
-    ? 'bg-theme-primary text-white'
+    ? 'bg-theme-interactive-primary text-white'
     : 'bg-theme-surface border border-theme text-theme-primary';
 
   const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-4 w-4';

@@ -109,7 +109,7 @@ export const McpAppsPage: React.FC = () => {
         <div className="flex justify-end mb-4">
           <button
             onClick={handleNewApp}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-theme-primary text-theme-on-primary rounded hover:opacity-90"
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-theme-interactive-primary text-theme-on-primary rounded hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
             New App

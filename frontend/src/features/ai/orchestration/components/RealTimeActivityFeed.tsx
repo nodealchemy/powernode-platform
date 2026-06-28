@@ -243,7 +243,7 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
                 onClick={() => toggleTypeFilter(type.id)}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
                   isSelected 
-                    ? 'bg-theme-primary text-white' 
+                    ? 'bg-theme-interactive-primary text-white'
                     : 'bg-theme-surface text-theme-secondary hover:bg-theme-surface/80'
                 }`}
               >

@@ -88,7 +88,7 @@ export const SecurityContent: React.FC = () => {
               <button
                 onClick={handleProvisionSubmit}
                 disabled={provisionIdentity.isPending || !provisionAgentId.trim()}
-                className="px-4 py-2 text-sm bg-theme-primary text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50"
+                className="px-4 py-2 text-sm bg-theme-interactive-primary text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50"
               >
                 {provisionIdentity.isPending ? 'Provisioning...' : 'Provision'}
               </button>

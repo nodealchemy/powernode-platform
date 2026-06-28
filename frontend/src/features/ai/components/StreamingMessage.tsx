@@ -71,7 +71,7 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
           // During streaming, show plain text with cursor
           <div className="whitespace-pre-wrap text-sm text-theme-primary">
             {content}
-            <span className="inline-block w-2 h-4 ml-0.5 bg-theme-primary animate-pulse" />
+            <span className="inline-block w-2 h-4 ml-0.5 bg-theme-interactive-primary animate-pulse" />
           </div>
         ) : (
           // After streaming, render markdown

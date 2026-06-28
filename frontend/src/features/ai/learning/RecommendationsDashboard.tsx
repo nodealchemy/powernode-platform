@@ -166,7 +166,7 @@ export const RecommendationsDashboard: React.FC = () => {
                       <div className="flex items-center gap-2 ml-4">
                         <button
                           onClick={() => applyRecommendation(rec.id)}
-                          className="px-3 py-1.5 text-xs font-medium bg-theme-primary text-white rounded-md hover:opacity-90"
+                          className="px-3 py-1.5 text-xs font-medium bg-theme-interactive-primary text-white rounded-md hover:opacity-90"
                         >
                           Apply
                         </button>

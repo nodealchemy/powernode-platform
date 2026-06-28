@@ -223,7 +223,7 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
             </div>
             <div className="h-2 bg-theme-background-secondary/20 rounded-full overflow-hidden">
               <div
-                className="h-full bg-theme-primary transition-all duration-300"
+                className="h-full bg-theme-interactive-primary transition-all duration-300"
                 style={{ width: `${(progress.current / progress.total) * 100}%` }}
               />
             </div>

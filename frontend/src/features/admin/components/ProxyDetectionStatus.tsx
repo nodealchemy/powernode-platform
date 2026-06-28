@@ -57,7 +57,7 @@ export const ProxyDetectionStatus: React.FC<ProxyDetectionStatusProps> = ({ dete
       return {
         label: 'Proxy Detected',
         color: 'text-theme-primary',
-        bgColor: 'bg-theme-primary',
+        bgColor: 'bg-theme-interactive-primary',
         description: 'Reverse proxy headers detected in request'
       };
     }
