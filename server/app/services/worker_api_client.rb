@@ -150,6 +150,8 @@ class WorkerApiClient
       "VideoProcessingJob"
     when "audio_processing"
       "AudioProcessingJob"
+    when "video_stitching"
+      "VideoStitchingJob"
     else
       raise ApiError, "Unknown job type: #{job_type}"
     end

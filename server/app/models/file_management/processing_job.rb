@@ -4,13 +4,22 @@ module FileManagement
   class ProcessingJob < ApplicationRecord
     include Auditable
 
+    # Valid job types. The media types (video_processing/audio_processing) are
+    # dispatched by FileManagement::Object#queue_processing_jobs and routed to the
+    # worker by WorkerApiClient#job_class_for_type; video_stitching concatenates a
+    # bundle's ordered scene clips into one mp4 (worker ffmpeg wrapper).
+    JOB_TYPES = %w[
+      thumbnail resize convert scan ocr metadata_extract compress watermark transform
+      video_processing audio_processing video_stitching
+    ].freeze
+
     # Associations
     belongs_to :object, class_name: "FileManagement::Object", foreign_key: :file_object_id
     belongs_to :account
 
     # Validations
     validates :job_type, presence: true, inclusion: {
-      in: %w[thumbnail resize convert scan ocr metadata_extract compress watermark transform],
+      in: JOB_TYPES,
       message: "must be a valid job type"
     }
     validates :status, presence: true, inclusion: {
