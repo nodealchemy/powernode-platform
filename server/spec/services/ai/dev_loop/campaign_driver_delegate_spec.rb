@@ -50,6 +50,13 @@ RSpec.describe Ai::DevLoop::CampaignDriver, "#delegate" do
     expect(campaign.reload.driver_lease_active?).to be false # CC lease released on handoff
   end
 
+  it "delegating to claude_code overrides an incumbent driver's lease (operator override, atomic)" do
+    campaign.acquire_driver_lease!(holder: "incumbent-session")
+    result = driver.delegate(campaign, driver_kind: "claude_code", holder: "operator-chosen")
+    expect(result[:lease][:holder]).to eq("operator-chosen")
+    expect(campaign.reload.driver_lease_holder).to eq("operator-chosen")
+  end
+
   it "rejects an unknown driver_kind" do
     expect { driver.delegate(campaign, driver_kind: "telepathy") }.to raise_error(ArgumentError)
   end

@@ -104,15 +104,18 @@ module Ai
 
         normalized_target = (target || {}).deep_stringify_keys
 
-        # Reassignment: free the current single-driver lease so the new driver can claim it.
-        campaign.release_driver_lease!(holder: campaign.driver_lease_holder) if campaign.driver_lease_active?
-
-        campaign.ralph_loops.find_each { |loop_record| apply_driver_routing!(loop_record, driver_kind, normalized_target) }
-
         lease = nil
-        if driver_kind == "claude_code" && holder.present?
-          campaign.acquire_driver_lease!(holder: holder)
-          lease = campaign.driver_lease_info
+        # Atomic reassignment under the campaign row lock: release the incumbent lease
+        # (operator override), re-route every loop, and — for claude_code — take the lease,
+        # as one unit. Without the lock a concurrent pull/scheduler/delegate could interleave
+        # between release and re-acquire and leave the lease holder misaligned with driver_kind.
+        campaign.with_lock do
+          campaign.release_driver_lease!(holder: campaign.driver_lease_holder) if campaign.driver_lease_active?
+          campaign.ralph_loops.find_each { |loop_record| apply_driver_routing!(loop_record, driver_kind, normalized_target) }
+          if driver_kind == "claude_code" && holder.present?
+            campaign.acquire_driver_lease!(holder: holder) # succeeds: lease was just released under this lock
+            lease = campaign.driver_lease_info
+          end
         end
         campaign.touch_activity! if campaign.respond_to?(:touch_activity!)
 

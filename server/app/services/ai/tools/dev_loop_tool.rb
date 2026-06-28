@@ -133,19 +133,25 @@ module Ai
       # Legacy loops (no campaign, or driver_kind unset) are unaffected. Returns a halt
       # reason string when this caller must back off, else nil (and renews the lease).
       def delegation_block_reason(loop_record, holder)
-        return nil if loop_record.campaign_id.blank? || loop_record.driver_kind.blank?
+        return nil if loop_record.campaign_id.blank?
+
+        # Re-read driver_kind: a concurrent #delegate may have just reassigned this loop, so
+        # the in-memory copy from find_loop could be stale.
+        loop_record.reload
+        return nil if loop_record.driver_kind.blank? # legacy / not routed → ungated
         return "delegated_to_platform" if loop_record.platform_driven?
 
         campaign = loop_record.campaign
         return nil unless campaign
 
-        if campaign.driver_lease_active? && campaign.driver_lease_holder != holder
-          return "leased_to:#{campaign.driver_lease_holder}"
+        if holder.present?
+          # Single atomic step: acquires the lease if it's free or already ours, returns
+          # false if another driver holds it (no check-then-acquire gap).
+          return campaign.acquire_driver_lease!(holder: holder) ? nil : "leased_to:#{campaign.driver_lease_holder}"
         end
 
-        # Take/renew the lease for this CC holder so a second driver can't race in.
-        campaign.acquire_driver_lease!(holder: holder) if holder.present?
-        nil
+        # Legacy CC caller without a holder: allow only when the lease is free.
+        campaign.driver_lease_active? ? "leased_to:#{campaign.driver_lease_holder}" : nil
       end
 
       def list_tasks(params)

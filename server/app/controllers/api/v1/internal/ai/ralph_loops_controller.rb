@@ -101,7 +101,11 @@ module Api
 
           def platform_drain_blocked?(loop)
             return false if loop.campaign_id.blank? || loop.driver_kind.blank?
-            return true if loop.claude_code_driven?
+
+            # Re-read driver_kind: a concurrent #delegate may have flipped this loop to
+            # claude_code since due_for_execution loaded it.
+            loop.reload
+            return true if loop.driver_kind.blank? || loop.claude_code_driven?
 
             campaign = loop.campaign
             return false unless campaign
