@@ -49,4 +49,12 @@ RSpec.describe Ai::Delivery::Orchestrator, type: :service do
     run = orchestrator.deliver(target: target(strategy: "telepathy"), ref: "abc")
     expect(run.strategy).to eq("direct")
   end
+
+  it "records a failed delivery (no raise) when the underlying deploy errors" do
+    allow_any_instance_of(Ai::Deploy::Orchestrator).to receive(:deploy).and_raise("deploy exploded")
+    run = nil
+    expect { run = orchestrator.deliver(target: target, ref: "abc") }.not_to raise_error
+    expect(run.status).to eq("failed")
+    expect(run.error_message).to match(/deploy exploded/)
+  end
 end

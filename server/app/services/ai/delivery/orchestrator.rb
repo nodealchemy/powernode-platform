@@ -44,8 +44,14 @@ module Ai
 
         run.reload
       rescue StandardError => e
-        run&.fail!(e.message)
-        raise
+        # A delivery FAILURE is operational data, not an exception — record it on the run and
+        # return it so the tool/controller report a clean "failed" delivery (not a 500). Only a
+        # failure to even create the run (e.g. a validation error) is surfaced as an exception.
+        raise unless run
+
+        Rails.logger.error("[Ai::Delivery::Orchestrator] delivery #{run.id} failed: #{e.message}")
+        run.fail!(e.message)
+        run.reload
       end
 
       private
