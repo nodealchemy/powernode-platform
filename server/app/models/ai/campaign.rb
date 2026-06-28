@@ -36,7 +36,14 @@ module Ai
 
     # ---- lifecycle ---------------------------------------------------------
     def start!
-      update!(status: "active", started_at: started_at || Time.current)
+      update!(status: "active", started_at: started_at || Time.current, last_activity_at: Time.current)
+    end
+
+    # Heartbeat for the execution interface: bump when the campaign does real work
+    # (decision, parked question, increment, lifecycle). Deliberately NOT called by
+    # snapshot_progress!/status reads, so it reflects work, not monitoring polls.
+    def touch_activity!
+      update_column(:last_activity_at, Time.current) if has_attribute?(:last_activity_at)
     end
 
     def pause!(reason = nil)
@@ -61,15 +68,18 @@ module Ai
 
     # ---- decisions + parked questions -------------------------------------
     def record_decision!(decision_type:, title: nil, rationale: nil, task: nil, user: nil, metadata: {})
-      campaign_decisions.create!(
+      decision = campaign_decisions.create!(
         decision_type: decision_type, title: title, rationale: rationale,
         ralph_task_id: task&.id, user_id: user&.id, metadata: metadata
       )
+      touch_activity!
+      decision
     end
 
     def park_question!(question:, context: nil, task: nil, metadata: {})
       pq = parked_questions.create!(question: question, context: context, ralph_task_id: task&.id, metadata: metadata)
       refresh_open_questions_count!
+      touch_activity!
       pq
     end
 
@@ -130,7 +140,8 @@ module Ai
         id: id, name: name, status: status, decision_authority: decision_authority,
         loop_count: loop_count, total_tasks: total_tasks, completed_tasks: completed_tasks,
         failed_tasks: failed_tasks, blocked_tasks: blocked_tasks, open_questions: open_questions,
-        completion_pct: completion_pct, started_at: started_at, completed_at: completed_at
+        completion_pct: completion_pct, started_at: started_at, completed_at: completed_at,
+        last_activity_at: last_activity_at
       }
     end
   end
