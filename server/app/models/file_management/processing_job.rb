@@ -10,7 +10,7 @@ module FileManagement
     # bundle's ordered scene clips into one mp4 (worker ffmpeg wrapper).
     JOB_TYPES = %w[
       thumbnail resize convert scan ocr metadata_extract compress watermark transform
-      video_processing audio_processing video_stitching
+      video_processing audio_processing video_stitching document_generation
     ].freeze
 
     # Associations

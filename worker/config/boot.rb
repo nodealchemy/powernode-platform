@@ -36,6 +36,7 @@ require_relative '../app/services/twilio_service'
 
 # Media/file processing (ffmpeg/ffprobe wrappers used by file_processing jobs)
 require_relative '../app/services/file_processing_service'
+require_relative '../app/services/document_pdf_service'
 
 # Require base classes first — available to core AND extension jobs/services.
 # BaseWorkerService must load here (not lazily via each service's own require) so

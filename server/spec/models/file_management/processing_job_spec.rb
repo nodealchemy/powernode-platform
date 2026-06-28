@@ -8,11 +8,11 @@ RSpec.describe FileManagement::ProcessingJob do
   let(:file_object) { create(:file_object, account: account, uploaded_by: user) }
 
   describe "job_type validation" do
-    it "lists the media + stitching job types" do
-      expect(described_class::JOB_TYPES).to include("video_processing", "audio_processing", "video_stitching")
+    it "lists the media + stitching + document job types" do
+      expect(described_class::JOB_TYPES).to include("video_processing", "audio_processing", "video_stitching", "document_generation")
     end
 
-    %w[video_processing audio_processing video_stitching].each do |type|
+    %w[video_processing audio_processing video_stitching document_generation].each do |type|
       it "accepts #{type} as a job_type" do
         job = build(:file_processing_job, account: account, object: file_object, job_type: type)
         expect(job).to be_valid

@@ -11,7 +11,8 @@ RSpec.describe WorkerApiClient do
       "metadata_extract" => "MetadataExtractionJob",
       "video_processing" => "VideoProcessingJob",
       "audio_processing" => "AudioProcessingJob",
-      "video_stitching" => "VideoStitchingJob"
+      "video_stitching" => "VideoStitchingJob",
+      "document_generation" => "DocumentGenerationJob"
     }.each do |job_type, expected_class|
       it "maps #{job_type} to #{expected_class}" do
         expect(client.send(:job_class_for_type, job_type)).to eq(expected_class)
