@@ -40,6 +40,7 @@ module Ai
         campaign.snapshot_progress!
         {
           campaign: campaign.reload.summary,
+          activity: campaign.activity_feed(limit: 20),
           open_questions: campaign.open_questions_list.map(&:summary),
           recent_decisions: campaign.campaign_decisions.recent(10).map(&:summary),
           loops: campaign.ralph_loops.map do |l|

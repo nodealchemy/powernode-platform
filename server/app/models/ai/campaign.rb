@@ -135,6 +135,25 @@ module Ai
       false
     end
 
+    # Unified, newest-first feed of campaign activity (decisions + parked questions
+    # + completed tasks) so the execution interface / monitoring is one read instead
+    # of polling git + the DB separately.
+    def activity_feed(limit: 20)
+      events = []
+      campaign_decisions.order(created_at: :desc).limit(limit).each do |d|
+        events << { kind: "decision", status: d.decision_type, title: d.title, at: d.created_at }
+      end
+      parked_questions.order(created_at: :desc).limit(limit).each do |q|
+        events << { kind: "parked_question", status: q.status, title: q.question, at: q.created_at }
+      end
+      Ai::RalphTask.where(ralph_loop_id: ralph_loops.select(:id))
+                   .where.not(iteration_completed_at: nil)
+                   .order(iteration_completed_at: :desc).limit(limit).each do |t|
+        events << { kind: "task", status: t.status, title: t.task_key, at: t.iteration_completed_at }
+      end
+      events.select { |e| e[:at] }.sort_by { |e| e[:at] }.reverse.first(limit)
+    end
+
     def summary
       {
         id: id, name: name, status: status, decision_authority: decision_authority,
