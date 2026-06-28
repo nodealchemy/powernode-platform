@@ -167,6 +167,20 @@ module Ai
         renamed
       end
 
+      # Request that a completed campaign change-set be landed to a target branch.
+      # Creates an Ai::CampaignLand behind the approval gate (auto-approves only
+      # for an autonomous campaign). The land worker drives it from there.
+      def request_land(campaign, source_branch: nil, target_branch: "develop", description: nil, priority: 0)
+        Ai::Land::ApprovalBinding.request_land_approval(
+          campaign: campaign,
+          source_branch: source_branch || campaign.ralph_loops.first&.branch,
+          target_branch: target_branch,
+          description: description,
+          requested_by: @user,
+          priority: priority
+        )
+      end
+
       private
 
       def create_campaign_loop(campaign)
