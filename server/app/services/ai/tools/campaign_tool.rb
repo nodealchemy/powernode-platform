@@ -11,30 +11,62 @@ module Ai
       def self.definition
         {
           name: "campaign",
-          description: "Manage Autonomous Improvement Campaigns: start a campaign (and its dev-loop), " \
-                       "check status, answer parked questions, and stop it.",
+          description: "Manage Autonomous Improvement Campaigns and the discovery/delegation control " \
+                       "plane: propose a campaign into the queue, approve+spawn a proposal, start a " \
+                       "campaign directly (and its dev-loop), check status, answer parked questions, stop it.",
           parameters: {
             action: { type: "string", required: true,
-                      description: "campaign_start | campaign_status | campaign_claim | campaign_release | " \
-                                   "campaign_answer_question | campaign_record_increment | campaign_stop" },
+                      description: "campaign_propose | campaign_approve_proposal | campaign_start | " \
+                                   "campaign_status | campaign_claim | campaign_release | " \
+                                   "campaign_answer_question | campaign_record_increment | " \
+                                   "campaign_check_rebase | campaign_stop" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
+            proposal_id: { type: "string", required: false, description: "CampaignProposal UUID (campaign_approve_proposal)" },
             holder: { type: "string", required: false, description: "Driver identity for the single-driver lease (campaign_claim/release)" },
             name: { type: "string", required: false, description: "Campaign name (campaign_start)" },
-            description: { type: "string", required: false },
+            title: { type: "string", required: false, description: "Proposal title (campaign_propose)" },
+            objective: { type: "string", required: false, description: "What the campaign should accomplish (campaign_propose)" },
+            source: { type: "string", required: false, description: "discovery | trajectory | improvement | manual (campaign_propose)" },
+            scope: { type: "string", required: false, description: "Target/repo scope label for dedupe (campaign_propose)" },
+            suggested_workload: { type: "string", required: false, description: "improvement-campaign | feature-development | new-project" },
+            suggested_driver: { type: "string", required: false, description: "claude_code | platform_agent | platform_group | platform_mission" },
+            description: { type: "string", required: false, description: "Optional campaign description" },
             configuration: { type: "object", required: false,
                              description: "Durable config: scope/posture/ordering/keep-going" },
             decision_authority: { type: "string", required: false,
                                   description: "supervised | monitored | trusted | autonomous (default trusted)" },
             stop_conditions: { type: "object", required: false, description: "e.g. { max_failed:, completion_pct: }" },
-            question_id: { type: "string", required: false },
-            answer: { type: "string", required: false },
-            summary: { type: "string", required: false }
+            question_id: { type: "string", required: false, description: "Parked question UUID" },
+            answer: { type: "string", required: false, description: "Answer to a parked question" },
+            summary: { type: "string", required: false, description: "Increment/completion summary" }
           }
         }
       end
 
       def self.action_definitions
         {
+          "campaign_propose" => {
+            description: "Propose a campaign into the discovery/delegation queue (deduped per target). " \
+                         "Use this to enqueue a campaign idea for review before spawning. Returns the proposal.",
+            parameters: {
+              title: { type: "string", required: true, description: "Short proposal title" },
+              objective: { type: "string", required: true, description: "What the campaign should accomplish" },
+              source: { type: "string", required: false, description: "discovery|trajectory|improvement|manual (default manual)" },
+              scope: { type: "string", required: false, description: "Target/repo scope label (used for per-target dedupe)" },
+              suggested_workload: { type: "string", required: false, description: "improvement-campaign|feature-development|new-project" },
+              suggested_driver: { type: "string", required: false, description: "claude_code|platform_agent|platform_group|platform_mission" },
+              decision_authority: { type: "string", required: false, description: "supervised|monitored|trusted|autonomous (default trusted)" },
+              configuration: { type: "object", required: false, description: "Spawn configuration (scope/posture/plan_increments/...)" }
+            }
+          },
+          "campaign_approve_proposal" => {
+            description: "Approve a queued/proposed proposal AND spawn its Ai::Campaign (and dev-loop) in one " \
+                         "step — the concierge's 'create this campaign' action. Idempotent. Returns the " \
+                         "proposal + the spawned campaign + its loop.",
+            parameters: {
+              proposal_id: { type: "string", required: true, description: "CampaignProposal UUID" }
+            }
+          },
           "campaign_start" => {
             description: "Start an Autonomous Improvement Campaign: creates the campaign + a dedicated " \
                          "campaign-scoped Ralph loop that /dev-loop drains. Returns the campaign + loop.",
@@ -113,6 +145,8 @@ module Ai
 
       def call(params)
         case params[:action]
+        when "campaign_propose" then campaign_propose(params)
+        when "campaign_approve_proposal" then campaign_approve_proposal(params)
         when "campaign_start" then campaign_start(params)
         when "campaign_status" then campaign_status(params)
         when "campaign_claim" then campaign_claim(params)
@@ -139,6 +173,49 @@ module Ai
         return nil if id.blank?
 
         account.ai_campaigns.where(id: id).first || account.ai_campaigns.find_by(name: id)
+      end
+
+      def find_proposal(id)
+        return nil if id.blank?
+
+        account.ai_campaign_proposals.where(id: id).first
+      end
+
+      def campaign_propose(params)
+        return success_result(halted: true) if halted?
+        return error_result("title and objective are required") if params[:title].blank? || params[:objective].blank?
+
+        proposal = Ai::CampaignProposal.propose!(
+          account: account,
+          title: params[:title], objective: params[:objective],
+          source: params[:source].presence || "manual",
+          scope: params[:scope],
+          suggested_workload: params[:suggested_workload],
+          suggested_driver: params[:suggested_driver],
+          decision_authority: params[:decision_authority].presence || "trusted",
+          configuration: params[:configuration] || {}
+        )
+        success_result(proposal: proposal.summary)
+      rescue ActiveRecord::RecordInvalid => e
+        error_result(e.message)
+      end
+
+      def campaign_approve_proposal(params)
+        return success_result(halted: true) if halted?
+
+        proposal = find_proposal(params[:proposal_id])
+        return error_result("Proposal not found") unless proposal
+
+        proposal.approve!(user)
+        campaign = Ai::CampaignProposals::SpawnService.new(account: account, user: user).spawn!(proposal)
+        loop_record = campaign.ralph_loops.order(:created_at).first
+        success_result(
+          proposal: proposal.reload.summary,
+          campaign: campaign.summary,
+          loop: loop_record && { id: loop_record.id, name: loop_record.name, branch: loop_record.branch }
+        )
+      rescue ArgumentError => e
+        error_result(e.message)
       end
 
       def campaign_start(params)

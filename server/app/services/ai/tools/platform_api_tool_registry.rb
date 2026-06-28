@@ -341,6 +341,8 @@ module Ai
         "dev_list_tasks" => "Ai::Tools::DevLoopTool",
         "delegate_ralph_task" => "Ai::Tools::DevLoopTool",
         # Autonomous Improvement Campaigns: a durable wrapper that drives the dev-improve loop
+        "campaign_propose" => "Ai::Tools::CampaignTool",
+        "campaign_approve_proposal" => "Ai::Tools::CampaignTool",
         "campaign_start" => "Ai::Tools::CampaignTool",
         "campaign_status" => "Ai::Tools::CampaignTool",
         "campaign_claim" => "Ai::Tools::CampaignTool",

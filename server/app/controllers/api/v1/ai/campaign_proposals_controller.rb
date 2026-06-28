@@ -11,8 +11,8 @@ module Api
       # proposal queue is part of the campaigns domain, so no new permission family.
       class CampaignProposalsController < ApplicationController
         before_action :require_read, only: %i[index show]
-        before_action :require_manage, only: %i[create queue approve reject]
-        before_action :set_proposal, only: %i[show queue approve reject]
+        before_action :require_manage, only: %i[create queue approve reject spawn]
+        before_action :set_proposal, only: %i[show queue approve reject spawn]
 
         def index
           proposals = current_user.account.ai_campaign_proposals
@@ -59,6 +59,18 @@ module Api
         def reject
           @proposal.reject!(current_user, reason: params[:reason])
           render_success(serialize(@proposal))
+        end
+
+        # Spawn the proposal's campaign (idempotent). Approve is the decision; spawn is
+        # the action that creates the Ai::Campaign + its dev-loop. Delegation of that
+        # loop's driver happens separately (increment 4).
+        def spawn
+          campaign = ::Ai::CampaignProposals::SpawnService.new(
+            account: current_user.account, user: current_user
+          ).spawn!(@proposal)
+          render_success(serialize(@proposal.reload).merge(spawned_campaign: campaign.summary))
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
         end
 
         private

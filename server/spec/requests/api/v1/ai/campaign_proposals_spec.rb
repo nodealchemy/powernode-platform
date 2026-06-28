@@ -80,5 +80,17 @@ RSpec.describe "Api::V1::Ai::CampaignProposals", type: :request do
       post "/api/v1/ai/campaign_proposals/#{other.id}/approve", headers: headers, as: :json
       expect(response).to have_http_status(:not_found)
     end
+
+    it "spawn creates the campaign + dev-loop and back-links it" do
+      p = create(:ai_campaign_proposal, :approved, account: account, title: "Add feature Z")
+
+      post "/api/v1/ai/campaign_proposals/#{p.id}/spawn", headers: headers, as: :json
+
+      expect_success_response
+      data = json_response_data
+      expect(data["status"]).to eq("spawned")
+      expect(data["spawned_campaign"]["name"]).to eq("Add feature Z")
+      expect(p.reload.spawned_campaign_id).to eq(data["spawned_campaign"]["id"])
+    end
   end
 end

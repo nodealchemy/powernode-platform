@@ -2780,6 +2780,7 @@ Rails.application.routes.draw do
             post :queue
             post :approve
             post :reject
+            post :spawn
           end
         end
 

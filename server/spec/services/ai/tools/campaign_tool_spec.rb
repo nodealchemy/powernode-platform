@@ -14,9 +14,38 @@ RSpec.describe Ai::Tools::CampaignTool do
   it "registers a campaign permission + declares its actions" do
     expect(described_class::REQUIRED_PERMISSION).to eq("ai.campaigns.manage")
     expect(described_class.action_definitions.keys).to contain_exactly(
+      "campaign_propose", "campaign_approve_proposal",
       "campaign_start", "campaign_status", "campaign_claim", "campaign_release",
       "campaign_answer_question", "campaign_record_increment", "campaign_check_rebase", "campaign_stop"
     )
+  end
+
+  it "campaign_propose enqueues a deduped proposal" do
+    res = exec(action: "campaign_propose", title: "Add export", objective: "Add CSV export to reports", scope: "core")
+    expect(res[:success]).to be true
+    expect(res[:data][:proposal][:status]).to eq("proposed")
+
+    # Same target again → refreshed, not duplicated.
+    exec(action: "campaign_propose", title: "Add export v2", objective: "Add CSV export to reports", scope: "core")
+    expect(account.ai_campaign_proposals.count).to eq(1)
+  end
+
+  it "campaign_approve_proposal approves + spawns the campaign in one step (concierge path)" do
+    pid = exec(action: "campaign_propose", title: "Build widget", objective: "Build the widget",
+               suggested_workload: "feature-development")[:data][:proposal][:id]
+
+    res = exec(action: "campaign_approve_proposal", proposal_id: pid)
+    expect(res[:success]).to be true
+    expect(res[:data][:campaign][:name]).to eq("Build widget")
+    expect(res[:data][:loop][:branch]).to start_with("campaign/")
+
+    proposal = account.ai_campaign_proposals.find(pid)
+    expect(proposal.status).to eq("spawned")
+    expect(proposal.spawned_campaign_id).to eq(res[:data][:campaign][:id])
+  end
+
+  it "campaign_approve_proposal errors on an unknown proposal" do
+    expect(exec(action: "campaign_approve_proposal", proposal_id: "nope")[:success]).to be false
   end
 
   it "campaign_check_rebase advises behind campaigns and returns the advised set" do
