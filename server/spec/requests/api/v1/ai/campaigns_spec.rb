@@ -73,6 +73,27 @@ RSpec.describe "Api::V1::Ai::Campaigns", type: :request do
     end
   end
 
+  describe "delegating the driver" do
+    it "routes the campaign loop to claude_code and takes the lease" do
+      campaign = start_campaign
+
+      post "/api/v1/ai/campaigns/#{campaign.id}/delegate", headers: headers,
+           params: { driver_kind: "claude_code", holder: "cc-sess" }, as: :json
+      expect_success_response
+      data = json_response_data
+      expect(data["driver_kind"]).to eq("claude_code")
+      expect(data["lease"]["holder"]).to eq("cc-sess")
+      expect(campaign.ralph_loops.first.reload.driver_kind).to eq("claude_code")
+    end
+
+    it "422s an unknown driver_kind" do
+      campaign = start_campaign
+      post "/api/v1/ai/campaigns/#{campaign.id}/delegate", headers: headers,
+           params: { driver_kind: "telepathy" }, as: :json
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+  end
+
   describe "authorization" do
     it "forbids a user lacking ai.campaigns.read" do
       other = user_with_permissions("ai.goals.manage")

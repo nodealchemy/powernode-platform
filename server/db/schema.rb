@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000005) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000006) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -3395,6 +3395,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000005) do
     t.date "daily_iteration_reset_at"
     t.uuid "default_agent_id"
     t.text "description"
+    t.string "driver_kind"
+    t.jsonb "driver_target", default: {}, null: false
     t.integer "duration_ms"
     t.jsonb "duty_cycle_config", default: {}
     t.string "error_code"
@@ -3427,6 +3429,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000005) do
     t.index ["campaign_id"], name: "index_ai_ralph_loops_on_campaign_id"
     t.index ["created_at"], name: "index_ai_ralph_loops_on_created_at"
     t.index ["default_agent_id"], name: "index_ai_ralph_loops_on_default_agent_id"
+    t.index ["driver_kind"], name: "index_ai_ralph_loops_on_driver_kind"
     t.index ["mission_id"], name: "index_ai_ralph_loops_on_mission_id"
     t.index ["next_scheduled_at"], name: "index_ai_ralph_loops_on_next_scheduled_at"
     t.index ["risk_contract_id"], name: "index_ai_ralph_loops_on_risk_contract_id"

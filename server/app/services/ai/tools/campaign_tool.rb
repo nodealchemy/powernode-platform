@@ -16,13 +16,15 @@ module Ai
                        "campaign directly (and its dev-loop), check status, answer parked questions, stop it.",
           parameters: {
             action: { type: "string", required: true,
-                      description: "campaign_propose | campaign_approve_proposal | campaign_start | " \
-                                   "campaign_status | campaign_claim | campaign_release | " \
+                      description: "campaign_propose | campaign_approve_proposal | campaign_delegate | " \
+                                   "campaign_start | campaign_status | campaign_claim | campaign_release | " \
                                    "campaign_answer_question | campaign_record_increment | " \
                                    "campaign_check_rebase | campaign_stop" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
             proposal_id: { type: "string", required: false, description: "CampaignProposal UUID (campaign_approve_proposal)" },
-            holder: { type: "string", required: false, description: "Driver identity for the single-driver lease (campaign_claim/release)" },
+            driver_kind: { type: "string", required: false, description: "claude_code|platform_agent|platform_group|platform_mission (campaign_delegate)" },
+            target: { type: "object", required: false, description: "Platform target ref: { agent_id|group_id|mission_id } (campaign_delegate)" },
+            holder: { type: "string", required: false, description: "Driver identity for the single-driver lease (campaign_claim/release/delegate)" },
             name: { type: "string", required: false, description: "Campaign name (campaign_start)" },
             title: { type: "string", required: false, description: "Proposal title (campaign_propose)" },
             objective: { type: "string", required: false, description: "What the campaign should accomplish (campaign_propose)" },
@@ -65,6 +67,19 @@ module Ai
                          "proposal + the spawned campaign + its loop.",
             parameters: {
               proposal_id: { type: "string", required: true, description: "CampaignProposal UUID" }
+            }
+          },
+          "campaign_delegate" => {
+            description: "Route a campaign's dev-loop to a driver — claude_code (a Claude Code session " \
+                         "drains the pull queue) or platform_agent|platform_group|platform_mission (the " \
+                         "platform executor drains it). Reassignment releases the current single-driver " \
+                         "lease so the new driver can claim it; for claude_code, pass holder to take the " \
+                         "lease immediately.",
+            parameters: {
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
+              driver_kind: { type: "string", required: true, description: "claude_code|platform_agent|platform_group|platform_mission" },
+              target: { type: "object", required: false, description: "Platform target ref: { agent_id|group_id|mission_id }" },
+              holder: { type: "string", required: false, description: "Driver identity (claude_code: take the lease now)" }
             }
           },
           "campaign_start" => {
@@ -147,6 +162,7 @@ module Ai
         case params[:action]
         when "campaign_propose" then campaign_propose(params)
         when "campaign_approve_proposal" then campaign_approve_proposal(params)
+        when "campaign_delegate" then campaign_delegate(params)
         when "campaign_start" then campaign_start(params)
         when "campaign_status" then campaign_status(params)
         when "campaign_claim" then campaign_claim(params)
@@ -213,6 +229,21 @@ module Ai
           proposal: proposal.reload.summary,
           campaign: campaign.summary,
           loop: loop_record && { id: loop_record.id, name: loop_record.name, branch: loop_record.branch }
+        )
+      rescue ArgumentError => e
+        error_result(e.message)
+      end
+
+      def campaign_delegate(params)
+        return success_result(halted: true) if halted?
+
+        campaign = find_campaign(params[:campaign_id])
+        return error_result("Campaign not found") unless campaign
+        return error_result("driver_kind is required") if params[:driver_kind].blank?
+
+        success_result(
+          driver.delegate(campaign, driver_kind: params[:driver_kind],
+                                    target: params[:target] || {}, holder: params[:holder])
         )
       rescue ArgumentError => e
         error_result(e.message)

@@ -15,6 +15,12 @@ module Ai
     # Scheduling mode enumeration
     SCHEDULING_MODES = %w[manual scheduled continuous event_triggered autonomous].freeze
 
+    # Who drives this loop's task queue (campaign discovery/delegation control plane).
+    # claude_code = a Claude Code session drains it via the dev-loop pull queue;
+    # platform_* = the platform executor drains it. nil = legacy (scheduling-mode-driven).
+    DRIVER_KINDS = %w[claude_code platform_agent platform_group platform_mission].freeze
+    PLATFORM_DRIVER_KINDS = %w[platform_agent platform_group platform_mission].freeze
+
     # ==================== Associations ====================
     belongs_to :account
     belongs_to :default_agent, class_name: "Ai::Agent", foreign_key: "default_agent_id", optional: true
@@ -34,6 +40,7 @@ module Ai
     validates :status, presence: true, inclusion: { in: STATUSES }
     validates :default_agent, presence: true, on: :start
     validates :scheduling_mode, inclusion: { in: SCHEDULING_MODES }
+    validates :driver_kind, inclusion: { in: DRIVER_KINDS }, allow_nil: true
     validate :default_agent_belongs_to_account, if: :default_agent_id_changed?
     validates :current_iteration, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
     validates :max_iterations, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
@@ -76,6 +83,16 @@ module Ai
 
     def code_factory_mode?
       code_factory_mode == true
+    end
+
+    # Drained by a Claude Code session via the dev-loop pull queue.
+    def claude_code_driven?
+      driver_kind == "claude_code"
+    end
+
+    # Drained by the platform executor (agent/group/mission).
+    def platform_driven?
+      PLATFORM_DRIVER_KINDS.include?(driver_kind)
     end
 
     def run_all_active?

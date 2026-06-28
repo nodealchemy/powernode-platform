@@ -89,6 +89,41 @@ module Ai
         { ok: campaign.release_driver_lease!(holder: who) }
       end
 
+      # Route a campaign's loop(s) to a driver — interchangeably between a Claude Code
+      # session (the dev-loop pull queue) and the platform executor (a platform
+      # agent/group/mission). The single-driver lease enforces one active driver, so a
+      # REASSIGNMENT releases the current lease first (the new driver then claims it),
+      # and the loop's scheduling is flipped so the right executor picks it up:
+      #   claude_code → scheduling_mode "manual" (CC pulls; platform scheduler skips it);
+      #   platform_*  → scheduling_mode "continuous" + due now (platform scheduler runs it),
+      #                 wiring the target agent/mission onto the loop.
+      # `target` carries the platform ref ({ "agent_id"|"group_id"|"mission_id" => ... }).
+      # `holder` (claude_code only) immediately takes the lease for that session.
+      def delegate(campaign, driver_kind:, target: {}, holder: nil)
+        raise ArgumentError, "unknown driver_kind: #{driver_kind}" unless Ai::RalphLoop::DRIVER_KINDS.include?(driver_kind)
+
+        normalized_target = (target || {}).deep_stringify_keys
+
+        # Reassignment: free the current single-driver lease so the new driver can claim it.
+        campaign.release_driver_lease!(holder: campaign.driver_lease_holder) if campaign.driver_lease_active?
+
+        campaign.ralph_loops.find_each { |loop_record| apply_driver_routing!(loop_record, driver_kind, normalized_target) }
+
+        lease = nil
+        if driver_kind == "claude_code" && holder.present?
+          campaign.acquire_driver_lease!(holder: holder)
+          lease = campaign.driver_lease_info
+        end
+        campaign.touch_activity! if campaign.respond_to?(:touch_activity!)
+
+        {
+          campaign_id: campaign.id, driver_kind: driver_kind, target: normalized_target, lease: lease,
+          loops: campaign.ralph_loops.reload.map do |l|
+            { id: l.id, driver_kind: l.driver_kind, scheduling_mode: l.scheduling_mode, status: l.status }
+          end
+        }
+      end
+
       # Answer a parked question (which can unblock its associated task downstream).
       def answer_question(campaign, question_id:, answer:)
         q = campaign.parked_questions.find(question_id)
@@ -208,6 +243,28 @@ module Ai
 
       private
 
+      # Apply one loop's driver routing + scheduling for #delegate (see its docs).
+      def apply_driver_routing!(loop_record, driver_kind, target)
+        attrs = { driver_kind: driver_kind, driver_target: target }
+        case driver_kind
+        when "claude_code"
+          # CC pulls manually; keep it off the platform scheduler.
+          attrs[:scheduling_mode] = "manual"
+          attrs[:next_scheduled_at] = nil
+        else # platform_agent | platform_group | platform_mission
+          attrs[:default_agent_id] = target["agent_id"] if target["agent_id"].present?
+          attrs[:mission_id] = target["mission_id"] if target["mission_id"].present?
+          attrs[:scheduling_mode] = "continuous"
+          attrs[:schedule_config] = (loop_record.schedule_config || {}).merge("iteration_interval_seconds" => 60)
+          attrs[:schedule_paused] = false
+          attrs[:status] = "running" unless loop_record.status == "running"
+        end
+        loop_record.update!(attrs)
+        # The scheduling_mode change recomputes next_scheduled_at into the future; make the
+        # loop due immediately so the platform scheduler picks it up on its next pass.
+        loop_record.update_columns(next_scheduled_at: Time.current) if driver_kind != "claude_code"
+      end
+
       def create_campaign_loop(campaign, workload: DEFAULT_WORKLOAD)
         campaign.ralph_loops.create!(
           account: @account,
@@ -217,6 +274,9 @@ module Ai
           description: "Drives #{workload} campaign: #{campaign.name}",
           ai_tool: "claude_code",
           scheduling_mode: "manual",
+          # Campaigns start drained by a Claude Code session (pull queue); delegate to a
+          # platform driver via #delegate. nil would mean "legacy" — campaigns are explicit.
+          driver_kind: "claude_code",
           status: "pending",
           branch: "campaign/#{campaign.id}",
           max_iterations: 500,

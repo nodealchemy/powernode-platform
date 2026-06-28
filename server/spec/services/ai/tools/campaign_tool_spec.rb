@@ -14,10 +14,26 @@ RSpec.describe Ai::Tools::CampaignTool do
   it "registers a campaign permission + declares its actions" do
     expect(described_class::REQUIRED_PERMISSION).to eq("ai.campaigns.manage")
     expect(described_class.action_definitions.keys).to contain_exactly(
-      "campaign_propose", "campaign_approve_proposal",
+      "campaign_propose", "campaign_approve_proposal", "campaign_delegate",
       "campaign_start", "campaign_status", "campaign_claim", "campaign_release",
       "campaign_answer_question", "campaign_record_increment", "campaign_check_rebase", "campaign_stop"
     )
+  end
+
+  it "campaign_delegate routes a campaign loop to a driver (claude_code takes the lease)" do
+    id = exec(action: "campaign_start", name: "Routable")[:data][:campaign][:id]
+
+    res = exec(action: "campaign_delegate", campaign_id: id, driver_kind: "claude_code", holder: "sess-x")
+    expect(res[:success]).to be true
+    expect(res[:data][:driver_kind]).to eq("claude_code")
+    expect(res[:data][:lease][:holder]).to eq("sess-x")
+    expect(res[:data][:loops].first[:driver_kind]).to eq("claude_code")
+  end
+
+  it "campaign_delegate requires a driver_kind and rejects an unknown one" do
+    id = exec(action: "campaign_start", name: "Routable2")[:data][:campaign][:id]
+    expect(exec(action: "campaign_delegate", campaign_id: id)[:success]).to be false
+    expect(exec(action: "campaign_delegate", campaign_id: id, driver_kind: "nope")[:success]).to be false
   end
 
   it "campaign_propose enqueues a deduped proposal" do

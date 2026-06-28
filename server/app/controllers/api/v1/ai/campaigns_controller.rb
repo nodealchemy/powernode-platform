@@ -7,8 +7,8 @@ module Api
       # (Agents drive campaigns via the platform.campaign_* MCP tools; this is the human surface.)
       class CampaignsController < ApplicationController
         before_action :require_read, only: %i[index show]
-        before_action :require_manage, only: %i[create answer_question stop]
-        before_action :set_campaign, only: %i[show answer_question stop]
+        before_action :require_manage, only: %i[create answer_question stop delegate]
+        before_action :set_campaign, only: %i[show answer_question stop delegate]
 
         # GET /api/v1/ai/campaigns
         def index
@@ -50,6 +50,16 @@ module Api
           render_success(driver.stop(@campaign, summary: params[:summary]))
         end
 
+        # POST /api/v1/ai/campaigns/:id/delegate
+        # Route the campaign's dev-loop to a driver (claude_code | platform_*).
+        def delegate
+          result = driver.delegate(@campaign, driver_kind: params[:driver_kind],
+                                              target: permitted_hash(:target), holder: params[:holder])
+          render_success(result)
+        rescue ArgumentError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         private
 
         def require_read
@@ -85,7 +95,8 @@ module Api
             activity: campaign.activity_feed(limit: 20),
             progress: campaign.progress_entries.latest_first.limit(20).map(&:summary),
             loops: campaign.ralph_loops.map do |l|
-              { id: l.id, name: l.name, branch: l.branch, status: l.status, total_tasks: l.ralph_tasks.count }
+              { id: l.id, name: l.name, branch: l.branch, status: l.status,
+                driver_kind: l.driver_kind, driver_target: l.driver_target, total_tasks: l.ralph_tasks.count }
             end
           )
         end

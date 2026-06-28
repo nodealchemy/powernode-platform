@@ -2770,6 +2770,7 @@ Rails.application.routes.draw do
           member do
             post :answer_question
             post :stop
+            post :delegate
           end
         end
 
