@@ -15,7 +15,7 @@ module Ai
                        "check status, answer parked questions, and stop it.",
           parameters: {
             action: { type: "string", required: true,
-                      description: "campaign_start | campaign_status | campaign_answer_question | campaign_stop" },
+                      description: "campaign_start | campaign_status | campaign_answer_question | campaign_record_increment | campaign_stop" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
             name: { type: "string", required: false, description: "Campaign name (campaign_start)" },
             description: { type: "string", required: false },
@@ -57,6 +57,20 @@ module Ai
               answer: { type: "string", required: true }
             }
           },
+          "campaign_record_increment" => {
+            description: "Record one completed campaign increment: marks a passed RalphTask on the campaign " \
+                         "loop, logs a decision, and snapshots progress (so completion% reflects real work). " \
+                         "Idempotent on task_key.",
+            parameters: {
+              campaign_id: { type: "string", required: true },
+              title: { type: "string", required: true, description: "Short increment title" },
+              summary: { type: "string", required: false, description: "What was done" },
+              task_key: { type: "string", required: false, description: "Stable key for idempotency" },
+              decision_type: { type: "string", required: false, description: "build|unblock|skip|remove|defer|policy|escalate (default build)" },
+              rationale: { type: "string", required: false },
+              status: { type: "string", required: false, description: "passed (default) | failed | skipped" }
+            }
+          },
           "campaign_stop" => {
             description: "Stop a campaign: pauses its loops (executors stop pulling) and marks it completed.",
             parameters: {
@@ -74,6 +88,7 @@ module Ai
         when "campaign_start" then campaign_start(params)
         when "campaign_status" then campaign_status(params)
         when "campaign_answer_question" then campaign_answer_question(params)
+        when "campaign_record_increment" then campaign_record_increment(params)
         when "campaign_stop" then campaign_stop(params)
         else error_result("Unknown action: #{params[:action]}")
         end
@@ -128,6 +143,24 @@ module Ai
         success_result(question: driver.answer_question(campaign, question_id: params[:question_id], answer: params[:answer]))
       rescue ActiveRecord::RecordNotFound
         error_result("Question not found")
+      end
+
+      def campaign_record_increment(params)
+        campaign = find_campaign(params[:campaign_id])
+        return error_result("Campaign not found") unless campaign
+        return error_result("title is required") if params[:title].blank?
+
+        success_result(
+          driver.record_increment!(
+            campaign,
+            title: params[:title], summary: params[:summary], task_key: params[:task_key],
+            decision_type: params[:decision_type].presence || "build",
+            rationale: params[:rationale], status: params[:status].presence || "passed",
+            metadata: params[:metadata] || {}
+          )
+        )
+      rescue ArgumentError => e
+        error_result(e.message)
       end
 
       def campaign_stop(params)

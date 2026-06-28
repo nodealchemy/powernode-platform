@@ -65,13 +65,59 @@ module Ai
         campaign.reload.summary
       end
 
+      # Record one completed campaign increment in a single call: mark a RalphTask
+      # on the campaign loop (passed by default), log a decision, and snapshot
+      # progress — so completion% reflects real work without each driver having to
+      # hand-assemble those three steps (previously manual/instruction-dependent).
+      # Idempotent on task_key.
+      def record_increment!(campaign, title:, summary: nil, task_key: nil, decision_type: "build",
+                            rationale: nil, status: "passed", metadata: {})
+        loop_record = campaign.ralph_loops.order(:created_at).first
+        raise ArgumentError, "campaign has no loop to record against" unless loop_record
+
+        key = (task_key.presence || "increment-#{title}").to_s.parameterize
+        key = "increment-#{SecureRandom.hex(4)}" if key.blank?
+        task = loop_record.ralph_tasks.find_or_initialize_by(task_key: key[0, 120])
+        task.description = summary.presence || title
+        task.status = status
+        task.iteration_completed_at = Time.current if Ai::RalphTask::TERMINAL_STATUSES.include?(status)
+        task.metadata = (task.metadata || {}).merge(metadata)
+        task.save!
+
+        decision = campaign.record_decision!(
+          decision_type: decision_type, title: title, rationale: rationale,
+          task: task, user: @user, metadata: metadata
+        )
+        campaign.snapshot_progress!
+        {
+          task_key: task.task_key, status: task.status, decision_id: decision.id,
+          campaign: campaign.reload.summary
+        }
+      end
+
+      # Backfill: give existing campaign loops their campaign's display name (for the
+      # execution interface), replacing the legacy "campaign-<id>" names. Idempotent.
+      # Returns the count renamed.
+      def relabel_campaign_loops!
+        renamed = 0
+        @account.ai_campaigns.find_each do |campaign|
+          campaign.ralph_loops.where.not(name: campaign.name).find_each do |loop_record|
+            loop_record.update!(name: campaign.name)
+            renamed += 1
+          end
+        end
+        renamed
+      end
+
       private
 
       def create_campaign_loop(campaign)
         campaign.ralph_loops.create!(
           account: @account,
-          name: "campaign-#{campaign.id}",
-          description: "Drives improvement campaign: #{campaign.name}",
+          # Human campaign name for the execution interface (loops are referenced by
+          # id / campaign_id / branch, never by this name — safe to be display-friendly).
+          name: campaign.name,
+          description: "Drives campaign: #{campaign.name}",
           ai_tool: "claude_code",
           scheduling_mode: "manual",
           status: "pending",

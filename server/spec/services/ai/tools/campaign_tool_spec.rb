@@ -11,11 +11,25 @@ RSpec.describe Ai::Tools::CampaignTool do
     tool.execute(params: params.with_indifferent_access)
   end
 
-  it "registers a campaign permission + declares its 4 actions" do
+  it "registers a campaign permission + declares its 5 actions" do
     expect(described_class::REQUIRED_PERMISSION).to eq("ai.campaigns.manage")
     expect(described_class.action_definitions.keys).to contain_exactly(
-      "campaign_start", "campaign_status", "campaign_answer_question", "campaign_stop"
+      "campaign_start", "campaign_status", "campaign_answer_question",
+      "campaign_record_increment", "campaign_stop"
     )
+  end
+
+  it "campaign_record_increment records a passed task + decision and reflects completion" do
+    id = exec(action: "campaign_start", name: "Obs")[:data][:campaign][:id]
+    res = exec(action: "campaign_record_increment", campaign_id: id, title: "Increment 1", summary: "did it")
+    expect(res[:success]).to be true
+    expect(res[:data][:campaign][:completion_pct]).to eq(100.0)
+    expect(res[:data][:status]).to eq("passed")
+  end
+
+  it "campaign_record_increment requires a title" do
+    id = exec(action: "campaign_start", name: "Obs")[:data][:campaign][:id]
+    expect(exec(action: "campaign_record_increment", campaign_id: id)[:success]).to be false
   end
 
   it "campaign_start creates a campaign + a campaign-scoped loop" do
