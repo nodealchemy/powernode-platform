@@ -73,7 +73,7 @@ upsert_container_template.call("AI Coding Agent") do |t|
   t.input_schema = {
     "agent_script" => { "type" => "string", "description" => "Python script for the agent to execute" },
     "prompt" => { "type" => "string", "required" => true, "description" => "Task prompt for the AI agent" },
-    "model" => { "type" => "string", "default" => "claude-sonnet-4-20250514", "description" => "AI model to use" },
+    "model" => { "type" => "string", "default" => "claude-sonnet-4-6", "description" => "AI model to use" },
     "provider_api_key" => { "type" => "string", "description" => "API key for the AI provider" },
     "max_tokens" => { "type" => "integer", "default" => 4096, "description" => "Max tokens for generation" }
   }
@@ -361,7 +361,7 @@ upsert_container_template.call("Autonomous Chat Agent") do |t|
     "agent_id" => { "type" => "string", "required" => true, "description" => "Platform agent UUID" },
     "conversation_id" => { "type" => "string", "required" => true, "description" => "Conversation UUID this container serves" },
     "system_prompt" => { "type" => "string", "description" => "Agent system prompt" },
-    "model" => { "type" => "string", "default" => "claude-sonnet-4-20250514", "description" => "AI model to use" },
+    "model" => { "type" => "string", "default" => "claude-sonnet-4-6", "description" => "AI model to use" },
     "provider_api_key" => { "type" => "string", "description" => "API key for the AI provider" },
     "mcp_servers" => { "type" => "array", "description" => "MCP server configurations to inject as sidecars" },
     "platform_callback_url" => { "type" => "string", "description" => "URL for sending responses back to the platform" },

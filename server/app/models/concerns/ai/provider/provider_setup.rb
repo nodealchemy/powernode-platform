@@ -168,8 +168,8 @@ module Ai
                 cost_per_1k_tokens: { input: 0.003, output: 0.015 }
               },
               {
-                name: "claude-sonnet-4",
-                id: "claude-sonnet-4-20250514",
+                name: "claude-sonnet-4-6",
+                id: "claude-sonnet-4-6",
                 context_length: 200_000,
                 max_output_tokens: 64_000,
                 cost_per_1k_tokens: { input: 0.003, output: 0.015 }

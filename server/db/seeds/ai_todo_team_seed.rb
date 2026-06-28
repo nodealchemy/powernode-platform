@@ -739,7 +739,7 @@ if chat_template && lead_agent && swarm_cluster
       'agent_name' => lead_agent.name,
       'conversation_id' => 'demo-conversation',
       'system_prompt' => lead_agent.mcp_metadata&.dig('system_prompt')&.truncate(200),
-      'model' => 'claude-sonnet-4-20250514',
+      'model' => 'claude-sonnet-4-6',
       'cluster_name' => swarm_cluster.name,
       'template_name' => chat_template.name,
       'chat_enabled' => true
