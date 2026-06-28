@@ -39,7 +39,9 @@ module Ai
           create_governance_request(land, description: description, requested_by: requested_by)
           # If the chain couldn't be created, leave it pending for the proposal card.
         end
-        # else: stays pending_approval — operator approves via the proposal card.
+
+        # Whenever the land still needs human approval, surface it for review.
+        ::Ai::Land::ProposalService.deliver(land) if land.reload.status == "pending_approval"
 
         land
       end

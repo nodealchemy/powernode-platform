@@ -42,6 +42,29 @@ module Ai
       end
     end
 
+    # ---- operator decision (from the proposal card / dashboard) -----------
+    # Routes through the governance ApprovalRequest when present (which cascades
+    # back here via on_approval_decision), else acts directly (core mode).
+    def operator_approve!(user: nil)
+      req = approval_request
+      if req&.respond_to?(:approve!)
+        req.approve!
+      elsif status == "pending_approval"
+        enqueue!
+      end
+      reload
+    end
+
+    def operator_reject!(user: nil, reason: nil)
+      req = approval_request
+      if req&.respond_to?(:reject!)
+        req.reject!
+      elsif status == "pending_approval"
+        reject!(reason || "rejected by operator")
+      end
+      reload
+    end
+
     # ---- state machine ----------------------------------------------------
     def enqueue!
       update!(status: "queued", queued_at: queued_at || Time.current)
