@@ -40,10 +40,10 @@ module Ai
                          "campaign-scoped Ralph loop that /dev-loop drains. Returns the campaign + loop.",
             parameters: {
               name: { type: "string", required: true, description: "Campaign name" },
-              description: { type: "string", required: false },
+              description: { type: "string", required: false, description: "Optional campaign description" },
               configuration: { type: "object", required: false, description: "scope/posture/ordering/keep-going" },
               decision_authority: { type: "string", required: false, description: "supervised|monitored|trusted|autonomous" },
-              stop_conditions: { type: "object", required: false }
+              stop_conditions: { type: "object", required: false, description: "e.g. { max_failed:, completion_pct: }" }
             }
           },
           "campaign_status" => {
@@ -70,9 +70,9 @@ module Ai
           "campaign_answer_question" => {
             description: "Answer a parked question (can unblock its associated task).",
             parameters: {
-              campaign_id: { type: "string", required: true },
-              question_id: { type: "string", required: true },
-              answer: { type: "string", required: true }
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
+              question_id: { type: "string", required: true, description: "Parked question UUID" },
+              answer: { type: "string", required: true, description: "The operator's answer to the parked question" }
             }
           },
           "campaign_record_increment" => {
@@ -80,19 +80,19 @@ module Ai
                          "loop, logs a decision, and snapshots progress (so completion% reflects real work). " \
                          "Idempotent on task_key.",
             parameters: {
-              campaign_id: { type: "string", required: true },
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
               title: { type: "string", required: true, description: "Short increment title" },
               summary: { type: "string", required: false, description: "What was done" },
               task_key: { type: "string", required: false, description: "Stable key for idempotency" },
               decision_type: { type: "string", required: false, description: "build|unblock|skip|remove|defer|policy|escalate (default build)" },
-              rationale: { type: "string", required: false },
+              rationale: { type: "string", required: false, description: "Why this increment was done / decided" },
               status: { type: "string", required: false, description: "passed (default) | failed | skipped" }
             }
           },
           "campaign_stop" => {
             description: "Stop a campaign: pauses its loops (executors stop pulling) and marks it completed.",
             parameters: {
-              campaign_id: { type: "string", required: true },
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
               summary: { type: "string", required: false, description: "Completion summary" }
             }
           }
