@@ -117,7 +117,11 @@ module Ai
 
       update!(
         quality_score: [new_score, 1.0].min,
-        last_quality_recalc_at: Time.current
+        last_quality_recalc_at: Time.current,
+        # Embedding-independent freshness signal: the daily quality recalc keeps
+        # event_processed_24h reflecting ongoing pipeline health (not just new
+        # embeddings). Single atomic write — no extra query.
+        last_event_processed_at: Time.current
       )
     end
 

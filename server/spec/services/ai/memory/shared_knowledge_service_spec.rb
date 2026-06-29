@@ -591,6 +591,22 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
       expect(result[:success]).to be true
       expect(result[:recalculated]).to be >= 1
     end
+
+    it "stamps last_event_processed_at on recalculated entries (live freshness signal)" do
+      entry = create(:ai_shared_knowledge, account: account,
+                     last_quality_recalc_at: 2.days.ago,
+                     last_event_processed_at: nil)
+
+      result = service.recalculate_all_quality
+
+      expect(result[:success]).to be true
+      expect(result[:recalculated]).to be >= 1
+
+      entry.reload
+      # Embedding-independent freshness signal so event_processed_24h reflects
+      # ongoing pipeline health, not only new-embedding activity.
+      expect(entry.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
   end
 
   # ===========================================================================

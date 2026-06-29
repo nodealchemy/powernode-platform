@@ -238,5 +238,18 @@ RSpec.describe Ai::KnowledgeGraphNode, type: :model do
 
       expect(high_node.reload.quality_score).to be > low_node.reload.quality_score
     end
+
+    it "stamps last_event_processed_at (live freshness signal for event_processed_24h)" do
+      node = create(:ai_knowledge_graph_node, account: account,
+                    confidence: 0.7, mention_count: 5,
+                    last_event_processed_at: nil)
+
+      node.recalculate_quality_score!
+      node.reload
+
+      # Embedding-independent freshness signal so the daily quality recalc keeps
+      # event_processed_24h reflecting ongoing pipeline health.
+      expect(node.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
   end
 end
