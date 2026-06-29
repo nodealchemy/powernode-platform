@@ -15,11 +15,8 @@ if admin_account && admin_user && provider
   puts "✅ Using AI provider: #{provider.name} (ID: #{provider.id})"
 
   # Performance Monitoring Specialist (Fixed)
-  performance_monitor = Ai::Agent.find_or_create_by(
-    account: admin_account,
-    slug: 'system-performance-monitor',
-    agent_type: 'monitor'
-  ) do |agent|
+  performance_monitor = Ai::Agent.find_or_create_global(slug: 'system-performance-monitor') do |agent|
+    agent.agent_type = 'monitor'
     agent.name = "System Performance Monitor"
     agent.description = "Advanced monitoring specialist tracking system performance, resource usage, and execution metrics in real-time"
     agent.provider = provider
@@ -91,11 +88,8 @@ if admin_account && admin_user && provider
   end
 
   # Analytics Intelligence Specialist
-  analytics_specialist = Ai::Agent.find_or_create_by(
-    account: admin_account,
-    slug: 'system-analytics-intelligence',
-    agent_type: 'data_analyst'
-  ) do |agent|
+  analytics_specialist = Ai::Agent.find_or_create_global(slug: 'system-analytics-intelligence') do |agent|
+    agent.agent_type = 'data_analyst'
     agent.name = "System Analytics Intelligence"
     agent.description = "Advanced analytics specialist providing deep insights, trend analysis, and predictive intelligence for platform systems"
     agent.provider = provider
@@ -172,11 +166,8 @@ if admin_account && admin_user && provider
   end
 
   # System Health Monitor
-  health_monitor = Ai::Agent.find_or_create_by(
-    account: admin_account,
-    slug: 'system-health-monitor',
-    agent_type: 'monitor'
-  ) do |agent|
+  health_monitor = Ai::Agent.find_or_create_global(slug: 'system-health-monitor') do |agent|
+    agent.agent_type = 'monitor'
     agent.name = "System Health Monitor"
     agent.description = "Comprehensive system health monitoring specialist ensuring platform reliability and service availability"
     agent.provider = provider
@@ -263,11 +254,8 @@ if admin_account && admin_user && provider
   end
 
   # Quality Assurance Monitor
-  qa_monitor = Ai::Agent.find_or_create_by(
-    account: admin_account,
-    slug: 'system-quality-assurance',
-    agent_type: 'monitor'
-  ) do |agent|
+  qa_monitor = Ai::Agent.find_or_create_global(slug: 'system-quality-assurance') do |agent|
+    agent.agent_type = 'monitor'
     agent.name = "System Quality Assurance"
     agent.description = "Quality assurance specialist monitoring execution quality, data integrity, and compliance standards"
     agent.provider = provider

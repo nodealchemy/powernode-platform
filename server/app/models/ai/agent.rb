@@ -153,6 +153,17 @@ module Ai
       agent
     end
 
+    # Seed convenience: find-or-create a GLOBAL fundamental agent, running the
+    # block (create-only attrs, like find_or_create_by's block) only on a NEW
+    # row, and saving when new OR when a pre-globalization account-scoped row was
+    # just converted (account_id flipped to nil). Idempotent re-runs no-op.
+    def self.find_or_create_global(slug:, source_key: nil)
+      agent = find_or_initialize_global(slug: slug, source_key: source_key)
+      yield agent if block_given? && agent.new_record?
+      agent.save! if agent.new_record? || agent.changed?
+      agent
+    end
+
     # Callbacks
     before_validation :generate_slug, if: -> { name.present? && (slug.blank? || name_changed?) }
     before_validation :normalize_agent_type

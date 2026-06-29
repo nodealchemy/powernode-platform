@@ -22,7 +22,7 @@ agents = {}
   workflow-performance-monitor
   workflow-analytics-intelligence
 ].each do |slug|
-  agents[slug] = Ai::Agent.find_by(account: admin_account, slug: slug)
+  agents[slug] = Ai::Agent.resolve_for(admin_account.id, slug: slug)
   unless agents[slug]
     puts "  ⚠️  Agent '#{slug}' not found — skipping AI Teams"
     return

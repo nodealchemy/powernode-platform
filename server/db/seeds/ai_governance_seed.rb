@@ -369,7 +369,7 @@ agent_cards_data = [
 
 cards_count = 0
 agent_cards_data.each do |acd|
-  agent = Ai::Agent.find_by(account: admin_account, slug: acd[:agent_slug])
+  agent = Ai::Agent.resolve_for(admin_account.id, slug: acd[:agent_slug])
   unless agent
     puts "    ⚠️  Agent '#{acd[:agent_slug]}' not found — skipping card"
     next

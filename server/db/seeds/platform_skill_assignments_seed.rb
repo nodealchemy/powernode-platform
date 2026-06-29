@@ -67,7 +67,7 @@ platform_skill_assignments = {
 }
 
 platform_skill_assignments.each do |agent_name, slugs|
-  agent = Ai::Agent.find_by(name: agent_name, account: admin_account)
+  agent = Ai::Agent.resolve_for(admin_account.id, name: agent_name)
   next unless agent
 
   slugs.each_with_index do |slug, idx|

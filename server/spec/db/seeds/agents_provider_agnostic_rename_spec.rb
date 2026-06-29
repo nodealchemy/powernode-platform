@@ -23,27 +23,27 @@ RSpec.describe "provider-agnostic agent rename (claude_agents_seed)" do
   describe "fresh seed" do
     before { load_seed!("claude_agents_seed.rb") }
 
+    # These are GLOBAL (platform-provided) agents now (account_id nil).
     it "creates provider-agnostic agent names + slugs" do
-      planner  = Ai::Agent.find_by(account: account, slug: "strategic-planner")
-      analyst  = Ai::Agent.find_by(account: account, slug: "research-analyst")
+      planner  = Ai::Agent.global.find_by(slug: "strategic-planner")
+      analyst  = Ai::Agent.global.find_by(slug: "research-analyst")
       expect(planner&.name).to eq("Strategic Planner")
       expect(analyst&.name).to eq("Research Analyst")
     end
 
     it "leaves no agent named after a provider" do
-      provider_named = Ai::Agent.where(account: account)
-                                .where("name ILIKE ? OR slug ILIKE ?", "claude %", "claude-%")
+      provider_named = Ai::Agent.where("name ILIKE ? OR slug ILIKE ?", "claude %", "claude-%")
       expect(provider_named).to be_empty
     end
 
     it "is idempotent (no duplicates on re-run)" do
       expect { load_seed!("claude_agents_seed.rb") }
-        .not_to change { Ai::Agent.where(account: account, slug: %w[strategic-planner research-analyst]).count }
+        .not_to change { Ai::Agent.global.where(slug: %w[strategic-planner research-analyst]).count }
     end
   end
 
   describe "idempotent in-place rename of an already-seeded (pre-rename) DB" do
-    it "renames the existing row in place instead of creating a duplicate" do
+    it "renames the existing row in place (and globalizes it) instead of duplicating" do
       legacy = create(:ai_agent, account: account, agent_type: "assistant",
                                  name: "Claude Strategic Planner", slug: "claude-strategic-planner")
 
@@ -52,8 +52,9 @@ RSpec.describe "provider-agnostic agent rename (claude_agents_seed)" do
 
       expect(legacy.slug).to eq("strategic-planner")
       expect(legacy.name).to eq("Strategic Planner")
-      expect(Ai::Agent.where(account: account, slug: "strategic-planner").count).to eq(1)
-      expect(Ai::Agent.where(account: account, slug: "claude-strategic-planner")).to be_empty
+      expect(legacy.account_id).to be_nil # converted to global in place (id stable)
+      expect(Ai::Agent.where(slug: "strategic-planner").count).to eq(1)
+      expect(Ai::Agent.where(slug: "claude-strategic-planner")).to be_empty
     end
   end
 
@@ -68,7 +69,7 @@ RSpec.describe "provider-agnostic agent rename (claude_agents_seed)" do
       load_seed!("claude_agents_seed.rb")
       load_seed!("platform_skill_assignments_seed.rb")
 
-      planner = Ai::Agent.find_by!(account: account, slug: "strategic-planner")
+      planner = Ai::Agent.global.find_by!(slug: "strategic-planner")
       bound = Ai::AgentSkill.where(ai_agent_id: planner.id)
                             .joins("INNER JOIN ai_skills ON ai_skills.id = ai_agent_skills.ai_skill_id")
                             .pluck("ai_skills.slug")

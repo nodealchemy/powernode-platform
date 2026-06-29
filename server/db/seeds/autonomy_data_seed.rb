@@ -124,25 +124,46 @@ extra_agents = [
   }
 ]
 
+# Fundamental platform agents that are GLOBAL (account_id nil) — accounts clone
+# to customize. The industry/business example agents below stay account-scoped
+# demo data.
+GLOBAL_AUTONOMY_AGENT_SLUGS = %w[
+  infrastructure-health-monitor
+  process-automation-optimizer
+  visual-design-assistant
+].freeze
+
 extra_agents.each do |ad|
   next unless ad[:provider]
 
-  Ai::Agent.find_or_create_by!(account: admin_account, name: ad[:name]) do |a|
-    a.slug        = ad[:slug]
-    a.agent_type  = ad[:agent_type]
-    a.provider    = ad[:provider]
-    a.creator     = admin_user
-    a.status      = "active"
-    a.version     = "1.0.0"
-    a.description = ad[:description]
+  if GLOBAL_AUTONOMY_AGENT_SLUGS.include?(ad[:slug])
+    Ai::Agent.find_or_create_global(slug: ad[:slug]) do |a|
+      a.name        = ad[:name]
+      a.agent_type  = ad[:agent_type]
+      a.provider    = ad[:provider]
+      a.creator     = admin_user
+      a.status      = "active"
+      a.version     = "1.0.0"
+      a.description = ad[:description]
+    end
+  else
+    Ai::Agent.find_or_create_by!(account: admin_account, name: ad[:name]) do |a|
+      a.slug        = ad[:slug]
+      a.agent_type  = ad[:agent_type]
+      a.provider    = ad[:provider]
+      a.creator     = admin_user
+      a.status      = "active"
+      a.version     = "1.0.0"
+      a.description = ad[:description]
+    end
   end
 end
 
-# Reclassification data-fix (idempotent): find_or_create_by!(name:) only sets
-# agent_type on CREATE, so an already-seeded "Visual Design Assistant" keeps its
-# stale image_generator type. It produces text/specs, not images — correct it
-# in place so model selection resolves a text model, not an image model.
-Ai::Agent.where(account: admin_account, slug: "visual-design-assistant", agent_type: "image_generator")
+# Reclassification data-fix (idempotent): the block above only sets agent_type on
+# CREATE, so an already-seeded "Visual Design Assistant" keeps its stale
+# image_generator type. It produces text/specs, not images — correct it in place
+# (slug-scoped so it catches the now-global row too).
+Ai::Agent.where(slug: "visual-design-assistant", agent_type: "image_generator")
          .update_all(agent_type: "content_generator")
 
 # Reassign providers for the dev team agents to match the plan
@@ -167,7 +188,7 @@ provider_assignments = {
 provider_assignments.each do |agent_name, provider|
   next unless provider
 
-  agent = Ai::Agent.find_by(account: admin_account, name: agent_name)
+  agent = Ai::Agent.resolve_for(admin_account.id, name: agent_name)
   if agent && agent.ai_provider_id != provider.id
     agent.update_columns(ai_provider_id: provider.id)
   end
@@ -187,11 +208,11 @@ end
 # ===========================================================================
 
 # Reload kept agents
-agents = Ai::Agent.where(account: admin_account, name: KEEP_AGENT_NAMES)
+agents = Ai::Agent.for_account(admin_account.id).where(name: KEEP_AGENT_NAMES)
   .index_by(&:name)
 
 # Also include the concierge agent
-concierge = Ai::Agent.find_by(account: admin_account, is_concierge: true)
+concierge = Ai::Agent.resolve_concierge_for(admin_account.id)
 agents[concierge.name] = concierge if concierge
 
 if agents.size < KEEP_AGENT_NAMES.size
@@ -356,8 +377,8 @@ Rails.logger.info "[AutonomySeed] Created/updated #{policies_created} interventi
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
-final_agent_count = Ai::Agent.where(account: admin_account).active.count
-concierge_count   = Ai::Agent.where(account: admin_account, is_concierge: true).count
+final_agent_count = Ai::Agent.for_account(admin_account.id).active.count
+concierge_count   = Ai::Agent.for_account(admin_account.id).where(is_concierge: true).count
 
 Rails.logger.info "[AutonomySeed] Complete!"
 Rails.logger.info "[AutonomySeed]   Active agents: #{final_agent_count} (+ #{concierge_count} concierge)"

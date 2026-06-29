@@ -49,11 +49,8 @@ ActiveRecord::Base.transaction do
   end
 
   # Strategic Planning Agent (provider-agnostic; reasoning-tier via model_requirements)
-  strategic_planner = Ai::Agent.find_or_create_by(
-    account: admin_account,
-    slug: 'strategic-planner',
-    agent_type: 'assistant'
-  ) do |agent|
+  strategic_planner = Ai::Agent.find_or_create_global(slug: 'strategic-planner') do |agent|
+    agent.agent_type = 'assistant'
     agent.name = "Strategic Planner"
     agent.description = "Advanced strategic planning and analysis agent with strong long-horizon reasoning"
     agent.provider = claude_provider
@@ -140,11 +137,8 @@ ActiveRecord::Base.transaction do
 
   # Research Analyst — now on Ollama for cost optimization
   ollama_provider = Ai::Provider.find_by(provider_type: 'ollama')
-  research_analyst = Ai::Agent.find_or_create_by(
-    account: admin_account,
-    slug: 'research-analyst',
-    agent_type: 'data_analyst'
-  ) do |agent|
+  research_analyst = Ai::Agent.find_or_create_global(slug: 'research-analyst') do |agent|
+    agent.agent_type = 'data_analyst'
     agent.name = "Research Analyst"
     agent.description = "Comprehensive research and analysis agent with strong analytical reasoning"
     agent.provider = ollama_provider || claude_provider

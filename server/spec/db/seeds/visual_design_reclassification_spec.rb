@@ -17,14 +17,14 @@ RSpec.describe "Visual Design Assistant reclassification (autonomy_data_seed)" d
   let!(:user)     { create(:user, account: account, email: "admin@powernode.org") }
   let!(:provider) { create(:ai_provider, account: account, provider_type: "openai", is_active: true) }
 
-  it "creates Visual Design Assistant as content_generator (not image_generator)" do
+  it "creates Visual Design Assistant as a GLOBAL content_generator (not image_generator)" do
     load_seed!
-    agent = Ai::Agent.find_by(account: account, slug: "visual-design-assistant")
+    agent = Ai::Agent.global.find_by(slug: "visual-design-assistant")
     expect(agent).to be_present
     expect(agent.agent_type).to eq("content_generator")
   end
 
-  it "reclassifies an already-seeded image_generator row in place" do
+  it "reclassifies (and globalizes) an already-seeded image_generator row in place" do
     stale = create(:ai_agent, account: account, name: "Visual Design Assistant",
                               slug: "visual-design-assistant", agent_type: "image_generator")
 
@@ -32,6 +32,7 @@ RSpec.describe "Visual Design Assistant reclassification (autonomy_data_seed)" d
     stale.reload
 
     expect(stale.agent_type).to eq("content_generator")
-    expect(Ai::Agent.where(account: account, slug: "visual-design-assistant").count).to eq(1)
+    expect(stale.account_id).to be_nil # now global
+    expect(Ai::Agent.where(slug: "visual-design-assistant").count).to eq(1)
   end
 end
