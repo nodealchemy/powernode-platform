@@ -62,4 +62,34 @@ RSpec.describe Ai::Autonomy::ApprovalWorkflowService do
       expect(service.expire_overdue!).to eq(0)
     end
   end
+
+  describe "#expire_overdue! (governance enabled)" do
+    before { allow(described_class).to receive(:governance_enabled?).and_return(true) }
+
+    it "expires overdue pending requests, honouring the chain timeout_action" do
+      chain = Ai::ApprovalChain.create!(
+        account: account, name: "expiry_test", trigger_type: "manual", status: "active",
+        timeout_hours: 24, timeout_action: "reject",
+        steps: [ { "name" => "s", "approvers" => [ "*" ], "required_approvals" => 1 } ]
+      )
+      agent = create(:ai_agent, account: account)
+      request = chain.create_request!(source_type: "Ai::Agent", source_id: agent.id, description: "x", request_data: {})
+      request.update_column(:expires_at, 1.hour.ago)
+
+      expect(service.expire_overdue!).to eq(1)
+      expect(request.reload.status).to eq("rejected")
+    end
+
+    it "leaves not-yet-overdue requests pending" do
+      chain = Ai::ApprovalChain.create!(
+        account: account, name: "expiry_test2", trigger_type: "manual", status: "active",
+        timeout_hours: 24, steps: [ { "name" => "s", "approvers" => [ "*" ], "required_approvals" => 1 } ]
+      )
+      agent = create(:ai_agent, account: account)
+      request = chain.create_request!(source_type: "Ai::Agent", source_id: agent.id, description: "x", request_data: {})
+
+      expect(service.expire_overdue!).to eq(0)
+      expect(request.reload.status).to eq("pending")
+    end
+  end
 end

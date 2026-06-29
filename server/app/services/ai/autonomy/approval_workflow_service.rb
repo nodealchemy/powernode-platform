@@ -94,18 +94,24 @@ module Ai
         true
       end
 
-      # Expire overdue requests
-      # No-op in core mode (no requests to expire).
+      # Expire overdue requests. Honours each chain's timeout_action
+      # (approve/reject/escalate/expire) via check_expiration! — which also
+      # cascades on_approval_decision to the source (e.g. expiring a CampaignLand
+      # approval rejects the land) — instead of a bare status flip.
+      # No-op in core mode (no requests to expire). Returns the count processed.
       def expire_overdue!
         return 0 unless self.class.governance_enabled?
 
+        count = 0
         Ai::ApprovalRequest
           .where(account_id: account.id)
           .pending
           .where("expires_at <= ?", Time.current)
           .find_each do |request|
-            request.update!(status: "expired", completed_at: Time.current)
+            request.check_expiration!
+            count += 1
           end
+        count
       end
 
       private

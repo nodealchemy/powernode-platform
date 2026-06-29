@@ -568,6 +568,8 @@ Rails.application.routes.draw do
 
           # Autonomy proposal expiry (worker → server)
           post "proposals/expire_overdue", to: "autonomy#expire_overdue_proposals"
+          # Approval-request expiry (worker → server) — drives ApprovalRequest#check_expiration!
+          post "approval_requests/expire_overdue", to: "autonomy#expire_overdue_approval_requests"
 
           # Autonomy intervention policy tuning (worker → server)
           post "intervention_policies/analyze_patterns", to: "autonomy#analyze_policy_patterns"

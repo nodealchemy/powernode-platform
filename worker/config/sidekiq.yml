@@ -478,6 +478,12 @@
       queue: maintenance
       description: 'Expire unreviewed proposals past their review deadline'
 
+    ai_approval_expiry:
+      cron: '0 * * * *'  # Every hour
+      class: AiApprovalExpiryJob
+      queue: maintenance
+      description: 'Expire overdue approval requests (honours chain timeout_action)'
+
     # Intervention policy tuning - analyze patterns and suggest policy adjustments
     ai_intervention_policy_tuning:
       cron: '0 6 * * 0'  # Weekly at 6:00 AM UTC on Sunday

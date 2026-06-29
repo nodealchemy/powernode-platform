@@ -77,6 +77,23 @@ module Api
             render_success(expired_count: expired_count)
           end
 
+          # POST /api/v1/internal/ai/approval_requests/expire_overdue
+          # Expire overdue approval requests across all accounts. Previously no
+          # cron drove ApprovalRequest expiry, so requests on the canonical seam
+          # (deferred-ops, campaign lands) silently never timed out.
+          def expire_overdue_approval_requests
+            expired_count = 0
+
+            Account.active.find_each do |account|
+              service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account)
+              expired_count += service.expire_overdue!
+            rescue StandardError => e
+              Rails.logger.error "[ApprovalRequestExpiry] Failed for account #{account.id}: #{e.message}"
+            end
+
+            render_success(expired_count: expired_count)
+          end
+
           # POST /api/v1/internal/ai/observations/cleanup
           # Delete expired and old processed observations
           def observations_cleanup
