@@ -114,9 +114,10 @@ module Api
           shared = ::Ai::Memory::SharedKnowledgeService.new(account: current_account)
           result = shared.import_from_learnings(min_importance: 0.7)
           quality_result = shared.recalculate_all_quality
+          embedding_backfill = shared.backfill_embeddings
           stats = shared.stats
 
-          render_success(data: { import_result: result, quality_recalc: quality_result, stats: stats })
+          render_success(data: { import_result: result, quality_recalc: quality_result, embedding_backfill: embedding_backfill, stats: stats })
         rescue StandardError => e
           Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
           render_error(e.message, status: :unprocessable_content)

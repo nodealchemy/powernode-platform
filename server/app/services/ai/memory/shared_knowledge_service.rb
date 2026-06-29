@@ -348,6 +348,50 @@ module Ai
         { success: false, error: e.message, recalculated: 0, remaining: 0 }
       end
 
+      # Backfill vector embeddings for entries stored without one. `create` and
+      # `update` generate embeddings synchronously via the worker, but if the
+      # worker embedding service was unavailable at the time (or the row was
+      # imported through a path that skipped it) the entry is persisted with
+      # embedding: nil and is then permanently invisible to `semantic_search`
+      # (which requires `with_embedding`). Nothing else ever fixes it. This
+      # idempotent, batched, capped backfill is invoked by the daily shared
+      # maintenance job so coverage self-heals. Oldest rows recover first.
+      def backfill_embeddings(batch_size: 50, max_per_run: 200)
+        scope = Ai::SharedKnowledge.where(account: @account)
+          .where(embedding: nil)
+          .where.not("provenance @> ?", { archived: true }.to_json)
+
+        pending = scope.count
+        return { success: true, embedded: 0, failed: 0, remaining: 0 } if pending.zero?
+
+        # `find_each` ignores .limit, so materialize the bounded batch.
+        batch = scope.order(:created_at).limit(max_per_run).to_a
+        embedded = 0
+        failed = 0
+
+        batch.each_slice(batch_size) do |slice|
+          texts = slice.map { |entry| [ entry.title, entry.content ].compact_blank.join("\n\n") }
+          vectors = @embedding_service.generate_batch(texts)
+
+          slice.each_with_index do |entry, i|
+            vector = vectors[i]
+            if vector
+              entry.update_columns(embedding: vector, last_event_processed_at: Time.current)
+              embedded += 1
+            else
+              failed += 1
+            end
+          end
+        end
+
+        remaining = [ pending - embedded, 0 ].max
+        Rails.logger.info("[SharedKnowledge] Embedding backfill: #{embedded} embedded, #{failed} failed, #{remaining} remaining")
+        { success: true, embedded: embedded, failed: failed, remaining: remaining }
+      rescue StandardError => e
+        Rails.logger.error("[SharedKnowledge] Embedding backfill failed: #{e.message}")
+        { success: false, error: e.message, embedded: 0, failed: 0, remaining: 0 }
+      end
+
       # Build LLM context from relevant shared knowledge within a token budget
       def build_context(query:, agent: nil, token_budget: 2000)
         char_budget = token_budget * CHARS_PER_TOKEN

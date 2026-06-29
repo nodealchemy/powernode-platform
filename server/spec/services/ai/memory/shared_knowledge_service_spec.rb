@@ -414,6 +414,71 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
   end
 
   # ===========================================================================
+  # backfill_embeddings
+  # ===========================================================================
+
+  describe "#backfill_embeddings" do
+    before do
+      allow_any_instance_of(Ai::Memory::EmbeddingService)
+        .to receive(:generate_batch) { |_svc, texts, **_| texts.map { mock_embedding } }
+    end
+
+    def build_unembedded(title:, archived: false)
+      Ai::SharedKnowledge.create!(
+        account: account, title: title, content: "#{title} body content here",
+        content_type: "text", access_level: "team", embedding: nil,
+        provenance: archived ? { archived: true } : {}
+      )
+    end
+
+    it "backfills embeddings for entries stored without one" do
+      a = build_unembedded(title: "Stranded A")
+      b = build_unembedded(title: "Stranded B")
+
+      result = service.backfill_embeddings
+
+      expect(result[:success]).to be true
+      expect(result[:embedded]).to eq(2)
+      expect(result[:remaining]).to eq(0)
+      expect(a.reload.embedding).to be_present
+      expect(b.reload.embedding).to be_present
+    end
+
+    it "is idempotent — a second run finds nothing pending" do
+      build_unembedded(title: "Once")
+      service.backfill_embeddings
+
+      expect(service.backfill_embeddings).to include(embedded: 0, remaining: 0)
+    end
+
+    it "skips archived entries" do
+      archived = build_unembedded(title: "Archived", archived: true)
+
+      expect(service.backfill_embeddings[:embedded]).to eq(0)
+      expect(archived.reload.embedding).to be_nil
+    end
+
+    it "respects max_per_run and reports the remainder" do
+      3.times { |i| build_unembedded(title: "Batch #{i}") }
+
+      result = service.backfill_embeddings(max_per_run: 2)
+
+      expect(result[:embedded]).to eq(2)
+      expect(result[:remaining]).to eq(1)
+    end
+
+    it "does not touch entries that already have an embedding" do
+      embedded_entry = Ai::SharedKnowledge.create!(
+        account: account, title: "Already", content: "has a vector",
+        content_type: "text", access_level: "team", embedding: mock_embedding
+      )
+
+      expect { service.backfill_embeddings }
+        .not_to(change { embedded_entry.reload.updated_at })
+    end
+  end
+
+  # ===========================================================================
   # stats
   # ===========================================================================
 
