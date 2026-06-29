@@ -127,7 +127,7 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-theme-primary truncate">{server.name}</h3>
               {server.metadata?.url && (
-                <a
+                <a aria-label="Open server URL in new tab"
                   href={server.metadata.url}
                   target="_blank"
                   rel="noopener noreferrer"

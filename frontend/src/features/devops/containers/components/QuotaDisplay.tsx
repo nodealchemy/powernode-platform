@@ -176,7 +176,7 @@ export const QuotaDisplay: React.FC<QuotaDisplayProps> = ({ className, compact =
                 Quota Exceeded
               </Badge>
             )}
-            <Button variant="ghost" size="sm" onClick={loadQuota}>
+            <Button aria-label="Refresh quota" variant="ghost" size="sm" onClick={loadQuota}>
               <RefreshCw className="w-4 h-4" />
             </Button>
           </div>

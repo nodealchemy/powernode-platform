@@ -399,14 +399,14 @@ export const ServicesListComponent: React.FC<ServicesListComponentProps> = ({
                     />
                   </FlexItemsCenter>
                   <FlexItemsCenter gap="xs">
-                    <Button
+                    <Button aria-label="Test service connection"
                       onClick={() => testServiceConnection(serviceName)}
                       variant="secondary"
                       size="sm"
                     >
                       <Activity className="w-4 h-4" />
                     </Button>
-                    <Button
+                    <Button aria-label="Edit service settings"
                       onClick={() => setEditingService(editingService === serviceName ? null : serviceName)}
                       variant="secondary"
                       size="sm"
@@ -590,7 +590,7 @@ export const ServicesListComponent: React.FC<ServicesListComponentProps> = ({
                   Quick setup with pre-configured service templates
                 </p>
               </div>
-              <Button
+              <Button aria-label="Close service templates"
                 onClick={() => setShowServiceTemplates(false)}
                 variant="secondary"
                 size="sm"

@@ -65,7 +65,7 @@ export const EnvVarEditor: React.FC<EnvVarEditorProps> = ({
                 placeholder="Value"
                 className="flex-1"
               />
-              <Button
+              <Button aria-label="Remove environment variable"
                 type="button"
                 variant="ghost"
                 size="sm"

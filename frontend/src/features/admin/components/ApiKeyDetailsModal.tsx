@@ -23,7 +23,7 @@ export const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
       <div className="bg-theme-surface rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         <div className="px-6 py-4 border-b border-theme flex items-center justify-between">
           <h3 className="text-lg font-semibold text-theme-primary">{apiKey.name}</h3>
-          <Button onClick={onClose} variant="outline">
+          <Button aria-label="Close details" onClick={onClose} variant="outline">
             <Eye className="w-5 h-5" />
           </Button>
         </div>

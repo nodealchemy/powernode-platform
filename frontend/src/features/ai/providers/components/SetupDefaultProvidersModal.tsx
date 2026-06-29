@@ -54,7 +54,7 @@ export const SetupDefaultProvidersModal: React.FC<SetupDefaultProvidersModalProp
             <p className="text-sm text-theme-tertiary">Initialize your AI provider library</p>
           </div>
         </div>
-        <Button
+        <Button aria-label="Close"
           variant="ghost"
           size="sm"
           onClick={onClose}

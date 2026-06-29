@@ -374,7 +374,7 @@ export const WebhookList: React.FC<WebhookListProps> = ({
                   </div>
                   
                   <div className="relative">
-                    <Button variant="outline" onClick={(e) => {
+                    <Button aria-label="More actions" variant="outline" onClick={(e) => {
                         e.stopPropagation();
                         toggleDropdown(webhook.id);
                       }}className="p-1 text-theme-secondary hover:text-theme-primary transition-colors duration-200"

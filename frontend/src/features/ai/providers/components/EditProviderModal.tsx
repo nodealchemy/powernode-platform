@@ -47,7 +47,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
       <Modal isOpen={isOpen} onClose={handleClose} size="lg">
         <div className="flex items-center justify-between p-6 border-b border-theme">
           <h2 className="text-xl font-semibold text-theme-primary">Loading Provider...</h2>
-          <Button
+          <Button aria-label="Close"
             variant="ghost"
             size="sm"
             onClick={handleClose}
@@ -65,7 +65,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
     <Modal isOpen={isOpen} onClose={handleClose} size="lg">
       <div className="flex items-center justify-between p-6 border-b border-theme">
         <h2 className="text-xl font-semibold text-theme-primary">Edit AI Provider</h2>
-        <Button
+        <Button aria-label="Close"
           variant="ghost"
           size="sm"
           onClick={handleClose}

@@ -56,7 +56,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({ channel 
     return (
       <div className="flex-1 flex flex-col overflow-hidden bg-theme-surface">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-theme bg-theme-surface">
-          <Button variant="ghost" size="sm" onClick={handleBackFromMessages}>
+          <Button aria-label="Back" variant="ghost" size="sm" onClick={handleBackFromMessages}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="min-w-0">

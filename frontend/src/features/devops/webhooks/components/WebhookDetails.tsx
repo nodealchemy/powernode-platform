@@ -442,7 +442,7 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
                         {showSecretToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </Button>
                       
-                      <Button onClick={copySecretToken} variant="outline">
+                      <Button aria-label="Copy secret token" onClick={copySecretToken} variant="outline">
                         <Copy className="w-4 h-4" />
                       </Button>
                     </div>
@@ -587,7 +587,7 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-semibold text-theme-primary">Test Webhook</h3>
-                <Button variant="outline" onClick={() => setShowTestModal(false)}
+                <Button aria-label="Close test modal" variant="outline" onClick={() => setShowTestModal(false)}
                 >
                   <X className="w-6 h-6" />
                 </Button>

@@ -167,7 +167,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
             </option>
           ))}
         </Select>
-        <Button variant="ghost" onClick={loadLoops} disabled={loading}>
+        <Button aria-label="Refresh loops" variant="ghost" onClick={loadLoops} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>

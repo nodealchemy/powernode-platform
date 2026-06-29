@@ -118,7 +118,7 @@ export const DockerNetworksPage: React.FC<DockerNetworksPageProps> = ({ onAction
                       <span>Created: {new Date(network.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <Button size="xs" variant="danger" onClick={() => handleDelete(network.id, network.name)}>
+                  <Button aria-label="Delete network" size="xs" variant="danger" onClick={() => handleDelete(network.id, network.name)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>

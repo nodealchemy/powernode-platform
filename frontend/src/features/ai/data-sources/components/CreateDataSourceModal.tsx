@@ -151,7 +151,7 @@ export const CreateDataSourceModal: React.FC<CreateDataSourceModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <div className="flex items-center justify-between p-6 border-b border-theme">
         <h2 className="text-xl font-semibold text-theme-primary">Create Data Source</h2>
-        <Button
+        <Button aria-label="Close"
           variant="ghost"
           size="sm"
           onClick={onClose}

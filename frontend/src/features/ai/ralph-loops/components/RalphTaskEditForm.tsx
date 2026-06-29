@@ -26,7 +26,7 @@ export const RalphTaskEditForm: React.FC<RalphTaskEditFormProps> = ({
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-theme-primary">New Task</span>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button aria-label="Close" variant="ghost" size="sm" onClick={onClose}>
             <X className="w-4 h-4" />
           </Button>
         </div>

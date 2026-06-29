@@ -59,7 +59,7 @@ export const URLMappingsConfiguration: React.FC<URLMappingsConfigurationProps> =
               </div>
 
               <FlexItemsCenter gap="xs">
-                <Button
+                <Button aria-label="Toggle mapping"
                   onClick={() => onToggleMapping(mapping.id)}
                   variant="secondary"
                   size="sm"
@@ -70,14 +70,14 @@ export const URLMappingsConfiguration: React.FC<URLMappingsConfigurationProps> =
                     <ToggleLeft className="w-4 h-4" />
                   )}
                 </Button>
-                <Button
+                <Button aria-label="Edit mapping"
                   onClick={() => onEditMapping(mapping)}
                   variant="secondary"
                   size="sm"
                 >
                   <Edit className="w-4 h-4" />
                 </Button>
-                <Button
+                <Button aria-label="Delete mapping"
                   onClick={() => onDeleteMapping(mapping.id)}
                   variant="danger"
                   size="sm"

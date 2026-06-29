@@ -130,7 +130,7 @@ export const ChannelMetrics: React.FC<ChannelMetricsProps> = ({
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-theme-primary">Channel Metrics</h3>
-          <Button variant="ghost" size="sm" onClick={loadMetrics}>
+          <Button aria-label="Refresh metrics" variant="ghost" size="sm" onClick={loadMetrics}>
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>

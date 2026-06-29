@@ -86,7 +86,7 @@ export const PrdTaskTemplates: React.FC<PrdTaskTemplatesProps> = ({
           <FileText className="w-4 h-4 mr-2" />
           Add Task
         </Button>
-        <Button
+        <Button aria-label="Toggle templates"
           variant="ghost"
           onClick={onToggleTemplates}
           className={cn(showTemplates && 'bg-theme-background-secondary')}

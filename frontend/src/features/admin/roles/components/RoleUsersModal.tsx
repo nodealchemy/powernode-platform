@@ -177,7 +177,7 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
                     <UserPlus className="w-4 h-4 text-theme-interactive-primary" />
                     <span>Add User to Role</span>
                   </h4>
-                  <Button
+                  <Button aria-label="Cancel adding user"
                     type="button"
                     variant="ghost"
                     size="sm"

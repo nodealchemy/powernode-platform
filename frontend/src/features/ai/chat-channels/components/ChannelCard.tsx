@@ -146,7 +146,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
               Connect
             </Button>
           )}
-          <Button
+          <Button aria-label="Channel settings"
             variant="ghost"
             size="sm"
             onClick={() => onSettings?.(channel)}

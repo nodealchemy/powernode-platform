@@ -124,7 +124,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
         title="System Health"
         icon={<Activity className="h-5 w-5" />}
         action={
-          <Button
+          <Button aria-label="Refresh"
             onClick={onRefresh}
             variant="ghost"
             size="sm"

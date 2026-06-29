@@ -436,7 +436,7 @@ export default function KnowledgeBaseAdminPage() {
               {selectedArticles.length > 0 && (
                 <div className="flex items-center gap-2">
                   <Badge variant="primary">{selectedArticles.length} selected</Badge>
-                  <Button
+                  <Button aria-label="Clear selection"
                     onClick={() => setSelectedArticles([])}
                     variant="ghost"
                     size="sm"

@@ -61,7 +61,7 @@ export const KeyValueEditor: React.FC<KeyValueEditorProps> = ({
             disabled={disabled}
             className="flex-1"
           />
-          <Button
+          <Button aria-label="Remove entry"
             type="button"
             variant="ghost"
             size="sm"

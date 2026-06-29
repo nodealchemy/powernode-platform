@@ -178,7 +178,7 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
           <CheckCircle className="w-4 h-4" />
           Verified
         </Button>
-        <Button variant="ghost" onClick={loadAgents} disabled={loading}>
+        <Button aria-label="Refresh agents" variant="ghost" onClick={loadAgents} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </form>

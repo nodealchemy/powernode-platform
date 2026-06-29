@@ -144,7 +144,7 @@ export const ContainerList: React.FC<ContainerListProps> = ({
             </option>
           ))}
         </Select>
-        <Button variant="ghost" onClick={loadContainers} disabled={loading}>
+        <Button aria-label="Refresh containers" variant="ghost" onClick={loadContainers} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>

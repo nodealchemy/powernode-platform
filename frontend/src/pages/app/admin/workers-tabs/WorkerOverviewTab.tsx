@@ -45,7 +45,7 @@ export const WorkerOverviewTab: React.FC<WorkerOverviewTabProps> = ({
         <Card className="p-6">
           <FlexBetween className="mb-4">
             <h3 className="text-lg font-medium text-theme-primary">Status Distribution</h3>
-            <Button onClick={onRefresh} variant="secondary" size="sm">
+            <Button aria-label="Refresh" onClick={onRefresh} variant="secondary" size="sm">
               <RefreshCw className="w-4 h-4" />
             </Button>
           </FlexBetween>

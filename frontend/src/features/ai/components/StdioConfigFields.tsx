@@ -80,7 +80,7 @@ export const StdioConfigFields: React.FC<StdioConfigFieldsProps> = ({
                   placeholder={`Argument ${index + 1}`}
                   className="flex-1"
                 />
-                <Button
+                <Button aria-label="Remove argument"
                   type="button"
                   variant="ghost"
                   size="sm"

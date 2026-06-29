@@ -157,7 +157,7 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
               </option>
             ))}
           </Select>
-          <Button variant="ghost" size="sm" onClick={loadSessions} disabled={loading}>
+          <Button aria-label="Refresh sessions" variant="ghost" size="sm" onClick={loadSessions} disabled={loading}>
             <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
           </Button>
         </div>
@@ -237,7 +237,7 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
                       {session.status === 'active' && (
                         <>
                           {onTransferSession && (
-                            <Button
+                            <Button aria-label="Transfer session"
                               variant="ghost"
                               size="sm"
                               onClick={(e) => {
@@ -248,7 +248,7 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
                               <ArrowRight className="w-3 h-3" />
                             </Button>
                           )}
-                          <Button
+                          <Button aria-label="Close session"
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {

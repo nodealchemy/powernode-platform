@@ -327,7 +327,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
               title="Metrics"
               icon={<Activity className="h-5 w-5" />}
               action={
-                <Button
+                <Button aria-label="Refresh metrics"
                   variant="ghost"
                   size="sm"
                   onClick={handleRefreshMetrics}

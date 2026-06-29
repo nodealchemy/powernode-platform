@@ -220,7 +220,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
       <Modal isOpen={isOpen} onClose={handleClose} size="lg">
         <div className="flex items-center justify-between p-6 border-b border-theme">
           <h2 className="text-xl font-semibold text-theme-primary">Loading Data Source...</h2>
-          <Button variant="ghost" size="sm" onClick={handleClose} className="h-8 w-8 p-0">
+          <Button aria-label="Close" variant="ghost" size="sm" onClick={handleClose} className="h-8 w-8 p-0">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -233,7 +233,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
     <Modal isOpen={isOpen} onClose={handleClose} size="lg">
       <div className="flex items-center justify-between p-6 border-b border-theme">
         <h2 className="text-xl font-semibold text-theme-primary">Edit Data Source</h2>
-        <Button variant="ghost" size="sm" onClick={handleClose} className="h-8 w-8 p-0">
+        <Button aria-label="Close" variant="ghost" size="sm" onClick={handleClose} className="h-8 w-8 p-0">
           <X className="h-4 w-4" />
         </Button>
       </div>

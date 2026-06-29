@@ -76,7 +76,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
 
           {/* Delete action */}
           {onDelete && (
-            <Button
+            <Button aria-label="Delete memory entry"
               variant="ghost"
               size="sm"
               onClick={() => onDelete(entry)}

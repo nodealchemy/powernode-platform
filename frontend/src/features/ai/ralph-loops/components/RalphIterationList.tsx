@@ -378,7 +378,7 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-theme-primary">Iterations</h3>
-        <Button variant="ghost" size="sm" onClick={loadIterations} disabled={loading}>
+        <Button aria-label="Refresh iterations" variant="ghost" size="sm" onClick={loadIterations} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>

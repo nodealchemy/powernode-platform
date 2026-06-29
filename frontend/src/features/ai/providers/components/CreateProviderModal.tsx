@@ -125,7 +125,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <div className="flex items-center justify-between p-6 border-b border-theme">
         <h2 className="text-xl font-semibold text-theme-primary">Create AI Provider</h2>
-        <Button
+        <Button aria-label="Close"
           variant="ghost"
           size="sm"
           onClick={onClose}

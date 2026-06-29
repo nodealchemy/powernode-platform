@@ -128,7 +128,7 @@ export const DockerImagesPage: React.FC<DockerImagesPageProps> = ({ onActionsRea
                       <span>Pulled: {new Date(image.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <Button size="xs" variant="danger" onClick={() => handleDelete(image.id, image.primary_tag || image.docker_image_id.slice(0, 12))} disabled={image.container_count > 0}>
+                  <Button aria-label="Delete image" size="xs" variant="danger" onClick={() => handleDelete(image.id, image.primary_tag || image.docker_image_id.slice(0, 12))} disabled={image.container_count > 0}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>

@@ -101,7 +101,7 @@ export function ResourceList({ resources, onResourceClick }: ResourceListProps) 
                 </td>
                 <td className="py-3 px-4">
                   {resource.url && (
-                    <a
+                    <a aria-label="Open resource URL in new tab"
                       href={resource.url}
                       target="_blank"
                       rel="noopener noreferrer"

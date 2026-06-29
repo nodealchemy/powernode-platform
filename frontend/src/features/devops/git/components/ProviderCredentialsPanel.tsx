@@ -144,7 +144,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
               Manage authentication credentials for this provider
             </p>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-theme-surface-hover text-theme-secondary"
           >
@@ -230,7 +230,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
                       </button>
 
                       {/* More Menu Button */}
-                      <button
+                      <button aria-label="More actions"
                         ref={(el) => { menuButtonRefs.current[credential.id] = el; }}
                         onClick={() => handleMenuToggle(credential.id)}
                         className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-secondary"

@@ -160,7 +160,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
             </option>
           ))}
         </Select>
-        <Button variant="ghost" onClick={loadChannels} disabled={loading}>
+        <Button aria-label="Refresh channels" variant="ghost" onClick={loadChannels} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>

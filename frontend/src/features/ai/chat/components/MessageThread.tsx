@@ -162,7 +162,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
             className="flex-1 min-h-[36px] max-h-[100px] px-3 py-1.5 border border-theme rounded-md resize-none bg-theme-background text-sm text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
             disabled={sending}
           />
-          <Button
+          <Button aria-label="Send reply"
             variant="primary"
             size="xs"
             onClick={handleSendReply}

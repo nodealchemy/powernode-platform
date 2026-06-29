@@ -246,7 +246,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
 
         <DropdownMenu
           trigger={
-            <Button variant="ghost" size="sm">
+            <Button aria-label="More actions" variant="ghost" size="sm">
               <MoreVertical className="h-4 w-4" />
             </Button>
           }

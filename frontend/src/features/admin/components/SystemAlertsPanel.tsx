@@ -204,7 +204,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
               <Filter className="w-4 h-4" />
             </Button>
             
-            <Button onClick={loadAlerts} variant="outline">
+            <Button aria-label="Refresh alerts" onClick={loadAlerts} variant="outline">
               <Clock className="w-4 h-4" />
             </Button>
           </div>

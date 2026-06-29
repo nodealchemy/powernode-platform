@@ -66,7 +66,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-theme-primary">Progress & Learnings</h3>
-        <Button variant="ghost" size="sm" onClick={loadProgress}>
+        <Button aria-label="Refresh progress" variant="ghost" size="sm" onClick={loadProgress}>
           <RefreshCw className="w-4 h-4" />
         </Button>
       </div>

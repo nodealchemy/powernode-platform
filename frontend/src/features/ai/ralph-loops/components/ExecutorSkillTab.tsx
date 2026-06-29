@@ -118,7 +118,7 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), onAddCapability())}
             className="flex-1"
           />
-          <Button
+          <Button aria-label="Add capability"
             type="button"
             variant="outline"
             size="sm"

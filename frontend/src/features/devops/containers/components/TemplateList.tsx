@@ -147,7 +147,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({
           <Globe className="w-4 h-4" />
           Public
         </Button>
-        <Button variant="ghost" onClick={loadTemplates} disabled={loading}>
+        <Button aria-label="Refresh templates" variant="ghost" onClick={loadTemplates} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </form>

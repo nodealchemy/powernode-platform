@@ -155,7 +155,7 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                     ({recipient.type === 'user_id' ? 'Team Member' : 'Email'})
                   </span>
                 </div>
-                <Button
+                <Button aria-label="Remove recipient"
                   onClick={() => handleRemoveRecipient(index)}
                   variant="ghost"
                   size="sm"

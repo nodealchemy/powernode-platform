@@ -47,7 +47,7 @@ export const SkillEditor: React.FC<SkillEditorProps> = ({
               Skill {index + 1}
             </span>
             {skills.length > 1 && (
-              <Button
+              <Button aria-label="Remove skill"
                 variant="ghost"
                 size="sm"
                 onClick={() => onRemoveSkill(index)}

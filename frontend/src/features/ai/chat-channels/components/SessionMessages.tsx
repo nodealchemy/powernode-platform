@@ -124,7 +124,7 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onBack}>
+          <Button aria-label="Back" variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <h3 className="font-medium text-theme-primary">Message History</h3>
@@ -132,7 +132,7 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
             ({messages.length} messages)
           </span>
         </div>
-        <Button variant="ghost" size="sm" onClick={loadMessages} disabled={loading}>
+        <Button aria-label="Refresh messages" variant="ghost" size="sm" onClick={loadMessages} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>

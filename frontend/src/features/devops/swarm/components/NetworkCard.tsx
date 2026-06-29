@@ -51,7 +51,7 @@ export const NetworkCard: React.FC<NetworkCardProps> = ({
             </div>
           </div>
         </div>
-        <Button size="xs" variant="danger" onClick={onDelete} disabled={network.ingress}>
+        <Button aria-label="Delete network" size="xs" variant="danger" onClick={onDelete} disabled={network.ingress}>
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
       </div>

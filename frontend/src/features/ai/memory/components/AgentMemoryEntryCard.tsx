@@ -130,16 +130,16 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
 
           {/* Actions */}
           <div className="flex items-center gap-1 shrink-0">
-            <Button variant="ghost" size="sm" onClick={copyContent}>
+            <Button aria-label="Copy memory content" variant="ghost" size="sm" onClick={copyContent}>
               <Copy className="h-4 w-4" />
             </Button>
             {onEdit && (
-              <Button variant="ghost" size="sm" onClick={() => onEdit(memory)}>
+              <Button aria-label="Edit memory" variant="ghost" size="sm" onClick={() => onEdit(memory)}>
                 <Edit2 className="h-4 w-4" />
               </Button>
             )}
             {onDelete && (
-              <Button
+              <Button aria-label="Delete memory"
                 variant="ghost"
                 size="sm"
                 onClick={() => onDelete(memory)}

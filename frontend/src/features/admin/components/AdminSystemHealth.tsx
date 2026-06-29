@@ -220,7 +220,7 @@ export const AdminSystemHealth: React.FC<AdminSystemHealthProps> = ({
             </div>
           </div>
           {onRefresh && (
-            <Button variant="outline" onClick={onRefresh} disabled={loading}>
+            <Button aria-label="Refresh system health" variant="outline" onClick={onRefresh} disabled={loading}>
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           )}

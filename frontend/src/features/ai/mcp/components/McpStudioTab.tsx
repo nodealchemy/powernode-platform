@@ -59,7 +59,7 @@ export const McpStudioTab: React.FC = () => {
           <span>{tools.length} tools</span>
           <span>{connections.length} connections</span>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => refetch()}>
+        <Button aria-label="Refresh" variant="ghost" size="sm" onClick={() => refetch()}>
           <RefreshCw className="w-3.5 h-3.5" />
         </Button>
       </div>

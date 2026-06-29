@@ -146,7 +146,7 @@ export const BulkTestModal: React.FC<BulkTestModalProps> = ({
             </p>
           </div>
         </div>
-        <Button
+        <Button aria-label="Close"
           variant="ghost"
           size="sm"
           onClick={onClose}

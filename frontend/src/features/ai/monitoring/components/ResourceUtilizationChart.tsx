@@ -72,7 +72,7 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
         title="Resource Utilization"
         icon={<Server className="h-5 w-5" />}
         action={
-          <Button
+          <Button aria-label="Refresh"
             onClick={onRefresh}
             variant="ghost"
             size="sm"

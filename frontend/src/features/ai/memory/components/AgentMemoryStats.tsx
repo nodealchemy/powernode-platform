@@ -86,7 +86,7 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
         title="Memory Statistics"
         icon={<BarChart3 className="h-5 w-5" />}
         action={
-          <Button variant="ghost" size="sm" onClick={loadStats} disabled={loading}>
+          <Button aria-label="Refresh stats" variant="ghost" size="sm" onClick={loadStats} disabled={loading}>
             <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
           </Button>
         }

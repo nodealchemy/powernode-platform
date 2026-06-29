@@ -117,7 +117,7 @@ export const DockerVolumesPage: React.FC<DockerVolumesPageProps> = ({ onActionsR
                       <span>Created: {new Date(volume.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <Button size="xs" variant="danger" onClick={() => handleDelete(volume.name)}>
+                  <Button aria-label="Delete volume" size="xs" variant="danger" onClick={() => handleDelete(volume.name)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>

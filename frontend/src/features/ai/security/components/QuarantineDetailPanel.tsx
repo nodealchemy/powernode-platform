@@ -63,7 +63,7 @@ export const QuarantineDetailPanel: React.FC<QuarantineDetailPanelProps> = ({ re
           <Badge variant={STATUS_VARIANTS[record.status]} size="sm">
             {record.status}
           </Badge>
-          <Button variant="ghost" size="xs" onClick={onClose}>
+          <Button aria-label="Close" variant="ghost" size="xs" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>

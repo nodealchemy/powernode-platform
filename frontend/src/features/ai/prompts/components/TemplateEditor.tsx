@@ -35,7 +35,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSubm
         <h3 className="text-lg font-medium text-theme-primary">
           {template ? 'Edit Prompt Template' : 'Create Prompt Template'}
         </h3>
-        <Button onClick={onCancel} variant="ghost" size="sm">
+        <Button aria-label="Close" onClick={onCancel} variant="ghost" size="sm">
           <X className="w-4 h-4" />
         </Button>
       </div>

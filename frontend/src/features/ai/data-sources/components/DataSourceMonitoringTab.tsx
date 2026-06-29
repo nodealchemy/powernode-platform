@@ -220,7 +220,7 @@ export const DataSourceMonitoringTab: React.FC<DataSourceMonitoringTabProps> = (
       <CardHeader
         title="New Subscription"
         action={
-          <Button variant="ghost" size="sm" onClick={closeForm} disabled={creating}>
+          <Button aria-label="Close form" variant="ghost" size="sm" onClick={closeForm} disabled={creating}>
             <X className="h-4 w-4" />
           </Button>
         }
@@ -321,7 +321,7 @@ export const DataSourceMonitoringTab: React.FC<DataSourceMonitoringTabProps> = (
 
         {canManageSubscriptions && (
           <div className="shrink-0">
-            <Button
+            <Button aria-label="Cancel subscription"
               variant="danger"
               size="sm"
               onClick={() => handleCancel(subscription)}

@@ -248,7 +248,7 @@ export const AdminRolesPage: React.FC = () => {
                       {role.users_count} {role.users_count === 1 ? 'user' : 'users'}
                     </Badge>
                   </div>
-                  <Button
+                  <Button aria-label="View users"
                     variant="ghost"
                     size="sm"
                     onClick={() => handleViewUsers(role)}
@@ -313,14 +313,14 @@ export const AdminRolesPage: React.FC = () => {
                     </div>
                     {canManageRoles && isEditableRole(role) && (
                       <div className="flex items-center space-x-1">
-                        <Button
+                        <Button aria-label="Edit role"
                           variant="ghost"
                           size="xs"
                           onClick={() => handleEditRole(role)}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </Button>
-                        <Button
+                        <Button aria-label="Delete role"
                           variant="ghost"
                           size="xs"
                           onClick={() => handleDeleteRole(role)}
@@ -341,7 +341,7 @@ export const AdminRolesPage: React.FC = () => {
                         {role.users_count} {role.users_count === 1 ? 'user' : 'users'}
                       </Badge>
                     </div>
-                    <Button
+                    <Button aria-label="View users"
                       variant="ghost"
                       size="sm"
                       onClick={() => handleViewUsers(role)}

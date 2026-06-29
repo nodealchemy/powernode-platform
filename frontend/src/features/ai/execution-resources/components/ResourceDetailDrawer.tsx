@@ -73,7 +73,7 @@ export function ResourceDetailDrawer({ resource, detailResource, detailLoading, 
               <p className="text-xs text-theme-tertiary mt-1">{formatTimestamp(resource.created_at)}</p>
             )}
           </div>
-          <button
+          <button aria-label="Close details"
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-theme-surface-hover transition-colors text-theme-secondary"
           >

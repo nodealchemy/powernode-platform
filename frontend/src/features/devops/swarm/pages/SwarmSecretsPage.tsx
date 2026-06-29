@@ -114,7 +114,7 @@ export const SwarmSecretsPage: React.FC<{ onActionsReady?: (actions: PageAction[
                         <h4 className="text-sm font-semibold text-theme-primary">{secret.name}</h4>
                         <p className="text-xs text-theme-tertiary">Created: {new Date(secret.created_at).toLocaleString()}</p>
                       </div>
-                      <Button size="xs" variant="danger" onClick={() => confirm({
+                      <Button aria-label="Delete secret" size="xs" variant="danger" onClick={() => confirm({
                         title: 'Delete Secret',
                         message: `Are you sure you want to delete secret "${secret.name}"? Services using this secret may fail.`,
                         confirmLabel: 'Delete',
@@ -161,7 +161,7 @@ export const SwarmSecretsPage: React.FC<{ onActionsReady?: (actions: PageAction[
                         <h4 className="text-sm font-semibold text-theme-primary">{config.name}</h4>
                         <p className="text-xs text-theme-tertiary">Created: {new Date(config.created_at).toLocaleString()}</p>
                       </div>
-                      <Button size="xs" variant="danger" onClick={() => confirm({
+                      <Button aria-label="Delete config" size="xs" variant="danger" onClick={() => confirm({
                         title: 'Delete Config',
                         message: `Are you sure you want to delete config "${config.name}"? Services using this config may fail.`,
                         confirmLabel: 'Delete',

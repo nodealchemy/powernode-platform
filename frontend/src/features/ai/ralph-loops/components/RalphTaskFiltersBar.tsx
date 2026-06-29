@@ -48,7 +48,7 @@ export const RalphTaskFiltersBar: React.FC<RalphTaskFiltersBarProps> = ({
             </option>
           ))}
         </Select>
-        <Button variant="ghost" size="sm" onClick={onRefresh} disabled={loading}>
+        <Button aria-label="Refresh" variant="ghost" size="sm" onClick={onRefresh} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
         {canEdit && (

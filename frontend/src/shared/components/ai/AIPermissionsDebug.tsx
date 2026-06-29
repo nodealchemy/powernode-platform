@@ -210,7 +210,7 @@ export const AIPermissionsDebug: React.FC = () => {
           <div className="flex items-center space-x-4">
             <span className="text-sm text-theme-success-fg">✓ {aiPermissions.length}</span>
             <span className="text-sm text-theme-error-fg">✗ {missingAIPermissions.length}</span>
-            <Button
+            <Button aria-label="Toggle permissions details"
               onClick={() => setExpanded(!expanded)}
               variant="ghost"
               size="sm"

@@ -442,7 +442,7 @@ export const RateLimitingSettings: React.FC = () => {
                       <p className="font-medium text-theme-error-fg">{violation.count}/{violation.limit}</p>
                       <p className="text-sm text-theme-error-fg">{new Date(violation.timestamp).toLocaleTimeString()}</p>
                     </div>
-                    <Button
+                    <Button aria-label="Clear rate limits for user"
                       onClick={() => clearLimitsForUser(violation.identifier)}
                       variant="danger"
                       size="xs"

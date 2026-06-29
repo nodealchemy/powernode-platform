@@ -226,10 +226,10 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
             <code className="flex-1 px-3 py-2 rounded-lg bg-theme-surface text-theme-secondary text-sm truncate">
               {webhookUrl}
             </code>
-            <Button variant="ghost" size="sm" onClick={copyWebhookUrl}>
+            <Button aria-label="Copy webhook URL" variant="ghost" size="sm" onClick={copyWebhookUrl}>
               <Copy className="w-4 h-4" />
             </Button>
-            <Button
+            <Button aria-label="Regenerate token"
               variant="outline"
               size="sm"
               onClick={handleRegenerateToken}

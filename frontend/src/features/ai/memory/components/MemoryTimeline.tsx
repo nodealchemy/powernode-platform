@@ -360,7 +360,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
 
                           <div className="flex items-center gap-1 shrink-0">
                             {onDeleteEntry && (
-                              <Button
+                              <Button aria-label="Delete memory entry"
                                 variant="ghost"
                                 size="sm"
                                 onClick={(e) => { e.stopPropagation(); handleDelete(entry); }}
@@ -369,7 +369,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
-                            <Button
+                            <Button aria-label="Toggle memory details"
                               variant="ghost"
                               size="sm"
                               onClick={() => {

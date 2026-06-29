@@ -81,7 +81,7 @@ export function ResourceCard({ resource, onClick }: ResourceCardProps) {
         </div>
         <div className="flex items-center gap-2">
           {resource.url && (
-            <a
+            <a aria-label="Open resource URL in new tab"
               href={resource.url}
               target="_blank"
               rel="noopener noreferrer"

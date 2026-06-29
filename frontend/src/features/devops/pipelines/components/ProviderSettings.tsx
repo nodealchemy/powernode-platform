@@ -96,10 +96,10 @@ const ProviderCard: React.FC<{
         </div>
 
         <div className="flex items-center gap-2">
-          <Button onClick={onEdit} variant="ghost" size="sm">
+          <Button aria-label="Edit provider" onClick={onEdit} variant="ghost" size="sm">
             <Edit className="w-4 h-4" />
           </Button>
-          <Button onClick={onDelete} variant="ghost" size="sm">
+          <Button aria-label="Delete provider" onClick={onDelete} variant="ghost" size="sm">
             <Trash2 className="w-4 h-4 text-theme-error-fg" />
           </Button>
         </div>

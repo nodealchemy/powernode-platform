@@ -20,7 +20,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ template, preview, o
       <div className="bg-theme-surface rounded-lg border border-theme w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-4 border-b border-theme flex items-center justify-between">
           <h3 className="font-medium text-theme-primary">Preview: {template.name}</h3>
-          <Button onClick={onClose} variant="ghost" size="sm">
+          <Button aria-label="Close preview" onClick={onClose} variant="ghost" size="sm">
             <X className="w-4 h-4" />
           </Button>
         </div>

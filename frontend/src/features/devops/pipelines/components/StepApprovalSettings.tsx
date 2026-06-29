@@ -179,7 +179,7 @@ export const StepApprovalSettings: React.FC<StepApprovalSettingsProps> = ({
                         {recipient.display_name || recipient.value}
                       </span>
                     </div>
-                    <Button
+                    <Button aria-label="Remove recipient"
                       onClick={() => handleRemoveRecipient(index)}
                       variant="ghost"
                       size="sm"
@@ -236,7 +236,7 @@ export const StepApprovalSettings: React.FC<StepApprovalSettingsProps> = ({
                 </select>
               )}
 
-              <Button
+              <Button aria-label="Add recipient"
                 onClick={handleAddRecipient}
                 variant="secondary"
                 size="sm"

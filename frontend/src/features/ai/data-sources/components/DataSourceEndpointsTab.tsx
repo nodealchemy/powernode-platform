@@ -348,7 +348,7 @@ export const DataSourceEndpointsTab: React.FC<DataSourceEndpointsTabProps> = ({
       <CardHeader
         title={editingId === 'new' ? 'New Endpoint' : 'Edit Endpoint'}
         action={
-          <Button variant="ghost" size="sm" onClick={closeForm} disabled={saving}>
+          <Button aria-label="Close form" variant="ghost" size="sm" onClick={closeForm} disabled={saving}>
             <X className="h-4 w-4" />
           </Button>
         }
@@ -572,10 +572,10 @@ export const DataSourceEndpointsTab: React.FC<DataSourceEndpointsTabProps> = ({
       </div>
       {canManageDataSources && (
         <div className="flex items-center gap-1 shrink-0">
-          <Button variant="ghost" size="sm" onClick={() => openEditForm(endpoint)} disabled={saving}>
+          <Button aria-label="Edit endpoint" variant="ghost" size="sm" onClick={() => openEditForm(endpoint)} disabled={saving}>
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button
+          <Button aria-label="Delete endpoint"
             variant="danger"
             size="sm"
             onClick={() => handleDelete(endpoint)}

@@ -168,7 +168,7 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
             </option>
           ))}
         </Select>
-        <Button variant="ghost" onClick={loadPartners} disabled={loading}>
+        <Button aria-label="Refresh partners" variant="ghost" onClick={loadPartners} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>

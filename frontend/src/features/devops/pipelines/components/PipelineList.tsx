@@ -106,7 +106,7 @@ const PipelineCard: React.FC<{
         </div>
 
         <div className="relative">
-          <Button
+          <Button aria-label="More actions"
             onClick={(e) => {
               e.stopPropagation();
               setShowMenu(!showMenu);
