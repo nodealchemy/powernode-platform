@@ -15,15 +15,6 @@ class Api::V1::ServicesController < ApplicationController
     }
   end
 
-  def get_job_class(job_type)
-    class_name = self.class.job_classes[job_type]
-    return nil unless class_name
-    class_name.constantize
-  rescue NameError => e
-    Rails.logger.error "Job class not found: #{class_name} - #{e.message}"
-    nil
-  end
-
   # GET /api/v1/admin/reverse_proxy
   def show
     render_success(proxy_service.get_full_config)
@@ -271,14 +262,19 @@ class Api::V1::ServicesController < ApplicationController
 
   def enqueue_job(job_type, job_args, job_name, metadata)
     job_id = SecureRandom.uuid
-    job_class = get_job_class(job_type)
-    return nil unless job_class
+    class_name = self.class.job_classes[job_type]
+    return nil unless class_name
 
     args = job_args.is_a?(Array) ? job_args + [ { job_id: job_id } ] : [ job_args, { job_id: job_id } ]
-    sidekiq_jid = job_class.perform_async(*args)
-    BackgroundJob.create_for_sidekiq_job(sidekiq_jid, job_name, metadata)
+    # The API process runs no Sidekiq — dispatch over the worker HTTP seam.
+    response = WorkerApiClient.new.queue_job(class_name, args)
+    worker_jid = (response.is_a?(Hash) && (response["job_id"] || response.dig("data", "job_id"))) || job_id
+    BackgroundJob.create_for_sidekiq_job(worker_jid, job_name, metadata)
 
-    { job_id: job_id, sidekiq_jid: sidekiq_jid, status: "started" }
+    { job_id: job_id, sidekiq_jid: worker_jid, status: "started" }
+  rescue WorkerApiClient::ApiError => e
+    Rails.logger.error "Failed to enqueue #{class_name}: #{e.message}"
+    nil
   end
 
   def service_config_params

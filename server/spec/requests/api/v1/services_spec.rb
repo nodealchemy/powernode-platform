@@ -81,6 +81,26 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
+  describe 'service job dispatch over the worker HTTP seam (no Sidekiq)' do
+    let(:test_config) { { enabled: true, services: [] } }
+    let(:worker) { instance_double(WorkerApiClient, queue_job: { 'job_id' => 'worker-jid-123' }) }
+
+    before do
+      allow(AdminSetting).to receive(:reverse_proxy_config).and_return(test_config)
+      allow_any_instance_of(Services::ProxyConfigService).to receive(:validate_config).and_return({ valid: true })
+      allow(WorkerApiClient).to receive(:new).and_return(worker)
+    end
+
+    it 'dispatches the service job via WorkerApiClient#queue_job and records a BackgroundJob' do
+      expect(worker).to receive(:queue_job).with('Services::TestConfigurationJob', kind_of(Array))
+      expect {
+        post '/api/v1/services/test_configuration', params: { test_config: test_config }, headers: headers, as: :json
+      }.to change(BackgroundJob, :count).by(1)
+      expect_success_response
+      expect(json_response_data['status']).to eq('started')
+    end
+  end
+
   describe 'POST /api/v1/services/test_configuration' do
     let(:test_config) { { enabled: true, services: [] } }
 
