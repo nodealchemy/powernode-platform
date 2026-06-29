@@ -188,6 +188,7 @@ module Ai
         "system_sdwan_delete_network"  => "Ai::Tools::SdwanTool",
         "system_sdwan_list_peers"      => "Ai::Tools::SdwanTool",
         "system_sdwan_get_peer"        => "Ai::Tools::SdwanTool",
+        "system_sdwan_set_peer_tags"   => "Ai::Tools::SdwanTool",
         "system_sdwan_attach_peer"     => "Ai::Tools::SdwanTool",
         "system_sdwan_detach_peer"     => "Ai::Tools::SdwanTool",
         "system_sdwan_get_topology"    => "Ai::Tools::SdwanTool",
@@ -364,6 +365,10 @@ module Ai
         "list_improvements" => "Ai::Tools::ImprovementTool",
         "approve_improvement" => "Ai::Tools::ImprovementTool",
         "dismiss_improvement" => "Ai::Tools::ImprovementTool",
+        "revert_improvement" => "Ai::Tools::ImprovementTool",
+        "enable_autonomy" => "Ai::Tools::ImprovementTool",
+        "disable_autonomy" => "Ai::Tools::ImprovementTool",
+        "scoreboard" => "Ai::Tools::ImprovementTool",
         # Agent management
         "create_agent" => "Ai::Tools::AgentManagementTool",
         "list_agents" => "Ai::Tools::AgentManagementTool",

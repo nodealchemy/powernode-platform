@@ -177,4 +177,24 @@ RSpec.describe Ai::Tools::PlatformApiToolRegistry do
       expect(result).to eq([])
     end
   end
+
+  describe "registration coverage (no built-but-unrouted actions)" do
+    it "registers every action that each loaded tool declares" do
+      registry_keys = described_class.all_tools.keys.map(&:to_s)
+
+      described_class.all_tools.values.uniq.each do |class_name|
+        klass =
+          begin
+            class_name.constantize
+          rescue NameError
+            next # extension tool class not loaded in this environment
+          end
+        next unless klass.respond_to?(:action_definitions)
+
+        missing = klass.action_definitions.keys.map(&:to_s) - registry_keys
+        expect(missing).to be_empty,
+          "#{class_name} declares MCP actions absent from PlatformApiToolRegistry (unreachable): #{missing.inspect}"
+      end
+    end
+  end
 end
