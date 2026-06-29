@@ -623,7 +623,7 @@ module Ai
         request = resolve_approval_request(params[:deferred_operation_id])
         return { success: false, error: "ApprovalRequest not found" } unless request
 
-        result = ::Ai::Autonomy::ApprovalWorkflowService.approve(
+        result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).approve(
           request: request, approver: user, comments: params[:comments]
         )
         { success: true, approval_request_id: request.id, request_status: request.reload.status, workflow: result }
@@ -635,7 +635,7 @@ module Ai
         request = resolve_approval_request(params[:deferred_operation_id])
         return { success: false, error: "ApprovalRequest not found" } unless request
 
-        result = ::Ai::Autonomy::ApprovalWorkflowService.reject(
+        result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).reject(
           request: request, approver: user, comments: params[:comments]
         )
         { success: true, approval_request_id: request.id, request_status: request.reload.status, workflow: result }

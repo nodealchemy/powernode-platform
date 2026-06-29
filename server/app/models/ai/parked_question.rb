@@ -20,7 +20,13 @@ module Ai
     def answer!(text, user: nil)
       return false unless status == "open"
 
-      update!(status: "answered", answer: text, answered_by_id: user&.id, answered_at: Time.current)
+      transaction do
+        update!(status: "answered", answer: text, answered_by_id: user&.id, answered_at: Time.current)
+        # Resume the work this question was gating: a blocked task stays blocked
+        # forever unless answering reopens it for the loop to re-pull (the answer
+        # is now readable on this ParkedQuestion).
+        ralph_task.update!(status: "pending") if ralph_task&.status == "blocked"
+      end
       campaign.refresh_open_questions_count!
       true
     end
