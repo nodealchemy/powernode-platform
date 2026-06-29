@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000010) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000011) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -4030,13 +4030,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000010) do
     t.datetime "updated_at", null: false
     t.integer "usage_count", default: 0, null: false
     t.string "version", default: "1.0.0"
+    t.index ["account_id", "slug"], name: "index_ai_skills_on_account_id_and_slug", unique: true, where: "(account_id IS NOT NULL)"
     t.index ["account_id"], name: "index_ai_skills_on_account_id"
     t.index ["ai_knowledge_base_id"], name: "index_ai_skills_on_ai_knowledge_base_id"
     t.index ["category"], name: "index_ai_skills_on_category"
     t.index ["cloned_from_id"], name: "index_ai_skills_on_cloned_from_id"
     t.index ["is_system"], name: "index_ai_skills_on_is_system"
     t.index ["parent_skill_id"], name: "index_ai_skills_on_parent_skill_id"
-    t.index ["slug"], name: "index_ai_skills_on_slug", unique: true
+    t.index ["slug"], name: "index_ai_skills_on_slug_global", unique: true, where: "(account_id IS NULL)"
     t.index ["source_key"], name: "index_ai_skills_on_source_key"
     t.index ["status"], name: "index_ai_skills_on_status"
     t.index ["tags"], name: "index_ai_skills_on_tags", using: :gin
@@ -6837,6 +6838,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000010) do
     t.datetime "updated_at", null: false
     t.integer "view_count", default: 0
     t.integer "views_count", default: 0
+    t.index ["account_id", "slug"], name: "index_knowledge_base_articles_on_account_id_and_slug", unique: true, where: "(account_id IS NOT NULL)"
     t.index ["account_id"], name: "index_knowledge_base_articles_on_account_id"
     t.index ["author_id"], name: "index_knowledge_base_articles_on_author_id"
     t.index ["category_id"], name: "index_knowledge_base_articles_on_category_id"
@@ -6847,7 +6849,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000010) do
     t.index ["last_edited_by_id"], name: "index_knowledge_base_articles_on_last_edited_by_id"
     t.index ["published_at"], name: "index_knowledge_base_articles_on_published_at"
     t.index ["search_vector"], name: "idx_knowledge_base_articles_on_search_vector", using: :gin
-    t.index ["slug"], name: "index_knowledge_base_articles_on_slug", unique: true
+    t.index ["slug"], name: "index_knowledge_base_articles_on_slug_global", unique: true, where: "(account_id IS NULL)"
     t.index ["source_key"], name: "index_knowledge_base_articles_on_source_key"
     t.index ["status"], name: "index_knowledge_base_articles_on_status"
     t.index ["view_count"], name: "index_knowledge_base_articles_on_view_count"

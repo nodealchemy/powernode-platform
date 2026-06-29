@@ -22,7 +22,12 @@ module KnowledgeBase
 
     # Validations
     validates :title, presence: true, length: { maximum: 255 }
-    validates :slug, presence: true, uniqueness: true, format: { with: /\A[a-z0-9\-]+\z/ }
+    # Slug uniqueness is partitioned by scope (GloballyScopable): unique among
+    # GLOBAL rows (account_id nil) and within each account — so an account's
+    # cloned/override article may share the global slug it overrides. Backed by
+    # the two partial unique indexes on (slug WHERE account_id IS NULL) and
+    # (account_id, slug WHERE account_id IS NOT NULL).
+    validates :slug, presence: true, uniqueness: { scope: :account_id }, format: { with: /\A[a-z0-9\-]+\z/ }
     validates :content, presence: true
     validates :excerpt, length: { maximum: 500 }
     validates :status, inclusion: { in: %w[draft review published archived] }

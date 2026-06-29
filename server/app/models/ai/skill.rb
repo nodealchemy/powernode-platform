@@ -104,7 +104,9 @@ module Ai
     # Validations
     # ==========================================
     validates :name, presence: true, uniqueness: { scope: :account_id }
-    validates :slug, presence: true, uniqueness: true
+    # Partitioned by scope (GloballyScopable): unique among GLOBAL rows and within
+    # each account, so an account override skill may reuse the global slug.
+    validates :slug, presence: true, uniqueness: { scope: :account_id }
     validates :category, presence: true, inclusion: { in: ->(_record) { all_categories } }
     validates :status, inclusion: { in: STATUSES }
 
