@@ -66,6 +66,17 @@ module Powernode
 end
 puts("   mode: CORE#{Powernode::Seeds.baseline? ? ' + BASELINE' : ''}#{Powernode::Seeds.demo? ? ' + DEMO' : ''} data")
 
+# Resilient seed load: one broken/duplicate content row (e.g. a pre-existing
+# account-scoped row shadowing a global slug) must NEVER abort the whole seed
+# run — that previously froze ALL downstream agent + extension seeding. Mirrors
+# the per-extension rescue used for extension seeds.
+def safe_load(seed_file)
+  load Rails.root.join('db', 'seeds', seed_file)
+rescue StandardError => e
+  Rails.logger.error("[seeds] #{seed_file} failed: #{e.class}: #{e.message}")
+  puts "  ⚠️  #{seed_file} failed (#{e.class}: #{e.message}) — continuing"
+end
+
 # Permissions are code-defined (the Permissions catalog is the source of truth);
 # there is no permissions table to seed. Roles + their grants are seeded from the
 # catalog. Global roles only — account-scoped roles are created at runtime.
@@ -133,7 +144,7 @@ if Powernode::Seeds.demo?
 
   # Load the unified test user seed which handles all user creation
   # and writes credentials to test-credentials.json
-  load Rails.root.join('db', 'seeds', 'cypress_test_users.rb')
+  safe_load('cypress_test_users.rb')
 
   # Now that demo accounts exist, (re)create the System Worker bound to the
   # admin account. No-op/refresh if the early call above already created it.
@@ -148,25 +159,20 @@ end
 # templates, so the first seed silently skipped the example agents/teams).
 if Powernode::Seeds.demo?
   puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
-  load Rails.root.join('db', 'seeds', 'comprehensive_ai_providers_seed.rb')
+  safe_load('comprehensive_ai_providers_seed.rb')
 end
 
 # 📄 Create public pages — demo/account-scoped (need an admin author). Gated by
 # Powernode::Seeds.demo?; in core/prod the setup wizard seeds account pages.
 if Powernode::Seeds.demo?
-  load Rails.root.join('db', 'seeds', 'public_pages_seed.rb')
+  safe_load('public_pages_seed.rb')
 end
 
 # Load Knowledge Base data (KB permissions are code-defined in the catalog now).
 # Resilient: a single broken/duplicate content article must NOT abort the whole
 # seed run (it previously aborted before the agent + extension seeds ever ran).
 puts "\n📚 Loading Knowledge Base content..."
-begin
-  load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
-rescue StandardError => e
-  Rails.logger.error("[seeds] knowledge_base_articles failed: #{e.class}: #{e.message}")
-  puts "  ⚠️  Knowledge Base articles failed (#{e.class}: #{e.message}) — continuing"
-end
+safe_load('knowledge_base_articles.rb')
 
 # Marketing permissions loaded via extension seeds (extensions/marketing/)
 
@@ -177,28 +183,28 @@ end
 # ---------------------------------------------------------------------------
 if Powernode::Seeds.baseline?
   puts "\n🧩 Loading AI Skills..."
-  load Rails.root.join('db', 'seeds', 'ai_skills_seed.rb')
+  safe_load('ai_skills_seed.rb')
 
   puts "\n📋 Loading AI Example Templates..."
-  load Rails.root.join('db', 'seeds', 'ai_example_templates_seed.rb')
+  safe_load('ai_example_templates_seed.rb')
 
   puts "\n🎯 Loading AI Mission Templates..."
-  load Rails.root.join('db', 'seeds', 'ai_mission_templates.rb')
+  safe_load('ai_mission_templates.rb')
 
   puts "\n📝 Loading AI System Prompt Templates..."
-  load Rails.root.join('db', 'seeds', 'ai_system_prompt_templates_seed.rb')
+  safe_load('ai_system_prompt_templates_seed.rb')
 
   puts "\n📚 Loading RAG Knowledge Base seed..."
-  load Rails.root.join('db', 'seeds', 'ai_knowledge_base_seed.rb')
+  safe_load('ai_knowledge_base_seed.rb')
 
   puts "\n🔧 Loading AI DevOps Templates..."
-  load Rails.root.join('db', 'seeds', 'ai_devops_templates_seed.rb')
+  safe_load('ai_devops_templates_seed.rb')
 
   puts "\n📦 Loading DevOps Container Templates..."
-  load Rails.root.join('db', 'seeds', 'devops_container_templates.rb')
+  safe_load('devops_container_templates.rb')
 
   puts "\n🔌 Loading MCP Server Container Templates..."
-  load Rails.root.join('db', 'seeds', 'mcp_container_templates_seed.rb')
+  safe_load('mcp_container_templates_seed.rb')
 
   # Seed AI model pricing from hardcoded constant (account-independent reference
   # the cost-aware model selector needs — baseline, not demo).
@@ -244,12 +250,7 @@ if Powernode::Seeds.baseline?
     ai_concierge_seed
     autonomy_data_seed
     platform_skill_assignments_seed
-  ].each do |seed_file|
-    load Rails.root.join('db', 'seeds', "#{seed_file}.rb")
-  rescue StandardError => e
-    Rails.logger.error("[seeds] baseline agent seed #{seed_file} failed: #{e.class}: #{e.message}")
-    puts "  ⚠️  #{seed_file} failed (#{e.class}: #{e.message}) — continuing"
-  end
+  ].each { |seed_file| safe_load("#{seed_file}.rb") }
 end
 
 # ---------------------------------------------------------------------------
@@ -262,36 +263,36 @@ if Powernode::Seeds.demo?
   # moved to the BASELINE block above — they are canonical platform resources,
   # not demo data. This block keeps DEMO-only instance data + example teams.
   puts "\n🔌 Loading MCP Servers..."
-  load Rails.root.join('db', 'seeds', 'mcp_servers_seeds.rb')
+  safe_load('mcp_servers_seeds.rb')
 
   puts "\n🗄️  Loading File Storage configurations..."
-  load Rails.root.join('db', 'seeds', 'file_storage_seeds.rb')
+  safe_load('file_storage_seeds.rb')
 
   puts "\n🔧 Loading AI DevOps Configs (Template Installations + AI Configs)..."
-  load Rails.root.join('db', 'seeds', 'ai_devops_configs_seed.rb')
+  safe_load('ai_devops_configs_seed.rb')
 
   puts "\n👥 Loading AI Agent Teams..."
-  load Rails.root.join('db', 'seeds', 'ai_teams_seed.rb')
+  safe_load('ai_teams_seed.rb')
 
   puts "\n📋 Loading AI Todo App Team..."
-  load Rails.root.join('db', 'seeds', 'ai_todo_team_seed.rb')
+  safe_load('ai_todo_team_seed.rb')
 
   puts "\n🔧 Loading Powernode Development Team..."
-  load Rails.root.join('db', 'seeds', 'ai_dev_team_seed.rb')
+  safe_load('ai_dev_team_seed.rb')
 
   # Platform-wide skill assignments — re-run here so the DEMO-only agents (dev
   # team, todo team) get their skills too; idempotent with the baseline run above
   # (which assigned the fundamental global agents' skills).
-  load Rails.root.join('db', 'seeds', 'platform_skill_assignments_seed.rb')
+  safe_load('platform_skill_assignments_seed.rb')
 
   puts "\n🧠 Loading AI Memory Pools..."
-  load Rails.root.join('db', 'seeds', 'ai_memory_pools_seed.rb')
+  safe_load('ai_memory_pools_seed.rb')
 
   puts "\n🌐 Loading AI Data Sources..."
-  load Rails.root.join('db', 'seeds', 'ai_data_sources_seed.rb')
+  safe_load('ai_data_sources_seed.rb')
 
   puts "\n🛡️ Loading AI Governance (compliance policies + approval chains)..."
-  load Rails.root.join('db', 'seeds', 'ai_governance_seed.rb')
+  safe_load('ai_governance_seed.rb')
 end
 
 # Extension seeds (dynamically discovered from registered extensions).
