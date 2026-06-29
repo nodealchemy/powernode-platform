@@ -211,6 +211,29 @@ module Ai
       false
     end
 
+    # Terminal finalization: complete the campaign when its work is genuinely
+    # drained (all loops ended, every task terminal, no open questions) or a stop
+    # condition is met — so a finished campaign doesn't linger at status=active /
+    # completion_pct=100 forever. Idempotent. (Operator decision 2026-06-29.)
+    def maybe_finalize!(summary = nil)
+      return if terminal?
+      return unless should_stop? || fully_drained?
+
+      reason = should_stop? ? "stop condition met" : "work drained"
+      complete!(summary || "Auto-finalized (#{reason}) at #{completion_pct}%")
+    end
+
+    # No further work pending: loops have ended (none active/scheduled), at least
+    # one task ran, no question is open, and no task is non-terminal.
+    def fully_drained?
+      return false if ralph_loops.active.exists?
+      return false unless ralph_loops.exists?
+      return false if parked_questions.where(status: "open").exists?
+
+      tasks = ::Ai::RalphTask.where(ralph_loop_id: ralph_loops.select(:id))
+      tasks.exists? && tasks.where(status: %w[pending in_progress blocked]).none?
+    end
+
     # Unified, newest-first feed of campaign activity (decisions + parked questions
     # + completed tasks) so the execution interface / monitoring is one read instead
     # of polling git + the DB separately.

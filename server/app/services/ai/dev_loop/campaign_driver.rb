@@ -185,6 +185,12 @@ module Ai
           )
           campaign.snapshot_progress!
         end
+
+        # Finalize the campaign if this increment drained it (all loops ended,
+        # tasks terminal, no open questions) or met a stop condition — so it
+        # doesn't linger at status=active/100% forever.
+        campaign.maybe_finalize!
+
         {
           task_key: task.task_key, status: task.status,
           iteration_number: iteration&.iteration_number, decision_id: decision.id,

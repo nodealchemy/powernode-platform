@@ -145,4 +145,47 @@ RSpec.describe Ai::Campaign, type: :model do
       expect(campaign.should_stop?).to be false
     end
   end
+
+  describe "#maybe_finalize! (terminal finalization)" do
+    let(:campaign) { create(:ai_campaign, :active) }
+
+    def drained_loop_with_task!(loop_status: "completed", task_status: "passed")
+      loop_rec = create(:ai_ralph_loop, account: campaign.account, campaign: campaign, status: loop_status)
+      create(:ai_ralph_task, ralph_loop: loop_rec, status: task_status)
+      loop_rec
+    end
+
+    it "completes when a stop condition (completion_pct target) is met" do
+      campaign.update!(stop_conditions: { "completion_pct" => 100 }, total_tasks: 2, completed_tasks: 2)
+      expect { campaign.maybe_finalize! }.to change { campaign.reload.status }.from("active").to("completed")
+    end
+
+    it "completes when fully drained: loops ended, tasks terminal, no open questions" do
+      drained_loop_with_task!
+      expect { campaign.maybe_finalize! }.to change { campaign.reload.status }.to("completed")
+      expect(campaign.completed_at).to be_present
+    end
+
+    it "does NOT finalize while a loop is still active" do
+      drained_loop_with_task!(loop_status: "running")
+      expect { campaign.maybe_finalize! }.not_to(change { campaign.reload.status })
+      expect(campaign.status).to eq("active")
+    end
+
+    it "does NOT finalize while a question is open" do
+      drained_loop_with_task!
+      campaign.park_question!(question: "needs operator input")
+      expect { campaign.maybe_finalize! }.not_to(change { campaign.reload.status })
+    end
+
+    it "does NOT finalize a campaign with no tasks (nothing ran)" do
+      create(:ai_ralph_loop, account: campaign.account, campaign: campaign, status: "completed")
+      expect { campaign.maybe_finalize! }.not_to(change { campaign.reload.status })
+    end
+
+    it "is idempotent once terminal" do
+      campaign.update!(status: "completed")
+      expect { campaign.maybe_finalize! }.not_to(change { campaign.reload.status })
+    end
+  end
 end
