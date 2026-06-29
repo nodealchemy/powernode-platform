@@ -417,4 +417,33 @@ RSpec.describe 'Api::V1::Ai::Agents', type: :request do
       end
     end
   end
+
+  describe 'POST /api/v1/ai/agents/:id/assign_skill (cross-tenant IDOR)' do
+    let(:skill_user) do
+      create(:user, account: account, permissions: %w[ai.agents.read ai.agents.create ai.agents.update ai.agents.execute])
+    end
+    let(:headers) { auth_headers_for(skill_user) }
+    let(:agent) { create(:ai_agent, account: account) }
+    let(:other_account) { create(:account) }
+
+    it "refuses to assign another account's skill (not found, not linked)" do
+      foreign_skill = create(:ai_skill, account: other_account)
+
+      post "/api/v1/ai/agents/#{agent.id}/assign_skill",
+           params: { skill_id: foreign_skill.id }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:not_found)
+      expect(agent.agent_skills.where(ai_skill_id: foreign_skill.id)).to be_empty
+    end
+
+    it "assigns the account's own skill" do
+      own_skill = create(:ai_skill, account: account)
+
+      post "/api/v1/ai/agents/#{agent.id}/assign_skill",
+           params: { skill_id: own_skill.id }, headers: headers, as: :json
+
+      expect_success_response
+      expect(agent.agent_skills.where(ai_skill_id: own_skill.id)).to be_present
+    end
+  end
 end

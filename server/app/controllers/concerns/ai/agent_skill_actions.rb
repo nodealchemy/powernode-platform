@@ -23,7 +23,8 @@ module Ai
 
     # POST /api/v1/ai/agents/:id/assign_skill
     def assign_skill
-      skill = ::Ai::Skill.find(params[:skill_id])
+      # Scope to the account's own + global skills — never another tenant's private skill.
+      skill = ::Ai::Skill.for_account(current_user.account.id).find(params[:skill_id])
       agent_skill = @agent.agent_skills.build(
         ai_skill_id: skill.id,
         priority: params[:priority] || 0
