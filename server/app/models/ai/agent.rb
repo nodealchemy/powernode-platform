@@ -205,6 +205,17 @@ module Ai
       fallback_resolution
     end
 
+    # Per-request account context for resolving a GLOBAL agent's model/provider/
+    # credential. A global agent has no providers of its own, so when an account
+    # USES it, ALL provider characteristics derive from THAT account's
+    # configuration. Chainable; clears any memoized resolution so the context
+    # takes effect. No-op effect for account-owned agents (they use their own).
+    def using_account(account)
+      self.resolving_account = account
+      remove_instance_variable(:@model_resolution) if instance_variable_defined?(:@model_resolution)
+      self
+    end
+
     def resolved_model
       model_resolution[:model]
     end

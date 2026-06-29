@@ -287,8 +287,10 @@ module Api
 
           # for_account = the account's OWN agents + GLOBAL platform agents, so a
           # consumer can view/execute/clone a global agent (mutations are guarded
-          # by require_editable_agent!).
+          # by require_editable_agent!). #using_account makes a GLOBAL agent
+          # resolve its model/provider/credential from THIS account's config.
           @agent = ::Ai::Agent.for_account(account.id).find(params[:agent_id] || params[:id])
+          @agent.using_account(account)
         rescue ActiveRecord::RecordNotFound
           render_error("Agent not found", status: :not_found)
         end

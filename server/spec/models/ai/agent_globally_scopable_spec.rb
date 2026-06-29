@@ -93,4 +93,19 @@ RSpec.describe "Ai::Agent global/account scoping" do
       expect(Ai::Agent.for_account(account.id)).to include(a)
     end
   end
+
+  describe "#using_account — provider derives from the USING account (D9)" do
+    it "resolves the same global agent's provider from each using account's own config" do
+      # account: openai credentialed; other_account: anthropic credentialed.
+      create(:ai_provider_credential, account: account, provider: provider)
+      other_provider = create(:ai_provider, :anthropic, account: other_account)
+      create(:ai_provider_credential, account: other_account, provider: other_provider)
+
+      g = global_agent(name: "Fleet Autonomy", slug: "fleet-autonomy")
+
+      expect(g.using_account(account).resolved_provider.provider_type).to eq("openai")
+      # Switching the using account re-resolves (memo cleared) from THAT account.
+      expect(g.using_account(other_account).resolved_provider.provider_type).to eq("anthropic")
+    end
+  end
 end

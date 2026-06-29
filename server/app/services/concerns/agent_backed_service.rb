@@ -58,10 +58,14 @@ module AgentBackedService
   # Look up a dedicated utility agent by slug (preferred) or name (fallback).
   # Returns nil if no matching agent exists.
   def resolve_service_agent(slug, fallback_name: nil)
-    scope = Ai::Agent.where(account: service_account, status: "active")
-    agent = scope.find_by(slug: slug)
-    agent ||= scope.find_by(name: fallback_name) if fallback_name
-    agent
+    # for_account = the account's own agents + GLOBAL platform agents
+    # (override-aware: an account copy wins over the global default). A global
+    # agent has no providers of its own, so #using_account makes ALL of its
+    # provider characteristics derive from THIS account's configuration.
+    base = Ai::Agent.for_account(service_account&.id).where(status: "active")
+    agent = base.where(slug: slug).account_override_first.first
+    agent ||= base.where(name: fallback_name).account_override_first.first if fallback_name
+    agent&.using_account(service_account)
   end
 
   # Build a WorkerLlmClient that routes through the agent's provider config.
