@@ -39,6 +39,19 @@ class Webhooks::WebhookDeliveryJob < BaseJob
 
     log_info "Delivering webhook to: #{webhook_url} (attempt #{delivery_attempt})"
 
+    # SSRF guard: refuse outbound delivery to internal/metadata/private targets.
+    # Record as a permanent failure and return WITHOUT scheduling a retry — the
+    # destination is blocked by policy, so retrying would never succeed.
+    unless Security::WebhookUrlGuard.safe?(webhook_url)
+      log_error "[Webhook] blocked SSRF target #{webhook_url}"
+      mark_delivery_status(delivery_id, 'failed', {
+        error_message: "Blocked SSRF target (internal/private destination): #{webhook_url}",
+        error_category: 'blocked_ssrf'
+      })
+      record_endpoint_result(endpoint_id, false) if endpoint_id
+      return { success: false, error: 'Blocked SSRF target', blocked: true }
+    end
+
     # Mark delivery as in_progress
     mark_delivery_status(delivery_id, 'in_progress')
 

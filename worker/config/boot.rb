@@ -22,6 +22,10 @@ require 'httparty'
 # Auto-require core files first
 require_relative '../app/services/backend_api_client'
 require_relative '../app/services/web_auth_api_client'
+
+# SSRF guard for outbound user-configured webhook deliveries (used by the
+# webhook delivery jobs; loaded eagerly since the worker has no autoloader).
+require_relative '../app/services/security/webhook_url_guard'
 require_relative '../app/middleware/sidekiq_web_auth'
 require_relative '../app/controllers/jobs_controller'
 

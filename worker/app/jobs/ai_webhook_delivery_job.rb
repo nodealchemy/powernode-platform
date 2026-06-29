@@ -67,6 +67,19 @@ class AiWebhookDeliveryJob < BaseJob
 
     log_info "Delivering to webhook: #{webhook_url}"
 
+    # SSRF guard: refuse outbound delivery to internal/metadata/private targets.
+    # This is an OUTBOUND call we are declining — record it as a failed delivery
+    # and return (no raise) so a permanently-blocked URL is not retried.
+    unless Security::WebhookUrlGuard.safe?(webhook_url)
+      log_error "[Webhook] blocked SSRF target #{webhook_url}"
+      return {
+        success: false,
+        webhook_url: webhook_url,
+        error: 'Blocked SSRF target (internal/private destination)',
+        blocked: true
+      }
+    end
+
     start_time = Time.current
 
     uri = URI.parse(webhook_url)
