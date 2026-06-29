@@ -265,9 +265,12 @@ module Api
         end
 
         def update_steps(pipeline, steps_params)
-          # Simple strategy: replace all steps
-          pipeline.pipeline_steps.destroy_all
-          create_steps(pipeline, steps_params)
+          # Simple strategy: replace all steps — atomically, so a failed create!
+          # never leaves the pipeline with zero/partial steps (prior config lost).
+          ActiveRecord::Base.transaction do
+            pipeline.pipeline_steps.destroy_all
+            create_steps(pipeline, steps_params)
+          end
         end
 
         def serialize_collection(pipelines)

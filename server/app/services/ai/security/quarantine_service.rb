@@ -80,15 +80,20 @@ module Ai
           raise QuarantineError, "Cannot escalate to same or lower severity (#{quarantine_record.severity} -> #{new_severity})"
         end
 
-        quarantine_record.update!(status: "escalated")
+        new_record = nil
+        # Atomic: escalate the old record + create the active replacement together,
+        # so a failed create! never leaves the agent escalated-but-inactive
+        # (effectively un-quarantined while escalating to higher severity).
+        ActiveRecord::Base.transaction do
+          quarantine_record.update!(status: "escalated")
 
-        agent = Ai::Agent.find(quarantine_record.agent_id)
-        restrictions = apply_restrictions(agent, new_severity)
+          agent = Ai::Agent.find(quarantine_record.agent_id)
+          restrictions = apply_restrictions(agent, new_severity)
 
-        cooldown = SEVERITY_COOLDOWNS[new_severity] || 60
-        scheduled_restore = new_severity == "critical" ? nil : (Time.current + cooldown.minutes)
+          cooldown = SEVERITY_COOLDOWNS[new_severity] || 60
+          scheduled_restore = new_severity == "critical" ? nil : (Time.current + cooldown.minutes)
 
-        new_record = Ai::QuarantineRecord.create!(
+          new_record = Ai::QuarantineRecord.create!(
           account: @account,
           agent_id: quarantine_record.agent_id,
           severity: new_severity,
@@ -102,6 +107,7 @@ module Ai
           cooldown_minutes: cooldown,
           scheduled_restore_at: scheduled_restore
         )
+        end
 
         audit_log("quarantine_escalated", agent_id: quarantine_record.agent_id, outcome: "escalated",
                   severity_level: new_severity == "critical" ? "critical" : "warning",

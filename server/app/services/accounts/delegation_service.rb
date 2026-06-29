@@ -160,7 +160,16 @@ module Accounts
           end
         end
 
-        if delegation.update(update_params)
+        result = nil
+        # Atomic: the role change + permission rewrite must commit together. The
+        # update MUST be inside the transaction, or a mid-loop failure would leave
+        # the delegation with the NEW role but a partial/empty permission set.
+        ActiveRecord::Base.transaction do
+          unless delegation.update(update_params)
+            result = { success: false, errors: delegation.errors.full_messages }
+            raise ActiveRecord::Rollback
+          end
+
           # Update specific permissions if provided
           if permission_names.present?
             # Remove existing delegation permissions
@@ -175,10 +184,9 @@ module Accounts
           # Create audit log entry
           create_audit_log("delegation_updated", delegation)
 
-          { success: true, delegation: delegation }
-        else
-          { success: false, errors: delegation.errors.full_messages }
+          result = { success: true, delegation: delegation }
         end
+        result
       rescue StandardError => e
         Rails.logger.error "Account::DelegationService#update_delegation failed: #{e.message}"
         { success: false, errors: [ "Failed to update delegation: #{e.message}" ] }

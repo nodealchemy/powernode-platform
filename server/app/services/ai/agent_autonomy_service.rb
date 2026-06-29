@@ -97,10 +97,12 @@ module Ai
       best = scored.max_by { |s| s[:score] }
       return nil unless best
 
-      # Demote current lead if exists
-      members.where(role: "lead").update_all(role: "worker")
-
-      best[:member].update!(role: "lead")
+      # Demote-then-promote atomically, so a failed promote never leaves the team
+      # with zero leads.
+      ActiveRecord::Base.transaction do
+        members.where(role: "lead").update_all(role: "worker")
+        best[:member].update!(role: "lead")
+      end
       Rails.logger.info("Auto-assigned lead: #{best[:agent].name} (score: #{best[:score]})")
       best[:agent]
     end
