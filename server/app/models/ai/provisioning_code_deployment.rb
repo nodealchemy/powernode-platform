@@ -21,7 +21,15 @@ module Ai
     STATUSES = %w[pending cloning installing starting running failed rolled_back].freeze
 
     belongs_to :mission, class_name: "Ai::Mission"
-    belongs_to :node_instance, class_name: "::System::NodeInstance"
+    # Guarded by the `defined?(::System::...)` seam: in core mode the system
+    # extension is absent, so accessing `node_instance` (or running the
+    # required-belongs_to presence validation) would NameError. Full mode
+    # declares the association; core mode falls back to a nil reader.
+    if defined?(::System::NodeInstance)
+      belongs_to :node_instance, class_name: "::System::NodeInstance"
+    else
+      def node_instance = nil
+    end
 
     validates :status, presence: true, inclusion: { in: STATUSES }
     validates :repo_url, presence: true

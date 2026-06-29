@@ -15,10 +15,19 @@ module Devops
     # NodeInstance backing a `managed` host. Optional because external/operator-
     # registered hosts have no NodeInstance. The unique index on the FK
     # enforces 1:1 — each NodeInstance owns at most one managed dockerd.
-    belongs_to :node_instance,
-               class_name: "System::NodeInstance",
-               foreign_key: :node_instance_id,
-               optional: true
+    #
+    # Guarded by the `defined?(::System::...)` seam: in core mode the system
+    # extension is absent, so `host.node_instance` (e.g. on an external host)
+    # would NameError. Full mode declares the association; core mode falls back
+    # to a nil reader. External hosts have no NodeInstance anyway.
+    if defined?(::System::NodeInstance)
+      belongs_to :node_instance,
+                 class_name: "System::NodeInstance",
+                 foreign_key: :node_instance_id,
+                 optional: true
+    else
+      def node_instance = nil
+    end
     has_many :docker_containers, class_name: "Devops::DockerContainer", foreign_key: "docker_host_id", dependent: :destroy
     has_many :docker_images, class_name: "Devops::DockerImage", foreign_key: "docker_host_id", dependent: :destroy
     has_many :docker_events, class_name: "Devops::DockerEvent", foreign_key: "docker_host_id", dependent: :destroy

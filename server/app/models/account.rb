@@ -224,8 +224,17 @@ class Account < ApplicationRecord
   has_many :federation_partners, class_name: "FederationPartner", dependent: :destroy
   has_many :ai_dag_executions, class_name: "Ai::DagExecution", dependent: :destroy
 
-  # System extension associations (M1 Self-Serve Hardening)
-  has_many :system_provider_credentials, class_name: "System::ProviderCredential", dependent: :destroy
+  # System extension associations (M1 Self-Serve Hardening).
+  # Guarded by the `defined?(::System::...)` seam so core mode (system
+  # extension absent) degrades gracefully: declaring the association in core
+  # mode would register a `dependent: :destroy` callback that NameErrors the
+  # moment an Account is destroyed. Full mode declares it normally; core mode
+  # falls back to an empty collection that never raises on read.
+  if defined?(::System::ProviderCredential)
+    has_many :system_provider_credentials, class_name: "System::ProviderCredential", dependent: :destroy
+  else
+    def system_provider_credentials = []
+  end
 
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }

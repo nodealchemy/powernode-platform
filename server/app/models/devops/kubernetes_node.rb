@@ -25,9 +25,17 @@ module Devops
     belongs_to :kubernetes_cluster,
                class_name: "Devops::KubernetesCluster",
                foreign_key: :kubernetes_cluster_id
-    belongs_to :node_instance,
-               class_name: "System::NodeInstance",
-               foreign_key: :node_instance_id
+    # Guarded by the `defined?(::System::...)` seam: in core mode the system
+    # extension is absent, so accessing `node.node_instance` (or running the
+    # required-belongs_to presence validation) would NameError. Full mode
+    # declares the association; core mode falls back to a nil reader.
+    if defined?(::System::NodeInstance)
+      belongs_to :node_instance,
+                 class_name: "System::NodeInstance",
+                 foreign_key: :node_instance_id
+    else
+      def node_instance = nil
+    end
 
     # Keep cluster.node_count consistent across destroys. The increment
     # path lives in KubernetesClusterProvisionerService#register_node_join!,
