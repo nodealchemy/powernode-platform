@@ -258,4 +258,48 @@ RSpec.describe FileStorageService, type: :service do
       expect(result).to be_a(Hash)
     end
   end
+
+  # Regression: the server runs NO Sidekiq (no sidekiq gem; the job classes live in
+  # the worker). queue_processing_job must dispatch over the HTTP worker seam
+  # (WorkerApiClient#queue_job), not via Sidekiq::Client.push (which raises
+  # NameError: uninitialized constant Sidekiq in the API process).
+  describe '#queue_processing_job (worker dispatch seam)' do
+    let(:worker) do
+      instance_double(WorkerApiClient,
+        queue_file_processing_job: { 'status' => 'queued' },
+        queue_job: { 'status' => 'queued' })
+    end
+    let(:proc_temp_file) do
+      file = Tempfile.new([ 'proc', '.txt' ])
+      file.write('processing target')
+      file.rewind
+      file.define_singleton_method(:content_type) { 'text/plain' }
+      file
+    end
+    after { proc_temp_file.close! }
+
+    before { allow(WorkerApiClient).to receive(:new).and_return(worker) }
+
+    let(:file_object) do
+      service.upload_file(proc_temp_file, filename: 'proc.txt', content_type: 'text/plain', uploaded_by_id: user.id)
+    end
+
+    it 'dispatches via the HTTP worker seam, not Sidekiq' do
+      file_object # force creation (after_create callback uses the stubbed seam)
+      expect(worker).to receive(:queue_job).with('ThumbnailGenerationJob', [ kind_of(String) ], queue: 'file_processing')
+      service.queue_processing_job(file_object, 'thumbnail')
+    end
+
+    it 'maps video_processing to its worker job class through the seam' do
+      file_object
+      expect(worker).to receive(:queue_job).with('VideoProcessingJob', anything, queue: 'file_processing')
+      service.queue_processing_job(file_object, 'video_processing')
+    end
+
+    it 'maps ocr to MetadataExtractionJob through the seam' do
+      file_object
+      expect(worker).to receive(:queue_job).with('MetadataExtractionJob', anything, queue: 'file_processing')
+      service.queue_processing_job(file_object, 'ocr')
+    end
+  end
 end

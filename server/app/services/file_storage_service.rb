@@ -273,12 +273,11 @@ class FileStorageService
       object: file_object,
       account: account,
       job_type: job_type,
-      configuration: configuration,
+      job_parameters: configuration,
       status: "pending"
     )
 
-    # Dispatch Sidekiq job based on type
-    # Note: Job classes exist in worker service, so we push via Sidekiq client
+    # Resolve the worker job class for this processing type.
     job_class = case job_type
     when "thumbnail"
                   "ThumbnailGenerationJob"
@@ -298,13 +297,9 @@ class FileStorageService
                   "MetadataExtractionJob"
     end
 
-    # Push job to Sidekiq queue
+    # Dispatch to the worker over the HTTP seam — the API process runs no Sidekiq.
     if job_class
-      Sidekiq::Client.push(
-        "class" => job_class,
-        "queue" => "file_processing",
-        "args" => [ job.id ]
-      )
+      WorkerApiClient.new.queue_job(job_class, [ job.id ], queue: "file_processing")
       log_info("Queued #{job_class} for processing job #{job.id}")
     end
 
