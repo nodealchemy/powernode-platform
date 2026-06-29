@@ -443,6 +443,28 @@ class WorkerJobService
       })
     end
 
+    # Enqueue an isolated test-execution run for a Ralph loop iteration.
+    # The worker checks out the branch, runs the detected test command, and
+    # POSTs the raw result back to the iteration's test_results callback, which
+    # parses + gates task.pass!. Part of the in-platform sandbox engine
+    # (Phase A); the loop only dispatches this when the loop's configuration
+    # enables real_test_execution.
+    def enqueue_ai_test_execution(ralph_loop_id:, ralph_iteration_id:, repository:, branch:, command:, framework: nil, timeout_seconds: 600)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiTestExecutionJob",
+        "args" => [ {
+          "ralph_loop_id" => ralph_loop_id,
+          "ralph_iteration_id" => ralph_iteration_id,
+          "repository" => repository,
+          "branch" => branch,
+          "command" => command,
+          "framework" => framework,
+          "timeout_seconds" => timeout_seconds
+        } ],
+        "queue" => "ai_execution"
+      })
+    end
+
     # Enqueue DevOps approval notification job
     def enqueue_devops_approval_notification(step_execution_id, recipients)
       new.make_worker_request("POST", "/api/v1/jobs", {

@@ -42,6 +42,26 @@ RSpec.describe WorkerJobService do
     end
   end
 
+  describe ".enqueue_ai_test_execution" do
+    it "dispatches AiTestExecutionJob with the iteration/repo/command payload on ai_execution" do
+      payload = capture_payload do
+        described_class.enqueue_ai_test_execution(
+          ralph_loop_id: "loop-1", ralph_iteration_id: "iter-1",
+          repository: "acme/widget", branch: "feature/x",
+          command: "bundle exec rspec", framework: "rspec"
+        )
+      end
+
+      expect(payload["job_class"]).to eq("AiTestExecutionJob")
+      expect(payload["queue"]).to eq("ai_execution")
+      expect(payload["args"].first).to include(
+        "ralph_loop_id" => "loop-1", "ralph_iteration_id" => "iter-1",
+        "repository" => "acme/widget", "branch" => "feature/x",
+        "command" => "bundle exec rspec", "framework" => "rspec", "timeout_seconds" => 600
+      )
+    end
+  end
+
   describe ".enqueue_ai_self_challenge" do
     let(:challenge_id) { "challenge-123" }
     let(:account_id) { "account-xyz" }
