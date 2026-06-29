@@ -364,7 +364,6 @@ Rails.application.routes.draw do
 
         # Email sending for worker notifications
         namespace :emails do
-          post :review_notification
           post :security_alert
         end
 
