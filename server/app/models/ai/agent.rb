@@ -17,9 +17,22 @@ module Ai
     include Ai::Agent::Statistics
     include Ai::Agent::Operations
     include Ai::AgentStorageConfig
+    # Global/account scoping (mirrors Ai::Skill): account_id nil = GLOBAL,
+    # platform-provided, seed-managed by source_key; account_id set = an
+    # account's own agent or an editable override/clone of a global one.
+    # Provides global/account_scoped/for_account scopes + clone_to_account +
+    # update_from_source (3-way rebase).
+    include GloballyScopable
+
+    # Transient per-request context: the account whose providers/credentials
+    # resolve a GLOBAL agent's model at use-time (a global agent has no account
+    # of its own). Set by the per-account caller before reading
+    # resolved_model/provider/credential. Not persisted.
+    attr_accessor :resolving_account
 
     # Associations
-    belongs_to :account
+    # Optional: a global (platform-provided) agent has account_id nil.
+    belongs_to :account, optional: true
     belongs_to :creator, class_name: "User", foreign_key: "creator_id"
     belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
     has_many :executions, class_name: "Ai::AgentExecution", foreign_key: "ai_agent_id", dependent: :destroy
@@ -98,6 +111,24 @@ module Ai
     scope :default_concierge, -> { concierge.active.order(:created_at).limit(1) }
     scope :mcp_clients, -> { where(agent_type: "mcp_client") }
     scope :active_mcp_clients, -> { mcp_clients.active }
+
+    # Override-aware ordering: an account's OWN row sorts BEFORE the global
+    # (account_id nil) one, so account overrides win over the global default.
+    scope :account_override_first, -> { order(Arel.sql("ai_agents.account_id IS NULL")) }
+
+    # Resolve a fundamental agent by name/slug for a given account, honoring
+    # the override model: if the account has its own agent of that name/slug it
+    # wins; otherwise the GLOBAL (platform-provided) default is returned. Use
+    # this everywhere a named/role agent is resolved so account owners can
+    # override global/default agents per role/purpose.
+    #   Ai::Agent.resolve_for(account.id, name: "Fleet Autonomy", agent_type: "monitor")
+    def self.resolve_for(account_id, name: nil, slug: nil, agent_type: nil)
+      rel = for_account(account_id)
+      rel = rel.where(name: name) if name
+      rel = rel.where(slug: slug) if slug
+      rel = rel.where(agent_type: agent_type) if agent_type
+      rel.account_override_first.first
+    end
 
     # Callbacks
     before_validation :generate_slug, if: -> { name.present? && (slug.blank? || name_changed?) }
@@ -190,13 +221,20 @@ module Ai
     # requirements. The credential always comes from the *resolved* provider, so the
     # three never disagree. Raises on selector failure (model_resolution rescues).
     def compute_model_resolution
+      # A GLOBAL agent (account_id nil) has no providers of its own — it is
+      # resolved under a per-account context set via `resolving_account=` by the
+      # caller. Without one (e.g. a global agent inspected outside any account),
+      # fall back to the agent's seeded provider default rather than crash.
+      acct = account || resolving_account
+      return fallback_resolution if acct.nil?
+
       pinned = mcp_metadata&.dig("model_config", "model").presence
-      if pinned && (prov = provider_for_pinned_model(pinned))
+      if pinned && (prov = provider_for_pinned_model(pinned, acct))
         return resolution_for(pinned, prov)
       end
 
       rec  = ::Ai::AgentModelSelector.recommend(
-        account:      account,
+        account:      acct,
         agent_type:   agent_type,
         requirements: merged_model_requirements
       )
@@ -216,14 +254,15 @@ module Ai
     # lists the model, else an account provider whose family matches the model id.
     # nil ⇒ the pin matches no usable provider, so the caller falls through to the
     # selector — restoring the supported-model safety check the old resolve_model had.
-    def provider_for_pinned_model(model_id)
+    def provider_for_pinned_model(model_id, acct = account)
       return provider if provider && provider_lists_model?(provider, model_id)
 
       ptype = provider_type_for_model(model_id)
       return nil unless ptype
+      return nil unless acct # global agent with no resolving account → fall through to fallback
 
-      account.ai_providers.active.where(provider_type: ptype).detect { |p| provider_lists_model?(p, model_id) } ||
-        account.ai_providers.active.find_by(provider_type: ptype)
+      acct.ai_providers.active.where(provider_type: ptype).detect { |p| provider_lists_model?(p, model_id) } ||
+        acct.ai_providers.active.find_by(provider_type: ptype)
     end
 
     def provider_lists_model?(prov, model_id)
@@ -367,9 +406,11 @@ module Ai
       base_slug = name.downcase.gsub(/[^a-z0-9\s\-_]/, "").squeeze(" ").strip.gsub(/\s+/, "-")
       self.slug = base_slug
 
-      # Ensure uniqueness within account
+      # Slug is GLOBALLY unique (DB unique index on slug), and a global agent
+      # has no account — so dedupe against ALL agents, not account.ai_agents
+      # (which would NPE for account_id nil).
       counter = 1
-      while account.ai_agents.where(slug: self.slug).where.not(id: id).exists?
+      while ::Ai::Agent.where(slug: self.slug).where.not(id: id).exists?
         self.slug = "#{base_slug}-#{counter}"
         counter += 1
       end

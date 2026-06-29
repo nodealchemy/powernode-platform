@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe Ai::Agent, type: :model do
   describe 'associations' do
-    it { should belong_to(:account) }
+    it { should belong_to(:account).optional } # optional: a GLOBAL agent has account_id nil
     it { should belong_to(:provider) }
     it { should have_many(:executions).dependent(:destroy) }
     it { should have_many(:conversations).dependent(:destroy) }

@@ -15,18 +15,21 @@ module Ai
         "agent_#{id}_v#{version.gsub('.', '_')}"
       end
 
-      # Get MCP tool name (used for tool registration)
+      # Get MCP tool name (used for tool registration). A GLOBAL agent
+      # (account_id nil) has no account subdomain — use a "global" prefix.
       def mcp_tool_name
-        "#{account.subdomain}_#{slug}".downcase.gsub(/[^a-z0-9_]/, "_")
+        prefix = account&.subdomain.presence || "global"
+        "#{prefix}_#{slug}".downcase.gsub(/[^a-z0-9_]/, "_")
       end
 
       # Generate complete MCP tool manifest
       def generate_mcp_tool_manifest
         capabilities = skill_slugs.dup
 
-        # Expand capabilities with graph-adjacent skills (1-hop neighbors)
+        # Expand capabilities with graph-adjacent skills (1-hop neighbors).
+        # Skipped for GLOBAL agents (no account → no per-account graph).
         begin
-          if account.ai_knowledge_graph_nodes.active.skill_nodes.exists?
+          if account && account.ai_knowledge_graph_nodes.active.skill_nodes.exists?
             graph_service = Ai::KnowledgeGraph::GraphService.new(account)
             adjacent = []
             skills.active.each do |skill|

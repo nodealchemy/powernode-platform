@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000007) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000010) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -827,10 +827,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000007) do
   end
 
   create_table "ai_agents", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
+    t.uuid "account_id"
     t.string "agent_type", limit: 50, null: false
     t.uuid "ai_provider_id", null: false
     t.jsonb "autonomy_config", default: {}
+    t.uuid "cloned_from_id"
     t.jsonb "conversation_profile", default: {}, null: false
     t.datetime "created_at", null: false
     t.uuid "creator_id", null: false
@@ -840,6 +841,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000007) do
     t.boolean "is_concierge", default: false, null: false
     t.boolean "is_governance", default: false, null: false
     t.boolean "is_public", default: false
+    t.boolean "is_system", default: false, null: false
     t.datetime "last_executed_at", precision: nil
     t.integer "max_spawn_depth", default: 3
     t.jsonb "mcp_input_schema", default: {}, null: false, comment: "JSON Schema for validating agent input parameters"
@@ -851,6 +853,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000007) do
     t.string "name", limit: 255, null: false
     t.uuid "parent_agent_id"
     t.string "slug", limit: 150, null: false
+    t.string "source_key", limit: 255
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.string "status", default: "active", null: false
     t.string "termination_policy", default: "graceful"
     t.string "trust_level", default: "supervised"
@@ -862,14 +867,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000007) do
     t.index ["account_id"], name: "index_ai_agents_on_account_id"
     t.index ["agent_type"], name: "index_ai_agents_on_agent_type"
     t.index ["ai_provider_id"], name: "index_ai_agents_on_ai_provider_id"
+    t.index ["cloned_from_id"], name: "index_ai_agents_on_cloned_from_id"
     t.index ["creator_id"], name: "index_ai_agents_on_creator_id"
     t.index ["is_governance"], name: "idx_ai_agents_governance", where: "(is_governance = true)"
     t.index ["is_public"], name: "index_ai_agents_on_is_public"
+    t.index ["is_system"], name: "index_ai_agents_on_is_system"
     t.index ["last_executed_at"], name: "index_ai_agents_on_last_executed_at"
     t.index ["mcp_registered_at"], name: "index_ai_agents_on_mcp_registered_at"
     t.index ["mcp_tool_manifest"], name: "index_ai_agents_on_mcp_tool_manifest", using: :gin
     t.index ["parent_agent_id"], name: "index_ai_agents_on_parent_agent_id"
     t.index ["slug"], name: "index_ai_agents_on_slug", unique: true
+    t.index ["source_key"], name: "index_ai_agents_on_source_key"
     t.index ["status"], name: "index_ai_agents_on_status"
   end
 
