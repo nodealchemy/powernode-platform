@@ -41,7 +41,7 @@ module Api
 
           # POST /api/v1/ai/security/identities
           def provision
-            agent = current_account.ai_agents.find(params[:agent_id])
+            agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
             identity = service.provision!(agent: agent)
 
             render_success(data: identity_json(identity), status: :created)
@@ -54,7 +54,7 @@ module Api
           # POST /api/v1/ai/security/identities/:id/rotate
           def rotate
             identity = ::Ai::AgentIdentity.where(account: current_account).find(params[:id])
-            agent = current_account.ai_agents.find(identity.agent_id)
+            agent = ::Ai::Agent.for_account(current_account.id).find(identity.agent_id)
             new_identity = service.rotate!(agent: agent)
 
             render_success(data: identity_json(new_identity))
@@ -67,7 +67,7 @@ module Api
           # POST /api/v1/ai/security/identities/:id/revoke
           def revoke
             identity = ::Ai::AgentIdentity.where(account: current_account).find(params[:id])
-            agent = current_account.ai_agents.find(identity.agent_id)
+            agent = ::Ai::Agent.for_account(current_account.id).find(identity.agent_id)
             result = service.revoke!(agent: agent, reason: params[:reason] || "Manual revocation")
 
             render_success(data: result)

@@ -71,7 +71,7 @@ module Api
         private
 
         def set_agent
-          @agent = current_account.ai_agents.find(params[:agent_id])
+          @agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
         end
 
         def validate_permissions

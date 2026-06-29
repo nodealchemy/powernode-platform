@@ -426,7 +426,7 @@ module Ai
         target_agent = if params[:agent_id] == "concierge"
                          account.ai_agents.default_concierge.first
         else
-                         account.ai_agents.find_by(id: params[:agent_id])
+                         ::Ai::Agent.for_account(account.id).find_by(id: params[:agent_id])
         end
         return { success: false, error: "Agent not found" } unless target_agent
 

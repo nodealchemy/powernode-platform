@@ -40,7 +40,7 @@ module Ai
     # GET /api/v1/ai/agents/:agent_id/executions
     def executions_index
       executions = if params[:agent_id].present?
-                     agent = current_user.account.ai_agents.find(params[:agent_id])
+                     agent = ::Ai::Agent.for_account(current_user.account.id).find(params[:agent_id])
                      agent.executions
       else
                      ::Ai::AgentExecution.joins(:agent).where(ai_agents: { account_id: current_user.account_id })

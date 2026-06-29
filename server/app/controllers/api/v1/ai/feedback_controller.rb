@@ -25,7 +25,7 @@ module Api
 
         # POST /api/v1/ai/feedback
         def create
-          agent = current_user.account.ai_agents.find(params.require(:agent_id))
+          agent = ::Ai::Agent.for_account(current_user.account.id).find(params.require(:agent_id))
           service = ::Ai::FeedbackLoopService.new(account: current_user.account)
 
           feedback = service.record_feedback(

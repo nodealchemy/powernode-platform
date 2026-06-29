@@ -45,7 +45,7 @@ module Api
           deployment = ::Ai::ContainerAgentDeploymentService.new(account: current_account)
 
           agent_id = @container_instance.input_parameters&.dig("agent_id")
-          agent = current_account.ai_agents.find(agent_id) if agent_id
+          agent = ::Ai::Agent.for_account(current_account.id).find(agent_id) if agent_id
 
           unless agent
             return render_error("Agent not found for this container", status: :not_found)

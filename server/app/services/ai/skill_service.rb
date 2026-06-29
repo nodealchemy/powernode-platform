@@ -86,7 +86,7 @@ module Ai
 
     def assign_to_agent(skill_id:, agent_id:, priority: 0)
       skill = find_skill(skill_id: skill_id)
-      agent = account.ai_agents.find(agent_id)
+      agent = ::Ai::Agent.for_account(account.id).find(agent_id)
 
       agent_skill = Ai::AgentSkill.create!(
         ai_agent_id: agent.id,
@@ -108,7 +108,7 @@ module Ai
     end
 
     def agent_skills(agent_id:)
-      agent = account.ai_agents.find(agent_id)
+      agent = ::Ai::Agent.for_account(account.id).find(agent_id)
       agent.agent_skills.includes(:skill).order(priority: :asc)
     rescue ActiveRecord::RecordNotFound
       raise NotFoundError, "Agent not found"

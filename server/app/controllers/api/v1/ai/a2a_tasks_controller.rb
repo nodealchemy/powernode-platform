@@ -87,7 +87,7 @@ module Api
                          metadata: params[:metadata]&.to_unsafe_h || {}
                        )
             else
-                       from_agent = params[:from_agent_id].present? ? current_user.account.ai_agents.find_by(id: params[:from_agent_id]) : nil
+                       from_agent = params[:from_agent_id].present? ? ::Ai::Agent.for_account(current_user.account.id).find_by(id: params[:from_agent_id]) : nil
                        service.submit_task(
                          to_agent_card: params[:to_agent_card_id],
                          message: task_message_params,

@@ -122,7 +122,7 @@ module Ai
 
     def add_agents_to_team(team, agent_ids)
       agent_ids.each do |agent_id|
-        agent = account.ai_agents.find_by(id: agent_id)
+        agent = ::Ai::Agent.for_account(account.id).find_by(id: agent_id)
         next unless agent&.active?
 
         role = agent.agent_type == "mcp_client" ? "executor" : "facilitator"

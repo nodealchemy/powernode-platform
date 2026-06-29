@@ -29,7 +29,7 @@ module Ai
       return if current_worker
       return unless params[:agent_id].present?
 
-      @agent ||= current_user.account.ai_agents.find(params[:agent_id])
+      @agent ||= ::Ai::Agent.for_account(current_user.account.id).find(params[:agent_id])
       @agent.required_permissions.each do |perm|
         require_permission(perm)
         return if performed?

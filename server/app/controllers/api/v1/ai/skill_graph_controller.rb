@@ -141,7 +141,7 @@ module Api
         # GET /api/v1/ai/skill_graph/agent_context/:agent_id
         def agent_context
           authorize_permission!("ai.skills.read")
-          agent = current_account.ai_agents.find(params[:agent_id])
+          agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
 
           result = enrichment_service.enrich(
             agent: agent,
@@ -165,7 +165,7 @@ module Api
           return render_error("topic required", status: :bad_request) if topic.blank?
 
           sources = params[:sources] || %w[knowledge_graph knowledge_bases mcp]
-          agent = params[:agent_id].present? ? current_account.ai_agents.find_by(id: params[:agent_id]) : nil
+          agent = params[:agent_id].present? ? ::Ai::Agent.for_account(current_account.id).find_by(id: params[:agent_id]) : nil
 
           result = research_service.research(topic: topic, sources: sources, requesting_agent: agent)
           render_success(result)

@@ -180,7 +180,7 @@ module Ai
 
         specific_agents = if options[:agent_ids].present?
                             options[:agent_ids].map do |id|
-                              agent = account.ai_agents.find_by(id: id)
+                              agent = ::Ai::Agent.for_account(account.id).find_by(id: id)
                               next nil unless agent
 
                               metrics_service.agent_specific_metrics(agent)

@@ -82,7 +82,7 @@ module Ai
       def find_agent(agent_id)
         return nil unless agent_id
 
-        account.ai_agents.find_by(id: agent_id)
+        ::Ai::Agent.for_account(account.id).find_by(id: agent_id)
       end
 
       def calculate_importance(output_record)

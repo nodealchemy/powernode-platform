@@ -112,7 +112,7 @@ module Ai
       # Resolve agent for message attribution (workspace responses specify their own agent)
       responding_agent = nil
       if params[:agent_id].present?
-        responding_agent = conversation.account.ai_agents.find_by(id: params[:agent_id])
+        responding_agent = ::Ai::Agent.for_account(conversation.account.id).find_by(id: params[:agent_id])
       end
 
       # For workspace conversations, split @mention messages into separate entries:

@@ -55,7 +55,7 @@ module Ai
         def assign_agent_to_role(team_id, role_id, agent_id)
           team = find_team(team_id)
           role = team.ai_team_roles.find(role_id)
-          agent = account.ai_agents.find(agent_id)
+          agent = ::Ai::Agent.for_account(account.id).find(agent_id)
           role.update!(ai_agent: agent)
           role
         end

@@ -77,7 +77,7 @@ module Api
           end
 
           # Verify agent exists and is accessible
-          agent = current_user.account.ai_agents.find_by(id: new_agent_id)
+          agent = ::Ai::Agent.for_account(current_user.account.id).find_by(id: new_agent_id)
           unless agent
             render_error("Agent not found", status: :not_found)
             return

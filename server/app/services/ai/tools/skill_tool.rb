@@ -159,7 +159,7 @@ module Ai
       end
 
       def resolve_agent_by_any(agent_id)
-        account.ai_agents.find_by(id: agent_id) ||
+        ::Ai::Agent.for_account(account.id).find_by(id: agent_id) ||
           account.ai_agents.find_by(slug: agent_id) ||
           account.ai_agents.find_by(name: agent_id)
       end
@@ -247,7 +247,7 @@ module Ai
       def get_skill_context(params)
         return { success: false, error: "input_text is required" } if params[:input_text].blank?
 
-        agent = params[:agent_id].present? ? account.ai_agents.find_by(id: params[:agent_id]) : nil
+        agent = params[:agent_id].present? ? ::Ai::Agent.for_account(account.id).find_by(id: params[:agent_id]) : nil
 
         result = context_enrichment_service.enrich(
           agent: agent,

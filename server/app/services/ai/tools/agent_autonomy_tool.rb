@@ -535,7 +535,7 @@ module Ai
 
       def resolve_agent(agent_id)
         if agent_id.present?
-          account.ai_agents.find_by(id: agent_id)
+          ::Ai::Agent.for_account(account.id).find_by(id: agent_id)
         else
           agent
         end

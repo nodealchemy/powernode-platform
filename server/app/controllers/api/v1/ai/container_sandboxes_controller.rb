@@ -41,7 +41,7 @@ module Api
 
         # POST /api/v1/ai/container_sandboxes
         def create
-          agent = current_account.ai_agents.find(params[:agent_id])
+          agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
           service = ::Ai::Runtime::SandboxManagerService.new(account: current_account)
           instance = service.create_sandbox(agent: agent, config: sandbox_params)
 

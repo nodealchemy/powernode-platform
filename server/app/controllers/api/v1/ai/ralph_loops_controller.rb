@@ -287,7 +287,7 @@ module Api
           end
           return unless agent_id.present?
 
-          agent = resolved_account.ai_agents.find_by(id: agent_id)
+          agent = ::Ai::Agent.for_account(resolved_account.id).find_by(id: agent_id)
           return unless agent
 
           agent.required_permissions.each do |perm|

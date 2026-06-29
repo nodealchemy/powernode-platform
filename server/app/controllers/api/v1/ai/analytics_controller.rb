@@ -129,7 +129,7 @@ module Api
 
         # GET /api/v1/ai/analytics/agents/:agent_id
         def agent_analytics
-          agent = current_user.account.ai_agents.find(params[:agent_id])
+          agent = ::Ai::Agent.for_account(current_user.account.id).find(params[:agent_id])
           render_success({
             agent_analytics: metrics_service.agent_specific_metrics(agent),
             time_range: time_range_info,

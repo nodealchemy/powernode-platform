@@ -9,7 +9,7 @@ module Api
 
           # POST /api/v1/ai/security/anomaly_detection/analyze
           def analyze
-            agent = current_account.ai_agents.find(params[:agent_id])
+            agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
             result = service.analyze_agent(
               agent: agent,
               window_minutes: params[:window_minutes]&.to_i || 60
@@ -25,7 +25,7 @@ module Api
 
           # POST /api/v1/ai/security/anomaly_detection/check_action
           def check_action
-            agent = current_account.ai_agents.find(params[:agent_id])
+            agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
             result = service.check_action(
               agent: agent,
               action_type: params[:action_type],
@@ -55,7 +55,7 @@ module Api
 
           # POST /api/v1/ai/security/anomaly_detection/detect_rogue
           def detect_rogue
-            agent = current_account.ai_agents.find(params[:agent_id])
+            agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
             result = service.detect_rogue_behavior(agent: agent)
 
             render_success(data: result)

@@ -407,7 +407,7 @@ module Ai
 
         # Validate delegation authority if spawning agent is known
         if agent&.id.present?
-          spawner = account.ai_agents.find_by(id: agent.id)
+          spawner = ::Ai::Agent.for_account(account.id).find_by(id: agent.id)
           if spawner
             delegation_service = Ai::Autonomy::DelegationAuthorityService.new(account: account)
             delegation = delegation_service.validate_delegation(
@@ -486,7 +486,7 @@ module Ai
       def resolve_agent(identifier)
         return nil if identifier.blank?
 
-        account.ai_agents.find_by(id: identifier) ||
+        ::Ai::Agent.for_account(account.id).find_by(id: identifier) ||
           account.ai_agents.find_by(slug: identifier) ||
           account.ai_agents.find_by(name: identifier)
       end

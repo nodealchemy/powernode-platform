@@ -24,7 +24,7 @@ module Api
         # POST /api/v1/ai/sandboxes/:sandbox_id/scenarios
         def create_scenario
           target_agent = params[:target_agent_id].present? ?
-            current_account.ai_agents.find(params[:target_agent_id]) : nil
+            ::Ai::Agent.for_account(current_account.id).find(params[:target_agent_id]) : nil
 
           scenario = @service.create_scenario(
             sandbox: @sandbox,

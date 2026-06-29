@@ -194,13 +194,13 @@ module Ai
         return { success: false, error: "Query is required" } if params[:query].blank?
 
         target_agent = if params[:agent_id].present?
-          account.ai_agents.find_by(id: params[:agent_id])
+          ::Ai::Agent.for_account(account.id).find_by(id: params[:agent_id])
         elsif agent.present?
           agent
         else
           # Fallback: resolve from MCP session
           aid = resolved_agent_id
-          account.ai_agents.find_by(id: aid) if aid
+          ::Ai::Agent.for_account(account.id).find_by(id: aid) if aid
         end
         return { success: false, error: "Agent not found" } unless target_agent
 
@@ -230,12 +230,12 @@ module Ai
 
       def consolidate_memory(params)
         target_agent = if params[:agent_id].present?
-          account.ai_agents.find_by(id: params[:agent_id])
+          ::Ai::Agent.for_account(account.id).find_by(id: params[:agent_id])
         elsif agent.present?
           agent
         else
           aid = resolved_agent_id
-          account.ai_agents.find_by(id: aid) if aid
+          ::Ai::Agent.for_account(account.id).find_by(id: aid) if aid
         end
         return { success: false, error: "Agent not found" } unless target_agent
 
@@ -248,7 +248,7 @@ module Ai
       end
 
       def memory_stats(params = {})
-        target_agent = params[:agent_id].present? ? account.ai_agents.find_by(id: params[:agent_id]) : agent
+        target_agent = params[:agent_id].present? ? ::Ai::Agent.for_account(account.id).find_by(id: params[:agent_id]) : agent
         if target_agent
           router = Ai::Memory::RouterService.new(agent: target_agent, account: account)
           stats = router.stats

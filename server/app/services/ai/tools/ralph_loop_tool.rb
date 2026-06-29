@@ -139,7 +139,7 @@ module Ai
         attrs[:name] = params[:name] if params[:name].present?
 
         if params[:default_agent_id].present?
-          agent = account.ai_agents.find_by(id: params[:default_agent_id]) ||
+          agent = ::Ai::Agent.for_account(account.id).find_by(id: params[:default_agent_id]) ||
                   account.ai_agents.find_by(slug: params[:default_agent_id]) ||
                   account.ai_agents.find_by(name: params[:default_agent_id])
           return { success: false, error: "default_agent_id agent not found" } unless agent

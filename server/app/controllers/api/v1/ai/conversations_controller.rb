@@ -48,7 +48,7 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations
         def create
-          agent = @agent || current_user.account.ai_agents.find(params[:agent_id])
+          agent = @agent || ::Ai::Agent.for_account(current_user.account.id).find(params[:agent_id])
           ProviderAvailabilityService.validate_agent_provider!(agent)
 
           conversation = agent.conversations.build(
@@ -466,7 +466,7 @@ module Api
         private
 
         def set_agent_for_nested
-          @agent = current_user.account.ai_agents.find(params[:agent_id])
+          @agent = ::Ai::Agent.for_account(current_user.account.id).find(params[:agent_id])
         rescue ActiveRecord::RecordNotFound
           render_error("Agent not found", status: :not_found)
         end
@@ -478,7 +478,7 @@ module Api
         # the action body can use it uniformly (e.g. for AI generation).
         def resolve_agent_and_conversation(eager: nil)
           if params[:agent_id].present?
-            agent = @agent || current_user.account.ai_agents.find(params[:agent_id])
+            agent = @agent || ::Ai::Agent.for_account(current_user.account.id).find(params[:agent_id])
             scope = agent.conversations
             scope = scope.includes(eager) if eager
             conversation = scope.find_by(id: params[:id]) || scope.find_by(conversation_id: params[:id])

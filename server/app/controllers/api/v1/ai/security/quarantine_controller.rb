@@ -42,7 +42,7 @@ module Api
 
           # POST /api/v1/ai/security/quarantine
           def quarantine_agent
-            agent = current_account.ai_agents.find(params[:agent_id])
+            agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
             record = quarantine_service.quarantine!(
               agent: agent,
               severity: params[:severity] || "medium",

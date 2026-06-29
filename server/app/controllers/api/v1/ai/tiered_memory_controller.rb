@@ -174,7 +174,7 @@ module Api
           # These actions don't require an agent
           return if %w[shared_knowledge consolidate_all decay_all shared_maintenance consolidate_entry].include?(action_name)
 
-          @agent = current_account.ai_agents.find(params[:agent_id])
+          @agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
         rescue ActiveRecord::RecordNotFound
           render_not_found("Agent")
         end

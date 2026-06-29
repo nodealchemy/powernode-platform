@@ -82,7 +82,7 @@ module Api
         # DELETE /api/v1/ai/workspaces/:id/members/:agent_id
         def remove_member
           conversation = find_workspace_conversation!
-          agent = current_account.ai_agents.find_by(id: params[:agent_id])
+          agent = ::Ai::Agent.for_account(current_account.id).find_by(id: params[:agent_id])
           return render_error("Agent not found", :not_found) unless agent
 
           workspace_service.remove_agent(workspace_conversation: conversation, agent: agent)
@@ -123,7 +123,7 @@ module Api
           if agent_id == "concierge"
             current_account.ai_agents.default_concierge.first
           else
-            current_account.ai_agents.find_by(id: agent_id)
+            ::Ai::Agent.for_account(current_account.id).find_by(id: agent_id)
           end
         end
 
