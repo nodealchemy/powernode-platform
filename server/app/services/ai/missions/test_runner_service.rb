@@ -31,7 +31,7 @@ module Ai
 
         credential = find_git_credential(repository)
         unless credential
-          return auto_pass!("No git credentials found — skipping CI")
+          return gated_pass_or_fail!("No git credentials found")
         end
 
         client = Devops::Git::ApiClient.for(credential)
@@ -43,14 +43,14 @@ module Ai
         workflow_file = detect_workflow_file(client, owner, repo_name)
 
         unless workflow_file
-          return auto_pass!("No CI workflow file found — skipping CI")
+          return gated_pass_or_fail!("No CI workflow file found")
         end
 
         # Dispatch workflow
         dispatch_result = client.trigger_workflow(owner, repo_name, workflow_file, branch)
 
         unless dispatch_result[:success]
-          return auto_pass!("Workflow dispatch failed: #{dispatch_result[:error]} — skipping CI")
+          return gated_pass_or_fail!("Workflow dispatch failed: #{dispatch_result[:error]}")
         end
 
         # Try to find the triggered run
@@ -70,7 +70,7 @@ module Ai
         raise
       rescue StandardError => e
         Rails.logger.error("[TestRunnerService] #{e.message}")
-        auto_pass!("CI trigger error: #{e.message}")
+        gated_pass_or_fail!("CI trigger error: #{e.message}")
       end
 
       # Check status of a running CI workflow
@@ -85,13 +85,13 @@ module Ai
         end
 
         repository = mission.repository
-        return { status: "completed", passed: true } unless repository
+        return unverifiable_result("No repository linked") unless repository
 
         credential = find_git_credential(repository)
-        return { status: "completed", passed: true } unless credential
+        return unverifiable_result("No git credentials") unless credential
 
         run_id = test_result["run_id"]
-        return { status: "completed", passed: true } unless run_id
+        return unverifiable_result("No CI run id recorded") unless run_id
 
         client = Devops::Git::ApiClient.for(credential)
         owner = repository.owner
@@ -102,7 +102,7 @@ module Ai
           map_workflow_status(run, test_result)
         rescue StandardError => e
           Rails.logger.warn("[TestRunnerService] Status check failed: #{e.message}")
-          { status: "completed", passed: true, note: "Status check failed, assuming pass" }
+          unverifiable_result("Status check failed: #{e.message}")
         end
       end
 
@@ -134,6 +134,23 @@ module Ai
         nil
       end
 
+      # When real CI can't run/verify, honour the account's posture: by default
+      # we preserve legacy auto-pass (no live behaviour change); when the account
+      # opts into `missions_require_real_ci`, we fail closed instead of certifying
+      # untested code as passed. Mirrors the Ralph real_test_execution flag.
+      def require_real_ci?
+        account&.settings&.dig("missions_require_real_ci") == true
+      end
+
+      def gated_pass_or_fail!(reason)
+        require_real_ci? ? fail_closed!(reason) : auto_pass!("#{reason} — skipping CI")
+      end
+
+      # Result for check_status when a running CI cannot be verified.
+      def unverifiable_result(note)
+        { status: "completed", passed: !require_real_ci?, note: note }
+      end
+
       def auto_pass!(reason)
         run_id = SecureRandom.uuid
         result = {
@@ -148,6 +165,22 @@ module Ai
         }
         mission.update!(test_result: result)
         { run_id: run_id, status: "passed", method: "auto_pass", reason: reason }
+      end
+
+      def fail_closed!(reason)
+        run_id = SecureRandom.uuid
+        result = {
+          "run_id" => run_id,
+          "status" => "failed",
+          "passed" => false,
+          "method" => "fail_closed",
+          "reason" => reason,
+          "started_at" => Time.current.iso8601,
+          "completed_at" => Time.current.iso8601,
+          "summary" => "Test gate failed closed: #{reason}"
+        }
+        mission.update!(test_result: result)
+        { run_id: run_id, status: "failed", passed: false, method: "fail_closed", reason: reason }
       end
 
       def map_workflow_status(run, test_result)

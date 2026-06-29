@@ -265,4 +265,40 @@ RSpec.describe Ai::Missions::TestRunnerService, type: :service do
       end
     end
   end
+
+  describe 'fail-closed gating (missions_require_real_ci)' do
+    context 'when the account requires real CI' do
+      before { account.update!(settings: { "missions_require_real_ci" => true }) }
+
+      it 'fails closed instead of auto-passing when CI cannot run' do
+        allow(account).to receive_message_chain(:git_provider_credentials, :joins, :where, :first).and_return(nil)
+
+        result = service.trigger!
+
+        expect(result[:status]).to eq("failed")
+        expect(result[:method]).to eq("fail_closed")
+        expect(result[:passed]).to be false
+        expect(mission.reload.test_result["method"]).to eq("fail_closed")
+      end
+
+      it 'fails closed when a running CI cannot be verified' do
+        mission.update!(test_result: { "run_id" => 7, "status" => "running", "method" => "ci_workflow" })
+        allow(account).to receive_message_chain(:git_provider_credentials, :joins, :where, :first).and_return(nil)
+
+        result = service.check_status
+
+        expect(result[:status]).to eq("completed")
+        expect(result[:passed]).to be false
+      end
+    end
+
+    context 'by default (real CI not required)' do
+      it 'preserves legacy auto-pass for an unverifiable running CI' do
+        mission.update!(test_result: { "run_id" => 7, "status" => "running", "method" => "ci_workflow" })
+        allow(account).to receive_message_chain(:git_provider_credentials, :joins, :where, :first).and_return(nil)
+
+        expect(service.check_status[:passed]).to be true
+      end
+    end
+  end
 end
