@@ -113,6 +113,7 @@ class Account < ApplicationRecord
   has_many :ai_policy_violations, class_name: "Ai::PolicyViolation", dependent: :destroy
   has_many :ai_approval_chains, class_name: "Ai::ApprovalChain", dependent: :destroy
   has_many :ai_approval_requests, class_name: "Ai::ApprovalRequest", dependent: :destroy
+  has_many :ai_deferred_operations, class_name: "Ai::DeferredOperation", dependent: :destroy
   has_many :ai_data_classifications, class_name: "Ai::DataClassification", dependent: :destroy
   has_many :ai_data_detections, class_name: "Ai::DataDetection", dependent: :destroy
   has_many :ai_compliance_reports, class_name: "Ai::ComplianceReport", dependent: :destroy
