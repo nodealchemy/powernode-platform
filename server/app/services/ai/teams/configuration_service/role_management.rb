@@ -20,6 +20,11 @@ module Ai
 
         def create_role(team_id, params)
           team = find_team(team_id)
+          # Constrain any referenced agent to ones this account may use (its own
+          # + GLOBAL baseline agents) BEFORE wiring it into the role — mirrors
+          # #assign_agent_to_role. Without this, the raw params[:agent_id] let a
+          # caller attach another account's private agent to their team's role.
+          agent = resolve_account_agent(params[:agent_id])
 
           Ai::TeamRole.create!(
             account: account,
@@ -37,8 +42,19 @@ module Ai
             can_escalate: params.fetch(:can_escalate, true),
             max_concurrent_tasks: params[:max_concurrent_tasks] || 1,
             context_access: params[:context_access] || {},
-            ai_agent_id: params[:agent_id]
+            ai_agent_id: agent&.id
           )
+        end
+
+        # Resolve an agent referenced by a write payload, constrained to agents
+        # this account may use (its own + GLOBAL baseline agents via
+        # Ai::Agent.for_account). Returns nil for a blank id; raises
+        # ActiveRecord::RecordNotFound (-> 404) for an id outside that scope, so a
+        # foreign account's agent can never be wired into this team's roles.
+        def resolve_account_agent(agent_id)
+          return nil if agent_id.blank?
+
+          ::Ai::Agent.for_account(account.id).find(agent_id)
         end
 
         def update_role(team_id, role_id, params)

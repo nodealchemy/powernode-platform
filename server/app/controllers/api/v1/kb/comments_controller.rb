@@ -5,6 +5,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
   before_action :set_article, only: [ :index, :create ]
   before_action :set_comment, only: [ :show, :approve, :reject, :spam, :destroy, :moderate ]
   before_action :authorize_kb_moderate, only: [ :approve, :reject, :spam, :destroy, :moderate ]
+  before_action :authorize_comment_tenancy, only: [ :approve, :reject, :spam, :destroy ]
 
   # GET /api/v1/kb/articles/:article_id/comments
   def index
@@ -51,8 +52,12 @@ class Api::V1::Kb::CommentsController < ApplicationController
 
   # GET /api/v1/kb/comments/moderate
   def moderate
-    # Admin view for comment moderation
-    comments = KnowledgeBase::Comment.includes(:author, :article)
+    # Admin view for comment moderation — scoped to the CURRENT account's
+    # articles. A tenant can only moderate its own KB comments; GLOBAL-KB and
+    # other accounts' comments never appear in (nor are actionable from) this
+    # queue. (Previously KnowledgeBase::Comment.all surfaced every account's
+    # comments — including author emails — cross-tenant.)
+    comments = account_scoped_comments.includes(:author, :article)
     comments = apply_admin_filters(comments)
     comments = comments.page(params[:page]).per(params[:per_page] || 20)
 
@@ -123,11 +128,36 @@ class Api::V1::Kb::CommentsController < ApplicationController
     render_error("Access denied", status: :forbidden) unless can_moderate_kb?
   end
 
+  # Tenancy gate (writes): a moderator may only act on comments whose article is
+  # owned by their account. GLOBAL-KB comments (article.account_id nil) and other
+  # accounts' comments are never moderatable by an arbitrary tenant — mirrors the
+  # account gate in KnowledgeBase::Article#editable_by?. A nil @comment is left to
+  # the action's own 404 handling.
+  def authorize_comment_tenancy
+    return if @comment.nil?
+
+    article = @comment.article
+    return if article&.account_id.present? && article.account_id == current_account&.id
+
+    render_error("Access denied", status: :forbidden)
+  end
+
+  # Comments on the CURRENT account's articles only (excludes GLOBAL-KB and other
+  # accounts' rows). Drives both the moderation queue and its stats so neither
+  # leaks cross-tenant.
+  def account_scoped_comments
+    KnowledgeBase::Comment
+      .joins(:article)
+      .where(knowledge_base_articles: { account_id: current_account&.id })
+  end
+
   def apply_admin_filters(comments)
     comments = comments.where(status: params[:status]) if params[:status].present?
     comments = comments.where(article_id: params[:article_id]) if params[:article_id].present?
     comments = comments.where(user_id: params[:user_id]) if params[:user_id].present?
-    comments = comments.where("content ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
+    # Qualify `content` — the moderation scope joins :article, and both
+    # knowledge_base_comments and knowledge_base_articles have a `content` column.
+    comments = comments.where("knowledge_base_comments.content ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
 
     case params[:sort]
     when "oldest"
@@ -180,12 +210,13 @@ class Api::V1::Kb::CommentsController < ApplicationController
   end
 
   def calculate_comment_stats
+    scope = account_scoped_comments
     {
-      total: KnowledgeBase::Comment.count,
-      pending: KnowledgeBase::Comment.pending.count,
-      approved: KnowledgeBase::Comment.approved.count,
-      rejected: KnowledgeBase::Comment.where(status: "rejected").count,
-      spam: KnowledgeBase::Comment.where(status: "spam").count
+      total: scope.count,
+      pending: scope.pending.count,
+      approved: scope.approved.count,
+      rejected: scope.where(status: "rejected").count,
+      spam: scope.where(status: "spam").count
     }
   end
 

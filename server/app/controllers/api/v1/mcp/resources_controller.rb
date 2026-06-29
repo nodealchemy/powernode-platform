@@ -4,6 +4,12 @@ module Api
   module V1
     module Mcp
       class ResourcesController < ApplicationController
+        # MCP resources are read-only data, so every action is gated by
+        # mcp.tools.read — matching the sibling PromptsController/McpToolsController
+        # permission guards that this controller previously omitted (cross-tenant
+        # server ownership was already enforced by #set_mcp_server, but no
+        # capability check ran, so any authenticated member could list/read).
+        before_action -> { require_permission("mcp.tools.read") }, only: %i[index show read]
         before_action :set_mcp_server
         before_action :set_resource, only: %i[show read]
 

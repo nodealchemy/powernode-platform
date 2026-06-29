@@ -5,8 +5,8 @@ module Api
     module Oauth
       class ApplicationsController < ApplicationController
         skip_before_action :authenticate_request, only: [:lookup]
-        before_action -> { require_permission("oauth.applications.read") }, only: %i[index show]
-        before_action -> { require_permission("oauth.applications.manage") }, only: %i[create update destroy regenerate_secret suspend activate revoke]
+        before_action -> { require_permission("oauth.applications.read") }, only: %i[index show tokens]
+        before_action -> { require_permission("oauth.applications.manage") }, only: %i[create update destroy regenerate_secret suspend activate revoke revoke_tokens]
         before_action :set_application, only: %i[show update destroy regenerate_secret suspend activate revoke tokens revoke_tokens]
 
         # GET /api/v1/oauth/applications/lookup?uid=CLIENT_ID

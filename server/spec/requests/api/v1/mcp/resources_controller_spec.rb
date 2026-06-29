@@ -4,7 +4,9 @@ require "rails_helper"
 
 RSpec.describe "Api::V1::Mcp::Resources", type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
+  # mcp.tools.read is the capability guard the controller shares with its
+  # sibling PromptsController/McpToolsController.
+  let(:user) { create(:user, account: account, permissions: ["mcp.tools.read"]) }
   let(:json_headers) { auth_headers_for(user).merge("Content-Type" => "application/json") }
 
   # A connected MCP server whose capabilities advertise resources, so the
@@ -66,6 +68,58 @@ RSpec.describe "Api::V1::Mcp::Resources", type: :request do
       data = json_response["data"]
       expect(data["content"]).to be_nil
       expect(data["mime_type"]).to be_nil
+    end
+  end
+
+  # Authorization: this controller previously had NO capability guard (its sibling
+  # PromptsController did). Account/server ownership was already enforced via
+  # #set_mcp_server, but any authenticated member could list/read resources.
+  describe "capability authorization" do
+    let(:unprivileged_user) { create(:user, account: account, permissions: []) }
+    let(:unprivileged_headers) { auth_headers_for(unprivileged_user).merge("Content-Type" => "application/json") }
+
+    it "forbids index without mcp.tools.read" do
+      get "/api/v1/mcp/mcp_servers/#{mcp_server.id}/resources", headers: unprivileged_headers
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "forbids read without mcp.tools.read" do
+      post read_path, headers: unprivileged_headers
+
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
+
+  # Cross-tenant ownership is enforced by #set_mcp_server
+  # (current_user.account.mcp_servers.find) — a foreign account's server is never
+  # resolvable, so its resources can't be listed or read. (Documents that the
+  # cross-tenant IDOR does not reproduce: this was already scoped.)
+  describe "cross-tenant server ownership" do
+    let(:other_account) { create(:account) }
+    let(:foreign_server) do
+      create(:mcp_server, :connected, account: other_account).tap do |server|
+        server.update!(
+          capabilities: server.capabilities.merge(
+            "resources" => true,
+            "discovered_resources" => [
+              { "id" => "resource_1", "uri" => resource_uri, "name" => "X", "mimeType" => "text/plain" }
+            ]
+          )
+        )
+      end
+    end
+
+    it "cannot list resources on another account's server (404)" do
+      get "/api/v1/mcp/mcp_servers/#{foreign_server.id}/resources", headers: json_headers
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "cannot read a resource on another account's server (404)" do
+      post "/api/v1/mcp/mcp_servers/#{foreign_server.id}/resources/#{resource_id}/read", headers: json_headers
+
+      expect(response).to have_http_status(:not_found)
     end
   end
 end

@@ -52,6 +52,17 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
   def destroy
     return render_error("Attachment not found", status: :not_found) unless @attachment
 
+    # Tenancy gate (writes): only the OWNING account may delete its attachments.
+    # Unlike #show (which lets GLOBAL rows fall through to the public/editor
+    # policy), deletes never apply to GLOBAL attachments (article.account_id nil)
+    # or to another account's rows — a tenant must not be able to remove
+    # platform-global or cross-tenant attachments. Mirrors the account gate in
+    # KnowledgeBase::Article#editable_by?.
+    article = @attachment.article
+    unless article&.account_id.present? && article.account_id == current_user&.account_id
+      return render_error("Access denied", status: :forbidden)
+    end
+
     if @attachment.destroy
       render_success(message: "Attachment deleted successfully")
     else

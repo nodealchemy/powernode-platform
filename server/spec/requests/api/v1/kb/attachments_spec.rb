@@ -165,12 +165,28 @@ RSpec.describe 'Api::V1::Kb::Attachments', type: :request do
   end
 
   describe 'DELETE /api/v1/kb/attachments/:id' do
+    # An article owned by the caller's account (the only kind whose attachments a
+    # tenant may delete).
+    let!(:owned_article) do
+      KnowledgeBase::Article.create!(
+        title: 'Owned Article', slug: 'owned-article', content: 'Content',
+        status: 'published', is_public: true, category: category,
+        account: account, author: user, published_at: Time.current
+      )
+    end
+    let!(:owned_attachment) do
+      KnowledgeBase::Attachment.create!(
+        filename: 'owned.pdf', content_type: 'application/pdf', file_size: 1024,
+        file_path: '/uploads/kb/owned.pdf', uploaded_by: user, article: owned_article
+      )
+    end
+
     context 'with kb.update permission' do
-      it 'deletes the attachment' do
-        attachment_id = attachment.id
+      it 'deletes an attachment the account owns' do
+        owned_attachment_id = owned_attachment.id
 
         expect {
-          delete "/api/v1/kb/attachments/#{attachment_id}", headers: editor_headers, as: :json
+          delete "/api/v1/kb/attachments/#{owned_attachment_id}", headers: editor_headers, as: :json
         }.to change(KnowledgeBase::Attachment, :count).by(-1)
 
         expect_success_response
@@ -179,9 +195,49 @@ RSpec.describe 'Api::V1::Kb::Attachments', type: :request do
 
     context 'without kb.update permission' do
       it 'returns forbidden error' do
-        delete "/api/v1/kb/attachments/#{attachment.id}", headers: read_only_headers, as: :json
+        delete "/api/v1/kb/attachments/#{owned_attachment.id}", headers: read_only_headers, as: :json
 
         expect_error_response('Access denied', 403)
+      end
+    end
+
+    # Cross-tenant isolation: an editor may NOT delete attachments outside their
+    # account, even with kb.update — neither GLOBAL rows nor another tenant's.
+    context 'cross-tenant isolation' do
+      let(:other_account) { create(:account) }
+      let!(:foreign_article) do
+        KnowledgeBase::Article.create!(
+          title: 'Foreign Article', slug: 'foreign-article', content: 'Content',
+          status: 'published', is_public: true, category: category,
+          account: other_account, published_at: Time.current
+        )
+      end
+      let!(:foreign_attachment) do
+        KnowledgeBase::Attachment.create!(
+          filename: 'foreign.pdf', content_type: 'application/pdf', file_size: 1024,
+          file_path: '/uploads/kb/foreign.pdf', uploaded_by: user, article: foreign_article
+        )
+      end
+
+      it "does NOT delete another account's attachment (403, row preserved)" do
+        expect {
+          delete "/api/v1/kb/attachments/#{foreign_attachment.id}", headers: editor_headers, as: :json
+        }.not_to change(KnowledgeBase::Attachment, :count)
+
+        expect_error_response('Access denied', 403)
+        expect(KnowledgeBase::Attachment.exists?(foreign_attachment.id)).to be true
+      end
+
+      it 'does NOT delete a GLOBAL (account_id nil) attachment (403, row preserved)' do
+        # `attachment` hangs off `published_article`, which has no account (global).
+        expect(published_article.account_id).to be_nil
+
+        expect {
+          delete "/api/v1/kb/attachments/#{attachment.id}", headers: editor_headers, as: :json
+        }.not_to change(KnowledgeBase::Attachment, :count)
+
+        expect_error_response('Access denied', 403)
+        expect(KnowledgeBase::Attachment.exists?(attachment.id)).to be true
       end
     end
 
@@ -195,7 +251,7 @@ RSpec.describe 'Api::V1::Kb::Attachments', type: :request do
 
     context 'without authentication' do
       it 'returns unauthorized error' do
-        delete "/api/v1/kb/attachments/#{attachment.id}", as: :json
+        delete "/api/v1/kb/attachments/#{owned_attachment.id}", as: :json
 
         expect_error_response('Access token required', 401)
       end

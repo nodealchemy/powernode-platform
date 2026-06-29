@@ -329,6 +329,21 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
         'total_count'
       )
     end
+
+    # Authorization: listing tokens is a read op — previously this action had NO
+    # permission guard, so any authenticated account member could enumerate an
+    # app's tokens. It now requires oauth.applications.read like #index/#show.
+    context 'without oauth.applications.read permission' do
+      let(:no_perm_user) { create(:user, account: account, permissions: []) }
+      let(:no_perm_headers) { auth_headers_for(no_perm_user) }
+
+      it 'returns forbidden error' do
+        get "/api/v1/oauth/applications/#{oauth_application.id}/tokens",
+            headers: no_perm_headers, as: :json
+
+        expect_error_response('Permission denied: oauth.applications.read', 403)
+      end
+    end
   end
 
   describe 'DELETE /api/v1/oauth/applications/:id/tokens' do
@@ -354,6 +369,24 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
       audit = AuditLog.last
       expect(audit.action).to eq('oauth_tokens_bulk_revoked')
       expect(audit.metadata['tokens_revoked']).to eq(2)
+    end
+
+    # Authorization: bulk-revoke is a destructive op — previously this action had
+    # NO permission guard, so any authenticated account member (even one with only
+    # read, or none) could revoke every token of the account's apps. It now
+    # requires oauth.applications.manage like the other mutating actions.
+    context 'with only oauth.applications.read (no manage)' do
+      let(:read_only_user) { create(:user, account: account, permissions: ['oauth.applications.read']) }
+      let(:read_only_headers) { auth_headers_for(read_only_user) }
+
+      it 'returns forbidden and revokes nothing' do
+        delete "/api/v1/oauth/applications/#{oauth_application.id}/tokens",
+               headers: read_only_headers, as: :json
+
+        expect_error_response('Permission denied: oauth.applications.manage', 403)
+        expect(active_token1.reload.revoked_at).to be_nil
+        expect(active_token2.reload.revoked_at).to be_nil
+      end
     end
   end
 
