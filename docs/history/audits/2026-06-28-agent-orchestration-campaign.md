@@ -61,29 +61,32 @@ globals; integrate with the EXISTING clone/reconcile/diff infra.
   (clone-to-customize, `update_from_source` rebase, read-only guard,
   `?scope`); `Ai::Agent` audit hook for canonical-global changes. (935b123d)
 
-**REMAINING (the gating broad sweep — do as a focused, tested pass):**
-1. **Controller ID-resolver sweep (~48 sites).** Endpoints that resolve an agent
-   by id via `current_account.ai_agents.find(id)` (autonomy, intervention
-   policies, skill attach/detach, conversation-with-agent, teams) 404 on a
-   GLOBAL agent. This is a **correctness gap for the now-global SYSTEM agents'
-   UI** and must be flipped to `Ai::Agent.for_account(current_account.id)`
-   (with the audit's MUST-CHANGE vs KEEP classification — listed in the
-   "[MUST-CHANGE]/[REVIEW]/[KEEP]" inventory). Operations that mutate the AGENT
-   DEFINITION on a global must add the read-only guard; per-account config
-   (autonomy level, policies) is fine on a global.
-2. **Core fundamental agent seeds → global (directive 8).** Migrate the core
-   platform agent seeds (Powernode Assistant concierge; utility agents PRD
-   Generator/LLM Judge/Intent Classifier/Semantic Tool Scorer/RAG×2/Knowledge
-   Graph Curator; monitoring agents; the renamed Strategic Planner/Research
-   Analyst; autonomy_data agents) to `account_id: nil` + `source_key` +
-   `is_system`, and flip their resolvers: `default_concierge` (×5 chat/workspace
-   sites), `AgentBackedService#resolve_service_agent` (utility/infra by slug),
-   `extraction_service` (KG Curator). Demo/showcase sets (ai_dev_team,
-   ai_todo_team, ai_example_templates one-per-type) are a judgment call —
-   likely global canonical examples too, but lower priority.
+**DONE (the bounded, tested sweep — operator-directed):**
+1. **Controller ID-resolver sweep (~62 sites) — COMPLETE.** All
+   `<account>.ai_agents.find(id)` / `.find_by(id:)` resolve-existing sites
+   flipped to `Ai::Agent.for_account(<account>.id)` across autonomy/policy
+   (Chunk A) and conversation/skills/teams/memory/security/analytics/tools
+   (Chunk B). These resolve an agent to use/inspect it; per-account config
+   (trust/autonomy/policy keyed by agent_id+account_id) is untouched, so no
+   read-only guard needed. Account create/list-own paths left account-scoped.
+2. **Core platform operational agents → global (Chunk C) — DONE for concierge +
+   the 7 utility agents.** `Ai::Agent.find_or_initialize_global(slug:)` +
+   `resolve_concierge_for` (override-aware); `default_concierge` (×5) and
+   `extraction_service` resolvers flipped.
 
-Both items share one careful sweep over agent-resolution call sites; the
-foundation + helpers + governance to support them are already in place.
+**REMAINING (final clean pass, same helper):**
+- The other fundamental seeds use `find_or_create_by` block patterns needing
+  per-agent restructure: `monitoring_analytics_agents_seed` (4 monitors),
+  `claude_agents_seed` (Strategic Planner, Research Analyst),
+  `autonomy_data_seed` (Infrastructure Health Monitor, Process Automation
+  Optimizer, Visual Design Assistant). Convert each to
+  `find_or_initialize_global(slug:)` + `assign_attributes` on new_record.
+- Demo/showcase + industry sets (ai_dev_team, ai_todo_team,
+  ai_example_templates, Legal/Finance/Sales/Life-Sciences/Customer-Success) —
+  judgment call (likely global canonical examples; lower priority).
+- Multi-tenant follow-up: global agents currently bind some account-scoped
+  utility skills (fine in single-tenant core mode); globalize those skills too
+  for true multi-tenant.
 
 ### R1-LEGACY — original gap writeup (superseded by the above)
 
