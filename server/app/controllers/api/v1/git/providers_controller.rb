@@ -15,7 +15,10 @@ module Api
 
         # GET /api/v1/git/providers
         def index
-          providers = ::Devops::GitProvider.active.ordered_by_priority.includes(credentials: :repositories)
+          # Account-scoped: GitProvider belongs_to :account (required) and is
+          # created per-account, so listing all providers leaked other tenants'
+          # provider config/URLs (cross-tenant read). Scope to the caller's account.
+          providers = current_user.account.git_providers.active.ordered_by_priority.includes(credentials: :repositories)
 
           # Filter by provider_type
           providers = providers.where(provider_type: params[:provider_type]) if params[:provider_type].present?
@@ -77,7 +80,7 @@ module Api
 
         # GET /api/v1/git/providers/available
         def available
-          providers = ::Devops::GitProvider.active.ordered_by_priority.map do |provider|
+          providers = current_user.account.git_providers.active.ordered_by_priority.map do |provider|
             {
               id: provider.id,
               name: provider.name,

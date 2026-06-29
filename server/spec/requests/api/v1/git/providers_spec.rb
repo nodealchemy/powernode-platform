@@ -21,7 +21,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
 
     before do
-      create_list(:git_provider, 3)
+      create_list(:git_provider, 3, account: account)
     end
 
     context 'with git.providers.read permission' do
@@ -33,6 +33,17 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
 
         expect(response_data['data']['providers']).to be_an(Array)
         expect(response_data['data']['providers'].length).to eq(3)
+      end
+
+      it 'does not return another account\'s providers (cross-tenant isolation)' do
+        other = create(:account)
+        create(:git_provider, account: other, name: 'Foreign Provider')
+
+        get '/api/v1/git/providers', headers: headers, as: :json
+
+        names = json_response['data']['providers'].map { |p| p['name'] }
+        expect(names).not_to include('Foreign Provider')
+        expect(json_response['data']['providers'].length).to eq(3)
       end
 
       it 'includes provider details' do
@@ -52,7 +63,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
       end
 
       it 'filters by provider_type' do
-        create(:git_provider, :github)
+        create(:git_provider, :github, account: account)
 
         get '/api/v1/git/providers',
             params: { provider_type: 'github' },
@@ -66,7 +77,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
       end
 
       it 'searches by name' do
-        create(:git_provider, name: 'Unique Search Provider')
+        create(:git_provider, name: 'Unique Search Provider', account: account)
 
         get '/api/v1/git/providers',
             params: { search: 'Unique Search' },
@@ -222,8 +233,8 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
 
     before do
-      create_list(:git_provider, 2)
-      create(:git_provider, :inactive)
+      create_list(:git_provider, 2, account: account)
+      create(:git_provider, :inactive, account: account)
     end
 
     context 'with git.providers.read permission' do
