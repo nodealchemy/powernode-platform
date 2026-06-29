@@ -40,6 +40,7 @@ const StarInput: React.FC<{ value: number; onChange: (v: number) => void }> = ({
         key={i}
         type="button"
         onClick={() => onChange(i + 1)}
+        aria-label={`Rate ${i + 1} star${i === 0 ? '' : 's'}`}
         className="p-0.5"
       >
         <Star className={`h-5 w-5 ${i < value ? 'text-theme-warning-fg fill-current' : 'text-theme-tertiary hover:text-theme-warning-fg/50'}`} />

@@ -49,6 +49,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
         <h3 className="text-lg font-semibold text-theme-primary truncate">Node Details</h3>
         <button
           onClick={onClose}
+          aria-label="Close"
           className="p-1 rounded-lg text-theme-tertiary hover:text-theme-primary hover:bg-theme-surface-hover transition-colors"
         >
           <X className="h-5 w-5" />

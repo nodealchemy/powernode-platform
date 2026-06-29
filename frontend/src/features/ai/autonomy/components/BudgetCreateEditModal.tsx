@@ -55,7 +55,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
           <h3 className="text-lg font-semibold text-theme-primary">
             {isEdit ? 'Edit Budget' : 'Create Budget'}
           </h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary">
+          <button onClick={onClose} aria-label="Close" className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary">
             <X className="h-5 w-5" />
           </button>
         </div>

@@ -202,7 +202,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
             <option value="30d">Last 30 Days</option>
             <option value="90d">Last 90 Days</option>
           </select>
-          <button className="p-2 border border-theme rounded-lg text-theme-secondary hover:text-theme-primary transition-colors">
+          <button aria-label="Download" className="p-2 border border-theme rounded-lg text-theme-secondary hover:text-theme-primary transition-colors">
             <Download className="w-4 h-4" />
           </button>
         </div>

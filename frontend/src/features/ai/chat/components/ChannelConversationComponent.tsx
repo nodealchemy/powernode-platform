@@ -182,6 +182,7 @@ export const ChannelConversationComponent: React.FC<ChannelConversationComponent
           <button
             onClick={handleSend}
             disabled={!input.trim() || sending}
+            aria-label="Send message"
             className="flex items-center justify-center h-9 w-9 rounded-lg bg-theme-interactive-primary text-white hover:bg-theme-interactive-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             <Send className="h-4 w-4" />

@@ -108,6 +108,7 @@ export const TraceSpanRow: React.FC<TraceSpanRowProps> = ({
       >
         <button
           className="w-5 h-5 flex items-center justify-center"
+          aria-label={isExpanded ? 'Collapse span' : 'Expand span'}
           onClick={(e) => {
             e.stopPropagation();
             onToggleExpand(span.span_id);

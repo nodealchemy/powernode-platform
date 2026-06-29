@@ -153,6 +153,7 @@ export const ScheduledMessagesPanel: React.FC<ScheduledMessagesPanelProps> = ({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close"
             className="p-1 rounded hover:bg-theme-surface-hover text-theme-secondary transition-colors"
           >
             <X className="h-4 w-4" />

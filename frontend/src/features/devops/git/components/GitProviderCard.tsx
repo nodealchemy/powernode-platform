@@ -83,6 +83,7 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
                 <button
                   onClick={() => setShowMenu(!showMenu)}
                   className="p-1 rounded-full hover:bg-white/20 text-white"
+                  aria-label="More options"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>

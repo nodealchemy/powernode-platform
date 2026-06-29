@@ -111,6 +111,7 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
           {filters.search && (
             <button
               onClick={() => onChange({ search: '' })}
+              aria-label="Clear search"
               className="absolute inset-y-0 right-0 pr-3 flex items-center text-theme-secondary hover:text-theme-primary"
             >
               <X className="h-4 w-4" />
@@ -257,7 +258,7 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
             <div className="flex items-center gap-1 px-2 py-1 bg-theme-interactive-primary/10 text-theme-interactive-primary text-sm rounded">
               <Search className="h-3 w-3" />
               <span>"{filters.search}"</span>
-              <button onClick={() => onChange({ search: '' })}>
+              <button onClick={() => onChange({ search: '' })} aria-label="Remove search filter">
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -265,7 +266,7 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
           {filters.status !== 'all' && (
             <div className="flex items-center gap-1 px-2 py-1 bg-theme-interactive-primary/10 text-theme-interactive-primary text-sm rounded">
               <span>Status: {filters.status}</span>
-              <button onClick={() => onChange({ status: 'all' })}>
+              <button onClick={() => onChange({ status: 'all' })} aria-label="Remove status filter">
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -273,7 +274,7 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
           {filters.roleType !== 'all' && (
             <div className="flex items-center gap-1 px-2 py-1 bg-theme-interactive-primary/10 text-theme-interactive-primary text-sm rounded">
               <span>Type: {filters.roleType}</span>
-              <button onClick={() => onChange({ roleType: 'all' })}>
+              <button onClick={() => onChange({ roleType: 'all' })} aria-label="Remove type filter">
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -281,7 +282,7 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
           {filters.roles.map((role) => (
             <div key={role} className="flex items-center gap-1 px-2 py-1 bg-theme-interactive-primary/10 text-theme-interactive-primary text-sm rounded">
               <span>Role: {availableRoles.find(r => r.value === role)?.label || role}</span>
-              <button onClick={() => toggleRole(role)}>
+              <button onClick={() => toggleRole(role)} aria-label="Remove role filter">
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -289,7 +290,7 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
           {filters.permissions.map((permission) => (
             <div key={permission} className="flex items-center gap-1 px-2 py-1 bg-theme-interactive-primary/10 text-theme-interactive-primary text-sm rounded">
               <span className="font-mono text-xs">Perm: {permission}</span>
-              <button onClick={() => togglePermission(permission)}>
+              <button onClick={() => togglePermission(permission)} aria-label="Remove permission filter">
                 <X className="h-3 w-3" />
               </button>
             </div>

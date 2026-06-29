@@ -68,6 +68,7 @@ export const WorkerManagementTab: React.FC<WorkerManagementTabProps> = ({
             <div className="flex border border-theme rounded-lg overflow-hidden">
               <button
                 onClick={() => setState(prev => ({ ...prev, viewMode: 'grid' }))}
+                aria-label="Grid view"
                 className={`px-3 py-2 text-sm transition-colors ${
                   state.viewMode === 'grid'
                     ? 'bg-theme-interactive-primary text-theme-on-primary'
@@ -78,6 +79,7 @@ export const WorkerManagementTab: React.FC<WorkerManagementTabProps> = ({
               </button>
               <button
                 onClick={() => setState(prev => ({ ...prev, viewMode: 'table' }))}
+                aria-label="List view"
                 className={`px-3 py-2 text-sm transition-colors border-l border-theme ${
                   state.viewMode === 'table'
                     ? 'bg-theme-interactive-primary text-theme-on-primary'

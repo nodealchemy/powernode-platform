@@ -433,6 +433,7 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
           <button
             onClick={onRefresh}
             disabled={loading}
+            aria-label="Refresh"
             className="btn-theme btn-theme-secondary px-4"
           >
             <RefreshCw className="w-4 h-4" />

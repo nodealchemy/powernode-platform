@@ -66,6 +66,7 @@ export const SkillNodeDetailPanel: React.FC<SkillNodeDetailPanelProps> = ({
         </div>
         <button
           onClick={onClose}
+          aria-label="Close"
           className="p-1 rounded-lg text-theme-tertiary hover:text-theme-primary hover:bg-theme-surface-hover transition-colors"
         >
           <X className="h-5 w-5" />

@@ -102,7 +102,7 @@ export function ProposalDetailPanel({ proposalId, onClose, onUpdated }: Proposal
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-theme">
         <h3 className="text-lg font-semibold text-theme-primary">Proposal Details</h3>
-        <button onClick={onClose} className="text-theme-tertiary hover:text-theme-primary">
+        <button onClick={onClose} aria-label="Close" className="text-theme-tertiary hover:text-theme-primary">
           <X className="w-5 h-5" />
         </button>
       </div>

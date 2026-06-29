@@ -84,7 +84,7 @@ export const TriggerConfigTab: React.FC<TriggerConfigTabProps> = ({
             {triggerConfig.events.map((evt, i) => (
               <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-theme-info-fg/10 text-theme-info-fg">
                 {evt}
-                <button onClick={() => onUpdateTrigger({ events: triggerConfig.events.filter((_, idx) => idx !== i) })} className="hover:text-theme-danger-fg">
+                <button onClick={() => onUpdateTrigger({ events: triggerConfig.events.filter((_, idx) => idx !== i) })} aria-label={`Remove ${evt} event`} className="hover:text-theme-danger-fg">
                   <X size={10} />
                 </button>
               </span>

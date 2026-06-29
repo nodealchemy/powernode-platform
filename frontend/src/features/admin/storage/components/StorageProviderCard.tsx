@@ -111,6 +111,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
             <button
               data-testid="provider-action-menu"
               onClick={() => setShowMenu(!showMenu)}
+              aria-label="More options"
               className="p-1 hover:bg-theme-surface-hover rounded transition-colors"
             >
               <MoreVertical className="h-5 w-5 text-theme-secondary" />

@@ -91,6 +91,7 @@ export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsExpanded(!isExpanded)}
+              aria-label={isExpanded ? 'Collapse filters' : 'Expand filters'}
               className="text-theme-secondary hover:text-theme-primary transition-colors duration-200"
             >
               <RefreshCw className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
@@ -341,6 +342,7 @@ export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
                   <span>{value}</span>
                   <button
                     onClick={() => clearFilter(key as keyof FilterType)}
+                    aria-label="Remove filter"
                     className="ml-1 hover:bg-theme-interactive-primary hover:bg-theme-interactive-primary/20 rounded-full p-0.5 transition-colors duration-200"
                   >
                     <X className="w-3 h-3" />

@@ -313,6 +313,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       removeUploadingFile(uploadingFile.file);
                     }}
                     className="flex-shrink-0 text-theme-secondary hover:text-theme-primary"
+                    aria-label="Remove file"
                   >
                     <X className="h-4 w-4" />
                   </button>

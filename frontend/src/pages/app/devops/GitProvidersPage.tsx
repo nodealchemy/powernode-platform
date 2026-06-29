@@ -580,6 +580,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                         <button
                           onClick={() => setOpenMenuId(openMenuId === provider.id ? null : provider.id)}
                           className="p-2 hover:bg-theme-background-secondary rounded-lg text-theme-secondary hover:text-theme-primary"
+                          aria-label="More options"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>

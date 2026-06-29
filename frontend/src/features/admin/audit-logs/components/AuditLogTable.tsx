@@ -177,6 +177,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => toggleRowExpansion(log.id)}
+                          aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
                           className="text-theme-secondary hover:text-theme-primary transition-colors duration-200"
                         >
                           {isExpanded ? (

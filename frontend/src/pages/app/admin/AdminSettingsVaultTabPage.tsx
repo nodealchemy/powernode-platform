@@ -209,6 +209,7 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
                 type="button"
                 onClick={() => setShowSecretId(!showSecretId)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-secondary hover:text-theme-primary"
+                aria-label={showSecretId ? 'Hide secret ID' : 'Show secret ID'}
               >
                 {showSecretId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>

@@ -53,6 +53,7 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
                 <button
                   type="button"
                   onClick={() => onRemoveCapability(cap)}
+                  aria-label={`Remove ${cap} skill`}
                   className="ml-1 hover:text-theme-status-error"
                 >
                   <X className="w-3 h-3" />

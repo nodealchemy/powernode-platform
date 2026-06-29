@@ -159,7 +159,7 @@ export const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
           {form.tags.map((tag, i) => (
             <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-info-fg/10 text-theme-info-fg">
               {tag}
-              <button onClick={() => onRemoveTag(i)} className="hover:text-theme-danger-fg">
+              <button onClick={() => onRemoveTag(i)} aria-label={`Remove ${tag} tag`} className="hover:text-theme-danger-fg">
                 <X size={10} />
               </button>
             </span>

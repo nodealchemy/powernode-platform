@@ -72,6 +72,7 @@ export const BudgetTransactionHistory: React.FC<BudgetTransactionHistoryProps> =
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page <= 1}
+              aria-label="Previous page"
               className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -79,6 +80,7 @@ export const BudgetTransactionHistory: React.FC<BudgetTransactionHistoryProps> =
             <button
               onClick={() => setPage(p => Math.min(pagination.total_pages, p + 1))}
               disabled={page >= pagination.total_pages}
+              aria-label="Next page"
               className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />

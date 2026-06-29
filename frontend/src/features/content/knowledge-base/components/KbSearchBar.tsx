@@ -158,6 +158,7 @@ export function KbSearchBar({
               <button
                 onClick={() => onChange('')}
                 className="hover:bg-theme-primary/20 rounded-full p-0.5"
+                aria-label="Remove search filter"
               >
                 <XMarkIcon className="h-3 w-3" />
               </button>
@@ -170,6 +171,7 @@ export function KbSearchBar({
               <button
                 onClick={() => onCategoryChange(null)}
                 className="hover:bg-theme-primary/20 rounded-full p-0.5"
+                aria-label="Remove category filter"
               >
                 <XMarkIcon className="h-3 w-3" />
               </button>

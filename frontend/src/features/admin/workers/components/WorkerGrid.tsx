@@ -109,6 +109,7 @@ export const WorkerGrid: React.FC<WorkerGridProps> = ({
               <button
                 onClick={() => goToPage(pagination.page - 1)}
                 disabled={pagination.page <= 1}
+                aria-label="Previous page"
                 className="p-2 border border-theme rounded-lg text-theme-primary hover:bg-theme-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -147,6 +148,7 @@ export const WorkerGrid: React.FC<WorkerGridProps> = ({
               <button
                 onClick={() => goToPage(pagination.page + 1)}
                 disabled={pagination.page >= totalPages}
+                aria-label="Next page"
                 className="p-2 border border-theme rounded-lg text-theme-primary hover:bg-theme-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />

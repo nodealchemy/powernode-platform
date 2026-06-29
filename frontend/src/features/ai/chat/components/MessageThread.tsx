@@ -95,6 +95,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onClose}
+            aria-label="Back"
             className="p-1 rounded hover:bg-theme-surface-hover text-theme-tertiary"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -107,6 +108,7 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
         </div>
         <button
           onClick={onClose}
+          aria-label="Close"
           className="p-1 rounded hover:bg-theme-surface-hover text-theme-tertiary"
         >
           <X className="h-4 w-4" />

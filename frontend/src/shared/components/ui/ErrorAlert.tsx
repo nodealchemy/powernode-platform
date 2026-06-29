@@ -18,6 +18,7 @@ const ErrorAlert: React.FC<ErrorAlertProps> = ({ message, onClose }) => {
           <button
             onClick={onClose}
             className="text-theme-error-fg hover:text-theme-error-hover transition-colors duration-200 flex-shrink-0"
+            aria-label="Dismiss"
           >
             <X className="w-4 h-4" />
           </button>

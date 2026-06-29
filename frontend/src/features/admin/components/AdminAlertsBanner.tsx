@@ -128,6 +128,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
               )}
               <button
                 onClick={() => dismissAlert(alert.id)}
+                aria-label="Dismiss alert"
                 className={`p-1 rounded-full hover:bg-white hover:bg-white/10 ${styles.text}`}
               >
                 <X className="w-4 h-4" />

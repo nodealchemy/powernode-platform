@@ -221,7 +221,7 @@ export const RunnerDetailPage: React.FC = () => {
                 <h2 className="text-xl font-semibold text-theme-primary">{runner.name}</h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-sm text-theme-secondary font-mono">{runner.external_id}</span>
-                  <button onClick={handleCopyId} className="text-theme-secondary hover:text-theme-primary">
+                  <button onClick={handleCopyId} className="text-theme-secondary hover:text-theme-primary" aria-label="Copy runner ID">
                     <Copy className="w-4 h-4" />
                   </button>
                 </div>

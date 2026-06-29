@@ -14,6 +14,7 @@ export const MemberDetailSidebar: React.FC<MemberDetailSidebarProps> = ({ member
       <button
         type="button"
         onClick={onClose}
+        aria-label="Close"
         className="text-theme-secondary hover:text-theme-primary"
       >
         <X size={14} />

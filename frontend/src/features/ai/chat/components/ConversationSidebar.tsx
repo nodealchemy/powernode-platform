@@ -508,6 +508,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                 setSelectedIds(new Set());
                 setSelectMode(false);
               }}
+              aria-label="Cancel selection"
               className="text-theme-tertiary hover:text-theme-primary"
             >
               <X className="h-3.5 w-3.5" />

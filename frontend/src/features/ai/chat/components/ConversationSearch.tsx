@@ -98,6 +98,7 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({
         {query && (
           <button
             onClick={clearSearch}
+            aria-label="Clear search"
             className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-tertiary hover:text-theme-primary"
           >
             <X className="h-3.5 w-3.5" />

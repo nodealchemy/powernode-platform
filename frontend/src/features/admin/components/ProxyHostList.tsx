@@ -81,6 +81,7 @@ const SortableHostItem: React.FC<SortableHostItemProps> = ({
       
       <button
         onClick={() => onRemove(host)}
+        aria-label="Remove host"
         className="text-theme-error-fg hover:text-theme-error-fg/80 transition-colors ml-3"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

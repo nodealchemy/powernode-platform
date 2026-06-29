@@ -216,6 +216,7 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
                         e.stopPropagation();
                         onRemoveTag(tag);
                       }}
+                      aria-label={`Remove ${tag} tag`}
                       className="hover:opacity-70"
                     >
                       <X className="h-2.5 w-2.5" />
@@ -253,6 +254,7 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
               e.stopPropagation();
               setShowMenu(!showMenu);
             }}
+            aria-label="More options"
             className="p-0.5 rounded text-theme-tertiary hover:bg-theme-surface-hover hover:text-theme-secondary transition-colors"
           >
             <MoreVertical className="h-3.5 w-3.5 text-theme-tertiary" />

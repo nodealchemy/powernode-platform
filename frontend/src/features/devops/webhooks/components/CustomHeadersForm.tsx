@@ -156,6 +156,7 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
               onClick={() => handleRemoveHeader(header.id)}
               disabled={disabled || (headers.length === 1 && !header.key && !header.value)}
               className={`p-2 text-theme-tertiary hover:text-theme-danger-fg hover:bg-theme-danger-fg/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${index === 0 ? 'mt-5' : ''}`}
+              aria-label="Remove header"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path

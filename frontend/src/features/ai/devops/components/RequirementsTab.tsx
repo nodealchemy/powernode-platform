@@ -38,7 +38,7 @@ export const RequirementsTab: React.FC<RequirementsTabProps> = ({
           {secretsRequired.map((secret, i) => (
             <span key={i} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-theme-warning-fg/10 text-theme-warning-fg font-mono">
               {secret}
-              <button onClick={() => onRemoveSecret(i)} className="hover:text-theme-danger-fg">
+              <button onClick={() => onRemoveSecret(i)} aria-label={`Remove ${secret} secret`} className="hover:text-theme-danger-fg">
                 <X size={10} />
               </button>
             </span>
@@ -65,7 +65,7 @@ export const RequirementsTab: React.FC<RequirementsTabProps> = ({
           {integrationsRequired.map((integration, i) => (
             <span key={i} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-theme-info-fg/10 text-theme-info-fg">
               {integration}
-              <button onClick={() => onRemoveIntegration(i)} className="hover:text-theme-danger-fg">
+              <button onClick={() => onRemoveIntegration(i)} aria-label={`Remove ${integration} integration`} className="hover:text-theme-danger-fg">
                 <X size={10} />
               </button>
             </span>

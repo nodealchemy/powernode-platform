@@ -121,6 +121,7 @@ const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({
               />
               <button
                 onClick={handleSaveEdit}
+                aria-label="Save"
                 className="p-1 text-theme-success-fg hover:text-theme-success-fg/80"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,6 +130,7 @@ const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({
               </button>
               <button
                 onClick={handleCancelEdit}
+                aria-label="Cancel"
                 className="p-1 text-theme-error-fg hover:text-theme-error-fg/80"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,6 +153,7 @@ const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({
         {!isEditing && (
           <button
             onClick={() => setIsEditing(true)}
+            aria-label="Edit pattern"
             className="p-1 text-theme-secondary hover:text-theme-primary transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,6 +163,7 @@ const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({
         )}
         <button
           onClick={() => onRemove(pattern)}
+          aria-label="Delete pattern"
           className="p-1 text-theme-error-fg hover:text-theme-error-fg/80 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

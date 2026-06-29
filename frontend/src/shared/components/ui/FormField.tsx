@@ -154,6 +154,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-theme-tertiary hover:text-theme-primary transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

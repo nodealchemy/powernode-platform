@@ -126,6 +126,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
               e.stopPropagation();
               setShowActions(!showActions);
             }}
+            aria-label="More options"
             className="p-2 rounded-lg bg-theme-background/80 text-theme-secondary hover:text-theme-primary transition-colors"
           >
             <MoreVertical className="w-4 h-4" />

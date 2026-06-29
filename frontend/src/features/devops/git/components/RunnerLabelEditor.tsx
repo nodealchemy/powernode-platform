@@ -49,6 +49,7 @@ export const RunnerLabelEditor: React.FC<RunnerLabelEditorProps> = ({
                 onClick={() => handleRemoveLabel(label)}
                 className="ml-1 hover:text-theme-error-fg transition-colors"
                 disabled={saving}
+                aria-label="Remove label"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -74,6 +75,7 @@ export const RunnerLabelEditor: React.FC<RunnerLabelEditorProps> = ({
             onClick={handleAddLabel}
             disabled={!newLabel.trim() || saving}
             className="p-1.5 rounded-lg bg-theme-primary/10 text-theme-primary hover:bg-theme-primary/20 disabled:opacity-50 transition-colors"
+            aria-label="Add label"
           >
             <Plus className="w-4 h-4" />
           </button>

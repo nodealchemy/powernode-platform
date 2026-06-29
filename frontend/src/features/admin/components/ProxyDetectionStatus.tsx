@@ -14,6 +14,7 @@ export const ProxyDetectionStatus: React.FC<ProxyDetectionStatusProps> = ({ dete
           <h3 className="text-lg font-medium text-theme-primary">Proxy Detection Status</h3>
           <button
             onClick={onRefresh}
+            aria-label="Refresh detection status"
             className="text-theme-primary hover:text-theme-primary/80 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,6 +72,7 @@ export const ProxyDetectionStatus: React.FC<ProxyDetectionStatusProps> = ({ dete
         <h3 className="text-lg font-medium text-theme-primary">Proxy Detection Status</h3>
         <button
           onClick={onRefresh}
+          aria-label="Refresh detection status"
           className="text-theme-primary hover:text-theme-primary/80 transition-colors"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

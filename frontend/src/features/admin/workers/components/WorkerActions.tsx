@@ -116,6 +116,7 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
               </h3>
               <button
                 onClick={() => setShowConfirm(null)}
+                aria-label="Close"
                 className="text-theme-secondary hover:text-theme-primary"
               >
                 <X className="w-5 h-5" />

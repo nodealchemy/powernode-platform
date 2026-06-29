@@ -70,6 +70,7 @@ const RunnerCard: React.FC<{
               onDelete();
             }}
             className="text-theme-secondary hover:text-theme-error-fg p-1"
+            aria-label="Delete runner"
           >
             <Trash2 className="w-4 h-4" />
           </button>

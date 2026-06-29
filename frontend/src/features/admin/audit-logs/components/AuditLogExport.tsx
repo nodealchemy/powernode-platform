@@ -223,6 +223,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
           <button
             onClick={onClose}
             className="text-theme-secondary hover:text-theme-primary transition-colors duration-200"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>

@@ -187,6 +187,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
           <button
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-theme-surface-hover text-theme-secondary"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>

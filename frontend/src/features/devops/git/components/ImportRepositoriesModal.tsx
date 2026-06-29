@@ -246,6 +246,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
             <button
               onClick={onClose}
               className="p-2 text-theme-secondary hover:text-theme-primary rounded-lg hover:bg-theme-surface-hover transition-colors"
+              aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>

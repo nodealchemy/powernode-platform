@@ -71,7 +71,7 @@ export const VariablesTab: React.FC<VariablesTabProps> = ({
                     />
                   </div>
                 </div>
-                <button onClick={() => onRemoveVariable(i)} className="mt-5 p-1.5 text-theme-secondary hover:text-theme-danger-fg rounded transition-colors">
+                <button onClick={() => onRemoveVariable(i)} aria-label="Remove variable" className="mt-5 p-1.5 text-theme-secondary hover:text-theme-danger-fg rounded transition-colors">
                   <Trash2 size={14} />
                 </button>
               </div>

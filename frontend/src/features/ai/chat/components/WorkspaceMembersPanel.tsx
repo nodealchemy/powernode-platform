@@ -163,6 +163,7 @@ export const WorkspaceMembersPanel: React.FC<WorkspaceMembersPanelProps> = ({
         <button
           type="button"
           onClick={onClose}
+          aria-label="Close"
           className="p-0.5 rounded hover:bg-theme-surface-hover text-theme-secondary transition-colors"
         >
           <X className="h-3.5 w-3.5" />

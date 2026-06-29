@@ -119,6 +119,7 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
             <button
               type="button"
               onClick={() => setShowPreview(!showPreview)}
+              aria-label={showPreview ? 'Collapse preview' : 'Expand preview'}
               className="text-theme-secondary"
             >
               {showPreview ? <ChevronUp size={16} /> : <ChevronDown size={16} />}

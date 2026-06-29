@@ -216,6 +216,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                         }}
                         className="p-1 rounded hover:bg-theme-surface-hover text-theme-secondary"
                         disabled={actionLoading === repo.id}
+                        aria-label="More options"
                       >
                         {actionLoading === repo.id ? (
                           <RefreshCw className="w-4 h-4 animate-spin" />

@@ -365,6 +365,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
             )}
             <button
               onClick={onClose}
+              aria-label="Close"
               className="p-2 text-theme-secondary hover:text-theme-primary transition-colors"
             >
               <X className="w-5 h-5" />
@@ -768,6 +769,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
               <h3 className="text-lg font-semibold text-theme-primary">Worker Health Check Results</h3>
               <button
                 onClick={() => { setShowTestResults(false); setTestJobStatus('idle'); }}
+                aria-label="Close"
                 className="text-theme-secondary hover:text-theme-primary"
               >
                 <X className="w-5 h-5" />

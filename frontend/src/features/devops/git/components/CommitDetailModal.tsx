@@ -41,7 +41,7 @@ function FileChangeItem({ file, defaultExpanded = false }: { file: GitCommitFile
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {hasPatch ? (
-            <button className="text-theme-secondary hover:text-theme-primary flex-shrink-0">
+            <button className="text-theme-secondary hover:text-theme-primary flex-shrink-0" aria-label={expanded ? 'Collapse' : 'Expand'}>
               {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
           ) : (
@@ -213,6 +213,7 @@ export function CommitDetailModal({
               <button
                 onClick={onClose}
                 className="p-2 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-secondary rounded-lg"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>

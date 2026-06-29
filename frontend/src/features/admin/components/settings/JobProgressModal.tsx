@@ -312,6 +312,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
           <h2 className="text-lg font-semibold text-theme-primary">{title}</h2>
           <button
             onClick={handleClose}
+            aria-label="Close"
             className="p-1 hover:bg-theme-surface rounded"
           >
             <X className="w-5 h-5 text-theme-secondary" />

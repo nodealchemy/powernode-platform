@@ -138,6 +138,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             <button
               onClick={handleClose}
               className="text-theme-secondary hover:text-theme-primary"
+              aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -222,6 +223,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           <button
             onClick={handleClose}
             className="text-theme-secondary hover:text-theme-primary"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>

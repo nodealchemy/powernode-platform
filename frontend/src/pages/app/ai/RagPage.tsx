@@ -422,12 +422,14 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                           <button
                             onClick={(e) => { e.stopPropagation(); handleEditKb(kb); }}
                             className="text-theme-secondary hover:text-theme-primary transition-colors"
+                            aria-label="Edit knowledge base"
                           >
                             <Pencil size={14} />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteKb(kb.id); }}
                             className="text-theme-secondary hover:text-theme-danger-fg transition-colors"
+                            aria-label="Delete knowledge base"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -494,6 +496,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                           <button
                             onClick={() => handleDeleteDoc(doc.id)}
                             className="text-theme-secondary hover:text-theme-danger-fg transition-colors"
+                            aria-label="Delete document"
                           >
                             <Trash2 size={14} />
                           </button>

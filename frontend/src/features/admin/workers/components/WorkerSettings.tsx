@@ -284,6 +284,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
                       <span className="text-sm font-mono text-theme-primary">{ip}</span>
                       <button
                         onClick={() => removeAllowedIP(index)}
+                        aria-label="Remove IP address"
                         className="text-theme-error-fg hover:text-theme-error-fg/80 transition-colors"
                       >
                         <XCircle className="w-4 h-4" />

@@ -300,6 +300,7 @@ export const PipelineCreatePage: React.FC = () => {
                     type="button"
                     onClick={() => removeStep(index)}
                     className="p-1.5 text-theme-error-fg hover:bg-theme-error-fg/10 rounded"
+                    aria-label="Delete step"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

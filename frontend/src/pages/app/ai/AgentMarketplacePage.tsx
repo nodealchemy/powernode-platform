@@ -223,12 +223,14 @@ const AgentMarketplacePage: React.FC = () => {
         <div className="flex gap-1 border border-theme rounded-md">
           <button
             onClick={() => setViewMode('grid')}
+            aria-label="Grid view"
             className={`p-2 ${viewMode === 'grid' ? 'bg-theme-interactive-primary text-theme-on-primary' : 'bg-theme-surface text-theme-secondary'}`}
           >
             <Grid size={16} />
           </button>
           <button
             onClick={() => setViewMode('list')}
+            aria-label="List view"
             className={`p-2 ${viewMode === 'list' ? 'bg-theme-interactive-primary text-theme-on-primary' : 'bg-theme-surface text-theme-secondary'}`}
           >
             <List size={16} />
@@ -494,12 +496,14 @@ export const AgentMarketplaceContent: React.FC = () => {
         <div className="flex gap-1 border border-theme rounded-md">
           <button
             onClick={() => setViewMode('grid')}
+            aria-label="Grid view"
             className={`p-2 ${viewMode === 'grid' ? 'bg-theme-interactive-primary text-theme-on-primary' : 'bg-theme-surface text-theme-secondary'}`}
           >
             <Grid size={16} />
           </button>
           <button
             onClick={() => setViewMode('list')}
+            aria-label="List view"
             className={`p-2 ${viewMode === 'list' ? 'bg-theme-interactive-primary text-theme-on-primary' : 'bg-theme-surface text-theme-secondary'}`}
           >
             <List size={16} />

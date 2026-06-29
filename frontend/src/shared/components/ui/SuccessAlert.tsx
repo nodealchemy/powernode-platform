@@ -18,6 +18,7 @@ const SuccessAlert: React.FC<SuccessAlertProps> = ({ message, onClose }) => {
           <button
             onClick={onClose}
             className="text-theme-success-fg hover:text-theme-success-hover transition-colors duration-200 flex-shrink-0"
+            aria-label="Dismiss"
           >
             <X className="w-4 h-4" />
           </button>

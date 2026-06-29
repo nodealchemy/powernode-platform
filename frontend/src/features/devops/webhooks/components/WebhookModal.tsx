@@ -37,6 +37,7 @@ export const WebhookModal: React.FC<WebhookModalProps> = ({
           <button
             onClick={onClose}
             className="text-theme-secondary hover:text-theme-primary"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>

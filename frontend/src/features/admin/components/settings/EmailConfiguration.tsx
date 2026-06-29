@@ -345,6 +345,7 @@ export const EmailConfiguration: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
                           className="absolute right-2 top-2.5 text-theme-secondary hover:text-theme-primary"
                         >
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -424,6 +425,7 @@ export const EmailConfiguration: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide API key' : 'Show API key'}
                     className="absolute right-2 top-2.5 text-theme-secondary hover:text-theme-primary"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -469,6 +471,7 @@ export const EmailConfiguration: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide secret key' : 'Show secret key'}
                     className="absolute right-2 top-2.5 text-theme-secondary hover:text-theme-primary"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -516,6 +519,7 @@ export const EmailConfiguration: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide API key' : 'Show API key'}
                     className="absolute right-2 top-2.5 text-theme-secondary hover:text-theme-primary"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

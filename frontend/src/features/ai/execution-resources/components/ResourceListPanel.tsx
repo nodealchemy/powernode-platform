@@ -118,6 +118,7 @@ export function ResourceListPanel({
       <button
         onClick={() => onPageChange(pagination.current_page - 1)}
         disabled={pagination.current_page <= 1}
+        aria-label="Previous page"
         className="p-1 rounded text-theme-secondary hover:text-theme-primary disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <ChevronLeft className="w-4 h-4" />
@@ -128,6 +129,7 @@ export function ResourceListPanel({
       <button
         onClick={() => onPageChange(pagination.current_page + 1)}
         disabled={pagination.current_page >= pagination.total_pages}
+        aria-label="Next page"
         className="p-1 rounded text-theme-secondary hover:text-theme-primary disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <ChevronRight className="w-4 h-4" />

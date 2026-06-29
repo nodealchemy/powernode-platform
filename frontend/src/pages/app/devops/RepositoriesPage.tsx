@@ -323,6 +323,7 @@ const RepositoryCard: React.FC<{
               <button
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
                 className="p-1.5 hover:bg-theme-background-secondary rounded-lg text-theme-secondary hover:text-theme-primary"
+                aria-label="More options"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>

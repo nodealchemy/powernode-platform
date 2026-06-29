@@ -354,6 +354,7 @@ export const SecuritySettings: React.FC = () => {
                     <span className="text-sm font-mono text-theme-primary">{origin}</span>
                     <button
                       onClick={() => removeAllowedOrigin(index)}
+                      aria-label="Remove origin"
                       className="text-theme-error-fg hover:text-theme-error-fg/80 transition-colors"
                     >
                       <XCircle className="w-4 h-4" />
