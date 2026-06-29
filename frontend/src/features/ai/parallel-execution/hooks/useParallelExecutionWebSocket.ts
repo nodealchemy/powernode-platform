@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import type { ParallelExecutionUpdate } from '../types';
 
 interface UseParallelExecutionWebSocketOptions {
@@ -7,82 +8,41 @@ interface UseParallelExecutionWebSocketOptions {
   onUpdate?: (update: ParallelExecutionUpdate) => void;
 }
 
+/**
+ * Subscribe to real-time parallel-execution (worktree session) updates.
+ *
+ * Routes through the shared WebSocket singleton (useWebSocket -> wsManager) so it
+ * reuses the single app-wide ActionCable connection and the canonical
+ * Redux-backed access token. It must NOT open its own raw socket or read the
+ * token from localStorage: auth tokens live in Redux state (`auth.access_token`)
+ * plus an HttpOnly refresh cookie, never in localStorage, so a
+ * `localStorage.getItem('auth_token')` always returns null and the connection
+ * silently never authenticates.
+ */
 export function useParallelExecutionWebSocket({
   sessionId,
   enabled = true,
   onUpdate,
 }: UseParallelExecutionWebSocketOptions) {
-  const [isConnected, setIsConnected] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
+  const { isConnected, subscribe } = useWebSocket();
+
+  // Keep the latest callback without re-subscribing on every render.
   const onUpdateRef = useRef(onUpdate);
   onUpdateRef.current = onUpdate;
 
-  const connect = useCallback(() => {
-    if (!sessionId || !enabled) return;
-
-    const token = localStorage.getItem('auth_token');
-    if (!token) return;
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/cable?token=${token}`;
-
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      // Subscribe to worktree session channel
-      ws.send(JSON.stringify({
-        command: 'subscribe',
-        identifier: JSON.stringify({
-          channel: 'AiOrchestrationChannel',
-          type: 'worktree_session',
-          id: sessionId,
-        }),
-      }));
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === 'confirm_subscription') {
-          setIsConnected(true);
-          return;
-        }
-
-        if (data.type === 'reject_subscription') {
-          setIsConnected(false);
-          return;
-        }
-
-        if (data.message) {
-          onUpdateRef.current?.(data.message as ParallelExecutionUpdate);
-        }
-      } catch {
-        // Ignore parse errors
-      }
-    };
-
-    ws.onclose = () => {
-      setIsConnected(false);
-    };
-
-    ws.onerror = () => {
-      setIsConnected(false);
-    };
-  }, [sessionId, enabled]);
-
   useEffect(() => {
-    connect();
+    if (!enabled || !sessionId || !isConnected) return;
 
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      setIsConnected(false);
-    };
-  }, [connect]);
+    const unsubscribe = subscribe({
+      channel: 'AiOrchestrationChannel',
+      params: { type: 'worktree_session', id: sessionId },
+      onMessage: (data) => {
+        onUpdateRef.current?.(data as ParallelExecutionUpdate);
+      },
+    });
 
-  return { isConnected };
+    return unsubscribe;
+  }, [sessionId, enabled, isConnected, subscribe]);
+
+  return { isConnected: isConnected && enabled && !!sessionId };
 }
