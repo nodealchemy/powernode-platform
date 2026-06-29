@@ -117,7 +117,7 @@ module Devops
       raise StandardError, "Max retries exceeded" unless retryable?
 
       update!(status: "pending")
-      Devops::GitWebhookProcessingJob.perform_async(id)
+      WorkerApiClient.new.queue_git_webhook_processing(id)
       true
     end
 
@@ -140,8 +140,8 @@ module Devops
         retry_count: 0
       )
 
-      # Queue for processing
-      Devops::GitWebhookProcessingJob.perform_async(new_event.id)
+      # Queue for processing via the worker HTTP seam (the API process runs no Sidekiq).
+      WorkerApiClient.new.queue_git_webhook_processing(new_event.id)
 
       new_event
     end

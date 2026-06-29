@@ -216,21 +216,17 @@ RSpec.describe Devops::GitWebhookEvent, type: :model do
       end
     end
 
-    describe '#retry!' do
+    describe '#retry! / #redeliver! (worker HTTP dispatch)' do
       let(:account) { create(:account) }
       let(:provider) { create(:git_provider) }
       let(:event) { create(:git_webhook_event, :failed, git_provider: provider, account: account) }
+      # The API process runs no Sidekiq; dispatch goes over the worker HTTP seam.
+      let(:worker) { instance_double(WorkerApiClient, queue_git_webhook_processing: { 'status' => 'queued' }) }
 
-      before do
-        # Stub the job class since it lives in the worker service
-        stub_const('Devops::GitWebhookProcessingJob', Class.new do
-          def self.perform_async(*_args)
-            true
-          end
-        end)
-      end
+      before { allow(WorkerApiClient).to receive(:new).and_return(worker) }
 
-      it 'resets to pending status' do
+      it 'resets to pending and dispatches via the worker seam (not Sidekiq)' do
+        expect(worker).to receive(:queue_git_webhook_processing).with(event.id)
         event.retry!
         expect(event.status).to eq('pending')
       end
@@ -238,6 +234,14 @@ RSpec.describe Devops::GitWebhookEvent, type: :model do
       it 'raises error when max retries exceeded' do
         event.update!(retry_count: 3)
         expect { event.retry! }.to raise_error(StandardError, /Max retries exceeded/)
+      end
+
+      it 'redeliver! creates a new pending event dispatched via the worker seam' do
+        expect(worker).to receive(:queue_git_webhook_processing)
+        new_event = event.redeliver!
+        expect(new_event).to be_persisted
+        expect(new_event.status).to eq('pending')
+        expect(new_event.retry_count).to eq(0)
       end
     end
 
