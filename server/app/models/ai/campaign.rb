@@ -150,6 +150,19 @@ module Ai
       parked_questions.where(status: "open").order(created_at: :asc)
     end
 
+    # ---- land source seam (canonical land path) ---------------------------
+    # Surface a land issue through this campaign's parked-questions queue so it
+    # shows up on the dashboard for the operator. Invoked generically by
+    # Ai::Land::LandService when the land's source is a campaign (the
+    # equivalent mission hook is Ai::Mission#land_park_notify!).
+    def land_park_notify!(reason:, land:)
+      park_question!(
+        question: "Campaign land needs attention: #{reason}",
+        context: "land=#{land.id} #{land.source_branch} → #{land.target_branch}",
+        metadata: { "campaign_land_id" => land.id, "reason" => reason }
+      )
+    end
+
     def refresh_open_questions_count!
       update_column(:open_questions, parked_questions.where(status: "open").count)
     end

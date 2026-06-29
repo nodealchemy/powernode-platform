@@ -347,4 +347,48 @@ RSpec.describe Ai::Mission, type: :model do
       }.not_to change { mission.reload.current_phase }
     end
   end
+
+  # Canonical land source seam (Ai::Land). A mission acts as a polymorphic land
+  # source; these hooks advance/roll-back the mission when its land resolves.
+  describe "canonical land source hooks" do
+    let(:account) { create(:account) }
+    let(:user) { create(:user, account: account) }
+    let(:mission) do
+      create(:ai_mission, account: account, created_by: user, status: "active", current_phase: "merging")
+    end
+    let(:land) { instance_double(Ai::CampaignLand, id: SecureRandom.uuid) }
+
+    before { allow(WorkerJobService).to receive(:enqueue_job).and_return(true) }
+
+    describe "#on_land_completed!" do
+      it "advances the mission out of merging to completed" do
+        mission.on_land_completed!(land)
+        expect(mission.reload.status).to eq("completed")
+        expect(mission.current_phase).to eq("completed")
+      end
+    end
+
+    describe "#on_land_rolled_back!" do
+      it "rolls the mission back to the previewing gate without dispatching a job" do
+        expect(WorkerJobService).not_to receive(:enqueue_job)
+        mission.on_land_rolled_back!(land)
+        expect(mission.reload.current_phase).to eq("previewing")
+      end
+    end
+
+    describe "#land_park_notify!" do
+      it "creates a notification for the mission creator (best-effort)" do
+        expect {
+          mission.land_park_notify!(reason: "merge conflict", land: land_record)
+        }.to change(Notification, :count).by(1)
+      end
+
+      def land_record
+        Ai::CampaignLand.create!(
+          account: account, source: mission,
+          source_branch: "mission/#{mission.id}", target_branch: "develop"
+        )
+      end
+    end
+  end
 end

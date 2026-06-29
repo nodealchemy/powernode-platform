@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000013) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1049,7 +1049,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000013) do
   create_table "ai_campaign_lands", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "base_sha"
-    t.uuid "campaign_id", null: false
+    t.uuid "campaign_id"
     t.datetime "completed_at"
     t.jsonb "conflict_files", default: [], null: false
     t.datetime "created_at", null: false
@@ -1064,6 +1064,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000013) do
     t.integer "priority", default: 0, null: false
     t.datetime "queued_at"
     t.string "source_branch", null: false
+    t.uuid "source_id"
+    t.string "source_type"
     t.string "staged_sha"
     t.string "staging_branch"
     t.datetime "started_at"
@@ -1073,6 +1075,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000013) do
     t.uuid "worktree_session_id"
     t.index ["account_id", "status"], name: "index_ai_campaign_lands_on_account_id_and_status"
     t.index ["campaign_id"], name: "index_ai_campaign_lands_on_campaign_id"
+    t.index ["source_type", "source_id"], name: "index_ai_campaign_lands_on_source"
     t.index ["target_branch", "status"], name: "index_ai_campaign_lands_on_target_branch_and_status"
   end
 

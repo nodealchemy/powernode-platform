@@ -172,6 +172,45 @@ module Ai
       end
     end
 
+    # ---- canonical land source seam (Ai::Land, flag-gated default OFF) -----
+    # These let a Mission act as a polymorphic land source for the unified
+    # Ai::Land::LandService, mirroring the campaign hooks. They are only reached
+    # when Ai::Land::Feature.mission_landing_enabled? is on (default false), so
+    # by default a mission's merging phase keeps dispatching AiMissionMergeJob
+    # and none of this runs.
+
+    # Surface a land issue to the mission's creator (best-effort; never raises).
+    def land_park_notify!(reason:, land:)
+      Notification.create_for_user(
+        created_by,
+        type: "mission_land_attention",
+        title: "Mission land needs attention",
+        message: "Mission **#{name}** land needs attention: #{reason}\n\n" \
+                 "`#{land.source_branch}` → `#{land.target_branch}`",
+        severity: "warning",
+        category: "ai",
+        action_url: "/app/ai/missions/#{id}",
+        action_label: "Review Mission",
+        metadata: { mission_id: id, campaign_land_id: land.id, reason: reason }
+      )
+    rescue StandardError => e
+      Rails.logger.warn("[Ai::Mission] land_park_notify! failed (mission #{id}): #{e.message}")
+    end
+
+    # The land merged + post-merge CI passed: advance the mission out of the
+    # merging phase to its terminal completion.
+    def on_land_completed!(land)
+      Ai::Missions::OrchestratorService.new(mission: self)
+                                       .advance!(result: { campaign_land_id: land.id })
+    end
+
+    # The land's post-merge CI failed and the merge was reverted: roll the
+    # mission back to the previewing gate so an operator can re-decide.
+    def on_land_rolled_back!(_land)
+      Ai::Missions::OrchestratorService.new(mission: self)
+                                       .transition_to!("previewing", dispatch: false)
+    end
+
     def phases_for_type
       if custom_phases.present?
         custom_phases.sort_by { |p| p["order"] || 0 }.map { |p| p["key"] }

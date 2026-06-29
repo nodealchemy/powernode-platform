@@ -19,6 +19,11 @@ module Ai
       end
 
       def deliver
+        # Mission lands (and any non-campaign source) have no campaign to deep-link
+        # the Campaigns dashboard; their approval surface is the mission UI, so this
+        # campaign-scoped proposal card simply doesn't apply.
+        return @land unless @campaign
+
         approvers.each do |user|
           Notification.create_for_user(
             user,

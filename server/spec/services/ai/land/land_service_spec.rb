@@ -76,6 +76,28 @@ RSpec.describe Ai::Land::LandService do
     end
   end
 
+  describe "mission-source parking" do
+    let(:mission) { create(:ai_mission, account: account) }
+
+    it "routes park notifications through the mission's land_park_notify!" do
+      l = Ai::CampaignLand.create!(
+        account: account, source: mission, status: "staging",
+        source_branch: "mission/#{mission.id}", target_branch: "develop"
+      )
+      # Bind @source to our exact mission instance so we can assert on it.
+      allow(l).to receive(:source).and_return(mission)
+      service = described_class.new(l)
+
+      allow(wm).to receive(:fetch_branch).and_return(success: true)
+      allow(service).to receive(:rev_parse).and_return("sha")
+      allow(wm).to receive(:push_branch).and_return(success: false, error: "denied")
+
+      expect(mission).to receive(:land_park_notify!).with(reason: kind_of(String), land: l)
+      service.stage!
+      expect(l.reload.status).to eq("parked")
+    end
+  end
+
   describe "kill-switch" do
     it "parks instead of mutating the target when the account is suspended" do
       allow_any_instance_of(Account).to receive(:ai_suspended?).and_return(true)

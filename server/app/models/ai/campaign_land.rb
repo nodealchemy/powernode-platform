@@ -17,7 +17,13 @@ module Ai
     ACTIVE_STATUSES = %w[staging staged_ci merging verifying rolling_back].freeze
     TERMINAL_STATUSES = %w[landed rejected rolled_back failed].freeze
 
-    belongs_to :campaign, class_name: "Ai::Campaign", foreign_key: "campaign_id"
+    # Legacy direct pointer — retained (and still populated for campaign lands)
+    # for back-compat with existing queries/indexes. Now optional so non-campaign
+    # land sources (Missions, etc.) can leave it NULL.
+    belongs_to :campaign, class_name: "Ai::Campaign", foreign_key: "campaign_id", optional: true
+    # Canonical, generic land source. Campaign lands set BOTH this and campaign;
+    # other landables (Ai::Mission, ...) set only this.
+    belongs_to :source, polymorphic: true, optional: true
     belongs_to :account
 
     validates :status, presence: true, inclusion: { in: STATUSES }
@@ -112,6 +118,13 @@ module Ai
     end
 
     # ---- helpers ----------------------------------------------------------
+    # Resolve the land source generically. Prefers the polymorphic association;
+    # falls back to the legacy campaign pointer so rows written before the
+    # source columns existed (and any campaign land) still resolve to a source.
+    def source
+      super || (campaign if campaign_id.present?)
+    end
+
     def terminal?
       status.in?(TERMINAL_STATUSES)
     end
@@ -129,7 +142,7 @@ module Ai
 
     def summary
       {
-        id: id, campaign_id: campaign_id, status: status,
+        id: id, campaign_id: campaign_id, source_type: source_type, source_id: source_id, status: status,
         source_branch: source_branch, staging_branch: staging_branch, target_branch: target_branch,
         base_sha: base_sha, staged_sha: staged_sha, merged_sha: merged_sha,
         conflict_files: conflict_files, parked_reason: parked_reason, error_message: error_message,

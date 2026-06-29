@@ -313,6 +313,24 @@ module Ai
         phase = mission.current_phase
         return if mission.awaiting_approval?
 
+        # Canonical land path (flag-gated, default OFF). When a mission enters the
+        # merging phase, route the merge through the unified Ai::Land service via a
+        # polymorphic land source instead of dispatching the legacy
+        # AiMissionMergeJob. Intercepting at phase ENTRY (not in handle_approval!)
+        # catches both the gateway-routed and legacy approval paths, since both
+        # advance the mission into "merging". Flag OFF -> falls through to the
+        # legacy merge-job dispatch below, byte-for-byte unchanged.
+        if phase == "merging" && Ai::Land::Feature.mission_landing_enabled?(account: account)
+          Ai::Land::ApprovalBinding.request_land_approval(
+            source: mission,
+            source_branch: mission.branch_name,
+            target_branch: mission.base_branch.presence || mission.repository&.default_branch || "main",
+            description: "Land mission #{mission.name} (#{mission.branch_name})",
+            requested_by: nil
+          )
+          return
+        end
+
         job_class = job_class_for_phase(phase)
         return unless job_class
 

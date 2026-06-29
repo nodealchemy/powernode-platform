@@ -44,6 +44,15 @@ module Ai
         result
       end
 
+      # DEPRECATED — legacy mission merge path.
+      #
+      # The canonical merge/land flow for missions is the unified Ai::Land service
+      # (driven via a polymorphic CampaignLand source), gated behind
+      # Ai::Land::Feature.mission_landing_enabled? (default OFF). When that flag is
+      # on, a mission entering the merging phase routes through
+      # Ai::Land::ApprovalBinding instead of AiMissionMergeJob, and this method is
+      # NOT called. It remains as the default (flag-OFF) path and for direct PR
+      # merges; do not extend it — prefer the land service. No behavior change.
       def merge_pr!(pr_number:)
         client = git_client
         owner, repo_name = repo_parts

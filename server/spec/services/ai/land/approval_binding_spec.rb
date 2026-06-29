@@ -34,5 +34,38 @@ RSpec.describe Ai::Land::ApprovalBinding do
       land = described_class.request_land_approval(campaign: c)
       expect(land.status).to eq("pending_approval")
     end
+
+    it "still populates campaign_id (and the polymorphic source) for a campaign land" do
+      c = campaign("autonomous")
+      land = described_class.request_land_approval(campaign: c)
+      expect(land.campaign_id).to eq(c.id)
+      expect(land.source_type).to eq("Ai::Campaign")
+      expect(land.source).to eq(c)
+    end
+  end
+
+  describe ".request_land_approval (mission source)" do
+    let(:mission) do
+      create(:ai_mission, account: account, branch_name: "mission/feature-x", base_branch: "develop")
+    end
+
+    it "auto-approves a mission land (queued), with a nil campaign and the mission branch" do
+      land = described_class.request_land_approval(source: mission, target_branch: "develop")
+
+      expect(land.status).to eq("queued")
+      expect(land.queued_at).to be_present
+      expect(land.campaign_id).to be_nil
+      expect(land.source).to eq(mission)
+      expect(land.source_type).to eq("Ai::Mission")
+      expect(land.source_branch).to eq("mission/feature-x")
+    end
+
+    it "honors an explicit source_branch / target_branch" do
+      land = described_class.request_land_approval(
+        source: mission, source_branch: "mission/explicit", target_branch: "main"
+      )
+      expect(land.source_branch).to eq("mission/explicit")
+      expect(land.target_branch).to eq("main")
+    end
   end
 end

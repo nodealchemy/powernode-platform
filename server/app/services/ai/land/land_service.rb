@@ -14,7 +14,9 @@ module Ai
     class LandService
       def initialize(land, repository_path: nil)
         @land = land
-        @campaign = land.campaign
+        # Generic land source (campaign, mission, ...) resolved polymorphically;
+        # falls back to the legacy campaign pointer for pre-source rows.
+        @source = land.source
         @account = land.account
         @repository_path = repository_path || self.class.default_repository_path
         @wm = Ai::Git::WorktreeManager.new(repository_path: @repository_path)
@@ -75,6 +77,7 @@ module Ai
         end
         @land.mark_rolled_back!
         notify_park("post-merge CI failed on #{@land.target_branch}; reverted merge")
+        @source.on_land_rolled_back!(@land) if @source.respond_to?(:on_land_rolled_back!)
         @land
       end
 
@@ -107,7 +110,7 @@ module Ai
 
       def build_merge_session
         session = Ai::WorktreeSession.create!(
-          account: @account, source: @campaign, repository_path: @repository_path,
+          account: @account, source: @source, repository_path: @repository_path,
           base_branch: @land.target_branch, merge_strategy: "sequential", status: "active"
         )
         wt = Ai::Worktree.find_or_initialize_by(branch_name: @land.source_branch)
@@ -127,14 +130,12 @@ module Ai
         nil
       end
 
-      # Surface the land issue through the campaign's existing parked-questions
-      # queue so it shows up on the dashboard for the operator.
+      # Surface the land issue through the source's own notification seam (the
+      # campaign's parked-questions queue, the mission's notifications, ...) so it
+      # shows up on the dashboard for the operator. Source-agnostic: only fires
+      # when the source implements the hook.
       def notify_park(reason)
-        @campaign.park_question!(
-          question: "Campaign land needs attention: #{reason}",
-          context: "land=#{@land.id} #{@land.source_branch} → #{@land.target_branch}",
-          metadata: { "campaign_land_id" => @land.id, "reason" => reason }
-        )
+        @source.land_park_notify!(reason: reason, land: @land) if @source.respond_to?(:land_park_notify!)
       rescue StandardError => e
         Rails.logger.warn("[LandService] notify_park failed: #{e.message}")
       end

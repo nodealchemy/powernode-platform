@@ -329,4 +329,29 @@ RSpec.describe Ai::Missions::OrchestratorService do
       expect(mission.reload.current_phase).to eq("awaiting_feature_approval")
     end
   end
+
+  # Canonical land path: entering the merging phase routes through Ai::Land via a
+  # polymorphic land source when the flag is ON; flag OFF keeps the legacy
+  # AiMissionMergeJob dispatch byte-for-byte unchanged.
+  describe "merging-phase land routing (flag-gated, default OFF)" do
+    before { mission.update!(status: "active", current_phase: "merging") }
+
+    it "dispatches the legacy merge job and never touches Ai::Land when OFF (default)" do
+      allow(Ai::Land::Feature).to receive(:mission_landing_enabled?).and_return(false)
+      expect(Ai::Land::ApprovalBinding).not_to receive(:request_land_approval)
+      expect(WorkerJobService).to receive(:enqueue_job).with("AiMissionMergeJob", any_args)
+
+      service.send(:dispatch_phase_job!)
+    end
+
+    it "creates a land via Ai::Land::ApprovalBinding and skips the merge job when ON" do
+      allow(Ai::Land::Feature).to receive(:mission_landing_enabled?).with(account: account).and_return(true)
+      expect(WorkerJobService).not_to receive(:enqueue_job)
+      expect(Ai::Land::ApprovalBinding).to receive(:request_land_approval)
+        .with(hash_including(source: mission))
+        .and_return(instance_double(Ai::CampaignLand))
+
+      service.send(:dispatch_phase_job!)
+    end
+  end
 end

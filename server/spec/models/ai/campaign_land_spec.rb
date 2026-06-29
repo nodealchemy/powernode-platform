@@ -87,6 +87,46 @@ RSpec.describe Ai::CampaignLand do
     end
   end
 
+  describe "polymorphic land source" do
+    it "a campaign land resolves #source to the campaign and keeps campaign_id" do
+      l = Ai::CampaignLand.create!(
+        account: account, campaign: campaign, source: campaign,
+        source_branch: "campaign/#{campaign.id}", target_branch: "develop"
+      )
+      expect(l.source).to eq(campaign)
+      expect(l.source_type).to eq("Ai::Campaign")
+      expect(l.campaign_id).to eq(campaign.id)
+    end
+
+    it "falls back to the campaign for a legacy row with blank source columns" do
+      l = land # set via campaign: only; polymorphic source columns stay nil
+      l.update_columns(source_type: nil, source_id: nil)
+      l.reload
+      expect(l.source_type).to be_nil
+      expect(l.source).to eq(campaign)
+    end
+
+    it "a mission land has the mission as #source and a nil campaign" do
+      mission = create(:ai_mission, account: account)
+      l = Ai::CampaignLand.create!(
+        account: account, source: mission,
+        source_branch: "mission/#{mission.id}", target_branch: "develop"
+      )
+      expect(l.campaign_id).to be_nil
+      expect(l.source).to eq(mission)
+      expect(l.source_type).to eq("Ai::Mission")
+    end
+
+    it "exposes source_type/source_id in the summary" do
+      mission = create(:ai_mission, account: account)
+      l = Ai::CampaignLand.create!(
+        account: account, source: mission,
+        source_branch: "mission/#{mission.id}", target_branch: "develop"
+      )
+      expect(l.summary).to include(source_type: "Ai::Mission", source_id: mission.id, campaign_id: nil)
+    end
+  end
+
   describe "scopes" do
     it "active_for returns only active lands for the target branch" do
       staging = land(status: "staging")

@@ -51,8 +51,14 @@ module Api
             when :success
               @land.land!
               service.cleanup!
-              advise_other_campaigns_to_rebase
-              deploy_landed_change
+              notify_source_landed
+              # Campaign-only post-land helpers: rebase advisory + deploy are keyed
+              # to a campaign. Non-campaign land sources (missions) skip them; their
+              # post-land follow-up runs via notify_source_landed above.
+              if @land.campaign
+                advise_other_campaigns_to_rebase
+                deploy_landed_change
+              end
             when :failure
               service.rollback!
             end
@@ -72,6 +78,17 @@ module Api
           end
 
           private
+
+          # Notify the land's source (campaign, mission, ...) that the change
+          # landed + post-merge CI passed, so it can advance its own workflow
+          # (e.g. a mission advances out of the merging phase). Best-effort: a
+          # source callback failure must never affect the land response.
+          def notify_source_landed
+            src = @land.source
+            src.on_land_completed!(@land) if src.respond_to?(:on_land_completed!)
+          rescue StandardError => e
+            Rails.logger.warn("[CampaignLands#verify] source land-completed callback failed: #{e.message}")
+          end
 
           # The change is on the target branch — run the deploy orchestrator. dry-run by
           # default (records a DeployRun + audit without touching infra); a REAL deploy only
