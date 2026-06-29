@@ -39,7 +39,53 @@ consolidation/reuse, and the **global-seeded-core vs project-custom** seam.
 
 ## Remaining work (recommendations — by priority/risk)
 
-### R1 — Global-agent seam (LARGE; needs design approval). **Highest leverage.**
+### R1 — Global-agent seam — APPROVED + IN PROGRESS (operator-directed 2026-06-28/29)
+
+Operator directives received during the campaign: fundamental core/system agents
+= GLOBAL (account_id nil), custom/clones = account-associated; agents
+provider-agnostic; model-discovery learning loop; global = canonical/seed-managed
+with audit logs; consumers CLONE to modify (globals read-only), maintainers own
+globals; integrate with the EXISTING clone/reconcile/diff infra.
+
+**DONE (committed STAGE-only):**
+- **Phase 1 — foundation** (core): `Ai::Agent` mirrors `Ai::Skill` —
+  `account_id` nullable + `source_key`/`cloned_from_id`/`source_version`/
+  `source_snapshot`/`is_system`, `include GloballyScopable`, `resolve_for`
+  (override-aware: account row wins over global), `resolving_account` for global
+  model resolution. (67bcd278)
+- **Phase 2 — system agents global** (submodule): all 8 system agents seed
+  global (`find_or_initialize_global_agent`, in-place conversion, id stable);
+  ~10 name-based resolvers + 2 policy seeds + skill-bindings flipped to
+  `resolve_for`/`.global`. (a32f392)
+- **Governance** (core): `agents_controller` wired into `GloballyScopedContent`
+  (clone-to-customize, `update_from_source` rebase, read-only guard,
+  `?scope`); `Ai::Agent` audit hook for canonical-global changes. (935b123d)
+
+**REMAINING (the gating broad sweep — do as a focused, tested pass):**
+1. **Controller ID-resolver sweep (~48 sites).** Endpoints that resolve an agent
+   by id via `current_account.ai_agents.find(id)` (autonomy, intervention
+   policies, skill attach/detach, conversation-with-agent, teams) 404 on a
+   GLOBAL agent. This is a **correctness gap for the now-global SYSTEM agents'
+   UI** and must be flipped to `Ai::Agent.for_account(current_account.id)`
+   (with the audit's MUST-CHANGE vs KEEP classification — listed in the
+   "[MUST-CHANGE]/[REVIEW]/[KEEP]" inventory). Operations that mutate the AGENT
+   DEFINITION on a global must add the read-only guard; per-account config
+   (autonomy level, policies) is fine on a global.
+2. **Core fundamental agent seeds → global (directive 8).** Migrate the core
+   platform agent seeds (Powernode Assistant concierge; utility agents PRD
+   Generator/LLM Judge/Intent Classifier/Semantic Tool Scorer/RAG×2/Knowledge
+   Graph Curator; monitoring agents; the renamed Strategic Planner/Research
+   Analyst; autonomy_data agents) to `account_id: nil` + `source_key` +
+   `is_system`, and flip their resolvers: `default_concierge` (×5 chat/workspace
+   sites), `AgentBackedService#resolve_service_agent` (utility/infra by slug),
+   `extraction_service` (KG Curator). Demo/showcase sets (ai_dev_team,
+   ai_todo_team, ai_example_templates one-per-type) are a judgment call —
+   likely global canonical examples too, but lower priority.
+
+Both items share one careful sweep over agent-resolution call sites; the
+foundation + helpers + governance to support them are already in place.
+
+### R1-LEGACY — original gap writeup (superseded by the above)
 
 The operator's principle — *"core functionality should be built-in seeded
 GLOBAL agent/prompt/skill combos; custom projects may need custom agent
