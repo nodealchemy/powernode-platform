@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000015) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -227,9 +227,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_ai_a2a_tasks_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_a2a_tasks_on_account_id"
+    t.index ["chat_message_id"], name: "index_ai_a2a_tasks_on_chat_message_id"
+    t.index ["chat_session_id"], name: "index_ai_a2a_tasks_on_chat_session_id"
+    t.index ["community_agent_id"], name: "index_ai_a2a_tasks_on_community_agent_id"
+    t.index ["container_instance_id"], name: "index_ai_a2a_tasks_on_container_instance_id"
     t.index ["created_at"], name: "index_ai_a2a_tasks_on_created_at"
     t.index ["dag_execution_id", "execution_order"], name: "index_ai_a2a_tasks_on_dag_execution_id_and_execution_order", where: "(dag_execution_id IS NOT NULL)"
     t.index ["dag_execution_id"], name: "index_ai_a2a_tasks_on_dag_execution_id", where: "(dag_execution_id IS NOT NULL)"
+    t.index ["federation_partner_id"], name: "index_ai_a2a_tasks_on_federation_partner_id"
     t.index ["federation_task_id"], name: "index_ai_a2a_tasks_on_federation_task_id", where: "(federation_task_id IS NOT NULL)"
     t.index ["from_agent_card_id"], name: "index_ai_a2a_tasks_on_from_agent_card_id"
     t.index ["from_agent_id", "status"], name: "index_ai_a2a_tasks_on_from_agent_id_and_status"
@@ -289,6 +294,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_ai_agent_budgets_on_account_id"
     t.index ["agent_id"], name: "index_ai_agent_budgets_on_agent_id"
+    t.index ["parent_budget_id"], name: "index_ai_agent_budgets_on_parent_budget_id"
   end
 
   create_table "ai_agent_cards", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -1044,6 +1050,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.uuid "user_id"
     t.index ["campaign_id", "created_at"], name: "index_ai_campaign_decisions_on_campaign_id_and_created_at"
     t.index ["ralph_task_id"], name: "index_ai_campaign_decisions_on_ralph_task_id"
+    t.index ["user_id"], name: "index_ai_campaign_decisions_on_user_id"
   end
 
   create_table "ai_campaign_lands", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -1101,6 +1108,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.index ["account_id", "fingerprint"], name: "index_ai_campaign_proposals_on_account_id_and_fingerprint", unique: true
     t.index ["account_id", "status"], name: "index_ai_campaign_proposals_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_campaign_proposals_on_account_id"
+    t.index ["reviewed_by_id"], name: "index_ai_campaign_proposals_on_reviewed_by_id"
     t.index ["spawned_campaign_id"], name: "index_ai_campaign_proposals_on_spawned_campaign_id"
   end
 
@@ -1131,6 +1139,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_ai_campaigns_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_campaigns_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_campaigns_on_created_by_id"
     t.index ["last_activity_at"], name: "index_ai_campaigns_on_last_activity_at"
   end
 
@@ -1455,6 +1464,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.index ["ai_agent_team_id", "category"], name: "index_ai_compound_learnings_on_ai_agent_team_id_and_category"
     t.index ["ai_agent_team_id"], name: "index_ai_compound_learnings_on_ai_agent_team_id"
     t.index ["applicable_domains"], name: "index_ai_compound_learnings_on_applicable_domains", using: :gin
+    t.index ["disproven_by_id"], name: "index_ai_compound_learnings_on_disproven_by_id"
     t.index ["effectiveness_score"], name: "index_ai_compound_learnings_on_effectiveness_score"
     t.index ["embedding"], name: "idx_compound_learnings_embedding", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["git_repository_id"], name: "index_ai_compound_learnings_on_git_repository_id"
@@ -1464,6 +1474,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.index ["source_execution_id"], name: "index_ai_compound_learnings_on_source_execution_id"
     t.index ["superseded_by_id"], name: "index_ai_compound_learnings_on_superseded_by_id"
     t.index ["tags"], name: "index_ai_compound_learnings_on_tags", using: :gin
+    t.index ["verified_by_id"], name: "index_ai_compound_learnings_on_verified_by_id"
   end
 
   create_table "ai_context_access_logs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -2024,7 +2035,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.index ["account_id", "status"], name: "index_ai_delivery_runs_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_delivery_runs_on_account_id"
     t.index ["campaign_id"], name: "index_ai_delivery_runs_on_campaign_id"
+    t.index ["campaign_land_id"], name: "index_ai_delivery_runs_on_campaign_land_id"
     t.index ["deploy_run_id"], name: "index_ai_delivery_runs_on_deploy_run_id"
+    t.index ["repository_id"], name: "index_ai_delivery_runs_on_repository_id"
+    t.index ["triggered_by_id"], name: "index_ai_delivery_runs_on_triggered_by_id"
   end
 
   create_table "ai_deploy_runs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -2050,8 +2064,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_ai_deploy_runs_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_deploy_runs_on_account_id"
+    t.index ["campaign_id"], name: "index_ai_deploy_runs_on_campaign_id"
     t.index ["campaign_land_id"], name: "index_ai_deploy_runs_on_campaign_land_id"
     t.index ["repository_id"], name: "index_ai_deploy_runs_on_repository_id"
+    t.index ["triggered_by_id"], name: "index_ai_deploy_runs_on_triggered_by_id"
   end
 
   create_table "ai_deployment_risks", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -2645,6 +2661,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.decimal "weight", precision: 5, scale: 4, default: "1.0"
     t.index ["account_id"], name: "index_ai_knowledge_graph_edges_on_account_id"
     t.index ["relation_type"], name: "index_ai_knowledge_graph_edges_on_relation_type"
+    t.index ["source_document_id"], name: "index_ai_knowledge_graph_edges_on_source_document_id"
     t.index ["source_node_id", "target_node_id", "relation_type"], name: "index_ai_kg_edges_unique_active", unique: true, where: "((status)::text = 'active'::text)"
     t.index ["source_node_id"], name: "index_ai_knowledge_graph_edges_on_source_node_id"
     t.index ["target_node_id"], name: "index_ai_knowledge_graph_edges_on_target_node_id"
@@ -2680,14 +2697,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.index ["account_id", "name", "node_type"], name: "index_ai_kg_nodes_unique_active", unique: true, where: "((status)::text = 'active'::text)"
     t.index ["account_id"], name: "index_ai_knowledge_graph_nodes_on_account_id"
     t.index ["ai_data_source_id"], name: "index_ai_kg_nodes_on_ai_data_source_id", where: "(ai_data_source_id IS NOT NULL)"
+    t.index ["ai_skill_id"], name: "index_ai_knowledge_graph_nodes_on_ai_skill_id"
     t.index ["embedding"], name: "index_ai_knowledge_graph_nodes_on_embedding", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["entity_type"], name: "index_ai_knowledge_graph_nodes_on_entity_type"
     t.index ["knowledge_base_id"], name: "index_ai_knowledge_graph_nodes_on_knowledge_base_id"
     t.index ["last_event_processed_at"], name: "index_ai_knowledge_graph_nodes_on_last_event_processed_at"
+    t.index ["merged_into_id"], name: "index_ai_knowledge_graph_nodes_on_merged_into_id"
     t.index ["metadata"], name: "idx_kg_nodes_code_metadata", where: "((node_type)::text = 'code_entity'::text)", using: :gin
     t.index ["name"], name: "index_ai_knowledge_graph_nodes_on_name"
     t.index ["node_type"], name: "index_ai_knowledge_graph_nodes_on_node_type"
     t.index ["path"], name: "index_ai_knowledge_graph_nodes_on_path", using: :gist
+    t.index ["source_document_id"], name: "index_ai_knowledge_graph_nodes_on_source_document_id"
     t.index ["status"], name: "index_ai_knowledge_graph_nodes_on_status"
     t.check_constraint "node_type::text = ANY (ARRAY['entity'::character varying::text, 'concept'::character varying::text, 'relation'::character varying::text, 'attribute'::character varying::text, 'code_entity'::character varying::text])", name: "check_ai_kg_node_type"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'merged'::character varying::text, 'archived'::character varying::text])", name: "check_ai_kg_node_status"
@@ -3021,6 +3041,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.uuid "ralph_task_id"
     t.string "status", default: "open", null: false
     t.datetime "updated_at", null: false
+    t.index ["answered_by_id"], name: "index_ai_parked_questions_on_answered_by_id"
     t.index ["campaign_id", "status"], name: "index_ai_parked_questions_on_campaign_id_and_status"
     t.index ["ralph_task_id"], name: "index_ai_parked_questions_on_ralph_task_id"
   end
@@ -3468,6 +3489,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.index ["account_id"], name: "index_ai_ralph_loops_on_account_id"
     t.index ["ai_tool"], name: "index_ai_ralph_loops_on_ai_tool"
     t.index ["campaign_id"], name: "index_ai_ralph_loops_on_campaign_id"
+    t.index ["container_instance_id"], name: "index_ai_ralph_loops_on_container_instance_id"
     t.index ["created_at"], name: "index_ai_ralph_loops_on_created_at"
     t.index ["default_agent_id"], name: "index_ai_ralph_loops_on_default_agent_id"
     t.index ["driver_kind"], name: "index_ai_ralph_loops_on_driver_kind"
@@ -3893,6 +3915,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.string "status", default: "detected", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_ai_skill_conflicts_on_account_id"
+    t.index ["resolved_by_id"], name: "index_ai_skill_conflicts_on_resolved_by_id"
     t.index ["skill_a_id", "skill_b_id", "conflict_type"], name: "idx_skill_conflicts_unique_active", unique: true, where: "((status)::text <> ALL (ARRAY[('resolved'::character varying)::text, ('dismissed'::character varying)::text]))"
     t.index ["skill_a_id"], name: "index_ai_skill_conflicts_on_skill_a_id"
     t.index ["skill_b_id"], name: "index_ai_skill_conflicts_on_skill_b_id"
@@ -3927,9 +3950,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "name"], name: "idx_skill_proposals_unique_active_name", unique: true, where: "((status)::text <> ALL (ARRAY[('rejected'::character varying)::text, ('created'::character varying)::text]))"
     t.index ["account_id"], name: "index_ai_skill_proposals_on_account_id"
+    t.index ["created_skill_id"], name: "index_ai_skill_proposals_on_created_skill_id"
     t.index ["parent_proposal_id"], name: "index_ai_skill_proposals_on_parent_proposal_id"
     t.index ["proposed_by_agent_id"], name: "index_ai_skill_proposals_on_proposed_by_agent_id"
     t.index ["proposed_by_user_id"], name: "index_ai_skill_proposals_on_proposed_by_user_id"
+    t.index ["reviewed_by_id"], name: "index_ai_skill_proposals_on_reviewed_by_id"
   end
 
   create_table "ai_skill_recipe_runs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -3951,6 +3976,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.uuid "user_id"
     t.index ["account_id", "status"], name: "index_ai_skill_recipe_runs_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_skill_recipe_runs_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_skill_recipe_runs_on_ai_agent_id"
     t.index ["ai_skill_id", "created_at"], name: "index_ai_skill_recipe_runs_on_ai_skill_id_and_created_at"
     t.index ["status"], name: "index_ai_skill_recipe_runs_on_status"
     t.index ["user_id", "created_at"], name: "index_ai_skill_recipe_runs_on_user_id_and_created_at"
@@ -4193,6 +4219,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.index ["agent_team_id", "created_at"], name: "index_ai_team_executions_on_agent_team_id_and_created_at"
     t.index ["agent_team_id"], name: "index_ai_team_executions_on_agent_team_id"
     t.index ["ai_conversation_id"], name: "index_ai_team_executions_on_ai_conversation_id"
+    t.index ["approval_decided_by_id"], name: "index_ai_team_executions_on_approval_decided_by_id"
     t.index ["control_signal"], name: "index_ai_team_executions_on_control_signal"
     t.index ["execution_id"], name: "index_ai_team_executions_on_execution_id", unique: true
     t.index ["mission_id"], name: "index_ai_team_executions_on_mission_id"
@@ -4310,6 +4337,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.index ["assigned_agent_id"], name: "index_ai_team_tasks_on_assigned_agent_id"
     t.index ["assigned_role_id", "status"], name: "index_ai_team_tasks_on_assigned_role_id_and_status"
     t.index ["assigned_role_id"], name: "index_ai_team_tasks_on_assigned_role_id"
+    t.index ["delegated_from_task_id"], name: "index_ai_team_tasks_on_delegated_from_task_id"
     t.index ["parent_task_id"], name: "index_ai_team_tasks_on_parent_task_id"
     t.index ["priority"], name: "index_ai_team_tasks_on_priority"
     t.index ["task_id"], name: "index_ai_team_tasks_on_task_id", unique: true
@@ -6195,6 +6223,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_file_bundles_on_account_id_and_status"
     t.index ["account_id"], name: "index_file_bundles_on_account_id"
+    t.index ["created_by_id"], name: "index_file_bundles_on_created_by_id"
     t.index ["mission_id"], name: "index_file_bundles_on_mission_id"
     t.index ["primary_object_id"], name: "index_file_bundles_on_primary_object_id"
   end
@@ -6649,6 +6678,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.index ["account_id", "devops_provider_id"], name: "idx_git_repos_account_devops_provider", where: "(devops_provider_id IS NOT NULL)"
     t.index ["account_id", "full_name"], name: "index_git_repositories_on_account_id_and_full_name", unique: true
     t.index ["account_id"], name: "index_git_repositories_on_account_id"
+    t.index ["devops_provider_id"], name: "index_git_repositories_on_devops_provider_id"
     t.index ["external_id"], name: "index_git_repositories_on_external_id"
     t.index ["git_provider_credential_id"], name: "index_git_repositories_on_git_provider_credential_id"
     t.index ["is_active"], name: "index_git_repositories_on_is_active"
@@ -7532,6 +7562,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000014) do
     t.index ["account_id", "domain"], name: "index_shared_prompt_templates_on_account_id_and_domain"
     t.index ["account_id", "slug"], name: "index_shared_prompt_templates_on_account_id_and_slug", unique: true, where: "(account_id IS NOT NULL)"
     t.index ["cloned_from_id"], name: "index_shared_prompt_templates_on_cloned_from_id"
+    t.index ["created_by_id"], name: "index_shared_prompt_templates_on_created_by_id"
     t.index ["is_active"], name: "index_shared_prompt_templates_on_is_active"
     t.index ["is_system"], name: "index_shared_prompt_templates_on_is_system"
     t.index ["parent_template_id"], name: "index_shared_prompt_templates_on_parent_template_id"
