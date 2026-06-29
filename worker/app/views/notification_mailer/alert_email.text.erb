@@ -1,0 +1,16 @@
+<%= @heading %>
+<%= '=' * @heading.to_s.length %>
+
+<% if @body.present? -%>
+<%= @body %>
+<% end -%>
+<% if @details.present? -%>
+
+Details:
+--------
+<% @details.each do |key, value| -%>
+<%= key.to_s.tr('_', ' ').capitalize %>: <%= value %>
+<% end -%>
+<% end -%>
+
+If you do not recognize this activity, please review your account and contact your administrator.

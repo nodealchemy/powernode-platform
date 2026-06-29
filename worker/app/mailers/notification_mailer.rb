@@ -124,8 +124,22 @@ class NotificationMailer < ApplicationMailer
     )
   end
 
+  # Generic alert / notification email (security alerts, review notifications,
+  # ...). The server-side EmailDelivery ledger is updated by the worker job that
+  # invokes this mailer, not by the mailer itself.
+  def alert_email(recipient:, subject:, heading: 'Notification', body: '', details: {})
+    @heading = heading
+    @body = body
+    @details = details.is_a?(Hash) ? details : {}
+
+    mail(
+      to: recipient,
+      subject: subject
+    )
+  end
+
   private
-  
+
   def fetch_user(user_id)
     api_client.get_user(user_id)
   rescue StandardError => e

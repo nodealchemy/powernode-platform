@@ -365,6 +365,10 @@ Rails.application.routes.draw do
         # Email sending for worker notifications
         namespace :emails do
           post :security_alert
+          post :review_notification
+          # Worker delivery-status callback (Notifications::AlertEmailJob ->
+          # moves the EmailDelivery ledger row to sent / failed).
+          post ":id/delivered", action: :delivered
         end
 
         # Notifications for worker service

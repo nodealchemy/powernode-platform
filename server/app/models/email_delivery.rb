@@ -24,6 +24,7 @@ class EmailDelivery < ApplicationRecord
       dunning_notification
       report_generated
       system_notification
+      notification
     ]
   }
   validates :status, presence: true, inclusion: {

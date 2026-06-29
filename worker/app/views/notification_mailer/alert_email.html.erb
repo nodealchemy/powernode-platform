@@ -1,0 +1,17 @@
+<h2><%= @heading %></h2>
+
+<% if @body.present? %>
+  <p><%= @body %></p>
+<% end %>
+
+<% if @details.present? %>
+  <div class="warning">
+    <ul style="margin: 0; padding-left: 18px;">
+      <% @details.each do |key, value| %>
+        <li><strong><%= key.to_s.tr('_', ' ').capitalize %>:</strong> <%= value %></li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>
+
+<p>If you do not recognize this activity, please review your account and contact your administrator.</p>

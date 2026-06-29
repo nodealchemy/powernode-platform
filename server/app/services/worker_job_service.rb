@@ -56,6 +56,20 @@ class WorkerJobService
       })
     end
 
+    # Enqueue an alert / notification email send (security alerts, review
+    # notifications, ...). The server owns the EmailDelivery ledger; the worker
+    # renders + delivers via SMTP and POSTs the outcome back to the internal
+    # /emails/:id/delivered callback. Pattern B — model/DB access stays on the
+    # server. `payload` carries email_delivery_id (the pending ledger row),
+    # recipient, subject, heading, body, and optional details.
+    def enqueue_alert_email(payload)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Notifications::AlertEmailJob",
+        "args" => [ payload.deep_stringify_keys ],
+        "queue" => "email"
+      })
+    end
+
     # Enqueue test worker job
     def enqueue_test_worker_job(worker_id, worker_name)
       new.make_worker_request("POST", "/api/v1/jobs", {

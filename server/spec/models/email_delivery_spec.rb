@@ -23,6 +23,7 @@ RSpec.describe EmailDelivery, type: :model do
       password_reset email_verification welcome_email subscription_created
       subscription_cancelled payment_succeeded payment_failed invoice_generated
       trial_ending dunning_notification report_generated system_notification
+      notification
     ]) }
 
     it { should validate_presence_of(:status) }
