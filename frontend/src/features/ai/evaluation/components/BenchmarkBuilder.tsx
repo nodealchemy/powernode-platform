@@ -32,7 +32,7 @@ export const BenchmarkBuilder: React.FC = () => {
         apiClient.get('/ai/agents', { params: { status: 'active', limit: 100 } }),
       ]);
       setBenchmarks(benchData);
-      setAgents(agentRes.data?.agents || []);
+      setAgents(agentRes.data?.data?.items || []);
     } catch {
       addNotification({ type: 'error', message: 'Failed to load benchmarks' });
     } finally {

@@ -39,7 +39,7 @@ export const RecommendationsDashboard: React.FC = () => {
     try {
       setLoading(true);
       const response = await apiClient.get('/ai/learning/recommendations');
-      setRecommendations(response.data?.recommendations || []);
+      setRecommendations(response.data?.data?.recommendations || []);
     } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to load recommendations' });
     } finally {

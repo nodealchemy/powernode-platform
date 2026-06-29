@@ -74,19 +74,19 @@ export const privacyApi = {
   // Get privacy dashboard overview
   getDashboard: async (): Promise<PrivacyDashboard> => {
     const response = await apiClient.get('/privacy/dashboard');
-    return response.data;
+    return response.data.data;
   },
 
   // Get consent preferences
   getConsents: async (): Promise<{ consents: ConsentPreferences; consent_types: Record<string, unknown> }> => {
     const response = await apiClient.get('/privacy/consents');
-    return response.data;
+    return response.data.data;
   },
 
   // Update consent preferences
   updateConsents: async (consents: Partial<Record<string, boolean>>): Promise<{ consents: ConsentPreferences }> => {
     const response = await apiClient.put('/privacy/consents', consents);
-    return response.data;
+    return response.data.data;
   },
 
   // Request data export
@@ -96,13 +96,13 @@ export const privacyApi = {
     include_data_types?: string[];
   }): Promise<DataExportRequest> => {
     const response = await apiClient.post('/privacy/export', options);
-    return response.data.request;
+    return response.data.data.request;
   },
 
   // Get export requests
   getExportRequests: async (): Promise<DataExportRequest[]> => {
     const response = await apiClient.get('/privacy/exports');
-    return response.data.requests;
+    return response.data.data.requests;
   },
 
   // Download export
@@ -120,13 +120,13 @@ export const privacyApi = {
     data_types_to_delete?: string[];
   }): Promise<DataDeletionRequest> => {
     const response = await apiClient.post('/privacy/deletion', options);
-    return response.data.request;
+    return response.data.data.request;
   },
 
   // Get deletion request status
   getDeletionStatus: async (): Promise<DataDeletionRequest | null> => {
     const response = await apiClient.get('/privacy/deletion');
-    return response.data.request;
+    return response.data.data.request;
   },
 
   // Cancel deletion request
@@ -134,7 +134,7 @@ export const privacyApi = {
     const response = await apiClient.delete(`/privacy/deletion/${id}`, {
       data: { reason },
     });
-    return response.data.request;
+    return response.data.data.request;
   },
 
   // Get terms acceptance status
@@ -144,13 +144,13 @@ export const privacyApi = {
     missing: string[];
   }> => {
     const response = await apiClient.get('/privacy/terms');
-    return response.data;
+    return response.data.data;
   },
 
   // Accept terms
   acceptTerms: async (documentType: string, version?: string): Promise<unknown> => {
     const response = await apiClient.post(`/privacy/terms/${documentType}/accept`, { version });
-    return response.data;
+    return response.data.data;
   },
 };
 

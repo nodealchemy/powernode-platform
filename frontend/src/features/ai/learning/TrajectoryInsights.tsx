@@ -49,8 +49,8 @@ export const TrajectoryInsights: React.FC = () => {
         apiClient.get('/ai/learning/agent_trends'),
         apiClient.get('/ai/learning/cache_metrics'),
       ]);
-      setAgentTrends(trendsRes.data?.trends || []);
-      setCacheMetrics(cacheRes.data?.metrics || null);
+      setAgentTrends(trendsRes.data?.data?.trends || []);
+      setCacheMetrics(cacheRes.data?.data?.metrics || null);
     } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to load insights' });
     } finally {
