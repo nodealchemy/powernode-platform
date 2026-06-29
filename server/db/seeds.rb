@@ -157,9 +157,16 @@ if Powernode::Seeds.demo?
   load Rails.root.join('db', 'seeds', 'public_pages_seed.rb')
 end
 
-# Load Knowledge Base data (KB permissions are code-defined in the catalog now)
+# Load Knowledge Base data (KB permissions are code-defined in the catalog now).
+# Resilient: a single broken/duplicate content article must NOT abort the whole
+# seed run (it previously aborted before the agent + extension seeds ever ran).
 puts "\n📚 Loading Knowledge Base content..."
-load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
+begin
+  load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
+rescue StandardError => e
+  Rails.logger.error("[seeds] knowledge_base_articles failed: #{e.class}: #{e.message}")
+  puts "  ⚠️  Knowledge Base articles failed (#{e.class}: #{e.message}) — continuing"
+end
 
 # Marketing permissions loaded via extension seeds (extensions/marketing/)
 
@@ -221,6 +228,28 @@ if Powernode::Seeds.baseline?
     end
     puts "✅ Seeded #{Ai::ModelPricing.count} model pricings"
   end
+
+  # Fundamental GLOBAL platform agents — the platform's canonical agent roster
+  # (account_id nil; accounts clone to customize). BASELINE, not demo: they are
+  # core platform resources, no longer gated behind demo. Each seed skips
+  # gracefully if no platform user exists yet (fresh core/prod before setup) —
+  # re-seed after setup creates the admin user. Per-seed rescue so one failure
+  # never aborts the rest of platform seeding (the system-extension agents seed
+  # via the extension orchestrator below, also baseline).
+  puts "\n🤖 Loading fundamental global platform agents (baseline, canonical)..."
+  %w[
+    claude_agents_seed
+    monitoring_analytics_agents_seed
+    ai_utility_agents_seed
+    ai_concierge_seed
+    autonomy_data_seed
+    platform_skill_assignments_seed
+  ].each do |seed_file|
+    load Rails.root.join('db', 'seeds', "#{seed_file}.rb")
+  rescue StandardError => e
+    Rails.logger.error("[seeds] baseline agent seed #{seed_file} failed: #{e.class}: #{e.message}")
+    puts "  ⚠️  #{seed_file} failed (#{e.class}: #{e.message}) — continuing"
+  end
 end
 
 # ---------------------------------------------------------------------------
@@ -228,12 +257,10 @@ end
 # Requires at least one account — never runs in baseline-only mode.
 # ---------------------------------------------------------------------------
 if Powernode::Seeds.demo?
-  puts "\n🧠 Loading Claude-Powered Agents..."
-  load Rails.root.join('db', 'seeds', 'claude_agents_seed.rb')
-
-  puts "\n📊 Loading Monitoring and Analytics Agents..."
-  load Rails.root.join('db', 'seeds', 'monitoring_analytics_agents_seed.rb')
-
+  # NOTE: the fundamental GLOBAL agents (claude_agents / monitoring_analytics /
+  # ai_utility_agents / ai_concierge / autonomy_data / platform_skill_assignments)
+  # moved to the BASELINE block above — they are canonical platform resources,
+  # not demo data. This block keeps DEMO-only instance data + example teams.
   puts "\n🔌 Loading MCP Servers..."
   load Rails.root.join('db', 'seeds', 'mcp_servers_seeds.rb')
 
@@ -249,21 +276,12 @@ if Powernode::Seeds.demo?
   puts "\n📋 Loading AI Todo App Team..."
   load Rails.root.join('db', 'seeds', 'ai_todo_team_seed.rb')
 
-  puts "\n🔧 Loading AI Utility Agents & Specialist Skills..."
-  load Rails.root.join('db', 'seeds', 'ai_utility_agents_seed.rb')
-
   puts "\n🔧 Loading Powernode Development Team..."
   load Rails.root.join('db', 'seeds', 'ai_dev_team_seed.rb')
 
-  puts "\n🤖 Loading AI Concierge Agent..."
-  load Rails.root.join('db', 'seeds', 'ai_concierge_seed.rb')
-
-  puts "\n🤖 Loading Autonomy Data (consolidation + seeding)..."
-  load Rails.root.join('db', 'seeds', 'autonomy_data_seed.rb')
-
-  # Platform-wide skill assignments — LAST, after every agent-creating seed, so
-  # all target agents (Powernode Assistant, industry agents, etc.) already exist
-  # on the FIRST db:seed (idempotency).
+  # Platform-wide skill assignments — re-run here so the DEMO-only agents (dev
+  # team, todo team) get their skills too; idempotent with the baseline run above
+  # (which assigned the fundamental global agents' skills).
   load Rails.root.join('db', 'seeds', 'platform_skill_assignments_seed.rb')
 
   puts "\n🧠 Loading AI Memory Pools..."
