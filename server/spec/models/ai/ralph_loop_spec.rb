@@ -50,4 +50,37 @@ RSpec.describe Ai::RalphLoop, type: :model do
       loop_record.add_learning("locked append")
     end
   end
+
+  describe "#real_test_execution?" do
+    it "is false by default" do
+      expect(loop_record.real_test_execution?).to be false
+    end
+
+    it "is false when the flag is set but no test command is configured" do
+      loop_record.update!(configuration: { "real_test_execution" => true })
+      expect(loop_record.real_test_execution?).to be false
+    end
+
+    it "is true only when the flag AND a test command are both set" do
+      loop_record.update!(configuration: { "real_test_execution" => true, "test_command" => "bundle exec rspec" })
+      expect(loop_record.real_test_execution?).to be true
+    end
+  end
+
+  describe "#repository_full_name" do
+    it "derives owner/repo from an https URL with a .git suffix" do
+      loop_record.update!(repository_url: "https://git.example.com/acme/widget.git")
+      expect(loop_record.repository_full_name).to eq("acme/widget")
+    end
+
+    it "derives owner/repo from an ssh:// URL" do
+      loop_record.update!(repository_url: "ssh://git@git.example.com/acme/widget.git")
+      expect(loop_record.repository_full_name).to eq("acme/widget")
+    end
+
+    it "is nil when no repository_url is set" do
+      loop_record.update_column(:repository_url, nil)
+      expect(loop_record.repository_full_name).to be_nil
+    end
+  end
 end

@@ -33,8 +33,12 @@ module Ai
 
         # Select the next task to work on
         def select_next_task
-          # First, check for any in-progress tasks (resume after crash/restart)
-          in_progress = ralph_loop.ralph_tasks.in_progress.first
+          # First, resume any in-progress task (after crash/restart) — but skip a
+          # task parked awaiting async test results, or the loop would re-run it
+          # before the test-results callback resolves it. The await flag is only
+          # ever set when real_test_execution is enabled, so this is a no-op on
+          # the default path.
+          in_progress = ralph_loop.ralph_tasks.in_progress.find { |t| !awaiting_test_result?(t) }
           return in_progress if in_progress
 
           # Update blocked status for all tasks
@@ -45,6 +49,12 @@ module Ai
                     .pending
                     .by_priority
                     .find { |t| t.dependencies_satisfied? }
+        end
+
+        # True when the task's latest iteration is awaiting an async test result.
+        def awaiting_test_result?(task)
+          latest = task.ralph_iterations.order(iteration_number: :desc).first
+          latest&.check_results&.dig("awaiting_test_result") == true
         end
 
         # Update the progress text for the loop
@@ -166,7 +176,11 @@ module Ai
             cost: result[:cost]
           )
 
-          if result[:checks_passed]
+          if ralph_loop.real_test_execution? && result[:commit_sha].present?
+            # Don't trust the executor's self-reported checks_passed — run the
+            # suite in a sandbox and let the async callback resolve the task.
+            dispatch_real_test_verification(iteration, task)
+          elsif result[:checks_passed]
             task.pass!(iteration_number: iteration.iteration_number)
             task.reset! if task.repeating?
           else
@@ -183,6 +197,28 @@ module Ai
           broadcast_iteration_completed(iteration)
           broadcast_task_status_changed(task)
           broadcast_progress
+        end
+
+        # Park the task awaiting async test results and dispatch the sandboxed run.
+        # The task is NOT passed here; AiTestExecutionJob posts back to the
+        # test_results callback, which resolves it. select_next_task skips the
+        # task while the await flag is set so it isn't re-run in the meantime.
+        def dispatch_real_test_verification(iteration, task)
+          iteration.update!(check_results: (iteration.check_results || {}).merge("awaiting_test_result" => true))
+
+          ::WorkerJobService.enqueue_ai_test_execution(
+            ralph_loop_id: ralph_loop.id,
+            ralph_iteration_id: iteration.id,
+            repository: ralph_loop.repository_full_name,
+            branch: ralph_loop.branch,
+            command: ralph_loop.configuration["test_command"],
+            framework: ralph_loop.configuration["test_framework"]
+          )
+          update_progress("Task #{task.task_key}: running tests in sandbox")
+        rescue StandardError => e
+          Rails.logger.error("[IterationExecution] test dispatch failed for iteration #{iteration.id}: #{e.message}")
+          # Don't strand the task: clear the flag so the next tick can retry it.
+          iteration.update!(check_results: (iteration.check_results || {}).merge("awaiting_test_result" => false))
         end
 
         def process_failed_iteration(iteration, task, result)

@@ -199,6 +199,20 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
       end
     end
 
+    context "when an in-progress task is awaiting async test results" do
+      let!(:awaiting_task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+      let!(:pending_task) { create(:ai_ralph_task, :pending, ralph_loop: ralph_loop, priority: 10, position: 2) }
+
+      before do
+        create(:ai_ralph_iteration, ralph_loop: ralph_loop, ralph_task: awaiting_task,
+               iteration_number: 1, check_results: { "awaiting_test_result" => true })
+      end
+
+      it "skips the awaiting task and picks the next pending one (no re-run mid-test)" do
+        expect(service.select_next_task).to eq(pending_task)
+      end
+    end
+
     context "when there are only pending tasks" do
       let!(:low_priority) do
         create(:ai_ralph_task, :pending, ralph_loop: ralph_loop, priority: 1, position: 1)
@@ -229,6 +243,50 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
     context "when no tasks are available" do
       it "returns nil" do
         expect(service.select_next_task).to be_nil
+      end
+    end
+  end
+
+  # ===========================================================================
+  # real test execution dispatch (Phase A4)
+  # ===========================================================================
+
+  describe "real test execution dispatch" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+    let(:result) { { output: "did the work", checks_passed: true, commit_sha: "abc123", tokens: {}, cost: 0 } }
+
+    before { allow(::WorkerJobService).to receive(:enqueue_ai_test_execution).and_return("success" => true) }
+
+    context "when real_test_execution is enabled with a command and a commit was made" do
+      before do
+        ralph_loop.update!(repository_url: "https://git.example.com/acme/widget.git",
+                           configuration: { "real_test_execution" => true,
+                                            "test_command" => "bundle exec rspec",
+                                            "test_framework" => "rspec" })
+      end
+
+      it "dispatches a sandboxed test run and parks the task instead of passing it" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(::WorkerJobService).to have_received(:enqueue_ai_test_execution).with(
+          hash_including(ralph_loop_id: ralph_loop.id, ralph_iteration_id: iteration.id,
+                         repository: "acme/widget", command: "bundle exec rspec", framework: "rspec")
+        )
+        expect(task.reload.status).to eq("in_progress")
+        expect(iteration.reload.check_results["awaiting_test_result"]).to be true
+      end
+    end
+
+    context "when real_test_execution is disabled (default path)" do
+      it "passes the task immediately and never dispatches a test run" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(::WorkerJobService).not_to have_received(:enqueue_ai_test_execution)
+        expect(task.reload.status).to eq("passed")
       end
     end
   end

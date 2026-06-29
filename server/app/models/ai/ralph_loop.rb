@@ -100,6 +100,25 @@ module Ai
       configuration&.dig("run_all_active") == true
     end
 
+    # Real (sandboxed) test execution is opt-in per loop and requires an explicit
+    # test command — the in-platform sandbox engine only dispatches a test run
+    # when BOTH are set, so the default (fabricated-pass) path is untouched until
+    # an operator activates it. See Ai::Ralph::TestVerificationService.
+    def real_test_execution?
+      configuration&.dig("real_test_execution") == true && configuration&.dig("test_command").present?
+    end
+
+    # Derive "owner/repo" from repository_url for the worker's repo lookup.
+    # Handles both https://host/owner/repo(.git) and git@host:owner/repo(.git).
+    def repository_full_name
+      return nil if repository_url.blank?
+
+      segments = repository_url.to_s.sub(/\.git\z/, "").split(%r{[/:]}).reject(&:blank?)
+      return nil if segments.size < 2
+
+      segments.last(2).join("/")
+    end
+
     private
 
     def set_defaults
