@@ -51,6 +51,36 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
       expect(json_response['data']).to have_key('secret_key')
     end
 
+    context 'delivery_history / failed_deliveries / stats (cross-account read)' do
+      let!(:own_delivery) { create(:webhook_delivery, :failed, webhook_endpoint: own_webhook) }
+      let!(:foreign_delivery) { create(:webhook_delivery, :failed, webhook_endpoint: foreign_webhook) }
+
+      it 'delivery_history returns only the requesting account deliveries' do
+        get '/api/v1/webhooks/deliveries', headers: headers, as: :json
+        expect_success_response
+        expect(response.body).to include(own_delivery.id)
+        expect(response.body).not_to include(foreign_delivery.id)
+      end
+
+      it 'failed_deliveries returns only the requesting account deliveries' do
+        get '/api/v1/webhooks/failed_deliveries', headers: headers, as: :json
+        expect_success_response
+        expect(response.body).to include(own_delivery.id)
+        expect(response.body).not_to include(foreign_delivery.id)
+      end
+
+      it 'stats never expose a foreign endpoint URL' do
+        get '/api/v1/webhooks/stats', headers: headers, as: :json
+        expect_success_response
+        expect(response.body).not_to include(foreign_webhook.url.to_s) if foreign_webhook.url.present?
+      end
+
+      it 'delivery_history requires webhook.read' do
+        get '/api/v1/webhooks/deliveries', headers: auth_headers_for(regular_user), as: :json
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
     context 'retry_delivery (IDOR + authz)' do
       let!(:own_delivery) { create(:webhook_delivery, :failed, webhook_endpoint: own_webhook) }
       let!(:foreign_delivery) { create(:webhook_delivery, :failed, webhook_endpoint: foreign_webhook) }

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::WebhooksController < ApplicationController
-  before_action -> { require_permission("webhook.read") }, only: [ :index, :show ]
+  before_action -> { require_permission("webhook.read") }, only: [ :index, :show, :delivery_history, :failed_deliveries, :stats ]
   before_action -> { require_permission("webhook.create") }, only: [ :create ]
   before_action -> { require_permission("webhook.update") }, only: [ :update, :toggle_status, :retry_delivery, :retry_failed ]
   before_action -> { require_permission("webhook.delete") }, only: [ :destroy ]
@@ -180,7 +180,7 @@ class Api::V1::WebhooksController < ApplicationController
     per_page = [ (params[:per_page] || 50).to_i, 200 ].min
     offset = (page - 1) * per_page
 
-    deliveries_query = WebhookDelivery.includes(:webhook_endpoint)
+    deliveries_query = account_deliveries.includes(:webhook_endpoint)
                                       .order(created_at: :desc)
 
     deliveries_query = deliveries_query.where(webhook_endpoint_id: webhook_id) if webhook_id.present?
@@ -243,7 +243,7 @@ class Api::V1::WebhooksController < ApplicationController
     offset = (page - 1) * per_page
 
     # Base query for failed deliveries
-    failed_query = WebhookDelivery.includes(:webhook_endpoint)
+    failed_query = account_deliveries.includes(:webhook_endpoint)
                                   .where(status: [ "failed", "timeout" ])
                                   .order(created_at: :desc)
 
@@ -443,33 +443,40 @@ class Api::V1::WebhooksController < ApplicationController
     }
   end
 
+  # All WebhookDelivery rows owned by the current account (deliveries are
+  # account-scoped transitively via webhook_endpoint). Use this everywhere
+  # instead of bare WebhookDelivery to avoid cross-tenant disclosure.
+  def account_deliveries
+    WebhookDelivery.where(webhook_endpoint: current_account.webhook_endpoints)
+  end
+
   def webhook_stats
     {
       total_endpoints: current_account.webhook_endpoints.count,
       active_endpoints: current_account.webhook_endpoints.active.count,
       inactive_endpoints: current_account.webhook_endpoints.inactive.count,
-      total_deliveries_today: WebhookDelivery.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count,
-      successful_deliveries_today: WebhookDelivery.successful.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count,
-      failed_deliveries_today: WebhookDelivery.failed.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count
+      total_deliveries_today: account_deliveries.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count,
+      successful_deliveries_today: account_deliveries.successful.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count,
+      failed_deliveries_today: account_deliveries.failed.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count
     }
   end
 
   def detailed_webhook_stats
     webhook_stats.merge({
-      most_active_endpoints: WebhookEndpoint.joins(:webhook_deliveries)
+      most_active_endpoints: current_account.webhook_endpoints.joins(:webhook_deliveries)
                                            .group("webhook_endpoints.url")
                                            .order("count_id DESC")
                                            .limit(5)
                                            .count(:id),
-      event_type_distribution: WebhookDelivery.joins(:webhook_event)
+      event_type_distribution: account_deliveries.joins(:webhook_event)
                                              .where(created_at: 7.days.ago..Time.current)
                                              .group("webhook_events.event_type")
                                              .count,
       daily_delivery_trend: calculate_daily_delivery_trend,
       retry_statistics: {
-        total_retries: WebhookDelivery.where("attempt_number > 1").count,
-        pending_retries: WebhookDelivery.pending_retry.count,
-        timed_out: WebhookDelivery.timed_out.count
+        total_retries: account_deliveries.where("attempt_number > 1").count,
+        pending_retries: account_deliveries.pending_retry.count,
+        timed_out: account_deliveries.timed_out.count
       }
     })
   end
@@ -495,7 +502,7 @@ class Api::V1::WebhooksController < ApplicationController
 
   def calculate_daily_delivery_trend
     # Get delivery counts for the last 7 days using standard Rails methods
-    deliveries = WebhookDelivery.where(created_at: 7.days.ago..Time.current)
+    deliveries = account_deliveries.where(created_at: 7.days.ago..Time.current)
                                 .group("DATE(created_at)")
                                 .count
 
