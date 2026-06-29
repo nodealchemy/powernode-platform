@@ -15,7 +15,7 @@ module Api
         def index
           runs = ::Devops::PipelineRun.joins(:pipeline)
                                       .where(devops_pipelines: { account_id: current_user.account_id })
-                                      .includes(:pipeline, :triggered_by)
+                                      .includes(:triggered_by, pipeline: :pipeline_steps, step_executions: :pipeline_step)
                                       .order(created_at: :desc)
 
           # Filter by pipeline if provided

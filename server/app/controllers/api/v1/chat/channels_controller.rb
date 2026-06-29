@@ -22,7 +22,7 @@ module Api
 
         # GET /api/v1/chat/channels
         def index
-          scope = current_user.account.chat_channels
+          scope = current_user.account.chat_channels.includes(:default_agent)
 
           # Apply filters
           scope = scope.where(platform: params[:platform]) if params[:platform].present?

@@ -154,7 +154,7 @@ module Api
 
         # Scope to DevOps-accessible templates (devops domain + general)
         def prompt_templates_scope
-          current_user.account.shared_prompt_templates.for_cicd
+          current_user.account.shared_prompt_templates.for_cicd.includes(:created_by)
         end
 
         def set_prompt_template
