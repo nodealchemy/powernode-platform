@@ -71,15 +71,19 @@ module Api
               render_success({ status: "ok" })
             end
           when "whatsapp"
-            # WhatsApp verification
-            if params["hub.mode"] == "subscribe" && params["hub.verify_token"] == channel.configuration["verify_token"]
+            # WhatsApp verification (timing-safe; a blank/unconfigured token never matches)
+            expected = channel.configuration["verify_token"].to_s
+            provided = params["hub.verify_token"].to_s
+            if params["hub.mode"] == "subscribe" && expected.present? &&
+               ActiveSupport::SecurityUtils.secure_compare(provided, expected)
               render plain: params["hub.challenge"]
             else
               render plain: "Verification failed", status: :forbidden
             end
           when "mattermost"
-            # Mattermost token verification
-            if params[:token] == channel.configuration["outgoing_token"]
+            # Mattermost token verification (timing-safe; a blank/unconfigured token never matches)
+            expected = channel.configuration["outgoing_token"].to_s
+            if expected.present? && ActiveSupport::SecurityUtils.secure_compare(params[:token].to_s, expected)
               render_success({ status: "ok" })
             else
               render_error("Invalid token", status: :forbidden)
