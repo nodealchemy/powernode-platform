@@ -65,6 +65,81 @@ RSpec.describe 'Api::V1::Workers', type: :request do
       end
     end
 
+    # N11: worker_summary read roles/permissions/account.name/activity-count per
+    # worker (4 queries each). Those are now eager-loaded / grouped. Verify the
+    # split counts, per-worker request_count, and roles/permissions are still
+    # correct across multiple workers, and that activity queries don't scale.
+    context 'per-worker aggregates across multiple workers (no N+1)' do
+      let!(:w_busy)  { create(:worker, account: account, name: 'AAA Busy') }
+      let!(:w_light) { create(:worker, account: account, name: 'BBB Light') }
+      let!(:w_idle)  { create(:worker, account: account, name: 'CCC Idle') }
+      let!(:w_system) { create(:worker, :system_worker, account: account, name: 'ZZZ System') }
+
+      let!(:member_role) do
+        role = create(:role, name: 'memberfleet', role_type: 'user', account_id: nil)
+        role.role_permissions.create!(permission_name: 'users.read')
+        role.role_permissions.create!(permission_name: 'users.create')
+        role
+      end
+
+      before do
+        WorkerRole.create!(worker: w_busy, role: member_role)
+        create_list(:worker_activity, 5, worker: w_busy)
+        create_list(:worker_activity, 2, worker: w_light)
+      end
+
+      def worker_in(data, id)
+        data['workers'].find { |w| w['id'] == id }
+      end
+
+      it 'returns correct system/non-system split and per-worker request counts' do
+        get '/api/v1/workers', headers: headers, as: :json
+
+        expect_success_response
+        data = json_response_data
+
+        # worker1 + worker2 (outer) + w_busy/w_light/w_idle + w_system
+        expect(data['total']).to eq(6)
+        expect(data['account_workers']).to eq(5)
+        expect(data['system_workers']).to eq(1)
+
+        expect(worker_in(data, w_busy.id)['request_count']).to eq(5)
+        expect(worker_in(data, w_light.id)['request_count']).to eq(2)
+        expect(worker_in(data, w_idle.id)['request_count']).to eq(0)
+      end
+
+      it 'aggregates roles and permissions per worker' do
+        get '/api/v1/workers', headers: headers, as: :json
+
+        data = json_response_data
+        busy = worker_in(data, w_busy.id)
+
+        expect(busy['roles']).to include('memberfleet')
+        expect(busy['permissions']).to eq(%w[users.create users.read])
+        expect(worker_in(data, w_idle.id)['roles']).to eq([])
+      end
+
+      it 'does not issue more activity queries as workers are added (no N+1)' do
+        # Warm any per-request caches so the measurement reflects only the index.
+        get '/api/v1/workers', headers: headers, as: :json
+
+        baseline = count_queries(/worker_activities/) do
+          get '/api/v1/workers', headers: headers, as: :json
+        end
+
+        3.times do |i|
+          w = create(:worker, account: account, name: "NPlusOne Worker #{i}")
+          create(:worker_activity, worker: w)
+        end
+
+        grown = count_queries(/worker_activities/) do
+          get '/api/v1/workers', headers: headers, as: :json
+        end
+
+        expect(grown).to eq(baseline)
+      end
+    end
+
     context 'without permissions' do
       before do
         allow_any_instance_of(User).to receive(:has_permission?).and_return(false)

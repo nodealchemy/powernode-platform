@@ -45,6 +45,74 @@ RSpec.describe 'Api::V1::Roles', type: :request do
       end
     end
 
+    # N14: role_data read role.users.count and role.role_permissions.pluck per
+    # role (2 queries each). Those are now a single grouped user-count query and
+    # eager-loaded grants. Verify users_count/permissions stay correct across
+    # multiple roles, and that user-count queries don't scale with role count.
+    context 'per-role aggregates across multiple roles (no N+1)' do
+      let!(:role_alpha) do
+        role = create(:role, name: 'fleetalpha', account_id: account.id)
+        role.role_permissions.create!(permission_name: 'users.read')
+        role.role_permissions.create!(permission_name: 'users.create')
+        role
+      end
+      let!(:role_beta) do
+        role = create(:role, name: 'fleetbeta', account_id: account.id)
+        role.role_permissions.create!(permission_name: 'users.read')
+        role
+      end
+      let!(:role_gamma) { create(:role, name: 'fleetgamma', account_id: account.id) }
+
+      before do
+        2.times { UserRole.create!(user: create(:user, account: account), role: role_alpha) }
+        UserRole.create!(user: create(:user, account: account), role: role_beta)
+      end
+
+      def role_in(response_data, id)
+        response_data['data'].find { |r| r['id'] == id }
+      end
+
+      it 'computes users_count and permissions correctly per role' do
+        get '/api/v1/roles', headers: headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        alpha = role_in(response_data, role_alpha.id)
+        expect(alpha['users_count']).to eq(2)
+        expect(alpha['permissions'].map { |p| p['name'] }).to eq(%w[users.create users.read])
+
+        beta = role_in(response_data, role_beta.id)
+        expect(beta['users_count']).to eq(1)
+        expect(beta['permissions'].map { |p| p['name'] }).to eq(%w[users.read])
+
+        gamma = role_in(response_data, role_gamma.id)
+        expect(gamma['users_count']).to eq(0)
+        expect(gamma['permissions']).to eq([])
+      end
+
+      it 'does not issue more user-count queries as roles are added (no N+1)' do
+        # Warm the acting user's permission cache first: the auth check also
+        # touches user_roles, and that cost is cross-request cached — measuring
+        # cold-vs-warm would mask the role-count signal we care about.
+        get '/api/v1/roles', headers: headers, as: :json
+
+        baseline = count_queries(/\buser_roles\b/) do
+          get '/api/v1/roles', headers: headers, as: :json
+        end
+
+        3.times do |i|
+          create(:role, name: "fleetextra#{%w[one two three][i]}", account_id: account.id)
+        end
+
+        grown = count_queries(/\buser_roles\b/) do
+          get '/api/v1/roles', headers: headers, as: :json
+        end
+
+        expect(grown).to eq(baseline)
+      end
+    end
+
     context 'without admin.role.read permission' do
       let(:headers) { auth_headers_for(regular_user) }
 

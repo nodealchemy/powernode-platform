@@ -55,6 +55,74 @@ RSpec.describe 'Api::V1::Devops::Pipelines', type: :request do
         active_statuses = response_data['data']['pipelines'].map { |p| p['is_active'] }
         expect(active_statuses.uniq).to eq([ false ])
       end
+
+      # N10: the per-pipeline serializer reads runs ~4 ways (run_count, last_run,
+      # plus two status counts for success_rate). Those are now satisfied by
+      # grouped aggregate queries; verify the response shape is preserved for
+      # pipelines with varying run counts, and that the run queries don't scale
+      # with the number of pipelines.
+      context 'run aggregates across multiple pipelines (grouped, no N+1)' do
+        # The outer before-block already created 3 pipelines with zero runs.
+        let!(:p_mixed) { create(:devops_pipeline, account: account, name: 'P Mixed') }
+        let!(:p_partial) { create(:devops_pipeline, account: account, name: 'P Partial') }
+        let!(:p_none) { create(:devops_pipeline, account: account, name: 'P None') }
+
+        let!(:mixed_last) do
+          create(:devops_pipeline_run, pipeline: p_mixed, status: 'success', created_at: 3.minutes.ago)
+          create(:devops_pipeline_run, pipeline: p_mixed, status: 'failure', created_at: 2.minutes.ago)
+          create(:devops_pipeline_run, pipeline: p_mixed, status: 'success', created_at: 1.minute.ago)
+        end
+
+        let!(:partial_last) do
+          create(:devops_pipeline_run, pipeline: p_partial, status: 'success', created_at: 2.minutes.ago)
+          create(:devops_pipeline_run, pipeline: p_partial, status: 'pending', created_at: 1.minute.ago)
+        end
+
+        def pipeline_in(response_data, id)
+          response_data['data']['pipelines'].find { |p| p['id'] == id }
+        end
+
+        it 'computes run_count, last_run and success_rate correctly per pipeline' do
+          get '/api/v1/devops/pipelines', headers: headers, as: :json
+
+          expect_success_response
+          response_data = json_response
+
+          mixed = pipeline_in(response_data, p_mixed.id)
+          expect(mixed['run_count']).to eq(3)
+          expect(mixed['success_rate']).to eq(66.7) # 2 success / 3 completed
+          expect(mixed['last_run']['id']).to eq(mixed_last.id)
+          expect(mixed['last_run']['status']).to eq('success')
+
+          partial = pipeline_in(response_data, p_partial.id)
+          expect(partial['run_count']).to eq(2)
+          expect(partial['success_rate']).to eq(100.0) # 1 success / 1 completed (pending excluded)
+          expect(partial['last_run']['id']).to eq(partial_last.id)
+          expect(partial['last_run']['status']).to eq('pending')
+
+          none = pipeline_in(response_data, p_none.id)
+          expect(none['run_count']).to eq(0)
+          expect(none['last_run']).to be_nil
+          expect(none['success_rate']).to be_nil
+        end
+
+        it 'does not issue more run queries as pipelines are added (no N+1)' do
+          baseline = count_queries(/devops_pipeline_runs/) do
+            get '/api/v1/devops/pipelines', headers: headers, as: :json
+          end
+
+          # Add 3 more pipelines, each with runs.
+          create_list(:devops_pipeline, 3, account: account).each do |pl|
+            create(:devops_pipeline_run, pipeline: pl, status: 'success')
+          end
+
+          grown = count_queries(/devops_pipeline_runs/) do
+            get '/api/v1/devops/pipelines', headers: headers, as: :json
+          end
+
+          expect(grown).to eq(baseline)
+        end
+      end
     end
 
     context 'without permission' do

@@ -11,9 +11,19 @@ class Api::V1::RolesController < ApplicationController
 
   # GET /api/v1/roles — global (code-defined) roles + this account's custom roles
   def index
-    roles = visible_roles.order(:account_id, :name)
+    # Eager-load grants so permission display doesn't query per role, and compute
+    # every role's user count in ONE grouped query instead of `role.users.count`
+    # per row (the two per-role N+1 sources in role_data).
+    roles = visible_roles.includes(:role_permissions).order(:account_id, :name).to_a
+    user_counts = UserRole.where(role_id: roles.map(&:id)).group(:role_id).count
 
-    render_success(roles.map { |role| role_data(role) })
+    render_success(roles.map do |role|
+      role_data(
+        role,
+        users_count: user_counts[role.id] || 0,
+        permission_names: role.role_permissions.map(&:permission_name)
+      )
+    end)
   end
 
   # GET /api/v1/roles/:id
@@ -181,7 +191,13 @@ class Api::V1::RolesController < ApplicationController
     role.permission_names.all? { |perm| user_permissions.include?(perm) }
   end
 
-  def role_data(role)
+  # `users_count` / `permission_names` may be supplied by the index (computed in
+  # bulk to avoid an N+1); single-record callers omit them and fall back to a
+  # per-record query.
+  def role_data(role, users_count: nil, permission_names: nil)
+    permission_names ||= role.role_permissions.pluck(:permission_name)
+    users_count = role.users.count if users_count.nil?
+
     {
       id: role.id,
       name: role.name,
@@ -193,8 +209,8 @@ class Api::V1::RolesController < ApplicationController
       system_role: role.system_role?,
       role_type: role.role_type,
       # Literal grants (not the system.admin-expanded set) for display
-      permissions: role.role_permissions.pluck(:permission_name).sort.map { |name| permission_brief(name) },
-      users_count: role.users.count,
+      permissions: permission_names.sort.map { |name| permission_brief(name) },
+      users_count: users_count,
       created_at: role.created_at,
       updated_at: role.updated_at
     }

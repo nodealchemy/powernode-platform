@@ -274,11 +274,46 @@ module Api
         end
 
         def serialize_collection(pipelines)
-          pipelines.map { |p| serialize_pipeline(p) }
+          pipelines = pipelines.to_a
+          run_stats = build_run_stats(pipelines.map(&:id))
+          pipelines.map { |p| serialize_pipeline(p, run_stats: run_stats[p.id]) }
         end
 
-        def serialize_pipeline(pipeline, include_steps: false, include_recent_runs: false)
-          result = ::Devops::PipelineSerializer.new(pipeline).serializable_hash[:data][:attributes]
+        # Compute the run aggregates the serializer needs for EVERY listed
+        # pipeline in a handful of grouped queries (instead of 4 queries per
+        # pipeline): total run count, completed/success counts for the success
+        # rate, and the latest run per pipeline. Keyed by pipeline id.
+        def build_run_stats(pipeline_ids)
+          return {} if pipeline_ids.empty?
+
+          runs = ::Devops::PipelineRun.where(devops_pipeline_id: pipeline_ids)
+          total_counts     = runs.group(:devops_pipeline_id).count
+          completed_counts = runs.where(status: %w[success failure cancelled]).group(:devops_pipeline_id).count
+          success_counts   = runs.where(status: "success").group(:devops_pipeline_id).count
+          last_runs        = latest_runs_by_pipeline(pipeline_ids)
+
+          pipeline_ids.index_with do |pid|
+            {
+              run_count: total_counts[pid] || 0,
+              completed_count: completed_counts[pid] || 0,
+              success_count: success_counts[pid] || 0,
+              last_run: last_runs[pid]
+            }
+          end
+        end
+
+        # Latest run per pipeline (by created_at desc) in ONE query via Postgres
+        # DISTINCT ON — mirrors the serializer's `runs.order(created_at: :desc).first`.
+        def latest_runs_by_pipeline(pipeline_ids)
+          ::Devops::PipelineRun
+            .where(devops_pipeline_id: pipeline_ids)
+            .select("DISTINCT ON (devops_pipeline_id) devops_pipeline_id, id, run_number, status, started_at, completed_at, created_at")
+            .order(:devops_pipeline_id, created_at: :desc, id: :desc)
+            .index_by(&:devops_pipeline_id)
+        end
+
+        def serialize_pipeline(pipeline, include_steps: false, include_recent_runs: false, run_stats: nil)
+          result = ::Devops::PipelineSerializer.new(pipeline, run_stats: run_stats).serializable_hash[:data][:attributes]
           result[:id] = pipeline.id
 
           if include_steps

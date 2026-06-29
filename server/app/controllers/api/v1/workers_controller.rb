@@ -49,17 +49,32 @@ class Api::V1::WorkersController < ApplicationController
   def index
     # Admin users can see all workers (including system workers)
     # Regular users can only see workers for their account
-    @workers = if current_user.has_permission?("admin.workers.read") || current_user.has_permission?("system.admin")
-                 Worker.order(:name)
+    scope = if current_user.has_permission?("admin.workers.read") || current_user.has_permission?("system.admin")
+              Worker.order(:name)
     else
-                 current_account.workers.order(:name)
+              current_account.workers.order(:name)
     end
+
+    # Eager-load the per-worker associations the summary reads (account, roles,
+    # and each role's permission grants) so roles/permissions/account.name don't
+    # fire a query per worker. Activity counts can't be eager-loaded, so compute
+    # them for ALL listed workers in a single grouped query.
+    @workers = scope.includes(:account, roles: :role_permissions).to_a
+
+    activity_counts = WorkerActivity.where(worker_id: @workers.map(&:id)).group(:worker_id).count
 
     account_workers_count = @workers.count { |w| !w.is_system? }
     system_workers_count = @workers.count { |w| w.is_system? }
 
     render_success({
-      workers: @workers.map { |worker| worker_summary(worker) },
+      workers: @workers.map do |worker|
+        worker_summary(
+          worker,
+          roles: worker.roles.map(&:name),
+          permissions: worker.roles.flat_map { |r| r.role_permissions.map(&:permission_name) }.uniq.sort,
+          request_count: activity_counts[worker.id] || 0
+        )
+      end,
       total: @workers.size,
       account_workers: account_workers_count,
       system_workers: system_workers_count
@@ -492,10 +507,15 @@ class Api::V1::WorkersController < ApplicationController
     end
   end
 
-  def worker_summary(worker)
-    # Get roles and inherited permissions
-    roles = worker.role_names || []
-    permissions = worker.all_permissions || []
+  # Precomputed roles/permissions/request_count let the index pass values it
+  # already loaded in bulk (avoiding a query per worker). Single-worker callers
+  # (show/update_config/reset_config) omit them and fall back to the model.
+  # NOTE: `||=` is safe here — empty arrays and a zero count are truthy in Ruby,
+  # so only a `nil` (omitted) argument triggers the per-record fallback.
+  def worker_summary(worker, roles: nil, permissions: nil, request_count: nil)
+    roles ||= worker.role_names || []
+    permissions ||= worker.all_permissions || []
+    request_count ||= worker.worker_activities.count
 
     {
       id: worker.id,
@@ -507,7 +527,7 @@ class Api::V1::WorkersController < ApplicationController
       account_name: worker.account&.name || "System",
       masked_token: worker.masked_token,
       full_token_hash: worker.full_token_hash,
-      request_count: worker.worker_activities.count,
+      request_count: request_count,
       last_seen_at: worker.last_seen_at&.iso8601,
       active_recently: worker.active_in_last_hours(24),
       created_at: worker.created_at.iso8601,
