@@ -119,4 +119,24 @@ RSpec.describe Ai::Ralph::TestVerificationService do
       expect(result[:output].length).to be <= described_class::MAX_OUTPUT_CHARS
     end
   end
+
+  describe "#evaluate (async callback path)" do
+    subject(:service) { described_class.new(runner: ->(**) { {} }) }
+
+    it "builds a success result from raw worker output" do
+      result = service.evaluate(framework: "rspec", output: "9 examples, 0 failures", exit_code: 0, command: "bundle exec rspec")
+      expect(result).to include(success: true, ran: true, framework: "rspec",
+                                passed_count: 9, failed_count: 0, command: "bundle exec rspec")
+    end
+
+    it "fails on parsed failures despite a clean exit" do
+      result = service.evaluate(framework: "pytest", output: "3 passed, 2 failed", exit_code: 0)
+      expect(result).to include(success: false, failed_count: 2)
+    end
+
+    it "fails on a non-zero exit even when counts are unparseable" do
+      result = service.evaluate(framework: "rspec", output: "segfault", exit_code: 139)
+      expect(result).to include(success: false, exit_code: 139)
+    end
+  end
 end

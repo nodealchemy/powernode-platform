@@ -90,7 +90,52 @@ module Api
             render_error("Ralph loop not found", status: :not_found)
           end
 
+          # POST /api/v1/internal/ai/ralph_loops/:id/iterations/:iteration_id/test_results
+          # Async callback from AiTestExecutionJob: parse the worker's raw test
+          # output, store the structured result on the iteration, and resolve the
+          # gated task (the resume half of real test execution).
+          def record_test_results
+            ralph_loop = ::Ai::RalphLoop.find(params[:id])
+            iteration = ralph_loop.ralph_iterations.find(params[:iteration_id])
+            tr = params.require(:test_result).permit(:framework, :command, :exit_code, :output, :error).to_h.symbolize_keys
+
+            evaluation = ::Ai::Ralph::TestVerificationService.new.evaluate(
+              framework: tr[:framework], output: tr[:output], exit_code: tr[:exit_code], command: tr[:command]
+            )
+            # A worker-side error (couldn't even run the suite) is a failure; surface it.
+            evaluation = evaluation.merge(success: false, error: tr[:error]) if tr[:error].present?
+
+            iteration.update!(
+              check_results: (iteration.check_results || {}).merge(
+                "test_result" => evaluation.stringify_keys, "awaiting_test_result" => false
+              ),
+              checks_passed: evaluation[:success]
+            )
+
+            resolve_task_after_tests(iteration, evaluation)
+
+            render_success(iteration_id: iteration.id, passed: evaluation[:success], summary: evaluation[:summary])
+          rescue ActiveRecord::RecordNotFound
+            render_error("Ralph loop or iteration not found", status: :not_found)
+          end
+
           private
+
+          # Resolve the task once real test results arrive. On pass: complete it
+          # (resetting repeating tasks). On fail: leave it pending/in_progress so
+          # the loop retries with the failure now visible on the iteration (the
+          # replan edge — the next iteration can read check_results.test_result).
+          def resolve_task_after_tests(iteration, evaluation)
+            task = iteration.ralph_task
+            return unless task
+
+            if evaluation[:success]
+              task.pass!(iteration_number: iteration.iteration_number)
+              task.reset! if task.repeating?
+            elsif task.status == "blocked"
+              task.update_columns(status: "pending", updated_at: Time.current)
+            end
+          end
 
           # True when the platform executor must NOT drain this loop right now. Legacy loops
           # (no campaign / nil driver_kind) are never blocked. A CC-driven campaign loop is

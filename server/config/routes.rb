@@ -512,6 +512,7 @@ Rails.application.routes.draw do
           scope "ralph_loops" do
             post "process_scheduled", to: "ralph_loops#process_scheduled"
             post ":id/run_iteration", to: "ralph_loops#run_iteration"
+            post ":id/iterations/:iteration_id/test_results", to: "ralph_loops#record_test_results"
           end
 
           # Trajectory analysis endpoint (worker → server)

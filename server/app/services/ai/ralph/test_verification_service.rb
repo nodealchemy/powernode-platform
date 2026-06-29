@@ -31,8 +31,9 @@ module Ai
       MAX_OUTPUT_CHARS = 20_000
 
       # runner: a callable responding to #call(command:, dir:, timeout_seconds:)
-      #   and returning { stdout:, stderr:, exit_code: }.
-      def initialize(runner:)
+      #   and returning { stdout:, stderr:, exit_code: }. Optional — only #verify
+      #   needs it; the async callback uses #evaluate (parse-only, no runner).
+      def initialize(runner: nil)
         @runner = runner
       end
 
@@ -45,31 +46,38 @@ module Ai
 
         raw = @runner.call(command: detected[:command], dir: dir, timeout_seconds: timeout_seconds)
         output = "#{raw[:stdout]}\n#{raw[:stderr]}".strip
-        exit_code = raw[:exit_code].to_i
-        counts = parse_counts(detected[:framework], output)
+        evaluate(framework: detected[:framework], output: output, exit_code: raw[:exit_code], command: detected[:command])
+      rescue StandardError => e
+        Rails.logger.error("[TestVerification] #{e.class}: #{e.message}")
+        { success: false, ran: false, framework: nil, command: nil, passed_count: nil,
+          failed_count: nil, exit_code: nil, summary: nil, output: nil, error: e.message }
+      end
 
-        # Success requires a clean exit AND, when we could parse counts, zero
-        # failures. A clean exit with unparseable output is trusted (exit 0);
-        # a non-zero exit is always a failure regardless of parse.
+      # Build the structured pass/fail result from raw test output. Shared by
+      # #verify (synchronous runner path) and the async worker callback, which
+      # already has the framework + raw output + exit code in hand.
+      #
+      # Success requires a clean exit AND, when counts parsed, zero failures.
+      # A clean exit with unparseable output is trusted (exit 0); a non-zero
+      # exit is always a failure regardless of parse.
+      def evaluate(framework:, output:, exit_code:, command: nil)
+        exit_code = exit_code.to_i
+        counts = parse_counts(framework, output.to_s)
         failed = counts[:failed_count]
         success = exit_code.zero? && (failed.nil? || failed.zero?)
 
         {
           success: success,
           ran: true,
-          framework: detected[:framework],
-          command: detected[:command],
+          framework: framework,
+          command: command,
           passed_count: counts[:passed_count],
           failed_count: failed,
           exit_code: exit_code,
-          summary: build_summary(detected[:framework], counts, exit_code),
-          output: output[0, MAX_OUTPUT_CHARS],
+          summary: build_summary(framework, counts, exit_code),
+          output: output.to_s[0, MAX_OUTPUT_CHARS],
           error: nil
         }
-      rescue StandardError => e
-        Rails.logger.error("[TestVerification] #{e.class}: #{e.message}")
-        { success: false, ran: false, framework: nil, command: nil, passed_count: nil,
-          failed_count: nil, exit_code: nil, summary: nil, output: nil, error: e.message }
       end
 
       # Returns { framework:, command: } or nil.
