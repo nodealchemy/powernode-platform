@@ -184,7 +184,7 @@ flowchart TB
     Ai[Ai::<br/>Agent, Team, Mission, RalphLoop, Provider, KnowledgeGraph*, Skill, Memory, CodeFactory, Autonomy, ...]
     Devops[Devops::<br/>Pipeline, Repository, Runner, Deployment, DockerHost, SwarmService, ...]
     KB[KnowledgeBase::<br/>Article, Category, Tag, Comment, Attachment, Workflow]
-    Chat[Chat::<br/>Conversation, Message, Channel, Session, Blacklist]
+    Chat[Chat::<br/>Message, Channel, Session, Blacklist]
     FM[FileManagement::<br/>FileUpload, StorageBackend, FileVersion, FileShare, ...]
     Acct[Account::<br/>Delegation, Setting, Feature]
     DM[DataManagement::<br/>RetentionPolicy, SanitizationRule, DataExport]

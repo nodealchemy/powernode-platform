@@ -214,7 +214,7 @@ EDITOR=vim rails credentials:edit --environment production
 
 - **Never** output, log, or echo private keys, API secrets, or signing material in any form.
 - **Never** generate private keys via CLI commands where they could appear in shell history (`rails runner`, `irb`, `rake`).
-- **Vault-only key storage** — keys originate inside Vault or `WalletKeyService` (which writes to Vault).
+- **Vault-only key storage** — keys originate inside Vault or the platform's Vault-backed key service (which writes to Vault).
 - **Audit all key operations** — every generate/import/revoke/sign goes to the audit log.
 
 ## Docker deployment

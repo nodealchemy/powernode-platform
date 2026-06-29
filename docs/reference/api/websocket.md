@@ -87,7 +87,7 @@ Unified channel for agent executions, Ralph loops, worktree sessions, circuit br
 
 | Param | Required | Description |
 |-------|----------|-------------|
-| `type` | Yes | `account`, `agent`, `monitoring`, `system`, `circuit_breaker`, `ralph_loop`, `worktree_session` |
+| `type` | Yes | `account`, `agent`, `monitoring`, `system`, `circuit_breaker`, `circuit_breaker_service`, `ralph_loop`, `worktree_session` |
 | `id` | Yes | Resource ID |
 
 **Streams:**
@@ -199,18 +199,6 @@ Real-time notification delivery.
 
 **Events:** `connection_established`, new notifications.
 
-### SubscriptionChannel
-
-**File:** `server/app/channels/subscription_channel.rb`
-
-Subscription status changes and billing events (active when the `business` extension is loaded).
-
-| Param | Required | Description |
-|-------|----------|-------------|
-| `account_id` | Yes | Account ID |
-
-**Events:** Subscription status changes, plan updates. Sends current subscription status on connect.
-
 ### TeamChannelChannel
 
 **File:** `server/app/channels/team_channel_channel.rb`
@@ -243,25 +231,39 @@ Multi-agent team execution monitoring.
 
 **Authorization:** Team must belong to user's account.
 
-## Extension Channels
-
-### SupplyChainChannel
-
-**File:** `server/app/channels/supply_chain_channel.rb`
-
-Supply chain extension events scoped to an account.
-
-### WorkerDataChannel
-
-**File:** `server/app/channels/worker_data_channel.rb`
-
-Worker-to-server data streaming transport. Used by the standalone Sidekiq worker for bulk updates.
-
 ### WorkerToolDispatchChannel
 
 **File:** `server/app/channels/worker_tool_dispatch_channel.rb`
 
 Worker tool dispatch protocol channel. Used for pushing tool invocations from worker jobs to the server's tool registry.
+
+## Extension Channels
+
+These channels are only registered when their owning extension is loaded; a core-only install does not expose them.
+
+### SubscriptionChannel
+
+**File:** `extensions/private/business/server/app/channels/subscription_channel.rb` (requires the `business` extension)
+
+Subscription status changes and billing events.
+
+| Param | Required | Description |
+|-------|----------|-------------|
+| `account_id` | Yes | Account ID |
+
+**Events:** Subscription status changes, plan updates. Sends current subscription status on connect.
+
+### SupplyChainChannel
+
+**File:** `extensions/supply-chain/server/app/channels/supply_chain_channel.rb` (requires the `supply-chain` extension)
+
+Supply chain extension events scoped to an account.
+
+### WorkerDataChannel
+
+**File:** `extensions/private/trading/server/app/channels/worker_data_channel.rb` (private `trading` extension — absent from public clones)
+
+Worker-to-server data streaming transport. Used by the standalone Sidekiq worker for bulk updates.
 
 ## Frontend Integration
 

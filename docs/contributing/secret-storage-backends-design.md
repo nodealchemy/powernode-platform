@@ -18,7 +18,7 @@
 4. **Backend-agnostic callers** — credential models / services read & write through one seam and
    don't care which backend is active.
 5. Honor the **crypto-safety rules** (CLAUDE.md): never output/log secret material; audit every
-   key operation; generation stays in Vault/`WalletKeyService` when Vault is on.
+   key operation; generation stays in Vault / the platform's Vault-backed key service when Vault is on.
 
 ## 2. Reuse-first inventory (what already exists)
 
@@ -108,7 +108,7 @@ SecretMigrationService.run(from: :vault|:database, to: :database|:vault, dry_run
 - **Fail-closed**: Vault-enabled + unreachable ⇒ error, never silent DB fallback.
 - **No plaintext at rest or in transit logs**; migration verifies in memory only.
 - **Audit** every generate/import/migrate/revoke (existing crypto-safety requirement).
-- Key *generation* still happens in Vault/`WalletKeyService` when Vault is on; the DB backend is
+- Key *generation* still happens in Vault / the platform's Vault-backed key service when Vault is on; the DB backend is
   for storage of already-collected secrets, not for generating signing/key material via CLI.
 
 ## 8. Phased plan

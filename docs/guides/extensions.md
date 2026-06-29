@@ -148,7 +148,7 @@ flowchart LR
 Shared::FeatureGateService.extension_loaded?('marketing')   # autoloaded into this process
 Shared::FeatureGateService.extension_enabled?('marketing')  # loaded + state + flag
 Shared::FeatureGateService.available?('campaigns', account: acct)  # capability available
-Shared::FeatureGateService.business_loaded?                 # specific predicate for business
+Shared::FeatureGateService.capability_present?(:governance) # business-provided capability (e.g. governance)
 Shared::FeatureGateService.core_mode?                       # zero extensions loaded
 ```
 
@@ -172,7 +172,7 @@ class Api::V1::AdvancedReportsController < ApplicationController
   private
 
   def require_business_loaded
-    return if Shared::FeatureGateService.business_loaded?
+    return if Shared::FeatureGateService.extension_loaded?('business')
     render_error('Advanced reporting requires the business extension', status: :not_found)
   end
 end

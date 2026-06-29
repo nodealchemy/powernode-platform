@@ -14,7 +14,7 @@
 
 ## Overview
 
-The AI orchestration surface lives under `/api/v1/ai/` and is served by 80 controllers in `server/app/controllers/api/v1/ai/` (including the `security/` subdirectory). All endpoints require JWT bearer authentication and permission-based authorization (see [permissions](#permission-requirements)). Responses follow the standard envelope documented in [overview.md](overview.md). The controller index below is a curated grouping of the primary surfaces.
+The AI orchestration surface lives under `/api/v1/ai/` and is served by 83 controllers in `server/app/controllers/api/v1/ai/` (including the `security/` subdirectory). All endpoints require JWT bearer authentication and permission-based authorization (see [permissions](#permission-requirements)). Responses follow the standard envelope documented in [overview.md](overview.md). The controller index below is a curated grouping of the primary surfaces.
 
 ```json
 // Success
@@ -231,7 +231,6 @@ GET    /api/v1/ai/providers/:id                # Get provider
 POST   /api/v1/ai/providers                    # Create provider
 PATCH  /api/v1/ai/providers/:id                # Update provider
 DELETE /api/v1/ai/providers/:id                # Delete provider
-POST   /api/v1/ai/providers/:id/sync           # Sync models
 POST   /api/v1/ai/providers/:id/test_connection # Test connection
 POST   /api/v1/ai/providers/:id/sync_models    # Sync available models
 GET    /api/v1/ai/providers/:id/models         # List models

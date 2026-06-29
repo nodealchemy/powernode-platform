@@ -729,7 +729,7 @@ end
 
 The platform's billing engine and payment provider integrations (Stripe, PayPal, dunning, invoicing) live in the **`extensions/private/business` private submodule**. Core-mode contributors should not need to touch them. If the business extension is absent, the platform runs as single-user self-hosted with all features unlocked and no billing surface.
 
-If you do have access to the business submodule, see its `docs/` for `BillingEngineDeveloperSpecialist` and `PaymentIntegrationSpecialist` material. Backend extension hooks live in `app/services/shared/feature_gate_service.rb` (the `business_loaded?` predicate and friends).
+If you do have access to the business submodule, see its `docs/` for `BillingEngineDeveloperSpecialist` and `PaymentIntegrationSpecialist` material. Backend extension hooks live in `app/services/shared/feature_gate_service.rb` (the `extension_loaded?('business')` / `capability_present?(:governance)` predicates and friends).
 
 See [`docs/guides/extensions.md`](extensions.md) for the extension pattern itself.
 

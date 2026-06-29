@@ -180,7 +180,7 @@ These rules are **absolute** — they override convenience, they override speed,
 | **No key output** | NEVER output, log, display, echo, or transmit private keys, API secrets, seed phrases, mnemonics, or signing material in any form |
 | **No keys in code** | NEVER store keys, secrets, or credentials in source code files, scripts, configs, env files, or documentation |
 | **No CLI key generation** | NEVER generate private keys via CLI commands (`rails runner`, `rake`, `irb`) where they could appear in shell history |
-| **Vault-only storage** | ALL key generation MUST happen inside Vault or `WalletKeyService` (which stores directly to Vault) |
+| **Vault-only storage** | ALL key generation MUST happen inside Vault or the platform's Vault-backed key service (which stores directly to Vault) |
 | **Audit all key ops** | ALL key operations (generate, import, revoke, sign) MUST be logged to the audit log |
 | **No key arguments in logs** | NEVER pass private keys as function arguments that could appear in logs, error messages, or exception traces |
 | **Guide, don't handle** | When assisting with wallet setup, guide the user through the UI/API — never handle key material directly |

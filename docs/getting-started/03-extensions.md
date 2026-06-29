@@ -51,7 +51,7 @@ The public submodules are dual-remoted: `origin` points at the private Gitea ups
 
 Core mode is the default. When the platform boots with no `extensions/private/business/` directory:
 
-- The `Shared::FeatureGateService.business_loaded?` check returns `false`.
+- The `Shared::FeatureGateService.extension_loaded?('business')` check returns `false`.
 - All paywalls and plan-limits short-circuit (everything is "allowed").
 - The frontend's `__EXTENSIONS__` build constant omits `'business'`, so `__EXTENSIONS__.includes('business')` is `false` and the business UI surfaces are hidden.
 
@@ -87,7 +87,7 @@ Three rules matter when committing:
 
 Three mechanisms gate features:
 
-- **Backend:** `Shared::FeatureGateService.business_loaded?` (or the equivalent for another private extension) controls model instantiation, controller availability, and skill registration.
+- **Backend:** `Shared::FeatureGateService.extension_loaded?('business')` (or `capability_present?(:governance)` / the equivalent for another private extension) controls model instantiation, controller availability, and skill registration.
 - **Frontend:** Vite injects the `__EXTENSIONS__` constant (an array of enabled extension slugs) at build time; UI surfaces gate on `__EXTENSIONS__.includes('business')` and hide when the extension is absent.
 - **Navigation:** the nav config checks extension-slug presence via `__EXTENSIONS__.includes(slug)` so disabled extensions disappear cleanly from the sidebar.
 

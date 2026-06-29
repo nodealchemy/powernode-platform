@@ -28,7 +28,7 @@
 - Docker Engine on every managed host (TLS-enabled API recommended)
 - Network reachability from the Powernode backend to each host's Docker API endpoint (default port 2376)
 - For Swarm: at least one manager node, ideally three for quorum
-- `docker.hosts.manage` / `swarm.clusters.manage` permissions on the user invoking actions
+- `devops.docker.manage` / `devops.swarm.manage` permissions on the user invoking actions
 - HashiCorp Vault reachable from the backend (for container secret provisioning)
 
 ## When to use this

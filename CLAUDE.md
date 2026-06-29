@@ -73,7 +73,7 @@ Generic key-handling principles — apply to ALL key material. Private-extension
 | No key output | **NEVER** output, log, display, echo, or transmit private keys, API secrets, seed phrases, mnemonics, or signing material in any form |
 | No keys in code | **NEVER** store keys/secrets/credentials in source, scripts, configs, env files, or docs |
 | No CLI key generation | **NEVER** generate private keys via CLI (rails runner, rake, irb) where they could hit shell history |
-| Vault-only storage | ALL key generation MUST happen inside Vault or WalletKeyService (stores directly to Vault) |
+| Vault-only storage | ALL key generation MUST happen inside Vault or the platform's Vault-backed key service (stores directly to Vault) |
 | Audit all key ops | ALL key operations (generate, import, revoke, sign) MUST be logged to the audit log. TODO(verify: confirm core audit-log sink) |
 | No key args in logs | **NEVER** pass keys as function arguments that could appear in logs/errors/traces |
 | Guide, don't handle | When assisting with wallet/key setup, guide through the UI/API — never handle key material directly |

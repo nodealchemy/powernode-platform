@@ -96,10 +96,8 @@ Permissions are organised by prefix. The base platform ships a core-only set in 
 | `ai.*` | AI features — agents, workflows, memory, knowledge, conversations, providers, autonomy |
 | `system.*` | System-level — admin, monitoring, health, configuration |
 | `supply_chain.*` | Supply chain management |
-| `devops.*` | DevOps — pipelines, providers, repositories, templates |
-| `swarm.*` | Docker Swarm operations |
+| `devops.*` | DevOps — pipelines, providers, repositories, templates, containers (`devops.containers.*`), Docker (`devops.docker.*`), Swarm (`devops.swarm.*`) |
 | `git.*` | Git — approvals, credentials, pipelines, providers, repositories |
-| `docker.*` | Docker container management |
 | `marketing.*` | Marketing campaigns |
 | `integrations.*` | Third-party integrations |
 | `app.*` | App marketplace |
@@ -108,9 +106,7 @@ Permissions are organised by prefix. The base platform ships a core-only set in 
 | `mcp.*` | MCP protocol operations |
 | `subscription.*` | Subscription lifecycle (extension-gated) |
 | `page.*` | CMS pages |
-| `review.*` | Code reviews |
 | `storage.*` | Storage backends |
-| `listing.*` | Marketplace listings |
 | `team.*` | Team management |
 | `webhook.*` | Webhook management |
 | `api.*` | API key management |
