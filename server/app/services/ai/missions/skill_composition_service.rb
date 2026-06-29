@@ -37,24 +37,31 @@ module Ai
 
         tasks = []
 
-        phases.each_with_index do |phase_key, index|
-          next if phase_key == "completed"
+        # Atomic: a mid-loop failure must roll back ALL tasks created so far.
+        # Otherwise a partial task set persists and the `ralph_tasks.exists?`
+        # idempotency guard above would return the incomplete graph forever.
+        # The ralph_loop itself is created outside this block (loop reuse is
+        # safe — a loop with 0 tasks is correctly re-populated on the next call).
+        ActiveRecord::Base.transaction do
+          phases.each_with_index do |phase_key, index|
+            next if phase_key == "completed"
 
-          phase_config = mission_phase_config(phase_key)
-          next if phase_config&.dig("requires_approval")
+            phase_config = mission_phase_config(phase_key)
+            next if phase_config&.dig("requires_approval")
 
-          matched_skills = discover_skills_for_phase(phase_key, phase_config)
+            matched_skills = discover_skills_for_phase(phase_key, phase_config)
 
-          if matched_skills.present?
-            matched_skills.each_with_index do |skill, skill_idx|
-              tasks << create_skill_task!(ralph_loop, phase_key, skill, index, skill_idx)
+            if matched_skills.present?
+              matched_skills.each_with_index do |skill, skill_idx|
+                tasks << create_skill_task!(ralph_loop, phase_key, skill, index, skill_idx)
+              end
+            else
+              tasks << create_generic_task!(ralph_loop, phase_key, phase_config, index)
             end
-          else
-            tasks << create_generic_task!(ralph_loop, phase_key, phase_config, index)
           end
-        end
 
-        mission.update!(ralph_loop_id: ralph_loop.id) unless mission.ralph_loop_id == ralph_loop.id
+          mission.update!(ralph_loop_id: ralph_loop.id) unless mission.ralph_loop_id == ralph_loop.id
+        end
 
         build_task_graph(ralph_loop, tasks)
       end
