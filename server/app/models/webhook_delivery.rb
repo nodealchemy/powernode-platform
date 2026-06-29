@@ -91,6 +91,16 @@ class WebhookDelivery < ApplicationRecord
     (next_retry_at - created_at).to_f
   end
 
+  # Next retry time honoring the endpoint's CONFIGURED retry_backoff, or nil once
+  # the configured retry_limit is exhausted. The failure-recording path (worker
+  # callback) uses this so a failed delivery is rescheduled with the
+  # user-configured backoff instead of dropping it (leaving next_retry_at unset).
+  def next_scheduled_retry_at
+    return nil if attempt_number >= webhook_endpoint.retry_limit
+
+    calculate_next_retry_time
+  end
+
   private
 
   def set_defaults

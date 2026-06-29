@@ -50,7 +50,11 @@ class Api::V1::Internal::WebhookDeliveriesController < Api::V1::Internal::Intern
         response_status: meta[:status_code],
         response_body: meta[:response_body],
         error_message: meta[:error_message],
-        attempted_at: Time.current
+        attempted_at: Time.current,
+        # Schedule the next retry using the endpoint's CONFIGURED retry_backoff
+        # (nil once retry_limit is exhausted). Previously next_retry_at was left
+        # unset here, silently dropping the user-configured backoff.
+        next_retry_at: delivery.next_scheduled_retry_at
       )
     when "skipped"
       delivery.update!(
