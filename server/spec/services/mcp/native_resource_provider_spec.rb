@@ -83,6 +83,34 @@ RSpec.describe Mcp::NativeResourceProvider, type: :model do
 
       expect(agent_resource[:uri]).to match(%r{\Apowernode://ai/agents/.+\z})
     end
+
+    # Globalize-content campaign: resources are override-aware (for_account =
+    # GLOBAL platform content + the acting account's own). GLOBAL content must be
+    # visible; another tenant's private content must NOT leak.
+    context "override-aware global scoping" do
+      let(:other_account) { create(:account) }
+
+      it "includes GLOBAL prompt templates and agents but not a foreign account's" do
+        global_prompt = create(:shared_prompt_template, account: nil, slug: "global-prompt")
+        foreign_prompt = create(:shared_prompt_template, account: other_account, slug: "foreign-prompt")
+        global_agent = create(:ai_agent, account: nil, creator: create(:user, account: account), status: "active")
+        foreign_agent = create(:ai_agent, account: other_account, status: "active")
+
+        uris = provider.list_resources[:resources].map { |r| r[:uri] }
+        expect(uris).to include("powernode://ai/prompts/#{global_prompt.slug}")
+        expect(uris).to include("powernode://ai/agents/#{global_agent.id}")
+        expect(uris).not_to include("powernode://ai/prompts/#{foreign_prompt.slug}")
+        expect(uris).not_to include("powernode://ai/agents/#{foreign_agent.id}")
+      end
+
+      it "does not leak another tenant's published KB articles" do
+        category = create(:kb_category)
+        foreign_article = create(:kb_article, :published, category: category, account: other_account)
+
+        uris = provider.list_resources[:resources].map { |r| r[:uri] }
+        expect(uris).not_to include("powernode://kb/articles/#{foreign_article.slug}")
+      end
+    end
   end
 
   # ===========================================================================

@@ -60,7 +60,7 @@ module Mcp
     def resource_types
       {
         "kb/articles" => {
-          scope: -> { KnowledgeBase::Article.published },
+          scope: -> { KnowledgeBase::Article.for_account(@account.id).published },
           to_resource: ->(article) {
             {
               uri: "powernode://kb/articles/#{article.slug}",
@@ -71,7 +71,7 @@ module Mcp
           }
         },
         "ai/agents" => {
-          scope: -> { @account.ai_agents.where(status: "active") },
+          scope: -> { ::Ai::Agent.for_account(@account.id).where(status: "active") },
           to_resource: ->(agent) {
             {
               uri: "powernode://ai/agents/#{agent.id}",
@@ -82,7 +82,7 @@ module Mcp
           }
         },
         "ai/prompts" => {
-          scope: -> { @account.shared_prompt_templates.active },
+          scope: -> { ::Shared::PromptTemplate.for_account(@account.id).active },
           to_resource: ->(template) {
             {
               uri: "powernode://ai/prompts/#{template.slug}",
@@ -108,15 +108,15 @@ module Mcp
     def fetch_content(type, identifier)
       case type
       when "kb/articles"
-        article = KnowledgeBase::Article.published.find_by(slug: identifier)
+        article = KnowledgeBase::Article.for_account(@account.id).published.find_by(slug: identifier)
         return nil unless article
         { text: article.content, mime_type: "text/plain" }
       when "ai/agents"
-        agent = @account.ai_agents.where(status: "active").find_by(id: identifier)
+        agent = ::Ai::Agent.for_account(@account.id).where(status: "active").find_by(id: identifier)
         return nil unless agent
         { text: agent_to_json(agent), mime_type: "application/json" }
       when "ai/prompts"
-        template = @account.shared_prompt_templates.active.find_by(slug: identifier)
+        template = ::Shared::PromptTemplate.for_account(@account.id).active.find_by(slug: identifier)
         return nil unless template
         { text: template.content, mime_type: "text/plain" }
       end

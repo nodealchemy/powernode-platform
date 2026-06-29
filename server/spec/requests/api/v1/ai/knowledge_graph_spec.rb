@@ -242,6 +242,19 @@ RSpec.describe "Api::V1::Ai::KnowledgeGraph", type: :request do
 
       expect(response).to have_http_status(:ok)
     end
+
+    # Globalize-content campaign: documents in a GLOBAL (account_id nil) platform
+    # knowledge base must be extractable by any account — the override-aware scope
+    # ([nil, current_account.id]) admits globals while still 404ing foreign docs.
+    it "extracts from a document in a GLOBAL platform knowledge base" do
+      global_kb = create(:ai_knowledge_base, account: nil)
+      global_document = create(:ai_document, knowledge_base: global_kb)
+
+      post "/api/v1/ai/knowledge_graph/extract",
+           params: { document_id: global_document.id }.to_json, headers: headers
+
+      expect(response).to have_http_status(:ok)
+    end
   end
 
   describe "GET /api/v1/ai/knowledge_graph/statistics" do

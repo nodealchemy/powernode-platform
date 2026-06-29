@@ -163,7 +163,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # GET /api/v1/kb/articles/analytics
   def analytics
-    articles = KnowledgeBase::Article.includes(:article_views)
+    # Tenancy-scoped: counts reflect GLOBAL + this account's articles, matching
+    # the admin index — never another tenant's rows.
+    articles = tenant_scoped_articles.includes(:article_views)
     period = params[:period]&.to_i&.days || 30.days
 
     analytics_data = {
@@ -424,12 +426,13 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   end
 
   def calculate_article_stats
+    scope = tenant_scoped_articles
     {
-      total: KnowledgeBase::Article.count,
-      published: KnowledgeBase::Article.published.count,
-      draft: KnowledgeBase::Article.where(status: "draft").count,
-      review: KnowledgeBase::Article.where(status: "review").count,
-      archived: KnowledgeBase::Article.where(status: "archived").count
+      total: scope.count,
+      published: scope.published.count,
+      draft: scope.where(status: "draft").count,
+      review: scope.where(status: "review").count,
+      archived: scope.where(status: "archived").count
     }
   end
 

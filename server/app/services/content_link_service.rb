@@ -167,8 +167,10 @@ class ContentLinkService
     Page.where(account: @account)
         .where("title ILIKE ? OR slug = ?", title, slug)
         .first ||
-    # Fallback to KnowledgeBase::Article (not account-scoped)
+    # Fallback to KnowledgeBase::Article — override-aware (GLOBAL platform
+    # articles + this account's own); never resolves another tenant's article.
     KnowledgeBase::Article
+        .for_account(@account.id)
         .where("title ILIKE ? OR slug = ?", title, slug)
         .first
   end

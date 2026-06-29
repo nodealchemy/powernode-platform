@@ -82,7 +82,9 @@ module Ai
       private
 
       def list_articles(params)
-        scope = ::KnowledgeBase::Article.all
+        # Override-aware: GLOBAL (platform-provided) articles plus the account's
+        # own — never another tenant's private articles.
+        scope = ::KnowledgeBase::Article.for_account(account.id)
         scope = scope.where(category: find_category(params[:category_slug])) if params[:category_slug].present?
         scope = scope.where(status: params[:status]) if params[:status].present?
         articles = scope.order(updated_at: :desc).limit(50)
@@ -147,10 +149,11 @@ module Ai
       end
 
       def find_article(params)
+        scope = ::KnowledgeBase::Article.for_account(account.id)
         if params[:article_id].present?
-          ::KnowledgeBase::Article.find_by(id: params[:article_id])
+          scope.find_by(id: params[:article_id])
         elsif params[:slug].present?
-          ::KnowledgeBase::Article.find_by(slug: params[:slug])
+          scope.find_by(slug: params[:slug])
         end
       end
 
