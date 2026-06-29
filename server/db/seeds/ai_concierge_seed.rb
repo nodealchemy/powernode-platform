@@ -16,10 +16,9 @@ provider = Ai::Provider.find_by(provider_type: 'openai', name: 'OpenAI') ||
 raise "ai_concierge_seed: no AI provider available — seed ai_providers first" unless provider
 
 ActiveRecord::Base.transaction do
-  agent = Ai::Agent.find_or_initialize_by(
-    account: admin_account,
-    slug: "powernode-assistant"
-  )
+  # GLOBAL platform concierge (account_id nil); an account customizes it by
+  # cloning. Resolution prefers the account's own concierge (resolve_concierge_for).
+  agent = Ai::Agent.find_or_initialize_global(slug: "powernode-assistant")
 
   agent.assign_attributes(
     name: "Powernode Assistant",

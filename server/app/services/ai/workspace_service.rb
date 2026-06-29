@@ -9,7 +9,7 @@ module Ai
 
     # Creates a workspace: an AgentTeam + collaborative Conversation
     def create_workspace(name:, agent_ids: [])
-      concierge = account.ai_agents.default_concierge.first
+      concierge = ::Ai::Agent.resolve_concierge_for(account.id)
       raise ArgumentError, "Cannot create workspace: no active concierge agent exists for this account" unless concierge
 
       # Recover orphaned workspace team (team exists but conversation was lost)
@@ -131,7 +131,7 @@ module Ai
     end
 
     def auto_add_concierge(team)
-      concierge = account.ai_agents.default_concierge.first
+      concierge = ::Ai::Agent.resolve_concierge_for(account.id)
       return unless concierge
       return if team.members.exists?(ai_agent_id: concierge.id)
 

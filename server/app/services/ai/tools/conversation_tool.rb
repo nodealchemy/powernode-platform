@@ -315,7 +315,7 @@ module Ai
       def send_concierge_message(params)
         return { success: false, error: "message is required" } if params[:message].blank?
 
-        concierge_agent = account.ai_agents.default_concierge.first
+        concierge_agent = ::Ai::Agent.resolve_concierge_for(account.id)
         return { success: false, error: "No concierge agent configured for this account" } unless concierge_agent
 
         conversation = find_or_create_concierge_conversation(concierge_agent)
@@ -393,7 +393,7 @@ module Ai
 
         agent_ids = Array(params[:agent_ids])
         if params[:include_concierge]
-          concierge = account.ai_agents.default_concierge.first
+          concierge = ::Ai::Agent.resolve_concierge_for(account.id)
           agent_ids << concierge.id if concierge && !agent_ids.include?(concierge.id)
         end
 
@@ -424,7 +424,7 @@ module Ai
         return { success: false, error: "Conversation not found" } unless conversation
 
         target_agent = if params[:agent_id] == "concierge"
-                         account.ai_agents.default_concierge.first
+                         ::Ai::Agent.resolve_concierge_for(account.id)
         else
                          ::Ai::Agent.for_account(account.id).find_by(id: params[:agent_id])
         end

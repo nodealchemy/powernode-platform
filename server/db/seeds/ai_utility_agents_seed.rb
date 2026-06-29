@@ -264,10 +264,8 @@ updated = 0
 skills_linked = 0
 
 UTILITY_AGENTS.each do |attrs|
-  agent = Ai::Agent.find_or_initialize_by(
-    account: admin_account,
-    slug: attrs[:slug]
-  )
+  # GLOBAL platform utility agent (account_id nil); accounts clone to customize.
+  agent = Ai::Agent.find_or_initialize_global(slug: attrs[:slug])
 
   is_new = agent.new_record?
 

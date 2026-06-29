@@ -121,7 +121,7 @@ module Api
 
         def resolve_agent(agent_id)
           if agent_id == "concierge"
-            current_account.ai_agents.default_concierge.first
+            ::Ai::Agent.resolve_concierge_for(current_account.id)
           else
             ::Ai::Agent.for_account(current_account.id).find_by(id: agent_id)
           end

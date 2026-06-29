@@ -94,6 +94,37 @@ RSpec.describe "Ai::Agent global/account scoping" do
     end
   end
 
+  describe "core fundamental agents → global (D8)" do
+    it ".find_or_initialize_global creates a global agent and converts an account row in place" do
+      a = Ai::Agent.find_or_initialize_global(slug: "powernode-assistant")
+      a.assign_attributes(name: "Powernode Assistant", agent_type: "assistant",
+                          creator: user, provider: provider, status: "active")
+      a.save!
+      expect(a.global?).to be true
+      expect(a.source_key).to eq("powernode-assistant")
+      expect(a.is_system).to be true
+
+      # an existing account-scoped row of the same slug is converted in place
+      legacy = create(:ai_agent, account: account, slug: "prd-generator", name: "PRD Generator")
+      g = Ai::Agent.find_or_initialize_global(slug: "prd-generator")
+      g.save!
+      expect(g.id).to eq(legacy.id)
+      expect(g.global?).to be true
+    end
+
+    it ".resolve_concierge_for returns the global concierge; an account override wins" do
+      g = create(:ai_agent, account: nil, creator: user, is_concierge: true, status: "active",
+                            slug: "powernode-assistant", source_key: "powernode-assistant", is_system: true)
+      expect(Ai::Agent.resolve_concierge_for(account.id)).to eq(g)
+      expect(Ai::Agent.resolve_concierge_for(other_account.id)).to eq(g)
+
+      override = create(:ai_agent, account: account, is_concierge: true, status: "active",
+                                  name: "My Concierge", slug: "my-concierge")
+      expect(Ai::Agent.resolve_concierge_for(account.id)).to eq(override)
+      expect(Ai::Agent.resolve_concierge_for(other_account.id)).to eq(g) # other account still gets global
+    end
+  end
+
   describe "#using_account — provider derives from the USING account (D9)" do
     it "resolves the same global agent's provider from each using account's own config" do
       # account: openai credentialed; other_account: anthropic credentialed.

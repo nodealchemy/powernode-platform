@@ -440,7 +440,7 @@ module Ai
         clients = []
 
         # Look for the dedicated Knowledge Graph Curator agent first
-        curator = Ai::Agent.find_by(account: @account, name: "Knowledge Graph Curator", status: "active")
+        curator = Ai::Agent.for_account(@account.id).where(name: "Knowledge Graph Curator", status: "active").account_override_first.first&.using_account(@account)
         if curator
           # #37: provider, credential, and model from the same resolved triple so the
           # guard + log line agree with the model the worker actually uses (an unpinned

@@ -130,6 +130,29 @@ module Ai
       rel.account_override_first.first
     end
 
+    # Resolve the concierge for an account, override-aware: the account's own
+    # concierge wins over the GLOBAL platform concierge default.
+    def self.resolve_concierge_for(account_id)
+      for_account(account_id).concierge.active.account_override_first.first
+    end
+
+    # Find-or-initialize a GLOBAL (account_id nil) fundamental agent by slug, for
+    # seeds. slug is globally unique, so it keys the upsert. Converts a pre-
+    # globalization ACCOUNT-scoped row of the same slug in place (account_id →
+    # nil; id stays stable so the agent's skill bindings / trust / config keep
+    # pointing at it). Caller assigns the rest of the attributes and saves.
+    # Fundamental agents are platform-provided DEFAULTS; an account customizes
+    # one by cloning it (resolution prefers the account's row).
+    def self.find_or_initialize_global(slug:, source_key: nil)
+      agent = find_by(account_id: nil, slug: slug) ||
+              where(slug: slug).where.not(account_id: nil).first ||
+              new(slug: slug)
+      agent.account_id = nil
+      agent.source_key = source_key || slug
+      agent.is_system  = true
+      agent
+    end
+
     # Callbacks
     before_validation :generate_slug, if: -> { name.present? && (slug.blank? || name_changed?) }
     before_validation :normalize_agent_type

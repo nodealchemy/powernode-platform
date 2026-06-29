@@ -371,7 +371,7 @@ module Api
 
         # POST /api/v1/ai/conversations/concierge
         def create_concierge
-          agent = current_user.account.ai_agents.default_concierge.first
+          agent = ::Ai::Agent.resolve_concierge_for(current_user.account.id)
           return render_error("No concierge agent configured", status: :not_found) unless agent
 
           conversation = agent.conversations.active
@@ -405,7 +405,7 @@ module Api
         # describes intent. Tagged conversation_type='provisioning' so the
         # sidebar's Provisioning group surfaces it immediately.
         def create_provisioning
-          agent = current_user.account.ai_agents.default_concierge.first
+          agent = ::Ai::Agent.resolve_concierge_for(current_user.account.id)
           return render_error("No concierge agent configured", status: :not_found) unless agent
 
           ProviderAvailabilityService.validate_agent_provider!(agent)
