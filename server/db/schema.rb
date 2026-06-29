@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000011) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000012) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2143,13 +2143,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000011) do
     t.string "version", default: "1.0.0", null: false
     t.string "visibility", default: "private", null: false
     t.jsonb "workflow_definition", default: {}
+    t.index ["account_id", "slug"], name: "index_ai_devops_templates_on_account_id_and_slug", unique: true, where: "(account_id IS NOT NULL)"
     t.index ["account_id"], name: "index_ai_devops_templates_on_account_id"
     t.index ["category"], name: "index_ai_devops_templates_on_category"
     t.index ["cloned_from_id"], name: "index_ai_devops_templates_on_cloned_from_id"
     t.index ["created_by_id"], name: "index_ai_devops_templates_on_created_by_id"
     t.index ["is_featured"], name: "index_ai_devops_templates_on_is_featured"
     t.index ["is_system"], name: "index_ai_devops_templates_on_is_system"
-    t.index ["slug"], name: "index_ai_devops_templates_on_slug", unique: true
+    t.index ["slug"], name: "index_ai_devops_templates_on_slug_global", unique: true, where: "(account_id IS NULL)"
     t.index ["source_key"], name: "index_ai_devops_templates_on_source_key"
     t.index ["status", "visibility"], name: "index_ai_devops_templates_on_status_and_visibility"
     t.index ["template_type"], name: "index_ai_devops_templates_on_template_type"

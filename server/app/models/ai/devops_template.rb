@@ -14,7 +14,9 @@ module Ai
 
     # Validations
     validates :name, presence: true
-    validates :slug, presence: true, uniqueness: true,
+    # Scope-partitioned uniqueness (GloballyScopable): a global row and an account
+    # override may share a slug; backed by partial unique indexes.
+    validates :slug, presence: true, uniqueness: { scope: :account_id },
               format: { with: /\A[a-z0-9-]+\z/, message: "only allows lowercase letters, numbers, and hyphens" }
     validates :category, presence: true, inclusion: {
       in: %w[code_quality deployment documentation testing security monitoring release custom]
