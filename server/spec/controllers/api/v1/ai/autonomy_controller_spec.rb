@@ -88,6 +88,21 @@ RSpec.describe Api::V1::Ai::AutonomyController, type: :controller do
     let(:child_agent) { create(:ai_agent, account: account) }
     let!(:lineage) { create(:ai_agent_lineage, account: account, parent_agent: agent, child_agent: child_agent) }
 
+    context 'with a GLOBAL agent (platform-managed)' do
+      # The autonomy/trust UI must reach a global system agent (account_id nil);
+      # per-account trust/config is keyed by agent_id + account_id.
+      let!(:global_agent) { create(:ai_agent, account: nil, creator: user, source_key: 'fleet-autonomy', is_system: true) }
+      let!(:global_trust) { create(:ai_agent_trust_score, account: account, agent: global_agent) }
+
+      before { sign_in agents_read_user }
+
+      it 'resolves a global agent (does not 404)' do
+        get :lineage, params: { agent_id: global_agent.id }
+        expect(response).to have_http_status(:success)
+        expect(JSON.parse(response.body).dig('data', 'agent_id')).to eq(global_agent.id)
+      end
+    end
+
     context 'with valid permissions' do
       before { sign_in agents_read_user }
 

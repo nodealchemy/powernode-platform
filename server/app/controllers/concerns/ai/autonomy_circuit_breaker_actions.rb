@@ -14,7 +14,7 @@ module Ai
 
     # GET /api/v1/ai/autonomy/circuit_breakers/:agent_id
     def agent_circuit_breakers
-      agent = current_account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
       service = ::Ai::Autonomy::CircuitBreakerService.new(account: current_account)
       breakers = service.for_agent(agent)
 

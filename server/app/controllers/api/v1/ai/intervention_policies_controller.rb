@@ -60,7 +60,7 @@ module Api
         def resolve
           service = ::Ai::InterventionPolicyService.new(account: current_user.account)
 
-          agent = params[:agent_id].present? ? current_user.account.ai_agents.find_by(id: params[:agent_id]) : nil
+          agent = params[:agent_id].present? ? ::Ai::Agent.for_account(current_user.account.id).find_by(id: params[:agent_id]) : nil
           user = params[:user_id].present? ? current_user.account.users.find_by(id: params[:user_id]) : nil
 
           result = service.resolve(

@@ -14,7 +14,7 @@ module Ai
 
     # GET /api/v1/ai/autonomy/shadow_executions/:agent_id
     def agent_shadow_executions
-      agent = current_account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
       service = ::Ai::Autonomy::ShadowModeService.new(account: current_account)
       executions = service.for_agent(agent, limit: params[:limit]&.to_i || 50)
 

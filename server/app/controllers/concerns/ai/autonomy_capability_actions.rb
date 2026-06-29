@@ -12,7 +12,7 @@ module Ai
 
     # GET /api/v1/ai/autonomy/capability_matrix/:agent_id
     def agent_capabilities
-      agent = current_account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
       service = ::Ai::Autonomy::CapabilityMatrixService.new(account: current_account)
       render_success(data: service.agent_capabilities(agent: agent))
     rescue ActiveRecord::RecordNotFound

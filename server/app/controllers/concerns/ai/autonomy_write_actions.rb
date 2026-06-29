@@ -6,7 +6,7 @@ module Ai
 
     # POST trust_scores/:agent_id/evaluate
     def evaluate
-      agent = current_account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
       service = ::Ai::Autonomy::TrustEngineService.new(account: current_account)
       result = service.evaluate_pending_for(agent: agent)
 
@@ -17,7 +17,7 @@ module Ai
 
     # PUT trust_scores/:agent_id/override
     def override_trust_score
-      agent = current_account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
       trust_score = ::Ai::AgentTrustScore.find_by!(agent_id: agent.id, account_id: current_account.id)
 
       tier = params[:tier]
@@ -49,7 +49,7 @@ module Ai
 
     # POST trust_scores/:agent_id/emergency_demote
     def emergency_demote
-      agent = current_account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
       service = ::Ai::Autonomy::TrustEngineService.new(account: current_account)
       result = service.emergency_demote!(agent: agent, reason: params[:reason] || "admin_action")
 
@@ -60,7 +60,7 @@ module Ai
 
     # POST budgets
     def create_budget
-      agent = current_account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
       budget = ::Ai::AgentBudget.create!(
         account: current_account,
         agent: agent,
@@ -105,7 +105,7 @@ module Ai
     # POST budgets/:id/allocate_child
     def allocate_child
       budget = ::Ai::AgentBudget.where(account_id: current_account.id).find(params[:id])
-      agent = current_account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
       child_budget = budget.allocate_child(agent: agent, amount_cents: params[:amount_cents].to_i)
 
       if child_budget
@@ -256,7 +256,7 @@ module Ai
       account = resolve_account_for_agent(params[:agent_id])
       return render_error("Agent not found", status: :not_found) unless account
 
-      agent = account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(account.id).find(params[:agent_id])
       service = ::Ai::Autonomy::TrustEngineService.new(account: account)
       result = service.evaluate_pending_for(agent: agent)
 

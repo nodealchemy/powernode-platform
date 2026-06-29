@@ -92,7 +92,7 @@ module Api
 
         # GET /api/v1/ai/autonomy/lineage/:agent_id
         def lineage
-          agent = current_account.ai_agents.find(params[:agent_id])
+          agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
 
           trust_scores_map = ::Ai::AgentTrustScore
             .where(account_id: current_account.id)
@@ -152,7 +152,7 @@ module Api
 
         # GET /api/v1/ai/autonomy/behavioral_fingerprints/:agent_id
         def behavioral_fingerprints
-          agent = current_account.ai_agents.find(params[:agent_id])
+          agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
           service = ::Ai::Autonomy::BehavioralFingerprintService.new(account: current_account)
           fingerprints = service.fingerprints_for(agent)
 

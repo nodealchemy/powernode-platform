@@ -18,7 +18,7 @@ module Ai
 
     # GET /api/v1/ai/autonomy/telemetry/:agent_id
     def agent_telemetry
-      agent = current_account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
       service = ::Ai::Autonomy::TelemetryService.new(account: current_account)
       events = service.for_agent(agent, limit: params[:limit]&.to_i || 100)
 
@@ -32,7 +32,7 @@ module Ai
       account = resolve_account_for_agent(params[:agent_id])
       return render_error("Agent not found", status: :not_found) unless account
 
-      agent = account.ai_agents.find(params[:agent_id])
+      agent = ::Ai::Agent.for_account(account.id).find(params[:agent_id])
       service = ::Ai::Autonomy::TelemetryService.new(account: account)
 
       event = service.record_event(
