@@ -261,4 +261,72 @@ RSpec.describe Ai::Missions::OrchestratorService do
       expect(target).to eq("planning")
     end
   end
+
+  # Approval-unification: mission gates routed through Ai::Approvals::Gateway.
+  # Everything is flag-gated default-OFF — the flag-OFF expectations below pin
+  # that the legacy path is untouched when routing is disabled.
+  describe "gateway routing (flag on + governance)" do
+    before do
+      # Gateway#request! gates on Gateway.governance_enabled?, but Gateway#resolve!
+      # delegates to ApprovalWorkflowService, which checks its OWN
+      # governance_enabled? — stub both so the full request→resolve→cascade runs.
+      allow(Ai::Approvals::Gateway).to receive(:governance_enabled?).and_return(true)
+      allow(Ai::Autonomy::ApprovalWorkflowService).to receive(:governance_enabled?).and_return(true)
+      mission.update!(configuration: { "approvals_via_gateway" => true })
+    end
+
+    it "opens exactly one pending ApprovalRequest when entering a gate phase" do
+      mission.update!(status: "active", current_phase: "analyzing")
+
+      expect { service.advance! }.to change(Ai::ApprovalRequest, :count).by(1)
+      expect(mission.reload.current_phase).to eq("awaiting_feature_approval")
+
+      req = Ai::ApprovalRequest.for_source("Ai::Mission", mission.id).order(:created_at).last
+      expect(req.status).to eq("pending")
+      expect(req.source_type).to eq("Ai::Mission")
+      expect(req.request_data["action_type"]).to eq("feature_selection")
+    end
+
+    it "is idempotent — re-entering the same gate opens no second request" do
+      mission.update!(status: "active", current_phase: "analyzing")
+      service.advance! # analyzing -> awaiting_feature_approval (opens request)
+
+      expect {
+        service.send(:transition_to_phase!, "awaiting_feature_approval")
+      }.not_to change(Ai::ApprovalRequest, :count)
+    end
+
+    it "resolves the request and advances exactly once on approval" do
+      mission.update!(status: "active", current_phase: "analyzing")
+      service.advance! # -> awaiting_feature_approval (gate index 1)
+      expect(mission.reload.phase_index).to eq(1)
+
+      expect {
+        service.handle_approval!(gate: "awaiting_feature_approval", user: user, decision: "approved")
+      }.to change { mission.reload.current_phase }.from("awaiting_feature_approval").to("planning")
+
+      expect(mission.reload.phase_index).to eq(2)
+      req = Ai::ApprovalRequest.for_source("Ai::Mission", mission.id).order(:created_at).last
+      expect(req.reload.status).to eq("approved")
+    end
+
+    it "rolls the gate back on rejection via the cascade" do
+      mission.update!(status: "active", current_phase: "analyzing")
+      service.advance! # -> awaiting_feature_approval
+
+      service.handle_approval!(gate: "awaiting_feature_approval", user: user, decision: "rejected", comment: "no")
+
+      # rejection_mapping maps awaiting_feature_approval -> analyzing
+      expect(mission.reload.current_phase).to eq("analyzing")
+      req = Ai::ApprovalRequest.for_source("Ai::Mission", mission.id).order(:created_at).last
+      expect(req.reload.status).to eq("rejected")
+    end
+
+    it "opens no ApprovalRequest when the flag is off (legacy path preserved)" do
+      mission.update!(configuration: {}, status: "active", current_phase: "analyzing")
+
+      expect { service.advance! }.not_to change(Ai::ApprovalRequest, :count)
+      expect(mission.reload.current_phase).to eq("awaiting_feature_approval")
+    end
+  end
 end

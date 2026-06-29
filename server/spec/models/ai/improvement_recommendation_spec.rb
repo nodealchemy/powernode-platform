@@ -3,6 +3,12 @@
 require 'rails_helper'
 
 RSpec.describe Ai::ImprovementRecommendation, type: :model do
+  # Approval-unification: an after_create hook opens a governance ApprovalRequest
+  # ONLY when governance is present AND the opt-in flag is set. Default-OFF in
+  # core test mode, but we pin governance OFF here so every existing create-based
+  # example below stays a pure recommendation create (no gate side effects).
+  before { allow(Ai::Approvals::Gateway).to receive(:governance_enabled?).and_return(false) }
+
   # ==========================================
   # Associations
   # ==========================================
@@ -297,6 +303,74 @@ RSpec.describe Ai::ImprovementRecommendation, type: :model do
   describe 'factories' do
     it 'has a valid default factory' do
       expect(build(:ai_improvement_recommendation)).to be_valid
+    end
+  end
+
+  # ==========================================
+  # Approval-unification (flag-gated gateway routing)
+  # ==========================================
+  describe 'approval-unification gateway routing' do
+    let(:account) { create(:account) }
+
+    context 'governance present + flag on' do
+      before do
+        allow(Ai::Approvals::Gateway).to receive(:governance_enabled?).and_return(true)
+        account.update!(settings: { 'ai' => { 'approvals_via_gateway' => true } })
+      end
+
+      it 'opens exactly one pending ApprovalRequest on create' do
+        rec = nil
+        expect { rec = create(:ai_improvement_recommendation, account: account) }
+          .to change(Ai::ApprovalRequest, :count).by(1)
+
+        req = Ai::ApprovalRequest.for_source('Ai::ImprovementRecommendation', rec.id).order(:created_at).last
+        expect(req.status).to eq('pending')
+        expect(req.request_data['action_type']).to eq('improvement_recommendation')
+      end
+    end
+
+    context 'governance present + flag off (default)' do
+      before { allow(Ai::Approvals::Gateway).to receive(:governance_enabled?).and_return(true) }
+
+      it 'opens no ApprovalRequest on create' do
+        expect { create(:ai_improvement_recommendation, account: account) }
+          .not_to change(Ai::ApprovalRequest, :count)
+      end
+    end
+
+    describe '#on_approval_decision (gateway cascade)' do
+      let(:user) { create(:user, account: account) }
+      let(:gateway) { Ai::Approvals::Gateway.new(account: account) }
+      let(:recommendation) { create(:ai_improvement_recommendation, account: account, status: 'pending') }
+      let(:request) { gateway.request!(approvable: recommendation, kind: 'improvement_recommendation').approval_request }
+
+      before do
+        allow(Ai::Approvals::Gateway).to receive(:governance_enabled?).and_return(true)
+        allow(Ai::Autonomy::ApprovalWorkflowService).to receive(:governance_enabled?).and_return(true)
+      end
+
+      it 'approves the recommendation when the request is approved' do
+        request
+        gateway.resolve!(request: request, decision: 'approved', by: user)
+
+        expect(recommendation.reload.status).to eq('approved')
+        expect(recommendation.reload.approved_by).to eq(user)
+      end
+
+      it 'dismisses the recommendation when the request is rejected' do
+        request
+        gateway.resolve!(request: request, decision: 'rejected', by: user)
+
+        expect(recommendation.reload.status).to eq('dismissed')
+      end
+
+      it 'no-ops when the recommendation is no longer pending' do
+        recommendation.update!(status: 'applied', approved_by: user)
+        req = gateway.request!(approvable: recommendation, kind: 'improvement_recommendation').approval_request
+
+        expect { gateway.resolve!(request: req, decision: 'approved', by: user) }
+          .not_to change { recommendation.reload.status }
+      end
     end
   end
 end

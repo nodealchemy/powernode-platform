@@ -314,4 +314,37 @@ RSpec.describe Ai::Mission, type: :model do
       expect(mission.reload.ralph_loop_id).to be_nil
     end
   end
+
+  # Approval-unification cascade target. Only acts while the mission is parked
+  # at the gate the request was opened for — stale/mismatched cascades no-op.
+  describe "#on_approval_decision" do
+    let(:account) { create(:account) }
+    let(:user) { create(:user, account: account) }
+    let(:mission) { create(:ai_mission, account: account, created_by: user, status: "active", current_phase: "analyzing") }
+
+    def fake_request(action_type:, status: "approved")
+      instance_double(
+        Ai::ApprovalRequest,
+        status: status,
+        request_data: { "action_type" => action_type },
+        id: SecureRandom.uuid
+      )
+    end
+
+    it "no-ops when the mission is not awaiting approval at a gate" do
+      # current_phase = analyzing (not a gate)
+      expect(Ai::Missions::OrchestratorService).not_to receive(:new)
+      expect {
+        mission.on_approval_decision(fake_request(action_type: "feature_selection"))
+      }.not_to change { mission.reload.current_phase }
+    end
+
+    it "no-ops when the request's gate differs from the current gate" do
+      mission.update!(current_phase: "awaiting_feature_approval") # gate feature_selection
+      expect(Ai::Missions::OrchestratorService).not_to receive(:new)
+      expect {
+        mission.on_approval_decision(fake_request(action_type: "merge_approval"))
+      }.not_to change { mission.reload.current_phase }
+    end
+  end
 end

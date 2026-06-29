@@ -62,6 +62,23 @@ module Ai
       update!(status: "implemented")
     end
 
+    # Approval-unification cascade target. Ai::ApprovalRequest#notify_source_of_decision
+    # invokes this when a gateway-routed proposal gate resolves (see
+    # Ai::Approvals::Gateway / Ai::ProposalService#open_proposal_gate!). Flips
+    # the proposal to match the decision; no-op unless still pending, which
+    # guards against stale or duplicate cascades.
+    def on_approval_decision(request)
+      return unless pending?
+
+      resolver = request.decisions.order(:created_at).last&.approver
+      case request.status
+      when "approved"
+        approve!(resolver)
+      when "rejected", "expired"
+        reject!(resolver)
+      end
+    end
+
     def pending?
       status == "pending_review"
     end

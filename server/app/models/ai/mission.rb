@@ -146,6 +146,32 @@ module Ai
       approvals.approved.where(gate: gate).distinct.pluck(:user_id).compact.length
     end
 
+    # Approval-unification cascade target. Ai::ApprovalRequest#notify_source_of_decision
+    # invokes this when a gateway-routed mission gate resolves (see
+    # Ai::Approvals::Gateway). Advances the mission on approval, rolls it back on
+    # rejection/expiry — but only while the mission is still parked at the gate
+    # the request was opened for, which guards against stale or duplicate
+    # cascades after the mission has already moved on.
+    #
+    # Note: request_data["action_type"] holds the GATE name (e.g.
+    # "feature_selection") while current_phase holds the PHASE name (e.g.
+    # "awaiting_feature_approval"), so we compare via the canonical
+    # phase→gate mapping rather than equating them directly.
+    def on_approval_decision(request)
+      gate = request.request_data["action_type"].presence
+      return unless awaiting_approval?
+      return unless gate.blank? ||
+                    gate == Ai::MissionApproval.gate_for_phase(current_phase, mission: self)
+
+      orchestrator = Ai::Missions::OrchestratorService.new(mission: self)
+      case request.status
+      when "approved"
+        orchestrator.advance!(result: { approval_request_id: request.id })
+      when "rejected", "expired"
+        orchestrator.reject_gate!(comment: request.decisions.order(:created_at).last&.comments)
+      end
+    end
+
     def phases_for_type
       if custom_phases.present?
         custom_phases.sort_by { |p| p["order"] || 0 }.map { |p| p["key"] }

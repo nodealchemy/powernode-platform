@@ -86,6 +86,24 @@ module Ai
             mission.update!(selected_feature: selected_feature)
           end
 
+          # Approval-unification (flag-gated): when this mission is routed
+          # through Ai::Approvals::Gateway, a governance ApprovalRequest is the
+          # source of truth for the gate. Resolving it cascades back via
+          # Ai::Mission#on_approval_decision → advance!, so we resolve and
+          # return here instead of running the legacy second-signature/advance!
+          # path. Default OFF: gateway_request_for is nil unless governance is
+          # present AND the opt-in flag is set, in which case the legacy code
+          # below runs byte-for-byte unchanged.
+          if (req = gateway_request_for(gate_name))
+            # The gateway chain does not enforce distinct approvers, so guard a
+            # repeat signature from the same user (e.g. second-signature gates).
+            return mission if same_user_already_approved?(req, user)
+
+            Ai::Approvals::Gateway.new(account: account)
+                                  .resolve!(request: req, decision: "approved", by: user, comments: comment)
+            return mission
+          end
+
           # M4 second-signature gate — Business+ plans require two distinct
           # approvers at the `handoff` phase. The first approval is recorded
           # but the mission stays at `handoff` until a different user also
@@ -103,9 +121,28 @@ module Ai
 
           advance!(result: { approval_id: approval.id })
         else
+          # Gateway-routed rejection: resolve the governance ApprovalRequest,
+          # which cascades back via Ai::Mission#on_approval_decision →
+          # reject_gate!. Falls through to the legacy rejection bookkeeping when
+          # routing is off (default).
+          if (req = gateway_request_for(gate_name))
+            Ai::Approvals::Gateway.new(account: account)
+                                  .resolve!(request: req, decision: "rejected", by: user, comments: comment)
+            return mission
+          end
+
           handle_rejection!(gate: mission.current_phase, comment: comment)
         end
 
+        mission
+      end
+
+      # Public rejection entry used by Ai::Mission#on_approval_decision when a
+      # gateway-routed ApprovalRequest is rejected/expired. Routes through the
+      # same legacy rejection bookkeeping (rollback mapping + phase job
+      # dispatch) so both paths roll a gate back identically.
+      def reject_gate!(comment: nil)
+        handle_rejection!(gate: mission.current_phase, comment: comment)
         mission
       end
 
@@ -234,6 +271,7 @@ module Ai
       def transition_to_phase!(phase)
         mission.update!(current_phase: phase)
         record_phase_entry(phase)
+        open_gateway_gate!(phase) if mission.awaiting_approval?
       end
 
       def record_phase_entry(phase)
@@ -334,6 +372,67 @@ module Ai
       # — same answer either way.
       def gate_for_phase(phase)
         ::Ai::MissionApproval.gate_for_phase(phase, mission: mission)
+      end
+
+      # ==================== Approval-unification (flag-gated) ====================
+
+      # Whether this mission's approval gates are routed through the canonical
+      # Ai::Approvals::Gateway. Requires BOTH a governance extension (so an
+      # ApprovalRequest can actually be created) AND an explicit opt-in flag,
+      # set per-mission (configuration) or account-wide (settings). Default OFF:
+      # when false every legacy approval path runs byte-for-byte unchanged.
+      def gateway_routing?
+        return false unless Ai::Approvals::Gateway.governance_enabled?
+
+        mission.configuration["approvals_via_gateway"] ||
+          account.settings&.dig("ai", "approvals_via_gateway")
+      end
+
+      # The open (pending) gateway ApprovalRequest for a given gate, when
+      # routing is on. Matches on source (this mission) + action_type (the gate
+      # name stamped into request_data by Gateway#request!). nil when routing is
+      # off or no request is open.
+      def gateway_request_for(gate)
+        return nil unless gateway_routing?
+
+        Ai::ApprovalRequest
+          .for_source("Ai::Mission", mission.id)
+          .where(status: "pending")
+          .where("request_data ->> 'action_type' = ?", gate.to_s)
+          .order(created_at: :desc)
+          .first
+      end
+
+      # The gateway chain does not enforce distinct approvers; this guards a
+      # repeat signature from the same user at a multi-signature gate.
+      def same_user_already_approved?(request, user)
+        request.decisions.where(approver_id: user.id, decision: "approved").exists?
+      end
+
+      # Opens a governance ApprovalRequest when transitioning into an approval
+      # gate phase under gateway routing. Idempotent (skips when one is already
+      # open) and best-effort: any failure is logged, never raised, so the phase
+      # transition itself can never be broken by the gate.
+      def open_gateway_gate!(phase)
+        return unless gateway_routing?
+
+        gate = ::Ai::MissionApproval.gate_for_phase(phase, mission: mission)
+        return unless ::Ai::MissionApproval::GATES.include?(gate.to_s)
+        return if gateway_request_for(gate).present?
+
+        required = mission.requires_second_signature? ? 2 : 1
+        Ai::Approvals::Gateway.new(account: account).request!(
+          approvable: mission,
+          kind: gate,
+          required_approvals: required,
+          requested_by: mission.created_by,
+          request_data: { mission_id: mission.id, phase: phase.to_s }
+        )
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[OrchestratorService] open_gateway_gate! failed for mission #{mission.id}: " \
+          "#{e.class}: #{e.message}"
+        )
       end
 
       def create_conversation!

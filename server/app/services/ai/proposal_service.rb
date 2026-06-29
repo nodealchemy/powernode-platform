@@ -20,6 +20,8 @@ module Ai
         # Notify the target user
         outreach = AgentOutreachService.new(account: account, agent: agent)
         outreach.notify_proposal(proposal: proposal)
+
+        open_proposal_gate!(proposal)
       end
 
       proposal
@@ -58,6 +60,29 @@ module Ai
     end
 
     private
+
+    # Approval-unification (flag-gated): open a governance ApprovalRequest for a
+    # newly-created proposal so its approve/reject decision can flow through the
+    # canonical Ai::Approvals::Gateway and cascade back via
+    # Ai::AgentProposal#on_approval_decision. Default OFF (governance absent or
+    # flag unset) and best-effort — never breaks proposal creation.
+    def open_proposal_gate!(proposal)
+      return unless gateway_routing?
+
+      Ai::Approvals::Gateway.new(account: account).request!(
+        approvable: proposal,
+        kind: "agent_proposal",
+        requested_by: proposal.target_user,
+        request_data: { proposal_type: proposal.proposal_type, title: proposal.title }
+      )
+    rescue StandardError => e
+      Rails.logger.warn("[ProposalService] open_proposal_gate! failed for proposal #{proposal.id}: #{e.class}: #{e.message}")
+    end
+
+    def gateway_routing?
+      Ai::Approvals::Gateway.governance_enabled? &&
+        !!account.settings&.dig("ai", "approvals_via_gateway")
+    end
 
     def find_default_reviewer(agent)
       # Priority: most recent user who interacted with this agent → account owner
