@@ -20,6 +20,41 @@ module GloballyScopable
     scope :for_account,      ->(account_id) { where(account_id: [ nil, account_id ]) }
   end
 
+  class_methods do
+    # Find-or-initialize a GLOBAL (account_id nil) record by a natural key (e.g.
+    # `slug:`) for seeds. The key is globally unique, so it keys the upsert.
+    # Converts a pre-globalization ACCOUNT-scoped row of the same key in place
+    # (account_id → nil; id stays stable so the record's associations keep
+    # pointing at it). Sets source_key (defaulting to the key value) and
+    # is_system when the includer has those columns. The caller assigns the rest
+    # of the attributes and saves. GLOBAL rows are platform-provided DEFAULTS; an
+    # account customizes one by cloning it (resolution prefers the account's row).
+    def find_or_initialize_global(source_key: nil, **finder)
+      raise ArgumentError, "a natural key (e.g. slug:) is required" if finder.empty?
+
+      record = find_by(finder.merge(account_id: nil)) ||
+               where(finder).where.not(account_id: nil).first ||
+               new(finder)
+      record.account_id = nil
+      record.source_key = source_key || finder.values.first.to_s if record.respond_to?(:source_key=)
+      record.is_system  = true if record.respond_to?(:is_system=)
+      record
+    end
+
+    # Seed convenience: find-or-create a GLOBAL record, running the block (create-
+    # only attrs, like find_or_create_by's block) only on a NEW row, and saving
+    # when new OR when a pre-globalization account-scoped row was just converted
+    # (account_id flipped to nil). Idempotent re-runs no-op. For seed-managed
+    # content that should REFRESH on every re-seed, assign in an unconditional
+    # block via find_or_initialize_global + save instead.
+    def find_or_create_global(source_key: nil, **finder)
+      record = find_or_initialize_global(source_key: source_key, **finder)
+      yield record if block_given? && record.new_record?
+      record.save! if record.new_record? || record.changed?
+      record
+    end
+  end
+
   # Platform-provided (read-only to accounts, seed-managed) when true.
   def global?
     account_id.nil?

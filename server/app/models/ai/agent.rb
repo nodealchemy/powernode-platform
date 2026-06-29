@@ -136,33 +136,11 @@ module Ai
       for_account(account_id).concierge.active.account_override_first.first
     end
 
-    # Find-or-initialize a GLOBAL (account_id nil) fundamental agent by slug, for
-    # seeds. slug is globally unique, so it keys the upsert. Converts a pre-
-    # globalization ACCOUNT-scoped row of the same slug in place (account_id →
-    # nil; id stays stable so the agent's skill bindings / trust / config keep
-    # pointing at it). Caller assigns the rest of the attributes and saves.
-    # Fundamental agents are platform-provided DEFAULTS; an account customizes
-    # one by cloning it (resolution prefers the account's row).
-    def self.find_or_initialize_global(slug:, source_key: nil)
-      agent = find_by(account_id: nil, slug: slug) ||
-              where(slug: slug).where.not(account_id: nil).first ||
-              new(slug: slug)
-      agent.account_id = nil
-      agent.source_key = source_key || slug
-      agent.is_system  = true
-      agent
-    end
-
-    # Seed convenience: find-or-create a GLOBAL fundamental agent, running the
-    # block (create-only attrs, like find_or_create_by's block) only on a NEW
-    # row, and saving when new OR when a pre-globalization account-scoped row was
-    # just converted (account_id flipped to nil). Idempotent re-runs no-op.
-    def self.find_or_create_global(slug:, source_key: nil)
-      agent = find_or_initialize_global(slug: slug, source_key: source_key)
-      yield agent if block_given? && agent.new_record?
-      agent.save! if agent.new_record? || agent.changed?
-      agent
-    end
+    # find_or_initialize_global(slug:) / find_or_create_global(slug:) { |agent| ... }
+    # are provided generically by GloballyScopable (keyed by any natural key, e.g.
+    # slug:). Fundamental agents are platform-provided DEFAULTS seeded GLOBAL
+    # (account_id nil, is_system, source_key); an account customizes one by
+    # cloning it (resolution prefers the account's row via resolve_for/for_account).
 
     # Callbacks
     before_validation :generate_slug, if: -> { name.present? && (slug.blank? || name_changed?) }
