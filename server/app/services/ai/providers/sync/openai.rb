@@ -63,6 +63,30 @@ module Ai
                 }
               end
 
+              # Also collect text-embedding models (text-embedding-3-small/large,
+              # text-embedding-ada-002, …). Tagged with the text_embedding
+              # capability ONLY — never chat/text_generation — so capability-based
+              # embedding resolution (Ai::Memory::EmbeddingService,
+              # Devops::AiConfig#embedding_model_for) can find them in the catalog,
+              # while the chat-model selector (Ai::AgentModelSelector), which
+              # hard-gates on required text_generation+chat capabilities, will not
+              # pick an embedding-only model for a chat task.
+              embedding_models = models.select { |m| openai_embedding_model?(m["id"]) }
+              embedding_models.each do |model|
+                supported_models << {
+                  "name" => format_openai_model_name(model["id"]),
+                  "id" => model["id"],
+                  "context_length" => openai_embedding_context_length(model["id"]),
+                  "max_output_tokens" => 0,
+                  "dimensions" => openai_embedding_dimensions(model["id"]),
+                  "description" => openai_embedding_model_description(model["id"]),
+                  "capabilities" => %w[text_embedding],
+                  "cost_per_1k_tokens" => model_pricing_for(model["id"]),
+                  "owned_by" => model["owned_by"],
+                  "created_at" => model["created"] ? Time.at(model["created"]).iso8601 : nil
+                }
+              end
+
               supported_models.sort_by! { |m| -openai_model_priority(m["id"]) }
               supported_models
             end
@@ -78,6 +102,31 @@ module Ai
 
           def openai_transcription_model?(model_id)
             model_id.match?(/whisper|transcribe/i)
+          end
+
+          def openai_embedding_model?(model_id)
+            model_id.match?(/^text-embedding/i)
+          end
+
+          # Output embedding dimensionality per OpenAI model. text-embedding-3-*
+          # support dimension reduction, but these are the native/default sizes.
+          def openai_embedding_dimensions(model_id)
+            return 3072 if model_id.include?("text-embedding-3-large")
+            return 1536 if model_id.include?("text-embedding-3-small")
+            return 1536 if model_id.include?("ada-002")
+            1536
+          end
+
+          # All current OpenAI embedding models accept up to 8191 input tokens.
+          def openai_embedding_context_length(_model_id)
+            8191
+          end
+
+          def openai_embedding_model_description(model_id)
+            return "High-dimensional text embedding model" if model_id.include?("text-embedding-3-large")
+            return "Efficient, low-cost text embedding model" if model_id.include?("text-embedding-3-small")
+            return "Legacy text embedding model" if model_id.include?("ada-002")
+            "OpenAI text embedding model"
           end
 
           def format_openai_model_name(model_id)

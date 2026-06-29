@@ -20,6 +20,8 @@ RSpec.describe Ai::Providers::Sync::Openai do
         { id: "gpt-4o-mini", owned_by: "openai", created: Time.current.to_i },
         { id: "gpt-3.5-turbo", owned_by: "openai", created: Time.current.to_i },
         { id: "o3", owned_by: "openai", created: Time.current.to_i },
+        { id: "text-embedding-3-small", owned_by: "openai", created: Time.current.to_i },
+        { id: "text-embedding-3-large", owned_by: "openai", created: Time.current.to_i },
         { id: "text-embedding-ada-002", owned_by: "openai", created: Time.current.to_i },
         { id: "dall-e-3", owned_by: "openai", created: Time.current.to_i },
         { id: "gpt-4-instruct", owned_by: "openai", created: Time.current.to_i }
@@ -47,11 +49,36 @@ RSpec.describe Ai::Providers::Sync::Openai do
         expect(provider.supported_models).to be_present
       end
 
-      it "filters out embedding models" do
+      it "includes embedding models tagged with the text_embedding capability ONLY" do
+        # Embedding models are registered in the catalog (durable, since the daily
+        # sync overwrites supported_models) so capability-based embedding
+        # resolution can find them. They carry the text_embedding capability and
+        # MUST NOT carry chat/text_generation — otherwise Ai::AgentModelSelector,
+        # which hard-gates chat candidates on those capabilities, could offer an
+        # embedding-only model for a chat task.
         Ai::ProviderManagementService.send(:sync_openai_models, provider)
         provider.reload
-        model_ids = provider.supported_models.map { |m| m["id"] }
-        expect(model_ids).not_to include("text-embedding-ada-002")
+
+        small = provider.supported_models.find { |m| m["id"] == "text-embedding-3-small" }
+        expect(small).to be_present
+        expect(small["capabilities"]).to eq(%w[text_embedding])
+        expect(small["capabilities"]).not_to include("chat", "text_generation", "function_calling")
+      end
+
+      it "registers all three OpenAI embedding models with sensible dimensions" do
+        Ai::ProviderManagementService.send(:sync_openai_models, provider)
+        provider.reload
+
+        by_id = provider.supported_models.index_by { |m| m["id"] }
+        expect(by_id).to include("text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002")
+        expect(by_id["text-embedding-3-small"]["dimensions"]).to eq(1536)
+        expect(by_id["text-embedding-3-large"]["dimensions"]).to eq(3072)
+        expect(by_id["text-embedding-ada-002"]["dimensions"]).to eq(1536)
+
+        # Every embedding entry is text_embedding-only (never chat-gated).
+        %w[text-embedding-3-small text-embedding-3-large text-embedding-ada-002].each do |id|
+          expect(by_id[id]["capabilities"]).to eq(%w[text_embedding])
+        end
       end
 
       it "includes image generation models with the image_generation capability" do
