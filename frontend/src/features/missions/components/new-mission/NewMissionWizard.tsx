@@ -19,6 +19,7 @@ const STEPS = ['Type & Repository', 'Template', 'Team (Optional)', 'Objective'] 
 export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onClose, onCreate }) => {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Wizard state
   const [name, setName] = useState('');
@@ -32,7 +33,8 @@ export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onCl
 
   const canProceed = (): boolean => {
     switch (step) {
-      case 0: return name.trim().length > 0;
+      // Development missions require a repository (label marks it required).
+      case 0: return name.trim().length > 0 && (missionType !== 'development' || repositoryId.length > 0);
       case 1: return true; // template is optional
       case 2: return true; // team is optional
       case 3: return true; // objective is optional
@@ -42,6 +44,7 @@ export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onCl
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    setError(null);
     try {
       await onCreate({
         name: name.trim(),
@@ -53,6 +56,8 @@ export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onCl
         base_branch: baseBranch || undefined,
         mission_template_id: selectedTemplate?.id || undefined,
       });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create mission.');
     } finally {
       setSubmitting(false);
     }
@@ -68,6 +73,7 @@ export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onCl
     setObjective('');
     setDescription('');
     setSelectedTemplate(null);
+    setError(null);
     onClose();
   };
 
@@ -109,6 +115,13 @@ export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onCl
       maxWidth="lg"
       footer={footer}
     >
+      {/* Submission error */}
+      {error && (
+        <div className="mb-4 rounded-md border border-theme-error-border bg-theme-error-bg px-3 py-2 text-sm text-theme-error-fg">
+          {error}
+        </div>
+      )}
+
       {/* Step indicators */}
       <div className="flex items-center gap-2 mb-5">
         {STEPS.map((_, i) => (

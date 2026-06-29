@@ -11,7 +11,7 @@ import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
-import { PlusIcon, BookOpenIcon, TagIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, BookOpenIcon, TagIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { logger } from '@/shared/utils/logger';
@@ -25,6 +25,7 @@ export default function KnowledgeBasePage() {
   const [articles, setArticles] = useState<KbArticle[]>([]);
   const [featuredArticles, setFeaturedArticles] = useState<KbArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(searchParams.get('category') || null);
 
@@ -64,6 +65,9 @@ export default function KnowledgeBasePage() {
     return breadcrumbs;
   };
 
+  // Load categories + featured once on mount. Articles are owned by the
+  // search/category effect below (which also runs on mount), so they are
+  // fetched exactly once rather than racing a second fetch here.
   useEffect(() => {
     loadInitialData();
   }, []);
@@ -79,18 +83,18 @@ export default function KnowledgeBasePage() {
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
-      
-      const [categoriesResponse, articlesResponse, featuredResponse] = await Promise.all([
+      setError(null);
+
+      const [categoriesResponse, featuredResponse] = await Promise.all([
         knowledgeBaseApi.getCategories(),
-        knowledgeBaseApi.getArticles({ per_page: 10 }),
         knowledgeBaseApi.getArticles({ featured: true, per_page: 5 })
       ]);
 
       setCategories(categoriesResponse.data.data);
-      setArticles(articlesResponse.data.data.articles);
       setFeaturedArticles(featuredResponse.data.data.articles);
     } catch (_error) {
       logger.error('[KnowledgeBasePage] Failed to load initial data', _error);
+      setError('Failed to load the knowledge base. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -98,10 +102,12 @@ export default function KnowledgeBasePage() {
 
   const loadArticles = async () => {
     try {
+      setError(null);
       const response = await knowledgeBaseApi.getArticles({ per_page: 20 });
       setArticles(response.data.data.articles);
     } catch (_error) {
       logger.error('[KnowledgeBasePage] Failed to load articles', _error);
+      setError('Failed to load articles. Please try again.');
     }
   };
 
@@ -112,8 +118,9 @@ export default function KnowledgeBasePage() {
     }
 
     try {
+      setError(null);
       let response;
-      
+
       if (searchQuery) {
         response = await knowledgeBaseApi.searchArticles({
           q: searchQuery,
@@ -126,7 +133,7 @@ export default function KnowledgeBasePage() {
           per_page: 20
         });
       }
-      
+
       setArticles(response.data.data.articles);
 
       // Update URL params
@@ -136,6 +143,7 @@ export default function KnowledgeBasePage() {
       setSearchParams(params);
     } catch (_error) {
       logger.error('[KnowledgeBasePage] Search failed', _error);
+      setError('Search failed. Please try again.');
     }
   };
 
@@ -180,6 +188,14 @@ export default function KnowledgeBasePage() {
       actions={actions}
     >
       <div className="space-y-6">
+        {/* Error banner — distinguishes a load/search failure from "no articles" */}
+        {error && (
+          <div className="flex items-center gap-3 rounded-lg border border-theme-error-border bg-theme-error-bg px-4 py-3 text-sm text-theme-error-fg">
+            <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Search and Filters */}
         <div className="bg-theme-surface rounded-lg border border-theme p-6">
           <KbSearchBar

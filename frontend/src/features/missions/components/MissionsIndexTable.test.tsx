@@ -19,10 +19,6 @@ const mockMissions = [
   { id: '3', name: 'Alpha', mission_type: 'feature', status: 'active', created_at: '2026-01-03T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
 ] as unknown as Mission[];
 
-jest.mock('../hooks/useMissions', () => ({
-  useMissions: () => ({ missions: mockMissions, loading: false, hasManagePermission: false }),
-}));
-
 jest.mock('@/shared/hooks/useMissionModal', () => ({
   useMissionModal: () => ({ openMission: jest.fn() }),
 }));
@@ -33,6 +29,9 @@ const render = (ui: ReactElement) =>
 const NAMES = ['Alpha', 'Mike', 'Zeta'];
 
 const renderProps = {
+  missions: mockMissions,
+  loading: false,
+  hasManagePermission: false,
   onNewMission: () => {},
   onStartMission: () => {},
   onPauseMission: () => {},

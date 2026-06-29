@@ -5,9 +5,8 @@ import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { 
-  ChatBubbleLeftEllipsisIcon, 
-  HandThumbUpIcon, 
+import {
+  ChatBubbleLeftEllipsisIcon,
   UserIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
@@ -24,6 +23,7 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
   const showError = (message: string) => showNotification(message, 'error');
   const [comments, setComments] = useState<KbComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -36,11 +36,12 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
   const loadComments = async () => {
     try {
       setIsLoading(true);
+      setLoadError(null);
       const response = await knowledgeBaseApi.getArticleComments(articleId, { per_page: 50 });
       setComments(response.data.data.comments);
     } catch (_error) {
-    // Error silently ignored
-  } finally {
+      setLoadError('Failed to load comments. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -173,7 +174,12 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
       )}
 
       {/* Comments List */}
-      {comments.length > 0 ? (
+      {loadError ? (
+        <div className="flex items-center gap-3 rounded-lg border border-theme-error-border bg-theme-error-bg px-4 py-3 text-sm text-theme-error-fg">
+          <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+          <span>{loadError}</span>
+        </div>
+      ) : comments.length > 0 ? (
         <div className="space-y-6">
           {comments.map(comment => (
             <CommentItem 
@@ -258,14 +264,6 @@ function CommentItem({
 
           {/* Comment Actions */}
           <div className="flex items-center gap-4 text-sm">
-            <button
-              className="flex items-center gap-1 text-theme-secondary hover:text-theme-primary transition-colors"
-              disabled
-            >
-              <HandThumbUpIcon className="h-4 w-4" />
-              <span>{comment.likes_count}</span>
-            </button>
-
             {isAuthenticated && (
               <button
                 onClick={() => onReply(isReplying ? '' : comment.id)}

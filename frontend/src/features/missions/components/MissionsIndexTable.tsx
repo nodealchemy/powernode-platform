@@ -8,7 +8,6 @@ import { Button } from '@/shared/components/ui/Button';
 import { DropdownMenu } from '@/shared/components/ui/DropdownMenu';
 import { EntityLink } from '@/shared/components/entity';
 import { useMissionModal } from '@/shared/hooks/useMissionModal';
-import { useMissions } from '../hooks/useMissions';
 import { MissionExpandedRow } from './MissionExpandedRow';
 import {
   STATUS_CONFIG, STATUS_TABS, TAB_STATUS_MAP,
@@ -20,6 +19,9 @@ import type { Mission } from '../types/mission';
 import { cn } from '@/shared/utils/cn';
 
 interface MissionsIndexTableProps {
+  missions: Mission[];
+  loading: boolean;
+  hasManagePermission: boolean;
   onNewMission: () => void;
   onStartMission: (missionId: string) => void;
   onPauseMission: (missionId: string) => void;
@@ -28,6 +30,9 @@ interface MissionsIndexTableProps {
 }
 
 export const MissionsIndexTable: React.FC<MissionsIndexTableProps> = ({
+  missions,
+  loading,
+  hasManagePermission,
   onStartMission,
   onPauseMission,
   onCancelMission,
@@ -40,7 +45,6 @@ export const MissionsIndexTable: React.FC<MissionsIndexTableProps> = ({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [typeFilter, setTypeFilter] = useState('');
 
-  const { missions, loading, hasManagePermission } = useMissions();
   const { openMission } = useMissionModal();
 
   // --- Filtering ---

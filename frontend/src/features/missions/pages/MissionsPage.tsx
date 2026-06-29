@@ -15,6 +15,8 @@ export const MissionsContent: React.FC<{
   const [showWizard, setShowWizard] = useState(false);
 
   const {
+    missions,
+    loading,
     hasReadPermission,
     hasManagePermission,
     fetchMissions,
@@ -74,6 +76,9 @@ export const MissionsContent: React.FC<{
   return (
     <>
       <MissionsIndexTable
+        missions={missions}
+        loading={loading}
+        hasManagePermission={hasManagePermission}
         onNewMission={() => setShowWizard(true)}
         onStartMission={handleStartMission}
         onPauseMission={handlePauseMission}
