@@ -42,7 +42,7 @@ class AiTestExecutionJob < BaseJob
   private
 
   def checkout!(repository, branch)
-    handler = Devops::StepHandlers::CheckoutHandler.new(api_client: api_client, logger: logger)
+    handler = step_handler_class("CheckoutHandler", "checkout_handler").new(api_client: api_client, logger: logger)
     result = handler.execute(
       config: { "ref" => branch },
       context: { trigger_context: { repository: repository, branch: branch } },
@@ -55,7 +55,7 @@ class AiTestExecutionJob < BaseJob
   end
 
   def run_command(workspace, command, timeout_secs)
-    handler = Devops::StepHandlers::RunCommandHandler.new(api_client: api_client, logger: logger)
+    handler = step_handler_class("RunCommandHandler", "run_command_handler").new(api_client: api_client, logger: logger)
     result = handler.execute(
       config: {
         "command" => command,
@@ -70,6 +70,19 @@ class AiTestExecutionJob < BaseJob
       output: dig_output(result, :output).to_s,
       error: dig_output(result, :error)
     }
+  end
+
+  # Resolve a Devops::StepHandlers::* class. These handlers are referenced
+  # lexically (from inside `module Devops`) by the pipeline job, but a top-level
+  # job like this one doesn't reliably trigger their autoload in the Sidekiq
+  # process — so fall back to an explicit require (base first, then the handler).
+  def step_handler_class(const_name, file)
+    ::Devops::StepHandlers.const_get(const_name)
+  rescue NameError
+    dir = File.expand_path("../services/devops/step_handlers", __dir__)
+    require File.join(dir, "base")
+    require File.join(dir, file)
+    ::Devops::StepHandlers.const_get(const_name)
   end
 
   # Step handlers return { outputs: {...} } with symbol-ish keys; tolerate both.
