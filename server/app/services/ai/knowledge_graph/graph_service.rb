@@ -422,6 +422,49 @@ module Ai
         }
       end
 
+      # Backfill embeddings for nodes that have a description but no vector.
+      # create_node/update_node embed synchronously via the worker, but a worker
+      # outage at the time (or an extraction path that skipped it) leaves the
+      # node with embedding: nil and invisible to vector recall — and nothing
+      # else ever fixes it. Description-less nodes have no text to embed and are
+      # correctly excluded. Idempotent, batched, capped; invoked by the daily
+      # knowledge-graph maintenance action so coverage self-heals.
+      def backfill_embeddings(batch_size: 50, max_per_run: 200)
+        scope = Ai::KnowledgeGraphNode.active.where(account: account)
+          .where(embedding: nil)
+          .where.not(description: [ nil, "" ])
+
+        pending = scope.count
+        return { success: true, embedded: 0, failed: 0, remaining: 0 } if pending.zero?
+
+        # find_each ignores .limit, so materialize the bounded batch.
+        batch = scope.order(:created_at).limit(max_per_run).to_a
+        embedded = 0
+        failed = 0
+
+        batch.each_slice(batch_size) do |slice|
+          texts = slice.map { |node| "#{node.name}: #{node.description}" }
+          vectors = embedding_service.generate_batch(texts)
+
+          slice.each_with_index do |node, i|
+            vector = vectors[i]
+            if vector
+              node.update_columns(embedding: vector, last_event_processed_at: Time.current)
+              embedded += 1
+            else
+              failed += 1
+            end
+          end
+        end
+
+        remaining = [ pending - embedded, 0 ].max
+        Rails.logger.info("[GraphService] Embedding backfill: #{embedded} embedded, #{failed} failed, #{remaining} remaining")
+        { success: true, embedded: embedded, failed: failed, remaining: remaining }
+      rescue StandardError => e
+        Rails.logger.error("[GraphService] Embedding backfill failed: #{e.message}")
+        { success: false, error: e.message, embedded: 0, failed: 0, remaining: 0 }
+      end
+
       private
 
       def validate_node_type!(type)

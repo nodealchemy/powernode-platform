@@ -239,13 +239,16 @@ module Api
             Rails.logger.warn("[KnowledgeGraphMaintenance] Failed for node #{node.id}: #{e.message}")
           end
 
-          Rails.logger.info("[KnowledgeGraphMaintenance] decayed=#{decayed} recalculated=#{recalculated} skipped_by_event=#{skipped} remaining=#{[ remaining, 0 ].max}")
+          embedding_backfill = ::Ai::KnowledgeGraph::GraphService.new(current_account).backfill_embeddings(max_per_run: max_per_run)
+
+          Rails.logger.info("[KnowledgeGraphMaintenance] decayed=#{decayed} recalculated=#{recalculated} skipped_by_event=#{skipped} remaining=#{[ remaining, 0 ].max} embedded=#{embedding_backfill[:embedded]}")
 
           render_success(
             decayed: decayed,
             recalculated: recalculated,
             skipped_by_event: skipped,
-            remaining: [ remaining, 0 ].max
+            remaining: [ remaining, 0 ].max,
+            embedding_backfill: embedding_backfill
           )
         rescue StandardError => e
           Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")

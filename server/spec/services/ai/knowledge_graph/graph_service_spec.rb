@@ -6,6 +6,64 @@ RSpec.describe Ai::KnowledgeGraph::GraphService, type: :service do
   let(:account) { create(:account) }
   subject(:service) { described_class.new(account) }
 
+  describe "#backfill_embeddings" do
+    let(:mock_vector) { Array.new(1536) { rand(-1.0..1.0) } }
+
+    before do
+      allow_any_instance_of(Ai::Memory::EmbeddingService)
+        .to receive(:generate_batch) { |_svc, texts, **_| texts.map { mock_vector } }
+    end
+
+    def build_node(name:, description: "a node description", status: "active", embedding: nil)
+      Ai::KnowledgeGraphNode.create!(
+        account: account, name: name, node_type: "entity",
+        description: description, status: status, embedding: embedding,
+        last_seen_at: Time.current
+      )
+    end
+
+    it "embeds active nodes that have a description but no vector" do
+      a = build_node(name: "Alpha")
+      b = build_node(name: "Beta")
+
+      result = service.backfill_embeddings
+
+      expect(result).to include(success: true, embedded: 2, remaining: 0)
+      expect(a.reload.embedding).to be_present
+      expect(b.reload.embedding).to be_present
+    end
+
+    it "skips nodes without a description (nothing to embed)" do
+      bare = build_node(name: "Bare", description: nil)
+
+      expect(service.backfill_embeddings[:embedded]).to eq(0)
+      expect(bare.reload.embedding).to be_nil
+    end
+
+    it "skips inactive (archived) nodes" do
+      archived = build_node(name: "Archived", status: "archived")
+
+      expect(service.backfill_embeddings[:embedded]).to eq(0)
+      expect(archived.reload.embedding).to be_nil
+    end
+
+    it "respects max_per_run and reports the remainder" do
+      3.times { |i| build_node(name: "Node #{i}") }
+
+      result = service.backfill_embeddings(max_per_run: 2)
+
+      expect(result[:embedded]).to eq(2)
+      expect(result[:remaining]).to eq(1)
+    end
+
+    it "is idempotent — a second run finds nothing pending" do
+      build_node(name: "Once")
+      service.backfill_embeddings
+
+      expect(service.backfill_embeddings).to include(embedded: 0, remaining: 0)
+    end
+  end
+
   describe "#create_node" do
     it "creates a node with required attributes" do
       node = service.create_node(name: "Ruby", node_type: "entity", entity_type: "technology")
