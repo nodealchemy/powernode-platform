@@ -27,17 +27,32 @@ RSpec.describe Ai::Tools::PipelineManagementTool do
 
   describe "#execute" do
     context "with trigger_pipeline action" do
-      it "triggers a pipeline for a valid repository" do
-        repository = create(:git_repository, account: account)
-        result = tool.execute(params: { action: "trigger_pipeline", repository_id: repository.id })
+      let(:pipeline) { create(:devops_pipeline, account: account) }
+
+      before { allow(WorkerJobService).to receive(:enqueue_job).and_return(true) }
+
+      it "creates a pending run and queues the execution job (no fabricated success)" do
+        expect(WorkerJobService).to receive(:enqueue_job)
+          .with("Devops::PipelineExecutionJob", hash_including(queue: "devops_high"))
+        result = nil
+        expect {
+          result = tool.execute(params: { action: "trigger_pipeline", pipeline_id: pipeline.id })
+        }.to change { pipeline.runs.count }.by(1)
         expect(result[:success]).to be true
-        expect(result[:status]).to eq("triggered")
+        expect(result[:run_id]).to eq(pipeline.runs.last.id)
+        expect(result[:queued]).to be true
       end
 
-      it "returns error for non-existent repository" do
-        result = tool.execute(params: { action: "trigger_pipeline", repository_id: SecureRandom.uuid })
+      it "returns error for a non-existent pipeline" do
+        result = tool.execute(params: { action: "trigger_pipeline", pipeline_id: SecureRandom.uuid })
         expect(result[:success]).to be false
         expect(result[:error]).to match(/not found/i)
+      end
+
+      it "requires pipeline_id" do
+        result = tool.execute(params: { action: "trigger_pipeline" })
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/pipeline_id/i)
       end
     end
 

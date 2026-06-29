@@ -21,10 +21,9 @@ module Ai
       def self.action_definitions
         {
           "trigger_pipeline" => {
-            description: "Trigger a DevOps pipeline for a repository",
+            description: "Trigger a DevOps pipeline run",
             parameters: {
-              repository_id: { type: "string", required: true, description: "Repository ID" },
-              branch: { type: "string", required: false, description: "Branch to build" }
+              pipeline_id: { type: "string", required: true, description: "Devops::Pipeline ID to run" }
             }
           },
           "list_pipelines" => {
@@ -56,10 +55,44 @@ module Ai
       private
 
       def trigger_pipeline(params)
-        repository = account.git_repositories.find(params[:repository_id])
-        { success: true, repository_id: repository.id, status: "triggered", message: "Pipeline triggered" }
+        pipeline_id = params[:pipeline_id]
+        return { success: false, error: "trigger_pipeline requires pipeline_id" } if pipeline_id.blank?
+
+        pipeline = account.devops_pipelines.find(pipeline_id)
+        return { success: false, error: "Cannot trigger inactive pipeline #{pipeline.id}" } unless pipeline.is_active?
+
+        # Mirror Devops::PipelinesController#trigger: create a pending run, then
+        # queue the real execution job via the worker (no fabricated success).
+        run = pipeline.runs.create!(
+          status: :pending,
+          trigger_type: :manual,
+          trigger_context: { source: "mcp_tool", agent_id: agent&.id }.compact,
+          triggered_by: user
+        )
+
+        queued =
+          begin
+            WorkerJobService.enqueue_job(
+              "Devops::PipelineExecutionJob",
+              args: [ run.id, { simulate: true, step_delay: 3 } ],
+              queue: "devops_high"
+            )
+            true
+          rescue WorkerJobService::WorkerServiceError => e
+            Rails.logger.warn("[pipeline_management] worker service unavailable: #{e.message}")
+            false
+          end
+
+        {
+          success: true,
+          pipeline_id: pipeline.id,
+          run_id: run.id,
+          status: run.status,
+          queued: queued,
+          message: queued ? "Pipeline run #{run.id} queued for execution" : "Pipeline run #{run.id} created but worker service unavailable"
+        }
       rescue ActiveRecord::RecordNotFound
-        { success: false, error: "Repository not found" }
+        { success: false, error: "Pipeline not found" }
       end
 
       def list_pipelines(params)
