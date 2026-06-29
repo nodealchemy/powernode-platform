@@ -74,19 +74,21 @@ globals; integrate with the EXISTING clone/reconcile/diff infra.
    `resolve_concierge_for` (override-aware); `default_concierge` (×5) and
    `extraction_service` resolvers flipped.
 
-**REMAINING (final clean pass, same helper):**
-- The other fundamental seeds use `find_or_create_by` block patterns needing
-  per-agent restructure: `monitoring_analytics_agents_seed` (4 monitors),
-  `claude_agents_seed` (Strategic Planner, Research Analyst),
-  `autonomy_data_seed` (Infrastructure Health Monitor, Process Automation
-  Optimizer, Visual Design Assistant). Convert each to
-  `find_or_initialize_global(slug:)` + `assign_attributes` on new_record.
-- Demo/showcase + industry sets (ai_dev_team, ai_todo_team,
-  ai_example_templates, Legal/Finance/Sales/Life-Sciences/Customer-Success) —
-  judgment call (likely global canonical examples; lower priority).
-- Multi-tenant follow-up: global agents currently bind some account-scoped
-  utility skills (fine in single-tenant core mode); globalize those skills too
-  for true multi-tenant.
+**DONE — directive 8 complete.** All fundamental platform agents are now global:
+- `Ai::Agent.find_or_create_global(slug:) { block }` helper.
+- `monitoring_analytics` (4 monitors), `claude_agents` (Strategic Planner,
+  Research Analyst), and the 3 fundamental `autonomy_data` agents (Infrastructure
+  Health Monitor, Process Automation Optimizer, Visual Design Assistant) → global.
+- Seed-side resolvers flipped (platform_skill_assignments / ai_teams /
+  ai_governance / autonomy_data provider+trust+concierge) so the now-global
+  agents are wired up override-aware.
+- Industry/business example agents (Legal/Finance/Sales/Life-Sciences/Customer-
+  Success) and demo team sets (ai_dev_team, ai_todo_team, ai_example_templates)
+  stay account-scoped demo data — by design.
+
+**Remaining (lower-priority follow-up):** multi-tenant — global agents currently
+bind some account-scoped utility skills (fine in single-tenant core mode);
+globalize those skills too for true multi-tenant.
 
 ### R1-LEGACY — original gap writeup (superseded by the above)
 
