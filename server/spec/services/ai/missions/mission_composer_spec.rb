@@ -114,4 +114,27 @@ RSpec.describe Ai::Missions::MissionComposer do
       end
     end
   end
+
+  # Globalize-content regression: candidate_skills must be override-aware so a
+  # GLOBAL (account_id nil) bound skill is a candidate — previously filtered on
+  # account_id: account.id and global skills were silently excluded.
+  describe "#candidate_skills (global override-aware)" do
+    before { allow(composer).to receive(:skill_contract) { |s| { slug: s.slug } } }
+
+    it "includes a GLOBAL skill bound to an agent" do
+      global_skill = create(:ai_skill, :system_skill, account: nil, slug: "global-bound", status: "active")
+      create(:ai_agent_skill, agent: agent, skill: global_skill, is_active: true)
+
+      slugs = composer.send(:candidate_skills).map { |c| c[:slug] }
+      expect(slugs).to include("global-bound")
+    end
+
+    it "includes the account's own bound skill too" do
+      own = create(:ai_skill, account: account, slug: "own-bound", status: "active")
+      create(:ai_agent_skill, agent: agent, skill: own, is_active: true)
+
+      slugs = composer.send(:candidate_skills).map { |c| c[:slug] }
+      expect(slugs).to include("own-bound")
+    end
+  end
 end

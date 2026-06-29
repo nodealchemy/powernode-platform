@@ -98,7 +98,7 @@ module Ai
         bound_ids = ::Ai::AgentSkill.where(is_active: true).distinct.pluck(:ai_skill_id)
         return [] if bound_ids.empty?
 
-        ::Ai::Skill.where(id: bound_ids, status: "active", account_id: account.id)
+        ::Ai::Skill.for_account(account.id).where(id: bound_ids, status: "active")
                    .order(:name)
                    .filter_map { |skill| skill_contract(skill) }
                    .first(MAX_CANDIDATES)

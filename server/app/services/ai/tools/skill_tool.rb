@@ -154,8 +154,10 @@ module Ai
       private
 
       def resolve_skill(skill_id)
-        Ai::Skill.where(account_id: account.id).find_by(id: skill_id) ||
-          Ai::Skill.where(account_id: account.id).find_by(slug: skill_id)
+        # Override-aware: an account sees GLOBAL (platform-provided) skills plus
+        # its own, so a global skill can be attached/detached like any other.
+        Ai::Skill.for_account(account.id).find_by(id: skill_id) ||
+          Ai::Skill.for_account(account.id).find_by(slug: skill_id)
       end
 
       def resolve_agent_by_any(agent_id)
