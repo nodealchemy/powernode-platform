@@ -74,6 +74,19 @@ RSpec.describe ExternalAgentCardFetchJob, type: :job do
       end
     end
 
+    context "when the agent_card_url is an internal/SSRF target" do
+      let(:internal_url) { "http://127.0.0.1:8080/.well-known/agent-card.json" }
+
+      it "blocks the fetch (no HTTP performed) and POSTs a blocked error outcome" do
+        job_instance.execute(external_agent_id, internal_url)
+
+        expect(a_request(:get, internal_url)).not_to have_been_made
+        expect(api_client_double).to have_received(:post) do |_path, payload|
+          expect(payload["error"]).to match(/blocked/)
+        end
+      end
+    end
+
     context "when the external GET times out" do
       before do
         stub_request(:get, agent_card_url).to_timeout

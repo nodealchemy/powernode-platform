@@ -36,6 +36,13 @@ class ExternalAgentCardFetchJob < BaseJob
   #   success: { "http_status" => Integer, "body" => String }
   #   failure: { "error" => String } — network failure / timeout / bad URL
   def fetch_card_body(agent_card_url)
+    # SSRF guard: agent_card_url is user-supplied (external-agent registration),
+    # so refuse internal/loopback/metadata targets before any socket work.
+    unless Security::WebhookUrlGuard.safe?(agent_card_url)
+      log_warn("[A2A] blocked SSRF target #{agent_card_url}")
+      return { 'error' => 'blocked: agent_card_url resolves to an internal address' }
+    end
+
     uri = URI.parse(agent_card_url)
 
     http = Net::HTTP.new(uri.host, uri.port)
