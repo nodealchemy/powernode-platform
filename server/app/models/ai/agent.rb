@@ -464,11 +464,13 @@ module Ai
       base_slug = name.downcase.gsub(/[^a-z0-9\s\-_]/, "").squeeze(" ").strip.gsub(/\s+/, "-")
       self.slug = base_slug
 
-      # Slug is GLOBALLY unique (DB unique index on slug), and a global agent
-      # has no account — so dedupe against ALL agents, not account.ai_agents
-      # (which would NPE for account_id nil).
+      # Slug uniqueness is partitioned by scope (GloballyScopable): globals are
+      # unique among globals, account agents unique within their account. So
+      # dedupe WITHIN this row's scope — `where(account_id:)` resolves to
+      # `account_id IS NULL` for a global agent — which lets an account agent keep
+      # the same slug as the global agent it overrides.
       counter = 1
-      while ::Ai::Agent.where(slug: self.slug).where.not(id: id).exists?
+      while ::Ai::Agent.where(account_id: account_id, slug: self.slug).where.not(id: id).exists?
         self.slug = "#{base_slug}-#{counter}"
         counter += 1
       end

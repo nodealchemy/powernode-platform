@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000012) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000013) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -863,6 +863,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000012) do
     t.string "version", limit: 20, default: "1.0.0", null: false
     t.index ["account_id", "is_concierge"], name: "idx_ai_agents_concierge", where: "(is_concierge = true)"
     t.index ["account_id", "name"], name: "index_ai_agents_on_account_id_and_name"
+    t.index ["account_id", "slug"], name: "index_ai_agents_on_account_id_and_slug", unique: true, where: "(account_id IS NOT NULL)"
     t.index ["account_id", "status"], name: "index_ai_agents_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_agents_on_account_id"
     t.index ["agent_type"], name: "index_ai_agents_on_agent_type"
@@ -876,7 +877,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000012) do
     t.index ["mcp_registered_at"], name: "index_ai_agents_on_mcp_registered_at"
     t.index ["mcp_tool_manifest"], name: "index_ai_agents_on_mcp_tool_manifest", using: :gin
     t.index ["parent_agent_id"], name: "index_ai_agents_on_parent_agent_id"
-    t.index ["slug"], name: "index_ai_agents_on_slug", unique: true
+    t.index ["slug"], name: "index_ai_agents_on_slug_global", unique: true, where: "(account_id IS NULL)"
     t.index ["source_key"], name: "index_ai_agents_on_source_key"
     t.index ["status"], name: "index_ai_agents_on_status"
   end
