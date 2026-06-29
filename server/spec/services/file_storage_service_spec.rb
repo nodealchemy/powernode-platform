@@ -102,6 +102,45 @@ RSpec.describe FileStorageService, type: :service do
     end
   end
 
+  describe 'storage usage accounting' do
+    let(:file_content) { 'Test file content' }
+    let(:temp_file) do
+      file = Tempfile.new([ 'acct', '.txt' ])
+      file.write(file_content)
+      file.rewind
+      file.define_singleton_method(:content_type) { 'text/plain' }
+      file
+    end
+
+    after { temp_file.close! }
+
+    # Regression: the FileManagement::Object model maintains the storage
+    # counters via after_create/after_destroy callbacks. The service must NOT
+    # also adjust them, or every upload/delete is counted twice and the cached
+    # total_size_bytes / files_count drift to 2x reality.
+    it 'increments total_size_bytes exactly once per upload' do
+      expect {
+        service.upload_file(temp_file, filename: 'acct.txt', content_type: 'text/plain', uploaded_by_id: user.id)
+      }.to change { storage.reload.total_size_bytes }.by(file_content.bytesize)
+    end
+
+    it 'increments files_count exactly once per upload' do
+      expect {
+        service.upload_file(temp_file, filename: 'acct.txt', content_type: 'text/plain', uploaded_by_id: user.id)
+      }.to change { storage.reload.files_count }.by(1)
+    end
+
+    it 'decrements counters exactly once on permanent delete' do
+      allow(storage.storage_provider).to receive(:delete_file).and_return(true)
+      file_object = service.upload_file(temp_file, filename: 'acct.txt', content_type: 'text/plain', uploaded_by_id: user.id)
+
+      expect {
+        service.delete_file(file_object, permanent: true)
+      }.to change { storage.reload.files_count }.by(-1)
+        .and change { storage.reload.total_size_bytes }.by(-file_content.bytesize)
+    end
+  end
+
   describe '#download_file' do
     let(:file_object) { create(:file_object, account: account, storage: storage) }
 

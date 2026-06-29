@@ -56,8 +56,9 @@ class FileStorageService
     begin
       provider.upload_file(file_object, uploaded_file, options)
 
-      # Update storage statistics
-      storage_config.add_file_size(file_size)
+      # Storage counters (files_count / total_size_bytes) are maintained by the
+      # FileManagement::Object after_create callback. Do not adjust them here or
+      # every upload is double-counted and the cached totals drift to 2x reality.
 
       # Queue processing job if needed
       queue_processing_jobs(file_object, options[:processing_tasks] || [])
@@ -98,10 +99,8 @@ class FileStorageService
     if permanent
       # Delete from storage provider
       if provider.delete_file(file_object)
-        # Update storage statistics
-        storage_config.remove_file_size(file_object.file_size)
-
-        # Delete file object
+        # Delete file object. The FileManagement::Object after_destroy callback
+        # decrements the storage counters, so do not adjust them here (double-count).
         file_object.destroy!
         log_info("File permanently deleted: #{file_object.filename} (#{file_object.id})")
         true
@@ -378,7 +377,7 @@ class FileStorageService
       provider_results[:success].each do |file_id|
         file_obj = file_objects.find { |f| f.id == file_id }
         if file_obj
-          storage_config.remove_file_size(file_obj.file_size)
+          # Counter decrement is handled by the after_destroy callback.
           file_obj.destroy
           results[:success] << file_id
         end
