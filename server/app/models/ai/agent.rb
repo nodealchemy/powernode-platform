@@ -139,6 +139,11 @@ module Ai
     after_commit :sync_to_knowledge_graph, on: [:create, :update]
     after_commit :notify_mcp_resources_changed, on: [:create, :destroy]
     after_commit :notify_mcp_resources_changed, if: :saved_change_to_status?
+    # GLOBAL agents are canonical, platform-maintained (seed-managed) and
+    # read-only to consumers; record real changes to one so platform-agent
+    # evolution is auditable over time (account-scoped agents are audited via
+    # the controller). Best-effort — never breaks the save.
+    after_update_commit :audit_global_agent_change, if: :global?
 
     def skill_slugs
       agent_skills.where(is_active: true).joins(:skill).where(ai_skills: { status: "active" }).pluck("ai_skills.slug")
@@ -213,6 +218,36 @@ module Ai
     end
 
     private
+
+    # D5 — audit changes to a canonical GLOBAL agent over time. Logs only REAL
+    # content changes (idempotent seed re-runs change nothing → no entry).
+    # Attributed to the platform account (a global agent has none of its own).
+    # Best-effort: a feedback/audit hiccup must never break the agent save.
+    def audit_global_agent_change
+      tracked = saved_changes.except(
+        "updated_at", "execution_stats", "last_executed_at",
+        "mcp_registered_at", "mcp_tool_manifest"
+      )
+      return if tracked.empty?
+
+      account = ::Account.find_by(name: "Powernode Admin") || ::Account.first
+      return unless account
+
+      ::AuditLog.create!(
+        account: account, user: nil,
+        action: "ai.agents.update", source: "system",
+        resource_type: "Ai::Agent", resource_id: id,
+        severity: "low", risk_level: "low",
+        old_values: tracked.transform_values(&:first),
+        new_values: tracked.transform_values(&:last),
+        metadata: {
+          "global_agent" => true, "source_key" => source_key, "name" => name,
+          "source_version" => source_version, "changed_fields" => tracked.keys
+        }
+      )
+    rescue StandardError => e
+      Rails.logger.warn("[Ai::Agent] global-change audit failed for #{id}: #{e.class}: #{e.message}")
+    end
 
     # The coherent (model, provider, credential) triple. A pinned model is honored
     # only when it belongs to a usable provider (preferring the agent's own);

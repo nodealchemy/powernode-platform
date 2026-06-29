@@ -26,6 +26,9 @@ module Api
         include ::Ai::AgentConversationActions
         include ::Ai::AgentSkillActions
         include ::Ai::AgentHelpers
+        # Global (platform-managed) agents vs account-owned copies: clone-to-
+        # customize, 3-way update_from_source rebase, and the read-only guard.
+        include ::GloballyScopedContent
 
         before_action :set_agent, only: %i[
           show update destroy execute clone test validate
@@ -43,6 +46,10 @@ module Api
         ]
 
         before_action :validate_permissions
+        # A GLOBAL agent is platform-managed/read-only — consumers must clone it
+        # to customize (Ai::Agent#clone_to_account). Guard the actions that
+        # mutate the agent definition; using a global agent (execute/show) is fine.
+        before_action :require_editable_agent!, only: %i[update destroy pause resume archive assign_skill remove_skill]
 
         # =============================================================================
         # AGENTS - PRIMARY RESOURCE CRUD
@@ -50,7 +57,9 @@ module Api
 
         # GET /api/v1/ai/agents
         def index
-          agents = current_user.account.ai_agents.includes(:creator, :provider, :executions, agent_skills: :skill)
+          # for_account = own + GLOBAL platform agents; ?scope=global|custom|all
+          # narrows it (apply_content_scope).
+          agents = apply_content_scope(::Ai::Agent.includes(:creator, :provider, :executions, agent_skills: :skill))
           agents = apply_agent_filters(agents, current_user: current_user)
           agents = apply_agent_sorting(agents)
           agents = apply_pagination(agents)
@@ -127,6 +136,17 @@ module Api
 
         # POST /api/v1/ai/agents/:id/clone
         def clone
+          # Cloning a GLOBAL platform agent yields a provenance-tracked account
+          # copy (cloned_from_id + source_snapshot) that can later be rebased
+          # against the global origin via update_from_source. This is how a
+          # consumer customizes a platform agent — the global stays read-only.
+          if @agent.global?
+            copy = @agent.clone_to_account(current_user.account, creator: current_user)
+            render_success({ agent: serialize_agent_detail(copy) }, status: :created)
+            log_audit_event("ai.agents.clone", copy, original_agent_id: @agent.id, from_global: true)
+            return
+          end
+
           result = management_service.clone
 
           if result.success?
@@ -265,9 +285,19 @@ module Api
           account = current_user&.account || current_account
           return render_error("Agent not found", status: :not_found) unless account
 
-          @agent = account.ai_agents.find(params[:agent_id] || params[:id])
+          # for_account = the account's OWN agents + GLOBAL platform agents, so a
+          # consumer can view/execute/clone a global agent (mutations are guarded
+          # by require_editable_agent!).
+          @agent = ::Ai::Agent.for_account(account.id).find(params[:agent_id] || params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Agent not found", status: :not_found)
+        end
+
+        # content_model for GloballyScopedContent (clone / update_from_source).
+        def content_model = ::Ai::Agent
+
+        def require_editable_agent!
+          require_editable_content!(@agent)
         end
 
         def set_agent_execution

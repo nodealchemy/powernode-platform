@@ -1580,6 +1580,9 @@ Rails.application.routes.draw do
           member do
             post :execute
             post :clone
+            # Rebase an account copy against its GLOBAL origin (GloballyScopedContent).
+            post :update_from_source
+            get "update_from_source/preview", action: :update_from_source_preview
             post :test
             get :validate
             post :pause
