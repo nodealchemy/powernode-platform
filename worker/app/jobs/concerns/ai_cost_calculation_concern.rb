@@ -5,6 +5,19 @@ module AiCostCalculationConcern
 
   private
 
+  # Single source of truth for the cached-input-aware token cost: output priced
+  # per 1K, input split into cached vs non-cached when a cached rate is set. All
+  # provider cost methods delegate here so the formula can never drift between them.
+  def token_cost(input_tokens:, output_tokens:, cached_tokens:, input_per_1k:, output_per_1k:, cached_per_1k:)
+    non_cached = [ input_tokens - cached_tokens, 0 ].max
+    input_cost = if cached_per_1k > 0 && cached_tokens > 0
+                   (non_cached / 1000.0) * input_per_1k + (cached_tokens / 1000.0) * cached_per_1k
+                 else
+                   (input_tokens / 1000.0) * input_per_1k
+                 end
+    input_cost + (output_tokens / 1000.0) * output_per_1k
+  end
+
   def calculate_generic_cost(provider, credentials, response)
     prompt_tokens = response[:prompt_tokens] || 0
     completion_tokens = response[:completion_tokens] || response[:output_tokens] || 0
@@ -19,14 +32,9 @@ module AiCostCalculationConcern
         output_per_1k = (pricing_response['output_per_1k'] || 0).to_f
         cached_per_1k = (pricing_response['cached_input_per_1k'] || 0).to_f
 
-        non_cached = [prompt_tokens - cached_tokens, 0].max
-        input_cost = if cached_per_1k > 0 && cached_tokens > 0
-                       (non_cached / 1000.0) * input_per_1k + (cached_tokens / 1000.0) * cached_per_1k
-                     else
-                       (prompt_tokens / 1000.0) * input_per_1k
-                     end
-
-        return input_cost + (completion_tokens / 1000.0) * output_per_1k
+        return token_cost(input_tokens: prompt_tokens, output_tokens: completion_tokens,
+                          cached_tokens: cached_tokens, input_per_1k: input_per_1k,
+                          output_per_1k: output_per_1k, cached_per_1k: cached_per_1k)
       end
     end
 
@@ -101,15 +109,8 @@ module AiCostCalculationConcern
     cached_tokens = response_data.dig('usage', 'cache_read_input_tokens') || 0
 
     pricing = resolve_pricing('anthropic', model)
-    non_cached = [input_tokens - cached_tokens, 0].max
-
-    input_cost = if pricing[:cached] > 0 && cached_tokens > 0
-                   (non_cached / 1000.0) * pricing[:input] + (cached_tokens / 1000.0) * pricing[:cached]
-                 else
-                   (input_tokens / 1000.0) * pricing[:input]
-                 end
-
-    input_cost + (output_tokens / 1000.0) * pricing[:output]
+    token_cost(input_tokens: input_tokens, output_tokens: output_tokens, cached_tokens: cached_tokens,
+               input_per_1k: pricing[:input], output_per_1k: pricing[:output], cached_per_1k: pricing[:cached])
   end
 
   def calculate_openai_cost(response_data, model)
@@ -118,15 +119,8 @@ module AiCostCalculationConcern
     cached_tokens = response_data.dig('usage', 'cached_tokens') || 0
 
     pricing = resolve_pricing('openai', model)
-    non_cached = [prompt_tokens - cached_tokens, 0].max
-
-    input_cost = if pricing[:cached] > 0 && cached_tokens > 0
-                   (non_cached / 1000.0) * pricing[:input] + (cached_tokens / 1000.0) * pricing[:cached]
-                 else
-                   (prompt_tokens / 1000.0) * pricing[:input]
-                 end
-
-    input_cost + (completion_tokens / 1000.0) * pricing[:output]
+    token_cost(input_tokens: prompt_tokens, output_tokens: completion_tokens, cached_tokens: cached_tokens,
+               input_per_1k: pricing[:input], output_per_1k: pricing[:output], cached_per_1k: pricing[:cached])
   end
 
   # Resolves pricing from database via the pricing lookup API
