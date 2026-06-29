@@ -1,0 +1,122 @@
+# frozen_string_literal: true
+
+require "rails_helper"
+
+RSpec.describe Ai::Ralph::TestVerificationService do
+  # A stub runner: returns whatever canned result it's constructed with, and
+  # records the command/dir it was asked to run.
+  def runner_returning(stdout: "", stderr: "", exit_code: 0)
+    calls = []
+    callable = lambda do |command:, dir:, timeout_seconds:|
+      calls << { command: command, dir: dir, timeout_seconds: timeout_seconds }
+      { stdout: stdout, stderr: stderr, exit_code: exit_code }
+    end
+    [callable, calls]
+  end
+
+  describe "#detect" do
+    subject(:service) { described_class.new(runner: ->(**) { {} }) }
+
+    it "detects rspec from a Gemfile" do
+      expect(service.detect(["Gemfile", "app", "spec"]))
+        .to eq(framework: "rspec", command: "bundle exec rspec")
+    end
+
+    it "detects pytest from pyproject.toml" do
+      expect(service.detect(["pyproject.toml", "src"])[:framework]).to eq("pytest")
+    end
+
+    it "detects jest from package.json" do
+      expect(service.detect(["package.json"])[:framework]).to eq("jest")
+    end
+
+    it "detects go and cargo" do
+      expect(service.detect(["go.mod"])[:framework]).to eq("gotest")
+      expect(service.detect(["Cargo.toml"])[:framework]).to eq("cargo")
+    end
+
+    it "prefers the first matching manifest (Gemfile over package.json)" do
+      expect(service.detect(["package.json", "Gemfile"])[:framework]).to eq("rspec")
+    end
+
+    it "returns nil when no manifest is recognised" do
+      expect(service.detect(["README.md", "LICENSE"])).to be_nil
+    end
+  end
+
+  describe "#parse_counts" do
+    subject(:service) { described_class.new(runner: ->(**) { {} }) }
+
+    it "parses rspec summaries" do
+      expect(service.parse_counts("rspec", "10 examples, 2 failures, 0 pending"))
+        .to eq(passed_count: 8, failed_count: 2)
+    end
+
+    it "parses pytest summaries including errors" do
+      expect(service.parse_counts("pytest", "5 passed, 1 failed, 1 error in 0.2s"))
+        .to eq(passed_count: 5, failed_count: 2)
+    end
+
+    it "parses jest summaries" do
+      out = "Tests:       1 failed, 7 passed, 8 total"
+      expect(service.parse_counts("jest", out)).to eq(passed_count: 7, failed_count: 1)
+    end
+
+    it "parses cargo summaries" do
+      expect(service.parse_counts("cargo", "test result: ok. 12 passed; 0 failed; 0 ignored"))
+        .to eq(passed_count: 12, failed_count: 0)
+    end
+
+    it "returns nils when output is unparseable" do
+      expect(service.parse_counts("rspec", "boom, segfault")).to eq(passed_count: nil, failed_count: nil)
+    end
+  end
+
+  describe "#verify" do
+    it "reports success on clean exit with zero failures" do
+      runner, calls = runner_returning(stdout: "5 examples, 0 failures", exit_code: 0)
+      result = described_class.new(runner: runner).verify(dir: "/sandbox", root_entries: ["Gemfile"])
+
+      expect(result).to include(success: true, ran: true, framework: "rspec",
+                                passed_count: 5, failed_count: 0, exit_code: 0)
+      expect(calls.first).to include(command: "bundle exec rspec", dir: "/sandbox")
+    end
+
+    it "reports failure when the suite has failures (clean exit but parsed failures)" do
+      runner, = runner_returning(stdout: "5 examples, 2 failures", exit_code: 0)
+      result = described_class.new(runner: runner).verify(dir: "/s", root_entries: ["Gemfile"])
+
+      expect(result).to include(success: false, ran: true, failed_count: 2)
+    end
+
+    it "reports failure on a non-zero exit even if counts are unparseable" do
+      runner, = runner_returning(stderr: "LoadError: boom", exit_code: 1)
+      result = described_class.new(runner: runner).verify(dir: "/s", root_entries: ["Gemfile"])
+
+      expect(result).to include(success: false, ran: true, exit_code: 1)
+    end
+
+    it "does not run when no framework is detected" do
+      runner, calls = runner_returning(exit_code: 0)
+      result = described_class.new(runner: runner).verify(dir: "/s", root_entries: ["README.md"])
+
+      expect(result).to include(success: false, ran: false)
+      expect(calls).to be_empty
+    end
+
+    it "captures runner exceptions as a non-success, non-ran error" do
+      raising = ->(**) { raise "worker unreachable" }
+      result = described_class.new(runner: raising).verify(dir: "/s", root_entries: ["Gemfile"])
+
+      expect(result).to include(success: false, ran: false)
+      expect(result[:error]).to match(/worker unreachable/)
+    end
+
+    it "truncates very large output" do
+      runner, = runner_returning(stdout: "x" * 50_000, exit_code: 0)
+      result = described_class.new(runner: runner).verify(dir: "/s", root_entries: ["Gemfile"])
+
+      expect(result[:output].length).to be <= described_class::MAX_OUTPUT_CHARS
+    end
+  end
+end
