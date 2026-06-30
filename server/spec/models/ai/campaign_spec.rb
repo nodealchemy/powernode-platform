@@ -176,6 +176,54 @@ RSpec.describe Ai::Campaign, type: :model do
         expect(campaign.should_stop?).to be false
       end
     end
+
+    # G2: cost-per-accepted-change DOLLAR budget — METERED (platform-driven) loops ONLY.
+    # Flat-rate CLI loops spend no platform $, so this stop must never halt them.
+    context "cost-per-accepted-change budget (metered only)" do
+      let(:campaign) { create(:ai_campaign, :active, account: account) }
+
+      # A platform-driven (metered) loop with `cost` of iteration spend.
+      def metered_loop_with_cost(cost)
+        loop_rec = create(:ai_ralph_loop, account: account, campaign: campaign, driver_kind: "platform_agent")
+        create(:ai_ralph_iteration, ralph_loop: loop_rec, cost: cost)
+        loop_rec
+      end
+
+      it "stops a metered campaign whose cost-per-accepted-change exceeds the budget" do
+        campaign.update!(stop_conditions: { "max_cost_per_accepted_change" => 5.0 })
+        metered_loop_with_cost(12.0)
+        create(:ai_campaign_land, :landed, campaign: campaign, account: account) # 12.0 / 1 = 12.0 > 5.0
+        expect(campaign.should_stop?).to be true
+      end
+
+      it "keeps going when cost-per-accepted-change is at or below the budget" do
+        campaign.update!(stop_conditions: { "max_cost_per_accepted_change" => 5.0 })
+        metered_loop_with_cost(8.0)
+        create_list(:ai_campaign_land, 2, :landed, campaign: campaign, account: account) # 8.0 / 2 = 4.0 <= 5.0
+        expect(campaign.should_stop?).to be false
+      end
+
+      it "does NOT stop a flat-rate (claude_code) campaign over the same threshold (scoping proof)" do
+        campaign.update!(stop_conditions: { "max_cost_per_accepted_change" => 5.0 })
+        flat = create(:ai_ralph_loop, account: account, campaign: campaign, driver_kind: "claude_code")
+        create(:ai_ralph_iteration, ralph_loop: flat, cost: 100.0) # flat-rate spend is uncapped
+        create(:ai_campaign_land, :landed, campaign: campaign, account: account)
+        expect(campaign.should_stop?).to be false
+      end
+
+      it "does not stop before any change has landed (no non-zero denominator)" do
+        campaign.update!(stop_conditions: { "max_cost_per_accepted_change" => 5.0 })
+        metered_loop_with_cost(50.0) # spend exists, but nothing accepted yet
+        expect(campaign.should_stop?).to be false
+      end
+
+      it "is inert when no budget is configured" do
+        campaign.update!(stop_conditions: {})
+        metered_loop_with_cost(50.0)
+        create(:ai_campaign_land, :landed, campaign: campaign, account: account)
+        expect(campaign.should_stop?).to be false
+      end
+    end
   end
 
   describe "#acceptance_pct (G2)" do

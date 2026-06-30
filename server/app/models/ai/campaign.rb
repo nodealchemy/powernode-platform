@@ -261,7 +261,24 @@ module Ai
       # guard. A campaign with NO loops is not active, so the pct-stop can still finalize it.
       return true if target && completion_pct >= target.to_f && !ralph_loops.active.exists?
       return true if acceptance_floor_breached?
+      return true if cost_per_change_budget_exceeded?
       false
+    end
+
+    # G2: dollar-budget guard — METERED (platform-driven) loops ONLY. Halt a campaign
+    # once the platform $ spent per accepted change exceeds the configured ceiling, so a
+    # metered run that's burning budget per landed change doesn't churn indefinitely.
+    # Reuses #cost_per_accepted_change, which is nil for flat-rate campaigns (no metered
+    # loops) AND until at least one change has landed — so this stop is inherently
+    # metered-only (never halts flat-rate CLI loops) and never trips before there's a
+    # non-zero denominator. Inert until a positive budget is configured
+    # (stop_conditions["max_cost_per_accepted_change"]); 0/blank ⇒ disabled.
+    def cost_per_change_budget_exceeded?
+      budget = stop_conditions["max_cost_per_accepted_change"].to_f
+      return false if budget <= 0
+
+      cpac = cost_per_accepted_change
+      cpac.present? && cpac > budget
     end
 
     # G2: net-loss / anti-churn guard — applies to BOTH runtimes. Once enough
