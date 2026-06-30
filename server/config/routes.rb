@@ -613,6 +613,7 @@ Rails.application.routes.draw do
               post :park
               post :rollback
               post :cleanup
+              post :security_findings
             end
           end
 

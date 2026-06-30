@@ -125,6 +125,33 @@ module Ai
       super || (campaign if campaign_id.present?)
     end
 
+    # The "owner/repo" the worker should clone for the deep land security scan
+    # (G4 worker depth). A land carries no repository column, so it is resolved
+    # generically from the source's loops (each Ai::RalphLoop derives it from its
+    # repository_url). Returns nil when no loop records one (e.g. a legacy land),
+    # in which case the worker skips the deep scan cleanly.
+    def repository_full_name
+      source_ralph_loops.where.not(repository_url: [ nil, "" ]).find_each do |loop|
+        name = loop.repository_full_name
+        return name if name.present?
+      end
+      nil
+    end
+
+    # The loops that produced this land's change, resolved generically from the
+    # source (campaign has_many :ralph_loops; a mission's loops point back via
+    # mission_id).
+    def source_ralph_loops
+      src = source
+      if src.respond_to?(:ralph_loops)
+        src.ralph_loops
+      elsif src.is_a?(::Ai::Mission)
+        ::Ai::RalphLoop.where(mission_id: src.id)
+      else
+        ::Ai::RalphLoop.none
+      end
+    end
+
     def terminal?
       status.in?(TERMINAL_STATUSES)
     end
@@ -144,6 +171,7 @@ module Ai
       {
         id: id, campaign_id: campaign_id, source_type: source_type, source_id: source_id, status: status,
         source_branch: source_branch, staging_branch: staging_branch, target_branch: target_branch,
+        repository: repository_full_name,
         base_sha: base_sha, staged_sha: staged_sha, merged_sha: merged_sha,
         conflict_files: conflict_files, parked_reason: parked_reason, error_message: error_message,
         priority: priority, queued_at: queued_at, completed_at: completed_at

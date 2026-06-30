@@ -37,6 +37,23 @@ module Ai
         new(land: land, changed_files: changed_files, contents: contents).evaluate
       end
 
+      # Authoritative blocking decision over a list of finding hashes (the same
+      # shape the gate emits). Reused by the worker park-back surface so the
+      # BLOCKING_SEVERITY threshold lives in exactly one place across the
+      # server-side gate and the worker-reported findings.
+      def self.blocking?(findings)
+        threshold = SEVERITY_ORDER.index(BLOCKING_SEVERITY)
+        Array(findings).any? do |f|
+          sev = f.respond_to?(:[]) ? (f[:severity] || f["severity"]) : nil
+          (SEVERITY_ORDER.index(normalize_severity_value(sev)) || 0) >= threshold
+        end
+      end
+
+      def self.normalize_severity_value(severity)
+        s = severity.to_s.downcase
+        SEVERITY_ORDER.include?(s) ? s : DEFAULT_SEVERITY
+      end
+
       def initialize(land: nil, changed_files: nil, contents: nil)
         @land = land
         @changed_files = Array(changed_files).map(&:to_s)

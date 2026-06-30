@@ -46,6 +46,19 @@ RSpec.describe "Internal::Ai::RalphLoops test_results callback", type: :request 
     expect(iteration.reload.check_results.dig("test_result", "error")).to match(/clone denied/)
   end
 
+  it "scrubs secrets from worker-posted output and error before persisting (G15)" do
+    post path, params: { test_result: { framework: "rspec", exit_code: 1,
+                                        output: "boom\napi_key=sk-ABCDEF1234567890ABCDEF\n1 example, 1 failure",
+                                        error: "GITHUB_TOKEN=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345" } },
+         headers: service_headers, as: :json
+
+    expect(response).to have_http_status(:ok)
+    stored = iteration.reload.check_results["test_result"]
+    expect(stored["output"]).to include("[REDACTED]")
+    expect(stored["output"]).not_to include("sk-ABCDEF1234567890ABCDEF")
+    expect(stored["error"]).not_to include("ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345")
+  end
+
   it "404s for an unknown iteration" do
     post path(ralph_loop.id, "00000000-0000-0000-0000-000000000000"),
          params: { test_result: { framework: "rspec", exit_code: 0, output: "" } },

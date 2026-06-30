@@ -119,6 +119,14 @@ module Api
             iteration = ralph_loop.ralph_iterations.find(params[:iteration_id])
             tr = params.require(:test_result).permit(:framework, :command, :exit_code, :output, :error).to_h.symbolize_keys
 
+            # G15: scrub worker-originated test output/error at the persistence
+            # boundary before it is evaluated, stored, or displayed — the worker
+            # posts RAW suite output, which can echo secrets (env dumps, failing
+            # request bodies). Done here so every stored copy (check_results) is
+            # already redacted, regardless of any worker-side scrubbing.
+            tr[:output] = ::DataManagement::Sanitizer.sanitize_output(tr[:output]) if tr[:output].present?
+            tr[:error]  = ::DataManagement::Sanitizer.sanitize_output(tr[:error]) if tr[:error].present?
+
             evaluation = ::Ai::Ralph::TestVerificationService.new.evaluate(
               framework: tr[:framework], output: tr[:output], exit_code: tr[:exit_code], command: tr[:command]
             )
