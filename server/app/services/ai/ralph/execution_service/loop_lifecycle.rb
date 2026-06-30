@@ -202,6 +202,12 @@ module Ai
         def determine_next_action
           return "completed" if ralph_loop.all_tasks_completed?
           return "max_iterations_reached" if ralph_loop.max_iterations_reached?
+
+          # G5: stop the run-all driver when a runtime resource cap is breached
+          # (wall-clock for any loop; token/$ for metered loops only).
+          cap = ralph_loop.runtime_cap_reason
+          return cap if cap
+
           return "paused" if ralph_loop.status == "paused"
 
           "continue"
@@ -226,6 +232,20 @@ module Ai
             error_code: "MAX_ITERATIONS_REACHED"
           )
           error_result("Maximum iterations reached", completed: true)
+        end
+
+        # G5: a runtime resource cap (wall-clock, or token/$ for metered loops)
+        # tripped mid-run. Stop the loop cleanly at its budget — the work already
+        # landed stands, so this is a budget halt, not a failure.
+        def cap_exceeded_result(reason)
+          ralph_loop.complete!(result: { "stopped_reason" => reason }) if ralph_loop.can_complete?
+          success_result(
+            loop: ralph_loop.reload.loop_summary,
+            message: "Loop stopped: #{reason}",
+            stopped: true,
+            reason: reason,
+            completed: true
+          )
         end
 
         def no_task_result

@@ -113,6 +113,10 @@ module Ai
         return error_result("Ralph loop not found") unless loop_record
 
         if (reason = halt_reason(loop_record))
+          # G5: goal-driven terminator — when the configured completion goal is
+          # met, actually finish the loop (transition to completed) instead of
+          # handing out more work. Other halt reasons just stop the pull.
+          loop_record.complete! if reason == "goal_met" && loop_record.can_complete?
           return { success: true, halted: true, reason: reason, task: nil }
         end
         if (reason = delegation_block_reason(loop_record, params[:holder]))
@@ -474,13 +478,12 @@ module Ai
       end
 
       # Halt checks — executors must stop pulling when any of these hold.
+      # Delegates to the loop's shared Ai::RalphLoop#halt_reason so the dev-loop
+      # pull path and the platform executor evaluate IDENTICAL stop conditions
+      # (kill switch, schedule, terminal state, goal-met, iteration cap, and the
+      # runtime resource caps — wall-clock for any loop, token/$ for metered).
       def halt_reason(loop_record)
-        return "emergency_halt" if account.respond_to?(:ai_suspended?) && account.ai_suspended?
-        return "schedule_paused" if loop_record.schedule_paused?
-        return "loop_#{loop_record.status}" if loop_record.status.in?(%w[paused completed cancelled failed])
-        return "max_iterations_reached" if loop_record.max_iterations_reached?
-
-        nil
+        loop_record.halt_reason
       end
 
       def own_in_progress_task(loop_record)
@@ -548,27 +551,12 @@ module Ai
           blocked: tasks.blocked.count,
           progress_percentage: loop_record.progress_percentage
         }
-        if (criteria = (loop_record.configuration || {})["completion"]).is_a?(Hash)
-          snapshot[:completion] = completion_assessment(loop_record, criteria)
+        # Report-only here (operators/executors read it); the goal-driven
+        # terminator that acts on `met` lives in dev_next_task (G5).
+        if (completion = loop_record.completion_status)
+          snapshot[:completion] = completion
         end
         snapshot
-      end
-
-      # Evaluates configuration.completion criteria over executor-facing tasks
-      # (human-decision tasks are excluded — the loop can't resolve them).
-      # Report-only: operators complete the loop; executors use this to know
-      # when a run is effectively done.
-      def completion_assessment(loop_record, criteria)
-        executable = loop_record.ralph_tasks.where.not(execution_type: "human")
-        total = executable.count
-        non_terminal = executable.where.not(status: Ai::RalphTask::TERMINAL_STATUSES).count
-        failed_pct = total.zero? ? 0.0 : (executable.failed.count.to_f / total * 100).round(1)
-
-        met = total.positive?
-        met &&= non_terminal.zero? if criteria["all_tasks_terminal"]
-        met &&= failed_pct <= criteria["max_failed_pct"].to_f if criteria["max_failed_pct"]
-
-        { criteria: criteria, met: met, non_terminal: non_terminal, failed_pct: failed_pct }
       end
 
       def find_loop(id_or_name)

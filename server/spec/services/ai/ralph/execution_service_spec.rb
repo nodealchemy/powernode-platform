@@ -605,5 +605,34 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
         expect(ralph_loop.reload.status).to eq("completed")
       end
     end
+
+    # G5: runtime resource caps stop the platform executor mid-run too — the same
+    # predicate the dev-loop pull path uses.
+    context "when a runtime cap is exceeded" do
+      before { create(:ai_ralph_task, :pending, ralph_loop: ralph_loop) }
+
+      it "stops the loop on a wall-clock timeout" do
+        ralph_loop.update!(started_at: 2.hours.ago, configuration: { "max_wall_clock_seconds" => 60 })
+
+        result = service.run_iteration
+
+        expect(result[:success]).to be true
+        expect(result[:stopped]).to be true
+        expect(result[:reason]).to eq("wall_clock_exceeded")
+        expect(ralph_loop.reload.status).to eq("completed")
+      end
+
+      it "stops a metered loop over its token cap" do
+        ralph_loop.update!(driver_kind: "platform_agent", configuration: { "max_tokens" => 1000 })
+        create(:ai_ralph_iteration, ralph_loop: ralph_loop, iteration_number: 1,
+                                    tokens_input: 700, tokens_output: 700)
+
+        result = service.run_iteration
+
+        expect(result[:stopped]).to be true
+        expect(result[:reason]).to eq("token_cap_exceeded")
+        expect(ralph_loop.reload.status).to eq("completed")
+      end
+    end
   end
 end

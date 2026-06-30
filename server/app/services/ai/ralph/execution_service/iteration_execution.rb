@@ -11,6 +11,11 @@ module Ai
           return error_result("Loop is not running") unless ralph_loop.status == "running"
           return complete_loop_result if ralph_loop.all_tasks_completed?
           return max_iterations_result if ralph_loop.max_iterations_reached?
+          # G5: runtime resource caps — wall-clock for any loop, token/$ for
+          # metered loops only (flat-rate claude_code loops stay uncapped by design).
+          if (cap = ralph_loop.runtime_cap_reason)
+            return cap_exceeded_result(cap)
+          end
 
           task = select_next_task
           return no_task_result unless task

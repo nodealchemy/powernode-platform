@@ -130,6 +130,109 @@ module Ai
       segments.last(2).join("/")
     end
 
+    # ==================== G5: runtime-aware stop conditions ====================
+    # Config-driven hard stops layered on top of the iteration cap. All keys live
+    # in the loop's `configuration` hash (no migration):
+    #   "completion"             => { "all_tasks_terminal" => true, "max_failed_pct" => 20 }
+    #   "max_wall_clock_seconds" => 3600   # any runtime
+    #   "max_tokens" / "max_cost" => …      # METERED (platform) loops only
+    # Surfaced by #halt_reason / #runtime_cap_reason and enforced on BOTH the
+    # dev-loop pull path (Ai::Tools::DevLoopTool) and the platform executor
+    # (Ai::Ralph::ExecutionService), so "should I stop?" can't drift between them.
+    # Flat-rate claude_code loops stay token/cost-UNCAPPED by design.
+
+    # First triggered stop reason for this loop, or nil. The single source of
+    # truth shared by every executor path.
+    def halt_reason
+      return "emergency_halt" if account&.respond_to?(:ai_suspended?) && account.ai_suspended?
+      return "schedule_paused" if schedule_paused?
+      return "loop_#{status}" if status.in?(%w[paused completed cancelled failed])
+      return "goal_met" if goal_met?
+      return "max_iterations_reached" if max_iterations_reached?
+
+      runtime_cap_reason
+    end
+
+    # Resource caps only (wall-clock for any loop; token/$ for metered loops).
+    # Split out so the platform path can layer it onto its own lifecycle guards
+    # without re-deriving the account/schedule/goal checks.
+    def runtime_cap_reason
+      return "wall_clock_exceeded" if wall_clock_exceeded?
+      return "token_cap_exceeded" if token_cap_exceeded?
+      return "cost_cap_exceeded" if cost_cap_exceeded?
+
+      nil
+    end
+
+    # configuration.completion goal evaluation — shared by the report-only queue
+    # snapshot and the goal-driven terminator. Returns nil when no completion
+    # criteria are configured; otherwise a hash whose :met flag says the objective
+    # is satisfied. Human-decision tasks are excluded (the loop can't resolve them).
+    def completion_status
+      criteria = configuration&.dig("completion")
+      return nil unless criteria.is_a?(Hash)
+
+      executable = ralph_tasks.where.not(execution_type: "human")
+      total = executable.count
+      non_terminal = executable.where.not(status: Ai::RalphTask::TERMINAL_STATUSES).count
+      failed_pct = total.zero? ? 0.0 : (executable.failed.count.to_f / total * 100).round(1)
+
+      met = total.positive?
+      met &&= non_terminal.zero? if criteria["all_tasks_terminal"]
+      met &&= failed_pct <= criteria["max_failed_pct"].to_f if criteria["max_failed_pct"]
+
+      { criteria: criteria, met: met, non_terminal: non_terminal, failed_pct: failed_pct }
+    end
+
+    def goal_met?
+      assessment = completion_status
+      assessment.present? && assessment[:met]
+    end
+
+    # Wall-clock budget (seconds) for the whole run; 0/blank ⇒ no cap.
+    def max_wall_clock_seconds
+      configuration&.dig("max_wall_clock_seconds").to_i
+    end
+
+    def wall_clock_exceeded?
+      cap = max_wall_clock_seconds
+      return false if cap <= 0 || started_at.blank?
+
+      (Time.current - started_at) > cap
+    end
+
+    # Token / cost hard caps — read from configuration; 0/blank ⇒ no cap.
+    def max_tokens
+      configuration&.dig("max_tokens").to_i
+    end
+
+    def max_cost
+      configuration&.dig("max_cost").to_f
+    end
+
+    # Accumulated spend over this loop's iterations (the metered cost surface).
+    def accumulated_tokens
+      ralph_iterations.sum(:tokens_input).to_i + ralph_iterations.sum(:tokens_output).to_i
+    end
+
+    def accumulated_cost
+      ralph_iterations.sum(:cost).to_f
+    end
+
+    # Token/$ caps bite for METERED (platform-executor) loops only — flat-rate
+    # claude_code loops spend no platform $, so they are intentionally uncapped.
+    def token_cap_exceeded?
+      return false unless platform_driven?
+
+      max_tokens.positive? && accumulated_tokens >= max_tokens
+    end
+
+    def cost_cap_exceeded?
+      return false unless platform_driven?
+
+      max_cost.positive? && accumulated_cost >= max_cost
+    end
+
     private
 
     def set_defaults

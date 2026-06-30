@@ -162,6 +162,64 @@ RSpec.describe Ai::Tools::DevLoopTool do
       end
     end
 
+    # G5: goal-driven terminator + runtime-aware hard caps (these get their own
+    # setup — the "halt conditions" before-block seeds a pending task, which would
+    # defeat goal_met).
+    context "G5 stop conditions" do
+      it "ends the loop when the configured completion goal is met (goal_met terminator)" do
+        ralph_loop.update!(status: "running", started_at: Time.current,
+                           configuration: { "completion" => { "all_tasks_terminal" => true } })
+        create(:ai_ralph_task, :passed, ralph_loop: ralph_loop, task_key: "done")
+
+        result = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+        expect(result[:halted]).to be true
+        expect(result[:reason]).to eq("goal_met")
+        expect(result[:task]).to be_nil
+        expect(ralph_loop.reload.status).to eq("completed")
+      end
+
+      it "halts on a wall-clock timeout" do
+        ralph_loop.update!(status: "running", started_at: 2.hours.ago,
+                           configuration: { "max_wall_clock_seconds" => 60 })
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "slow")
+
+        result = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+        expect(result[:halted]).to be true
+        expect(result[:reason]).to eq("wall_clock_exceeded")
+        expect(result[:task]).to be_nil
+      end
+
+      it "halts a metered (platform) loop over its token cap" do
+        metered = create(:ai_ralph_loop, account: account, driver_kind: "platform_agent",
+                         status: "running", started_at: Time.current,
+                         configuration: { "max_tokens" => 1000 })
+        create(:ai_ralph_iteration, ralph_loop: metered, iteration_number: 1,
+                                    tokens_input: 800, tokens_output: 800)
+        create(:ai_ralph_task, ralph_loop: metered, task_key: "x")
+
+        result = tool.execute(params: { action: "dev_next_task", loop_id: metered.id })
+
+        expect(result[:halted]).to be true
+        expect(result[:reason]).to eq("token_cap_exceeded")
+      end
+
+      it "leaves a flat-rate claude_code loop UNCAPPED over the same nominal spend" do
+        flat = create(:ai_ralph_loop, account: account, driver_kind: "claude_code",
+                      status: "running", started_at: Time.current,
+                      configuration: { "max_tokens" => 1000 })
+        create(:ai_ralph_iteration, ralph_loop: flat, iteration_number: 1,
+                                    tokens_input: 800, tokens_output: 800)
+        create(:ai_ralph_task, ralph_loop: flat, task_key: "y")
+
+        result = tool.execute(params: { action: "dev_next_task", loop_id: flat.id })
+
+        expect(result[:halted]).to be_falsey
+        expect(result[:task][:task_key]).to eq("y")
+      end
+    end
+
     it "returns an error for an unknown loop" do
       result = tool.execute(params: { action: "dev_next_task", loop_id: "nope" })
 
@@ -478,14 +536,19 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(completion[:non_terminal]).to eq(1) # "open" claimed in_progress; human excluded
       expect(completion[:failed_pct]).to eq(0.0)
 
-      tool.execute(params: {
+      done = tool.execute(params: {
         action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "open",
         outcome: "passed", summary: "done"
       })
-      snapshot = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
 
-      expect(snapshot[:queue_empty]).to be true
-      expect(snapshot[:queue][:completion][:met]).to be true
+      # Report-only assessment still surfaces in the queue snapshot...
+      expect(done[:queue][:completion][:met]).to be true
+      # ...and the dev_next_task terminator now ACTS on it (G5): the loop finishes
+      # instead of handing out more work.
+      snapshot = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+      expect(snapshot[:halted]).to be true
+      expect(snapshot[:reason]).to eq("goal_met")
+      expect(ralph_loop.reload.status).to eq("completed")
     end
   end
 
