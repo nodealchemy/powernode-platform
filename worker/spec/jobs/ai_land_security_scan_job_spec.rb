@@ -63,6 +63,15 @@ RSpec.describe AiLandSecurityScanJob, type: :job do
     DIFF
   end
 
+  let(:bundler_audit_high) do
+    {
+      "results" => [
+        { "type" => "unpatched_gem", "gem" => { "name" => "nokogiri", "version" => "1.10.0" },
+          "advisory" => { "id" => "CVE-2222-0001", "criticality" => "high", "title" => "XXE" } }
+      ]
+    }.to_json
+  end
+
   it "runs on the ai_orchestration queue" do
     expect(described_class.get_sidekiq_options["queue"]).to eq("ai_orchestration")
   end
@@ -103,6 +112,50 @@ RSpec.describe AiLandSecurityScanJob, type: :job do
       job.execute(args)
 
       expect(posted.to_json).not_to include("sk-ABCDEF1234567890ABCDEF")
+    end
+
+    it "posts a blocking finding and does NOT advance to CI when a dependency has a HIGH CVE" do
+      allow(job).to receive(:run_workspace_command) do |_ws, cmd, **_o|
+        if cmd.include?("git diff")
+          { exit_code: 0, output: clean_diff, error: nil }
+        elsif cmd.include?("bundle-audit")
+          { exit_code: 1, output: bundler_audit_high, error: nil }
+        else
+          { exit_code: 127, output: "command not found", error: nil }
+        end
+      end
+
+      expect(api_client).to receive(:post).with(
+        "/api/v1/internal/ai/campaign_lands/L1/security_findings",
+        hash_including(
+          findings: array_including(hash_including(scanner: "dependency-cve", severity: "high")),
+          scanners: array_including("dependency-cve")
+        )
+      ).and_return("data" => { "blocked" => true })
+      expect(AiCampaignLandCiPollJob).not_to receive(:perform_async)
+
+      job.execute(args)
+    end
+
+    it "records the dependency-cve scanner but does NOT block on a clean dependency scan" do
+      allow(job).to receive(:run_workspace_command) do |_ws, cmd, **_o|
+        if cmd.include?("git diff")
+          { exit_code: 0, output: clean_diff, error: nil }
+        elsif cmd.include?("bundle-audit")
+          { exit_code: 0, output: { "results" => [] }.to_json, error: nil }
+        else
+          { exit_code: 127, output: "command not found", error: nil }
+        end
+      end
+      posted = nil
+      allow(api_client).to receive(:post) { |_path, body| posted = body; { "data" => { "blocked" => false } } }
+      expect(AiCampaignLandCiPollJob).to receive(:perform_async)
+        .with("land_id" => "L1", "gate" => "staged", "attempt" => 0)
+
+      job.execute(args)
+
+      expect(posted[:findings]).to be_empty
+      expect(posted[:scanners]).to include("dependency-cve")
     end
 
     it "advances to the staged-CI poll when the diff is clean" do

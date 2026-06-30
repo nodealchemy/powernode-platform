@@ -2,16 +2,19 @@
 
 require "shellwords"
 require_relative "../services/devops/secret_scanner"
+require_relative "../services/devops/dependency_scanner"
 
 # G4 worker-side DEEP security scan on the REAL staged land diff. Runs between the
 # stage and CI-poll phases of the auto-land pipeline: it checks out the source
 # branch (reusing the Devops checkout handler), diffs it against the land base,
 # and scans the diff for leaked secrets — the depth the server-side
 # Ai::Land::SecurityGateService (which only sees server-side metadata, not the
-# committed diff) cannot reach. Brakeman SAST runs best-effort when the binary is
-# available; dependency-CVE / SBOM scanning over the diff (via the supply-chain
-# step handlers) is a deliberate follow-up — core must not hard-depend on that
-# extension, so it is NOT wired here.
+# committed diff) cannot reach. Brakeman SAST and generic dependency-CVE auditing
+# (Devops::DependencyScanner: bundler-audit / npm audit / pip-audit) run
+# best-effort when the respective tooling is available. The dependency scan uses
+# stock, ecosystem-standard tools — NOT the supply-chain extension — so core/worker
+# never hard-depends on that extension. SBOM generation over the checkout remains a
+# deliberate follow-up.
 #
 # Findings are POSTed to the server's land park-back surface
 # (campaign_lands#security_findings), which records them under
@@ -42,6 +45,7 @@ class AiLandSecurityScanJob < BaseJob
 
   DIFF_TIMEOUT_SECONDS = 120
   BRAKEMAN_TIMEOUT_SECONDS = 180
+  DEPENDENCY_SCAN_TIMEOUT_SECONDS = 180
 
   # Synthetic park-back finding for an incomplete scan. "high" sits at the
   # server's BLOCKING_SEVERITY threshold (Ai::Land::SecurityGateService), so the
@@ -77,6 +81,12 @@ class AiLandSecurityScanJob < BaseJob
       sast = run_brakeman(workspace)
       findings.concat(sast[:findings])
       scanners << "brakeman" if sast[:ran]
+
+      # Generic dependency-CVE auditing. Unlike Brakeman (a single tool, listed
+      # only when it actually ran), this layer is a best-effort composite that
+      # always participates in the gate, so its scanner name is always recorded.
+      findings.concat(run_dependency_scan(workspace))
+      scanners << Devops::DependencyScanner::SCANNER_NAME
 
       blocked = report_findings(land_id, findings, scanners)
       log_info "[AiLandSecurityScan] land #{land_id} findings=#{findings.size} blocked=#{blocked}"
@@ -150,6 +160,22 @@ class AiLandSecurityScanJob < BaseJob
     when "high"   then "high"
     when "medium" then "medium"
     end
+  end
+
+  # Best-effort generic dependency-CVE scan over the checkout. Delegates the
+  # per-ecosystem run/parse to Devops::DependencyScanner, handing it a closure
+  # over the shared workspace command runner. The scanner already skips each
+  # ecosystem cleanly on a missing tool/manifest; this rescue is a final
+  # best-effort backstop so a dependency-tool problem never fails the land closed
+  # (only the secret scan + diff do that).
+  def run_dependency_scan(workspace)
+    Devops::DependencyScanner.scan(
+      workspace,
+      runner: ->(command) { run_workspace_command(workspace, command, timeout_secs: DEPENDENCY_SCAN_TIMEOUT_SECONDS) }
+    )
+  rescue StandardError => e
+    log_info "[AiLandSecurityScan] dependency-CVE scan unavailable/failed; skipping (#{e.class})"
+    []
   end
 
   # Post findings to the land park-back surface; returns whether the server
