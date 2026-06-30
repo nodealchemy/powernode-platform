@@ -49,50 +49,9 @@ class WorkerApiClient
     queue_job("Git::RepositorySyncJob", [ credential_id ], queue: "services")
   end
 
-  # Queue async processing of a module publication (post-Gitea-webhook).
-  # The webhook receiver does sync HMAC + module lookup, then enqueues
-  # this so the slow path (manifest fetch from Gitea, version snapshot,
-  # OCI ingest with cosign verify, skill registration, fleet event
-  # emission) runs out of band — keeping the webhook ack fast enough
-  # that Gitea's retry window never elapses.
-  #
-  # The version snapshot is created INSIDE the processor (not by the
-  # webhook) so the snapshot captures the manifest-imported module
-  # state rather than stale pre-import data.
-  # @param node_module_id [String] UUID of the NodeModule
-  # @param tag [String] Git tag the publication is for (e.g. "v1.2.3")
-  # @return [Hash] Response from worker (job_id + status)
-  def queue_module_publication_processing(node_module_id, tag)
-    queue_job(
-      "System::ProcessModulePublicationJob",
-      [ node_module_id, tag ],
-      queue: "services"
-    )
-  end
-
-  # Queue the async tail of a disk-image webhook receive — worker
-  # picks up the publication, calls back to /worker_api/disk_image_publications/process,
-  # which runs the long-pole oras pull + cosign verify + storage upload.
-  # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — Chunk 2).
-  def queue_disk_image_publication_processing(publication_id:)
-    queue_job(
-      "System::ProcessDiskImagePublicationJob",
-      [ publication_id ],
-      queue: "services"
-    )
-  end
-
-  # Queue the per-publish retention sweep — fires immediately after a
-  # successful publish so old DiskImagePublications get retired without
-  # waiting for the daily 3:30 AM reaper. Idempotent: re-runs are no-ops
-  # when nothing's eligible.
-  def queue_disk_image_retention_sweep(platform_id:)
-    queue_job(
-      "System::ExpireOldDiskImageFileObjectsJob",
-      [],
-      queue: "maintenance"
-    )
-  end
+  # NOTE: fleet-substrate (System) extension job dispatch (module/disk-image publication
+  # processing, retention sweeps) lives in the extension itself — it enqueues its own jobs via
+  # the slug-agnostic #queue_job primitive below, so this core client never names an extension job.
 
   # Queue a Git pipeline sync job
   # @param repository_id [String] GitRepository ID

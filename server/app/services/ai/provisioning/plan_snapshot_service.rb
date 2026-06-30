@@ -168,26 +168,25 @@ module Ai
         %w[provision_full_stack scale_project attach_storage deploy_app_code relocate_workload].include?(skill.to_s)
       end
 
+      # Provision-step inputs may reference fleet-substrate records (instance types, regions)
+      # owned by the System extension. Core resolves their display labels through the generic
+      # provider(:provision_label_resolver) seam — the extension injects the lookup (and any
+      # provider-type-specific naming); core names no extension constant. nil ⇒ core mode (the
+      # extension is absent), in which case the label is simply omitted.
+      def provision_label_resolver
+        ::Powernode::ExtensionRegistry.provider(:provision_label_resolver)
+      rescue StandardError
+        nil
+      end
+
       def resolve_instance_label(inputs)
-        return nil unless defined?(::System::ProviderInstanceType)
-        id = inputs["provider_instance_type_id"] || inputs[:provider_instance_type_id]
-        return nil if id.blank?
-        ::System::ProviderInstanceType.where(account_id: account.id).find_by(id: id)&.name
+        provision_label_resolver&.instance_label(account: account, inputs: inputs)
       rescue StandardError
         nil
       end
 
       def resolve_region_label(inputs)
-        return nil unless defined?(::System::ProviderRegion)
-        id = inputs["provider_region_id"] || inputs[:provider_region_id]
-        return nil if id.blank?
-        region = ::System::ProviderRegion.where(account_id: account.id).find_by(id: id)
-        return nil unless region
-        provider_type = region.provider&.provider_type.to_s
-        # Local hypervisor regions have arbitrary names — show the provider
-        # type instead of the meaningless region code (e.g. "default-region").
-        return "local hypervisor" if provider_type == "local_qemu"
-        region.code.presence || region.name.presence
+        provision_label_resolver&.region_label(account: account, inputs: inputs)
       rescue StandardError
         nil
       end
