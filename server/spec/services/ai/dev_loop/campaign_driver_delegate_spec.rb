@@ -24,6 +24,19 @@ RSpec.describe Ai::DevLoop::CampaignDriver, "#delegate" do
     expect(loop_record.scheduling_mode).to eq("manual")
   end
 
+  it "delegates to a non-Claude flat-rate CLI (external_cli): manual scheduling + lease, off the platform scheduler" do
+    result = driver.delegate(campaign, driver_kind: "external_cli", holder: "grok-sess-1")
+
+    expect(result[:driver_kind]).to eq("external_cli")
+    expect(result[:lease][:holder]).to eq("grok-sess-1") # flat-rate CLI takes the single-driver lease
+    loop_record.reload
+    expect(loop_record.driver_kind).to eq("external_cli")
+    expect(loop_record.flat_rate_executor?).to be true
+    expect(loop_record.scheduling_mode).to eq("manual")
+    expect(loop_record.next_scheduled_at).to be_nil # pull-based, never on the platform scheduler
+    expect(Ai::RalphLoop.due_for_execution).not_to include(loop_record)
+  end
+
   it "delegates to a platform agent: wires the agent + makes the loop due for the scheduler" do
     agent = create(:ai_agent, account: account)
 

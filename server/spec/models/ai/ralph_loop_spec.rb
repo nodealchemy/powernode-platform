@@ -193,4 +193,83 @@ RSpec.describe Ai::RalphLoop, type: :model do
       end
     end
   end
+
+  describe "G9 vendor-neutral flat-rate executor taxonomy" do
+    it "accepts external_cli as a valid driver_kind alongside claude_code" do
+      Ai::RalphLoop::FLAT_RATE_DRIVER_KINDS.each do |kind|
+        expect(build(:ai_ralph_loop, account: account, driver_kind: kind)).to be_valid
+      end
+    end
+
+    describe "#flat_rate_executor?" do
+      it "is true for claude_code AND external_cli" do
+        Ai::RalphLoop::FLAT_RATE_DRIVER_KINDS.each do |kind|
+          loop_rec = build(:ai_ralph_loop, account: account, driver_kind: kind)
+          expect(loop_rec.flat_rate_executor?).to be(true), "expected #{kind} to be flat-rate"
+          expect(loop_rec.platform_driven?).to be false
+        end
+      end
+
+      it "is false for metered platform_* loops" do
+        Ai::RalphLoop::PLATFORM_DRIVER_KINDS.each do |kind|
+          loop_rec = build(:ai_ralph_loop, account: account, driver_kind: kind)
+          expect(loop_rec.flat_rate_executor?).to be(false), "expected #{kind} not to be flat-rate"
+          expect(loop_rec.platform_driven?).to be true
+        end
+      end
+
+      it "keeps claude_code_driven? specific to claude_code (back-compat)" do
+        expect(build(:ai_ralph_loop, account: account, driver_kind: "claude_code").claude_code_driven?).to be true
+        expect(build(:ai_ralph_loop, account: account, driver_kind: "external_cli").claude_code_driven?).to be false
+      end
+    end
+
+    describe "#executor_vendor" do
+      it "defaults the claude_code instance to anthropic" do
+        expect(build(:ai_ralph_loop, account: account, driver_kind: "claude_code").executor_vendor).to eq("anthropic")
+      end
+
+      it "resolves the configured vendor label for external_cli" do
+        loop_rec = build(:ai_ralph_loop, account: account, driver_kind: "external_cli",
+                                         configuration: { "executor_vendor" => "grok" })
+        expect(loop_rec.executor_vendor).to eq("grok")
+      end
+
+      it "lets configuration override the claude_code default" do
+        loop_rec = build(:ai_ralph_loop, account: account, driver_kind: "claude_code",
+                                         configuration: { "executor_vendor" => "claude" })
+        expect(loop_rec.executor_vendor).to eq("claude")
+      end
+
+      it "falls back to a generic label for an unlabelled external_cli" do
+        expect(build(:ai_ralph_loop, account: account, driver_kind: "external_cli").executor_vendor).to eq("external_cli")
+      end
+
+      it "is nil for a metered platform loop (no external CLI vendor)" do
+        expect(build(:ai_ralph_loop, account: account, driver_kind: "platform_agent").executor_vendor).to be_nil
+      end
+    end
+
+    it "leaves a flat-rate external_cli loop token/cost-UNCAPPED, like claude_code" do
+      flat = create(:ai_ralph_loop, account: account, driver_kind: "external_cli",
+                    configuration: { "executor_vendor" => "grok", "max_tokens" => 1000, "max_cost" => 1.0 })
+      create(:ai_ralph_iteration, ralph_loop: flat, iteration_number: 1,
+                                  tokens_input: 600, tokens_output: 600, cost: 1.25)
+
+      expect(flat.token_cap_exceeded?).to be false
+      expect(flat.cost_cap_exceeded?).to be false
+      expect(flat.runtime_cap_reason).to be_nil
+      expect(flat.halt_reason).to be_nil
+    end
+
+    it "keeps the metered scope to platform_* loops only (external_cli excluded)" do
+      cc   = create(:ai_ralph_loop, account: account, driver_kind: "claude_code")
+      ext  = create(:ai_ralph_loop, account: account, driver_kind: "external_cli")
+      plat = create(:ai_ralph_loop, account: account, driver_kind: "platform_agent")
+
+      metered = Ai::RalphLoop.metered
+      expect(metered).to include(plat)
+      expect(metered).not_to include(cc, ext)
+    end
+  end
 end

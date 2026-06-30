@@ -158,19 +158,20 @@ module Api
           end
 
           # True when the platform executor must NOT drain this loop right now. Legacy loops
-          # (no campaign / nil driver_kind) are never blocked. A CC-driven campaign loop is
-          # always skipped (a Claude Code session drains it). A platform-driven campaign loop
-          # is drained only if this executor can hold the single-driver lease — if a different
-          # driver (e.g. a CC session mid-handoff) holds it, skip until it's released.
+          # (no campaign / nil driver_kind) are never blocked. A flat-rate CLI-driven
+          # campaign loop is always skipped (a Claude Code or other CLI session drains it).
+          # A platform-driven campaign loop is drained only if this executor can hold the
+          # single-driver lease — if a different driver (e.g. a CLI session mid-handoff)
+          # holds it, skip until it's released.
           PLATFORM_LEASE_HOLDER = "platform-executor"
 
           def platform_drain_blocked?(loop)
             return false if loop.campaign_id.blank? || loop.driver_kind.blank?
 
-            # Re-read driver_kind: a concurrent #delegate may have flipped this loop to
-            # claude_code since due_for_execution loaded it.
+            # Re-read driver_kind: a concurrent #delegate may have flipped this loop to a
+            # flat-rate CLI driver since due_for_execution loaded it.
             loop.reload
-            return true if loop.driver_kind.blank? || loop.claude_code_driven?
+            return true if loop.driver_kind.blank? || loop.flat_rate_executor?
 
             campaign = loop.campaign
             return false unless campaign

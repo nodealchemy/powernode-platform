@@ -512,6 +512,10 @@ module Ai
             name: loop_record.name,
             status: loop_record.status,
             branch: loop_record.branch,
+            # G9: vendor-neutral executor identity for per-vendor attribution/telemetry
+            # (the flat-rate CLI draining this loop — claude_code/external_cli + its vendor).
+            driver_kind: loop_record.driver_kind,
+            executor_vendor: loop_record.executor_vendor,
             repository_url: loop_record.repository_url,
             loop_spec_path: config["loop_spec_path"],
             guardrails: config["guardrails"],

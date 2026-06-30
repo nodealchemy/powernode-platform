@@ -30,6 +30,16 @@ RSpec.describe "Api::V1::Internal::Ai::RalphLoops drain gating", type: :request 
     expect(data["loops_skipped"]).to be >= 1
   end
 
+  it "skips a non-Claude flat-rate CLI (external_cli) campaign loop even when it is due" do
+    cdriver.delegate(campaign, driver_kind: "external_cli")
+    # Force the external_cli loop to look due; the platform scheduler must still skip it.
+    loop_record.reload.update_columns(status: "running", next_scheduled_at: 1.minute.ago, schedule_paused: false)
+    expect_any_instance_of(Ai::Ralph::ExecutionService).not_to receive(:run_iteration)
+
+    data = process_scheduled
+    expect(data["loops_skipped"]).to be >= 1
+  end
+
   it "drains a platform-delegated campaign loop and holds the platform lease" do
     agent = create(:ai_agent, account: internal_account)
     cdriver.delegate(campaign, driver_kind: "platform_agent", target: { agent_id: agent.id })

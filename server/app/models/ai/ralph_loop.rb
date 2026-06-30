@@ -16,10 +16,17 @@ module Ai
     SCHEDULING_MODES = %w[manual scheduled continuous event_triggered autonomous].freeze
 
     # Who drives this loop's task queue (campaign discovery/delegation control plane).
-    # claude_code = a Claude Code session drains it via the dev-loop pull queue;
-    # platform_* = the platform executor drains it. nil = legacy (scheduling-mode-driven).
-    DRIVER_KINDS = %w[claude_code platform_agent platform_team platform_mission].freeze
+    # Flat-rate CLI executors (claude_code / external_cli) drain it via the dev-loop
+    # pull queue; platform_* = the metered platform executor drains it.
+    # nil = legacy (scheduling-mode-driven).
+    DRIVER_KINDS = %w[claude_code external_cli platform_agent platform_team platform_mission].freeze
     PLATFORM_DRIVER_KINDS = %w[platform_agent platform_team platform_mission].freeze
+    # Vendor-neutral flat-rate executors: a Claude Code session OR any other
+    # MCP-client CLI (Grok / Codex / Gemini …) drains the loop via the dev-loop pull
+    # queue. Flat-rate ⇒ spends no platform token/$ budget (the inverse of the metered
+    # PLATFORM_DRIVER_KINDS). `claude_code` is the original labelled instance;
+    # `external_cli` generalises it to any vendor's CLI (vendor in configuration).
+    FLAT_RATE_DRIVER_KINDS = %w[claude_code external_cli].freeze
 
     # ==================== Associations ====================
     belongs_to :account
@@ -61,7 +68,7 @@ module Ai
     scope :active, -> { where(status: %w[pending running paused]) }
     scope :recent, -> { order(created_at: :desc) }
     # Metered loops: drained by the platform executor, which actually spends
-    # tokens/$ (vs flat-rate claude_code loops). Used for cost-per-accepted-change.
+    # tokens/$ (vs flat-rate CLI loops). Used for cost-per-accepted-change.
     scope :metered, -> { where(driver_kind: PLATFORM_DRIVER_KINDS) }
 
     # Scheduling scopes
@@ -89,7 +96,15 @@ module Ai
       code_factory_mode == true
     end
 
-    # Drained by a Claude Code session via the dev-loop pull queue.
+    # Drained by a flat-rate CLI executor (Claude Code or any other MCP-client CLI —
+    # Grok / Codex / Gemini …) via the dev-loop pull queue. Flat-rate is the canonical
+    # "not metered" concept; prefer this over claude_code_driven? for cost/scheduling intent.
+    def flat_rate_executor?
+      driver_kind.in?(FLAT_RATE_DRIVER_KINDS)
+    end
+
+    # Back-compat: specifically the Claude Code instance of a flat-rate executor.
+    # Use flat_rate_executor? when the intent is "any flat-rate / pull-drained loop".
     def claude_code_driven?
       driver_kind == "claude_code"
     end
@@ -97,6 +112,19 @@ module Ai
     # Drained by the platform executor (agent/group/mission).
     def platform_driven?
       PLATFORM_DRIVER_KINDS.include?(driver_kind)
+    end
+
+    # Per-vendor attribution/telemetry for the flat-rate CLI executor. Sourced from
+    # configuration["executor_vendor"] (e.g. "grok", "codex", "gemini") with no migration;
+    # falls back to "anthropic" for the claude_code instance, a generic label for an
+    # unlabelled external_cli, and nil for metered platform loops (no external CLI vendor).
+    def executor_vendor
+      configured = configuration&.dig("executor_vendor").presence
+      return configured if configured
+      return "anthropic" if claude_code_driven?
+      return "external_cli" if driver_kind == "external_cli"
+
+      nil
     end
 
     def run_all_active?
@@ -139,7 +167,7 @@ module Ai
     # Surfaced by #halt_reason / #runtime_cap_reason and enforced on BOTH the
     # dev-loop pull path (Ai::Tools::DevLoopTool) and the platform executor
     # (Ai::Ralph::ExecutionService), so "should I stop?" can't drift between them.
-    # Flat-rate claude_code loops stay token/cost-UNCAPPED by design.
+    # Flat-rate CLI loops (claude_code / external_cli) stay token/cost-UNCAPPED by design.
 
     # First triggered stop reason for this loop, or nil. The single source of
     # truth shared by every executor path.
@@ -220,7 +248,7 @@ module Ai
     end
 
     # Token/$ caps bite for METERED (platform-executor) loops only — flat-rate
-    # claude_code loops spend no platform $, so they are intentionally uncapped.
+    # CLI loops (claude_code / external_cli) spend no platform $, so they are uncapped.
     def token_cap_exceeded?
       return false unless platform_driven?
 

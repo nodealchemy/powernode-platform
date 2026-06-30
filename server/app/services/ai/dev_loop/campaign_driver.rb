@@ -121,13 +121,13 @@ module Ai
 
         lease = nil
         # Atomic reassignment under the campaign row lock: release the incumbent lease
-        # (operator override), re-route every loop, and — for claude_code — take the lease,
-        # as one unit. Without the lock a concurrent pull/scheduler/delegate could interleave
+        # (operator override), re-route every loop, and — for a flat-rate CLI driver — take
+        # the lease, as one unit. Without the lock a concurrent pull/scheduler/delegate could interleave
         # between release and re-acquire and leave the lease holder misaligned with driver_kind.
         campaign.with_lock do
           campaign.release_driver_lease!(holder: campaign.driver_lease_holder) if campaign.driver_lease_active?
           campaign.ralph_loops.find_each { |loop_record| apply_driver_routing!(loop_record, driver_kind, normalized_target) }
-          if driver_kind == "claude_code" && holder.present?
+          if Ai::RalphLoop::FLAT_RATE_DRIVER_KINDS.include?(driver_kind) && holder.present?
             campaign.acquire_driver_lease!(holder: holder) # succeeds: lease was just released under this lock
             lease = campaign.driver_lease_info
           end
@@ -281,7 +281,8 @@ module Ai
       # validations are the defense-in-depth backstop.
       def validate_and_resolve_target!(driver_kind, target)
         case driver_kind
-        when "claude_code"
+        when *Ai::RalphLoop::FLAT_RATE_DRIVER_KINDS
+          # Flat-rate CLI drivers (claude_code / external_cli) pull from the queue; no platform target.
           {}
         when "platform_agent"
           id = target["agent_id"].presence
@@ -312,8 +313,8 @@ module Ai
       def apply_driver_routing!(loop_record, driver_kind, target)
         attrs = { driver_kind: driver_kind, driver_target: target }
         case driver_kind
-        when "claude_code"
-          # CC pulls manually; keep it off the platform scheduler.
+        when *Ai::RalphLoop::FLAT_RATE_DRIVER_KINDS
+          # Flat-rate CLI drivers (claude_code / external_cli) pull manually; keep them off the platform scheduler.
           attrs[:scheduling_mode] = "manual"
           attrs[:next_scheduled_at] = nil
         else # platform_agent | platform_team | platform_mission
@@ -327,7 +328,8 @@ module Ai
         loop_record.update!(attrs)
         # The scheduling_mode change recomputes next_scheduled_at into the future; make the
         # loop due immediately so the platform scheduler picks it up on its next pass.
-        loop_record.update_columns(next_scheduled_at: Time.current) if driver_kind != "claude_code"
+        # Flat-rate CLI drivers pull manually and are never on the platform scheduler.
+        loop_record.update_columns(next_scheduled_at: Time.current) unless Ai::RalphLoop::FLAT_RATE_DRIVER_KINDS.include?(driver_kind)
       end
 
       def create_campaign_loop(campaign, workload: DEFAULT_WORKLOAD)
