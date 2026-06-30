@@ -351,17 +351,24 @@ module Ai
           ].compact.join("\n\n")
         end
 
-        # NOTE/limitation: a unified diff is not available at this path — the agent
-        # executor returns output TEXT plus an optional commit SHA and a
-        # file_changes summary (not a patch). The checker therefore evaluates the
-        # output text augmented with the commit / changed-files summary. Feeding a
-        # real diff (e.g. from GitToolExecutor) is a follow-up.
+        # Compose the checker's review input. PREFERS the REAL unified diff of the
+        # iteration's commit (result[:diff], captured best-effort by the git-tool
+        # executor and already size-capped) so the checker reviews the actual patch.
+        # The diff is run through DataManagement::Sanitizer.sanitize_output first —
+        # consistent with G15 — so a secret planted in the change never reaches the
+        # evaluator LLM. FALLS BACK to the output text + commit SHA + changed-files
+        # summary when no diff is available (non-git executors, no commit, or a
+        # diff-fetch failure) — the pre-follow-up behaviour, unchanged.
         def checker_output_text(output, result)
           parts = [output.to_s]
           parts << "Commit: #{result[:commit_sha]}" if result[:commit_sha].present?
 
-          changed = changed_files_from_result(result)
-          parts << "Changed files: #{changed.join(', ')}" if changed.any?
+          if (diff = result[:diff].presence)
+            parts << "Unified diff:\n#{::DataManagement::Sanitizer.sanitize_output(diff)}"
+          else
+            changed = changed_files_from_result(result)
+            parts << "Changed files: #{changed.join(', ')}" if changed.any?
+          end
 
           parts.join("\n\n")
         end

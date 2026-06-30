@@ -143,6 +143,10 @@ module Ai
           metadata: { usage: last_response.usage, cost: last_response.cost },
           file_changes: @git_executor&.file_changes || [],
           last_commit_sha: @git_executor&.last_commit_sha,
+          # G3 follow-up: carry the REAL unified diff of the commit (best-effort —
+          # only computed when a commit was made; nil otherwise) so the maker/checker
+          # can review the actual patch instead of only output + a file-list summary.
+          diff: @git_executor&.unified_diff,
           tool_calls_log: @tool_calls_log
         }
       end

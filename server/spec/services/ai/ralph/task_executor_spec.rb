@@ -288,6 +288,28 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
       end
     end
 
+    # G3 follow-up: the agentic-loop result's best-effort unified diff is carried
+    # through to the executor result so the maker/checker can review the real patch.
+    describe 'normalize_result diff carry' do
+      it 'carries result[:diff] from the agentic loop into the executor result' do
+        raw = { success: true, content: "ok", last_commit_sha: "abc123",
+                file_changes: ["app/x.rb"], diff: "diff --git a/app/x.rb b/app/x.rb\n+1\n", metadata: {} }
+
+        result = executor.send(:normalize_result, raw, agent)
+
+        expect(result[:diff]).to eq("diff --git a/app/x.rb b/app/x.rb\n+1\n")
+        expect(result[:commit_sha]).to eq("abc123")
+      end
+
+      it 'leaves diff absent (nil) when the loop captured none (non-git path / no commit)' do
+        raw = { success: true, content: "ok", last_commit_sha: nil, file_changes: [], metadata: {} }
+
+        result = executor.send(:normalize_result, raw, agent)
+
+        expect(result[:diff]).to be_nil
+      end
+    end
+
     describe 'extract_content' do
       it 'extracts content from choices format' do
         response = { choices: [{ message: { content: "Hello" } }] }

@@ -481,6 +481,84 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
   end
 
   # ===========================================================================
+  # G3 follow-up: the maker/checker reviews the REAL unified diff (scrubbed,
+  # size-capped) when the executor captured one, and falls back to the
+  # output-text + changed-files summary when it didn't.
+  # ===========================================================================
+
+  describe "maker/checker diff review (G3 follow-up)" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+    let(:evaluator) { instance_double(Ai::Reasoning::OutputEvaluatorService) }
+    let(:policy) do
+      instance_double(
+        Ai::Ralph::MakerCheckerPolicy,
+        enabled?: true, distinct_checker?: true,
+        maker_model: "cheap-maker", checker_model: "strong-checker",
+        checker_agent_id: agent.id, criteria: []
+      )
+    end
+    # Capture the exact review input the (stubbed) evaluator is handed.
+    let(:captured) { {} }
+
+    before do
+      ralph_loop.update!(configuration: { "maker_checker" => true, "real_test_execution" => false })
+      allow(Ai::Ralph::MakerCheckerPolicy).to receive(:new).and_return(policy)
+      allow(Ai::Reasoning::OutputEvaluatorService).to receive(:new).and_return(evaluator)
+      allow(evaluator).to receive(:evaluate) do |**kwargs|
+        captured[:output] = kwargs[:output]
+        { verdict: "pass", scores: {}, feedback: "ok" }
+      end
+    end
+
+    context "when the executor provides a real unified diff (with a planted secret)" do
+      let(:result) do
+        {
+          output: "did the work", checks_passed: true, commit_sha: "abc123",
+          diff: "diff --git a/app/x.rb b/app/x.rb\n+api_key=\"SUPERSECRETVALUE123\"\n+puts :ok\n",
+          file_changes: ["app/x.rb"], tokens: {}, cost: 0
+        }
+      end
+
+      it "feeds the diff to the checker, scrubbed of the secret, not the file-list summary" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        review = captured[:output]
+        expect(review).to include("Unified diff:")
+        expect(review).to include("diff --git a/app/x.rb b/app/x.rb")
+        expect(review).to include("puts :ok")
+        # G15 scrub: the planted secret value never reaches the evaluator.
+        expect(review).not_to include("SUPERSECRETVALUE123")
+        expect(review).to include("[REDACTED]")
+        # Prefer the diff over the changed-files summary when a diff is present.
+        expect(review).not_to include("Changed files:")
+      end
+    end
+
+    context "when the executor provides no diff (fallback)" do
+      let(:result) do
+        {
+          output: "did the work", checks_passed: true, commit_sha: "abc123",
+          file_changes: ["app/x.rb"], tokens: {}, cost: 0
+        }
+      end
+
+      it "falls back to the output text + commit + changed-files summary (no regression)" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        review = captured[:output]
+        expect(review).to include("did the work")
+        expect(review).to include("Commit: abc123")
+        expect(review).to include("Changed files: app/x.rb")
+        expect(review).not_to include("Unified diff:")
+      end
+    end
+  end
+
+  # ===========================================================================
   # G10: scope guardrail on the platform executor path. A commit touching a
   # protected path is BLOCKED for human review (never auto-passed), composing
   # with the G1 test gate and G3 maker/checker.
