@@ -48,6 +48,34 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
       end
     end
 
+    # G13: loop-readiness preflight — a loop with no objective gate can't start.
+    context "when the readiness preflight fails (no objective gate)" do
+      let(:loop_status) { "pending" }
+
+      before do
+        create(:ai_ralph_task, ralph_loop: ralph_loop, status: "pending")
+        ralph_loop.update!(total_tasks: 1, configuration: { "real_test_execution" => false })
+      end
+
+      it "refuses to start and stays pending" do
+        result = service.start_loop
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/readiness preflight/i)
+        expect(result[:failures].join).to match(/objective verification gate/i)
+        expect(ralph_loop.reload.status).to eq("pending")
+      end
+
+      it "starts (with a warning) once the missing gate is acknowledged" do
+        ralph_loop.update!(configuration: { "real_test_execution" => false, "acknowledge_no_gate" => true })
+        result = service.start_loop
+
+        expect(result[:success]).to be true
+        expect(ralph_loop.reload.status).to eq("running")
+        expect(result[:warnings].join).to match(/acknowledge/i)
+      end
+    end
+
     context "when loop is not in pending status" do
       let(:loop_status) { "running" }
 

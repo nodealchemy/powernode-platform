@@ -11,14 +11,44 @@ module Ai
           return error_result("Loop is not in pending status") unless ralph_loop.can_start?
           return error_result("No tasks defined") if ralph_loop.ralph_tasks.empty?
 
+          # G13: readiness preflight — refuse to start a loop with no objective gate;
+          # surface non-blocking warnings. Park the reason on the campaign, if any.
+          readiness = LoopReadinessService.new(ralph_loop).evaluate
+          if readiness.blocked?
+            park_readiness_failure(readiness)
+            return error_result("Loop failed readiness preflight: #{readiness.failures.join('; ')}",
+                                failures: readiness.failures, warnings: readiness.warnings)
+          end
+          log_readiness_warnings(readiness)
+
           ralph_loop.start!
 
           # Check for blocked tasks and unblock if dependencies are satisfied
           update_blocked_tasks
 
-          success_result(loop: ralph_loop.loop_summary, message: "Loop started successfully")
+          success_result(loop: ralph_loop.loop_summary, message: "Loop started successfully",
+                         warnings: readiness.warnings)
         rescue StandardError => e
           error_result("Failed to start loop: #{e.message}")
+        end
+
+        # Park a readiness failure on the owning campaign (if any) so an operator
+        # sees why the loop refused to start; logged regardless for bare loops.
+        def park_readiness_failure(readiness)
+          reason = readiness.failures.join("; ")
+          Rails.logger.warn("[Ralph::ExecutionService] loop #{ralph_loop.id} blocked by readiness preflight: #{reason}")
+          ralph_loop.campaign&.park_question!(
+            question: "Loop #{ralph_loop.id} cannot start — readiness preflight failed: #{reason}",
+            context: "loop-readiness-preflight"
+          )
+        rescue StandardError => e
+          Rails.logger.warn("[Ralph::ExecutionService] could not park readiness failure: #{e.message}")
+        end
+
+        def log_readiness_warnings(readiness)
+          return if readiness.warnings.empty?
+
+          Rails.logger.info("[Ralph::ExecutionService] loop #{ralph_loop.id} readiness warnings: #{readiness.warnings.join('; ')}")
         end
 
         # Pause the loop execution
