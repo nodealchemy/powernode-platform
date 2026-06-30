@@ -181,6 +181,31 @@ RSpec.describe AiLandSecurityScanJob, type: :job do
       expect(result[:sbom][:document]["bomFormat"]).to eq("CycloneDX")
     end
 
+    it "includes the built SBOM in the security_findings POST payload (durable, not just the result)" do
+      sbom = {
+        format: "CycloneDX", spec_version: "1.5", generated: true, component_count: 1,
+        document: { "bomFormat" => "CycloneDX", "components" => [ { "name" => "rack" } ] }
+      }
+      allow(Devops::SbomGenerator).to receive(:generate).and_return(sbom)
+      posted = nil
+      allow(api_client).to receive(:post) { |_path, body| posted = body; { "data" => { "blocked" => false } } }
+      allow(AiCampaignLandCiPollJob).to receive(:perform_async)
+
+      job.execute(args)
+
+      expect(posted[:sbom]).to eq(sbom)
+    end
+
+    it "does NOT post an sbom on the fail-closed incomplete-scan park-back (no scan, no inventory)" do
+      allow(job).to receive(:checkout_workspace).and_raise(StandardError.new("clone denied"))
+      posted = nil
+      allow(api_client).to receive(:post) { |_path, body| posted = body; { "data" => { "blocked" => true } } }
+
+      job.execute(args)
+
+      expect(posted).not_to have_key(:sbom)
+    end
+
     it "attaches the SBOM even when a finding parks the land (additive metadata, not a gate)" do
       allow(job).to receive(:run_workspace_command) do |_ws, cmd, **_o|
         cmd.include?("git diff") ? { exit_code: 0, output: secret_diff, error: nil } : { exit_code: 127, output: "", error: nil }

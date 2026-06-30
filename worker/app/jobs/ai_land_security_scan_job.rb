@@ -97,7 +97,7 @@ class AiLandSecurityScanJob < BaseJob
       # read the lockfiles; it is INVENTORY metadata, never a gate.
       sbom = build_sbom(workspace, repository)
 
-      blocked = report_findings(land_id, findings, scanners)
+      blocked = report_findings(land_id, findings, scanners, sbom: sbom)
       log_info "[AiLandSecurityScan] land #{land_id} findings=#{findings.size} blocked=#{blocked}"
 
       # Blocking finding ⇒ the server parked the land; stop the pipeline here. The
@@ -212,11 +212,17 @@ class AiLandSecurityScanJob < BaseJob
   end
 
   # Post findings to the land park-back surface; returns whether the server
-  # blocked (parked) the land.
-  def report_findings(land_id, findings, scanners)
+  # blocked (parked) the land. The optional CycloneDX `sbom` rides along as
+  # additive INVENTORY metadata so the server can persist it (the server caps
+  # its stored size) — it is NOT a gate and never changes the blocking decision.
+  # Omitted entirely when nil (e.g. the fail-closed incomplete-scan park-back,
+  # where no scan ran) so the server stays back-compatible.
+  def report_findings(land_id, findings, scanners, sbom: nil)
+    payload = { findings: findings, scanners: scanners }
+    payload[:sbom] = sbom unless sbom.nil?
     resp = api_client.post(
       "/api/v1/internal/ai/campaign_lands/#{land_id}/security_findings",
-      { findings: findings, scanners: scanners }
+      payload
     )
     data = resp.is_a?(Hash) ? (resp["data"] || resp) : {}
     !!data["blocked"]

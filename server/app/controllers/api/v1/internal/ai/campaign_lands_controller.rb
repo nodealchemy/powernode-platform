@@ -10,6 +10,13 @@ module Api
         class CampaignLandsController < Api::V1::Internal::InternalBaseController
           before_action :set_land, except: [ :process_queue ]
 
+          # Max serialized size (bytes) for a stored land-scan SBOM. The SBOM is
+          # additive INVENTORY metadata (never a gate); the jsonb metadata column
+          # loads with every land row, so an oversized document is reduced to a
+          # compact summary rather than bloating the row. ~256 KB comfortably holds
+          # a real CycloneDX manifest while bounding pathological inputs.
+          SBOM_MAX_BYTES = 256 * 1024
+
           # POST /api/v1/internal/ai/campaign_lands/process_queue
           # Pick the next queued land per (account, target) whose slot is free.
           def process_queue
@@ -85,6 +92,12 @@ module Api
           # blocking (reusing LandService#park). Findings carry only
           # scanner/severity/detail labels (never raw secret values), so the stored
           # metadata is safe to persist/display.
+          #
+          # An OPTIONAL CycloneDX `sbom` (additive dependency INVENTORY built by the
+          # worker scan) is persisted under metadata["security_gate"]["sbom"] when
+          # present. It is NOT a gate and never changes the blocking decision; it is
+          # size-bounded (see #bounded_sbom) so an oversized document can never bloat
+          # the land row or fail the land. Omitting it is fully back-compatible.
           def security_findings
             findings = Array(params[:findings]).map do |f|
               (f.respond_to?(:permit) ? f.permit(:scanner, :severity, :detail, :category).to_h : f.to_h).stringify_keys
@@ -99,6 +112,8 @@ module Api
               "findings" => findings,
               "evaluated_at" => Time.current.iso8601
             }
+            sbom = bounded_sbom(params[:sbom])
+            gate["sbom"] = sbom if sbom
             @land.update!(metadata: @land.metadata.to_h.merge("security_gate" => gate))
 
             if blocked && !@land.terminal? && @land.status != "parked"
@@ -109,6 +124,31 @@ module Api
           end
 
           private
+
+          # Coerce the OPTIONAL inbound `:sbom` param into a safe, size-bounded Hash
+          # for storage, or nil when absent (back-compat: store nothing). Never
+          # raises and never participates in the gate: a missing, malformed, or
+          # oversized SBOM degrades gracefully so it can neither fail the land nor
+          # change the findings/scanners behavior. An oversized document is reduced
+          # to its inventory summary fields with a `truncated` flag (the heavy
+          # component list is dropped) so the row stays bounded.
+          def bounded_sbom(raw)
+            return nil if raw.blank?
+
+            hash = (raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : raw).deep_stringify_keys
+            return hash if hash.to_json.bytesize <= SBOM_MAX_BYTES
+
+            {
+              "truncated" => true,
+              "format" => hash["format"],
+              "spec_version" => hash["spec_version"],
+              "generated" => hash["generated"],
+              "component_count" => hash["component_count"]
+            }.compact
+          rescue StandardError => e
+            Rails.logger.warn("[CampaignLands#security_findings] dropping unparseable SBOM (#{e.class})")
+            nil
+          end
 
           # Compact "scanner:severity" summary for the park reason. Labels only.
           def worker_findings_summary(findings)

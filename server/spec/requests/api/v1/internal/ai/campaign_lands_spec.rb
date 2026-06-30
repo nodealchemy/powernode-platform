@@ -143,5 +143,57 @@ RSpec.describe "Api::V1::Internal::Ai::CampaignLands", type: :request do
       post "/api/v1/internal/ai/campaign_lands/#{l.id}/security_findings"
       expect(response).to have_http_status(:unauthorized).or have_http_status(:forbidden)
     end
+
+    def post_with_sbom(l, sbom)
+      post "/api/v1/internal/ai/campaign_lands/#{l.id}/security_findings",
+           params: { findings: [], scanners: ["worker_diff_secret_scan"], sbom: sbom },
+           headers: service_headers, as: :json
+    end
+
+    it "stores an optional SBOM under metadata.security_gate.sbom (inventory metadata)" do
+      l = land(status: "staged_ci", staged_sha: "abc")
+      sbom = { format: "CycloneDX", spec_version: "1.5", generated: true, component_count: 2,
+               document: { "bomFormat" => "CycloneDX",
+                           "components" => [ { "name" => "rack" }, { "name" => "nokogiri" } ] } }
+
+      post_with_sbom(l, sbom)
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["data"]["blocked"]).to be false
+      stored = l.reload.metadata.dig("security_gate", "sbom")
+      expect(stored["format"]).to eq("CycloneDX")
+      expect(stored["component_count"]).to eq(2)
+      expect(stored.dig("document", "components").map { |c| c["name"] }).to contain_exactly("rack", "nokogiri")
+    end
+
+    it "stores no SBOM (back-compat) when the param is omitted, leaving findings/scanners intact" do
+      l = land(status: "staged_ci", staged_sha: "abc")
+
+      post_findings(l, [])
+
+      expect(response).to have_http_status(:ok)
+      gate = l.reload.metadata["security_gate"]
+      expect(gate).to have_key("worker_scan")
+      expect(gate).not_to have_key("sbom")
+      expect(gate.dig("worker_scan", "scanners")).to include("worker_diff_secret_scan")
+    end
+
+    it "caps an oversized SBOM to a truncated summary without bloating the row or failing the land" do
+      l = land(status: "staged_ci", staged_sha: "abc")
+      huge = "x" * (300 * 1024)
+      sbom = { format: "CycloneDX", spec_version: "1.5", generated: true, component_count: 1,
+               document: { "blob" => huge } }
+
+      post_with_sbom(l, sbom)
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["data"]["blocked"]).to be false
+      stored = l.reload.metadata.dig("security_gate", "sbom")
+      expect(stored["truncated"]).to be true
+      expect(stored["component_count"]).to eq(1)
+      expect(stored.to_json).not_to include(huge)
+      # The findings/scanners path is unchanged by a (capped) SBOM.
+      expect(l.metadata.dig("security_gate", "worker_scan", "scanners")).to include("worker_diff_secret_scan")
+    end
   end
 end
