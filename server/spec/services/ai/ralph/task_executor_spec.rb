@@ -75,11 +75,12 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         allow(ralph_loop).to receive(:default_agent).and_return(fallback_agent)
 
         credential = instance_double(Ai::ProviderCredential)
-        cred_relation = double("credentials")
+        # #37: execute_via_agent resolves provider/credential/model via the agent's
+        # resolution triple — stub it on the fallback agent so the agentic loop runs.
         allow(fallback_agent).to receive(:provider).and_return(provider)
-        allow(provider).to receive(:provider_credentials).and_return(cred_relation)
-        allow(cred_relation).to receive(:active).and_return(cred_relation)
-        allow(cred_relation).to receive(:first).and_return(credential)
+        allow(fallback_agent).to receive(:resolved_provider).and_return(provider)
+        allow(fallback_agent).to receive(:resolved_credential).and_return(credential)
+        allow(fallback_agent).to receive(:resolved_model).and_return("test-model-1")
 
         client = instance_double(WorkerLlmClient)
         allow(WorkerLlmClient).to receive(:new).and_return(client)
@@ -114,6 +115,13 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         allow(WorkerLlmClient).to receive(:new).and_return(client)
         allow(ralph_loop).to receive(:available_mcp_tools).and_return([])
         allow(Ai::AgentToolBridgeService).to receive(:new).and_return(tool_bridge)
+
+        # #37: execute_via_agent now resolves provider/credential/model through the
+        # agent's coherent resolution triple (not provider.provider_credentials.active.first).
+        # Stub the triple so the agentic loop runs without invoking the real selector.
+        allow(agent).to receive(:resolved_provider).and_return(provider)
+        allow(agent).to receive(:resolved_credential).and_return(credential)
+        allow(agent).to receive(:resolved_model).and_return("test-model-1")
       end
 
       it 'sends messages to the AI provider via agentic loop' do
@@ -129,7 +137,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
       end
 
       it 'returns error when provider has no active credentials' do
-        allow(cred_relation).to receive(:first).and_return(nil)
+        allow(agent).to receive(:resolved_credential).and_return(nil)
 
         result = executor.execute
 
@@ -211,6 +219,11 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         allow(WorkerLlmClient).to receive(:new).and_return(client)
         allow(ralph_loop).to receive(:available_mcp_tools).and_return([mcp_tool])
         allow(Ai::AgentToolBridgeService).to receive(:new).and_return(tool_bridge)
+
+        # #37: resolution triple (see "with agent execution type" above).
+        allow(agent).to receive(:resolved_provider).and_return(provider)
+        allow(agent).to receive(:resolved_credential).and_return(credential)
+        allow(agent).to receive(:resolved_model).and_return("test-model-1")
       end
 
       it 'handles tool calls in the response via agentic loop' do
