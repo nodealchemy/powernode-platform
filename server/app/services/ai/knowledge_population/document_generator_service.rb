@@ -90,7 +90,7 @@ module Ai
         [
           {
             name: "Platform Architecture Overview",
-            desc: "Powernode is a subscription lifecycle management platform built with Rails 8 API backend (server/), " \
+            desc: "Powernode is a control plane for production AI agent fleets built with Rails 8 API backend (server/), " \
                   "React TypeScript frontend (frontend/), and a standalone Sidekiq worker (worker/). It uses " \
                   "PostgreSQL with UUIDv7 primary keys, JWT authentication, and pgvector for AI vector search.\n\n" \
                   "Services run via systemd: backend on port 3000, frontend on 3001, worker-web on 4567. " \
@@ -120,21 +120,12 @@ module Ai
           },
           {
             name: "Account and User Management",
-            desc: "Accounts are the top-level tenant. Each has users, subscriptions, and resources. " \
+            desc: "Accounts are the top-level scope. Each has users and resources. " \
                   "Users can have multiple roles granting permissions. Invitations, delegation, and " \
                   "impersonation features are available.",
             model_prefixes: ["Root"],
-            patterns: "- Multi-tenant with Account as root\n- User invitations with expiry\n" \
+            patterns: "- Account as root scope\n- User invitations with expiry\n" \
                       "- Delegation for temporary permission grants\n- Impersonation for admin support"
-          },
-          {
-            name: "Subscription and Billing",
-            desc: "Plan/subscription/payment/invoice lifecycle. Stripe and PayPal integrations (business). " \
-                  "Usage metering for consumption-based billing. PCI compliance enforced.",
-            model_prefixes: ["Root"],
-            patterns: "- Plan → Subscription → Payment → Invoice lifecycle\n" \
-                      "- Usage metering for consumption billing\n" \
-                      "- Webhook receivers return 200/202 on errors (never 500)\n- PCI compliance for payment data"
           },
           {
             name: "AI Agent Orchestration",
@@ -278,7 +269,6 @@ module Ai
         "Chat" => "Chat Models Reference",
         "Marketing" => "Marketing Models Reference",
         "FileManagement" => "File Management Models Reference",
-        "BaaS" => "BaaS Models Reference",
         "Marketplace" => "Marketplace Models Reference",
         "DataManagement" => "Data Management Models Reference",
         "KnowledgeBase" => "Knowledge Base Models Reference",
@@ -487,7 +477,7 @@ module Ai
           ## Migration Conventions
           - UUIDv7 primary keys on all tables
           - Never separate `add_index` for `t.references` — use inline `index:` option
-          - Namespace FK prefixes: `Ai::` → `ai_`, `Devops::` → `devops_`, `BaaS::` → `baas_`
+          - Namespace FK prefixes: `Ai::` → `ai_`, `Devops::` → `devops_`
           - Named routes before `/:id` to avoid matching conflicts
 
           ## Git Conventions

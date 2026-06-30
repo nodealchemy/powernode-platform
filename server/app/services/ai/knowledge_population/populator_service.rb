@@ -411,8 +411,8 @@ module Ai
              "procedure", %w[migration database index], "migration"),
 
           sk("Namespace foreign key prefixes",
-             "FK naming: Ai:: → ai_ (ai_agent_id), Devops:: → devops_ (devops_pipeline_id), " \
-             "BaaS:: → baas_ (baas_customer_id). Others: explicit FK or omit if unambiguous.",
+             "FK naming: Ai:: → ai_ (ai_agent_id), Devops:: → devops_ (devops_pipeline_id). " \
+             "Others: explicit FK or omit if unambiguous.",
              "procedure", %w[migration database naming], "migration"),
 
           sk("Always pair class_name with foreign_key",

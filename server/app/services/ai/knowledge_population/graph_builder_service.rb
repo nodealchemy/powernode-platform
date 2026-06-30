@@ -174,8 +174,7 @@ module Ai
       CONCEPTS = [
         { name: "Authentication", description: "JWT-based authentication with 2FA and OAuth 2.1" },
         { name: "Authorization", description: "Permission-based access control with role-permission mapping" },
-        { name: "Multi-tenancy", description: "Account-based tenant isolation for all resources" },
-        { name: "Subscription Management", description: "Plan, subscription, payment, and invoice lifecycle" },
+        { name: "Account Scoping", description: "Account-based resource scoping and isolation" },
         { name: "AI Agent Orchestration", description: "Agent creation, teams, trust scoring, autonomy" },
         { name: "Workflow Engine", description: "DAG-based workflow execution with compensation and checkpointing" },
         { name: "Memory Tiers", description: "Working (Redis), short-term (PG+TTL), long-term (pgvector), shared (pgvector+ACL)" },
@@ -191,7 +190,7 @@ module Ai
         { name: "A2A Protocol", description: "Agent-to-Agent JSON-RPC 2.0 with federation" },
         { name: "MCP Tools", description: "Model Context Protocol tool registration and execution" },
         { name: "Compound Learning", description: "Pattern extraction from agent successes and failures" },
-        { name: "Business Features", description: "Billing, BaaS, reseller, AI publisher via submodule" }
+        { name: "Extension System", description: "Optional domain capabilities loaded as git-submodule extensions" }
       ].freeze
 
       def build_concept_nodes
