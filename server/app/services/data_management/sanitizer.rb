@@ -116,6 +116,23 @@ module DataManagement
         scrub_secrets(sanitize_string(input))
       end
 
+      # G4 — secret DETECTION (vs scrub_secrets which REDACTS). Returns one
+      # finding per SECRET_PATTERNS hit so the land security gate can BLOCK on
+      # leaked credentials. Crypto-safe by construction: a finding carries only a
+      # derived category label (e.g. "private_key", "credential") — NEVER the raw
+      # matched secret value — so findings can be persisted/displayed safely.
+      def secret_findings(input)
+        return [] unless input.is_a?(String)
+
+        findings = []
+        SECRET_PATTERNS.each do |pattern, replacement|
+          # scan calls the block once per match (group captures are irrelevant
+          # here — we only count + label, we never keep the matched text).
+          input.scan(pattern) { findings << { category: secret_category(replacement) } }
+        end
+        findings
+      end
+
       # Sanitize sensitive data from hashes (e.g., params, metadata)
       def sanitize_hash(hash)
         return hash unless hash.is_a?(Hash)
@@ -171,6 +188,14 @@ module DataManagement
       end
 
       private
+
+      # Derive a safe category label for a secret finding from the redaction
+      # token (e.g. "[REDACTED_PRIVATE_KEY]" -> "private_key"; "\\1[REDACTED]" ->
+      # "credential"). Never derived from the matched text, so no secret leaks.
+      def secret_category(replacement)
+        token = replacement.to_s[/\[REDACTED_?([A-Z_]*)\]/, 1]
+        token.present? ? token.downcase : "credential"
+      end
 
       def sensitive_key?(key)
         sensitive_keys = %w[

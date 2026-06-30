@@ -34,6 +34,17 @@ module Ai
                                 description: nil, requested_by: nil, priority: 0)
         land = build_land(source_branch: source_branch, target_branch: target_branch, priority: priority)
 
+        # BLOCKING security gate (G4): runs BEFORE the auto-approve/governance
+        # decision so an autonomous campaign land can NEVER auto-merge a leaked
+        # secret (or, once external scanners register, a SAST/CVE finding). On a
+        # block the land is forced to a human-gated state with findings recorded —
+        # no enqueue!, regardless of decision authority.
+        gate = security_gate_result(land)
+        if gate[:blocked]
+          block_for_security!(land, gate)
+          return land
+        end
+
         if auto_land_approved?
           land.enqueue! # auto-approve reversible land
         elsif governance_available?
@@ -48,6 +59,48 @@ module Ai
       end
 
       private
+
+      # Run the blocking security gate; never let a gate error silently allow a
+      # land — treat an evaluation error as a block (fail-closed → human review).
+      def security_gate_result(land)
+        ::Ai::Land::SecurityGateService.evaluate(land)
+      rescue StandardError => e
+        Rails.logger.warn("[ApprovalBinding] security gate errored (land #{land.id}): #{e.message}")
+        { blocked: true, findings: [ { scanner: "security_gate", severity: "high",
+                                       detail: "gate error: #{e.message}" } ] }
+      end
+
+      # Record findings on the land metadata and park it for a human. Findings
+      # carry only scanner/severity/category labels (never raw secret values), so
+      # they are safe to persist and display. Surfaces through the source's park
+      # notification seam when available (mirrors LandService#notify_park).
+      def block_for_security!(land, gate)
+        findings = Array(gate[:findings])
+        reason = "security gate blocked: #{findings_summary(findings)}"
+        land.update!(metadata: land.metadata.to_h.merge(
+          "security_gate" => {
+            "blocked" => true,
+            "scanned_content" => gate[:scanned_content],
+            "findings" => findings.map { |f| f.transform_keys(&:to_s) },
+            "evaluated_at" => Time.current.iso8601
+          }
+        ))
+        land.park!(reason: reason)
+        notify_security_park(land, reason)
+        land
+      end
+
+      def findings_summary(findings)
+        return "policy violation" if findings.empty?
+
+        findings.map { |f| "#{f[:scanner]}:#{f[:severity]}" }.uniq.join(", ")
+      end
+
+      def notify_security_park(land, reason)
+        @source.land_park_notify!(reason: reason, land: land) if @source.respond_to?(:land_park_notify!)
+      rescue StandardError => e
+        Rails.logger.warn("[ApprovalBinding] security park notify failed (land #{land.id}): #{e.message}")
+      end
 
       def build_land(source_branch:, target_branch:, priority:)
         attrs = {

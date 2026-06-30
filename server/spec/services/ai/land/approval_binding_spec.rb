@@ -44,6 +44,52 @@ RSpec.describe Ai::Land::ApprovalBinding do
     end
   end
 
+  describe "blocking security gate (G4)" do
+    before { Ai::Land::SecurityScannerRegistry.reset! }
+    after { Ai::Land::SecurityScannerRegistry.reset! }
+
+    it "parks an autonomous land (does NOT auto-merge) when a scanner blocks" do
+      Ai::Land::SecurityScannerRegistry.register(:sast) do |_ctx|
+        [ { scanner: "sast", severity: "high", detail: "leaked credential" } ]
+      end
+      c = campaign("autonomous")
+
+      land = described_class.request_land_approval(campaign: c)
+
+      expect(land.status).to eq("parked")            # NOT "queued"
+      expect(land.queued_at).to be_nil
+      expect(land.parked_reason).to match(/security gate blocked/)
+      expect(land.metadata.dig("security_gate", "blocked")).to be(true)
+      expect(land.metadata.dig("security_gate", "findings")).to be_present
+    end
+
+    it "parks even under autonomous authority on a core secret finding" do
+      c = campaign("autonomous")
+      allow(Ai::Land::SecurityGateService).to receive(:evaluate).and_return(
+        blocked: true, scanned_content: true,
+        findings: [ { scanner: "core_secret_scan", severity: "critical", detail: "potential secret detected (token)" } ]
+      )
+
+      land = described_class.request_land_approval(campaign: c)
+      expect(land.status).to eq("parked")
+      expect(land.metadata.dig("security_gate", "findings").first["scanner"]).to eq("core_secret_scan")
+    end
+
+    it "lets a clean autonomous land auto-queue (gate passes)" do
+      c = campaign("autonomous")
+      land = described_class.request_land_approval(campaign: c)
+      expect(land.status).to eq("queued")
+      expect(land.metadata["security_gate"]).to be_nil
+    end
+
+    it "fails closed (parks) when the gate itself errors" do
+      c = campaign("autonomous")
+      allow(Ai::Land::SecurityGateService).to receive(:evaluate).and_raise(StandardError, "boom")
+      land = described_class.request_land_approval(campaign: c)
+      expect(land.status).to eq("parked")
+    end
+  end
+
   describe ".request_land_approval (mission source)" do
     let(:mission) do
       create(:ai_mission, account: account, branch_name: "mission/feature-x", base_branch: "develop")

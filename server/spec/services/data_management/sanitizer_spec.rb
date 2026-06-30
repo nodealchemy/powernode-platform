@@ -44,6 +44,34 @@ RSpec.describe DataManagement::Sanitizer do
     end
   end
 
+  # G4: secret DETECTION (returns findings) used by the land security gate.
+  describe ".secret_findings" do
+    it "returns a finding for a leaked credential assignment" do
+      findings = described_class.secret_findings('api_key: "sk-abc123def456ghi789"')
+      expect(findings).not_to be_empty
+      expect(findings.map { |f| f[:category] }).to include("credential").or include("token")
+    end
+
+    it "labels a PEM private key block as private_key" do
+      pem = "-----BEGIN RSA PRIVATE KEY-----\nMIIEoabc123\n-----END RSA PRIVATE KEY-----"
+      expect(described_class.secret_findings(pem)).to include(a_hash_including(category: "private_key"))
+    end
+
+    it "never echoes the raw secret value in a finding" do
+      pem = "-----BEGIN RSA PRIVATE KEY-----\nMIIEoSECRETMATERIAL\n-----END RSA PRIVATE KEY-----"
+      expect(described_class.secret_findings(pem).to_s).not_to include("SECRETMATERIAL")
+    end
+
+    it "returns [] for clean text" do
+      expect(described_class.secret_findings("Refactored the parser; all green.")).to eq([])
+    end
+
+    it "is a no-op (empty) on non-strings" do
+      expect(described_class.secret_findings(nil)).to eq([])
+      expect(described_class.secret_findings(42)).to eq([])
+    end
+  end
+
   describe ".sanitize_output" do
     it "applies BOTH PCI sanitization and secret scrubbing" do
       out = described_class.sanitize_output("card 4111111111111111 and api_key=sk-secretvalue123")
