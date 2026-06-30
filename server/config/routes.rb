@@ -522,6 +522,13 @@ Rails.application.routes.draw do
             post ":id/iterations/:iteration_id/test_results", to: "ralph_loops#record_test_results"
           end
 
+          # AI security audits (worker cron → server)
+          scope "security" do
+            # G7 token-scope / permission-creep audit: review access scopes on
+            # active provider credentials + API tokens and flag over-provisioning.
+            post "token_scope_audit", to: "security#token_scope_audit"
+          end
+
           # Trajectory analysis endpoint (worker → server)
           post "trajectory/analyze_all", to: "trajectory#analyze_all"
 

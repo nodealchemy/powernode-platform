@@ -536,6 +536,16 @@
       queue: ai_orchestration
       description: 'Inject known-good/known-bad inputs through the verification gate; alert if it stops failing closed'
 
+    # G7 token-scope / permission-creep audit — monthly review of access scopes on
+    # active AI provider credentials + API tokens. Flags over-provisioning
+    # (wildcard / admin / unrestricted / off-baseline scopes) and alerts so broad
+    # grants don't accumulate silently. Returns ids + scope names only (no secrets).
+    ai_token_scope_audit:
+      cron: '0 4 1 * *'  # Monthly, 1st day at 4:00 AM UTC (~30-day cadence)
+      class: AiTokenScopeAuditJob
+      queue: ai_orchestration
+      description: 'Audit credential/API-token access scopes for over-provisioning; alert on permission creep'
+
     # Campaign auto-land: drain the approved-land queue (one active land per
     # account/target) and drive each through stage → CI → merge → verify.
     ai_campaign_land_scheduler:
