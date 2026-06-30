@@ -52,6 +52,26 @@ module Api
             render_success(loops_processed: processed, loops_skipped: skipped)
           end
 
+          # POST /api/v1/internal/ai/ralph_loops/gate_canary
+          # G11 gate-integrity canary. Feeds a fixed set of known-good and
+          # known-bad inputs through the verification gate (the authoritative
+          # gate logic) and reports whether every verdict still matches
+          # expectation. A silently-broken gate (e.g. real-test verification
+          # regressing to always-pass) flips `healthy` to false. The worker's
+          # AiGateCanaryJob calls this on a schedule and alerts on `healthy:false`.
+          def gate_canary
+            result = ::Ai::Ralph::GateCanaryService.new.run
+
+            unless result[:healthy]
+              failing = result[:checks].reject { |c| c[:ok] }.map { |c| c[:name] }
+              Rails.logger.error(
+                "[GateCanary] VERIFICATION GATE BROKEN — verdicts diverged for: #{failing.join(', ')}"
+              )
+            end
+
+            render_success(healthy: result[:healthy], checks: result[:checks])
+          end
+
           # POST /api/v1/internal/ai/ralph_loops/:id/run_iteration
           def run_iteration
             ralph_loop = ::Ai::RalphLoop.includes(:account, :default_agent).find(params[:id])
