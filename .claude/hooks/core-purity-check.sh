@@ -10,6 +10,20 @@
 # disk, so this public hook never hardcodes one. Fails OPEN (exit 0) on any
 # uncertainty so it can never block an unrelated edit; exits 2 only on a clear,
 # structural private-extension reference in a core source file.
+#
+# SCOPE / KNOWN LIMITATION (do not "fix" by widening the blocklist — it was tried and
+# reverted): the namespace token is the extension SLUG, capitalized
+# (extensions/private/business -> `Business::`). This intentionally does NOT enforce the
+# extension's OWN Ruby namespaces (`Billing::`, `BaaS::`, `Mcp::`, `Marketplace::`, ...).
+# A text-grep blocking gate cannot distinguish a real code dependency from a sanctioned
+# textual mention: those namespaces legitimately appear in core comments, LLM-prompt
+# strings, the blessed `defined?(Billing::X)` runtime guard (db/seeds.rb), the decoupling
+# seam's own docs (powernode/billing_bridge.rb), and the purity specs that assert on them.
+# Deriving + forbidding them here produced 23 false-positive blocks of legitimate core
+# files (verified by adversarial review of the gate-#9 namespace-blindspot tasks). Such
+# model-namespace leaks are caught instead by the NON-BLOCKING `improve_discovery` scan,
+# whose AI judgment can tell code from comment/guard/spec. Keep this gate to structural
+# slug/path/alias references only.
 
 INPUT=$(cat)
 command -v jq >/dev/null 2>&1 || exit 0
