@@ -12,7 +12,7 @@ module Ai
       # Scan all MCP servers for tools and agent mappings
       def scan
         # Hosted MCP servers are a business capability; resolve the source via the
-        # registry so core never references the business-only Mcp::HostedServer model.
+        # registry so core never references the business-only hosted-server model directly.
         source = Powernode::ExtensionRegistry.provider(:mcp_hosted_servers)
         servers = source ? source.for_account(account) : []
         agents = Ai::Agent.where(account: account)
@@ -30,7 +30,7 @@ module Ai
             discovered_connections << {
               source_type: "Ai::Agent",
               source_id: match[:agent_id],
-              target_type: "Mcp::HostedServer",
+              target_type: server.class.name,
               target_id: server.id,
               connection_type: "mcp_tool_usage",
               strength: match[:confidence],
