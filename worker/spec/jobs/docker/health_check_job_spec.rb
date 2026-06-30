@@ -34,10 +34,10 @@ RSpec.describe Docker::HealthCheckJob do
 
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts", auto_sync: true)
+          .with("/api/v1/internal/devops/docker/hosts", auto_sync: true)
           .and_return({ "data" => { "hosts" => host_data } })
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts/host-uuid-1/connection")
+          .with("/api/v1/internal/devops/docker/hosts/host-uuid-1/connection")
           .and_return({ "data" => { "connection" => connection_data } })
         allow(Faraday).to receive(:new).and_return(docker_client)
         allow(docker_client).to receive(:get).with("/_ping").and_return(ping_response)
@@ -49,7 +49,7 @@ RSpec.describe Docker::HealthCheckJob do
         job.execute
 
         expect(api_client).to have_received(:post)
-          .with("/api/v1/internal/docker/hosts/host-uuid-1/health_results", hash_including(status: "healthy"))
+          .with("/api/v1/internal/devops/docker/hosts/host-uuid-1/health_results", hash_including(status: "healthy"))
       end
     end
 
@@ -59,10 +59,10 @@ RSpec.describe Docker::HealthCheckJob do
 
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts", auto_sync: true)
+          .with("/api/v1/internal/devops/docker/hosts", auto_sync: true)
           .and_return({ "data" => { "hosts" => host_data } })
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts/host-uuid-1/connection")
+          .with("/api/v1/internal/devops/docker/hosts/host-uuid-1/connection")
           .and_return({ "data" => { "connection" => connection_data } })
         allow(Faraday).to receive(:new).and_return(docker_client)
         allow(docker_client).to receive(:get).with("/_ping").and_return(ping_response)
@@ -73,14 +73,14 @@ RSpec.describe Docker::HealthCheckJob do
         job.execute
 
         expect(api_client).to have_received(:post)
-          .with("/api/v1/internal/docker/hosts/host-uuid-1/health_results", hash_including(status: "unhealthy"))
+          .with("/api/v1/internal/devops/docker/hosts/host-uuid-1/health_results", hash_including(status: "unhealthy"))
       end
     end
 
     context "when no hosts are available" do
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts", auto_sync: true)
+          .with("/api/v1/internal/devops/docker/hosts", auto_sync: true)
           .and_return({ "data" => { "hosts" => [] } })
       end
 
@@ -92,10 +92,10 @@ RSpec.describe Docker::HealthCheckJob do
     context "when connection fails" do
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts", auto_sync: true)
+          .with("/api/v1/internal/devops/docker/hosts", auto_sync: true)
           .and_return({ "data" => { "hosts" => host_data } })
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts/host-uuid-1/connection")
+          .with("/api/v1/internal/devops/docker/hosts/host-uuid-1/connection")
           .and_return({ "data" => { "connection" => connection_data } })
         allow(Faraday).to receive(:new).and_raise(Faraday::ConnectionFailed.new("Connection refused"))
         allow(api_client).to receive(:post)
@@ -105,7 +105,7 @@ RSpec.describe Docker::HealthCheckJob do
         expect { job.execute }.not_to raise_error
 
         expect(api_client).to have_received(:post)
-          .with("/api/v1/internal/docker/hosts/host-uuid-1/health_results", hash_including(status: "unhealthy"))
+          .with("/api/v1/internal/devops/docker/hosts/host-uuid-1/health_results", hash_including(status: "unhealthy"))
       end
     end
   end

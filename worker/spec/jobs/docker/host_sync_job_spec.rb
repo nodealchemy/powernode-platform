@@ -28,16 +28,16 @@ RSpec.describe Docker::HostSyncJob do
 
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts", auto_sync: true)
+          .with("/api/v1/internal/devops/docker/hosts", auto_sync: true)
           .and_return({ "data" => { "hosts" => host_data } })
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts/host-uuid-1/connection")
+          .with("/api/v1/internal/devops/docker/hosts/host-uuid-1/connection")
           .and_return({ "data" => { "connection" => connection_data } })
         allow(Faraday).to receive(:new).and_return(docker_client)
         allow(docker_client).to receive(:get).with("/containers/json?all=true").and_return(containers_response)
         allow(docker_client).to receive(:get).with("/images/json").and_return(images_response)
         allow(api_client).to receive(:post)
-          .with("/api/v1/internal/docker/hosts/host-uuid-1/sync_results", hash_including(:containers, :images, :synced_at))
+          .with("/api/v1/internal/devops/docker/hosts/host-uuid-1/sync_results", hash_including(:containers, :images, :synced_at))
           .and_return({ "data" => { "status" => "ok" } })
       end
 
@@ -49,14 +49,14 @@ RSpec.describe Docker::HostSyncJob do
         job.execute
 
         expect(api_client).to have_received(:post)
-          .with("/api/v1/internal/docker/hosts/host-uuid-1/sync_results", hash_including(:containers, :images))
+          .with("/api/v1/internal/devops/docker/hosts/host-uuid-1/sync_results", hash_including(:containers, :images))
       end
     end
 
     context "when no hosts are available" do
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts", auto_sync: true)
+          .with("/api/v1/internal/devops/docker/hosts", auto_sync: true)
           .and_return({ "data" => { "hosts" => [] } })
       end
 
@@ -68,10 +68,10 @@ RSpec.describe Docker::HostSyncJob do
     context "when a host sync fails" do
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts", auto_sync: true)
+          .with("/api/v1/internal/devops/docker/hosts", auto_sync: true)
           .and_return({ "data" => { "hosts" => host_data } })
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/docker/hosts/host-uuid-1/connection")
+          .with("/api/v1/internal/devops/docker/hosts/host-uuid-1/connection")
           .and_return({ "data" => { "connection" => connection_data } })
         allow(Faraday).to receive(:new).and_raise(Faraday::ConnectionFailed.new("Connection refused"))
       end

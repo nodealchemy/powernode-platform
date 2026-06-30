@@ -270,7 +270,7 @@ RSpec.describe Services::HealthCheckJob, type: :job do
         allow(api_client_double).to receive(:post) do
           call_count += 1
           if call_count < 2
-            raise BackendApiClient::ApiError.new('Temporary failure', 503)
+            raise BackendApiClient::ApiError.new('Temporary failure', 500)
           else
             health_check_response
           end

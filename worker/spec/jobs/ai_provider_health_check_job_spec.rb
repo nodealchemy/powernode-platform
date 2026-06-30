@@ -35,7 +35,8 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
     context 'with all providers healthy' do
       before do
         stub_healthy_providers
-        allow(api_client_double).to receive(:post).with('admin/ai_provider_health_metrics', anything)
+        allow(api_client_double).to receive(:post).with('/api/v1/internal/ai/provider_health_metrics', anything)
+        allow(api_client_double).to receive(:post).with('/api/v1/ai/autonomy/broadcast', anything)
       end
 
       it 'completes successfully with healthy status' do
@@ -63,7 +64,8 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
     context 'with degraded providers' do
       before do
         stub_degraded_providers
-        allow(api_client_double).to receive(:post).with('admin/ai_provider_health_metrics', anything)
+        allow(api_client_double).to receive(:post).with('/api/v1/internal/ai/provider_health_metrics', anything)
+        allow(api_client_double).to receive(:post).with('/api/v1/ai/autonomy/broadcast', anything)
       end
 
       it 'returns degraded status' do
@@ -87,8 +89,8 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
     context 'with unhealthy providers' do
       before do
         stub_unhealthy_providers
-        allow(api_client_double).to receive(:post).with('admin/ai_provider_health_metrics', anything)
-        allow(api_client_double).to receive(:post).with('admin/system_alerts', anything)
+        allow(api_client_double).to receive(:post).with('/api/v1/internal/ai/provider_health_metrics', anything)
+        allow(api_client_double).to receive(:post).with('/api/v1/ai/autonomy/broadcast', anything)
       end
 
       it 'returns degraded status when some providers unhealthy' do
@@ -99,19 +101,22 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
         expect(result[:summary][:unhealthy]).to be > 0
       end
 
-      it 'sends alerts for unhealthy providers' do
-        expect(api_client_double).to receive(:post).with('admin/system_alerts',
-          hash_including(alert_type: 'ai_provider_health'))
+      it 'logs a warning for unhealthy providers' do
+        logger_double = mock_logger
 
         job_instance.execute
+
+        expect(logger_double).to have_received(:warn).with(
+          a_string_matching(/Provider unhealthy/)
+        )
       end
     end
 
     context 'with critical provider failures' do
       before do
         stub_critical_provider_failures
-        allow(api_client_double).to receive(:post).with('admin/ai_provider_health_metrics', anything)
-        allow(api_client_double).to receive(:post).with('admin/system_alerts', anything)
+        allow(api_client_double).to receive(:post).with('/api/v1/internal/ai/provider_health_metrics', anything)
+        allow(api_client_double).to receive(:post).with('/api/v1/ai/autonomy/broadcast', anything)
       end
 
       it 'returns critical status when majority unhealthy' do
@@ -120,18 +125,22 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
         expect(result[:overall_status]).to eq('critical')
       end
 
-      it 'sends critical alert' do
-        expect(api_client_double).to receive(:post).with('admin/system_alerts',
-          hash_including(severity: 'critical'))
+      it 'logs a critical alert' do
+        logger_double = mock_logger
 
         job_instance.execute
+
+        expect(logger_double).to have_received(:error).with(
+          a_string_matching(/CRITICAL/)
+        )
       end
     end
 
     context 'with disabled providers' do
       before do
         stub_providers_with_disabled
-        allow(api_client_double).to receive(:post).with('admin/ai_provider_health_metrics', anything)
+        allow(api_client_double).to receive(:post).with('/api/v1/internal/ai/provider_health_metrics', anything)
+        allow(api_client_double).to receive(:post).with('/api/v1/ai/autonomy/broadcast', anything)
       end
 
       it 'counts disabled providers separately' do
@@ -169,14 +178,14 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
   private
 
   def stub_healthy_providers
-    allow(api_client_double).to receive(:get).with('admin/ai_providers', anything).and_return({
+    allow(api_client_double).to receive(:get).with('/api/v1/internal/ai/providers', anything).and_return({
       'providers' => [
         { 'id' => 'prov_1', 'name' => 'openai', 'status' => 'active', 'is_active' => true },
         { 'id' => 'prov_2', 'name' => 'anthropic', 'status' => 'active', 'is_active' => true }
       ]
     })
 
-    allow(api_client_double).to receive(:post).with(/admin\/ai_providers\/.*\/health_check/, anything).and_return({
+    allow(api_client_double).to receive(:post).with(/\/api\/v1\/internal\/ai\/providers\/.*\/health_check/, anything).and_return({
       'healthy' => true,
       'response_time_ms' => 500,
       'error_rate' => 0,
@@ -185,21 +194,21 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
   end
 
   def stub_degraded_providers
-    allow(api_client_double).to receive(:get).with('admin/ai_providers', anything).and_return({
+    allow(api_client_double).to receive(:get).with('/api/v1/internal/ai/providers', anything).and_return({
       'providers' => [
         { 'id' => 'prov_1', 'name' => 'openai', 'status' => 'active', 'is_active' => true },
         { 'id' => 'prov_2', 'name' => 'anthropic', 'status' => 'active', 'is_active' => true }
       ]
     })
 
-    allow(api_client_double).to receive(:post).with('admin/ai_providers/prov_1/health_check', anything).and_return({
+    allow(api_client_double).to receive(:post).with('/api/v1/internal/ai/providers/prov_1/health_check', anything).and_return({
       'healthy' => true,
       'response_time_ms' => 500,
       'error_rate' => 0,
       'consecutive_failures' => 0
     })
 
-    allow(api_client_double).to receive(:post).with('admin/ai_providers/prov_2/health_check', anything).and_return({
+    allow(api_client_double).to receive(:post).with('/api/v1/internal/ai/providers/prov_2/health_check', anything).and_return({
       'healthy' => true,
       'response_time_ms' => 6000,  # Slow response
       'error_rate' => 3,
@@ -208,21 +217,21 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
   end
 
   def stub_unhealthy_providers
-    allow(api_client_double).to receive(:get).with('admin/ai_providers', anything).and_return({
+    allow(api_client_double).to receive(:get).with('/api/v1/internal/ai/providers', anything).and_return({
       'providers' => [
         { 'id' => 'prov_1', 'name' => 'openai', 'status' => 'active', 'is_active' => true },
         { 'id' => 'prov_2', 'name' => 'anthropic', 'status' => 'active', 'is_active' => true }
       ]
     })
 
-    allow(api_client_double).to receive(:post).with('admin/ai_providers/prov_1/health_check', anything).and_return({
+    allow(api_client_double).to receive(:post).with('/api/v1/internal/ai/providers/prov_1/health_check', anything).and_return({
       'healthy' => true,
       'response_time_ms' => 500,
       'error_rate' => 0,
       'consecutive_failures' => 0
     })
 
-    allow(api_client_double).to receive(:post).with('admin/ai_providers/prov_2/health_check', anything).and_return({
+    allow(api_client_double).to receive(:post).with('/api/v1/internal/ai/providers/prov_2/health_check', anything).and_return({
       'healthy' => false,
       'error' => 'Connection refused',
       'response_time_ms' => nil,
@@ -232,14 +241,14 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
   end
 
   def stub_critical_provider_failures
-    allow(api_client_double).to receive(:get).with('admin/ai_providers', anything).and_return({
+    allow(api_client_double).to receive(:get).with('/api/v1/internal/ai/providers', anything).and_return({
       'providers' => [
         { 'id' => 'prov_1', 'name' => 'openai', 'status' => 'active', 'is_active' => true },
         { 'id' => 'prov_2', 'name' => 'anthropic', 'status' => 'active', 'is_active' => true }
       ]
     })
 
-    allow(api_client_double).to receive(:post).with(/admin\/ai_providers\/.*\/health_check/, anything).and_return({
+    allow(api_client_double).to receive(:post).with(/\/api\/v1\/internal\/ai\/providers\/.*\/health_check/, anything).and_return({
       'healthy' => false,
       'error' => 'Service unavailable',
       'response_time_ms' => nil,
@@ -249,14 +258,14 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
   end
 
   def stub_providers_with_disabled
-    allow(api_client_double).to receive(:get).with('admin/ai_providers', anything).and_return({
+    allow(api_client_double).to receive(:get).with('/api/v1/internal/ai/providers', anything).and_return({
       'providers' => [
         { 'id' => 'prov_1', 'name' => 'openai', 'status' => 'active', 'is_active' => true },
         { 'id' => 'prov_2', 'name' => 'anthropic', 'status' => 'disabled', 'is_active' => false }
       ]
     })
 
-    allow(api_client_double).to receive(:post).with('admin/ai_providers/prov_1/health_check', anything).and_return({
+    allow(api_client_double).to receive(:post).with('/api/v1/internal/ai/providers/prov_1/health_check', anything).and_return({
       'healthy' => true,
       'response_time_ms' => 500,
       'error_rate' => 0,

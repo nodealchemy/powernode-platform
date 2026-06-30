@@ -17,7 +17,7 @@ RSpec.describe Docker::EventCleanupJob do
     context "when cleanup is successful" do
       before do
         allow(api_client).to receive(:post)
-          .with("/api/v1/internal/docker/events", { action_type: "cleanup", older_than_days: 30 })
+          .with("/api/v1/internal/devops/docker/events", { action_type: "cleanup", older_than_days: 30 })
           .and_return({ "data" => { "deleted_count" => 42 } })
       end
 
@@ -25,14 +25,14 @@ RSpec.describe Docker::EventCleanupJob do
         job.execute
 
         expect(api_client).to have_received(:post)
-          .with("/api/v1/internal/docker/events", { action_type: "cleanup", older_than_days: 30 })
+          .with("/api/v1/internal/devops/docker/events", { action_type: "cleanup", older_than_days: 30 })
       end
     end
 
     context "when no events to clean up" do
       before do
         allow(api_client).to receive(:post)
-          .with("/api/v1/internal/docker/events", { action_type: "cleanup", older_than_days: 30 })
+          .with("/api/v1/internal/devops/docker/events", { action_type: "cleanup", older_than_days: 30 })
           .and_return({ "data" => { "deleted_count" => 0 } })
       end
 

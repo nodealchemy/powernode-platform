@@ -85,6 +85,16 @@ RSpec.describe AiContainerAgentJob, type: :job do
         stub_backend_api_success(:post, "/api/v1/internal/container_executions/#{execution_id}/status", {
           'success' => true
         })
+
+        # deploy_to_swarm issues a raw Net::HTTP POST to the cluster's
+        # api_endpoint + /services/create. Stub it so the Swarm deploy
+        # succeeds and the job advances the status to "running".
+        stub_request(:post, "https://swarm.test.local:2377/services/create")
+          .to_return(
+            status: 201,
+            body: { 'ID' => 'svc-test-123' }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
       end
 
       it 'fetches instance, cluster, and deploys successfully' do

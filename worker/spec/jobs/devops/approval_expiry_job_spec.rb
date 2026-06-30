@@ -15,8 +15,8 @@ RSpec.describe Devops::ApprovalExpiryJob do
     context 'when API call is successful' do
       let(:response) do
         {
-          success: true,
-          data: {
+          'success' => true,
+          'data' => {
             'expired_count' => 5,
             'failed_steps_count' => 2,
             'affected_execution_ids' => ['exec-1', 'exec-2']
@@ -49,8 +49,8 @@ RSpec.describe Devops::ApprovalExpiryJob do
     context 'when API call fails' do
       let(:response) do
         {
-          success: false,
-          error: 'Internal server error'
+          'success' => false,
+          'error' => 'Internal server error'
         }
       end
 
@@ -86,8 +86,8 @@ RSpec.describe Devops::ApprovalExpiryJob do
     context 'when no tokens are expired' do
       let(:response) do
         {
-          success: true,
-          data: {
+          'success' => true,
+          'data' => {
             'expired_count' => 0,
             'failed_steps_count' => 0,
             'affected_execution_ids' => []
