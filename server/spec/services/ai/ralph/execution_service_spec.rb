@@ -341,6 +341,146 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
   end
 
   # ===========================================================================
+  # G3: semantic maker/checker gate (separate-model evaluator) wired into the
+  # task-completion path. Composes WITH the G1 real-test gate.
+  # ===========================================================================
+
+  describe "maker/checker semantic gate (G3)" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+    let(:result) { { output: "did the work", checks_passed: true, commit_sha: "abc123", tokens: {}, cost: 0 } }
+    let(:evaluator) { instance_double(Ai::Reasoning::OutputEvaluatorService) }
+    # Stub the policy so the wiring test is isolated from model-tier selection
+    # (the policy itself is unit-tested separately). A distinct checker model
+    # satisfies the self-review ban.
+    let(:policy) do
+      instance_double(
+        Ai::Ralph::MakerCheckerPolicy,
+        enabled?: true, distinct_checker?: true,
+        maker_model: "cheap-maker", checker_model: "strong-checker",
+        checker_agent_id: agent.id, criteria: []
+      )
+    end
+
+    before do
+      allow(::WorkerJobService).to receive(:enqueue_ai_test_execution).and_return("success" => true)
+      allow(Ai::Ralph::MakerCheckerPolicy).to receive(:new).and_return(policy)
+      # STUB the LLM evaluator — no real LLM call happens.
+      allow(Ai::Reasoning::OutputEvaluatorService).to receive(:new).and_return(evaluator)
+    end
+
+    context "when the checker returns reject (real-test gate ON)" do
+      before do
+        ralph_loop.update!(repository_url: "https://git.example.com/acme/widget.git",
+                           configuration: { "maker_checker" => true, "real_test_execution" => true })
+        allow(evaluator).to receive(:evaluate).and_return(
+          { verdict: "reject", scores: { accuracy: 0.1 }, feedback: "fundamentally flawed" }
+        )
+      end
+
+      it "does NOT pass the task, records the verdict, and short-circuits the test gate" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(task.reload.status).to eq("in_progress")
+        expect(::WorkerJobService).not_to have_received(:enqueue_ai_test_execution)
+        expect(iteration.reload.check_results["evaluator_verdict"]).to eq("reject")
+        expect(iteration.check_results["evaluator_feedback"]).to eq("fundamentally flawed")
+        expect(iteration.check_results["checker_model"]).to eq("strong-checker")
+      end
+    end
+
+    context "when the checker returns revise" do
+      before do
+        ralph_loop.update!(configuration: { "maker_checker" => true, "real_test_execution" => false })
+        allow(evaluator).to receive(:evaluate).and_return(
+          { verdict: "revise", scores: {}, feedback: "fixable issues" }
+        )
+      end
+
+      it "keeps the task for retry (not passed)" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(task.reload.status).to eq("in_progress")
+        expect(iteration.reload.check_results["evaluator_verdict"]).to eq("revise")
+      end
+    end
+
+    context "when the checker returns pass (real-test gate OFF)" do
+      before do
+        ralph_loop.update!(configuration: { "maker_checker" => true, "real_test_execution" => false })
+        allow(evaluator).to receive(:evaluate).and_return(
+          { verdict: "pass", scores: { accuracy: 0.95 }, feedback: "looks good" }
+        )
+      end
+
+      it "passes the task and records the verdict" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(task.reload.status).to eq("passed")
+        expect(iteration.reload.check_results["evaluator_verdict"]).to eq("pass")
+      end
+    end
+
+    context "when the checker returns pass and the real-test gate is ON (composition)" do
+      before do
+        ralph_loop.update!(repository_url: "https://git.example.com/acme/widget.git",
+                           configuration: { "maker_checker" => true, "real_test_execution" => true })
+        allow(evaluator).to receive(:evaluate).and_return({ verdict: "pass", scores: {}, feedback: "ok" })
+      end
+
+      it "proceeds to the G1 sandboxed-test gate (dispatches tests, task parked)" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(::WorkerJobService).to have_received(:enqueue_ai_test_execution)
+        expect(task.reload.status).to eq("in_progress")
+        expect(iteration.reload.check_results["awaiting_test_result"]).to be true
+        expect(iteration.check_results["evaluator_verdict"]).to eq("pass")
+      end
+    end
+
+    context "when the self-review ban cannot be satisfied (no distinct checker)" do
+      before do
+        ralph_loop.update!(configuration: { "maker_checker" => true, "real_test_execution" => false })
+        allow(policy).to receive(:distinct_checker?).and_return(false)
+      end
+
+      it "skips the checker entirely and falls through to the existing gate" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(Ai::Reasoning::OutputEvaluatorService).not_to have_received(:new)
+        expect(task.reload.status).to eq("passed")
+      end
+    end
+  end
+
+  describe "maker/checker disabled (default — real policy, evaluator never invoked)" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+    let(:result) { { output: "did the work", checks_passed: true, commit_sha: "abc123", tokens: {}, cost: 0 } }
+
+    before do
+      allow(::WorkerJobService).to receive(:enqueue_ai_test_execution).and_return("success" => true)
+      allow(Ai::Reasoning::OutputEvaluatorService).to receive(:new).and_call_original
+      # Default config (no maker_checker key); disable the real-test gate so the
+      # task resolves via checks_passed exactly as before this increment.
+      ralph_loop.update!(configuration: { "real_test_execution" => false })
+    end
+
+    it "never constructs the evaluator and passes the task as before" do
+      service.send(:process_successful_iteration, iteration, task, result)
+
+      expect(Ai::Reasoning::OutputEvaluatorService).not_to have_received(:new)
+      expect(task.reload.status).to eq("passed")
+    end
+  end
+
+  # ===========================================================================
   # #run_all
   # ===========================================================================
 

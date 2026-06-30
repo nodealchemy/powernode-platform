@@ -186,7 +186,15 @@ module Ai
             cost: result[:cost]
           )
 
-          if ralph_loop.real_test_execution? && result[:commit_sha].present?
+          # G3: semantic maker/checker gate (opt-in via configuration["maker_checker"]).
+          # A separately-modeled checker (self-review ban) judges the output; a
+          # reject/revise verdict keeps the task for retry. It COMPOSES WITH — never
+          # replaces — the G1 sandboxed-test gate below: a semantic failure
+          # short-circuits BEFORE we trust checks_passed or dispatch a test run.
+          if maker_checker_gate_failed?(iteration, task, scrubbed_output, result)
+            verdict = iteration.check_results["evaluator_verdict"]
+            update_progress("Task #{task.task_key}: checker verdict '#{verdict}' — will retry")
+          elsif ralph_loop.real_test_execution? && result[:commit_sha].present?
             # Don't trust the executor's self-reported checks_passed — run the
             # suite in a sandbox and let the async callback resolve the task.
             dispatch_real_test_verification(iteration, task)
@@ -229,6 +237,73 @@ module Ai
           Rails.logger.error("[IterationExecution] test dispatch failed for iteration #{iteration.id}: #{e.message}")
           # Don't strand the task: clear the flag so the next tick can retry it.
           iteration.update!(check_results: (iteration.check_results || {}).merge("awaiting_test_result" => false))
+        end
+
+        # G3: run the independently-modeled semantic checker when maker/checker is
+        # enabled for this loop. Records the verdict/scores/feedback on the
+        # iteration's check_results and returns true when the verdict is NOT "pass"
+        # (reject/revise ⇒ keep the task for retry). Returns false (pass-through)
+        # when disabled, when the self-review ban can't be satisfied (no checker
+        # model distinct from the maker/executor), or on a wiring error — a checker
+        # outage must never wedge the loop, and the G1 test gate still runs.
+        def maker_checker_gate_failed?(iteration, task, output, result)
+          policy = Ai::Ralph::MakerCheckerPolicy.new(ralph_loop)
+          return false unless policy.enabled?
+
+          unless policy.distinct_checker?
+            Rails.logger.warn(
+              "[IterationExecution] maker/checker skipped for loop #{ralph_loop.id}: " \
+              "no checker model distinct from maker '#{policy.maker_model}' (self-review ban)"
+            )
+            return false
+          end
+
+          verdict = Ai::Reasoning::OutputEvaluatorService
+                    .new(account: ralph_loop.account)
+                    .evaluate(
+                      task: checker_task_text(task),
+                      output: checker_output_text(output, result),
+                      criteria: policy.criteria,
+                      llm_client: ::WorkerLlmClient.new(agent_id: policy.checker_agent_id),
+                      model: policy.checker_model
+                    )
+
+          iteration.update!(check_results: (iteration.check_results || {}).merge(
+            "evaluator_verdict"  => verdict[:verdict],
+            "evaluator_scores"   => verdict[:scores],
+            "evaluator_feedback" => verdict[:feedback],
+            "checker_model"      => policy.checker_model
+          ))
+
+          verdict[:verdict] != "pass"
+        rescue StandardError => e
+          Rails.logger.error("[IterationExecution] maker/checker gate failed for iteration #{iteration.id}: #{e.message}")
+          false
+        end
+
+        # The checker evaluates against the task's intent + acceptance criteria.
+        def checker_task_text(task)
+          [
+            task.description,
+            ("Acceptance criteria: #{task.acceptance_criteria}" if task.acceptance_criteria.present?)
+          ].compact.join("\n\n")
+        end
+
+        # NOTE/limitation: a unified diff is not available at this path — the agent
+        # executor returns output TEXT plus an optional commit SHA and a
+        # file_changes summary (not a patch). The checker therefore evaluates the
+        # output text augmented with the commit / changed-files summary. Feeding a
+        # real diff (e.g. from GitToolExecutor) is a follow-up.
+        def checker_output_text(output, result)
+          parts = [output.to_s]
+          parts << "Commit: #{result[:commit_sha]}" if result[:commit_sha].present?
+
+          changed = Array(result[:file_changes]).map do |c|
+            c.is_a?(Hash) ? (c[:path] || c["path"]) : c
+          end.compact
+          parts << "Changed files: #{changed.join(', ')}" if changed.any?
+
+          parts.join("\n\n")
         end
 
         def process_failed_iteration(iteration, task, result)
