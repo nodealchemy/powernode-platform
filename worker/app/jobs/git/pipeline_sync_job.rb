@@ -22,8 +22,22 @@ module Git
 
       credential_id = repository["credential_id"]
 
-      # Get decrypted credentials
-      decrypted_response = api_client.get("/api/v1/internal/git/credentials/#{credential_id}/decrypted")
+      # Get decrypted credentials. A missing credential record yields a 404
+      # ("Credential not found") from the backend — a PERMANENT condition that
+      # retrying can never resolve. Skip gracefully instead of dead-lettering
+      # (same principle as "never 500 on a permanent downstream state": don't
+      # turn an unfixable input into a retry storm). Any other error (5xx, auth,
+      # timeouts) still propagates so Sidekiq retries it normally.
+      begin
+        decrypted_response = api_client.get("/api/v1/internal/git/credentials/#{credential_id}/decrypted")
+      rescue BackendApiClient::ApiError => e
+        raise unless e.status == 404
+
+        log_warn "Skipping pipeline sync: git credential not configured",
+                 repository_id: repository_id,
+                 error_class: e.class.name
+        return { skipped: true, reason: "git credential not configured" }
+      end
       credential = decrypted_response["data"]
 
       client_config = {

@@ -372,6 +372,52 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
           .not_to raise_error
       end
     end
+
+    context 'when the git credential is missing (404 from decrypted endpoint)' do
+      before do
+        allow(api_client_double).to receive(:get)
+          .with("/api/v1/internal/git/credentials/#{credential_id}/decrypted")
+          .and_raise(BackendApiClient::ApiError.new('Credential not found', 404))
+      end
+
+      it 'skips gracefully without raising (no dead-letter / retry storm)' do
+        expect { job_instance.execute(repository_id, external_pipeline_id) }
+          .not_to raise_error
+      end
+
+      it 'returns a skipped result rather than syncing' do
+        result = job_instance.execute(repository_id, external_pipeline_id)
+
+        expect(result).to include(skipped: true)
+        # Never reaches the backend sync nor the provider API
+        expect(api_client_double).not_to have_received(:post)
+        expect(WebMock).not_to have_requested(:get, %r{https://api.github.com/.*})
+      end
+
+      it 'logs a warning naming the repository but not the credential value' do
+        allow(PowernodeWorker.application.logger).to receive(:warn)
+
+        job_instance.execute(repository_id, external_pipeline_id)
+
+        expect(PowernodeWorker.application.logger).to have_received(:warn)
+          .with(a_string_matching(/git credential not configured/i))
+        expect(PowernodeWorker.application.logger).to have_received(:warn)
+          .with(a_string_matching(/repository_id=#{repository_id}/))
+      end
+    end
+
+    context 'when credential fetch fails with a transient / non-404 error' do
+      before do
+        allow(api_client_double).to receive(:get)
+          .with("/api/v1/internal/git/credentials/#{credential_id}/decrypted")
+          .and_raise(BackendApiClient::ApiError.new('Backend server error', 500))
+      end
+
+      it 'still raises so Sidekiq retries (does not over-swallow)' do
+        expect { job_instance.execute(repository_id, external_pipeline_id) }
+          .to raise_error(BackendApiClient::ApiError)
+      end
+    end
   end
 
   describe 'status normalization' do
