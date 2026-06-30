@@ -294,5 +294,32 @@ RSpec.describe Ai::Campaign, type: :model do
       campaign.update!(status: "completed")
       expect { campaign.maybe_finalize! }.not_to(change { campaign.reload.status })
     end
+
+    # Bug: a completion_pct target self-finalized the campaign on the FIRST passed
+    # increment (an unseeded loop reads 1/1 = 100%) while the loop was still draining.
+    # The pct-stop must be gated on loop terminality.
+    it "does NOT finalize on a 100% completion_pct target while a loop is still active" do
+      loop_rec = create(:ai_ralph_loop, account: campaign.account, campaign: campaign, status: "running")
+      create(:ai_ralph_task, ralph_loop: loop_rec, status: "passed") # 1/1 = 100% so far
+      campaign.update!(stop_conditions: { "completion_pct" => 100 })
+      campaign.snapshot_progress!
+
+      expect(campaign.completion_pct).to eq(100.0)
+      expect(campaign.should_stop?).to be false
+      expect { campaign.maybe_finalize! }.not_to(change { campaign.reload.status })
+      expect(campaign.status).to eq("active")
+    end
+
+    it "lets the completion_pct target finalize once the loop has gone terminal" do
+      loop_rec = create(:ai_ralph_loop, account: campaign.account, campaign: campaign, status: "running")
+      create(:ai_ralph_task, ralph_loop: loop_rec, status: "passed")
+      campaign.update!(stop_conditions: { "completion_pct" => 100 })
+      campaign.snapshot_progress!
+      expect(campaign.should_stop?).to be false
+
+      loop_rec.update!(status: "completed")
+      expect(campaign.should_stop?).to be true
+      expect { campaign.maybe_finalize! }.to change { campaign.reload.status }.from("active").to("completed")
+    end
   end
 end

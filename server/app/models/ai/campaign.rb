@@ -254,7 +254,12 @@ module Ai
       max_failed = stop_conditions["max_failed"]
       return true if max_failed && failed_tasks >= max_failed.to_i
       target = stop_conditions["completion_pct"]
-      return true if target && completion_pct >= target.to_f
+      # A completion_pct target may only stop the campaign once its loop(s) have actually
+      # ended. While a loop is still ACTIVE (pending/running/paused) the percentage is
+      # premature — the FIRST passed increment on an unseeded loop reads 1/1 = 100% and
+      # would self-finalize the campaign mid-drain. Mirror fully_drained?'s active-loop
+      # guard. A campaign with NO loops is not active, so the pct-stop can still finalize it.
+      return true if target && completion_pct >= target.to_f && !ralph_loops.active.exists?
       return true if acceptance_floor_breached?
       false
     end

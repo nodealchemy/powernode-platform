@@ -49,8 +49,13 @@ module Ai
             status: "created"
           )
           loop = create_campaign_loop(campaign, workload: workload)
+          # Seed one pending task per planned increment so total_tasks reflects the WHOLE
+          # plan (an increment passing reads e.g. 1/15, not 1/1 = 100%). No-op when the
+          # caller supplied no plan_increments — behavior is then unchanged (no seeded tasks).
+          seed_plan_increments!(loop, config["plan_increments"])
           campaign.start!
         end
+        # Snapshot after seeding so total_tasks/completion_pct reflect the seeded plan.
         campaign.snapshot_progress!
         { campaign: campaign, loop: loop }
       end
@@ -330,6 +335,38 @@ module Ai
         # loop due immediately so the platform scheduler picks it up on its next pass.
         # Flat-rate CLI drivers pull manually and are never on the platform scheduler.
         loop_record.update_columns(next_scheduled_at: Time.current) unless Ai::RalphLoop::FLAT_RATE_DRIVER_KINDS.include?(driver_kind)
+      end
+
+      # Seed the campaign plan as pending RalphTasks on its loop, one per increment, so
+      # completion_pct measures progress against the whole plan rather than against the
+      # single task the first increment would otherwise create. Each increment is either a
+      # String title or a Hash { "title" =>, "description" =>, "task_key" => }. task_key
+      # derivation mirrors #record_increment! ("increment-<title>".parameterize, 120-char
+      # cap), so a later record_increment! on the same title flips the seeded task from
+      # pending → passed instead of adding a duplicate. Duplicate keys within one plan are
+      # disambiguated with a -N suffix to satisfy the (loop, task_key) uniqueness constraint.
+      def seed_plan_increments!(loop_record, increments)
+        return unless increments.is_a?(Array)
+
+        seen = Hash.new(0)
+        increments.each_with_index do |inc, idx|
+          spec = inc.is_a?(Hash) ? inc.deep_stringify_keys : { "title" => inc.to_s }
+          title = spec["title"].to_s
+          next if title.blank? && spec["task_key"].blank?
+
+          key = (spec["task_key"].presence || "increment-#{title}").to_s.parameterize
+          key = "increment-#{idx + 1}" if key.blank?
+          key = key[0, 120]
+          seen[key] += 1
+          key = "#{key}-#{seen[key]}"[0, 120] if seen[key] > 1
+
+          loop_record.ralph_tasks.create!(
+            task_key: key,
+            description: spec["description"].presence || title.presence || key,
+            status: "pending",
+            position: idx + 1
+          )
+        end
       end
 
       def create_campaign_loop(campaign, workload: DEFAULT_WORKLOAD)

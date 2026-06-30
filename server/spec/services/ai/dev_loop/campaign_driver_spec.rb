@@ -34,6 +34,53 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
       expect(campaign.stop_conditions["min_acceptance_pct"]).to eq(80)
       expect(campaign.stop_conditions["max_failed"]).to eq(3)
     end
+
+    context "plan_increments seeding" do
+      it "seeds one pending task per planned increment so total_tasks reflects the plan" do
+        result = driver.start(
+          name: "Planned",
+          configuration: { "plan_increments" => ["First thing", { "title" => "Second thing", "description" => "do B" }] }
+        )
+        campaign = result[:campaign]
+        loop = result[:loop]
+
+        expect(loop.ralph_tasks.where(status: "pending").count).to eq(2)
+        expect(loop.ralph_tasks.pluck(:task_key)).to contain_exactly("increment-first-thing", "increment-second-thing")
+        expect(loop.ralph_tasks.find_by(task_key: "increment-second-thing").description).to eq("do B")
+        expect(campaign.reload.total_tasks).to eq(2)
+        expect(campaign.completion_pct).to eq(0.0)
+      end
+
+      it "honors an explicit task_key and disambiguates duplicate keys within the plan" do
+        loop = driver.start(
+          name: "Keys",
+          configuration: { "plan_increments" => [{ "title" => "Custom", "task_key" => "kx" }, "Dup", "Dup"] }
+        )[:loop]
+        expect(loop.ralph_tasks.pluck(:task_key)).to contain_exactly("kx", "increment-dup", "increment-dup-2")
+      end
+
+      it "seeds no tasks when plan_increments is absent (unchanged behavior)" do
+        loop = driver.start(name: "Bare")[:loop]
+        expect(loop.ralph_tasks.count).to eq(0)
+      end
+
+      it "a passed first increment on a 15-plan campaign reads ~6.7%, not 100%, and does not finalize while active" do
+        increments = (1..15).map { |n| "Increment #{n}" }
+        campaign = driver.start(
+          name: "Fifteen",
+          configuration: { "plan_increments" => increments },
+          stop_conditions: { "completion_pct" => 100 }
+        )[:campaign]
+
+        driver.record_increment!(campaign, title: "Increment 1")
+
+        campaign.reload
+        expect(campaign.total_tasks).to eq(15)
+        expect(campaign.completed_tasks).to eq(1)
+        expect(campaign.completion_pct).to be_within(0.01).of(6.67)
+        expect(campaign.status).to eq("active")
+      end
+    end
   end
 
   describe "#status" do
