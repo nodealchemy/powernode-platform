@@ -128,12 +128,57 @@ RSpec.describe AiLandSecurityScanJob, type: :job do
       job.execute("repository" => "acme/widget")
     end
 
-    it "falls back to the CI poll when checkout fails (never strands the land)" do
+    it "parks for human review (does NOT advance to CI) when the checkout fails" do
       allow(job).to receive(:checkout_workspace).and_raise(StandardError.new("clone denied"))
-      expect(AiCampaignLandCiPollJob).to receive(:perform_async)
-        .with("land_id" => "L1", "gate" => "staged", "attempt" => 0)
+
+      expect(api_client).to receive(:post).with(
+        "/api/v1/internal/ai/campaign_lands/L1/security_findings",
+        hash_including(
+          findings: array_including(
+            hash_including(scanner: "land-security-scan", severity: "high")
+          ),
+          scanners: array_including("land-security-scan")
+        )
+      ).and_return("data" => { "blocked" => true })
+      expect(AiCampaignLandCiPollJob).not_to receive(:perform_async)
+
+      result = job.execute(args)
+      expect(result).to include(blocked: true, scan_incomplete: true)
+    end
+
+    it "parks for human review (does NOT advance to CI) when the diff cannot be produced" do
+      # Every `git diff` invocation (base-sha attempt AND the fallback) exits
+      # non-zero — the scan cannot complete, so the land must park, not pass.
+      allow(job).to receive(:run_workspace_command) do |_ws, cmd, **_o|
+        if cmd.include?("git diff")
+          { exit_code: 128, output: "fatal: bad revision", error: nil }
+        else
+          { exit_code: 127, output: "", error: nil }
+        end
+      end
+
+      expect(api_client).to receive(:post).with(
+        "/api/v1/internal/ai/campaign_lands/L1/security_findings",
+        hash_including(
+          findings: array_including(
+            hash_including(scanner: "land-security-scan", severity: "high")
+          )
+        )
+      ).and_return("data" => { "blocked" => true })
+      expect(AiCampaignLandCiPollJob).not_to receive(:perform_async)
 
       job.execute(args)
+    end
+
+    it "keeps the incomplete-scan park-back detail free of underlying error content" do
+      allow(job).to receive(:checkout_workspace)
+        .and_raise(StandardError.new("https://x-token-abc123@git.example/repo.git denied"))
+      posted = nil
+      allow(api_client).to receive(:post) { |_path, body| posted = body; { "data" => { "blocked" => true } } }
+
+      job.execute(args)
+
+      expect(posted.to_json).not_to include("x-token-abc123")
     end
 
     it "cleans up the workspace afterwards" do

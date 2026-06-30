@@ -16,16 +16,38 @@ require_relative "../services/devops/secret_scanner"
 # Findings are POSTed to the server's land park-back surface
 # (campaign_lands#security_findings), which records them under
 # metadata["security_gate"] and PARKS the land when any finding is blocking —
-# composing with the G4 server gate. On a clean scan (or when no repository can be
-# resolved / the checkout fails) the job hands off to the CI poll so the land
-# still faces its normal staged-CI gate and never strands.
+# composing with the G4 server gate.
+#
+# FAIL CLOSED on an incomplete scan. The job ends on exactly one of three
+# outcomes, so an autonomous land never strands silently:
+#   * clean scan ............... hand off to the staged-CI poll
+#   * blocking finding ......... server parks the land (real secret/SAST hit)
+#   * scan could NOT complete .. server PARKS the land for human review
+# The last case is the fail-closed change: an infrastructure failure (the
+# checkout raised, or the diff could not be produced) means we never actually
+# inspected the staged diff, so the land is HELD for an operator rather than
+# slipped through to CI on an unverified change. The ONLY benign skip is a land
+# with no resolvable repository — there is no diffable code that could carry a
+# committed secret, the server-side G4 gate already ran, and the staged-CI gate
+# still applies, so that case proceeds to CI cleanly.
 class AiLandSecurityScanJob < BaseJob
   include DevopsWorkspaceSteps
+
+  # Raised when the scan cannot be COMPLETED (vs. completing and finding
+  # nothing). Carries only a generic stage label — never command output, which
+  # could echo a tokened remote URL.
+  class ScanIncompleteError < StandardError; end
 
   sidekiq_options queue: "ai_orchestration", retry: 1
 
   DIFF_TIMEOUT_SECONDS = 120
   BRAKEMAN_TIMEOUT_SECONDS = 180
+
+  # Synthetic park-back finding for an incomplete scan. "high" sits at the
+  # server's BLOCKING_SEVERITY threshold (Ai::Land::SecurityGateService), so the
+  # existing endpoint parks the land. Mirrored by hand across the HTTP boundary.
+  INCOMPLETE_SCANNER  = "land-security-scan"
+  INCOMPLETE_SEVERITY = "high"
 
   def execute(args = {})
     land_id = args["land_id"]
@@ -62,10 +84,12 @@ class AiLandSecurityScanJob < BaseJob
       # Blocking finding ⇒ the server parked the land; stop the pipeline here.
       return { land_id: land_id, blocked: true, findings: findings.size } if blocked
     rescue StandardError => e
-      # An infrastructure failure (clone/diff) must not permanently block a land.
-      # Actual secret/SAST FINDINGS still park above; here we fall through to the
-      # standard CI gate so the land keeps moving.
-      log_error "[AiLandSecurityScan] deep scan failed for land #{land_id}; falling back to CI gate", e
+      # FAIL CLOSED: the scan could not complete (checkout raised, diff failed,
+      # or an unexpected error around the scan / its park-back POST). We never
+      # inspected the staged diff, so PARK the land for human review instead of
+      # advancing it to CI on an unverified change.
+      log_error "[AiLandSecurityScan] deep scan could not complete for land #{land_id}; parking for review", e
+      return park_incomplete_scan(land_id, e)
     ensure
       FileUtils.rm_rf(workspace) if workspace.present? && File.directory?(workspace)
     end
@@ -77,16 +101,22 @@ class AiLandSecurityScanJob < BaseJob
 
   # Diff the checked-out branch against the land base. Prefer the exact base SHA
   # the stage phase recorded (what staged CI ran against); fall back to the
-  # target's remote-tracking ref, which a full clone always has.
+  # target's remote-tracking ref, which a full clone always has. A non-zero exit
+  # is a real failure (bad ref / not a repo), NOT an empty diff (clean diff =>
+  # exit 0, empty output) — so when the diff cannot be produced we raise to fail
+  # the scan CLOSED rather than scanning empty output and silently passing.
   def compute_diff(workspace, base_sha:, target_branch:)
     primary = base_sha || "origin/#{target_branch}"
     run = run_workspace_command(workspace, diff_command(primary), timeout_secs: DIFF_TIMEOUT_SECONDS)
     return run[:output] if run[:exit_code].to_i.zero?
 
     fallback = "origin/#{target_branch}"
-    return run[:output] if primary == fallback
+    raise ScanIncompleteError, "could not diff the land against its base" if primary == fallback
 
-    run_workspace_command(workspace, diff_command(fallback), timeout_secs: DIFF_TIMEOUT_SECONDS)[:output]
+    run = run_workspace_command(workspace, diff_command(fallback), timeout_secs: DIFF_TIMEOUT_SECONDS)
+    return run[:output] if run[:exit_code].to_i.zero?
+
+    raise ScanIncompleteError, "could not diff the land against its base"
   end
 
   def diff_command(base)
@@ -136,5 +166,25 @@ class AiLandSecurityScanJob < BaseJob
   def hand_off_to_ci(land_id)
     AiCampaignLandCiPollJob.perform_async("land_id" => land_id, "gate" => "staged", "attempt" => 0)
     { land_id: land_id, blocked: false }
+  end
+
+  # Fail-closed park-back: POST a synthetic blocking finding so the existing
+  # server endpoint parks the land for human review. The detail is generic — a
+  # stage label for our own ScanIncompleteError, otherwise just the error CLASS
+  # name (never the message, which could echo a tokened URL or other content).
+  # Does NOT chain the CI poll. If the park-back POST itself fails the error
+  # propagates so Sidekiq retries; the land stays held, never slipped to CI.
+  def park_incomplete_scan(land_id, error)
+    reason = error.is_a?(ScanIncompleteError) ? error.message : error.class.name
+    finding = {
+      scanner: INCOMPLETE_SCANNER,
+      severity: INCOMPLETE_SEVERITY,
+      detail: "could not complete security scan: #{reason}"
+    }
+    report_findings(land_id, [ finding ], [ INCOMPLETE_SCANNER ])
+    { land_id: land_id, blocked: true, scan_incomplete: true }
+  rescue StandardError => e
+    log_error "[AiLandSecurityScan] failed to park-back the incomplete scan for land #{land_id}", e
+    raise
   end
 end
