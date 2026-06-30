@@ -308,6 +308,23 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(ralph_loop.ralph_iterations.last.error_code).to eq("blocked")
     end
 
+    it "remaps a passed outcome touching a protected path to a human-gated block (G10)" do
+      result = tool.execute(params: {
+        action: "dev_complete_task",
+        loop_id: ralph_loop.id,
+        task_key: "F9-99",
+        outcome: "passed",
+        summary: "Refactored the charge flow",
+        files_changed: ["server/app/services/payments/charge.rb"]
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:task_status]).to eq("blocked")
+      expect(result[:guardrail][:blocked]).to be true
+      expect(result[:guardrail][:violations].first[:file]).to eq("server/app/services/payments/charge.rb")
+      expect(ralph_loop.ralph_tasks.find_by(task_key: "F9-99").status).to eq("blocked")
+    end
+
     it "rejects completion of a task that was never claimed" do
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "unclaimed")
 

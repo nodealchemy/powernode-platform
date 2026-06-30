@@ -228,6 +228,19 @@ module Ai
         summary = params[:summary].to_s
         return error_result("summary is required") if summary.blank?
 
+        # G10: scope guardrail. A "passed" outcome that touches a protected path
+        # (payments/auth/crypto/secrets) or a critical-tier file is NOT silently
+        # accepted — it is remapped to a human-gated "blocked" (a park for review).
+        # Only remap an in_progress task: a blocked task can't re-block (operator
+        # resolution entries arrive already blocked).
+        guardrail = nil
+        if outcome == "passed" && task.status == "in_progress" &&
+           (violation = scope_guardrail_violation(loop_record, params[:files_changed]))
+          guardrail = violation
+          outcome = "blocked"
+          summary = "[scope-guardrail] #{violation[:summary]} — parked for human review. #{summary}"
+        end
+
         iteration = nil
         pairing_error = nil
         # Lock the task so the (status → outcome) pre-check, the iteration record, and
@@ -262,10 +275,36 @@ module Ai
           response[:governance] = { category: "dev.multi_file_change",
                                     files_changed: Array(params[:files_changed]).size }
         end
+        # G10: surface the guardrail verdict and park a question for the operator.
+        if guardrail
+          response[:guardrail] = { blocked: true, violations: guardrail[:violations],
+                                   highest_tier: guardrail[:highest_tier] }
+          begin
+            loop_record.campaign&.park_question!(
+              question: "Scope guardrail blocked an autonomous change: #{guardrail[:summary]}",
+              context: "scope-guardrail"
+            )
+          rescue StandardError => e
+            Rails.logger.warn("[DevLoopTool] scope-guardrail park failed for loop #{loop_record.id}: #{e.message}")
+          end
+        end
         response
       rescue Ai::RalphTask::InvalidTransitionError, Ai::RalphIteration::InvalidTransitionError,
              ActiveRecord::RecordInvalid => e
         error_result(e.message)
+      end
+
+      # G10: evaluate the executor-reported files against the loop's scope guardrail
+      # (no worker git diff needed). Returns the violation result hash, or nil when clean.
+      def scope_guardrail_violation(loop_record, files_changed)
+        files = Array(files_changed).map(&:to_s).reject(&:blank?)
+        return nil if files.empty?
+
+        result = ::Ai::CodeFactory::ScopeGuardrail.new(
+          risk_contract: loop_record.risk_contract,
+          config: (loop_record.configuration || {})["scope_guardrail"]
+        ).evaluate(files)
+        result[:allowed] ? nil : result
       end
 
       def prepare_iteration(loop_record, task, params)
