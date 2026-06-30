@@ -86,9 +86,39 @@ RSpec.describe AiTestExecutionJob, type: :job do
       )
     end
 
-    it "no-ops without the required args" do
+    it "no-ops without the required ids (command is no longer required up front)" do
       job.execute("ralph_loop_id" => "x")
       expect(api_client_double).not_to have_received(:post)
+    end
+
+    it "auto-detects the framework when no command is given" do
+      allow(checkout_handler).to receive(:execute).and_return(outputs: { workspace: "/tmp/ws" })
+      allow(Dir).to receive(:children).with("/tmp/ws").and_return(["Gemfile", "app", "spec"])
+
+      expect(run_handler).to receive(:execute).with(
+        config: hash_including("command" => "bundle exec rspec", "continue_on_error" => true),
+        context: { trigger_context: {} },
+        previous_outputs: { "checkout" => { workspace: "/tmp/ws" } }
+      ).and_return(outputs: { output: "3 examples, 0 failures", exit_code: 0 })
+
+      job.execute(args.except("command", "framework"))
+
+      expect(api_client_double).to have_received(:post).with(
+        anything, hash_including(test_result: hash_including(framework: "rspec",
+                                                             command: "bundle exec rspec", exit_code: 0))
+      )
+    end
+
+    it "reports a failure (fail-closed) when no test framework is detected at the repo root" do
+      allow(checkout_handler).to receive(:execute).and_return(outputs: { workspace: "/tmp/ws" })
+      allow(Dir).to receive(:children).with("/tmp/ws").and_return(["README.md", "LICENSE"])
+
+      job.execute(args.except("command", "framework"))
+
+      expect(api_client_double).to have_received(:post).with(
+        anything, hash_including(test_result: hash_including(exit_code: 1,
+                                                             error: /no recognised test framework/))
+      )
     end
 
     it "cleans up the workspace afterwards" do

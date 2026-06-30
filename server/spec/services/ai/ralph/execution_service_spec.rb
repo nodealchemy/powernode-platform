@@ -281,7 +281,28 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
       end
     end
 
-    context "when real_test_execution is disabled (default path)" do
+    context "when left at the default (G1: the gate is opt-out) and a commit was made" do
+      before do
+        # No real_test_execution / test_command in configuration — the gate is ON
+        # by default and the worker auto-detects the framework (command: nil).
+        ralph_loop.update!(repository_url: "https://git.example.com/acme/widget.git")
+      end
+
+      it "dispatches a sandboxed test run (command nil ⇒ auto-detect) and parks the task" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(::WorkerJobService).to have_received(:enqueue_ai_test_execution).with(
+          hash_including(ralph_loop_id: ralph_loop.id, ralph_iteration_id: iteration.id,
+                         repository: "acme/widget", command: nil)
+        )
+        expect(task.reload.status).to eq("in_progress")
+        expect(iteration.reload.check_results["awaiting_test_result"]).to be true
+      end
+    end
+
+    context "when real_test_execution is explicitly disabled (opt-out)" do
+      before { ralph_loop.update!(configuration: { "real_test_execution" => false }) }
+
       it "passes the task immediately and never dispatches a test run" do
         service.send(:process_successful_iteration, iteration, task, result)
 

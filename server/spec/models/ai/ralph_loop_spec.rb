@@ -52,18 +52,34 @@ RSpec.describe Ai::RalphLoop, type: :model do
   end
 
   describe "#real_test_execution?" do
-    it "is false by default" do
-      expect(loop_record.real_test_execution?).to be false
-    end
-
-    it "is false when the flag is set but no test command is configured" do
-      loop_record.update!(configuration: { "real_test_execution" => true })
-      expect(loop_record.real_test_execution?).to be false
-    end
-
-    it "is true only when the flag AND a test command are both set" do
-      loop_record.update!(configuration: { "real_test_execution" => true, "test_command" => "bundle exec rspec" })
+    it "is ON by default (G1: the gate is opt-out, not opt-in)" do
       expect(loop_record.real_test_execution?).to be true
+    end
+
+    it "stays ON when the flag is set true without a test command (auto-detected)" do
+      loop_record.update!(configuration: { "real_test_execution" => true })
+      expect(loop_record.real_test_execution?).to be true
+    end
+
+    it "is OFF only when explicitly opted out" do
+      loop_record.update!(configuration: { "real_test_execution" => false })
+      expect(loop_record.real_test_execution?).to be false
+    end
+  end
+
+  describe "#test_command" do
+    it "is nil when unset (TestVerificationService auto-detects the framework)" do
+      expect(loop_record.test_command).to be_nil
+    end
+
+    it "returns the configured command when present" do
+      loop_record.update!(configuration: { "test_command" => "bundle exec rspec" })
+      expect(loop_record.test_command).to eq("bundle exec rspec")
+    end
+
+    it "treats a blank command as nil" do
+      loop_record.update!(configuration: { "test_command" => "  " })
+      expect(loop_record.test_command).to be_nil
     end
   end
 

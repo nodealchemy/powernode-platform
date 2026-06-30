@@ -35,9 +35,9 @@ module Ai
         def select_next_task
           # First, resume any in-progress task (after crash/restart) — but skip a
           # task parked awaiting async test results, or the loop would re-run it
-          # before the test-results callback resolves it. The await flag is only
-          # ever set when real_test_execution is enabled, so this is a no-op on
-          # the default path.
+          # before the test-results callback resolves it. The await flag is set
+          # whenever real_test_execution gates a commit — which, since G1, is the
+          # default path (opt-out), not just an opt-in one.
           in_progress = ralph_loop.ralph_tasks.in_progress.find { |t| !awaiting_test_result?(t) }
           return in_progress if in_progress
 
@@ -211,8 +211,8 @@ module Ai
             ralph_iteration_id: iteration.id,
             repository: ralph_loop.repository_full_name,
             branch: ralph_loop.branch,
-            command: ralph_loop.configuration["test_command"],
-            framework: ralph_loop.configuration["test_framework"]
+            command: ralph_loop.test_command,
+            framework: ralph_loop.configuration&.dig("test_framework")
           )
           update_progress("Task #{task.task_key}: running tests in sandbox")
         rescue StandardError => e

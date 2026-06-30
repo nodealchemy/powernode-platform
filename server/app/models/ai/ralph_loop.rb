@@ -100,12 +100,20 @@ module Ai
       configuration&.dig("run_all_active") == true
     end
 
-    # Real (sandboxed) test execution is opt-in per loop and requires an explicit
-    # test command — the in-platform sandbox engine only dispatches a test run
-    # when BOTH are set, so the default (fabricated-pass) path is untouched until
-    # an operator activates it. See Ai::Ralph::TestVerificationService.
+    # Real (sandboxed) test execution is the DEFAULT (opt-out): the in-platform
+    # sandbox runs the suite and gates task.pass! on the REAL result, replacing the
+    # executor's self-reported (fabricated) checks_passed. Disable per loop with
+    # configuration "real_test_execution" => false. A test command is optional —
+    # when blank the worker auto-detects the framework at the repo root.
+    # See Ai::Ralph::TestVerificationService.
     def real_test_execution?
-      configuration&.dig("real_test_execution") == true && configuration&.dig("test_command").present?
+      configuration&.dig("real_test_execution") != false
+    end
+
+    # Optional explicit test command; nil ⇒ the worker auto-detects the framework
+    # from the repo-root manifest (mirrors TestVerificationService::FRAMEWORKS).
+    def test_command
+      configuration&.dig("test_command").presence
     end
 
     # Derive "owner/repo" from repository_url for the worker's repo lookup.
