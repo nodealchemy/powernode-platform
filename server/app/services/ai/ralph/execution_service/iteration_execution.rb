@@ -186,12 +186,20 @@ module Ai
             cost: result[:cost]
           )
 
+          # G10: scope guardrail (platform executor path). A commit touching a
+          # protected path (payments/auth/crypto/secrets) or a critical-tier file is
+          # NOT auto-passed — it is BLOCKED for human review, mirroring the dev-loop
+          # pull path. Short-circuits FIRST (before G3 maker/checker, the G1 test
+          # gate, and any pass): no matter how good the change is, the autonomous loop
+          # must not auto-advance a protected-path change.
+          if (guardrail = scope_guardrail_block(result))
+            block_for_scope_guardrail!(iteration, task, guardrail)
           # G3: semantic maker/checker gate (opt-in via configuration["maker_checker"]).
           # A separately-modeled checker (self-review ban) judges the output; a
           # reject/revise verdict keeps the task for retry. It COMPOSES WITH — never
           # replaces — the G1 sandboxed-test gate below: a semantic failure
           # short-circuits BEFORE we trust checks_passed or dispatch a test run.
-          if maker_checker_gate_failed?(iteration, task, scrubbed_output, result)
+          elsif maker_checker_gate_failed?(iteration, task, scrubbed_output, result)
             verdict = iteration.check_results["evaluator_verdict"]
             update_progress("Task #{task.task_key}: checker verdict '#{verdict}' — will retry")
           elsif ralph_loop.real_test_execution? && result[:commit_sha].present?
@@ -237,6 +245,60 @@ module Ai
           Rails.logger.error("[IterationExecution] test dispatch failed for iteration #{iteration.id}: #{e.message}")
           # Don't strand the task: clear the flag so the next tick can retry it.
           iteration.update!(check_results: (iteration.check_results || {}).merge("awaiting_test_result" => false))
+        end
+
+        # G10: evaluate the iteration's committed change against the loop scope
+        # guardrail. Only fires when a commit was made (a change that would land);
+        # returns the violation result hash, or nil when clean / no file list.
+        # Reuses the shared ScopeGuardrail.violation_for seam (loop risk_contract +
+        # configuration["scope_guardrail"]). If the executor reports a commit but no
+        # file list, evaluate() sees no paths and returns clean — a known limitation,
+        # the same one noted on the dev-loop path.
+        def scope_guardrail_block(result)
+          return nil if result[:commit_sha].blank?
+
+          ::Ai::CodeFactory::ScopeGuardrail.violation_for(
+            changed_files_from_result(result), loop_record: ralph_loop
+          )
+        end
+
+        # Record the guardrail verdict on the iteration and BLOCK the task for human
+        # review (never pass). Parks an operator question on the loop's campaign when
+        # present (best-effort — a park failure must not wedge the loop). Violations
+        # carry only file PATHS + reasons (never secret values), so they are safe to
+        # persist/display.
+        def block_for_scope_guardrail!(iteration, task, guardrail)
+          iteration.update!(check_results: (iteration.check_results || {}).merge(
+            "scope_guardrail" => {
+              "blocked"      => true,
+              "violations"   => Array(guardrail[:violations]).map { |v| v.transform_keys(&:to_s) },
+              "highest_tier" => guardrail[:highest_tier],
+              "summary"      => guardrail[:summary]
+            }
+          ))
+
+          reason = "[scope-guardrail] #{guardrail[:summary]} — parked for human review"
+          task.block!(reason: reason) if task.can_block?
+
+          begin
+            ralph_loop.campaign&.park_question!(
+              question: "Scope guardrail blocked an autonomous change: #{guardrail[:summary]}",
+              context: "scope-guardrail"
+            )
+          rescue StandardError => e
+            Rails.logger.warn("[IterationExecution] scope-guardrail park failed for loop #{ralph_loop.id}: #{e.message}")
+          end
+
+          update_progress("Task #{task.task_key}: scope guardrail blocked — parked for human review")
+        end
+
+        # Normalize the executor-reported changed files (strings or {path:} hashes)
+        # into a flat path list. Shared by the guardrail check and the maker/checker
+        # output summary.
+        def changed_files_from_result(result)
+          Array(result[:file_changes]).map do |c|
+            c.is_a?(Hash) ? (c[:path] || c["path"]) : c
+          end.compact
         end
 
         # G3: run the independently-modeled semantic checker when maker/checker is
@@ -298,9 +360,7 @@ module Ai
           parts = [output.to_s]
           parts << "Commit: #{result[:commit_sha]}" if result[:commit_sha].present?
 
-          changed = Array(result[:file_changes]).map do |c|
-            c.is_a?(Hash) ? (c[:path] || c["path"]) : c
-          end.compact
+          changed = changed_files_from_result(result)
           parts << "Changed files: #{changed.join(', ')}" if changed.any?
 
           parts.join("\n\n")

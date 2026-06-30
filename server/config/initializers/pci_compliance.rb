@@ -49,10 +49,17 @@ Rails.application.configure do
   # PCI-compliant logging configuration
   config.log_level = Rails.env.production? ? :info : :debug
 
-  # Custom log formatter that sanitizes sensitive data
+  # Custom log formatter that sanitizes sensitive data.
+  # G15: scrub SECRETS as well as PCI data — a leaked credential in a log line
+  # (api_key=..., Bearer token, PEM key, vendor token) must be redacted, not just
+  # card/PCI values. sanitize_output = PCI sanitize_string THEN secret scrub, so
+  # existing PCI behaviour is preserved exactly and only the string branch pays the
+  # extra (cheap, ~10-regex) secret pass. Non-String messages are untouched.
+  # BOUNDARY: scrub_secrets errs toward over-redaction (an accepted G15 tradeoff) —
+  # a non-secret value shaped like `token=<6+chars>` may be redacted in logs.
   config.log_formatter = proc do |severity, timestamp, progname, msg|
     sanitized_msg = if msg.is_a?(String)
-                      DataManagement::Sanitizer.sanitize_string(msg)
+                      DataManagement::Sanitizer.sanitize_output(msg)
     else
                       msg
     end

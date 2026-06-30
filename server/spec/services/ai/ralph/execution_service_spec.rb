@@ -481,6 +481,93 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
   end
 
   # ===========================================================================
+  # G10: scope guardrail on the platform executor path. A commit touching a
+  # protected path is BLOCKED for human review (never auto-passed), composing
+  # with the G1 test gate and G3 maker/checker.
+  # ===========================================================================
+
+  describe "scope guardrail (G10 platform path)" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+
+    before { allow(::WorkerJobService).to receive(:enqueue_ai_test_execution).and_return("success" => true) }
+
+    context "when a commit touches a protected path and the real-test gate is ON" do
+      let(:result) do
+        { output: "patched billing", checks_passed: true, commit_sha: "abc123",
+          file_changes: ["app/services/payments/charge_service.rb"], tokens: {}, cost: 0 }
+      end
+
+      before do
+        ralph_loop.update!(repository_url: "https://git.example.com/acme/widget.git",
+                           configuration: { "real_test_execution" => true })
+      end
+
+      it "BLOCKS the task (short-circuits the test gate) and records the guardrail verdict" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(task.reload.status).to eq("blocked")
+        expect(::WorkerJobService).not_to have_received(:enqueue_ai_test_execution)
+        verdict = iteration.reload.check_results["scope_guardrail"]
+        expect(verdict["blocked"]).to be true
+        expect(verdict["violations"].first["file"]).to eq("app/services/payments/charge_service.rb")
+        expect(iteration.reload.check_results["awaiting_test_result"]).to be_nil
+      end
+    end
+
+    context "when the loop has a campaign attached" do
+      let(:campaign) { create(:ai_campaign, account: account, decision_authority: "autonomous") }
+      let(:result) do
+        { output: "touched secrets", checks_passed: true, commit_sha: "abc123",
+          file_changes: ["config/credentials.yml.enc"], tokens: {}, cost: 0 }
+      end
+
+      before { ralph_loop.update!(campaign: campaign, configuration: { "real_test_execution" => false }) }
+
+      it "parks an operator question on the campaign and blocks the task" do
+        expect { service.send(:process_successful_iteration, iteration, task, result) }
+          .to change { campaign.reload.parked_questions.count }.by(1)
+        expect(task.reload.status).to eq("blocked")
+      end
+    end
+
+    context "when the commit touches only unprotected paths" do
+      let(:result) do
+        { output: "ok", checks_passed: true, commit_sha: "abc123",
+          file_changes: ["app/models/widget.rb"], tokens: {}, cost: 0 }
+      end
+
+      before { ralph_loop.update!(configuration: { "real_test_execution" => false }) }
+
+      it "does not block — passes as today (composes with the existing gates)" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(task.reload.status).to eq("passed")
+        expect(iteration.reload.check_results["scope_guardrail"]).to be_nil
+      end
+    end
+
+    context "when no commit was made (even if a protected path appears in file_changes)" do
+      let(:result) do
+        { output: "investigated only", checks_passed: true, commit_sha: nil,
+          file_changes: ["app/services/payments/charge_service.rb"], tokens: {}, cost: 0 }
+      end
+
+      before { ralph_loop.update!(configuration: { "real_test_execution" => false }) }
+
+      it "does not evaluate the guardrail (no commit ⇒ nothing lands)" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(iteration.reload.check_results["scope_guardrail"]).to be_nil
+        expect(task.reload.status).to eq("passed")
+      end
+    end
+  end
+
+  # ===========================================================================
   # #run_all
   # ===========================================================================
 

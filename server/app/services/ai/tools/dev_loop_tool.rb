@@ -299,16 +299,11 @@ module Ai
       end
 
       # G10: evaluate the executor-reported files against the loop's scope guardrail
-      # (no worker git diff needed). Returns the violation result hash, or nil when clean.
+      # (no worker git diff needed). Returns the violation result hash, or nil when
+      # clean. Delegates to the shared ScopeGuardrail.violation_for seam — the same
+      # entry point the platform executor and land paths use.
       def scope_guardrail_violation(loop_record, files_changed)
-        files = Array(files_changed).map(&:to_s).reject(&:blank?)
-        return nil if files.empty?
-
-        result = ::Ai::CodeFactory::ScopeGuardrail.new(
-          risk_contract: loop_record.risk_contract,
-          config: (loop_record.configuration || {})["scope_guardrail"]
-        ).evaluate(files)
-        result[:allowed] ? nil : result
+        ::Ai::CodeFactory::ScopeGuardrail.violation_for(files_changed, loop_record: loop_record)
       end
 
       def prepare_iteration(loop_record, task, params)

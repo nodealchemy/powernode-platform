@@ -16,6 +16,26 @@ module Ai
       # Ai::Loop::PolicyCatalog::KEEP_MANUAL_DENYLIST for the globs + rationale.
       DEFAULT_DENYLIST = Ai::Loop::PolicyCatalog::KEEP_MANUAL_DENYLIST
 
+      # Convenience: evaluate executor-reported changed files against a loop's
+      # guardrail (its risk_contract + configuration["scope_guardrail"]) and return
+      # the VIOLATION result hash, or nil when clean / no files. The single seam
+      # shared by every enforcement path — the dev-loop pull path, the platform
+      # executor path, and (with loop_record nil) the land path, which only has the
+      # default protected-path denylist (no per-loop contract/config).
+      # @param files [Array<String>] changed file paths
+      # @param loop_record [Ai::RalphLoop, nil]
+      # @return [Hash, nil] the evaluate() result when blocked, else nil
+      def self.violation_for(files, loop_record: nil)
+        list = Array(files).map(&:to_s).reject(&:blank?)
+        return nil if list.empty?
+
+        result = new(
+          risk_contract: loop_record&.try(:risk_contract),
+          config: (loop_record.respond_to?(:configuration) ? loop_record.configuration : nil).to_h["scope_guardrail"]
+        ).evaluate(list)
+        result[:allowed] ? nil : result
+      end
+
       # @param risk_contract [Ai::CodeFactory::RiskContract, nil] used for critical-tier detection
       # @param config [Hash, nil] the loop's configuration["scope_guardrail"]; optional
       #   "deny" (extra globs) and "allow" (override globs that exempt a path entirely)
