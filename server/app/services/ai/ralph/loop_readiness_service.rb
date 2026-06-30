@@ -8,11 +8,12 @@ module Ai
     # enforces.
     #
     # Only conditions that can be enforced today without breaking valid loops are
-    # BLOCKING; the rest are surfaced as warnings until their owning gaps land
-    # (token/cost caps → G5, scope denylist → G10/G14, secret-scrub/security →
-    # G15/G4). The single blocking condition is "no objective gate": a loop with
-    # real verification disabled (post-G1 the gate is on by default) must not run
-    # unless an operator explicitly acknowledges the risk.
+    # BLOCKING; the rest are surfaced as warnings (token/cost caps → G5;
+    # scope-in-bounds → G14, which warns when a loop's declared scope overlaps the
+    # keep-manual denylist; secret-scrub/security → G15/G4 still pending). The single
+    # blocking condition is "no objective gate": a loop with real verification
+    # disabled (post-G1 the gate is on by default) must not run unless an operator
+    # explicitly acknowledges the risk.
     class LoopReadinessService
       Result = Struct.new(:ready, :failures, :warnings, keyword_init: true) do
         def blocked?
@@ -35,6 +36,7 @@ module Ai
         check_objective_gate(failures, warnings)
         check_hard_stops(warnings)
         check_runnable_env(warnings)
+        check_scope(warnings)
 
         Result.new(ready: failures.empty?, failures: failures, warnings: warnings)
       end
@@ -73,6 +75,28 @@ module Ai
         return if @loop.repository_url.present?
 
         warnings << "No repository_url configured; the sandbox can't check out the code to verify commits."
+      end
+
+      # Condition 3 — scope in bounds (G14). When the loop declares a target scope,
+      # warn (non-blocking) if any declared path overlaps the keep-manual denylist
+      # (auth/crypto/payments/…). The doctrine is to keep those MANUAL; an autonomous
+      # loop pointed at them should be flagged, not silently allowed. Sourced from the
+      # single policy catalog so the gate and the guardrail share one list.
+      def check_scope(warnings)
+        manual = Ai::Loop::PolicyCatalog.manual_paths(declared_scope_paths)
+        return if manual.empty?
+
+        warnings << "Declared scope overlaps keep-manual paths (#{manual.join(', ')}); " \
+                    "the loop-engineering doctrine keeps auth/crypto/payments and similar MANUAL (G14)."
+      end
+
+      # The loop's declared target scope, if any. Supports both
+      # configuration["scope"]["paths"] and a flat configuration["target_paths"];
+      # absent/blank ⇒ no declared scope (the check no-ops).
+      def declared_scope_paths
+        config = @loop.configuration || {}
+        scoped = config.dig("scope", "paths")
+        Array(scoped.presence || config["target_paths"]).map(&:to_s).reject(&:blank?)
       end
 
       def acknowledged_no_gate?

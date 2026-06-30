@@ -77,6 +77,15 @@ RSpec.describe Ai::CodeFactory::ScopeGuardrail do
       expect(result[:violations]).to eq([])
     end
 
+    it "derives its default denylist from the policy catalog (G14)" do
+      expect(described_class::DEFAULT_DENYLIST).to equal(Ai::Loop::PolicyCatalog::KEEP_MANUAL_DENYLIST)
+
+      # A path the catalog marks keep-manual is blocked by the guardrail.
+      manual_path = "server/app/services/wallet/ledger.rb"
+      expect(Ai::Loop::PolicyCatalog.keep_manual?(manual_path)).to be true
+      expect(described_class.new.evaluate([manual_path])[:allowed]).to be false
+    end
+
     it "extends the denylist via config deny" do
       config = { "deny" => ["**/danger_zone/**"] }
       result = described_class.new(config: config).evaluate(["server/app/danger_zone/x.rb"])

@@ -61,5 +61,31 @@ RSpec.describe Ai::Ralph::LoopReadinessService, type: :service do
       loop_record.update!(max_iterations: 0)
       expect(evaluate.warnings.join).to match(/iteration cap/i)
     end
+
+    context "scope in bounds (G14)" do
+      it "warns (non-blocking) when the declared scope overlaps a keep-manual path" do
+        loop_record.update!(configuration: { "scope" => { "paths" => ["server/app/services/payments/charge.rb"] } })
+        result = evaluate
+        expect(result.ready).to be true
+        expect(result.warnings.join).to match(/keep-manual/i)
+        expect(result.warnings.join).to include("payments/charge.rb")
+      end
+
+      it "supports a flat target_paths scope shape" do
+        loop_record.update!(configuration: { "target_paths" => ["config/master.key"] })
+        expect(evaluate.warnings.join).to match(/keep-manual/i)
+      end
+
+      it "does not warn when the declared scope is in bounds" do
+        loop_record.update!(configuration: { "scope" => { "paths" => ["server/app/models/user.rb"] } })
+        result = evaluate
+        expect(result.ready).to be true
+        expect(result.warnings.join).not_to match(/keep-manual/i)
+      end
+
+      it "does not warn when no scope is declared" do
+        expect(evaluate.warnings.join).not_to match(/keep-manual/i)
+      end
+    end
   end
 end

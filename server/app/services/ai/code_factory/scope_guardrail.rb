@@ -11,26 +11,10 @@ module Ai
       FNM = File::FNM_PATHNAME | File::FNM_DOTMATCH
 
       # The article's "keep-manual" set: generic protected-path globs that should never
-      # be changed on the autonomous path without human review. Directory matches use the
-      # `**/<dir>/**` form so they match at any depth (FNM_PATHNAME-safe).
-      #
-      # NOTE: migrations and schema are deliberately EXCLUDED — they are far too common in
-      # ordinary improvement work (every model/table change touches them) to gate here.
-      DEFAULT_DENYLIST = [
-        # payments / billing
-        "**/payments/**", "**/payment/**", "**/billing/**", "**/charges/**", "**/payouts/**",
-        # auth / authz / permissions
-        "**/auth/**", "**/authentication/**", "**/authorization/**",
-        "**/permissions/**", "**/permission/**",
-        # credentials / secrets / vault
-        "**/credentials/**", "**/*credential*", "**/secrets/**", "**/*secret*", "**/vault/**",
-        # signing / wallets
-        "**/signing/**", "**/*signer*", "**/wallet/**", "**/wallets/**",
-        # key material
-        "**/*private_key*", "**/*api_key*",
-        # Rails secret files
-        "**/config/credentials*", "**/config/master.key", "**/.env*"
-      ].freeze
+      # be changed on the autonomous path without human review. Sourced from the single
+      # policy catalog (G14) so there is ONE canonical list — see
+      # Ai::Loop::PolicyCatalog::KEEP_MANUAL_DENYLIST for the globs + rationale.
+      DEFAULT_DENYLIST = Ai::Loop::PolicyCatalog::KEEP_MANUAL_DENYLIST
 
       # @param risk_contract [Ai::CodeFactory::RiskContract, nil] used for critical-tier detection
       # @param config [Hash, nil] the loop's configuration["scope_guardrail"]; optional
