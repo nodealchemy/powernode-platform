@@ -2,10 +2,11 @@
 
 module Ai
   module Connectors
-    # Reference adapter that proves the tracker seam end-to-end WITHOUT any
-    # vendor-specific auth: it POSTs the issue/error payload as JSON to a
-    # configured webhook URL. Vendors (Linear/Jira/Sentry) reuse it as a proxy
-    # delegate until a full API client is wired (see G8 follow-up).
+    # Vendor-agnostic reference adapter: it POSTs the issue/error payload as JSON
+    # to a configured webhook URL WITHOUT any vendor-specific auth. Useful as a
+    # generic destination (proxy, Zapier-style hook, custom intake). The named
+    # vendors (Linear/Jira/Sentry) are native API clients and do NOT route through
+    # this adapter.
     #
     # Config is taken from the explicit constructor args when given, otherwise
     # resolved lazily from Ai::Connectors::TrackerConfig at call time (so a

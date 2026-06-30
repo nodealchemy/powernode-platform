@@ -2,34 +2,39 @@
 
 module Ai
   module Connectors
-    # Thin shared base for the named-vendor scaffolding adapters (Linear / Jira /
-    # Sentry). Each subclass only declares its label + registry key. Until a full
-    # vendor API client (auth + REST) is wired, the adapter either delegates to the
-    # GenericWebhookTrackerAdapter against a configured webhook/proxy URL, or — when
-    # nothing is configured — raises NotImplementedError with a clear pointer to the
-    # G8 follow-up. Subclasses stay thin; the wiring lives here, DRY.
+    # Shared HTTP plumbing for the NATIVE vendor tracker adapters (Linear / Jira /
+    # Sentry). Provides a Faraday JSON client in the same house style as
+    # GenericWebhookTrackerAdapter, response parsing, a 2xx check, and graceful,
+    # secret-free failure helpers.
+    #
+    # Contract for subclasses:
+    #   - resolve their own config (endpoint + auth) lazily from TrackerConfig,
+    #   - implement #create_issue / #report_error using the helpers below,
+    #   - return { ok:, external_id:, url: } on success and { ok: false, error: }
+    #     on any failure (missing config, non-2xx, transport error) — NEVER raise
+    #     into the best-effort TrackerBridge.
+    #
+    # SECRET SAFETY: api keys, tokens and DSNs are NEVER placed in returned errors
+    # or logs. Helpers here only surface HTTP status / exception class names.
     class VendorWebhookAdapter
-      def initialize(url: nil, headers: nil)
-        @url = url
-        @headers = headers
+      DEFAULT_TIMEOUT = 5
+
+      def initialize(timeout: DEFAULT_TIMEOUT)
+        @timeout = timeout
       end
 
       def name
         self.class.vendor_key
       end
 
+      # Default no-ops keep the registry contract satisfied for any subclass that
+      # only implements one direction; concrete vendors override as appropriate.
       def create_issue(title:, body:, severity: "warning", metadata: {})
-        delegate.create_issue(
-          title: title, body: body, severity: severity,
-          metadata: metadata.merge(vendor: self.class.vendor_label)
-        )
+        failure("#{self.class.vendor_label} create_issue is not implemented")
       end
 
       def report_error(error:, severity: "error", context: {})
-        delegate.report_error(
-          error: error, severity: severity,
-          context: context.merge(vendor: self.class.vendor_label)
-        )
+        failure("#{self.class.vendor_label} report_error is not implemented")
       end
 
       class << self
@@ -44,16 +49,39 @@ module Ai
 
       private
 
-      def delegate
-        target = @url || Ai::Connectors::TrackerConfig.endpoint
-        if target.blank?
-          raise NotImplementedError,
-                "#{self.class.vendor_label} tracker is registered but not fully wired. " \
-                "Configure a full #{self.class.vendor_label} API client (auth + REST), or set a webhook " \
-                "proxy URL (ai_tracker_webhook_url) and select adapter '#{name}'. See G8 follow-up."
+      # POST +payload+ (Hash) as JSON to +url+ with +headers+ merged over a
+      # JSON content-type. Returns the raw Faraday::Response.
+      def post_json(url, payload:, headers: {})
+        connection(url).post do |req|
+          { "Content-Type" => "application/json" }.merge(headers).each do |key, value|
+            req.headers[key.to_s] = value.to_s
+          end
+          req.body = payload.to_json
         end
+      end
 
-        Ai::Connectors::GenericWebhookTrackerAdapter.new(url: target, headers: @headers, name: name)
+      def connection(url)
+        Faraday.new(url: url) do |conn|
+          conn.options.timeout = @timeout
+          conn.options.open_timeout = @timeout
+          conn.adapter Faraday.default_adapter
+        end
+      end
+
+      def success?(status)
+        status.to_i.between?(200, 299)
+      end
+
+      def parse(raw)
+        JSON.parse(raw.to_s)
+      rescue JSON::ParserError
+        {}
+      end
+
+      # Graceful, secret-free failure result. Callers MUST NOT interpolate any
+      # token / key / DSN into +message+.
+      def failure(message)
+        { ok: false, error: message }
       end
     end
   end

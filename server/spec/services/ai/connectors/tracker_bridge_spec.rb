@@ -48,6 +48,31 @@ RSpec.describe Ai::Connectors::TrackerBridge do
     end
   end
 
+  context "end-to-end with a real native adapter (Linear) selected" do
+    before do
+      Ai::Connectors::TrackerRegistry.register(:linear, Ai::Connectors::LinearAdapter.new)
+      allow(Ai::Connectors::TrackerConfig).to receive(:enabled?).and_return(true)
+      allow(Ai::Connectors::TrackerConfig).to receive(:adapter_name).and_return(:linear)
+      allow(Ai::Connectors::TrackerConfig).to receive(:linear_api_key).and_return("lin_xxx")
+      allow(Ai::Connectors::TrackerConfig).to receive(:linear_team_id).and_return("team-1")
+    end
+
+    it "forwards through the real adapter to the Linear GraphQL API and returns the parsed result" do
+      stub_request(:post, "https://api.linear.app/graphql").to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          data: { issueCreate: { success: true, issue: { id: "iss-9", url: "https://linear.app/i/iss-9" } } }
+        }.to_json
+      )
+
+      result = described_class.forward(kind: "issue", title: "Disk full", body: "d", severity: "critical")
+
+      expect(result[:ok]).to be(true)
+      expect(result[:external_id]).to eq("iss-9")
+    end
+  end
+
   context "when no tracker is configured (default)" do
     before do
       allow(adapter).to receive(:create_issue)

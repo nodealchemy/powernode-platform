@@ -2,9 +2,8 @@
 
 # Register the CORE outbound issue/error-tracker adapters into
 # Ai::Connectors::TrackerRegistry at boot. The generic webhook adapter is the
-# reference implementation; the named-vendor adapters (Linear/Jira/Sentry) are
-# THIN scaffolding that delegate to a configured webhook proxy until a full
-# vendor API client (auth + REST) is wired — the documented G8 follow-up.
+# vendor-agnostic reference; the named-vendor adapters (Linear/Jira/Sentry) are
+# NATIVE API clients (GraphQL / REST), config-driven via SiteSetting/ENV.
 #
 # These are opt-in: nothing is forwarded unless a tracker is configured via
 # SiteSetting (see Ai::Connectors::TrackerConfig). Extensions MAY register
