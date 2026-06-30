@@ -239,8 +239,20 @@ fi
 # schema is slow (minutes), and prepare-worktree is meant to stay fast/offline. The
 # naming isolation above is automatic; creating the DB is a one-time command. Specs
 # auto-target powernode_test${TEST_SUFFIX} via .env.test.local (no env var needed at
-# run time). Create it once with:
-info "isolated test DB: create once with → (cd $TARGET/server && RAILS_ENV=test bin/rails db:prepare)"
+# run time). Create it once with the command below.
+#
+# IMPORTANT: when private extensions are present, use scripts/prepare-extension-test-db.sh, NOT a
+# plain `db:prepare`. The committed schema.rb is core-only, and the private engine migrations are
+# timestamped below the core schema version, so `db:prepare`/`db:schema:load` assume-migrates them
+# WITHOUT creating their tables — leaving every private (business_*/trading_*/…) table silently
+# absent. prepare-extension-test-db.sh loads the core schema, un-assumes the private migrations, and
+# runs them for real (then restores the core-only schema.rb). It degrades to plain db:prepare in
+# core mode.
+if [ -d "$MAIN/extensions/private" ] && [ -n "$(ls -A "$MAIN/extensions/private" 2>/dev/null)" ]; then
+  info "isolated test DB: create once with → (cd $TARGET && TEST_ENV_NUMBER=${TEST_SUFFIX} scripts/prepare-extension-test-db.sh)"
+else
+  info "isolated test DB: create once with → (cd $TARGET/server && RAILS_ENV=test bin/rails db:prepare)"
+fi
 
 # FIX 1: per-environment Rails credential keys. The <env>.yml.enc is tracked (checked out), but its
 # matching <env>.key is a gitignored secret, so without linking it a fresh worktree can't decrypt.
