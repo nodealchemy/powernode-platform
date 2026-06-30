@@ -315,19 +315,19 @@ Score per dimension: **0** absent · **1** built-but-off / inert · **2** partia
 | Dimension | Score | Note |
 |-----------|:---:|------|
 | Worktrees | 3 | isolated + auto-cleanup + per-tree test DB |
-| Connectors (MCP) | 3 | ~540+ tools, real external connectors; **G8** added an outbound issue/error-tracker seam (`TrackerRegistry` + Linear/Jira/Sentry adapter scaffolding; full vendor API clients = follow-up) |
+| Connectors (MCP) | 3 | ~540+ tools, real external connectors; **G8** added an outbound issue/error-tracker seam (`TrackerRegistry`) with real native Linear (GraphQL) / Jira (REST) / Sentry clients (follow-up replaced the webhook scaffolding) |
 | Durable state (counters) | 3 | DB-backed ProgressEntry/Decision/ParkedQuestion |
 | Automations (cadence+goal) | 3 | **G5 closed** — `completion_assessment` is now a real `goal_met` terminator (cadence already strong) |
 | Skills | 3 | **G6 closed** — provenance + trust_level on ai_skills; injection/content scan on create/update gates external content; untrusted skills blocked on attach |
 | Comprehension/approval | 2 | conditional — default-safe, autonomous auto-approves |
 | Hard-stops | 3 | **G5 closed** — iteration + wall-clock (both runtimes) + metered token/cost caps enforced via shared `halt_reason`/`runtime_cap_reason`; flat-rate stays token-uncapped by design |
-| Sub-agents (maker/checker in loop) | 2 | **G3 (wired)** — OutputEvaluatorService now composes into the loop completion path (opt-in `maker_checker` + cheap-explore/strong-verify preset, self-review ban) |
+| Sub-agents (maker/checker in loop) | 2 | **G3 (wired)** — OutputEvaluatorService composes into the loop completion path (opt-in `maker_checker` + preset + self-review ban); follow-up: now reviews the REAL scrubbed unified diff, not just output text |
 | Verification gate (Ralph Wiggum) | 3 | **G1 closed** — real gate now default-on (opt-out), fail-closed, worker auto-detects framework |
 | Lessons→loop feedback | 3 | **G12 closed** — recent learnings re-injected per iteration + each learning embedded mid-run (not only at completion) |
 | Goal-drift mitigation | 2 | **G12 (partial)** — open decisions + base-context files re-injected into each dev_next_task payload; per-iteration base-file *contents* still a follow-up |
-| Security scan gate | 2 | **G4 (partial)** — blocking core gate on the land path (secret-scan enforced; SAST/CVE via `SecurityScannerRegistry` seam) parks autonomous lands on findings; worker-side full-diff scanners = follow-up |
-| Runtime secret-scrubbing | 2 | **G15 (partial)** — loop output scrubbed (PCI + secrets) at server persistence; worker-side + global log formatter still raw |
-| Scope guardrails | 2 | **G10 (partial)** — denylist + RiskContract critical-tier now BLOCK on the dev-loop completion path (PreflightGate critical-block fixed); platform/land-path enforcement is follow-up |
+| Security scan gate | 3 | **G4 closed + follow-up** — server land gate (secret-scan on metadata) PLUS a worker-side deep secret-scan on the REAL staged diff (+ best-effort Brakeman) that parks autonomous lands; dep-CVE/SBOM via the `SecurityScannerRegistry` seam remains a follow-up |
+| Runtime secret-scrubbing | 3 | **G15 closed + follow-up** — loop output scrubbed at server persistence, worker-posted output scrubbed on receipt, and the global log formatter now secret-scrubs (not just PCI) |
+| Scope guardrails | 3 | **G10 closed + follow-up** — denylist + RiskContract critical-tier now BLOCK on ALL three paths (dev-loop completion, platform executor, land approval), sourced from the unified `PolicyCatalog` |
 | Gate-integrity canary | 3 | **G11 closed** — daily `GateCanaryService` feeds known-good/bad through the G1 gate and alerts if it stops failing closed |
 | Readiness preflight | 3 | **G13 closed** — pre-run gate blocks a loop with no objective gate; surfaces caps/env warnings |
 | True-north metric | 2 | **G2 closed** — acceptance rate computed + floor enforced by default (both runtimes); cost-per-accepted surfaced (metered only). Report-only on the $ side keeps it at 2, not 3 |
@@ -337,12 +337,12 @@ averaged **~0.7/3**. That spread *was* the finding — Powernode had the richest
 weakest gates, precisely the failure mode the article warns about ("harness engineering > agent
 cleverness"). The campaign's job was to raise the bottom of this table.
 
-**Read after the campaign drain (2026-06-30):** all 15 gaps closed (see the Progress note under [Driving the gaps](#driving-the-gaps)).
-Gates/safety now average **~2.4/3** (from ~0.7) — verification gate, hard-stops, lessons-feedback,
-gate-canary, and readiness-preflight are at 3; security-gate, secret-scrubbing, scope-guardrails,
-goal-drift, and true-north are at 2 with the remaining work being cross-service depth (worker-side
-scanners, platform/land-path enforcement, cost-side gating) rather than missing foundations. The
-substrate↔gates spread that *was* the finding is largely closed.
+**Read after the campaign drain + follow-ups (2026-06-30):** all 15 gaps closed, plus four follow-up
+increments (worker-side deep scan, platform/land-path enforcement, real-diff review, native tracker
+clients). Gates/safety now average **~2.7/3** (from ~0.7) — only Comprehension/approval, Sub-agents
+(opt-in by design), Goal-drift (per-iteration base-file *contents*), and True-north (cost-side gating)
+remain at 2, each for a deliberate-scope or low-value reason rather than a missing foundation. The
+substrate↔gates spread that *was* the finding is closed.
 
 **Progress (2026-06-30):** **ALL 15 gaps closed** on the campaign branch (STAGE-only, not pushed),
 one commit per gap, each test-first with its own specs:
@@ -358,16 +358,29 @@ one commit per gap, each test-first with its own specs:
 | G7 | `2dfa2594` | G15 | `6cf50f91` |
 | G8 | `8b72f77a` | | |
 
-**Open follow-ups (noted in commit bodies, not blockers):** worker-side full-diff SAST/CVE + deep
-secret-scan registering into G4's `SecurityScannerRegistry`; G10/G15 enforcement on the platform/land
-path (not just the dev-loop completion path) + the global log formatter; full vendor REST/auth clients
-behind G8's tracker adapters; feeding a real unified diff into G3's checker.
+**Deployed:** the 15-gap branch was ff-merged to `develop` (`83aa8a75`) and deployed to the live
+backend (G6 migration applied, restarted, health + functional smoke verified).
+
+**Follow-ups DONE** (on `feature/le-parity-followups`, STAGE-only, off `develop@83aa8a75`):
+- `cb180a62` — G10 scope-guardrail extended to the platform-executor + land-approval paths; G15 global
+  log formatter now secret-scrubs.
+- `b0c32777` — worker-side deep secret-scan on the REAL staged land diff (+ best-effort Brakeman) parks
+  lands; worker-posted output scrubbed on receipt. (dep-CVE/SBOM still a follow-up — needs the
+  supply-chain extension; core must not hard-depend on it.)
+- `7195a804` — G3 maker/checker now reviews the REAL unified diff (scrubbed, 256 KB cap, fallback).
+- `0644888e` — native Linear (GraphQL) / Jira (REST) / Sentry tracker clients replace the webhook
+  scaffolding.
+
+**Still open:** dep-CVE/SBOM worker scanners (extension-gated); per-iteration base-file *contents*
+re-injection (Goal-drift); cost-side *gating* for True-north; one design call — the worker land-scan
+falls through to CI on a scan-*infra* error (findings still park; G4 server gate is the fail-closed
+backstop) — flip to fail-closed if preferred.
 
 **Increment ledger entries still pending** — platform MCP was disconnected for the implementing
 session, and a premature-finalization hazard (`completion_pct:100` stop on a 0-seeded-task loop) would
 auto-finalize the live campaign on the first recorded increment; record via MCP once reconnected, after
-seeding/fixing the campaign. A pre-existing `task_executor_spec` failure set (AI-provider/webmock,
-unrelated to this campaign) is flagged separately.
+seeding/fixing the campaign. Pre-existing, unrelated test-double gaps (`task_executor_spec` ~3 and
+`ai_provisioning_compose_plan_job_spec` ~4 — neither file touched by this work) are flagged separately.
 
 ---
 
