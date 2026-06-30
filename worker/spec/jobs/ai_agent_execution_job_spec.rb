@@ -2,6 +2,20 @@
 
 require 'rails_helper'
 
+# AiAgentExecutionJob was re-architected (commit cb41df3f) to delegate all LLM
+# work to LlmProxyClient (+ Ai::Llm::Client). The job is now a thin ORCHESTRATOR:
+#
+#   fetch execution -> kill-switch -> state/budget gates -> mark running ->
+#   build context + run via the proxy -> clean response -> mark completed/failed,
+#   emitting telemetry + a trust evaluation along the way.
+#
+# This spec therefore covers the JOB's orchestration only. The proxy seam
+# (#execute_tool_loop / #execute_with_reasoning) is stubbed, because the things
+# the job used to do itself — credential fetch/decrypt, per-provider HTTP
+# (OpenAI/Anthropic/Ollama) request shaping, the multi-turn tool loop — now live
+# behind LlmProxyClient and Ai::Llm::Client and are exercised by their own specs
+# (spec/services/llm_proxy_client_spec.rb, spec/services/ai/llm/*). Re-asserting
+# them here would test the wrong unit and duplicate that coverage.
 RSpec.describe AiAgentExecutionJob, type: :job do
   subject { described_class }
 
@@ -14,68 +28,57 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
   let(:agent_execution_id) { 'execution-123' }
   let(:agent_id) { 'agent-456' }
-  let(:provider_id) { 'provider-789' }
-  let(:credential_id) { 'cred-101' }
+  let(:account_id) { 'account-789' }
 
   # Used by shared examples for job argument handling
   let(:job_args) { agent_execution_id }
 
-  let(:agent_data) {
+  let(:agent_data) do
     {
       'id' => agent_id,
       'name' => 'Test AI Agent',
       'agent_type' => 'assistant',
-      'prompt_template' => 'Please help with: {{topic}}',
-      'system_prompt' => 'You are a helpful AI assistant.',
-      'configuration' => {
-        'model' => 'gpt-3.5-turbo',
-        'multi_turn' => {
-          'enabled' => true,
-          'max_turns' => 3
-        }
-      }
+      'system_prompt' => 'You are a helpful AI assistant.'
     }
-  }
+  end
 
-  let(:provider_data) {
-    {
-      'id' => provider_id,
-      'name' => 'OpenAI',
-      'provider_type' => 'openai',
-      'api_endpoint' => 'https://api.openai.com'
-    }
-  }
-
-  let(:agent_execution_data) {
+  let(:agent_execution_data) do
     {
       'id' => agent_execution_id,
+      'account_id' => account_id,
       'status' => 'pending',
       'input_parameters' => {
-        'topic' => 'Ruby on Rails testing',
-        'context' => 'Best practices for RSpec'
+        'input' => 'Explain Ruby on Rails testing',
+        'context' => { 'topic' => 'RSpec best practices' }
       },
-      'ai_agent' => agent_data,
-      'ai_provider' => provider_data
+      'ai_agent' => agent_data
     }
-  }
+  end
 
-  let(:credentials_data) {
-    [
-      {
-        'id' => credential_id,
-        'provider_id' => provider_id,
-        'is_active' => true,
-        'is_default' => true
-      }
-    ]
-  }
-
-  let(:decrypted_credentials) {
+  # Memory-enriched context the server returns from POST /execution_contexts.
+  # The job reads execution_context/system_prompt/model/max_tokens/temperature
+  # off of it and turns it into the proxy call.
+  let(:execution_context_response) do
     {
-      'api_key' => 'sk-test-key-123',
-      'model' => 'gpt-3.5-turbo'
+      'execution_context' => {
+        'input' => 'Explain Ruby on Rails testing',
+        'additional_context' => nil
+      },
+      'system_prompt' => 'You are a helpful AI assistant.',
+      'model' => 'gpt-4o-mini',
+      'max_tokens' => 2000,
+      'temperature' => 0.7
     }
-  }
+  end
+
+  # Shape mirrors LlmProxyClient#execute_tool_loop's real return value:
+  # string top-level keys, symbol-keyed usage hash.
+  let(:proxy_content) { 'RSpec is a behaviour-driven testing framework for Ruby.' }
+  let(:proxy_result) { build_proxy_result(proxy_content) }
+
+  # Strict verifying double for the LLM proxy seam. instance_double will flag
+  # any signature drift in execute_tool_loop / execute_with_reasoning.
+  let(:proxy) { instance_double(LlmProxyClient) }
 
   before do
     mock_powernode_worker_config
@@ -86,6 +89,51 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
   after do
     Sidekiq::Worker.clear_all
+  end
+
+  # ---- helpers --------------------------------------------------------------
+
+  def build_proxy_result(content, cost: 0.003, usage: nil)
+    {
+      'content' => content,
+      'usage' => usage || { prompt_tokens: 50, completion_tokens: 100, cached_tokens: 0, total_tokens: 150 },
+      'tool_calls_log' => [],
+      'finish_reason' => 'stop',
+      'cost' => cost
+    }
+  end
+
+  # Stub the backend endpoints the JOB itself calls during a happy-path run.
+  # Every shared/first-run collaborator (kill-switch path, budget gate, telemetry,
+  # trust eval, the execution-context fetch) is stubbed up front: an unstubbed
+  # call leaks as a WebMock/mock error from inside a rescue and quietly poisons
+  # the whole run, so the failure never points at the real cause.
+  def stub_execution_lifecycle_endpoints(execution: agent_execution_data)
+    stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
+      'success' => true,
+      'data' => { 'agent_execution' => execution }
+    })
+    stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", { 'success' => true })
+    stub_backend_api_success(:post, '/api/v1/internal/ai/execution_contexts', {
+      'success' => true,
+      'data' => execution_context_response
+    })
+    stub_backend_api_success(:get, '/api/v1/ai/autonomy/budgets/alerts', { 'success' => true, 'data' => [] })
+    stub_backend_api_success(:post, '/api/v1/ai/autonomy/telemetry', { 'success' => true })
+    stub_backend_api_success(
+      :post, "/api/v1/ai/autonomy/trust_scores/#{agent_id}/evaluate_from_execution", { 'success' => true }
+    )
+  end
+
+  # Stub the LLM proxy seam. Both proxy methods are stubbed even though only one
+  # runs per example: a strict instance_double raises a (non-StandardError)
+  # MockExpectationError on any unstubbed message, which would bypass the job's
+  # `rescue StandardError` and detonate every example.
+  def stub_proxy_seam
+    allow_any_instance_of(described_class).to receive(:llm_proxy_with_websocket).and_return(nil)
+    allow_any_instance_of(described_class).to receive(:llm_proxy).and_return(proxy)
+    allow(proxy).to receive(:execute_tool_loop).and_return(proxy_result)
+    allow(proxy).to receive(:execute_with_reasoning).and_return(proxy_result)
   end
 
   describe 'job configuration' do
@@ -100,77 +148,59 @@ RSpec.describe AiAgentExecutionJob, type: :job do
     it 'includes AiJobsConcern' do
       expect(described_class.included_modules).to include(AiJobsConcern)
     end
+
+    it 'includes AiLlmProxyConcern (delegates LLM work to the server proxy)' do
+      expect(described_class.included_modules).to include(AiLlmProxyConcern)
+    end
+
+    it 'includes AiSuspensionCheckConcern (honors the per-account kill switch)' do
+      expect(described_class.included_modules).to include(AiSuspensionCheckConcern)
+    end
   end
 
   describe '#execute' do
     let(:job_instance) { described_class.new }
 
-    context 'with successful single-turn execution' do
-      let(:ai_response) {
-        {
-          'success' => true,
-          'response' => 'RSpec is a testing framework for Ruby...',
-          'model' => 'gpt-3.5-turbo',
-          'metadata' => {
-            'tokens_used' => 150,
-            'prompt_tokens' => 50,
-            'response_time_ms' => 1200
-          },
-          'cost' => 0.003
-        }
-      }
+    before do
+      stub_execution_lifecycle_endpoints
+      stub_proxy_seam
+      # Not suspended by default; the kill-switch context overrides this.
+      allow_any_instance_of(described_class).to receive(:ai_suspended?).and_return(false)
+    end
 
-      before do
-        # Stub fetching agent execution
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => agent_execution_data }
-        })
+    context 'with a successful execution' do
+      it 'completes the agent execution' do
+        expect { job_instance.execute(agent_execution_id) }.not_to raise_error
 
-        # Stub updating status to running
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
-
-        # Stub credentials fetch - use WebMock to match any query params
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => true, 'data' => { 'credentials' => credentials_data } }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
-
-        # Stub credential decryption
-        stub_backend_api_success(:post, "/api/v1/ai/credentials/#{credential_id}/decrypt", {
-          'success' => true,
-          'data' => { 'credentials' => decrypted_credentials }
-        })
-
-        # Stub OpenAI API call
-        stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-          .to_return(
-            status: 200,
-            body: {
-              choices: [{ message: { content: ai_response['response'] } }],
-              usage: {
-                total_tokens: 150,
-                prompt_tokens: 50
-              }
-            }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
+        expect(WebMock).to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+          .with(body: hash_including(
+            'agent_execution' => hash_including('status' => 'completed')
+          ))
       end
 
-      it 'executes successfully and completes the agent execution' do
-        expect {
-          job_instance.execute(agent_execution_id)
-        }.not_to raise_error
+      it 'marks the execution running before delegating to the proxy' do
+        # Pin the temporal invariant the name claims: the 'running' transition
+        # must happen BEFORE the (potentially long) LLM call, not after it.
+        # A plain `have_requested(... status => running)` would still pass if the
+        # two steps were reordered, so capture order explicitly.
+        marked_running = false
+        running_before_proxy = nil
+        allow(job_instance).to receive(:update_execution_status).and_wrap_original do |orig, status, *rest|
+          marked_running = true if status == 'running'
+          orig.call(status, *rest)
+        end
+        allow(proxy).to receive(:execute_tool_loop) do |**_kwargs|
+          running_before_proxy = marked_running
+          proxy_result
+        end
 
-        # Verify completion API call was made
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
-            'agent_execution' => hash_including('status' => 'completed')
-          }))
+        job_instance.execute(agent_execution_id)
+
+        expect(running_before_proxy).to be(true)
+        expect(WebMock).to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+          .with(body: hash_including(
+            'agent_execution' => hash_including('status' => 'running')
+          ))
       end
 
       it 'logs execution start and completion' do
@@ -185,105 +215,153 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         ).at_least(:once)
       end
 
-      it 'includes cost and token metrics in completion' do
+      it 'runs through the LLM proxy with context-built messages' do
+        captured = nil
+        allow(proxy).to receive(:execute_tool_loop) do |**kwargs|
+          captured = kwargs
+          proxy_result
+        end
+
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
+        expect(captured).to include(
+          agent_id: agent_id,
+          model: 'gpt-4o-mini',
+          system_prompt: 'You are a helpful AI assistant.'
+        )
+        expect(captured[:messages]).to include(
+          a_hash_including(role: 'user', content: a_string_matching(/Explain Ruby on Rails testing/))
+        )
+      end
+
+      it 'records cost, token, and model metrics in the completion payload' do
+        job_instance.execute(agent_execution_id)
+
+        expect(WebMock).to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+          .with(body: hash_including(
             'agent_execution' => hash_including(
-              'cost_usd' => kind_of(Numeric),
-              'tokens_used' => kind_of(Integer)
+              'status' => 'completed',
+              'cost_usd' => 0.003,
+              'tokens_used' => 150,
+              # output_data carries the per-bucket usage the job pulls off the
+              # (symbol-keyed) proxy usage hash, plus the resolved model.
+              'output_data' => hash_including(
+                'model_used' => 'gpt-4o-mini',
+                'tokens_used' => 150,
+                'prompt_tokens' => 50,
+                'completion_tokens' => 100,
+                'cost_usd' => 0.003
+              )
             )
-          }))
+          ))
+      end
+
+      it 'emits start and completion telemetry' do
+        job_instance.execute(agent_execution_id)
+
+        expect(WebMock).to have_requested(:post, %r{api/v1/ai/autonomy/telemetry})
+          .with(body: hash_including('event_type' => 'agent_execution_started'))
+        expect(WebMock).to have_requested(:post, %r{api/v1/ai/autonomy/telemetry})
+          .with(body: hash_including('event_type' => 'agent_execution_completed', 'outcome' => 'success'))
+      end
+
+      it 'submits a trust evaluation for the agent after completing' do
+        job_instance.execute(agent_execution_id)
+
+        expect(WebMock).to have_requested(
+          :post, %r{api/v1/ai/autonomy/trust_scores/#{agent_id}/evaluate_from_execution}
+        ).with(body: hash_including('execution_id' => agent_execution_id, 'success' => true))
+      end
+
+    end
+
+    context 'when the execution context carries additional context' do
+      # Override the let so the #execute before-block builds the
+      # /execution_contexts stub with additional_context populated (the stub
+      # serializes its body eagerly, so this must be set before the before runs).
+      let(:execution_context_response) do
+        {
+          'execution_context' => {
+            'input' => 'Explain Ruby on Rails testing',
+            'additional_context' => 'Prefer minitest examples'
+          },
+          'system_prompt' => 'You are a helpful AI assistant.',
+          'model' => 'gpt-4o-mini',
+          'max_tokens' => 2000,
+          'temperature' => 0.7
+        }
+      end
+
+      it 'folds memory-enriched additional context into the user message' do
+        captured = nil
+        allow(proxy).to receive(:execute_tool_loop) do |**kwargs|
+          captured = kwargs
+          proxy_result
+        end
+
+        job_instance.execute(agent_execution_id)
+
+        expect(captured[:messages]).to include(
+          a_hash_including(
+            role: 'user',
+            content: a_string_matching(/Explain Ruby on Rails testing.*Additional Context:.*Prefer minitest examples/m)
+          )
+        )
       end
     end
 
-    context 'with successful multi-turn execution' do
-      let(:agent_execution_with_multi_turn) {
-        agent_execution_data.deep_dup.tap do |data|
-          data['ai_agent']['configuration']['multi_turn'] = {
-            'enabled' => true,
-            'max_turns' => 3
-          }
-        end
-      }
+    context 'with an exhausted budget' do
+      before do
+        # An 'exhausted' alert for this agent flips check_budget_gate to
+        # disallow, which must fail the execution before any proxy call.
+        stub_backend_api_success(:get, '/api/v1/ai/autonomy/budgets/alerts', {
+          'success' => true,
+          'data' => [{ 'agent_id' => agent_id, 'level' => 'exhausted', 'remaining_cents' => 0 }]
+        })
+      end
+
+      it 'fails the execution and skips the proxy when the budget is exhausted' do
+        job_instance.execute(agent_execution_id)
+
+        expect(proxy).not_to have_received(:execute_tool_loop)
+        expect(WebMock).to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+          .with(body: hash_including(
+            'agent_execution' => hash_including(
+              'status' => 'failed',
+              'error_message' => a_string_matching(/Budget exhausted/)
+            )
+          ))
+      end
+    end
+
+    context 'with a reasoning-mode agent' do
+      let(:reasoning_agent) do
+        agent_data.merge('mcp_metadata' => { 'reasoning' => { 'mode' => 'star', 'reflection_enabled' => true } })
+      end
+      let(:reasoning_execution) { agent_execution_data.merge('ai_agent' => reasoning_agent) }
 
       before do
-        # Stub fetching agent execution
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => agent_execution_with_multi_turn }
-        })
-
-        # Stub status updates
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
-
-        # Stub credentials - use WebMock to match any query params
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => true, 'data' => { 'credentials' => credentials_data } }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
-
-        stub_backend_api_success(:post, "/api/v1/ai/credentials/#{credential_id}/decrypt", {
-          'success' => true,
-          'data' => { 'credentials' => decrypted_credentials }
-        })
-
-        # Stub first turn - short response that triggers follow-up
-        stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-          .to_return(
-            { status: 200, body: { choices: [{ message: { content: 'Brief response' } }], usage: { total_tokens: 50 } }.to_json },
-            { status: 200, body: { choices: [{ message: { content: 'More comprehensive response with full details...' } }], usage: { total_tokens: 150 } }.to_json }
-          )
+        stub_execution_lifecycle_endpoints(execution: reasoning_execution)
       end
 
-      it 'executes multiple turns when follow-up is needed' do
+      it 'routes through execute_with_reasoning instead of the tool loop' do
+        captured = nil
+        allow(proxy).to receive(:execute_with_reasoning) do |**kwargs|
+          captured = kwargs
+          proxy_result
+        end
+
         job_instance.execute(agent_execution_id)
 
-        # Should make 2 API calls (initial + 1 follow-up)
-        expect(WebMock).to have_requested(:post, 'https://api.openai.com/v1/chat/completions')
-          .at_least_times(2)
-      end
-
-      it 'accumulates cost and tokens across turns' do
-        job_instance.execute(agent_execution_id)
-
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
-            'agent_execution' => hash_including(
-              'tokens_used' => be > 50, # More than single turn
-              'cost_usd' => be > 0
-            )
-          }))
-      end
-
-      it 'includes output data with content and response fields' do
-        job_instance.execute(agent_execution_id)
-
-        # After multi-turn execution, output should include both content and response fields
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
-            'agent_execution' => hash_including(
-              'output_data' => hash_including(
-                'content' => kind_of(String),
-                'response' => kind_of(String)
-              )
-            )
-          }))
+        expect(proxy).to have_received(:execute_with_reasoning)
+        expect(proxy).not_to have_received(:execute_tool_loop)
+        expect(captured).to include(reasoning_mode: 'star', reflection_enabled: true)
       end
     end
 
     context 'with state validation' do
-      it 'does not execute agents in completed state' do
-        completed_execution = agent_execution_data.merge('status' => 'completed')
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => completed_execution }
-        })
+      it 'does not execute agents in a completed state' do
+        stub_execution_lifecycle_endpoints(execution: agent_execution_data.merge('status' => 'completed'))
 
         logger_double = mock_logger
         job_instance.execute(agent_execution_id)
@@ -291,17 +369,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         expect(logger_double).to have_received(:warn).with(
           a_string_matching(/Agent execution not in executable state/)
         )
-
-        # Should not make status update calls
-        expect(WebMock).not_to have_requested(:patch, /.*api\/v1\/ai\/executions/)
+        # Bails before transitioning state — no status PATCH.
+        expect(WebMock).not_to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
       end
 
-      it 'does not execute agents in failed state' do
-        failed_execution = agent_execution_data.merge('status' => 'failed')
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => failed_execution }
-        })
+      it 'does not execute agents in a failed state' do
+        stub_execution_lifecycle_endpoints(execution: agent_execution_data.merge('status' => 'failed'))
 
         logger_double = mock_logger
         job_instance.execute(agent_execution_id)
@@ -309,51 +382,20 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         expect(logger_double).to have_received(:warn).with(
           a_string_matching(/Agent execution not in executable state/)
         )
+        expect(WebMock).not_to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
       end
 
-      it 'executes agents in queued state' do
-        queued_execution = agent_execution_data.merge('status' => 'queued')
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => queued_execution }
-        })
+      it 'executes agents in a queued state' do
+        stub_execution_lifecycle_endpoints(execution: agent_execution_data.merge('status' => 'queued'))
 
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
+        expect { job_instance.execute(agent_execution_id) }.not_to raise_error
 
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => true, 'data' => { 'credentials' => credentials_data } }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
-
-        stub_backend_api_success(:post, "/api/v1/ai/credentials/#{credential_id}/decrypt", {
-          'success' => true,
-          'data' => { 'credentials' => decrypted_credentials }
-        })
-
-        stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-          .to_return(status: 200, body: { choices: [{ message: { content: 'Response' } }], usage: { total_tokens: 100 } }.to_json)
-
-        expect {
-          job_instance.execute(agent_execution_id)
-        }.not_to raise_error
-
-        # Should update status to running
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
-            'agent_execution' => hash_including('status' => 'running')
-          }))
+        expect(WebMock).to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+          .with(body: hash_including('agent_execution' => hash_including('status' => 'running')))
       end
 
-      it 'validates presence of agent data' do
-        execution_without_agent = agent_execution_data.merge('ai_agent' => nil)
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => execution_without_agent }
-        })
+      it 'aborts when the execution has no agent data' do
+        stub_execution_lifecycle_endpoints(execution: agent_execution_data.merge('ai_agent' => nil))
 
         logger_double = mock_logger
         job_instance.execute(agent_execution_id)
@@ -361,27 +403,23 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         expect(logger_double).to have_received(:error).with(
           a_string_matching(/Agent execution missing agent data/)
         )
-      end
-
-      it 'validates presence of provider data' do
-        execution_without_provider = agent_execution_data.merge('ai_provider' => nil)
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => execution_without_provider }
-        })
-
-        logger_double = mock_logger
-        job_instance.execute(agent_execution_id)
-
-        expect(logger_double).to have_received(:error).with(
-          a_string_matching(/Agent execution missing provider data/)
-        )
+        expect(proxy).not_to have_received(:execute_tool_loop)
       end
     end
 
-    context 'with API errors' do
-      it 'handles fetch execution API failure' do
-        # Stub a logical failure (API returns success but response indicates failure)
+    context 'with the kill switch active' do
+      it 'bails before transitioning state when AI is suspended for the account' do
+        allow_any_instance_of(described_class).to receive(:ai_suspended?).with(account_id).and_return(true)
+
+        job_instance.execute(agent_execution_id)
+
+        expect(proxy).not_to have_received(:execute_tool_loop)
+        expect(WebMock).not_to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+      end
+    end
+
+    context 'with failures' do
+      it 'logs and aborts when the execution cannot be fetched' do
         stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => false,
           'error' => 'Execution not found'
@@ -393,494 +431,108 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         expect(logger_double).to have_received(:error).with(
           a_string_matching(/Failed to fetch agent execution/)
         )
+        expect(proxy).not_to have_received(:execute_tool_loop)
       end
 
-      it 'handles credentials fetch failure' do
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => agent_execution_data }
-        })
+      it 'marks the execution failed when the proxy raises' do
+        allow(proxy).to receive(:execute_tool_loop).and_raise(StandardError.new('provider unavailable'))
 
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
+        expect { job_instance.execute(agent_execution_id) }.not_to raise_error
 
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => false, 'error' => 'Credentials not found' }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
-
-        job_instance.execute(agent_execution_id)
-
-        # Should update execution status to failed
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
+        expect(WebMock).to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+          .with(body: hash_including(
             'agent_execution' => hash_including(
               'status' => 'failed',
-              'error_message' => a_string_matching(/Failed to fetch provider credentials/)
+              'error_message' => a_string_matching(/Proxy execution failed.*provider unavailable/)
             )
-          }))
+          ))
       end
 
-      it 'handles missing credentials' do
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => agent_execution_data }
-        })
-
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
-
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => true, 'data' => { 'credentials' => [] } }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
+      it 'emits failure telemetry when the proxy raises' do
+        allow(proxy).to receive(:execute_tool_loop).and_raise(StandardError.new('provider unavailable'))
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
-            'agent_execution' => hash_including(
-              'status' => 'failed',
-              'error_message' => a_string_matching(/No active credentials found/)
-            )
-          }))
+        expect(WebMock).to have_requested(:post, %r{api/v1/ai/autonomy/telemetry})
+          .with(body: hash_including('event_type' => 'agent_execution_failed', 'outcome' => 'failure'))
       end
 
-      it 'handles provider API errors' do
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => agent_execution_data }
-        })
-
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
-
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => true, 'data' => { 'credentials' => credentials_data } }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
-
-        stub_backend_api_success(:post, "/api/v1/ai/credentials/#{credential_id}/decrypt", {
-          'success' => true,
-          'data' => { 'credentials' => decrypted_credentials }
-        })
-
-        # Stub OpenAI API failure
-        stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-          .to_return(status: 500, body: { error: { message: 'OpenAI service unavailable' } }.to_json)
-
-        job_instance.execute(agent_execution_id)
-
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
-            'agent_execution' => hash_including(
-              'status' => 'failed',
-              'error_message' => a_string_matching(/OpenAI API error/)
-            )
-          }))
-      end
-
-      it 'handles timeout errors' do
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => agent_execution_data }
-        })
-
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
-
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => true, 'data' => { 'credentials' => credentials_data } }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
-
-        stub_backend_api_success(:post, "/api/v1/ai/credentials/#{credential_id}/decrypt", {
-          'success' => true,
-          'data' => { 'credentials' => decrypted_credentials }
-        })
-
-        stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-          .to_timeout
-
-        logger_double = mock_logger
-        job_instance.execute(agent_execution_id)
-
-        # Error messages use lowercase 'failed'
-        expect(logger_double).to have_received(:error).with(
-          a_string_matching(/failed/i)
-        )
-      end
-
-      it 'updates execution to failed on StandardError' do
-        # Only stub the PATCH endpoint - GET will raise an error
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
-
-        # Stub to raise error on execution fetch - this will be caught by BaseJob
-        stub_request(:get, /\/api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(headers: { 'Authorization' => expected_request_headers['Authorization'] })
+      it 're-raises unexpected StandardErrors raised while fetching the execution' do
+        # GET happens before the begin/rescue in #execute, so a raw transport
+        # error propagates out of the job (Sidekiq then handles the retry).
+        stub_request(:get, %r{/api/v1/internal/ai/executions/#{agent_execution_id}})
           .to_raise(StandardError.new('Unexpected error'))
 
         logger_double = mock_logger
-        # The exception will be caught and re-raised by BaseJob's perform method
         expect { job_instance.execute(agent_execution_id) }.to raise_error(StandardError, 'Unexpected error')
-
         expect(logger_double).to have_received(:error).at_least(:once)
       end
     end
 
-    context 'with Ollama provider' do
-      let(:ollama_provider) {
-        {
-          'id' => provider_id,
-          'name' => 'Local Ollama',
-          'provider_type' => 'ollama',
-          'api_endpoint' => 'http://localhost:11434'
-        }
-      }
-
-      let(:ollama_credentials) {
-        {
-          'base_url' => 'http://localhost:11434',
-          'model' => 'deepseek-r1:1.5b'
-        }
-      }
-
-      let(:ollama_execution) {
-        agent_execution_data.merge('ai_provider' => ollama_provider)
-      }
-
-      before do
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => ollama_execution }
-        })
-
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
-
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => true, 'data' => { 'credentials' => credentials_data } }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
-
-        stub_backend_api_success(:post, "/api/v1/ai/credentials/#{credential_id}/decrypt", {
-          'success' => true,
-          'data' => { 'credentials' => ollama_credentials }
-        })
-      end
-
-      it 'calls Ollama API successfully' do
-        # Use a long enough response to avoid follow-up turns
-        long_response = 'This is a comprehensive response from Ollama that provides detailed information about the requested topic with sufficient content.'
-        stub_request(:post, 'http://localhost:11434/api/chat')
-          .to_return(
-            status: 200,
-            body: {
-              message: { content: long_response },
-              eval_count: 100,
-              prompt_eval_count: 50
-            }.to_json
-          )
-
-        job_instance.execute(agent_execution_id)
-
-        # Job uses the model from agent_data configuration, not credentials
-        expect(WebMock).to have_requested(:post, 'http://localhost:11434/api/chat')
-          .with(body: hash_including('model' => 'gpt-3.5-turbo')).at_least_times(1)
-      end
-
-      it 'calculates zero cost for Ollama (local)' do
-        # Use a long enough response to avoid follow-up turns
-        long_response = 'This is a comprehensive response from Ollama that provides detailed information about the requested topic with sufficient content.'
-        stub_request(:post, 'http://localhost:11434/api/chat')
-          .to_return(
-            status: 200,
-            body: {
-              message: { content: long_response },
-              eval_count: 100
-            }.to_json
-          )
-
-        job_instance.execute(agent_execution_id)
-
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
-            'agent_execution' => hash_including('cost_usd' => 0.0)
-          }))
-      end
-    end
-
-    context 'with Anthropic provider' do
-      let(:anthropic_provider) {
-        {
-          'id' => provider_id,
-          'name' => 'Claude',
-          'provider_type' => 'anthropic',
-          'api_endpoint' => 'https://api.anthropic.com'
-        }
-      }
-
-      let(:anthropic_credentials) {
-        {
-          'api_key' => 'sk-ant-test-key',
-          'model' => 'claude-3-sonnet-20240229'
-        }
-      }
-
-      let(:anthropic_execution) {
-        agent_execution_data.merge('ai_provider' => anthropic_provider)
-      }
-
-      before do
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => anthropic_execution }
-        })
-
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
-
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => true, 'data' => { 'credentials' => credentials_data } }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
-
-        stub_backend_api_success(:post, "/api/v1/ai/credentials/#{credential_id}/decrypt", {
-          'success' => true,
-          'data' => { 'credentials' => anthropic_credentials }
-        })
-      end
-
-      it 'calls Anthropic API with correct format' do
-        # Return a response long enough to not trigger follow-up turns
-        long_response = 'This is a comprehensive response from Claude that provides detailed information about the requested topic with sufficient content.'
-        stub_request(:post, 'https://api.anthropic.com/v1/messages')
-          .to_return(
-            status: 200,
-            body: {
-              content: [{ text: long_response }],
-              usage: {
-                input_tokens: 50,
-                output_tokens: 100
-              }
-            }.to_json
-          )
-
-        job_instance.execute(agent_execution_id)
-
-        expect(WebMock).to have_requested(:post, 'https://api.anthropic.com/v1/messages')
-          .with(
-            headers: { 'x-api-key' => 'sk-ant-test-key' },
-            body: hash_including('model' => 'claude-3-sonnet-20240229')
-          ).at_least_times(1)
-      end
-
-      it 'calculates Anthropic cost correctly' do
-        # Use a long enough response to avoid follow-up turns
-        long_response = 'This is a comprehensive response from Claude that provides detailed information about the requested topic with sufficient content.'
-        stub_request(:post, 'https://api.anthropic.com/v1/messages')
-          .to_return(
-            status: 200,
-            body: {
-              content: [{ text: long_response }],
-              usage: {
-                input_tokens: 1000,
-                output_tokens: 2000
-              }
-            }.to_json
-          )
-
-        job_instance.execute(agent_execution_id)
-
-        # Claude Sonnet: $0.003/1K input + $0.015/1K output - may have multiple turns
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
-            'agent_execution' => hash_including(
-              'cost_usd' => kind_of(Numeric)
-            )
-          }))
-      end
-    end
-
     context 'with response processing' do
-      before do
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => agent_execution_data }
-        })
-
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
-
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => true, 'data' => { 'credentials' => credentials_data } }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
-
-        stub_backend_api_success(:post, "/api/v1/ai/credentials/#{credential_id}/decrypt", {
-          'success' => true,
-          'data' => { 'credentials' => decrypted_credentials }
-        })
-      end
-
-      it 'removes <think> tags from responses' do
-        response_with_think = '<think>Internal reasoning here</think>Actual response content'
-
-        stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-          .to_return(
-            status: 200,
-            body: {
-              choices: [{ message: { content: response_with_think } }],
-              usage: { total_tokens: 100 }
-            }.to_json
-          )
+      it 'strips <think> reasoning tags from the stored content' do
+        allow(proxy).to receive(:execute_tool_loop)
+          .and_return(build_proxy_result('<think>Internal reasoning here</think>Actual response content'))
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
+        expect(WebMock).to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+          .with(body: hash_including(
             'agent_execution' => hash_including(
-              'output_data' => hash_including(
-                'content' => 'Actual response content'
-              )
+              'output_data' => hash_including('content' => 'Actual response content')
             )
-          }))
-      end
-
-      it 'extracts structured JSON data from responses' do
-        response_with_json = "Here's the data:\n```json\n{\"result\": \"success\", \"value\": 42}\n```"
-
-        stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-          .to_return(
-            status: 200,
-            body: {
-              choices: [{ message: { content: response_with_json } }],
-              usage: { total_tokens: 100 }
-            }.to_json
-          )
-
-        job_instance.execute(agent_execution_id)
-
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
-            'agent_execution' => hash_including(
-              'output_data' => hash_including(
-                'structured_data' => { 'result' => 'success', 'value' => 42 }
-              )
-            )
-          }))
+          ))
       end
 
       it 'truncates excessively long responses' do
-        very_long_response = 'a' * 15_000 # Exceeds 10KB limit
-
-        stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-          .to_return(
-            status: 200,
-            body: {
-              choices: [{ message: { content: very_long_response } }],
-              usage: { total_tokens: 100 }
-            }.to_json
-          )
+        allow(proxy).to receive(:execute_tool_loop).and_return(build_proxy_result('a' * 15_000))
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
+        expect(WebMock).to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+          .with(body: hash_including(
             'agent_execution' => hash_including(
               'output_data' => hash_including(
                 'content' => a_string_matching(/Response truncated due to length/)
               )
             )
-          }))
+          ))
       end
 
-      it 'includes both content and response fields for compatibility' do
-        stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-          .to_return(
-            status: 200,
-            body: {
-              choices: [{ message: { content: 'Test response' } }],
-              usage: { total_tokens: 100 }
-            }.to_json
-          )
+      it 'stores both content and response fields for compatibility' do
+        allow(proxy).to receive(:execute_tool_loop).and_return(build_proxy_result('Test response'))
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
+        expect(WebMock).to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+          .with(body: hash_including(
             'agent_execution' => hash_including(
               'output_data' => hash_including(
                 'content' => 'Test response',
                 'response' => 'Test response'
               )
             )
-          }))
+          ))
       end
     end
   end
 
-  describe 'retry behavior' do
-    it 'retries on BackendApiClient::ApiError' do
-      Sidekiq::Testing.inline! do
-        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true,
-          'data' => { 'agent_execution' => agent_execution_data }
-        })
+  describe 'error handling semantics' do
+    let(:job_instance) { described_class.new }
 
-        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
-          'success' => true
-        })
+    before do
+      stub_execution_lifecycle_endpoints
+      stub_proxy_seam
+      allow_any_instance_of(described_class).to receive(:ai_suspended?).and_return(false)
+    end
 
-        stub_request(:get, /\/api\/v1\/ai\/credentials/)
-          .to_return(
-            status: 200,
-            body: { 'success' => true, 'data' => { 'credentials' => credentials_data } }.to_json,
-            headers: { 'Content-Type' => 'application/json' }
-          )
+    it 'swallows proxy execution failures (marks failed, does not raise for Sidekiq retry)' do
+      allow(proxy).to receive(:execute_tool_loop).and_raise(StandardError.new('service unavailable'))
 
-        stub_backend_api_success(:post, "/api/v1/ai/credentials/#{credential_id}/decrypt", {
-          'success' => true,
-          'data' => { 'credentials' => decrypted_credentials }
-        })
+      expect { job_instance.execute(agent_execution_id) }.not_to raise_error
 
-        # First API call fails, which should be caught and handled by job
-        stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-          .to_return(status: 503, body: { error: { message: 'Service unavailable' } }.to_json)
-
-        # Job should complete (not raise) because it handles API errors internally
-        job = described_class.new
-        job.execute(agent_execution_id)
-
-        # Verify status was updated to failed
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
-          .with(body: hash_including({
-            'agent_execution' => hash_including('status' => 'failed')
-          }))
-      end
+      expect(WebMock).to have_requested(:patch, %r{api/v1/internal/ai/executions/#{agent_execution_id}})
+        .with(body: hash_including('agent_execution' => hash_including('status' => 'failed')))
     end
   end
 end
