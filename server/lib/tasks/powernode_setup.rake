@@ -22,8 +22,9 @@ namespace :powernode do
 
     # Create plan and subscription only when billing models are available (enterprise mode)
     plan = nil
-    if defined?(Billing::Plan)
-      plan = Billing::Plan.find_or_create_by!(name: "Self-Hosted") do |p|
+    plan_model = Powernode::BillingBridge.plan_model
+    if plan_model
+      plan = plan_model.find_or_create_by!(name: "Self-Hosted") do |p|
         p.description = "Self-hosted installation with all features enabled"
         p.price_cents = 0
         p.currency = "USD"
@@ -86,7 +87,7 @@ namespace :powernode do
     user = result.user
 
     # Create active subscription (enterprise mode only)
-    if plan && defined?(Billing::Subscription)
+    if plan && Powernode::BillingBridge.subscription_model
       account.create_subscription!(
         plan: plan,
         status: "active",
