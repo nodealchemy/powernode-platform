@@ -434,8 +434,18 @@ module Ai
           context: params["context"] || {}
         )
 
-        success_result(id: escalation.id, title: escalation.title, severity: escalation.severity,
-                       escalated_to: escalation.escalated_to_user&.email)
+        forwarded = forward_to_external_tracker(
+          kind: "escalation",
+          title: params["title"],
+          body: stringify_body(params["context"]).presence || params["escalation_type"].to_s,
+          severity: escalation.severity,
+          metadata: { escalation_type: params["escalation_type"], agent_id: agent&.id, escalation_id: escalation.id }
+        )
+
+        data = { id: escalation.id, title: escalation.title, severity: escalation.severity,
+                 escalated_to: escalation.escalated_to_user&.email }
+        data[:external_tracker] = forwarded if forwarded
+        success_result(data)
       end
 
       def request_feedback(params)
@@ -490,7 +500,33 @@ module Ai
           )
         end
 
-        success_result(observation_id: observation.id, title: params["title"])
+        forwarded = forward_to_external_tracker(
+          kind: "issue",
+          title: params["title"],
+          body: params["description"],
+          severity: params["severity"] || "warning",
+          metadata: { evidence: params["evidence"] || {}, agent_id: agent&.id, observation_id: observation.id }
+        )
+
+        data = { observation_id: observation.id, title: params["title"] }
+        data[:external_tracker] = forwarded if forwarded
+        success_result(data)
+      end
+
+      # Best-effort, opt-in bridge to an OUTBOUND issue/error tracker. No-op unless
+      # a tracker is configured (Ai::Connectors::TrackerConfig); failures never
+      # break the internal report_issue / escalate path.
+      def forward_to_external_tracker(**kwargs)
+        Ai::Connectors::TrackerBridge.forward(**kwargs)
+      rescue StandardError => e
+        Rails.logger.warn("[AgentAutonomyTool] external tracker forward failed: #{e.class}: #{e.message}")
+        nil
+      end
+
+      def stringify_body(value)
+        return "" if value.blank?
+
+        value.is_a?(String) ? value : value.to_json
       end
 
       def decompose_goal(params)
