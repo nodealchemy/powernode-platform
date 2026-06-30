@@ -56,6 +56,30 @@ module DataManagement
       ]
     }.freeze
 
+    # G15 — secret/credential patterns for scrubbing autonomous-loop output before
+    # it is persisted or displayed. Kept SEPARATE from the PCI SENSITIVE_PATTERNS so
+    # existing PCI sanitization behaviour is unchanged; applied via .scrub_secrets /
+    # .sanitize_output. Each entry is [regex, replacement]; replacements may use \1
+    # to preserve the (non-secret) key name. Errs toward over-redaction on output.
+    SECRET_PATTERNS = [
+      # PEM private-key blocks (any key type) — whole block.
+      [ /-----BEGIN[A-Z ]*PRIVATE KEY-----.*?-----END[A-Z ]*PRIVATE KEY-----/m, "[REDACTED_PRIVATE_KEY]" ],
+      # JWTs (header.payload.signature).
+      [ %r{\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+}, "[REDACTED_JWT]" ],
+      # Authorization: Bearer <token> — keep the header, redact the token.
+      [ /(Authorization\s*:\s*Bearer\s+)[A-Za-z0-9._\-]+/i, '\1[REDACTED]' ],
+      # Named key/secret/token/password assignments — keep the key, redact the value.
+      # No leading \b so compound keys (client_secret, db_password) still match.
+      [ /((?:api[_-]?key|secret(?:[_-]?key)?|client[_-]?secret|access[_-]?token|auth[_-]?token|token|password|passwd|mnemonic|seed[_-]?phrase)["']?\s*[:=]\s*["']?)([^\s"',]{6,})/i, '\1[REDACTED]' ],
+      # ENV-style UPPER_SNAKE keys ending in KEY/TOKEN/SECRET/PASSWORD/PASSWD.
+      [ /([A-Z][A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD)\s*=\s*)\S+/, '\1[REDACTED]' ],
+      # Common vendor token formats (whole token).
+      [ /\bsk-[A-Za-z0-9]{16,}\b/, "[REDACTED_TOKEN]" ],          # OpenAI-style
+      [ /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/, "[REDACTED_TOKEN]" ], # Slack
+      [ /\bgh[pousr]_[A-Za-z0-9]{20,}\b/, "[REDACTED_TOKEN]" ],   # GitHub
+      [ /\bAKIA[0-9A-Z]{16}\b/, "[REDACTED_AWS_KEY]" ]            # AWS access key id
+    ].freeze
+
     class << self
       # Sanitize sensitive data from strings
       def sanitize_string(input)
@@ -72,6 +96,24 @@ module DataManagement
         end
 
         sanitized
+      end
+
+      # G15 — redact secrets/credentials from a string. Separate from the PCI
+      # sanitize_string so callers opt in (loop/agent output); ordinary text is
+      # left untouched.
+      def scrub_secrets(input)
+        return input unless input.is_a?(String)
+
+        scrubbed = input.dup
+        SECRET_PATTERNS.each { |pattern, replacement| scrubbed.gsub!(pattern, replacement) }
+        scrubbed
+      end
+
+      # Full scrub for persisted/displayed runtime output: PCI data + secrets.
+      def sanitize_output(input)
+        return input unless input.is_a?(String)
+
+        scrub_secrets(sanitize_string(input))
       end
 
       # Sanitize sensitive data from hashes (e.g., params, metadata)

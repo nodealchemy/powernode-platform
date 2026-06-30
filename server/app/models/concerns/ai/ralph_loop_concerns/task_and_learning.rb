@@ -34,7 +34,8 @@ module Ai
         # appends previously clobbered each other (last save! wins, entries lost).
         with_lock do
           learning_entry = {
-            "text" => learning_text,
+            # G15: scrub secrets before a learning (loop output) is persisted.
+            "text" => ::DataManagement::Sanitizer.sanitize_output(learning_text),
             "iteration" => current_iteration,
             "timestamp" => Time.current.iso8601,
             "context" => context

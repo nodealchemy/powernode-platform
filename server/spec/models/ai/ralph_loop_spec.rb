@@ -49,6 +49,13 @@ RSpec.describe Ai::RalphLoop, type: :model do
       expect(loop_record).to receive(:with_lock).and_call_original
       loop_record.add_learning("locked append")
     end
+
+    it "scrubs secrets out of the learning text before persisting (G15)" do
+      loop_record.add_learning('Set api_key=sk-supersecretvalue123 in the env')
+      text = loop_record.reload.learnings.last["text"]
+      expect(text).not_to include("sk-supersecretvalue123")
+      expect(text).to match(/\[REDACTED/)
+    end
   end
 
   describe "#real_test_execution?" do

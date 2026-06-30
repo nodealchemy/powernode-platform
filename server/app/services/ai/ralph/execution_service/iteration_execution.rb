@@ -158,11 +158,16 @@ module Ai
         end
 
         def process_successful_iteration(iteration, task, result)
+          # G15: scrub secrets/credentials out of loop output BEFORE it is persisted
+          # or fed into the learning store — the autonomous executor's output is
+          # otherwise stored raw.
+          scrubbed_output = ::DataManagement::Sanitizer.sanitize_output(result[:output])
+
           iteration.complete!(
-            output: result[:output],
+            output: scrubbed_output,
             checks_passed: result[:checks_passed],
             commit_sha: result[:commit_sha],
-            learning: extract_learning(result[:output])
+            learning: extract_learning(scrubbed_output)
           )
 
           # Set git_branch when commits were made
@@ -190,8 +195,8 @@ module Ai
 
           ralph_loop.increment_iteration!
 
-          # Extract and store shared learnings
-          store_iteration_learnings(result[:output])
+          # Extract and store shared learnings (from the scrubbed output)
+          store_iteration_learnings(scrubbed_output)
 
           # Broadcast real-time updates
           broadcast_iteration_completed(iteration)
@@ -222,14 +227,17 @@ module Ai
         end
 
         def process_failed_iteration(iteration, task, result)
+          # G15: an executor error message can carry a leaked secret too — scrub it.
+          error_message = ::DataManagement::Sanitizer.sanitize_output(result[:error])
+
           iteration.fail!(
-            error_message: result[:error],
+            error_message: error_message,
             error_code: result[:error_code],
             error_details: result[:error_details] || {}
           )
 
           task.fail!(
-            error_message: result[:error],
+            error_message: error_message,
             error_code: result[:error_code]
           )
 
