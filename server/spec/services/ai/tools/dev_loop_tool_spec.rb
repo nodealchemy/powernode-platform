@@ -65,6 +65,66 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(ctx).not_to have_key(:open_decisions)
     end
 
+    # G12 (IMP-c46281b749ed): a non-Claude executor on the platform path can't read
+    # the base structural files itself, so re-inject their CONTENTS (size-bounded)
+    # — not just the paths — each iteration to mitigate goal drift.
+    describe "re-injects base file CONTENTS (G12)" do
+      let(:ctx_root) { Rails.root.parent } # repo root — CLAUDE.md / docs live above server/
+      let(:rel_dir)  { "server/tmp/base_ctx_spec#{ENV.fetch('TEST_ENV_NUMBER', '')}" }
+      let(:abs_dir)  { ctx_root.join(rel_dir) }
+
+      before do
+        FileUtils.mkdir_p(abs_dir)
+        File.write(abs_dir.join("small.md"), "BASE RULE ALPHA: prefer the generic seam")
+        File.write(abs_dir.join("big.md"), "X" * 40_000)
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "ctx", priority: 5)
+      end
+
+      after { FileUtils.rm_rf(abs_dir) }
+
+      def contents_for(files)
+        ralph_loop.update!(configuration: { "base_context_files" => files })
+        tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context][:base_context_contents]
+      end
+
+      it "includes an existing base file's contents (not just its path)" do
+        entry = contents_for(["#{rel_dir}/small.md"]).find { |c| c[:path] == "#{rel_dir}/small.md" }
+        expect(entry).to be_present
+        expect(entry[:contents]).to include("BASE RULE ALPHA")
+        expect(entry[:truncated]).to be false
+        expect(entry[:bytes]).to eq(entry[:contents].bytesize)
+      end
+
+      it "truncates an oversized base file (head + truncated marker, capped bytes)" do
+        entry = contents_for(["#{rel_dir}/big.md"]).find { |c| c[:path] == "#{rel_dir}/big.md" }
+        expect(entry[:truncated]).to be true
+        expect(entry[:bytes]).to be <= described_class::BASE_CONTEXT_PER_FILE_LIMIT
+        expect(entry[:contents].bytesize).to eq(entry[:bytes])
+      end
+
+      it "skips a missing base file without raising" do
+        contents = contents_for(["#{rel_dir}/missing.md", "#{rel_dir}/small.md"])
+        expect(contents.map { |c| c[:path] }).to contain_exactly("#{rel_dir}/small.md")
+      end
+
+      it "skips a directory path (non-file) without raising" do
+        contents = contents_for([rel_dir, "#{rel_dir}/small.md"])
+        expect(contents.map { |c| c[:path] }).to contain_exactly("#{rel_dir}/small.md")
+      end
+
+      it "never reads paths that escape the repo root" do
+        contents = contents_for(["../../../../../etc/hostname", "#{rel_dir}/small.md"])
+        expect(contents.map { |c| c[:path] }).to contain_exactly("#{rel_dir}/small.md")
+      end
+
+      it "still injects the base_context_files paths alongside the contents" do
+        ralph_loop.update!(configuration: { "base_context_files" => ["#{rel_dir}/small.md"] })
+        ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+        expect(ctx[:base_context_files]).to eq(["#{rel_dir}/small.md"])
+        expect(ctx[:base_context_contents]).to be_present
+      end
+    end
+
     it "is idempotent — re-claiming returns the same in-progress task" do
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "only")
 

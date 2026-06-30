@@ -11,6 +11,11 @@ module Ai
 
       OUTCOMES = %w[passed failed blocked skipped].freeze
 
+      # G12: byte caps for the base structural file CONTENTS re-injected into every
+      # dev_next_task payload (rides every iteration, so bound the token/payload cost).
+      BASE_CONTEXT_PER_FILE_LIMIT = 12_288  # head bytes kept per base file (~12 KiB)
+      BASE_CONTEXT_TOTAL_LIMIT    = 49_152  # bytes kept across all base files (~48 KiB)
+
       def self.definition
         {
           name: "dev_loop",
@@ -536,8 +541,69 @@ module Ai
         end
 
         base = config["base_context_files"]
-        ctx[:base_context_files] = base if base.present?
+        if base.present?
+          ctx[:base_context_files] = base
+          # G12: inject the CONTENTS of the curated base files (CLAUDE.md / conventions),
+          # not just the paths — a non-Claude platform executor can't read the repo
+          # itself, so path-only injection doesn't mitigate goal drift for it.
+          contents = base_context_contents(Array(base))
+          ctx[:base_context_contents] = contents if contents.present?
+        end
         ctx
+      end
+
+      # Read each curated base structural file and return size-bounded contents so any
+      # executor re-reads the base rules every iteration. Size-bounded (per-file + total
+      # byte caps, rides every payload), outage-safe core (CLAUDE.md) prioritized under the
+      # total budget, best-effort (a missing/unreadable/non-file/out-of-repo path is
+      # skipped, never raises). The curated path list is NOT broadened here.
+      def base_context_contents(paths)
+        remaining = BASE_CONTEXT_TOTAL_LIMIT
+        # CLAUDE.md (the outage-safe core) first so it survives the total budget; stable
+        # otherwise (preserve the configured order via the original index).
+        ordered = paths.each_with_index
+                       .sort_by { |path, i| [File.basename(path.to_s) == "CLAUDE.md" ? 0 : 1, i] }
+                       .map(&:first)
+        ordered.each_with_object([]) do |path, entries|
+          next if remaining <= 0
+
+          entry = read_base_context_file(path, [BASE_CONTEXT_PER_FILE_LIMIT, remaining].min)
+          next unless entry
+
+          entries << entry
+          remaining -= entry[:bytes]
+        end
+      end
+
+      # Best-effort read of one base file's head, capped at `cap` bytes. Returns nil for a
+      # missing/unreadable/non-file/out-of-repo path (skipped, never raised). Reads only
+      # cap+1 bytes so a large file isn't loaded whole just to detect truncation.
+      def read_base_context_file(path, cap)
+        resolved = resolve_base_context_path(path)
+        return nil unless resolved && File.file?(resolved)
+
+        raw = File.binread(resolved, cap + 1)
+        return nil if raw.nil?
+
+        truncated = raw.bytesize > cap
+        raw = raw.byteslice(0, cap) if truncated
+        contents = raw.force_encoding("UTF-8").scrub
+        { path: path.to_s, bytes: contents.bytesize, truncated: truncated, contents: contents }
+      rescue SystemCallError, IOError
+        nil
+      end
+
+      # Resolve a curated repo-relative base path against the repo root (CLAUDE.md /
+      # docs live above server/). Confined to the repo — a path that escapes the root
+      # (traversal / absolute) is rejected so only the curated tree is ever read.
+      def resolve_base_context_path(path)
+        return nil if path.blank?
+
+        root = Rails.root.parent.to_s
+        resolved = File.expand_path(path.to_s, root)
+        return nil unless resolved == root || resolved.start_with?("#{root}/")
+
+        resolved
       end
 
       def queue_snapshot(loop_record)
