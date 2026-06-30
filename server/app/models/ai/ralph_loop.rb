@@ -60,6 +60,9 @@ module Ai
     scope :terminal, -> { where(status: TERMINAL_STATUSES) }
     scope :active, -> { where(status: %w[pending running paused]) }
     scope :recent, -> { order(created_at: :desc) }
+    # Metered loops: drained by the platform executor, which actually spends
+    # tokens/$ (vs flat-rate claude_code loops). Used for cost-per-accepted-change.
+    scope :metered, -> { where(driver_kind: PLATFORM_DRIVER_KINDS) }
 
     # Scheduling scopes
     scope :scheduled, -> { where(scheduling_mode: %w[scheduled continuous]) }

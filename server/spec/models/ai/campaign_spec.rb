@@ -144,6 +144,113 @@ RSpec.describe Ai::Campaign, type: :model do
       campaign.update!(status: "active", stop_conditions: { "max_failed" => 5 }, failed_tasks: 1)
       expect(campaign.should_stop?).to be false
     end
+
+    # G2: acceptance-rate floor (anti-churn) — applies to BOTH runtimes.
+    context "acceptance-rate floor" do
+      def lands!(landed:, rejected:)
+        create_list(:ai_campaign_land, landed, :landed, campaign: campaign, account: account) if landed.positive?
+        create_list(:ai_campaign_land, rejected, :rejected, campaign: campaign, account: account) if rejected.positive?
+      end
+
+      it "stops once enough attempts have landed below the floor" do
+        campaign.update!(status: "active", stop_conditions: { "min_acceptance_pct" => 50, "min_acceptance_sample" => 4 })
+        lands!(landed: 1, rejected: 3) # 25% over 4 attempts
+        expect(campaign.should_stop?).to be true
+      end
+
+      it "keeps going while at or above the floor" do
+        campaign.update!(status: "active", stop_conditions: { "min_acceptance_pct" => 50, "min_acceptance_sample" => 4 })
+        lands!(landed: 3, rejected: 1) # 75%
+        expect(campaign.should_stop?).to be false
+      end
+
+      it "does not stop before the minimum sample of attempts (young campaign)" do
+        campaign.update!(status: "active", stop_conditions: { "min_acceptance_pct" => 50, "min_acceptance_sample" => 4 })
+        lands!(landed: 0, rejected: 2) # 0% but only 2 attempts < sample
+        expect(campaign.should_stop?).to be false
+      end
+
+      it "is inert when no floor is configured" do
+        campaign.update!(status: "active", stop_conditions: {})
+        lands!(landed: 0, rejected: 5)
+        expect(campaign.should_stop?).to be false
+      end
+    end
+  end
+
+  describe "#acceptance_pct (G2)" do
+    it "is nil with no terminal land attempts" do
+      create(:ai_campaign_land, campaign: campaign, account: account) # pending_approval, not terminal
+      expect(campaign.acceptance_pct).to be_nil
+    end
+
+    it "computes landed over terminal attempts" do
+      create_list(:ai_campaign_land, 3, :landed, campaign: campaign, account: account)
+      create(:ai_campaign_land, :rejected, campaign: campaign, account: account)
+      expect(campaign.acceptance_pct).to eq(75.0)
+    end
+
+    it "excludes non-terminal (parked / in-flight) lands from the denominator" do
+      create(:ai_campaign_land, :landed, campaign: campaign, account: account)
+      create(:ai_campaign_land, :rejected, campaign: campaign, account: account)
+      create(:ai_campaign_land, :parked, campaign: campaign, account: account)
+      create(:ai_campaign_land, campaign: campaign, account: account) # pending_approval
+      expect(campaign.acceptance_pct).to eq(50.0)
+    end
+
+    it "counts failed and rolled_back as non-accepted attempts" do
+      create(:ai_campaign_land, :landed, campaign: campaign, account: account)
+      create(:ai_campaign_land, :failed, campaign: campaign, account: account)
+      create(:ai_campaign_land, :rolled_back, campaign: campaign, account: account)
+      expect(campaign.acceptance_pct).to be_within(0.01).of(33.33)
+    end
+  end
+
+  describe "#cost_per_accepted_change (G2, metered loops only)" do
+    let(:campaign) { create(:ai_campaign, :active, account: account) }
+
+    def metered_loop_with_cost(cost)
+      loop_rec = create(:ai_ralph_loop, account: account, campaign: campaign, driver_kind: "platform_agent")
+      create(:ai_ralph_iteration, ralph_loop: loop_rec, cost: cost)
+      loop_rec
+    end
+
+    it "is nil when the campaign has no metered (platform-driven) loops" do
+      create(:ai_ralph_loop, account: account, campaign: campaign, driver_kind: "claude_code")
+      create(:ai_campaign_land, :landed, campaign: campaign, account: account)
+      expect(campaign.cost_per_accepted_change).to be_nil
+    end
+
+    it "is nil when there are no accepted lands yet" do
+      metered_loop_with_cost(5.0)
+      expect(campaign.cost_per_accepted_change).to be_nil
+    end
+
+    it "divides metered iteration spend by accepted lands" do
+      metered_loop_with_cost(6.0)
+      metered_loop_with_cost(4.0) # total metered spend 10.0
+      create_list(:ai_campaign_land, 2, :landed, campaign: campaign, account: account)
+      expect(campaign.cost_per_accepted_change).to eq(5.0) # 10.0 / 2
+    end
+
+    it "excludes flat-rate (claude_code) loop cost from the metered spend" do
+      metered_loop_with_cost(8.0)
+      flat = create(:ai_ralph_loop, account: account, campaign: campaign, driver_kind: "claude_code")
+      create(:ai_ralph_iteration, ralph_loop: flat, cost: 100.0) # must NOT count
+      create(:ai_campaign_land, :landed, campaign: campaign, account: account)
+      expect(campaign.cost_per_accepted_change).to eq(8.0)
+    end
+  end
+
+  describe "#summary surfaces the G2 metrics" do
+    it "includes acceptance_pct and cost_per_accepted_change" do
+      create_list(:ai_campaign_land, 2, :landed, campaign: campaign, account: account)
+      create(:ai_campaign_land, :rejected, campaign: campaign, account: account)
+      s = campaign.summary
+      expect(s).to have_key(:acceptance_pct)
+      expect(s).to have_key(:cost_per_accepted_change)
+      expect(s[:acceptance_pct]).to be_within(0.01).of(66.67)
+    end
   end
 
   describe "#maybe_finalize! (terminal finalization)" do

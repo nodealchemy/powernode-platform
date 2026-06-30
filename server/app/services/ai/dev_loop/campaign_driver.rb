@@ -22,6 +22,12 @@ module Ai
       WORKLOADS = %w[improvement-campaign feature-development new-project].freeze
       DEFAULT_WORKLOAD = "improvement-campaign"
 
+      # Defaults merged UNDER caller-supplied stop_conditions (caller wins). G2: a
+      # default acceptance-rate floor (anti-churn) so a campaign stops on sustained
+      # net-loss even when the operator doesn't set one. Deliberately NO default
+      # completion_pct here — a 100% target on an unseeded loop self-finalizes early.
+      DEFAULT_STOP_CONDITIONS = { "min_acceptance_pct" => 50 }.freeze
+
       def initialize(account:, user: nil)
         @account = account
         @user = user
@@ -39,7 +45,8 @@ module Ai
           campaign = @account.ai_campaigns.create!(
             name: name, description: description, created_by_id: @user&.id,
             configuration: config, decision_authority: decision_authority,
-            stop_conditions: stop_conditions || {}, status: "created"
+            stop_conditions: DEFAULT_STOP_CONDITIONS.merge((stop_conditions || {}).stringify_keys),
+            status: "created"
           )
           loop = create_campaign_loop(campaign, workload: workload)
           campaign.start!

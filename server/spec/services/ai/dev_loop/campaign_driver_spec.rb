@@ -23,6 +23,17 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
       expect(loop.configuration["workload"]).to eq("improvement-campaign")
       expect(campaign.progress_entries.count).to eq(1)
     end
+
+    it "seeds a default acceptance-rate floor (G2) when the caller sets none" do
+      campaign = driver.start(name: "Defaults")[:campaign]
+      expect(campaign.stop_conditions["min_acceptance_pct"]).to eq(50)
+    end
+
+    it "lets a caller-supplied stop condition override the default floor" do
+      campaign = driver.start(name: "Override", stop_conditions: { "min_acceptance_pct" => 80, "max_failed" => 3 })[:campaign]
+      expect(campaign.stop_conditions["min_acceptance_pct"]).to eq(80)
+      expect(campaign.stop_conditions["max_failed"]).to eq(3)
+    end
   end
 
   describe "#status" do
