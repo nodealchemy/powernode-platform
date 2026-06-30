@@ -43,6 +43,28 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(ralph_loop.reload.status).to eq("running")
     end
 
+    it "re-injects prior context every iteration (G12): learnings, open decisions, base files" do
+      campaign = create(:ai_campaign, account: account)
+      ralph_loop.update!(campaign: campaign,
+                         configuration: { "base_context_files" => ["CLAUDE.md", "docs/contributing/conventions"] })
+      ralph_loop.add_learning("Prefer the generic seam over a direct extension ref")
+      campaign.record_decision!(decision_type: "build", title: "Unify the approval flows")
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "ctx", priority: 5)
+
+      ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+
+      expect(ctx[:recent_learnings].last["text"]).to match(/generic seam/)
+      expect(ctx[:open_decisions].size).to eq(1)
+      expect(ctx[:base_context_files]).to eq(["CLAUDE.md", "docs/contributing/conventions"])
+    end
+
+    it "omits open_decisions when the loop has no campaign" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "ctx", priority: 5)
+      ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+      expect(ctx).to have_key(:recent_learnings)
+      expect(ctx).not_to have_key(:open_decisions)
+    end
+
     it "is idempotent — re-claiming returns the same in-progress task" do
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "only")
 
@@ -243,6 +265,17 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(iteration.learning_extracted).to match(/GATES enum/)
       expect(ralph_loop.reload.learnings.last["text"]).to match(/GATES enum/)
       expect(result[:queue][:passed]).to eq(1)
+    end
+
+    it "embeds each captured learning mid-run, not only at completion (G12)" do
+      extractor = instance_double(Ai::Learning::RalphLearningExtractor)
+      allow(Ai::Learning::RalphLearningExtractor).to receive(:new).and_return(extractor)
+      expect(extractor).to receive(:extract_learning).with(an_instance_of(Ai::RalphLoop), /worker running/)
+
+      tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "F9-99",
+        outcome: "failed", summary: "still red", learning: "this area needs the worker running"
+      })
     end
 
     it "records a failed outcome and still captures the learning" do

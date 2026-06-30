@@ -304,6 +304,9 @@ module Ai
             learning: params[:learning]
           )
           task.pass!(iteration_number: iteration.iteration_number)
+          # complete! appends the learning to the loop but doesn't embed it; do the
+          # mid-run embed here so the passed path matches the others (G12).
+          embed_learning_mid_run(loop_record, params[:learning])
         when "failed"
           iteration.fail!(error_message: summary)
           task.fail!(error_message: summary)
@@ -326,6 +329,19 @@ module Ai
           iteration: iteration.iteration_number, task_key: task.task_key
         })
         iteration.update!(learning_extracted: learning)
+        embed_learning_mid_run(loop_record, learning)
+      end
+
+      # G12: promote a learning to the embedded/compound store as soon as it's
+      # captured — not only at loop completion (which a long campaign never reaches
+      # mid-run). extract_learning is idempotent (near-dup dedup) and rescue-safe.
+      def embed_learning_mid_run(loop_record, learning)
+        return if learning.blank?
+
+        ::Ai::Learning::RalphLearningExtractor.new(account: account)
+                                              .extract_learning(loop_record, learning)
+      rescue StandardError => e
+        Rails.logger.warn("[DevLoopTool] mid-run learning embed failed for loop #{loop_record.id}: #{e.message}")
       end
 
       # --- Delegation: hand a Ralph task to a platform agent (Claude -> agent) ---
@@ -460,8 +476,27 @@ module Ai
             current_iteration: loop_record.current_iteration,
             max_iterations: loop_record.max_iterations,
             queue: queue_snapshot(loop_record)
-          }
+          },
+          # G12: re-inject prior context every iteration so the loop learns from
+          # itself and doesn't drift — recent lessons, open campaign decisions, and
+          # the base structural files the executor should re-read.
+          context: iteration_context(loop_record, config)
         }
+      end
+
+      # The feedback the framework's "lessons_learned" state file is meant to
+      # provide, surfaced into each dev_next_task payload (the campaign/dev-loop path
+      # otherwise never re-reads its own learnings or decisions).
+      def iteration_context(loop_record, config)
+        ctx = { recent_learnings: loop_record.recent_learnings(limit: 5) }
+
+        if (campaign = loop_record.campaign)
+          ctx[:open_decisions] = campaign.campaign_decisions.recent(5).map(&:summary)
+        end
+
+        base = config["base_context_files"]
+        ctx[:base_context_files] = base if base.present?
+        ctx
       end
 
       def queue_snapshot(loop_record)
