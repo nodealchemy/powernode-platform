@@ -24,8 +24,10 @@ module Devops
   # vulnerable package + advisory id/title — never a lockfile value, token, or raw
   # tool output (e.g. an advisory `description`) that could carry a credential.
   #
-  # SBOM generation (CycloneDX / SPDX) over the checkout is intentionally OUT OF
-  # SCOPE here — a noted follow-up.
+  # SBOM generation over the checkout is a SEPARATE concern, handled by the sibling
+  # Devops::SbomGenerator (CycloneDX inventory) — kept apart because this scanner
+  # shells out to ecosystem auditors for FINDINGS, whereas the SBOM parses lockfiles
+  # for INVENTORY and never participates in the gate.
   module DependencyScanner
     SCANNER_NAME = "dependency-cve"
 

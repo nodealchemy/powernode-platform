@@ -166,6 +166,48 @@ RSpec.describe AiLandSecurityScanJob, type: :job do
       job.execute(args)
     end
 
+    it "attaches a best-effort CycloneDX SBOM of the checkout to the job result" do
+      sbom = {
+        format: "CycloneDX", spec_version: "1.5", generated: true, component_count: 2,
+        document: { "bomFormat" => "CycloneDX", "components" => [ { "name" => "nokogiri" }, { "name" => "rack" } ] }
+      }
+      allow(Devops::SbomGenerator).to receive(:generate).with("/tmp/ws", hash_including(component_name: "acme/widget")).and_return(sbom)
+      allow(api_client).to receive(:post).and_return("data" => { "blocked" => false })
+      allow(AiCampaignLandCiPollJob).to receive(:perform_async)
+
+      result = job.execute(args)
+
+      expect(result[:sbom]).to eq(sbom)
+      expect(result[:sbom][:document]["bomFormat"]).to eq("CycloneDX")
+    end
+
+    it "attaches the SBOM even when a finding parks the land (additive metadata, not a gate)" do
+      allow(job).to receive(:run_workspace_command) do |_ws, cmd, **_o|
+        cmd.include?("git diff") ? { exit_code: 0, output: secret_diff, error: nil } : { exit_code: 127, output: "", error: nil }
+      end
+      sbom = { format: "CycloneDX", spec_version: "1.5", generated: true, component_count: 0, document: { "components" => [] } }
+      allow(Devops::SbomGenerator).to receive(:generate).and_return(sbom)
+      allow(api_client).to receive(:post).and_return("data" => { "blocked" => true })
+
+      result = job.execute(args)
+
+      expect(result).to include(blocked: true)
+      expect(result[:sbom]).to eq(sbom)
+    end
+
+    it "does NOT fail the land closed when SBOM generation raises (best-effort, non-blocking)" do
+      allow(Devops::SbomGenerator).to receive(:generate).and_raise(StandardError.new("sbom boom"))
+      allow(api_client).to receive(:post).and_return("data" => { "blocked" => false })
+      # A degraded SBOM must still hand off to CI — never park / strand the land.
+      expect(AiCampaignLandCiPollJob).to receive(:perform_async)
+        .with("land_id" => "L1", "gate" => "staged", "attempt" => 0)
+
+      result = job.execute(args)
+
+      expect(result[:blocked]).to be(false)
+      expect(result[:sbom][:generated]).to be(false)
+    end
+
     it "skips the deep scan and advances to CI when no repository can be resolved" do
       expect(job).not_to receive(:checkout_workspace)
       expect(api_client).not_to receive(:post)
