@@ -53,4 +53,60 @@ RSpec.describe Ai::Ralph::GitToolExecutor, type: :service do
       expect(result[:operation]).to eq(:updated)
     end
   end
+
+  # G3 follow-up: assemble a bounded, real unified diff for the maker/checker.
+  describe "#unified_diff" do
+    it "assembles a unified diff from the commit's per-file patches, adding headers" do
+      allow(git_client).to receive(:get_commit_diff).with("acme", "widgets", "abc123").and_return(
+        files: [
+          { filename: "app/x.rb", raw_patch: "@@ -1 +1,2 @@\n line\n+added\n" },
+          { filename: "app/y.rb", raw_patch: "@@ -0,0 +1 @@\n+new\n" }
+        ]
+      )
+
+      diff = executor.unified_diff("abc123")
+
+      expect(diff).to include("diff --git a/app/x.rb b/app/x.rb")
+      expect(diff).to include("+added")
+      expect(diff).to include("diff --git a/app/y.rb b/app/y.rb")
+      expect(diff).to include("+new")
+    end
+
+    it "preserves an already-headed patch without double-prefixing" do
+      allow(git_client).to receive(:get_commit_diff).and_return(
+        files: [{ filename: "app/x.rb", raw_patch: "diff --git a/app/x.rb b/app/x.rb\n@@ -1 +1 @@\n+z\n" }]
+      )
+
+      diff = executor.unified_diff("abc123")
+
+      expect(diff.scan("diff --git").size).to eq(1)
+    end
+
+    it "caps an oversized diff and appends a truncation marker" do
+      huge = "+#{'a' * (Ai::Ralph::GitToolExecutor::MAX_DIFF_BYTES + 5_000)}\n"
+      allow(git_client).to receive(:get_commit_diff).and_return(
+        files: [{ filename: "big.txt", raw_patch: huge }]
+      )
+
+      diff = executor.unified_diff("abc123")
+
+      expect(diff).to include("[diff truncated at #{Ai::Ralph::GitToolExecutor::MAX_DIFF_BYTES} bytes]")
+      # Body stays bounded to the cap (plus the short marker line).
+      expect(diff.bytesize).to be <= Ai::Ralph::GitToolExecutor::MAX_DIFF_BYTES + 100
+    end
+
+    it "returns nil when there is no commit sha" do
+      expect(executor.unified_diff(nil)).to be_nil
+    end
+
+    it "returns nil when the provider has no files in the diff" do
+      allow(git_client).to receive(:get_commit_diff).and_return(files: [])
+      expect(executor.unified_diff("abc123")).to be_nil
+    end
+
+    it "returns nil (best-effort) when the diff call raises" do
+      allow(git_client).to receive(:get_commit_diff).and_raise(StandardError, "boom")
+      expect(executor.unified_diff("abc123")).to be_nil
+    end
+  end
 end

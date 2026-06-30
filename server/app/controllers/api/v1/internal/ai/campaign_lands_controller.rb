@@ -77,7 +77,45 @@ module Api
             render_success(land: service.cleanup!.summary)
           end
 
+          # POST .../security_findings — park-back surface for the worker-side deep
+          # security scan (G4 worker depth). The worker scans the REAL staged diff
+          # (secrets + best-effort Brakeman) and posts findings here. We record them
+          # under metadata["security_gate"]["worker_scan"] — composing with the
+          # server-side gate's findings — and PARK the land when any finding is
+          # blocking (reusing LandService#park). Findings carry only
+          # scanner/severity/detail labels (never raw secret values), so the stored
+          # metadata is safe to persist/display.
+          def security_findings
+            findings = Array(params[:findings]).map do |f|
+              (f.respond_to?(:permit) ? f.permit(:scanner, :severity, :detail, :category).to_h : f.to_h).stringify_keys
+            end
+            scanners = Array(params[:scanners]).map(&:to_s)
+            blocked = ::Ai::Land::SecurityGateService.blocking?(findings)
+
+            gate = (@land.metadata.to_h["security_gate"] || {}).deep_dup
+            gate["worker_scan"] = {
+              "blocked" => blocked,
+              "scanners" => scanners,
+              "findings" => findings,
+              "evaluated_at" => Time.current.iso8601
+            }
+            @land.update!(metadata: @land.metadata.to_h.merge("security_gate" => gate))
+
+            if blocked && !@land.terminal? && @land.status != "parked"
+              service.park("worker security scan blocked: #{worker_findings_summary(findings)}")
+            end
+
+            render_success(land_id: @land.id, blocked: blocked, land_status: @land.reload.status)
+          end
+
           private
+
+          # Compact "scanner:severity" summary for the park reason. Labels only.
+          def worker_findings_summary(findings)
+            return "policy violation" if findings.blank?
+
+            findings.map { |f| "#{f['scanner']}:#{f['severity']}" }.uniq.join(", ")
+          end
 
           # Notify the land's source (campaign, mission, ...) that the change
           # landed + post-merge CI passed, so it can advance its own workflow

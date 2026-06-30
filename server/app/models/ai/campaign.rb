@@ -23,6 +23,12 @@ module Ai
     # itself without operator intervention, but long enough to span a normal iteration.
     DEFAULT_LEASE_TTL = 30.minutes
 
+    # Minimum number of terminal land attempts before the acceptance-rate floor
+    # (stop_conditions["min_acceptance_pct"]) is allowed to stop a campaign — so a
+    # young campaign whose first change happens to be rejected isn't killed on a
+    # one-sample 0%. Override per campaign with stop_conditions["min_acceptance_sample"].
+    DEFAULT_MIN_ACCEPTANCE_SAMPLE = 4
+
     belongs_to :account
     belongs_to :created_by, class_name: "User", foreign_key: "created_by_id", optional: true
 
@@ -201,14 +207,76 @@ module Ai
       total_tasks.positive? ? (completed_tasks.to_f / total_tasks * 100).round(2) : 0.0
     end
 
+    # ---- acceptance / cost metrics (G2) ------------------------------------
+
+    # Lands that reached a success terminal (the change was actually merged).
+    def accepted_lands_count
+      campaign_lands.where(status: "landed").count
+    end
+
+    # Lands that reached ANY terminal outcome (accepted or not) — the denominator
+    # for acceptance rate. Excludes in-flight and "parked" (non-terminal/re-queueable).
+    def terminal_lands_count
+      campaign_lands.where(status: ::Ai::CampaignLand::TERMINAL_STATUSES).count
+    end
+
+    # Fraction of terminal land attempts that were accepted, as a percentage.
+    # nil until at least one attempt has reached a terminal outcome (undefined,
+    # not zero — so callers don't treat "no data yet" as a 0% net-loss).
+    def acceptance_pct
+      attempts = terminal_lands_count
+      return nil if attempts.zero?
+
+      (accepted_lands_count.to_f / attempts * 100).round(2)
+    end
+
+    # Total token/$ spend on the campaign's METERED (platform-executor) loops only —
+    # flat-rate CLI-executor loops don't spend platform $, so they're excluded.
+    def metered_spend
+      ::Ai::RalphIteration.where(ralph_loop_id: ralph_loops.metered.select(:id)).sum(:cost)
+    end
+
+    # Cost per accepted change — metered loops only. nil when the campaign has no
+    # metered loops (the metric doesn't apply to flat-rate work) or has yet to land
+    # anything (avoid divide-by-zero / a meaningless infinity).
+    def cost_per_accepted_change
+      return nil unless ralph_loops.metered.exists?
+
+      accepted = accepted_lands_count
+      return nil if accepted.zero?
+
+      (metered_spend / accepted).to_f.round(6)
+    end
+
     # ---- stop policy -------------------------------------------------------
     def should_stop?
       return true if terminal?
       max_failed = stop_conditions["max_failed"]
       return true if max_failed && failed_tasks >= max_failed.to_i
       target = stop_conditions["completion_pct"]
-      return true if target && completion_pct >= target.to_f
+      # A completion_pct target may only stop the campaign once its loop(s) have actually
+      # ended. While a loop is still ACTIVE (pending/running/paused) the percentage is
+      # premature — the FIRST passed increment on an unseeded loop reads 1/1 = 100% and
+      # would self-finalize the campaign mid-drain. Mirror fully_drained?'s active-loop
+      # guard. A campaign with NO loops is not active, so the pct-stop can still finalize it.
+      return true if target && completion_pct >= target.to_f && !ralph_loops.active.exists?
+      return true if acceptance_floor_breached?
       false
+    end
+
+    # G2: net-loss / anti-churn guard — applies to BOTH runtimes. Once enough
+    # changes have been attempted (a minimum sample), stop if the share that
+    # actually landed has fallen below the configured floor. Inert until both a
+    # floor is configured and the sample threshold is met.
+    def acceptance_floor_breached?
+      floor = stop_conditions["min_acceptance_pct"]
+      return false if floor.blank?
+
+      sample = (stop_conditions["min_acceptance_sample"] || DEFAULT_MIN_ACCEPTANCE_SAMPLE).to_i
+      return false if terminal_lands_count < sample
+
+      pct = acceptance_pct
+      pct.present? && pct < floor.to_f
     end
 
     # Terminal finalization: complete the campaign when its work is genuinely
@@ -259,6 +327,8 @@ module Ai
         loop_count: loop_count, total_tasks: total_tasks, completed_tasks: completed_tasks,
         failed_tasks: failed_tasks, blocked_tasks: blocked_tasks, open_questions: open_questions,
         completion_pct: completion_pct, started_at: started_at, completed_at: completed_at,
+        # G2: anti-churn acceptance rate (both runtimes) + cost-per-accepted (metered only).
+        acceptance_pct: acceptance_pct, cost_per_accepted_change: cost_per_accepted_change,
         # Guarded so the code tolerates the column being absent during the migration
         # window (expand-contract / running ahead of the schema).
         last_activity_at: (last_activity_at if has_attribute?(:last_activity_at)),

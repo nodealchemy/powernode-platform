@@ -113,6 +113,10 @@ module Ai
         return error_result("Ralph loop not found") unless loop_record
 
         if (reason = halt_reason(loop_record))
+          # G5: goal-driven terminator — when the configured completion goal is
+          # met, actually finish the loop (transition to completed) instead of
+          # handing out more work. Other halt reasons just stop the pull.
+          loop_record.complete! if reason == "goal_met" && loop_record.can_complete?
           return { success: true, halted: true, reason: reason, task: nil }
         end
         if (reason = delegation_block_reason(loop_record, params[:holder]))
@@ -228,6 +232,19 @@ module Ai
         summary = params[:summary].to_s
         return error_result("summary is required") if summary.blank?
 
+        # G10: scope guardrail. A "passed" outcome that touches a protected path
+        # (payments/auth/crypto/secrets) or a critical-tier file is NOT silently
+        # accepted — it is remapped to a human-gated "blocked" (a park for review).
+        # Only remap an in_progress task: a blocked task can't re-block (operator
+        # resolution entries arrive already blocked).
+        guardrail = nil
+        if outcome == "passed" && task.status == "in_progress" &&
+           (violation = scope_guardrail_violation(loop_record, params[:files_changed]))
+          guardrail = violation
+          outcome = "blocked"
+          summary = "[scope-guardrail] #{violation[:summary]} — parked for human review. #{summary}"
+        end
+
         iteration = nil
         pairing_error = nil
         # Lock the task so the (status → outcome) pre-check, the iteration record, and
@@ -262,10 +279,31 @@ module Ai
           response[:governance] = { category: "dev.multi_file_change",
                                     files_changed: Array(params[:files_changed]).size }
         end
+        # G10: surface the guardrail verdict and park a question for the operator.
+        if guardrail
+          response[:guardrail] = { blocked: true, violations: guardrail[:violations],
+                                   highest_tier: guardrail[:highest_tier] }
+          begin
+            loop_record.campaign&.park_question!(
+              question: "Scope guardrail blocked an autonomous change: #{guardrail[:summary]}",
+              context: "scope-guardrail"
+            )
+          rescue StandardError => e
+            Rails.logger.warn("[DevLoopTool] scope-guardrail park failed for loop #{loop_record.id}: #{e.message}")
+          end
+        end
         response
       rescue Ai::RalphTask::InvalidTransitionError, Ai::RalphIteration::InvalidTransitionError,
              ActiveRecord::RecordInvalid => e
         error_result(e.message)
+      end
+
+      # G10: evaluate the executor-reported files against the loop's scope guardrail
+      # (no worker git diff needed). Returns the violation result hash, or nil when
+      # clean. Delegates to the shared ScopeGuardrail.violation_for seam — the same
+      # entry point the platform executor and land paths use.
+      def scope_guardrail_violation(loop_record, files_changed)
+        ::Ai::CodeFactory::ScopeGuardrail.violation_for(files_changed, loop_record: loop_record)
       end
 
       def prepare_iteration(loop_record, task, params)
@@ -304,6 +342,9 @@ module Ai
             learning: params[:learning]
           )
           task.pass!(iteration_number: iteration.iteration_number)
+          # complete! appends the learning to the loop but doesn't embed it; do the
+          # mid-run embed here so the passed path matches the others (G12).
+          embed_learning_mid_run(loop_record, params[:learning])
         when "failed"
           iteration.fail!(error_message: summary)
           task.fail!(error_message: summary)
@@ -326,6 +367,19 @@ module Ai
           iteration: iteration.iteration_number, task_key: task.task_key
         })
         iteration.update!(learning_extracted: learning)
+        embed_learning_mid_run(loop_record, learning)
+      end
+
+      # G12: promote a learning to the embedded/compound store as soon as it's
+      # captured — not only at loop completion (which a long campaign never reaches
+      # mid-run). extract_learning is idempotent (near-dup dedup) and rescue-safe.
+      def embed_learning_mid_run(loop_record, learning)
+        return if learning.blank?
+
+        ::Ai::Learning::RalphLearningExtractor.new(account: account)
+                                              .extract_learning(loop_record, learning)
+      rescue StandardError => e
+        Rails.logger.warn("[DevLoopTool] mid-run learning embed failed for loop #{loop_record.id}: #{e.message}")
       end
 
       # --- Delegation: hand a Ralph task to a platform agent (Claude -> agent) ---
@@ -419,13 +473,12 @@ module Ai
       end
 
       # Halt checks — executors must stop pulling when any of these hold.
+      # Delegates to the loop's shared Ai::RalphLoop#halt_reason so the dev-loop
+      # pull path and the platform executor evaluate IDENTICAL stop conditions
+      # (kill switch, schedule, terminal state, goal-met, iteration cap, and the
+      # runtime resource caps — wall-clock for any loop, token/$ for metered).
       def halt_reason(loop_record)
-        return "emergency_halt" if account.respond_to?(:ai_suspended?) && account.ai_suspended?
-        return "schedule_paused" if loop_record.schedule_paused?
-        return "loop_#{loop_record.status}" if loop_record.status.in?(%w[paused completed cancelled failed])
-        return "max_iterations_reached" if loop_record.max_iterations_reached?
-
-        nil
+        loop_record.halt_reason
       end
 
       def own_in_progress_task(loop_record)
@@ -454,14 +507,37 @@ module Ai
             name: loop_record.name,
             status: loop_record.status,
             branch: loop_record.branch,
+            # G9: vendor-neutral executor identity for per-vendor attribution/telemetry
+            # (the flat-rate CLI draining this loop — claude_code/external_cli + its vendor).
+            driver_kind: loop_record.driver_kind,
+            executor_vendor: loop_record.executor_vendor,
             repository_url: loop_record.repository_url,
             loop_spec_path: config["loop_spec_path"],
             guardrails: config["guardrails"],
             current_iteration: loop_record.current_iteration,
             max_iterations: loop_record.max_iterations,
             queue: queue_snapshot(loop_record)
-          }
+          },
+          # G12: re-inject prior context every iteration so the loop learns from
+          # itself and doesn't drift — recent lessons, open campaign decisions, and
+          # the base structural files the executor should re-read.
+          context: iteration_context(loop_record, config)
         }
+      end
+
+      # The feedback the framework's "lessons_learned" state file is meant to
+      # provide, surfaced into each dev_next_task payload (the campaign/dev-loop path
+      # otherwise never re-reads its own learnings or decisions).
+      def iteration_context(loop_record, config)
+        ctx = { recent_learnings: loop_record.recent_learnings(limit: 5) }
+
+        if (campaign = loop_record.campaign)
+          ctx[:open_decisions] = campaign.campaign_decisions.recent(5).map(&:summary)
+        end
+
+        base = config["base_context_files"]
+        ctx[:base_context_files] = base if base.present?
+        ctx
       end
 
       def queue_snapshot(loop_record)
@@ -474,27 +550,12 @@ module Ai
           blocked: tasks.blocked.count,
           progress_percentage: loop_record.progress_percentage
         }
-        if (criteria = (loop_record.configuration || {})["completion"]).is_a?(Hash)
-          snapshot[:completion] = completion_assessment(loop_record, criteria)
+        # Report-only here (operators/executors read it); the goal-driven
+        # terminator that acts on `met` lives in dev_next_task (G5).
+        if (completion = loop_record.completion_status)
+          snapshot[:completion] = completion
         end
         snapshot
-      end
-
-      # Evaluates configuration.completion criteria over executor-facing tasks
-      # (human-decision tasks are excluded — the loop can't resolve them).
-      # Report-only: operators complete the loop; executors use this to know
-      # when a run is effectively done.
-      def completion_assessment(loop_record, criteria)
-        executable = loop_record.ralph_tasks.where.not(execution_type: "human")
-        total = executable.count
-        non_terminal = executable.where.not(status: Ai::RalphTask::TERMINAL_STATUSES).count
-        failed_pct = total.zero? ? 0.0 : (executable.failed.count.to_f / total * 100).round(1)
-
-        met = total.positive?
-        met &&= non_terminal.zero? if criteria["all_tasks_terminal"]
-        met &&= failed_pct <= criteria["max_failed_pct"].to_f if criteria["max_failed_pct"]
-
-        { criteria: criteria, met: met, non_terminal: non_terminal, failed_pct: failed_pct }
       end
 
       def find_loop(id_or_name)

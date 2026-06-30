@@ -515,8 +515,18 @@ Rails.application.routes.draw do
           # Ralph loop endpoints (worker → server)
           scope "ralph_loops" do
             post "process_scheduled", to: "ralph_loops#process_scheduled"
+            # G11 gate-integrity canary: run the fixed known-good/known-bad cases
+            # through the verification gate and report whether verdicts still hold.
+            post "gate_canary", to: "ralph_loops#gate_canary"
             post ":id/run_iteration", to: "ralph_loops#run_iteration"
             post ":id/iterations/:iteration_id/test_results", to: "ralph_loops#record_test_results"
+          end
+
+          # AI security audits (worker cron → server)
+          scope "security" do
+            # G7 token-scope / permission-creep audit: review access scopes on
+            # active provider credentials + API tokens and flag over-provisioning.
+            post "token_scope_audit", to: "security#token_scope_audit"
           end
 
           # Trajectory analysis endpoint (worker → server)
@@ -603,6 +613,7 @@ Rails.application.routes.draw do
               post :park
               post :rollback
               post :cleanup
+              post :security_findings
             end
           end
 

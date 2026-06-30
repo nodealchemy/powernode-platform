@@ -43,6 +43,28 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(ralph_loop.reload.status).to eq("running")
     end
 
+    it "re-injects prior context every iteration (G12): learnings, open decisions, base files" do
+      campaign = create(:ai_campaign, account: account)
+      ralph_loop.update!(campaign: campaign,
+                         configuration: { "base_context_files" => ["CLAUDE.md", "docs/contributing/conventions"] })
+      ralph_loop.add_learning("Prefer the generic seam over a direct extension ref")
+      campaign.record_decision!(decision_type: "build", title: "Unify the approval flows")
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "ctx", priority: 5)
+
+      ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+
+      expect(ctx[:recent_learnings].last["text"]).to match(/generic seam/)
+      expect(ctx[:open_decisions].size).to eq(1)
+      expect(ctx[:base_context_files]).to eq(["CLAUDE.md", "docs/contributing/conventions"])
+    end
+
+    it "omits open_decisions when the loop has no campaign" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "ctx", priority: 5)
+      ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+      expect(ctx).to have_key(:recent_learnings)
+      expect(ctx).not_to have_key(:open_decisions)
+    end
+
     it "is idempotent — re-claiming returns the same in-progress task" do
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "only")
 
@@ -137,6 +159,64 @@ RSpec.describe Ai::Tools::DevLoopTool do
 
         expect(result[:halted]).to be true
         expect(result[:reason]).to eq("max_iterations_reached")
+      end
+    end
+
+    # G5: goal-driven terminator + runtime-aware hard caps (these get their own
+    # setup — the "halt conditions" before-block seeds a pending task, which would
+    # defeat goal_met).
+    context "G5 stop conditions" do
+      it "ends the loop when the configured completion goal is met (goal_met terminator)" do
+        ralph_loop.update!(status: "running", started_at: Time.current,
+                           configuration: { "completion" => { "all_tasks_terminal" => true } })
+        create(:ai_ralph_task, :passed, ralph_loop: ralph_loop, task_key: "done")
+
+        result = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+        expect(result[:halted]).to be true
+        expect(result[:reason]).to eq("goal_met")
+        expect(result[:task]).to be_nil
+        expect(ralph_loop.reload.status).to eq("completed")
+      end
+
+      it "halts on a wall-clock timeout" do
+        ralph_loop.update!(status: "running", started_at: 2.hours.ago,
+                           configuration: { "max_wall_clock_seconds" => 60 })
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "slow")
+
+        result = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+        expect(result[:halted]).to be true
+        expect(result[:reason]).to eq("wall_clock_exceeded")
+        expect(result[:task]).to be_nil
+      end
+
+      it "halts a metered (platform) loop over its token cap" do
+        metered = create(:ai_ralph_loop, account: account, driver_kind: "platform_agent",
+                         status: "running", started_at: Time.current,
+                         configuration: { "max_tokens" => 1000 })
+        create(:ai_ralph_iteration, ralph_loop: metered, iteration_number: 1,
+                                    tokens_input: 800, tokens_output: 800)
+        create(:ai_ralph_task, ralph_loop: metered, task_key: "x")
+
+        result = tool.execute(params: { action: "dev_next_task", loop_id: metered.id })
+
+        expect(result[:halted]).to be true
+        expect(result[:reason]).to eq("token_cap_exceeded")
+      end
+
+      it "leaves a flat-rate claude_code loop UNCAPPED over the same nominal spend" do
+        flat = create(:ai_ralph_loop, account: account, driver_kind: "claude_code",
+                      status: "running", started_at: Time.current,
+                      configuration: { "max_tokens" => 1000 })
+        create(:ai_ralph_iteration, ralph_loop: flat, iteration_number: 1,
+                                    tokens_input: 800, tokens_output: 800)
+        create(:ai_ralph_task, ralph_loop: flat, task_key: "y")
+
+        result = tool.execute(params: { action: "dev_next_task", loop_id: flat.id })
+
+        expect(result[:halted]).to be_falsey
+        expect(result[:task][:task_key]).to eq("y")
       end
     end
 
@@ -245,6 +325,17 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(result[:queue][:passed]).to eq(1)
     end
 
+    it "embeds each captured learning mid-run, not only at completion (G12)" do
+      extractor = instance_double(Ai::Learning::RalphLearningExtractor)
+      allow(Ai::Learning::RalphLearningExtractor).to receive(:new).and_return(extractor)
+      expect(extractor).to receive(:extract_learning).with(an_instance_of(Ai::RalphLoop), /worker running/)
+
+      tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "F9-99",
+        outcome: "failed", summary: "still red", learning: "this area needs the worker running"
+      })
+    end
+
     it "records a failed outcome and still captures the learning" do
       result = tool.execute(params: {
         action: "dev_complete_task",
@@ -273,6 +364,23 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(result[:success]).to be true
       expect(result[:task_status]).to eq("blocked")
       expect(ralph_loop.ralph_iterations.last.error_code).to eq("blocked")
+    end
+
+    it "remaps a passed outcome touching a protected path to a human-gated block (G10)" do
+      result = tool.execute(params: {
+        action: "dev_complete_task",
+        loop_id: ralph_loop.id,
+        task_key: "F9-99",
+        outcome: "passed",
+        summary: "Refactored the charge flow",
+        files_changed: ["server/app/services/payments/charge.rb"]
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:task_status]).to eq("blocked")
+      expect(result[:guardrail][:blocked]).to be true
+      expect(result[:guardrail][:violations].first[:file]).to eq("server/app/services/payments/charge.rb")
+      expect(ralph_loop.ralph_tasks.find_by(task_key: "F9-99").status).to eq("blocked")
     end
 
     it "rejects completion of a task that was never claimed" do
@@ -428,14 +536,19 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(completion[:non_terminal]).to eq(1) # "open" claimed in_progress; human excluded
       expect(completion[:failed_pct]).to eq(0.0)
 
-      tool.execute(params: {
+      done = tool.execute(params: {
         action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "open",
         outcome: "passed", summary: "done"
       })
-      snapshot = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
 
-      expect(snapshot[:queue_empty]).to be true
-      expect(snapshot[:queue][:completion][:met]).to be true
+      # Report-only assessment still surfaces in the queue snapshot...
+      expect(done[:queue][:completion][:met]).to be true
+      # ...and the dev_next_task terminator now ACTS on it (G5): the loop finishes
+      # instead of handing out more work.
+      snapshot = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+      expect(snapshot[:halted]).to be true
+      expect(snapshot[:reason]).to eq("goal_met")
+      expect(ralph_loop.reload.status).to eq("completed")
     end
   end
 

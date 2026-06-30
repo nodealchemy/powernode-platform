@@ -61,6 +61,10 @@ module Ai
       # A clean exit with unparseable output is trusted (exit 0); a non-zero
       # exit is always a failure regardless of parse.
       def evaluate(framework:, output:, exit_code:, command: nil)
+        # Fail-closed: a blank framework means the worker could not identify (or
+        # auto-detect) a suite — a clean exit code must NOT be trusted as a pass.
+        return not_run("No test framework reported") if framework.blank?
+
         exit_code = exit_code.to_i
         counts = parse_counts(framework, output.to_s)
         failed = counts[:failed_count]

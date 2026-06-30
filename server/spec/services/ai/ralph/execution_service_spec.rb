@@ -48,6 +48,34 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
       end
     end
 
+    # G13: loop-readiness preflight — a loop with no objective gate can't start.
+    context "when the readiness preflight fails (no objective gate)" do
+      let(:loop_status) { "pending" }
+
+      before do
+        create(:ai_ralph_task, ralph_loop: ralph_loop, status: "pending")
+        ralph_loop.update!(total_tasks: 1, configuration: { "real_test_execution" => false })
+      end
+
+      it "refuses to start and stays pending" do
+        result = service.start_loop
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/readiness preflight/i)
+        expect(result[:failures].join).to match(/objective verification gate/i)
+        expect(ralph_loop.reload.status).to eq("pending")
+      end
+
+      it "starts (with a warning) once the missing gate is acknowledged" do
+        ralph_loop.update!(configuration: { "real_test_execution" => false, "acknowledge_no_gate" => true })
+        result = service.start_loop
+
+        expect(result[:success]).to be true
+        expect(ralph_loop.reload.status).to eq("running")
+        expect(result[:warnings].join).to match(/acknowledge/i)
+      end
+    end
+
     context "when loop is not in pending status" do
       let(:loop_status) { "running" }
 
@@ -281,11 +309,337 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
       end
     end
 
-    context "when real_test_execution is disabled (default path)" do
+    context "when left at the default (G1: the gate is opt-out) and a commit was made" do
+      before do
+        # No real_test_execution / test_command in configuration — the gate is ON
+        # by default and the worker auto-detects the framework (command: nil).
+        ralph_loop.update!(repository_url: "https://git.example.com/acme/widget.git")
+      end
+
+      it "dispatches a sandboxed test run (command nil ⇒ auto-detect) and parks the task" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(::WorkerJobService).to have_received(:enqueue_ai_test_execution).with(
+          hash_including(ralph_loop_id: ralph_loop.id, ralph_iteration_id: iteration.id,
+                         repository: "acme/widget", command: nil)
+        )
+        expect(task.reload.status).to eq("in_progress")
+        expect(iteration.reload.check_results["awaiting_test_result"]).to be true
+      end
+    end
+
+    context "when real_test_execution is explicitly disabled (opt-out)" do
+      before { ralph_loop.update!(configuration: { "real_test_execution" => false }) }
+
       it "passes the task immediately and never dispatches a test run" do
         service.send(:process_successful_iteration, iteration, task, result)
 
         expect(::WorkerJobService).not_to have_received(:enqueue_ai_test_execution)
+        expect(task.reload.status).to eq("passed")
+      end
+    end
+  end
+
+  # ===========================================================================
+  # G3: semantic maker/checker gate (separate-model evaluator) wired into the
+  # task-completion path. Composes WITH the G1 real-test gate.
+  # ===========================================================================
+
+  describe "maker/checker semantic gate (G3)" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+    let(:result) { { output: "did the work", checks_passed: true, commit_sha: "abc123", tokens: {}, cost: 0 } }
+    let(:evaluator) { instance_double(Ai::Reasoning::OutputEvaluatorService) }
+    # Stub the policy so the wiring test is isolated from model-tier selection
+    # (the policy itself is unit-tested separately). A distinct checker model
+    # satisfies the self-review ban.
+    let(:policy) do
+      instance_double(
+        Ai::Ralph::MakerCheckerPolicy,
+        enabled?: true, distinct_checker?: true,
+        maker_model: "cheap-maker", checker_model: "strong-checker",
+        checker_agent_id: agent.id, criteria: []
+      )
+    end
+
+    before do
+      allow(::WorkerJobService).to receive(:enqueue_ai_test_execution).and_return("success" => true)
+      allow(Ai::Ralph::MakerCheckerPolicy).to receive(:new).and_return(policy)
+      # STUB the LLM evaluator — no real LLM call happens.
+      allow(Ai::Reasoning::OutputEvaluatorService).to receive(:new).and_return(evaluator)
+    end
+
+    context "when the checker returns reject (real-test gate ON)" do
+      before do
+        ralph_loop.update!(repository_url: "https://git.example.com/acme/widget.git",
+                           configuration: { "maker_checker" => true, "real_test_execution" => true })
+        allow(evaluator).to receive(:evaluate).and_return(
+          { verdict: "reject", scores: { accuracy: 0.1 }, feedback: "fundamentally flawed" }
+        )
+      end
+
+      it "does NOT pass the task, records the verdict, and short-circuits the test gate" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(task.reload.status).to eq("in_progress")
+        expect(::WorkerJobService).not_to have_received(:enqueue_ai_test_execution)
+        expect(iteration.reload.check_results["evaluator_verdict"]).to eq("reject")
+        expect(iteration.check_results["evaluator_feedback"]).to eq("fundamentally flawed")
+        expect(iteration.check_results["checker_model"]).to eq("strong-checker")
+      end
+    end
+
+    context "when the checker returns revise" do
+      before do
+        ralph_loop.update!(configuration: { "maker_checker" => true, "real_test_execution" => false })
+        allow(evaluator).to receive(:evaluate).and_return(
+          { verdict: "revise", scores: {}, feedback: "fixable issues" }
+        )
+      end
+
+      it "keeps the task for retry (not passed)" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(task.reload.status).to eq("in_progress")
+        expect(iteration.reload.check_results["evaluator_verdict"]).to eq("revise")
+      end
+    end
+
+    context "when the checker returns pass (real-test gate OFF)" do
+      before do
+        ralph_loop.update!(configuration: { "maker_checker" => true, "real_test_execution" => false })
+        allow(evaluator).to receive(:evaluate).and_return(
+          { verdict: "pass", scores: { accuracy: 0.95 }, feedback: "looks good" }
+        )
+      end
+
+      it "passes the task and records the verdict" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(task.reload.status).to eq("passed")
+        expect(iteration.reload.check_results["evaluator_verdict"]).to eq("pass")
+      end
+    end
+
+    context "when the checker returns pass and the real-test gate is ON (composition)" do
+      before do
+        ralph_loop.update!(repository_url: "https://git.example.com/acme/widget.git",
+                           configuration: { "maker_checker" => true, "real_test_execution" => true })
+        allow(evaluator).to receive(:evaluate).and_return({ verdict: "pass", scores: {}, feedback: "ok" })
+      end
+
+      it "proceeds to the G1 sandboxed-test gate (dispatches tests, task parked)" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(::WorkerJobService).to have_received(:enqueue_ai_test_execution)
+        expect(task.reload.status).to eq("in_progress")
+        expect(iteration.reload.check_results["awaiting_test_result"]).to be true
+        expect(iteration.check_results["evaluator_verdict"]).to eq("pass")
+      end
+    end
+
+    context "when the self-review ban cannot be satisfied (no distinct checker)" do
+      before do
+        ralph_loop.update!(configuration: { "maker_checker" => true, "real_test_execution" => false })
+        allow(policy).to receive(:distinct_checker?).and_return(false)
+      end
+
+      it "skips the checker entirely and falls through to the existing gate" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(Ai::Reasoning::OutputEvaluatorService).not_to have_received(:new)
+        expect(task.reload.status).to eq("passed")
+      end
+    end
+  end
+
+  describe "maker/checker disabled (default — real policy, evaluator never invoked)" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+    let(:result) { { output: "did the work", checks_passed: true, commit_sha: "abc123", tokens: {}, cost: 0 } }
+
+    before do
+      allow(::WorkerJobService).to receive(:enqueue_ai_test_execution).and_return("success" => true)
+      allow(Ai::Reasoning::OutputEvaluatorService).to receive(:new).and_call_original
+      # Default config (no maker_checker key); disable the real-test gate so the
+      # task resolves via checks_passed exactly as before this increment.
+      ralph_loop.update!(configuration: { "real_test_execution" => false })
+    end
+
+    it "never constructs the evaluator and passes the task as before" do
+      service.send(:process_successful_iteration, iteration, task, result)
+
+      expect(Ai::Reasoning::OutputEvaluatorService).not_to have_received(:new)
+      expect(task.reload.status).to eq("passed")
+    end
+  end
+
+  # ===========================================================================
+  # G3 follow-up: the maker/checker reviews the REAL unified diff (scrubbed,
+  # size-capped) when the executor captured one, and falls back to the
+  # output-text + changed-files summary when it didn't.
+  # ===========================================================================
+
+  describe "maker/checker diff review (G3 follow-up)" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+    let(:evaluator) { instance_double(Ai::Reasoning::OutputEvaluatorService) }
+    let(:policy) do
+      instance_double(
+        Ai::Ralph::MakerCheckerPolicy,
+        enabled?: true, distinct_checker?: true,
+        maker_model: "cheap-maker", checker_model: "strong-checker",
+        checker_agent_id: agent.id, criteria: []
+      )
+    end
+    # Capture the exact review input the (stubbed) evaluator is handed.
+    let(:captured) { {} }
+
+    before do
+      ralph_loop.update!(configuration: { "maker_checker" => true, "real_test_execution" => false })
+      allow(Ai::Ralph::MakerCheckerPolicy).to receive(:new).and_return(policy)
+      allow(Ai::Reasoning::OutputEvaluatorService).to receive(:new).and_return(evaluator)
+      allow(evaluator).to receive(:evaluate) do |**kwargs|
+        captured[:output] = kwargs[:output]
+        { verdict: "pass", scores: {}, feedback: "ok" }
+      end
+    end
+
+    context "when the executor provides a real unified diff (with a planted secret)" do
+      let(:result) do
+        {
+          output: "did the work", checks_passed: true, commit_sha: "abc123",
+          diff: "diff --git a/app/x.rb b/app/x.rb\n+api_key=\"SUPERSECRETVALUE123\"\n+puts :ok\n",
+          file_changes: ["app/x.rb"], tokens: {}, cost: 0
+        }
+      end
+
+      it "feeds the diff to the checker, scrubbed of the secret, not the file-list summary" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        review = captured[:output]
+        expect(review).to include("Unified diff:")
+        expect(review).to include("diff --git a/app/x.rb b/app/x.rb")
+        expect(review).to include("puts :ok")
+        # G15 scrub: the planted secret value never reaches the evaluator.
+        expect(review).not_to include("SUPERSECRETVALUE123")
+        expect(review).to include("[REDACTED]")
+        # Prefer the diff over the changed-files summary when a diff is present.
+        expect(review).not_to include("Changed files:")
+      end
+    end
+
+    context "when the executor provides no diff (fallback)" do
+      let(:result) do
+        {
+          output: "did the work", checks_passed: true, commit_sha: "abc123",
+          file_changes: ["app/x.rb"], tokens: {}, cost: 0
+        }
+      end
+
+      it "falls back to the output text + commit + changed-files summary (no regression)" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        review = captured[:output]
+        expect(review).to include("did the work")
+        expect(review).to include("Commit: abc123")
+        expect(review).to include("Changed files: app/x.rb")
+        expect(review).not_to include("Unified diff:")
+      end
+    end
+  end
+
+  # ===========================================================================
+  # G10: scope guardrail on the platform executor path. A commit touching a
+  # protected path is BLOCKED for human review (never auto-passed), composing
+  # with the G1 test gate and G3 maker/checker.
+  # ===========================================================================
+
+  describe "scope guardrail (G10 platform path)" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+
+    before { allow(::WorkerJobService).to receive(:enqueue_ai_test_execution).and_return("success" => true) }
+
+    context "when a commit touches a protected path and the real-test gate is ON" do
+      let(:result) do
+        { output: "patched billing", checks_passed: true, commit_sha: "abc123",
+          file_changes: ["app/services/payments/charge_service.rb"], tokens: {}, cost: 0 }
+      end
+
+      before do
+        ralph_loop.update!(repository_url: "https://git.example.com/acme/widget.git",
+                           configuration: { "real_test_execution" => true })
+      end
+
+      it "BLOCKS the task (short-circuits the test gate) and records the guardrail verdict" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(task.reload.status).to eq("blocked")
+        expect(::WorkerJobService).not_to have_received(:enqueue_ai_test_execution)
+        verdict = iteration.reload.check_results["scope_guardrail"]
+        expect(verdict["blocked"]).to be true
+        expect(verdict["violations"].first["file"]).to eq("app/services/payments/charge_service.rb")
+        expect(iteration.reload.check_results["awaiting_test_result"]).to be_nil
+      end
+    end
+
+    context "when the loop has a campaign attached" do
+      let(:campaign) { create(:ai_campaign, account: account, decision_authority: "autonomous") }
+      let(:result) do
+        { output: "touched secrets", checks_passed: true, commit_sha: "abc123",
+          file_changes: ["config/credentials.yml.enc"], tokens: {}, cost: 0 }
+      end
+
+      before { ralph_loop.update!(campaign: campaign, configuration: { "real_test_execution" => false }) }
+
+      it "parks an operator question on the campaign and blocks the task" do
+        expect { service.send(:process_successful_iteration, iteration, task, result) }
+          .to change { campaign.reload.parked_questions.count }.by(1)
+        expect(task.reload.status).to eq("blocked")
+      end
+    end
+
+    context "when the commit touches only unprotected paths" do
+      let(:result) do
+        { output: "ok", checks_passed: true, commit_sha: "abc123",
+          file_changes: ["app/models/widget.rb"], tokens: {}, cost: 0 }
+      end
+
+      before { ralph_loop.update!(configuration: { "real_test_execution" => false }) }
+
+      it "does not block — passes as today (composes with the existing gates)" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(task.reload.status).to eq("passed")
+        expect(iteration.reload.check_results["scope_guardrail"]).to be_nil
+      end
+    end
+
+    context "when no commit was made (even if a protected path appears in file_changes)" do
+      let(:result) do
+        { output: "investigated only", checks_passed: true, commit_sha: nil,
+          file_changes: ["app/services/payments/charge_service.rb"], tokens: {}, cost: 0 }
+      end
+
+      before { ralph_loop.update!(configuration: { "real_test_execution" => false }) }
+
+      it "does not evaluate the guardrail (no commit ⇒ nothing lands)" do
+        service.send(:process_successful_iteration, iteration, task, result)
+
+        expect(iteration.reload.check_results["scope_guardrail"]).to be_nil
         expect(task.reload.status).to eq("passed")
       end
     end
@@ -553,6 +907,35 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
 
         expect(result[:success]).to be true
         expect(result[:completed]).to be true
+        expect(ralph_loop.reload.status).to eq("completed")
+      end
+    end
+
+    # G5: runtime resource caps stop the platform executor mid-run too — the same
+    # predicate the dev-loop pull path uses.
+    context "when a runtime cap is exceeded" do
+      before { create(:ai_ralph_task, :pending, ralph_loop: ralph_loop) }
+
+      it "stops the loop on a wall-clock timeout" do
+        ralph_loop.update!(started_at: 2.hours.ago, configuration: { "max_wall_clock_seconds" => 60 })
+
+        result = service.run_iteration
+
+        expect(result[:success]).to be true
+        expect(result[:stopped]).to be true
+        expect(result[:reason]).to eq("wall_clock_exceeded")
+        expect(ralph_loop.reload.status).to eq("completed")
+      end
+
+      it "stops a metered loop over its token cap" do
+        ralph_loop.update!(driver_kind: "platform_agent", configuration: { "max_tokens" => 1000 })
+        create(:ai_ralph_iteration, ralph_loop: ralph_loop, iteration_number: 1,
+                                    tokens_input: 700, tokens_output: 700)
+
+        result = service.run_iteration
+
+        expect(result[:stopped]).to be true
+        expect(result[:reason]).to eq("token_cap_exceeded")
         expect(ralph_loop.reload.status).to eq("completed")
       end
     end

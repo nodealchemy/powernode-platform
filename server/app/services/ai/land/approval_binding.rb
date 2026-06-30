@@ -34,6 +34,27 @@ module Ai
                                 description: nil, requested_by: nil, priority: 0)
         land = build_land(source_branch: source_branch, target_branch: target_branch, priority: priority)
 
+        # BLOCKING security gate (G4): runs BEFORE the auto-approve/governance
+        # decision so an autonomous campaign land can NEVER auto-merge a leaked
+        # secret (or, once external scanners register, a SAST/CVE finding). On a
+        # block the land is forced to a human-gated state with findings recorded —
+        # no enqueue!, regardless of decision authority.
+        gate = security_gate_result(land)
+        if gate[:blocked]
+          block_for_security!(land, gate)
+          return land
+        end
+
+        # G10 scope guardrail on the land path: a land touching a protected path
+        # (payments/auth/crypto/secrets) is parked for human review BEFORE the
+        # auto-approve decision — even with NO secret finding — so an autonomous land
+        # can never auto-merge a protected-path change. Runs alongside the G4 gate.
+        scope = scope_guardrail_result(land)
+        if scope
+          block_for_scope_guardrail!(land, scope)
+          return land
+        end
+
         if auto_land_approved?
           land.enqueue! # auto-approve reversible land
         elsif governance_available?
@@ -48,6 +69,111 @@ module Ai
       end
 
       private
+
+      # Run the blocking security gate; never let a gate error silently allow a
+      # land — treat an evaluation error as a block (fail-closed → human review).
+      def security_gate_result(land)
+        ::Ai::Land::SecurityGateService.evaluate(land)
+      rescue StandardError => e
+        Rails.logger.warn("[ApprovalBinding] security gate errored (land #{land.id}): #{e.message}")
+        { blocked: true, findings: [ { scanner: "security_gate", severity: "high",
+                                       detail: "gate error: #{e.message}" } ] }
+      end
+
+      # Record findings on the land metadata and park it for a human. Findings
+      # carry only scanner/severity/category labels (never raw secret values), so
+      # they are safe to persist and display. Surfaces through the source's park
+      # notification seam when available (mirrors LandService#notify_park).
+      def block_for_security!(land, gate)
+        findings = Array(gate[:findings])
+        reason = "security gate blocked: #{findings_summary(findings)}"
+        land.update!(metadata: land.metadata.to_h.merge(
+          "security_gate" => {
+            "blocked" => true,
+            "scanned_content" => gate[:scanned_content],
+            "findings" => findings.map { |f| f.transform_keys(&:to_s) },
+            "evaluated_at" => Time.current.iso8601
+          }
+        ))
+        land.park!(reason: reason)
+        notify_park(land, reason)
+        land
+      end
+
+      def findings_summary(findings)
+        return "policy violation" if findings.empty?
+
+        findings.map { |f| "#{f[:scanner]}:#{f[:severity]}" }.uniq.join(", ")
+      end
+
+      # G10: evaluate the land's recorded change against the scope guardrail. Returns
+      # the violation result hash, or nil when clean / nothing to evaluate.
+      #
+      # BOUNDARY: a CampaignLand carries no git diff, so changed paths are derived
+      # from what the source's loop iterations RECORDED in
+      # check_results["files_changed"] (the dev-loop pull path records this;
+      # platform-path iterations store only a count, so their paths aren't visible
+      # here). The default protected-path denylist is applied (no per-loop
+      # risk_contract — a land may span multiple loops). Fails OPEN with a log on a
+      # gather/eval error (the hard secret block is the fail-closed G4 gate, which
+      # already ran); a transient query error must not park every land.
+      def scope_guardrail_result(land)
+        paths = changed_paths_from_source
+        return nil if paths.empty?
+
+        ::Ai::CodeFactory::ScopeGuardrail.violation_for(paths)
+      rescue StandardError => e
+        Rails.logger.warn("[ApprovalBinding] scope guardrail errored (land #{land.id}): #{e.message}")
+        nil
+      end
+
+      # Park the land for human review on a scope violation and record the verdict on
+      # land metadata. Violations carry only file PATHS (never secret values), so the
+      # recorded metadata is safe to persist/display.
+      def block_for_scope_guardrail!(land, scope)
+        reason = "scope guardrail blocked: #{scope[:summary]}"
+        land.update!(metadata: land.metadata.to_h.merge(
+          "scope_guardrail" => {
+            "blocked"      => true,
+            "violations"   => Array(scope[:violations]).map { |v| v.transform_keys(&:to_s) },
+            "highest_tier" => scope[:highest_tier],
+            "evaluated_at" => Time.current.iso8601
+          }
+        ))
+        land.park!(reason: reason)
+        notify_park(land, reason)
+        land
+      end
+
+      # Collect the changed file paths the source's loop iterations recorded.
+      def changed_paths_from_source
+        loop_ids = source_loop_ids
+        return [] if loop_ids.blank?
+
+        ::Ai::RalphIteration.where(ralph_loop_id: loop_ids)
+                            .pluck(:check_results)
+                            .flat_map { |cr| Array(cr.is_a?(Hash) ? cr["files_changed"] : nil) }
+                            .map(&:to_s).reject(&:blank?).uniq
+      end
+
+      # The loops that produced this land's change, resolved generically from the
+      # source (campaign has_many :ralph_loops; a mission's loops point back via
+      # mission_id).
+      def source_loop_ids
+        if @source.respond_to?(:ralph_loops)
+          @source.ralph_loops.pluck(:id)
+        elsif @source.is_a?(::Ai::Mission)
+          ::Ai::RalphLoop.where(mission_id: @source.id).pluck(:id)
+        else
+          []
+        end
+      end
+
+      def notify_park(land, reason)
+        @source.land_park_notify!(reason: reason, land: land) if @source.respond_to?(:land_park_notify!)
+      rescue StandardError => e
+        Rails.logger.warn("[ApprovalBinding] park notify failed (land #{land.id}): #{e.message}")
+      end
 
       def build_land(source_branch:, target_branch:, priority:)
         attrs = {

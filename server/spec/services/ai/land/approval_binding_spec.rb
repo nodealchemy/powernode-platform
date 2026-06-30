@@ -44,6 +44,99 @@ RSpec.describe Ai::Land::ApprovalBinding do
     end
   end
 
+  describe "blocking security gate (G4)" do
+    before { Ai::Land::SecurityScannerRegistry.reset! }
+    after { Ai::Land::SecurityScannerRegistry.reset! }
+
+    it "parks an autonomous land (does NOT auto-merge) when a scanner blocks" do
+      Ai::Land::SecurityScannerRegistry.register(:sast) do |_ctx|
+        [ { scanner: "sast", severity: "high", detail: "leaked credential" } ]
+      end
+      c = campaign("autonomous")
+
+      land = described_class.request_land_approval(campaign: c)
+
+      expect(land.status).to eq("parked")            # NOT "queued"
+      expect(land.queued_at).to be_nil
+      expect(land.parked_reason).to match(/security gate blocked/)
+      expect(land.metadata.dig("security_gate", "blocked")).to be(true)
+      expect(land.metadata.dig("security_gate", "findings")).to be_present
+    end
+
+    it "parks even under autonomous authority on a core secret finding" do
+      c = campaign("autonomous")
+      allow(Ai::Land::SecurityGateService).to receive(:evaluate).and_return(
+        blocked: true, scanned_content: true,
+        findings: [ { scanner: "core_secret_scan", severity: "critical", detail: "potential secret detected (token)" } ]
+      )
+
+      land = described_class.request_land_approval(campaign: c)
+      expect(land.status).to eq("parked")
+      expect(land.metadata.dig("security_gate", "findings").first["scanner"]).to eq("core_secret_scan")
+    end
+
+    it "lets a clean autonomous land auto-queue (gate passes)" do
+      c = campaign("autonomous")
+      land = described_class.request_land_approval(campaign: c)
+      expect(land.status).to eq("queued")
+      expect(land.metadata["security_gate"]).to be_nil
+    end
+
+    it "fails closed (parks) when the gate itself errors" do
+      c = campaign("autonomous")
+      allow(Ai::Land::SecurityGateService).to receive(:evaluate).and_raise(StandardError, "boom")
+      land = described_class.request_land_approval(campaign: c)
+      expect(land.status).to eq("parked")
+    end
+  end
+
+  describe "scope guardrail on the land path (G10)" do
+    before { Ai::Land::SecurityScannerRegistry.reset! }
+    after { Ai::Land::SecurityScannerRegistry.reset! }
+
+    # Record a changed-files set on the source's loop iteration (the dev-loop pull
+    # path stores paths in check_results["files_changed"]).
+    def record_changed_files(campaign, files)
+      loop_rec = create(:ai_ralph_loop, account: account, campaign: campaign)
+      create(:ai_ralph_iteration, ralph_loop: loop_rec, iteration_number: 1,
+             check_results: { "files_changed" => files })
+    end
+
+    it "parks an autonomous land touching a protected path even with NO secret finding" do
+      c = campaign("autonomous")
+      record_changed_files(c, ["app/services/payments/charge_service.rb"])
+
+      land = described_class.request_land_approval(campaign: c)
+
+      expect(land.status).to eq("parked")              # NOT "queued"
+      expect(land.queued_at).to be_nil
+      expect(land.parked_reason).to match(/scope guardrail blocked/)
+      expect(land.metadata.dig("scope_guardrail", "blocked")).to be(true)
+      expect(land.metadata.dig("scope_guardrail", "violations").first["file"])
+        .to eq("app/services/payments/charge_service.rb")
+      # The block came from scope, not a secret finding.
+      expect(land.metadata["security_gate"]).to be_nil
+    end
+
+    it "lets a clean autonomous land auto-queue (no protected paths touched)" do
+      c = campaign("autonomous")
+      record_changed_files(c, ["app/models/widget.rb"])
+
+      land = described_class.request_land_approval(campaign: c)
+
+      expect(land.status).to eq("queued")
+      expect(land.metadata["scope_guardrail"]).to be_nil
+    end
+
+    it "queues an autonomous land when the source recorded no changed paths" do
+      c = campaign("autonomous")
+      land = described_class.request_land_approval(campaign: c)
+
+      expect(land.status).to eq("queued")
+      expect(land.metadata["scope_guardrail"]).to be_nil
+    end
+  end
+
   describe ".request_land_approval (mission source)" do
     let(:mission) do
       create(:ai_mission, account: account, branch_name: "mission/feature-x", base_branch: "develop")

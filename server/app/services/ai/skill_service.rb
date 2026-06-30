@@ -34,9 +34,16 @@ module Ai
     end
 
     def create_skill(attributes:, knowledge_base_id: nil, mcp_server_ids: [])
-      skill = Ai::Skill.new(attributes)
+      requested_provenance, attrs = extract_provenance(attributes)
+      skill = Ai::Skill.new(attrs)
       skill.account = account
       skill.ai_knowledge_base_id = knowledge_base_id if knowledge_base_id.present?
+
+      # Provenance + content/injection scan (G6): record where the content came
+      # from and derive a trust_level from a static scan of system_prompt /
+      # commands / recipe text. trust_level is computed here — never accepted
+      # from the caller — so injected content cannot self-declare "trusted".
+      apply_provenance_and_trust(skill, requested_provenance)
 
       Ai::Skill.transaction do
         skill.save!
@@ -52,8 +59,14 @@ module Ai
       skill = find_skill(skill_id: skill_id)
       raise ValidationError, "Cannot modify system skills" if skill.is_system && account.present?
 
+      requested_provenance, attrs = extract_provenance(attributes)
+
       Ai::Skill.transaction do
-        skill.update!(attributes)
+        skill.assign_attributes(attrs)
+        # Re-scan after applying the edit so an update that injects malicious
+        # content downgrades the trust_level (and re-gates the attach path).
+        apply_provenance_and_trust(skill, requested_provenance || skill.provenance)
+        skill.save!
         if mcp_server_ids
           validated_ids = scoped_mcp_servers.where(id: mcp_server_ids).pluck(:id)
           skill.mcp_server_ids = validated_ids
@@ -88,6 +101,14 @@ module Ai
       skill = find_skill(skill_id: skill_id)
       agent = ::Ai::Agent.for_account(account.id).find(agent_id)
 
+      # Attach gate (G6): never bind content the scanner flagged as untrusted
+      # (high-risk injection / secret-exfiltration markers) to an agent. The
+      # skill must be re-vetted (and its trust_level cleared) before it can run.
+      if skill.untrusted?
+        raise ValidationError,
+              "Cannot attach untrusted skill '#{skill.name}' to an agent: failed content/injection scan (re-vet required)"
+      end
+
       agent_skill = Ai::AgentSkill.create!(
         ai_agent_id: agent.id,
         ai_skill_id: skill.id,
@@ -120,6 +141,55 @@ module Ai
     end
 
     private
+
+    # Pull caller-supplied provenance off the attribute hash and drop any
+    # caller-supplied trust_level — trust_level is derived from the content
+    # scan, never trusted from input. Returns [provenance_or_nil, sanitized].
+    def extract_provenance(attributes)
+      attrs = attributes.to_h.symbolize_keys
+      provenance = attrs.delete(:provenance)
+      attrs.delete(:trust_level)
+      [provenance.presence, attrs]
+    end
+
+    # Records provenance and derives trust_level from a static content/injection
+    # scan. External (community/imported) content never defaults to "trusted":
+    # clean external content lands at "review" pending human vetting, and any
+    # scan finding downgrades further (review → untrusted on high risk).
+    def apply_provenance_and_trust(skill, requested_provenance)
+      provenance = Ai::Skill::PROVENANCES.include?(requested_provenance) ? requested_provenance : Ai::Skill::DEFAULT_PROVENANCE
+      skill.provenance = provenance
+
+      result = Ai::Skill::ContentScanService.scan(skill)
+      skill.trust_level = resolve_trust_level(provenance, result)
+
+      log_scan(skill, provenance, result)
+      result
+    end
+
+    # Combine origin + scan verdict into the persisted trust_level. The more
+    # suspicious of the two wins (TRUST_LEVELS is ordered trusted→untrusted, so
+    # the higher index is the lower trust).
+    def resolve_trust_level(provenance, scan_result)
+      scan_level = scan_result[:suggested_trust_level]
+      base_level = provenance == "internal" ? "trusted" : "review"
+
+      [base_level, scan_level].max_by { |lvl| Ai::Skill::TRUST_LEVELS.index(lvl) }
+    end
+
+    # Crypto-safe: logs only counts/categories, never the scanned content or any
+    # matched substring (which could itself be a secret).
+    def log_scan(skill, provenance, result)
+      return if result[:clean]
+
+      categories = result[:findings].map { |f| f[:category] }.uniq.join(",")
+      Rails.logger.warn(
+        "[Ai::SkillService] content scan: skill='#{skill.name}' provenance=#{provenance} " \
+        "risk=#{result[:risk]} trust_level=#{skill.trust_level} findings=#{result[:findings].size} categories=#{categories}"
+      )
+    rescue StandardError => e
+      Rails.logger.error "[Ai::SkillService] scan log failed: #{e.message}"
+    end
 
     # Apply ?scope=global|custom|all (default: for_account = global + own) so the
     # global baseline skill library stays visible after the global/account split.

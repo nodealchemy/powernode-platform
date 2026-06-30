@@ -138,5 +138,10 @@ RSpec.describe Ai::Ralph::TestVerificationService do
       result = service.evaluate(framework: "rspec", output: "segfault", exit_code: 139)
       expect(result).to include(success: false, exit_code: 139)
     end
+
+    it "fails closed on a blank framework even with a clean exit (G1)" do
+      result = service.evaluate(framework: nil, output: "everything is fine", exit_code: 0)
+      expect(result).to include(success: false, ran: false)
+    end
   end
 end

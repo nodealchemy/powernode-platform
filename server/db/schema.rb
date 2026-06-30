@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000015) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000016) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -4051,6 +4051,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000015) do
     t.integer "negative_usage_count", default: 0
     t.uuid "parent_skill_id"
     t.integer "positive_usage_count", default: 0
+    t.string "provenance", default: "internal", null: false
     t.string "slug", null: false
     t.string "source_key", limit: 255
     t.jsonb "source_snapshot", default: {}, null: false
@@ -4058,6 +4059,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000015) do
     t.string "status", default: "active"
     t.text "system_prompt"
     t.jsonb "tags", default: []
+    t.string "trust_level", default: "trusted", null: false
     t.datetime "updated_at", null: false
     t.integer "usage_count", default: 0, null: false
     t.string "version", default: "1.0.0"
@@ -4068,10 +4070,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000015) do
     t.index ["cloned_from_id"], name: "index_ai_skills_on_cloned_from_id"
     t.index ["is_system"], name: "index_ai_skills_on_is_system"
     t.index ["parent_skill_id"], name: "index_ai_skills_on_parent_skill_id"
+    t.index ["provenance"], name: "index_ai_skills_on_provenance"
     t.index ["slug"], name: "index_ai_skills_on_slug_global", unique: true, where: "(account_id IS NULL)"
     t.index ["source_key"], name: "index_ai_skills_on_source_key"
     t.index ["status"], name: "index_ai_skills_on_status"
     t.index ["tags"], name: "index_ai_skills_on_tags", using: :gin
+    t.index ["trust_level"], name: "index_ai_skills_on_trust_level"
   end
 
   create_table "ai_skills_mcp_servers", id: false, force: :cascade do |t|

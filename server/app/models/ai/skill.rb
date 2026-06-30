@@ -18,6 +18,19 @@ module Ai
 
     STATUSES = %w[active inactive draft].freeze
 
+    # Where a skill's content originated. Mirrors the platform's other origin/
+    # trust precedents (knowledge provenance, agent trust tiers). Platform-
+    # authored skills are "internal"; "community"/"imported" cover externally
+    # supplied content that the attach path treats with suspicion.
+    PROVENANCES = %w[internal community imported].freeze
+    DEFAULT_PROVENANCE = "internal"
+
+    # Content-scan verdict (see Ai::Skill::ContentScanService). "trusted" clears
+    # the attach gate; "review" is flagged-but-usable; "untrusted" is blocked
+    # from being bound to an agent until a human re-vets it.
+    TRUST_LEVELS = %w[trusted review untrusted].freeze
+    DEFAULT_TRUST_LEVEL = "trusted"
+
     # Metadata keys that affect the ConciergeRouter's routing decisions
     # (which agent handles a query, whether to delegate vs. invoke directly).
     # Changes to these fields trigger an auto version bump so the audit
@@ -109,6 +122,8 @@ module Ai
     validates :slug, presence: true, uniqueness: { scope: :account_id }
     validates :category, presence: true, inclusion: { in: ->(_record) { all_categories } }
     validates :status, inclusion: { in: STATUSES }
+    validates :provenance, inclusion: { in: PROVENANCES }
+    validates :trust_level, inclusion: { in: TRUST_LEVELS }
 
     # ==========================================
     # Scopes
@@ -118,6 +133,9 @@ module Ai
     scope :by_category, ->(cat) { where(category: cat) }
     scope :active, -> { where(status: "active") }
     scope :enabled, -> { where(is_enabled: true) }
+    scope :trusted, -> { where(trust_level: "trusted") }
+    scope :untrusted, -> { where(trust_level: "untrusted") }
+    scope :needs_review, -> { where(trust_level: "review") }
 
     # Routing scopes — used by ConciergeRouter to pre-filter candidates
     # before similarity ranking.
@@ -158,7 +176,9 @@ module Ai
         has_knowledge_base: ai_knowledge_base_id.present?,
         tags: tags,
         usage_count: usage_count,
-        version: version
+        version: version,
+        provenance: provenance,
+        trust_level: trust_level
       }.merge(self.scope_attributes)
     end
 
@@ -227,6 +247,27 @@ module Ai
 
     def composite?
       is_composite == true
+    end
+
+    # === Provenance / trust (G6) ===
+    def trusted?
+      trust_level == "trusted"
+    end
+
+    def needs_review?
+      trust_level == "review"
+    end
+
+    def untrusted?
+      trust_level == "untrusted"
+    end
+
+    def internal_provenance?
+      provenance == "internal"
+    end
+
+    def external_provenance?
+      !internal_provenance?
     end
 
     def active_conflicts

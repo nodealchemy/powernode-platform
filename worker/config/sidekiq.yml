@@ -526,6 +526,26 @@
       queue: ai_orchestration
       description: 'Check for due ralph loops and execute scheduled iterations'
 
+    # G11 gate-integrity canary — daily failure-injection check that the
+    # verification gate still fails closed. Feeds fixed known-good/known-bad
+    # inputs through the live gate (server-side) and alerts if any verdict has
+    # silently regressed (e.g. real-test verification turning into always-pass).
+    ai_gate_canary:
+      cron: '50 3 * * *'  # Every day at 3:50 AM UTC (after the nightly reapers)
+      class: AiGateCanaryJob
+      queue: ai_orchestration
+      description: 'Inject known-good/known-bad inputs through the verification gate; alert if it stops failing closed'
+
+    # G7 token-scope / permission-creep audit — monthly review of access scopes on
+    # active AI provider credentials + API tokens. Flags over-provisioning
+    # (wildcard / admin / unrestricted / off-baseline scopes) and alerts so broad
+    # grants don't accumulate silently. Returns ids + scope names only (no secrets).
+    ai_token_scope_audit:
+      cron: '0 4 1 * *'  # Monthly, 1st day at 4:00 AM UTC (~30-day cadence)
+      class: AiTokenScopeAuditJob
+      queue: ai_orchestration
+      description: 'Audit credential/API-token access scopes for over-provisioning; alert on permission creep'
+
     # Campaign auto-land: drain the approved-land queue (one active land per
     # account/target) and drive each through stage → CI → merge → verify.
     ai_campaign_land_scheduler:

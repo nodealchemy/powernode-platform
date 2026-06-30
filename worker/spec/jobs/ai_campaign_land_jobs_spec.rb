@@ -34,20 +34,25 @@ RSpec.describe "campaign auto-land worker jobs", type: :job do
     let(:job) { described_class.new }
     before { install_client(job) }
 
-    it "stages then polls staged CI when staged_ci" do
+    it "stages then dispatches the deep security scan (with repo + branches) when staged_ci" do
       allow(api_client).to receive(:post)
         .with("/api/v1/internal/ai/campaign_lands/L1/stage")
-        .and_return("data" => { "land" => { "status" => "staged_ci" } })
+        .and_return("data" => { "land" => {
+          "status" => "staged_ci", "repository" => "acme/widget",
+          "source_branch" => "campaign/abc", "target_branch" => "develop", "base_sha" => "base1"
+        } })
 
-      expect(AiCampaignLandCiPollJob).to receive(:perform_async)
-        .with("land_id" => "L1", "gate" => "staged", "attempt" => 0)
+      expect(AiLandSecurityScanJob).to receive(:perform_async).with(
+        "land_id" => "L1", "repository" => "acme/widget",
+        "source_branch" => "campaign/abc", "target_branch" => "develop", "base_sha" => "base1"
+      )
 
       job.execute("land_id" => "L1")
     end
 
-    it "stops (no poll) when staging parks" do
+    it "stops (no scan) when staging parks" do
       allow(api_client).to receive(:post).and_return("data" => { "land" => { "status" => "parked" } })
-      expect(AiCampaignLandCiPollJob).not_to receive(:perform_async)
+      expect(AiLandSecurityScanJob).not_to receive(:perform_async)
       job.execute("land_id" => "L1")
     end
   end

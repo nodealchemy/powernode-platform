@@ -22,7 +22,7 @@ module Ai
                                    "campaign_record_increment | campaign_check_rebase | campaign_stop" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
             proposal_id: { type: "string", required: false, description: "CampaignProposal UUID (campaign_approve_proposal)" },
-            driver_kind: { type: "string", required: false, description: "claude_code|platform_agent|platform_team|platform_mission (campaign_delegate)" },
+            driver_kind: { type: "string", required: false, description: "claude_code|external_cli|platform_agent|platform_team|platform_mission (campaign_delegate)" },
             target: { type: "object", required: false, description: "Platform target ref: { agent_id|group_id|mission_id } (campaign_delegate)" },
             holder: { type: "string", required: false, description: "Driver identity for the single-driver lease (campaign_claim/release/delegate)" },
             name: { type: "string", required: false, description: "Campaign name (campaign_start)" },
@@ -98,7 +98,7 @@ module Ai
                          "lease immediately.",
             parameters: {
               campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
-              driver_kind: { type: "string", required: true, description: "claude_code|platform_agent|platform_team|platform_mission" },
+              driver_kind: { type: "string", required: true, description: "claude_code|external_cli|platform_agent|platform_team|platform_mission" },
               target: { type: "object", required: false, description: "Platform target ref: { agent_id|group_id|mission_id }" },
               holder: { type: "string", required: false, description: "Driver identity (claude_code: take the lease now)" }
             }

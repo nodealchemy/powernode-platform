@@ -18,11 +18,11 @@ RSpec.describe AiProvisioningComposePlanJob, type: :job do
     Sidekiq::Testing.fake!
     allow(job_instance).to receive(:api_client).and_return(api_client_double)
     allow_any_instance_of(BaseJob).to receive(:check_runaway_loop).and_return(nil)
-    # Kill-switch suspension check runs first in #execute (AiSuspensionCheckConcern):
-    # stub it to report "not suspended" so the job proceeds.
+    # AiSuspensionCheckConcern#bail_if_ai_suspended! runs first in #execute and
+    # hits the kill-switch endpoint via api_client.get. Return a not-suspended
+    # response so the guard passes and the job proceeds to its real logic.
     allow(api_client_double).to receive(:get).with(
-      "/api/v1/internal/ai/kill_switch/check",
-      { account_id: "acc-uuid-1" }
+      "/api/v1/internal/ai/kill_switch/check", { account_id: "acc-uuid-1" }
     ).and_return("data" => { "suspended" => false })
   end
 

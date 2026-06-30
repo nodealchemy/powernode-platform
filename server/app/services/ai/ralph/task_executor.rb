@@ -560,6 +560,10 @@ module Ai
           output: output,
           checks_passed: true,
           commit_sha: result[:last_commit_sha],
+          # G3 follow-up: best-effort real unified diff of the commit (present only on
+          # the git-tool agent path when a commit was made); the maker/checker prefers
+          # it over the file-list summary. Absent on non-git paths ⇒ checker falls back.
+          diff: result[:diff],
           file_changes: result[:file_changes] || [],
           tokens: {
             input: result.dig(:metadata, :usage, :prompt_tokens) || result.dig(:metadata, :tokens_used) || 0,

@@ -5,6 +5,11 @@ module Ai
     class GitToolExecutor
       MAX_FILE_SIZE = 50 * 1024 # 50KB truncation limit for read_file
 
+      # G3 follow-up: size cap on the assembled unified diff fed to the maker/checker.
+      # Keeps a single review payload bounded (256KB) so a huge generated change can't
+      # blow up the checker's context window; the diff is marked truncated past this.
+      MAX_DIFF_BYTES = 256 * 1024
+
       attr_reader :file_changes, :last_commit_sha
 
       def initialize(ralph_loop:)
@@ -24,6 +29,28 @@ module Ai
       # Check if git tools are available for this ralph loop
       def self.available?(ralph_loop)
         ralph_loop.mission&.repository.present?
+      end
+
+      # G3 follow-up: build a bounded, REAL unified diff for a commit (defaults to
+      # the last commit this executor made) so the maker/checker can review the
+      # actual patch rather than only output text + a file-list summary. Best-effort:
+      # returns nil when there is no commit, the provider has no diff, or the diff
+      # call fails — the checker then falls back to the output/summary path. The
+      # caller is responsible for scrubbing secrets before the diff is fed to an LLM.
+      def unified_diff(sha = @last_commit_sha)
+        return nil if sha.blank?
+
+        detail = @git_client.get_commit_diff(@owner, @repo, sha)
+        files  = detail.is_a?(Hash) ? Array(detail[:files] || detail["files"]) : nil
+        return nil if files.blank?
+
+        diff = files.filter_map { |f| file_patch_section(f) }.join("\n")
+        return nil if diff.blank?
+
+        cap_diff(diff)
+      rescue StandardError => e
+        Rails.logger.warn("[GitToolExecutor] unified_diff failed for #{sha}: #{e.message}")
+        nil
       end
 
       # Execute a named git tool with arguments
@@ -310,6 +337,31 @@ module Ai
         result.dig(:content, "commit", "sha") ||
           result.dig(:content, "commit", "id") ||
           result.dig(:content, "sha")
+      end
+
+      # Reconstruct one file's unified-diff section. The provider clients hand back
+      # per-file `raw_patch` hunks WITHOUT the leading `diff --git` header (Gitea
+      # strips it while splitting; GitHub's `patch` omits it), so synthesize the
+      # header from the filename to keep the assembled string a readable unified diff.
+      def file_patch_section(file)
+        return nil unless file.is_a?(Hash)
+
+        filename = file[:filename] || file["filename"]
+        patch    = file[:raw_patch] || file["raw_patch"]
+        return nil if patch.blank?
+
+        return patch if patch.start_with?("diff --git")
+
+        header = filename.present? ? "diff --git a/#{filename} b/#{filename}\n" : ""
+        "#{header}#{patch}"
+      end
+
+      # Cap the assembled diff at MAX_DIFF_BYTES, appending a marker so the checker
+      # (and any reader) knows the review input is partial.
+      def cap_diff(diff)
+        return diff if diff.bytesize <= MAX_DIFF_BYTES
+
+        "#{diff.byteslice(0, MAX_DIFF_BYTES)}\n... [diff truncated at #{MAX_DIFF_BYTES} bytes] ..."
       end
     end
   end

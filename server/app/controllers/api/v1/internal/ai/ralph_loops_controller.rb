@@ -52,6 +52,26 @@ module Api
             render_success(loops_processed: processed, loops_skipped: skipped)
           end
 
+          # POST /api/v1/internal/ai/ralph_loops/gate_canary
+          # G11 gate-integrity canary. Feeds a fixed set of known-good and
+          # known-bad inputs through the verification gate (the authoritative
+          # gate logic) and reports whether every verdict still matches
+          # expectation. A silently-broken gate (e.g. real-test verification
+          # regressing to always-pass) flips `healthy` to false. The worker's
+          # AiGateCanaryJob calls this on a schedule and alerts on `healthy:false`.
+          def gate_canary
+            result = ::Ai::Ralph::GateCanaryService.new.run
+
+            unless result[:healthy]
+              failing = result[:checks].reject { |c| c[:ok] }.map { |c| c[:name] }
+              Rails.logger.error(
+                "[GateCanary] VERIFICATION GATE BROKEN — verdicts diverged for: #{failing.join(', ')}"
+              )
+            end
+
+            render_success(healthy: result[:healthy], checks: result[:checks])
+          end
+
           # POST /api/v1/internal/ai/ralph_loops/:id/run_iteration
           def run_iteration
             ralph_loop = ::Ai::RalphLoop.includes(:account, :default_agent).find(params[:id])
@@ -99,6 +119,14 @@ module Api
             iteration = ralph_loop.ralph_iterations.find(params[:iteration_id])
             tr = params.require(:test_result).permit(:framework, :command, :exit_code, :output, :error).to_h.symbolize_keys
 
+            # G15: scrub worker-originated test output/error at the persistence
+            # boundary before it is evaluated, stored, or displayed — the worker
+            # posts RAW suite output, which can echo secrets (env dumps, failing
+            # request bodies). Done here so every stored copy (check_results) is
+            # already redacted, regardless of any worker-side scrubbing.
+            tr[:output] = ::DataManagement::Sanitizer.sanitize_output(tr[:output]) if tr[:output].present?
+            tr[:error]  = ::DataManagement::Sanitizer.sanitize_output(tr[:error]) if tr[:error].present?
+
             evaluation = ::Ai::Ralph::TestVerificationService.new.evaluate(
               framework: tr[:framework], output: tr[:output], exit_code: tr[:exit_code], command: tr[:command]
             )
@@ -138,19 +166,20 @@ module Api
           end
 
           # True when the platform executor must NOT drain this loop right now. Legacy loops
-          # (no campaign / nil driver_kind) are never blocked. A CC-driven campaign loop is
-          # always skipped (a Claude Code session drains it). A platform-driven campaign loop
-          # is drained only if this executor can hold the single-driver lease — if a different
-          # driver (e.g. a CC session mid-handoff) holds it, skip until it's released.
+          # (no campaign / nil driver_kind) are never blocked. A flat-rate CLI-driven
+          # campaign loop is always skipped (a Claude Code or other CLI session drains it).
+          # A platform-driven campaign loop is drained only if this executor can hold the
+          # single-driver lease — if a different driver (e.g. a CLI session mid-handoff)
+          # holds it, skip until it's released.
           PLATFORM_LEASE_HOLDER = "platform-executor"
 
           def platform_drain_blocked?(loop)
             return false if loop.campaign_id.blank? || loop.driver_kind.blank?
 
-            # Re-read driver_kind: a concurrent #delegate may have flipped this loop to
-            # claude_code since due_for_execution loaded it.
+            # Re-read driver_kind: a concurrent #delegate may have flipped this loop to a
+            # flat-rate CLI driver since due_for_execution loaded it.
             loop.reload
-            return true if loop.driver_kind.blank? || loop.claude_code_driven?
+            return true if loop.driver_kind.blank? || loop.flat_rate_executor?
 
             campaign = loop.campaign
             return false unless campaign

@@ -49,6 +49,13 @@ module Ai
         # Step 4: Gate passes - review can proceed
         review_state.mark_reviewing!
 
+        # A critical-tier change is never auto-passed: it requires manual review unless the
+        # contract's merge policy explicitly opts into critical autoland.
+        if classification[:tier] == "critical" && !contract.merge_policy&.dig("allow_critical_autoland")
+          return { passed: false, risk_tier: "critical", required_checks: classification[:required_checks],
+                   review_state: review_state, reason: "Critical-tier change requires manual review" }
+        end
+
         {
           passed: true,
           risk_tier: classification[:tier],

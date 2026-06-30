@@ -11,6 +11,11 @@ module Ai
           return error_result("Loop is not running") unless ralph_loop.status == "running"
           return complete_loop_result if ralph_loop.all_tasks_completed?
           return max_iterations_result if ralph_loop.max_iterations_reached?
+          # G5: runtime resource caps — wall-clock for any loop, token/$ for
+          # metered loops only (flat-rate claude_code loops stay uncapped by design).
+          if (cap = ralph_loop.runtime_cap_reason)
+            return cap_exceeded_result(cap)
+          end
 
           task = select_next_task
           return no_task_result unless task
@@ -35,9 +40,9 @@ module Ai
         def select_next_task
           # First, resume any in-progress task (after crash/restart) — but skip a
           # task parked awaiting async test results, or the loop would re-run it
-          # before the test-results callback resolves it. The await flag is only
-          # ever set when real_test_execution is enabled, so this is a no-op on
-          # the default path.
+          # before the test-results callback resolves it. The await flag is set
+          # whenever real_test_execution gates a commit — which, since G1, is the
+          # default path (opt-out), not just an opt-in one.
           in_progress = ralph_loop.ralph_tasks.in_progress.find { |t| !awaiting_test_result?(t) }
           return in_progress if in_progress
 
@@ -158,11 +163,16 @@ module Ai
         end
 
         def process_successful_iteration(iteration, task, result)
+          # G15: scrub secrets/credentials out of loop output BEFORE it is persisted
+          # or fed into the learning store — the autonomous executor's output is
+          # otherwise stored raw.
+          scrubbed_output = ::DataManagement::Sanitizer.sanitize_output(result[:output])
+
           iteration.complete!(
-            output: result[:output],
+            output: scrubbed_output,
             checks_passed: result[:checks_passed],
             commit_sha: result[:commit_sha],
-            learning: extract_learning(result[:output])
+            learning: extract_learning(scrubbed_output)
           )
 
           # Set git_branch when commits were made
@@ -176,7 +186,23 @@ module Ai
             cost: result[:cost]
           )
 
-          if ralph_loop.real_test_execution? && result[:commit_sha].present?
+          # G10: scope guardrail (platform executor path). A commit touching a
+          # protected path (payments/auth/crypto/secrets) or a critical-tier file is
+          # NOT auto-passed — it is BLOCKED for human review, mirroring the dev-loop
+          # pull path. Short-circuits FIRST (before G3 maker/checker, the G1 test
+          # gate, and any pass): no matter how good the change is, the autonomous loop
+          # must not auto-advance a protected-path change.
+          if (guardrail = scope_guardrail_block(result))
+            block_for_scope_guardrail!(iteration, task, guardrail)
+          # G3: semantic maker/checker gate (opt-in via configuration["maker_checker"]).
+          # A separately-modeled checker (self-review ban) judges the output; a
+          # reject/revise verdict keeps the task for retry. It COMPOSES WITH — never
+          # replaces — the G1 sandboxed-test gate below: a semantic failure
+          # short-circuits BEFORE we trust checks_passed or dispatch a test run.
+          elsif maker_checker_gate_failed?(iteration, task, scrubbed_output, result)
+            verdict = iteration.check_results["evaluator_verdict"]
+            update_progress("Task #{task.task_key}: checker verdict '#{verdict}' — will retry")
+          elsif ralph_loop.real_test_execution? && result[:commit_sha].present?
             # Don't trust the executor's self-reported checks_passed — run the
             # suite in a sandbox and let the async callback resolve the task.
             dispatch_real_test_verification(iteration, task)
@@ -190,8 +216,8 @@ module Ai
 
           ralph_loop.increment_iteration!
 
-          # Extract and store shared learnings
-          store_iteration_learnings(result[:output])
+          # Extract and store shared learnings (from the scrubbed output)
+          store_iteration_learnings(scrubbed_output)
 
           # Broadcast real-time updates
           broadcast_iteration_completed(iteration)
@@ -211,8 +237,8 @@ module Ai
             ralph_iteration_id: iteration.id,
             repository: ralph_loop.repository_full_name,
             branch: ralph_loop.branch,
-            command: ralph_loop.configuration["test_command"],
-            framework: ralph_loop.configuration["test_framework"]
+            command: ralph_loop.test_command,
+            framework: ralph_loop.configuration&.dig("test_framework")
           )
           update_progress("Task #{task.task_key}: running tests in sandbox")
         rescue StandardError => e
@@ -221,15 +247,144 @@ module Ai
           iteration.update!(check_results: (iteration.check_results || {}).merge("awaiting_test_result" => false))
         end
 
+        # G10: evaluate the iteration's committed change against the loop scope
+        # guardrail. Only fires when a commit was made (a change that would land);
+        # returns the violation result hash, or nil when clean / no file list.
+        # Reuses the shared ScopeGuardrail.violation_for seam (loop risk_contract +
+        # configuration["scope_guardrail"]). If the executor reports a commit but no
+        # file list, evaluate() sees no paths and returns clean — a known limitation,
+        # the same one noted on the dev-loop path.
+        def scope_guardrail_block(result)
+          return nil if result[:commit_sha].blank?
+
+          ::Ai::CodeFactory::ScopeGuardrail.violation_for(
+            changed_files_from_result(result), loop_record: ralph_loop
+          )
+        end
+
+        # Record the guardrail verdict on the iteration and BLOCK the task for human
+        # review (never pass). Parks an operator question on the loop's campaign when
+        # present (best-effort — a park failure must not wedge the loop). Violations
+        # carry only file PATHS + reasons (never secret values), so they are safe to
+        # persist/display.
+        def block_for_scope_guardrail!(iteration, task, guardrail)
+          iteration.update!(check_results: (iteration.check_results || {}).merge(
+            "scope_guardrail" => {
+              "blocked"      => true,
+              "violations"   => Array(guardrail[:violations]).map { |v| v.transform_keys(&:to_s) },
+              "highest_tier" => guardrail[:highest_tier],
+              "summary"      => guardrail[:summary]
+            }
+          ))
+
+          reason = "[scope-guardrail] #{guardrail[:summary]} — parked for human review"
+          task.block!(reason: reason) if task.can_block?
+
+          begin
+            ralph_loop.campaign&.park_question!(
+              question: "Scope guardrail blocked an autonomous change: #{guardrail[:summary]}",
+              context: "scope-guardrail"
+            )
+          rescue StandardError => e
+            Rails.logger.warn("[IterationExecution] scope-guardrail park failed for loop #{ralph_loop.id}: #{e.message}")
+          end
+
+          update_progress("Task #{task.task_key}: scope guardrail blocked — parked for human review")
+        end
+
+        # Normalize the executor-reported changed files (strings or {path:} hashes)
+        # into a flat path list. Shared by the guardrail check and the maker/checker
+        # output summary.
+        def changed_files_from_result(result)
+          Array(result[:file_changes]).map do |c|
+            c.is_a?(Hash) ? (c[:path] || c["path"]) : c
+          end.compact
+        end
+
+        # G3: run the independently-modeled semantic checker when maker/checker is
+        # enabled for this loop. Records the verdict/scores/feedback on the
+        # iteration's check_results and returns true when the verdict is NOT "pass"
+        # (reject/revise ⇒ keep the task for retry). Returns false (pass-through)
+        # when disabled, when the self-review ban can't be satisfied (no checker
+        # model distinct from the maker/executor), or on a wiring error — a checker
+        # outage must never wedge the loop, and the G1 test gate still runs.
+        def maker_checker_gate_failed?(iteration, task, output, result)
+          policy = Ai::Ralph::MakerCheckerPolicy.new(ralph_loop)
+          return false unless policy.enabled?
+
+          unless policy.distinct_checker?
+            Rails.logger.warn(
+              "[IterationExecution] maker/checker skipped for loop #{ralph_loop.id}: " \
+              "no checker model distinct from maker '#{policy.maker_model}' (self-review ban)"
+            )
+            return false
+          end
+
+          verdict = Ai::Reasoning::OutputEvaluatorService
+                    .new(account: ralph_loop.account)
+                    .evaluate(
+                      task: checker_task_text(task),
+                      output: checker_output_text(output, result),
+                      criteria: policy.criteria,
+                      llm_client: ::WorkerLlmClient.new(agent_id: policy.checker_agent_id),
+                      model: policy.checker_model
+                    )
+
+          iteration.update!(check_results: (iteration.check_results || {}).merge(
+            "evaluator_verdict"  => verdict[:verdict],
+            "evaluator_scores"   => verdict[:scores],
+            "evaluator_feedback" => verdict[:feedback],
+            "checker_model"      => policy.checker_model
+          ))
+
+          verdict[:verdict] != "pass"
+        rescue StandardError => e
+          Rails.logger.error("[IterationExecution] maker/checker gate failed for iteration #{iteration.id}: #{e.message}")
+          false
+        end
+
+        # The checker evaluates against the task's intent + acceptance criteria.
+        def checker_task_text(task)
+          [
+            task.description,
+            ("Acceptance criteria: #{task.acceptance_criteria}" if task.acceptance_criteria.present?)
+          ].compact.join("\n\n")
+        end
+
+        # Compose the checker's review input. PREFERS the REAL unified diff of the
+        # iteration's commit (result[:diff], captured best-effort by the git-tool
+        # executor and already size-capped) so the checker reviews the actual patch.
+        # The diff is run through DataManagement::Sanitizer.sanitize_output first —
+        # consistent with G15 — so a secret planted in the change never reaches the
+        # evaluator LLM. FALLS BACK to the output text + commit SHA + changed-files
+        # summary when no diff is available (non-git executors, no commit, or a
+        # diff-fetch failure) — the pre-follow-up behaviour, unchanged.
+        def checker_output_text(output, result)
+          parts = [output.to_s]
+          parts << "Commit: #{result[:commit_sha]}" if result[:commit_sha].present?
+
+          if (diff = result[:diff].presence)
+            parts << "Unified diff:\n#{::DataManagement::Sanitizer.sanitize_output(diff)}"
+          else
+            changed = changed_files_from_result(result)
+            parts << "Changed files: #{changed.join(', ')}" if changed.any?
+          end
+
+          parts.join("\n\n")
+        end
+
         def process_failed_iteration(iteration, task, result)
+          # G15: an executor error message can carry a leaked secret too — scrub it.
+          error_message = ::DataManagement::Sanitizer.sanitize_output(result[:error])
+
           iteration.fail!(
-            error_message: result[:error],
+            error_message: error_message,
             error_code: result[:error_code],
             error_details: result[:error_details] || {}
           )
 
           task.fail!(
-            error_message: result[:error],
+            error_message: error_message,
             error_code: result[:error_code]
           )
 

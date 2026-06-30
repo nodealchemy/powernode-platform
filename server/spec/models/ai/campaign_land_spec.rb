@@ -147,4 +147,21 @@ RSpec.describe Ai::CampaignLand do
       expect(Ai::CampaignLand.parked).to contain_exactly(p)
     end
   end
+
+  describe "#repository_full_name (worker deep-scan target)" do
+    it "derives owner/repo from a source loop's repository_url" do
+      create(:ai_ralph_loop, :with_repository, account: account, campaign: campaign)
+      expect(land.repository_full_name).to eq("test/repo")
+    end
+
+    it "returns nil when no source loop records a repository_url" do
+      create(:ai_ralph_loop, account: account, campaign: campaign, repository_url: nil)
+      expect(land.repository_full_name).to be_nil
+    end
+
+    it "is included in the summary" do
+      create(:ai_ralph_loop, :with_repository, account: account, campaign: campaign)
+      expect(land.summary[:repository]).to eq("test/repo")
+    end
+  end
 end
