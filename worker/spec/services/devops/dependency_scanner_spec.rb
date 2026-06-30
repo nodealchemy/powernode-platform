@@ -18,6 +18,35 @@ RSpec.describe Devops::DependencyScanner do
     end
   end
 
+  # pip-audit severity is sourced from OSV over HTTP. WebMock disallows real net
+  # connections, so by default every OSV lookup 404s — which the scanner treats as
+  # "no authoritative severity" and falls back to the fail-safe blocking default.
+  # Individual examples override this with a more-specific stub (last declared
+  # wins) to exercise a real OSV severity.
+  before do
+    stub_request(:get, /api\.osv\.dev/).to_return(status: 404, body: "{}")
+  end
+
+  # OSV `GET /v1/vulns/{id}` body carrying a CVSS v3 vector for the given id.
+  def osv_cvss(id, vector, type: "CVSS_V3")
+    stub_request(:get, "https://api.osv.dev/v1/vulns/#{id}")
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" },
+                 body: { "id" => id, "severity" => [ { "type" => type, "score" => vector } ] }.to_json)
+  end
+
+  # OSV body carrying only a textual database_specific severity (GHSA-style rating).
+  def osv_db_severity(id, label)
+    stub_request(:get, "https://api.osv.dev/v1/vulns/#{id}")
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" },
+                 body: { "id" => id, "database_specific" => { "severity" => label } }.to_json)
+  end
+
+  # Canonical CVSS v3.1 vectors with their documented base scores / buckets.
+  CVSS_CRITICAL = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" # 9.8
+  CVSS_HIGH     = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H" # 7.5
+  CVSS_MEDIUM   = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N" # 5.3
+  CVSS_LOW      = "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N" # 3.7
+
   let(:bundler_audit_json) do
     {
       "version" => "0.9.1",
@@ -152,6 +181,159 @@ RSpec.describe Devops::DependencyScanner do
       findings = described_class.scan("/ws", runner: runner_for("pip-audit" => { exit_code: 1, output: legacy, error: nil }))
       expect(findings.size).to eq(1)
       expect(findings.first[:detail]).to include("jinja2").and include("PYSEC-2020-1")
+    end
+  end
+
+  # pip-audit emits NO per-advisory severity, so a confirmed Python advisory was
+  # historically blocked fail-safe as HIGH. We now refine that severity DOWNWARD
+  # only when OSV authoritatively reports a lower CVSS/GHSA rating; on ANY OSV
+  # failure the fail-safe HIGH stands, so the gate is never made less safe on error.
+  describe ".scan pip-audit OSV severity sourcing" do
+    let(:pip_audit_json) do
+      { "dependencies" => [ { "name" => "flask", "version" => "0.5",
+                              "vulns" => [ { "id" => "PYSEC-2019-179", "aliases" => [ "CVE-2019-1010083" ] } ] } ] }.to_json
+    end
+
+    def scan_pip
+      described_class.scan("/ws", runner: runner_for("pip-audit" => { exit_code: 1, output: pip_audit_json, error: nil }))
+    end
+
+    it "omits a Python advisory whose OSV CVSS resolves to MEDIUM (no longer a fail-safe HIGH block)" do
+      osv_cvss("PYSEC-2019-179", CVSS_MEDIUM)
+      expect(scan_pip).to eq([]) # medium is below high/critical → not a blocking finding
+    end
+
+    it "omits a Python advisory whose OSV CVSS resolves to LOW" do
+      osv_cvss("PYSEC-2019-179", CVSS_LOW)
+      expect(scan_pip).to eq([])
+    end
+
+    it "blocks a Python advisory whose OSV CVSS resolves to HIGH (severity carried through)" do
+      osv_cvss("PYSEC-2019-179", CVSS_HIGH)
+      findings = scan_pip
+      expect(findings.size).to eq(1)
+      expect(findings.first[:severity]).to eq("high")
+      expect(findings.first[:detail]).to include("flask").and include("PYSEC-2019-179")
+    end
+
+    it "blocks a Python advisory whose OSV CVSS resolves to CRITICAL (severity sharpened upward)" do
+      osv_cvss("PYSEC-2019-179", CVSS_CRITICAL)
+      findings = scan_pip
+      expect(findings.size).to eq(1)
+      expect(findings.first[:severity]).to eq("critical")
+    end
+
+    it "honors a textual OSV database_specific severity (GHSA rating) when present" do
+      osv_db_severity("PYSEC-2019-179", "MODERATE")
+      expect(scan_pip).to eq([]) # MODERATE → medium → omitted
+    end
+
+    it "takes the MAX severity across the advisory id and its aliases (never under-blocks on disagreement)" do
+      osv_cvss("PYSEC-2019-179", CVSS_MEDIUM)   # primary id under-rates...
+      osv_cvss("CVE-2019-1010083", CVSS_CRITICAL) # ...alias is critical → critical wins
+      findings = scan_pip
+      expect(findings.size).to eq(1)
+      expect(findings.first[:severity]).to eq("critical")
+    end
+
+    it "takes the MAX across multiple CVSS_V3 vectors within one OSV record" do
+      stub_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-2019-179")
+        .to_return(status: 200, headers: { "Content-Type" => "application/json" },
+                   body: { "id" => "PYSEC-2019-179",
+                           "severity" => [ { "type" => "CVSS_V3", "score" => CVSS_LOW },
+                                           { "type" => "CVSS_V3", "score" => CVSS_CRITICAL } ] }.to_json)
+      findings = scan_pip
+      expect(findings.size).to eq(1)
+      expect(findings.first[:severity]).to eq("critical")
+    end
+
+    it "takes the MORE SEVERE of the CVSS vector and the textual database_specific severity" do
+      stub_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-2019-179")
+        .to_return(status: 200, headers: { "Content-Type" => "application/json" },
+                   body: { "id" => "PYSEC-2019-179",
+                           "severity" => [ { "type" => "CVSS_V3", "score" => CVSS_LOW } ],
+                           "database_specific" => { "severity" => "CRITICAL" } }.to_json)
+      findings = scan_pip
+      expect(findings.size).to eq(1)
+      expect(findings.first[:severity]).to eq("critical")
+    end
+
+    it "memoizes an OSV lookup so a repeated advisory id is fetched once per scan" do
+      pip = { "dependencies" => [
+        { "name" => "pkg-a", "vulns" => [ { "id" => "PYSEC-2019-179" } ] },
+        { "name" => "pkg-b", "vulns" => [ { "id" => "PYSEC-2019-179" } ] }
+      ] }.to_json
+      osv_cvss("PYSEC-2019-179", CVSS_CRITICAL)
+      findings = described_class.scan("/ws", runner: runner_for("pip-audit" => { exit_code: 1, output: pip, error: nil }))
+      expect(findings.size).to eq(2) # both packages reported...
+      expect(a_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-2019-179")).to have_been_made.once # ...from one fetch
+    end
+
+    it "falls back to the fail-safe HIGH block when the OSV lookup 404s for every id" do
+      # default catch-all stub → 404 for PYSEC-2019-179 and CVE-2019-1010083
+      findings = scan_pip
+      expect(findings.size).to eq(1)
+      expect(findings.first[:severity]).to eq("high")
+    end
+
+    it "falls back to the fail-safe HIGH block when the OSV lookup times out" do
+      stub_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-2019-179").to_timeout
+      findings = scan_pip
+      expect(findings.size).to eq(1)
+      expect(findings.first[:severity]).to eq("high")
+    end
+
+    it "falls back to the fail-safe HIGH block when OSV returns a 500" do
+      stub_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-2019-179").to_return(status: 500, body: "boom")
+      stub_request(:get, "https://api.osv.dev/v1/vulns/CVE-2019-1010083").to_return(status: 500, body: "boom")
+      findings = scan_pip
+      expect(findings.size).to eq(1)
+      expect(findings.first[:severity]).to eq("high")
+    end
+
+    it "falls back to the fail-safe HIGH block when OSV returns an unparseable CVSS vector" do
+      osv_cvss("PYSEC-2019-179", "not-a-vector")
+      stub_request(:get, "https://api.osv.dev/v1/vulns/CVE-2019-1010083").to_return(status: 404, body: "{}")
+      findings = scan_pip
+      expect(findings.size).to eq(1)
+      expect(findings.first[:severity]).to eq("high")
+    end
+
+    it "does not surface the advisory id query as a leaked secret in the finding" do
+      osv_cvss("PYSEC-2019-179", CVSS_CRITICAL)
+      expect(scan_pip.to_json).not_to include("api.osv.dev")
+    end
+  end
+
+  # The CVSS v3.x base-score computation is the only path that can lower a Python
+  # advisory's severity below the blocking threshold, so it is unit-tested directly
+  # against canonical vectors to guarantee it never under-scores a real CVSS.
+  describe ".cvss_base_label" do
+    it "buckets a 9.8 vector as critical" do
+      expect(described_class.cvss_base_label(CVSS_CRITICAL)).to eq("critical")
+    end
+
+    it "buckets a 7.5 vector as high" do
+      expect(described_class.cvss_base_label(CVSS_HIGH)).to eq("high")
+    end
+
+    it "buckets a 5.3 vector as medium" do
+      expect(described_class.cvss_base_label(CVSS_MEDIUM)).to eq("medium")
+    end
+
+    it "buckets a 3.7 vector as low" do
+      expect(described_class.cvss_base_label(CVSS_LOW)).to eq("low")
+    end
+
+    it "handles a scope-changed vector (e.g. 10.0 critical)" do
+      # AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H → 10.0
+      expect(described_class.cvss_base_label("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H")).to eq("critical")
+    end
+
+    it "returns nil for an incomplete / unparseable vector (caller fails safe)" do
+      expect(described_class.cvss_base_label("CVSS:3.1/AV:N/AC:L")).to be_nil
+      expect(described_class.cvss_base_label("garbage")).to be_nil
+      expect(described_class.cvss_base_label(nil)).to be_nil
     end
   end
 end
