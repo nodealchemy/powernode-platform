@@ -30,7 +30,7 @@ module Ai
 
         def complete(messages:, model:, **opts)
           body = build_messages_body(messages, model, **opts)
-          status, parsed, _headers = http_post("/messages", body)
+          status, parsed, _headers = http_post("/messages", body, model)
 
           case status
           when 200
@@ -58,7 +58,7 @@ module Ai
           yield Ai::Llm::Chunk.new(type: :stream_start, stream_id: stream_id,
                                     timestamp: Time.current.iso8601)
 
-          http_stream("/messages", body) do |response|
+          http_stream("/messages", body, model) do |response|
             parse_anthropic_sse_stream(response) do |event_type, parsed|
               case event_type
               when "content_block_start"
@@ -176,7 +176,7 @@ module Ai
           body[:tools] = anthropic_tools
           body[:tool_choice] = opts[:tool_choice] ? anthropic_tool_choice(opts[:tool_choice]) : { type: "auto" }
 
-          status, parsed, _headers = http_post("/messages", body)
+          status, parsed, _headers = http_post("/messages", body, model)
 
           case status
           when 200
@@ -197,7 +197,7 @@ module Ai
             }
           )
 
-          status, parsed, _headers = http_post("/messages", body)
+          status, parsed, _headers = http_post("/messages", body, model)
 
           case status
           when 200

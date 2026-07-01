@@ -6,6 +6,11 @@ module Ai
       # Abstract base class for LLM provider adapters
       # Handles HTTP setup, streaming infrastructure, and common error handling
       class BaseAdapter
+        # Historical streaming read-timeout floor. Capability-aware read timeouts
+        # (adaptive-only models → 600s) never drop below this, so legacy streaming
+        # behaviour is preserved while long adaptive turns get their full budget.
+        STREAM_READ_TIMEOUT_FLOOR = 300
+
         attr_reader :api_key, :base_url, :headers, :provider_name
 
         def initialize(api_key:, base_url:, provider_name:, extra_headers: {})
@@ -52,24 +57,35 @@ module Ai
 
         protected
 
-        # Non-streaming HTTP POST via HTTParty
-        def http_post(path, body)
+        # Non-streaming HTTP POST via HTTParty. The per-request timeout is
+        # capability-aware: adaptive-only/effort-capable models (Fable / Mythos /
+        # Opus 4.7+ / Sonnet 5) can run for minutes, so they get the long timeout
+        # from the model's capability profile (600s, aligned with the server→worker
+        # envelope); legacy models keep 120s. `model` is nil-safe (→ 120s). Mirrors
+        # worker/app/services/ai/llm/client.rb#http_post.
+        def http_post(path, body, model = nil)
           url = "#{base_url}#{path}"
           response = HTTParty.post(
             url,
             headers: headers,
             body: body.to_json,
-            timeout: 120
+            timeout: Ai::Llm::ModelCapabilities.request_timeout_seconds(model)
           )
           [response.code, response.parsed_response, response.headers]
         end
 
-        # Streaming HTTP POST via Net::HTTP — yields raw chunks
-        def http_stream(path, body)
+        # Streaming HTTP POST via Net::HTTP — yields raw chunks. The read timeout is
+        # capability-aware but never below STREAM_READ_TIMEOUT_FLOOR: an
+        # adaptive-only/effort turn (Fable etc.) may go past 300s before the next
+        # chunk, so it gets its 600s profile timeout; every other model keeps 300s.
+        def http_stream(path, body, model = nil)
           uri = URI.parse("#{base_url}#{path}")
           http = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl = uri.scheme == "https"
-          http.read_timeout = 300
+          http.read_timeout = [
+            Ai::Llm::ModelCapabilities.request_timeout_seconds(model),
+            STREAM_READ_TIMEOUT_FLOOR
+          ].max
           http.open_timeout = 30
 
           request = Net::HTTP::Post.new(uri.request_uri)

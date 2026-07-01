@@ -17,7 +17,7 @@ module Ai
 
         def complete(messages:, model:, **opts)
           body = build_chat_body(messages, model, **opts)
-          status, parsed, _headers = http_post("/chat/completions", body)
+          status, parsed, _headers = http_post("/chat/completions", body, model)
 
           case status
           when 200
@@ -85,7 +85,7 @@ module Ai
           yield Ai::Llm::Chunk.new(type: :stream_start, stream_id: stream_id,
                                     timestamp: Time.current.iso8601)
 
-          http_stream("/chat/completions", body) do |response|
+          http_stream("/chat/completions", body, model) do |response|
             parse_sse_stream(response) do |parsed|
               choice = parsed.dig("choices", 0)
               next unless choice
@@ -187,7 +187,7 @@ module Ai
           body[:tools] = openai_tools
           body[:tool_choice] = opts[:tool_choice] || "auto"
 
-          status, parsed, _headers = http_post("/chat/completions", body)
+          status, parsed, _headers = http_post("/chat/completions", body, model)
 
           case status
           when 200
@@ -208,7 +208,7 @@ module Ai
             }
           }
 
-          status, parsed, _headers = http_post("/chat/completions", body)
+          status, parsed, _headers = http_post("/chat/completions", body, model)
 
           case status
           when 200
