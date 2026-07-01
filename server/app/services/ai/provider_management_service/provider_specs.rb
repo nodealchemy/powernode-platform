@@ -103,9 +103,9 @@ class Ai::ProviderManagementService
             documentation_url: "https://docs.anthropic.com/claude/reference",
             supported_models: [
               {
-                "name" => "Claude 3 Opus",
-                "id" => "claude-3-opus-20240229",
-                "context_length" => 200000,
+                "name" => "Claude Opus 4.8",
+                "id" => "claude-opus-4-8",
+                "context_length" => 1000000,
                 "description" => "Most capable Claude model"
               }
             ],

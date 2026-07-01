@@ -56,11 +56,7 @@ class Ai::ProviderManagementService
     "claude-sonnet-4-5"          => { "input" => 0.003,   "output" => 0.015,   "cached_input" => 0.0003,  "tier" => "standard" },
     "claude-sonnet-4"            => { "input" => 0.003,   "output" => 0.015,   "cached_input" => 0.0003,  "tier" => "standard" },
     "claude-haiku-4-5"           => { "input" => 0.001,   "output" => 0.005,   "cached_input" => 0.0001,  "tier" => "economy" },
-    "claude-3-5-sonnet"          => { "input" => 0.003,   "output" => 0.015,   "cached_input" => 0.0003,  "tier" => "standard" },
-    "claude-3-5-haiku"           => { "input" => 0.0008,  "output" => 0.004,   "cached_input" => 0.00008, "tier" => "economy" },
-    "claude-3-haiku-20240307"    => { "input" => 0.00025, "output" => 0.00125, "cached_input" => 0.00003, "tier" => "economy" },
-    "claude-3-sonnet-20240229"   => { "input" => 0.003,   "output" => 0.015,   "cached_input" => 0.0003,  "tier" => "standard" },
-    "claude-3-opus-20240229"     => { "input" => 0.015,   "output" => 0.075,   "cached_input" => 0.0015,  "tier" => "premium" },
+    "claude-3-haiku-20240307"    => { "input" => 0.00025, "output" => 0.00125, "cached_input" => 0.00003, "tier" => "economy" }, # deprecated, retires 2026-04-19
     # X.AI (Grok)
     "grok-3"                     => { "input" => 0.003,   "output" => 0.015,   "cached_input" => 0.0003,  "tier" => "premium" },
     "grok-3-mini"                => { "input" => 0.0003,  "output" => 0.0005,  "cached_input" => 0.00003, "tier" => "economy" },

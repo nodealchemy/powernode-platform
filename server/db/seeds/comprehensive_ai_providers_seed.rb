@@ -493,19 +493,6 @@ if admin_account && admin_user
         },
         'capabilities' => [ 'text', 'code', 'fast_response', 'vision', 'cost_effective', 'high_performance' ],
         'recommended_for' => [ 'quick_tasks', 'parallel_execution', 'high_volume', 'cost_optimization', 'coding_tasks' ]
-      },
-      {
-        'name' => 'claude-3-5-sonnet',
-        'id' => 'claude-3-5-sonnet-20241022',
-        'display_name' => 'Claude 3.5 Sonnet (Legacy)',
-        'context_length' => 200000,
-        'max_output_tokens' => 8192,
-        'cost_per_1k_tokens' => {
-          'input' => 0.003,
-          'output' => 0.015
-        },
-        'capabilities' => [ 'text', 'code', 'analysis', 'reasoning', 'vision', 'long_context' ],
-        'recommended_for' => [ 'legacy_workflows', 'backward_compatibility' ]
       }
     ],
     configuration_schema: {
