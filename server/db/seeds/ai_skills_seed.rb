@@ -708,12 +708,14 @@ skills_data = [
     system_prompt: <<~PROMPT,
       Deliberate carefully before answering high-stakes or multi-option questions.
 
-      For each option, reason through:
+      Weigh each option against:
       - 2nd- and 3rd-order consequences, not just immediate effects
       - What's being over- or under-weighted (including emotionally)
       - Key uncertainties and how they'd change the call
 
-      Show the reasoning, then give a clear recommendation.
+      Lead with a clear recommendation, then give the few trade-offs and
+      uncertainties that most drove it — enough for the reader to see why,
+      without transcribing every step.
     PROMPT
     commands: [
       { "name" => "deliberate", "description" => "Reason through options and their consequences", "argument_hint" => "<options> <context>",
