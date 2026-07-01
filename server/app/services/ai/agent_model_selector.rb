@@ -343,9 +343,11 @@ module Ai
     # consumption — the rules stay owned by inc1. We match the rule's request_types
     # + model_patterns precisely; refusal_category is intentionally NOT matched
     # (the request's category is unknown at selection time), so suppression spans
-    # all categories for that (agent_type, Fable) pair — erring toward not using a
-    # model that has been refusing. The name prefix is backed by a partial unique
-    # index, so the scan is cheap.
+    # all categories for that (agent_type, Fable) pair. It is ALSO intentionally
+    # Fable-FAMILY-level, not model-exact: a Mythos-refusal rule suppresses the
+    # Fable preference and vice-versa (the preference bonus is itself family-wide),
+    # erring toward not using a family that has been refusing. The name prefix is
+    # backed by a partial unique index, so the scan is cheap.
     def fable_preroute_suppressed?
       ::Ai::ModelRoutingRule.for_account(@account).active
                             .where("name LIKE ?", "fable-refusal-preroute:%")
@@ -410,13 +412,30 @@ module Ai
       provider = candidate_providers.first ||
                  @account.ai_providers.where(is_active: true).order(priority_order: :asc).first ||
                  @account.ai_providers.order(priority_order: :asc).first
+      model = provider&.default_model
+      # Fable-5 candidacy gate (mirrors models_for_tier): never fall back to a
+      # Fable/Mythos default_model when the framework is off — pick the provider's
+      # first non-Fable supported model instead, so an unavailable model can't leak
+      # in through the fallback path.
+      if model.present? && ::Ai::FableRouting.fable_model?(model) && !fable_enabled?
+        model = first_non_fable_supported_model(provider)
+      end
       {
         provider:      provider,
-        model:         provider&.default_model,
+        model:         model,
         provider_type: provider&.provider_type,
         reason:        "fallback: no candidate models for agent_type=#{@agent_type}",
         score_details: nil
       }
+    end
+
+    def first_non_fable_supported_model(provider)
+      return nil unless provider
+
+      Array(provider.supported_models)
+        .filter_map { |entry| ::Ai::ModelTiers.id_for(entry) }
+        .reject { |model_id| model_id.blank? || ::Ai::FableRouting.fable_model?(model_id) }
+        .first
     end
 
     def build_reason(best, profile)

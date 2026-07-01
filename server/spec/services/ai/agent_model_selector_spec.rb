@@ -251,4 +251,40 @@ RSpec.describe Ai::AgentModelSelector do
       end
     end
   end
+
+  # Parity fix: the fallback path must not leak a Fable/Mythos default_model when
+  # the framework is off (mirrors the models_for_tier default guard).
+  describe "#fallback Fable candidacy gate" do
+    let(:fallback_provider) do
+      p = create(:ai_provider, :anthropic, account: account,
+        supported_models: [
+          { "id" => "claude-fable-5", "name" => "claude-fable-5" },
+          { "id" => "claude-opus-4-8", "name" => "claude-opus-4-8" }
+        ])
+      # default_model resolution is API/config-driven; pin it deterministically to
+      # Fable so we exercise the fallback guard, and inject the instance so fallback
+      # uses this exact provider.
+      allow(p).to receive(:default_model).and_return("claude-fable-5")
+      p
+    end
+    let(:selector) do
+      s = described_class.new(account: account, agent_type: "code_assistant")
+      allow(s).to receive(:candidate_providers).and_return([fallback_provider])
+      s
+    end
+
+    it "does not fall back to a Fable default_model when the framework is off" do
+      result = selector.send(:fallback)
+
+      expect(Ai::FableRouting.fable_model?(result[:model])).to be(false)
+      expect(result[:model]).to eq("claude-opus-4-8")
+    end
+
+    it "returns the Fable default_model when the framework is on" do
+      account.update!(settings: { "fable_routing_enabled" => true })
+      result = selector.send(:fallback)
+
+      expect(result[:model]).to eq("claude-fable-5")
+    end
+  end
 end
