@@ -13,7 +13,7 @@ module AiTestHelpers
       credentials = {
         ollama: { base_url: 'http://localhost:11434', model: 'llama2' },
         openai: { api_key: 'sk-test123', model: 'gpt-3.5-turbo' },
-        anthropic: { api_key: 'ant-test123', model: 'claude-3-sonnet' }
+        anthropic: { api_key: 'ant-test123', model: 'claude-sonnet-4-6' }
       }
 
       @ai_provider_credentials = {}
@@ -85,7 +85,7 @@ module AiTestHelpers
         name: 'Research Agent',
         agent_type: 'researcher',
         configuration: {
-          model: 'claude-3-sonnet',
+          model: 'claude-sonnet-4-6',
           temperature: 0.5,
           max_tokens: 8000,
           system_prompt: 'You are a thorough researcher.'

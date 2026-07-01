@@ -54,7 +54,7 @@ FactoryBot.define do
       transient do
         configuration do
           {
-            model: 'claude-3-sonnet',
+            model: 'claude-sonnet-4-6',
             temperature: 0.2,
             max_tokens: 4000,
             system_prompt: 'You are an expert programmer.'

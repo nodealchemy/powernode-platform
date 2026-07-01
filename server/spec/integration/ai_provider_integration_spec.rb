@@ -157,7 +157,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
         when 'openai-multi'
                        { api_key: 'sk-test123', model: 'gpt-3.5-turbo' }
         when 'anthropic-multi'
-                       { api_key: 'ant-test123', model: 'claude-3-sonnet' }
+                       { api_key: 'ant-test123', model: 'claude-sonnet-4-6' }
         end
 
         # Use hash directly, not to_json

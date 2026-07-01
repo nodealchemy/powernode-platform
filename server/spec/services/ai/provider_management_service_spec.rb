@@ -171,7 +171,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
         expect {
           described_class.validate_ai_provider_credentials(
             anthropic_provider,
-            { model: 'claude-3-sonnet' }
+            { model: 'claude-sonnet-4-6' }
           )
         }.to raise_error(Ai::ProviderManagementService::ValidationError, /API key is required/)
       end
@@ -180,7 +180,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
         expect {
           described_class.validate_ai_provider_credentials(
             anthropic_provider,
-            { api_key: 'sk-ant-api-test1234567890', model: 'claude-3-sonnet' }
+            { api_key: 'sk-ant-api-test1234567890', model: 'claude-sonnet-4-6' }
           )
         }.not_to raise_error
       end

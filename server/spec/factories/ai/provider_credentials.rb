@@ -64,7 +64,7 @@ FactoryBot.define do
       credentials do
         {
           "api_key" => "ant-test#{SecureRandom.hex(20)}",
-          "model" => "claude-3-sonnet"
+          "model" => "claude-sonnet-4-6"
         }
       end
     end

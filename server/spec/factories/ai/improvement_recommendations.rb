@@ -54,7 +54,7 @@ FactoryBot.define do
       recommended_config do
         {
           "provider" => "anthropic",
-          "model" => "claude-3-sonnet",
+          "model" => "claude-sonnet-4-6",
           "estimated_monthly_cost" => 150.00
         }
       end

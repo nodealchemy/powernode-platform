@@ -125,7 +125,7 @@ FactoryBot.define do
         {
           timestamp: Time.current.iso8601,
           provider_id: SecureRandom.uuid,
-          model_used: 'claude-3-sonnet',
+          model_used: 'claude-sonnet-4-6',
           tokens_used: 89,
           response_time_ms: 2100,
           cost_estimate: 0.0045,
