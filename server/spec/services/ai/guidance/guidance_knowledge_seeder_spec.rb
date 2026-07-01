@@ -74,4 +74,20 @@ RSpec.describe Ai::Guidance::GuidanceKnowledgeSeeder do
     expect(result.refused).to eq(1)
     expect(entry_for("guidance:leaky")).to be_nil
   end
+
+  describe "against the real docs/contributing/conventions directory" do
+    it "seeds fable5-compliance.md as a recallable guidance-fable5-compliance entry" do
+      result = described_class.new(account: account).call
+
+      expect(result.refused).to eq(0)
+
+      entry = entry_for("guidance:fable5-compliance")
+      expect(entry).to be_present
+      expect(entry.title).to eq("Fable 5 Compliance")
+      expect(entry.tags).to include("guidance", "guidance-fable5-compliance")
+      expect(entry.content_type).to eq("reference")
+      expect(entry.content).to include("claude-fable-5")
+      expect(entry.content).to include("fable_routing_enabled")
+    end
+  end
 end
