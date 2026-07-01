@@ -23,6 +23,11 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
       it "#{const_name} includes the never-batch-approve bulk-op guardrail" do
         expect(guardrails).to include(match(/batch-approve/i))
       end
+
+      it "#{const_name} includes the verification-gate (validate.sh) recall guardrail" do
+        expect(guardrails).to include(match(/validate\.sh/))
+        expect(guardrails).to include(match(/verification gate/i))
+      end
     end
   end
 

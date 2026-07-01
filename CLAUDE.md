@@ -103,8 +103,8 @@ Generic key-handling principles — apply to ALL key material. Private-extension
 - **Trace Changes to Request**: every changed line traces to the request; revert adjacent "improvements" (scope creep).
 - **Plan Before Multi-File**: changes touching 3+ files — outline files + data flow, get approval before writing.
 - **Dead Reference Cleanup**: after deleting a file, `grep -r` for references and remove them (scope: orphans your changes created).
-- **Completion Gate**: run `/verify` on changed files before reporting work done.
-- **Quality Gates**: `cd frontend && npx tsc --noEmit` after TS; Ruby syntax + related spec after `.rb`; `rails db:seed` after seeds.
+- **Completion Gate**: before reporting work done, run the verification gate — `scripts/validate.sh` (model-agnostic; specs + tsc + pattern-validation + gitleaks) or its targeted subset for what you changed. `/verify` is the Claude-only convenience wrapper; non-Claude executors use the gate directly (also `guidance-verification-gate` + loop guardrails).
+- **Quality Gates**: `cd frontend && npx tsc --noEmit` after TS; Ruby syntax + related spec after `.rb`; `rails db:seed` after seeds — the authoritative home is the gate `scripts/validate.sh` (run by the pre-commit hook and any committer).
 
 ### Architecture Principles
 - **Pull, Never Push**: downstream managers pull from upstream; upstream never pushes downstream. When unsure of data-flow direction, ask.

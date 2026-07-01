@@ -14,6 +14,7 @@ module Ai
         "Re-verify the finding against current code BEFORE changing anything (findings rot)",
         "Write a failing test reproducing the finding FIRST; confirm it is red",
         "Independent review of the diff before committing (don't trust green alone)",
+        "Run the verification gate before reporting done: scripts/validate.sh (specs + tsc + pattern-validation + gitleaks) or the targeted specs/tsc/pattern-validation for what you changed — do not rely on '/verify' (Claude-only)",
         "Commit only to the campaign branch — never develop/master, never push",
         "After 3 failed attempts on the same task, report outcome=failed and stop"
       ].freeze

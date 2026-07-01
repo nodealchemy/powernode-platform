@@ -21,6 +21,7 @@ module Ai
         "Re-verify the finding against current code BEFORE changing anything (findings rot)",
         "Write a failing spec reproducing the finding FIRST; confirm it is red",
         "Independent review: run /code-review on the diff BEFORE committing (don't trust spec-green alone)",
+        "Run the verification gate before reporting done: scripts/validate.sh (specs + tsc + pattern-validation + gitleaks) or the targeted specs/tsc/pattern-validation for what you changed — do not rely on '/verify' (Claude-only)",
         "Never introduce a core->extension dependency or a private-extension name into a core file",
         "Commit only to the loop branch — never develop/master, never push",
         "After 3 failed attempts on the same task, report outcome=failed and stop"

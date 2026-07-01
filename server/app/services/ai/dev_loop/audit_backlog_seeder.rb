@@ -26,6 +26,7 @@ module Ai
         "Write a failing spec reproducing the finding BEFORE the fix; confirm it is red",
         "Search before changing — verify the claim against current code first (findings may have rotted)",
         "No placeholder implementations",
+        "Run the verification gate before reporting done: scripts/validate.sh (specs + tsc + pattern-validation + gitleaks) or the targeted specs/tsc/pattern-validation for what you changed — do not rely on '/verify' (Claude-only)",
         "After 3 failed attempts on the same task, report outcome=failed and stop",
         "Commit only to the loop branch — never develop/master, never push"
       ].freeze
