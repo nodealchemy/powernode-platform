@@ -7,7 +7,13 @@ module Ai
     # went to OpenAI, Anthropic, or Ollama
     class Response
       attr_reader :content, :tool_calls, :finish_reason, :model, :provider,
-                  :usage, :cost, :thinking_content, :raw_response, :stream_id
+                  :usage, :cost, :thinking_content, :raw_response, :stream_id,
+                  :refusal
+
+      # `served_by` (model that ultimately produced the content) and
+      # `refusal_recovery` (the adapt→fallback audit trail) are set AFTER
+      # construction by Ai::Llm::RefusalHandler, so they are writable.
+      attr_accessor :served_by, :refusal_recovery
 
       def initialize(attrs = {})
         @content = attrs[:content]
@@ -20,6 +26,20 @@ module Ai
         @thinking_content = attrs[:thinking_content]
         @raw_response = attrs[:raw_response]
         @stream_id = attrs[:stream_id]
+        # Structured safety-classifier refusal (HTTP 200, stop_reason "refusal").
+        # A Hash {stop_reason, category, explanation, phase} when the model
+        # DECLINED, else nil. Detection sets this BEFORE any content is read so
+        # a refusal never returns as a silent nil.
+        @refusal = attrs[:refusal]
+        @served_by = attrs[:served_by]
+        @refusal_recovery = attrs[:refusal_recovery]
+      end
+
+      # True when the response the caller receives is itself a refusal (the
+      # requested model declined and no fallback resolved it). Callers MUST
+      # branch on this before treating empty content as an error.
+      def refused?
+        !@refusal.nil?
       end
 
       def success?
@@ -56,7 +76,10 @@ module Ai
           usage: usage,
           cost: cost,
           thinking_content: thinking_content,
-          stream_id: stream_id
+          stream_id: stream_id,
+          refusal: refusal,
+          served_by: served_by,
+          refusal_recovery: refusal_recovery
         }.compact
       end
 

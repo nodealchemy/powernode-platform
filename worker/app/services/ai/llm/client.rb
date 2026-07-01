@@ -381,11 +381,35 @@ module Ai
         think = blocks.select { |b| b["type"] == "thinking" }.map { |b| b["thinking"] }.join
         tcs = blocks.select { |b| b["type"] == "tool_use" }.map { |b| { id: b["id"], name: b["name"], arguments: b["input"] } }
         u = parsed["usage"] || {}
+        # Branch on stop_reason BEFORE trusting content: a safety-classifier
+        # refusal is HTTP 200 with stop_reason "refusal" and (pre-output) empty
+        # content. Populating `refusal` here means a refusal never returns as a
+        # silent nil.
+        refusal = anthropic_refusal(parsed["stop_reason"], parsed["stop_details"], content_present: text.present? || tcs.any?)
         build_response(content: text.presence, tool_calls: tcs, finish_reason: parsed["stop_reason"],
                        model: parsed["model"] || model, raw_response: parsed, thinking_content: think.presence,
+                       refusal: refusal,
                        usage: { prompt_tokens: u["input_tokens"] || 0, completion_tokens: u["output_tokens"] || 0,
                                 cached_tokens: u["cache_read_input_tokens"] || 0,
                                 total_tokens: (u["input_tokens"] || 0) + (u["output_tokens"] || 0) })
+      end
+
+      # Structured refusal descriptor (string keys — round-trips to the server as
+      # JSON) when the model DECLINED, else nil. Guard on stop_reason, NEVER on
+      # stop_details: stop_details can be null even on a genuine refusal, and its
+      # category can legitimately be null. Pre-output refusals carry empty content
+      # (unbilled); mid-stream refusals already streamed a partial (billed) which
+      # the caller discards.
+      def anthropic_refusal(stop_reason, stop_details, content_present:)
+        return nil unless stop_reason.to_s == "refusal"
+
+        details = stop_details.is_a?(Hash) ? stop_details : {}
+        {
+          "stop_reason" => "refusal",
+          "category" => details["category"],
+          "explanation" => details["explanation"],
+          "phase" => content_present ? "mid_stream" : "pre_output"
+        }
       end
 
       def anthropic_handle_error(status, parsed)
@@ -409,7 +433,7 @@ module Ai
 
       def stream_anthropic(messages, model, **opts)
         body = build_anthropic_body(messages, model, **opts).merge(stream: true)
-        acc = ""; tcs = []; cur = nil; usage = {}; sid = SecureRandom.uuid; fin = nil; think = ""
+        acc = ""; tcs = []; cur = nil; usage = {}; sid = SecureRandom.uuid; fin = nil; think = ""; refusal_details = nil
         yield Chunk.new(type: :stream_start, stream_id: sid, timestamp: ts)
         http_stream(anthropic_url, body) do |resp|
           parse_anthropic_sse(resp) do |evt, p|
@@ -442,6 +466,7 @@ module Ai
               end
             when "message_delta"
               fin = p.dig("delta", "stop_reason")
+              refusal_details = p.dig("delta", "stop_details")
               usage[:completion_tokens] = p["usage"]["output_tokens"] if p["usage"]
             when "message_start"
               if p.dig("message", "usage")
@@ -453,8 +478,12 @@ module Ai
         end
         usage[:total_tokens] = (usage[:prompt_tokens] || 0) + (usage[:completion_tokens] || 0)
         yield Chunk.new(type: :stream_end, done: true, usage: usage, stream_id: sid, timestamp: ts)
-        build_response(content: acc.presence, tool_calls: tcs, finish_reason: fin, model: model,
-                       usage: usage, thinking_content: think.presence, stream_id: sid)
+        # A mid-stream refusal already streamed a partial (billed) — DISCARD it
+        # rather than returning it as a complete answer.
+        refusal = anthropic_refusal(fin, refusal_details, content_present: acc.present?)
+        build_response(content: (refusal ? nil : acc.presence), tool_calls: (refusal ? [] : tcs),
+                       finish_reason: fin, model: model, usage: usage,
+                       thinking_content: (refusal ? nil : think.presence), refusal: refusal, stream_id: sid)
       rescue RequestError => e
         yield Chunk.new(type: :error, content: e.message, stream_id: sid, timestamp: ts)
         build_error_response(e.message, status_code: e.status_code)

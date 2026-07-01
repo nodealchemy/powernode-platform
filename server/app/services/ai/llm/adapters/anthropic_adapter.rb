@@ -53,6 +53,7 @@ module Ai
           stream_id = SecureRandom.uuid
           finish_reason = nil
           thinking_content = ""
+          refusal_details = nil
 
           yield Ai::Llm::Chunk.new(type: :stream_start, stream_id: stream_id,
                                     timestamp: Time.current.iso8601)
@@ -120,6 +121,7 @@ module Ai
 
               when "message_delta"
                 finish_reason = parsed.dig("delta", "stop_reason")
+                refusal_details = parsed.dig("delta", "stop_details")
                 if parsed["usage"]
                   usage_data[:completion_tokens] = parsed["usage"]["output_tokens"]
                 end
@@ -140,13 +142,19 @@ module Ai
             stream_id: stream_id, timestamp: Time.current.iso8601
           )
 
+          # A mid-stream refusal already streamed a partial (billed) — DISCARD it
+          # rather than returning it as a complete answer.
+          refusal = anthropic_refusal(finish_reason, refusal_details,
+                                      content_present: accumulated_content.present?)
+
           build_response(
-            content: accumulated_content.presence,
-            tool_calls: tool_calls,
+            content: (refusal ? nil : accumulated_content.presence),
+            tool_calls: (refusal ? [] : tool_calls),
             finish_reason: finish_reason,
             model: model,
             usage: usage_data,
-            thinking_content: thinking_content.presence,
+            thinking_content: (refusal ? nil : thinking_content.presence),
+            refusal: refusal,
             stream_id: stream_id
           )
         rescue Adapters::RequestError => e
@@ -313,6 +321,12 @@ module Ai
 
           usage = parsed["usage"] || {}
 
+          # Branch on stop_reason BEFORE trusting content: a safety-classifier
+          # refusal is HTTP 200 with stop_reason "refusal" — populating `refusal`
+          # here means it never returns as a silent nil.
+          refusal = anthropic_refusal(parsed["stop_reason"], parsed["stop_details"],
+                                      content_present: text_content.present? || tool_calls.any?)
+
           build_response(
             content: text_content.presence,
             tool_calls: tool_calls,
@@ -325,8 +339,25 @@ module Ai
               total_tokens: (usage["input_tokens"] || 0) + (usage["output_tokens"] || 0)
             },
             thinking_content: thinking.presence,
+            refusal: refusal,
             raw_response: parsed
           )
+        end
+
+        # Structured refusal descriptor (string keys — matches the worker
+        # Ai::Llm::Client so both live paths agree) when the model DECLINED, else
+        # nil. Guard on stop_reason, NEVER on stop_details (which can be null even
+        # on a genuine refusal).
+        def anthropic_refusal(stop_reason, stop_details, content_present:)
+          return nil unless stop_reason.to_s == "refusal"
+
+          details = stop_details.is_a?(Hash) ? stop_details : {}
+          {
+            "stop_reason" => "refusal",
+            "category" => details["category"],
+            "explanation" => details["explanation"],
+            "phase" => content_present ? "mid_stream" : "pre_output"
+          }
         end
 
         # Parse Anthropic-specific SSE with named events

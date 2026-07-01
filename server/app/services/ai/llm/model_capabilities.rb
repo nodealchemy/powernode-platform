@@ -59,6 +59,17 @@ module Ai
         claude-sonnet-5
       ].freeze
 
+      # Prefixes whose models run request-time safety classifiers that can return
+      # a benign-request refusal (HTTP 200, stop_reason "refusal") — i.e. Claude
+      # Fable 5 / Mythos 5. These are the models the adapt→fallback→learn refusal
+      # framework engages; every other model that happens to emit a refusal is
+      # surfaced loudly with no fallback attempt. (Opus/Sonnet CAN refuse, but the
+      # framework's fallback target is a non-Fable model, so we do not loop.)
+      REFUSAL_CLASSIFIER_PREFIXES = %w[
+        claude-fable
+        claude-mythos
+      ].freeze
+
       module_function
 
       # The frozen capability profile Hash for a model id.
@@ -86,6 +97,14 @@ module Ai
 
       # Context window in tokens (nil when unknown).
       def context_window(model_id) = profile(model_id)[:context_window]
+
+      # Whether this model runs the request-time safety classifier that can
+      # return a benign-request refusal — i.e. whether the adapt→fallback→learn
+      # framework should engage for it. Prefix-based (Fable 5 / Mythos 5).
+      def refusal_capable?(model_id)
+        mid = model_id.to_s
+        REFUSAL_CLASSIFIER_PREFIXES.any? { |prefix| mid.start_with?(prefix) }
+      end
     end
   end
 end

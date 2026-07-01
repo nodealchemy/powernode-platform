@@ -35,4 +35,20 @@ RSpec.describe Ai::Llm::ModelCapabilities do
       expect(described_class.thinking_mode('claude-sonnet-4-5')).to eq(:configurable)
     end
   end
+
+  describe '.refusal_capable? (adapt→fallback framework gate)' do
+    %w[claude-fable-5 claude-mythos-5 claude-fable-5-20260701].each do |model|
+      it "is true for the refusal-classifier model #{model}" do
+        expect(described_class.refusal_capable?(model)).to be(true)
+      end
+    end
+
+    # The fallback TARGET (Opus 4.8) and every other model must NOT engage the
+    # framework — otherwise a fallback refusal would loop.
+    %w[claude-opus-4-8 claude-opus-4-7 claude-sonnet-5 claude-opus-4-6 gpt-4o].each do |model|
+      it "is false for #{model}" do
+        expect(described_class.refusal_capable?(model)).to be(false)
+      end
+    end
+  end
 end
