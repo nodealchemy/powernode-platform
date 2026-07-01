@@ -147,7 +147,7 @@ class WorkerLlmClient
     result = call_worker("/api/v1/llm/execute_tool_loop", build_payload(
       messages: messages,
       model: model,
-      **opts.slice(:max_iterations, :max_tokens, :temperature)
+      **opts.slice(:max_iterations, :max_tokens, :temperature, :effort)
     ))
 
     # Build response from accumulated usage so budget tracking works

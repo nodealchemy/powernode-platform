@@ -304,6 +304,8 @@ class JobsController
       client = build_llm_proxy_client
       opts = {}
       opts[:max_iterations] = data['max_iterations'] if data['max_iterations']
+      opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
+      opts[:effort] = data['effort'] if data['effort']
 
       result = client.execute_tool_loop(
         agent_id: agent_id,
