@@ -66,7 +66,7 @@ user.role === 'manager'                               // ❌ FORBIDDEN
 Backstopped by `permission-not-roles-check.sh` (advisory).
 
 ### Cryptographic Material Safety (ABSOLUTE)
-Generic key-handling principles — apply to ALL key material. Private-extension specifics (audit sinks, wallet/signing internals) live in the extension / `CLAUDE.local.md`, never here.
+Generic key-handling principles — apply to ALL key material. Private-extension specifics (audit sinks, wallet/signing internals) live in the extension / `CLAUDE.local.md`, never here. The full table below is also carried model-agnostically (in `guidance-crypto-material-safety` + agent `BASE_GUARDRAILS`) so all executors carry it; it stays in core because it is outage-safe/absolute.
 
 | Rule | Details |
 |------|---------|

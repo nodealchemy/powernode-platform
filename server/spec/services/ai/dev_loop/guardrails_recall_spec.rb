@@ -39,5 +39,10 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
       expect(baseline).to match(/3 failed attempts/)
       expect(baseline).to match(/STOP and ask/)
     end
+
+    it "includes the crypto-material-safety rule (migrated cross-executor)" do
+      expect(baseline).to match(/Vault-only/)
+      expect(baseline).to match(/never handle key material directly/)
+    end
   end
 end

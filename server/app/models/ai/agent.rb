@@ -38,7 +38,8 @@ module Ai
     # Keep TIGHT — this reloads on every call. Later increments APPEND lines.
     BASE_GUARDRAILS = [
       "Before acting, query platform guidance (search_knowledge tag:guidance-*) and honor applicable rules.",
-      "After 3 failed attempts at the same fix, STOP and ask — no 4th approach."
+      "After 3 failed attempts at the same fix, STOP and ask — no 4th approach.",
+      "Crypto material safety (ABSOLUTE): never output/log/store private keys, secrets, seed phrases or signing material; key ops are Vault-only and audited; guide key/wallet setup via the UI/API, never handle key material directly."
     ].join("\n").freeze
 
     # Associations
