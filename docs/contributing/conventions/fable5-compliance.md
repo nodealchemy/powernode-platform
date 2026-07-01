@@ -34,5 +34,26 @@ allowlist.
 
 ## Prompting Fable
 
-Prefer stating the GOAL plus constraints over prescriptive step-by-step instructions —
-over-prescription measurably reduces Fable's output quality. Let it plan its own approach.
+Fable is tuned for long-horizon autonomous work, follows brief goal-level instructions
+better than enumerated ones, and **degrades when over-prescribed**. So "optimize for Fable"
+means *removing* scaffolding built for older models as much as adding rules: state the GOAL
+plus constraints over step-by-step, and let it plan its own approach.
+
+These patterns are already wired into the platform's executor prompts — `Ai::Agent::BASE_GUARDRAILS`
+(every agent) and `Ai::DevLoop::LoopGuardrails` (the autonomous loops). Carry them yourself when
+prompting Fable directly:
+
+| Pattern | What to do |
+|---------|-----------|
+| Goal over steps | State the goal + constraints; don't enumerate a procedure Fable can plan itself — over-prescription measurably lowers output quality. |
+| Act when ready | When you have enough to act, act. Don't re-derive settled facts, re-litigate decided calls, or survey options you won't pursue — give a recommendation, not a menu. |
+| Checkpoint only when needed | Pause for the user ONLY for a destructive/irreversible action, a real scope change, or input only they can provide — not to narrate or ask permission for in-scope reversible work. |
+| Ground progress claims | Audit every progress/completion claim against a real tool result before reporting it; say plainly when a step failed, was skipped, or is unverified. (Anthropic testing: nearly eliminates fabricated status reports.) |
+| Don't over-refactor at high effort | Higher effort tempts unrequested tidying. A bug fix needs no surrounding cleanup; validate only at system boundaries; no abstractions/flags/back-compat shims for hypothetical futures. |
+| Lead with the outcome | First sentence = the TLDR ("what happened" / "what I found"); detail after. Readable beats terse — no arrow-chains, jargon, or invented labels in user-facing text. |
+| Give the reason | Include intent ("I'm doing X for Y; they need Z") — Fable connects the task to context better than inferring it. |
+| Delegate readily | Fable dispatches parallel subagents well; hand off independent subtasks and keep working; prefer async over blocking. |
+| Don't echo reasoning | **NEVER** instruct Fable to show, transcribe, or explain its internal reasoning as response text — it trips the `reasoning_extraction` refusal → Opus fallback. Adaptive thinking is always on; read the summarized `thinking` block if you need visibility. |
+
+Effort is the depth control (auto-derived; do not hand-tune): `high` default, `xhigh` for the
+hardest work, `low`/`medium` for routine — `Ai::Routing::EffortMapper`.
