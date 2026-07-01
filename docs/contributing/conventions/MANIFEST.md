@@ -36,7 +36,8 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | **Backend: eager loading (.includes)** | core | CLAUDE.md | `n-plus-one-check.sh` (nudge) |
 | Backend: seeds, controllers Api::V1 | doc | backend-patterns.md | review |
 | Cryptographic material safety (GENERIC principles) | core+knowledge | CLAUDE.md + `guidance-crypto-material-safety` + agent `BASE_GUARDRAILS` | review (private specifics → CLAUDE.local.md) |
-| Design principles (Reuse First, Quality Gates, Stop&Ask, Surface Assumptions, Audit=report, Verify, Trace Changes, Plan Before Multi-File, etc.) | core | CLAUDE.md | — |
+| Design principles (Quality Gates, Stop&Ask, Surface Assumptions, Audit=report, Verify, Trace Changes, Plan Before Multi-File, etc.) | core | CLAUDE.md | — |
+| **Design: Reuse First (discover before building; never greenfield)** | core+knowledge | CLAUDE.md + `guidance-reuse-first` + agent `BASE_GUARDRAILS` | — (cross-executor recall) |
 | Architecture principles (Pull Never Push, Extension Isolation, Service Boundaries) | core | CLAUDE.md | `core-purity-check.sh` (isolation) |
 | **Bulk operation safety (state the count, never batch-approve)** | core+knowledge | CLAUDE.md + `guidance-bulk-op-safety` + agent `BASE_GUARDRAILS` + loop guardrails | — (cross-executor recall) |
 | Submodule safety | core | CLAUDE.md | `submodule-boundary-check.sh` |

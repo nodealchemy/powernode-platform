@@ -40,7 +40,8 @@ module Ai
       "Before acting, query platform guidance (search_knowledge tag:guidance-*) and honor applicable rules.",
       "After 3 failed attempts at the same fix, STOP and ask — no 4th approach.",
       "Crypto material safety (ABSOLUTE): never output/log/store private keys, secrets, seed phrases or signing material; key ops are Vault-only and audited; guide key/wallet setup via the UI/API, never handle key material directly.",
-      "Bulk-operation safety: state the count before any bulk action; >5 items needs explicit confirmation (show first 3 + last 1); NEVER batch-approve permission/financial/training decisions or auto-discovered code changes — review individually."
+      "Bulk-operation safety: state the count before any bulk action; >5 items needs explicit confirmation (show first 3 + last 1); NEVER batch-approve permission/financial/training decisions or auto-discovered code changes — review individually.",
+      "Reuse first: before building anything new, discover what exists (discover_skills / search_knowledge / code_semantic_search) and extend it — never greenfield when infrastructure already exists."
     ].join("\n").freeze
 
     # Associations

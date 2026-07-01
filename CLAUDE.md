@@ -94,7 +94,7 @@ Generic key-handling principles — apply to ALL key material. Private-extension
 - **Never batch-approve** training decisions, permission grants, financial operations, or **auto-discovered code changes** — review individually. (also `guidance-bulk-op-safety` + agent `BASE_GUARDRAILS` + loop guardrails so all executors carry it)
 
 ### Design Principles
-- **Reuse First**: `platform.discover_skills` + `search_knowledge` + `code_semantic_search` before proposing anything new — never greenfield when infrastructure exists.
+- **Reuse First**: `platform.discover_skills` + `search_knowledge` + `code_semantic_search` before proposing anything new — never greenfield when infrastructure exists. (also `guidance-reuse-first` + agent `BASE_GUARDRAILS`)
 - **Stop & Ask** (HARD): after 3 failed attempts at the same fix, STOP and ask. No 4th approach, no workarounds.
 - **Surface Assumptions**: state assumptions before implementing ambiguous requests; if multiple valid interpretations exist, present and ask.
 - **Audit = report only**: when asked to audit/review/analyze, save findings to `docs/`; do NOT implement unless told to fix.

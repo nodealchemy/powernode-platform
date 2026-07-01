@@ -53,5 +53,10 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
       expect(baseline).to match(/batch-approve/i)
       expect(baseline).to match(/state the count/i)
     end
+
+    it "includes the reuse-first rule (migrated cross-executor)" do
+      expect(baseline).to match(/Reuse first/i)
+      expect(baseline).to match(/never greenfield/i)
+    end
   end
 end
