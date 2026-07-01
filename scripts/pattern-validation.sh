@@ -331,6 +331,42 @@ else
     failed_checks=$((failed_checks + 1))
 fi
 
+# Extension-isolation reference guard: model-agnostic mirror of the BLOCKING
+# core-purity-check.sh REFERENCE gate (#9). CORE source (server/app, frontend/src —
+# anything NOT under extensions/) must never reference a PRIVATE extension by name:
+# its Ruby namespace (`<Cap>::`), submodule path (extensions/private/<slug>), or import
+# alias (@ext/<slug>/, @<slug>/). Private-extension slugs are derived DYNAMICALLY from
+# extensions/private/* — none is hardcoded (this script is core, so core-purity applies
+# to it too), mirroring the hook + the schema-leak block above. Core mode (no
+# extensions/private/*) => no-op PASS. Git-ignored files are excluded (mirrors the hook).
+# This is the scan backstop for the blocking hook so the rule reaches non-Claude executors.
+priv_iso_slugs=$(ls -d extensions/private/*/ 2>/dev/null | xargs -r -n1 basename)
+total_checks=$((total_checks + 1))
+echo -n "Checking: Core source references no private extension (core-purity mirror)... "
+iso_files=""
+for slug in $priv_iso_slugs; do
+    cap="${slug^}"
+    iso_pat="(\b${cap}::)|(extensions/private/${slug}\b)|(@ext/${slug}/)|(@${slug}/)"
+    iso_match=$(grep -rlE "$iso_pat" server/app frontend/src \
+        --include='*.rb' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
+        2>/dev/null || true)
+    if [ -n "$iso_match" ]; then iso_files+="${iso_match}"$'\n'; fi
+done
+iso_hits=0
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if ! git check-ignore -q "$f" 2>/dev/null; then
+        iso_hits=$((iso_hits + 1))
+    fi
+done < <(printf '%s\n' "$iso_files" | sort -u)
+if [ "$iso_hits" -eq 0 ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Found $iso_hits core file(s) naming a private extension: $(printf '%s\n' "$iso_files" | sort -u | grep -v '^$' | tr '\n' ' '))"
+    failed_checks=$((failed_checks + 1))
+fi
+
 echo ""
 echo -e "${BLUE}## Kill-Switch Compliance (Worker)${NC}"
 # Model-agnostic enforcement of worker/CLAUDE.md L11 (recall guidance-kill-switch-compliance):

@@ -108,8 +108,10 @@ Generic key-handling principles — apply to ALL key material. Private-extension
 
 ### Architecture Principles
 - **Pull, Never Push**: downstream managers pull from upstream; upstream never pushes downstream. When unsure of data-flow direction, ask.
-- **Extension Isolation**: each `extensions/*` is self-contained. Extensions depend on core; **core NEVER depends on extensions**. Enforced by the blocking `core-purity-check.sh` — core source must not reference a private extension by name (its `Namespace::`, submodule path, or import alias); the hook derives the forbidden names dynamically from `extensions/private/*`. Route through a generic seam instead.
+- **Extension Isolation**: each `extensions/*` is self-contained. Extensions depend on core; **core NEVER depends on extensions**. Enforced by the blocking `core-purity-check.sh` **and** a model-agnostic `scripts/pattern-validation.sh` scan mirror (not just the Claude hook) — core source must not reference a private extension by name (its `Namespace::`, submodule path, or import alias); both derive the forbidden names dynamically from `extensions/private/*`. Route through a generic seam instead.
 - **Service Boundaries**: cross-namespace communication goes through service interfaces, never direct model access.
+
+_These three invariants are also in the cross-executor `guidance-architecture-invariants` knowledge entry (recalled by any executor via `search_knowledge tag:guidance-*`), stated generically for all models._
 
 ### Submodule Safety (CRITICAL)
 - Submodules: public `extensions/{system,marketing,supply-chain}` + private `extensions/private/*`. **Do NOT run `git submodule sync`** on the public ones (drops the private upstream remote).
