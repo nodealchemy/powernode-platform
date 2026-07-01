@@ -554,11 +554,10 @@ RSpec.describe Ai::ErrorRecoveryService, type: :service do
 
     it 'returns alternatives for Anthropic excluding current model' do
       anthropic_provider = create(:ai_provider, slug: 'anthropic',
-                                  # claude-3-haiku-20240307 deprecated, retires 2026-04-19
-                                  configuration: { "supported_models" => ["claude-sonnet-4-6", "claude-3-haiku-20240307"] })
+                                  configuration: { "supported_models" => ["claude-sonnet-4-6", "claude-haiku-4-5"] })
       alternatives = service.send(:get_alternative_models, anthropic_provider, 'claude-sonnet-4-6')
 
-      expect(alternatives).to eq([ 'claude-3-haiku-20240307' ])
+      expect(alternatives).to eq([ 'claude-haiku-4-5' ])
       expect(alternatives).not_to include('claude-sonnet-4-6')
     end
 

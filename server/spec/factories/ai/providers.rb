@@ -323,8 +323,8 @@ FactoryBot.define do
             "cost_per_token" => 0.015
           },
           {
-            "name" => "claude-3-haiku-20240307", # deprecated, retires 2026-04-19
-            "id" => "claude-3-haiku-20240307",
+            "name" => "claude-haiku-4-5",
+            "id" => "claude-haiku-4-5",
             "context_length" => 200000,
             "cost_per_token" => 0.00025
           }
@@ -340,7 +340,7 @@ FactoryBot.define do
             },
             "model" => {
               "type" => "string",
-              "enum" => [ "claude-sonnet-4-6", "claude-opus-4-8", "claude-3-haiku-20240307" ],
+              "enum" => [ "claude-sonnet-4-6", "claude-opus-4-8", "claude-haiku-4-5" ],
               "description" => "Model to use"
             }
           },
