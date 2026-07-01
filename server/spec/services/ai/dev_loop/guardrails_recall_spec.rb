@@ -28,6 +28,11 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
         expect(guardrails).to include(match(/validate\.sh/))
         expect(guardrails).to include(match(/verification gate/i))
       end
+
+      it "#{const_name} includes the Fable refusal-handling guardrail" do
+        expect(guardrails).to include(match(/Fable.*refusal/i))
+        expect(guardrails).to include(match(/guidance-fable5-compliance/))
+      end
     end
   end
 
@@ -71,6 +76,12 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
 
     it "includes the surface-assumptions rule (migrated cross-executor)" do
       expect(baseline).to match(/surface assumptions/i)
+    end
+
+    it "includes the Fable refusal-handling + prompting guardrail" do
+      expect(baseline).to match(/Fable.*refusal/i)
+      expect(baseline).to match(/Opus/)
+      expect(baseline).to match(/guidance-fable5-compliance/)
     end
   end
 end

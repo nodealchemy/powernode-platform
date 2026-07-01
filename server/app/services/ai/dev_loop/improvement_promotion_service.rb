@@ -24,7 +24,8 @@ module Ai
         "Run the verification gate before reporting done: scripts/validate.sh (specs + tsc + pattern-validation + gitleaks) or the targeted specs/tsc/pattern-validation for what you changed — do not rely on '/verify' (Claude-only)",
         "Never introduce a core->extension dependency or a private-extension name into a core file",
         "Commit only to the loop branch — never develop/master, never push",
-        "After 3 failed attempts on the same task, report outcome=failed and stop"
+        "After 3 failed attempts on the same task, report outcome=failed and stop",
+        "On a Fable/Mythos refusal (stop_reason \"refusal\"), don't panic or manually retry — it auto-reframes once then falls back to Opus and logs it; prefer goal+constraints prompting over step-by-step for Fable (search_knowledge tag:guidance-fable5-compliance)"
       ].freeze
 
       Result = Struct.new(:ralph_loop, :ralph_task, :created, keyword_init: true)
