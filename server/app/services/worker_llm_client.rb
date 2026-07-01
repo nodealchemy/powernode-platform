@@ -363,8 +363,12 @@ class WorkerLlmClient
     )
 
     if event
+      # Only pre-route toward a model we actually FELL BACK to. On a reframe-success
+      # served_by is the (refusing) Fable model itself — pre-routing to it would send
+      # traffic straight back to the refuser and could clobber a correct Opus rule.
+      promote_target = fell_back ? served_by : nil
       Ai::ModelRefusalPromotionService.new(account_id: ctx[:account_id]).maybe_promote(
-        model: model, agent_type: ctx[:agent_type], category: category, fallback_model: served_by
+        model: model, agent_type: ctx[:agent_type], category: category, fallback_model: promote_target
       )
     end
   rescue StandardError => e

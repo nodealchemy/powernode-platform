@@ -26,6 +26,9 @@ module Ai
     def maybe_promote(model:, agent_type:, category: nil, fallback_model: nil)
       return nil if @account_id.blank?
       return nil if fallback_model.blank? # nothing concrete to pre-route to yet
+      # Never pre-route toward the model that just refused — that would send
+      # traffic straight back to the refuser.
+      return nil if fallback_model.to_s == model.to_s
 
       count = recent_refusal_count(model: model, agent_type: agent_type, category: category)
       return nil if count < threshold
@@ -63,9 +66,11 @@ module Ai
         .count
     end
 
-    # Deterministic name → idempotent upsert (re-promotion just refreshes target).
+    # Deterministic name (INCLUDES the refused model so Fable-5 and Mythos-5 don't
+    # collapse into one rule) → idempotent upsert. Race-safe: a concurrent insert
+    # that wins the unique (account_id, name) index is caught and re-found.
     def upsert_routing_rule(model:, agent_type:, category:, fallback_model:)
-      name = "fable-refusal-preroute:#{agent_type}:#{category.presence || 'any'}"
+      name = "fable-refusal-preroute:#{model}:#{agent_type}:#{category.presence || 'any'}"
       rule = Ai::ModelRoutingRule.find_or_initialize_by(account_id: @account_id, name: name)
       rule.rule_type = "quality_based"
       rule.priority = rule.priority.presence || 100
@@ -78,10 +83,15 @@ module Ai
       rule.target = { "model_names" => [fallback_model], "strategy" => "quality_optimized" }
       rule.save!
       Rails.logger.warn(
-        "[ModelRefusalPromotionService] pre-routed agent_type=#{agent_type} category=#{category || 'any'} " \
-        "away from #{model} → #{fallback_model} (rule=#{name})"
+        "[ModelRefusalPromotionService] pre-routed model=#{model} agent_type=#{agent_type} " \
+        "category=#{category || 'any'} → #{fallback_model} (rule=#{name})"
       )
       rule
+    rescue ActiveRecord::RecordNotUnique
+      # A sibling worker created the same rule concurrently — re-find and refresh.
+      existing = Ai::ModelRoutingRule.find_by(account_id: @account_id, name: name)
+      existing&.update(target: { "model_names" => [fallback_model], "strategy" => "quality_optimized" })
+      existing
     end
   end
 end

@@ -54,4 +54,28 @@ RSpec.describe Ai::ModelRefusalPromotionService do
     refuse!(6)
     expect(promote(fallback_model: nil)).to be_nil
   end
+
+  it "never pre-routes toward the refused model itself" do
+    refuse!(6)
+    expect(promote(fallback_model: "claude-fable-5")).to be_nil
+    expect(Ai::ModelRoutingRule.count).to eq(0)
+  end
+
+  it "keys the rule on the model so distinct models get distinct rules (Fable vs Mythos)" do
+    refuse!(5, model: "claude-fable-5")
+    refuse!(5, model: "claude-mythos-5")
+
+    described_class.new(account_id: account.id).maybe_promote(
+      model: "claude-fable-5", agent_type: "code_assistant", category: "cyber", fallback_model: "claude-opus-4-8"
+    )
+    described_class.new(account_id: account.id).maybe_promote(
+      model: "claude-mythos-5", agent_type: "code_assistant", category: "cyber", fallback_model: "claude-opus-4-8"
+    )
+
+    names = Ai::ModelRoutingRule.pluck(:name)
+    expect(names).to contain_exactly(
+      "fable-refusal-preroute:claude-fable-5:code_assistant:cyber",
+      "fable-refusal-preroute:claude-mythos-5:code_assistant:cyber"
+    )
+  end
 end

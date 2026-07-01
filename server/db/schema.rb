@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_01_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_01_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -3044,6 +3044,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_01_000001) do
     t.integer "times_succeeded", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "is_active", "priority"], name: "idx_on_account_id_is_active_priority_f8d15a4635"
+    t.index ["account_id", "name"], name: "idx_ai_routing_rules_preroute_name_uniq", unique: true, where: "((name)::text ~~ 'fable-refusal-preroute:%'::text)"
     t.index ["account_id", "rule_type"], name: "index_ai_model_routing_rules_on_account_id_and_rule_type"
     t.index ["account_id"], name: "index_ai_model_routing_rules_on_account_id"
     t.index ["conditions"], name: "index_ai_model_routing_rules_on_conditions", using: :gin

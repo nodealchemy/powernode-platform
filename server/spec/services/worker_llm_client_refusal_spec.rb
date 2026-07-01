@@ -41,12 +41,24 @@ RSpec.describe WorkerLlmClient, "refusal recording" do
     expect(ev.category).to eq("cyber")
   end
 
-  it "pre-routes the (agent_type, category) combo once past the threshold" do
+  it "pre-routes the (model, agent_type, category) combo once past the threshold" do
     5.times { client.send(:record_refusal!, recovered_response, "claude-fable-5") }
 
     rule = Ai::ModelRoutingRule.find_by(account_id: account.id,
-                                        name: "fable-refusal-preroute:code_assistant:cyber")
+                                        name: "fable-refusal-preroute:claude-fable-5:code_assistant:cyber")
     expect(rule).to be_present
     expect(rule.target["model_names"]).to eq(["claude-opus-4-8"])
+  end
+
+  it "does NOT pre-route on a reframe-SUCCESS (served_by is the refusing model, not a fallback)" do
+    reframe_success = Ai::Llm::Response.new(
+      content: "reframed ok", model: "claude-fable-5", served_by: "claude-fable-5",
+      refusal_recovery: { "category" => "cyber", "phase" => "pre_output",
+                          "reframed" => true, "fell_back" => false,
+                          "served_by" => "claude-fable-5", "resolved" => true }
+    )
+    6.times { client.send(:record_refusal!, reframe_success, "claude-fable-5") }
+
+    expect(Ai::ModelRoutingRule.where("name LIKE 'fable-refusal-preroute:%'").count).to eq(0)
   end
 end

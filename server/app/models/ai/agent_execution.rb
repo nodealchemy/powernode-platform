@@ -264,6 +264,12 @@ module Ai
 
       # Credit the model that ACTUALLY served: on a Fable→X fallback the success
       # belongs to X (served_by), not the configured Fable model.
+      #
+      # NOTE (deferred, cross-provider follow-up): the served-by success is still
+      # credited under this execution's ai_provider_id, NOT the served model's own
+      # provider. Harmless while fallback stays same-provider (inc1 keeps the
+      # fallback within the Anthropic reasoning tier). When cross-provider fallback
+      # lands, resolve the served model's provider here before recording.
       served_by  = (metrics["served_by"] || metrics[:served_by]).presence
       model_name = served_by || agent&.model
       return unless ai_provider_id.present? && model_name.present? && agent&.agent_type.present?
