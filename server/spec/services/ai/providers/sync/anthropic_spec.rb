@@ -53,7 +53,7 @@ RSpec.describe Ai::Providers::Sync::Anthropic do
         expect(opus["display_name"]).to eq("Claude Opus 4.5")
       end
 
-      it "sets context_length to 200000 for all models" do
+      it "sets context_length to 200000 for all legacy models" do
         Ai::ProviderManagementService.send(:sync_anthropic_models, provider)
         provider.reload
         provider.supported_models.each do |model|
@@ -69,7 +69,7 @@ RSpec.describe Ai::Providers::Sync::Anthropic do
         sonnet = provider.supported_models.find { |m| m["id"].include?("sonnet") }
 
         expect(opus["max_output_tokens"]).to eq(32_000)
-        expect(sonnet["max_output_tokens"]).to eq(8192)
+        expect(sonnet["max_output_tokens"]).to eq(64_000)
       end
 
       it "assigns capabilities including extended_thinking for opus" do
@@ -102,6 +102,54 @@ RSpec.describe Ai::Providers::Sync::Anthropic do
         provider.reload
         opus = provider.supported_models.find { |m| m["id"] == "claude-opus-4-5-20251101" }
         expect(opus["created_at"]).to eq("2025-11-01T00:00:00Z")
+      end
+    end
+
+    context "with current-generation models in the API response" do
+      let(:api_response_body) do
+        {
+          data: [
+            { id: "claude-haiku-4-5-20251001", display_name: "Claude Haiku 4.5", created_at: "2025-10-01T00:00:00Z" },
+            { id: "claude-sonnet-5", display_name: "Claude Sonnet 5", created_at: "2026-03-01T00:00:00Z" },
+            { id: "claude-fable-5", display_name: "Claude Fable 5", created_at: "2026-07-01T00:00:00Z" },
+            { id: "claude-opus-4-8", display_name: "Claude Opus 4.8", created_at: "2026-05-01T00:00:00Z" }
+          ]
+        }
+      end
+
+      before do
+        stub_request(:get, api_url)
+          .with(headers: { "x-api-key" => "sk-ant-test-key-1234567890abcdef", "anthropic-version" => "2023-06-01" })
+          .to_return(status: 200, body: api_response_body.to_json, headers: { "Content-Type" => "application/json" })
+      end
+
+      it "gives current-generation models the 1M-context / 128K-output envelope" do
+        Ai::ProviderManagementService.send(:sync_anthropic_models, provider)
+        provider.reload
+
+        %w[claude-fable-5 claude-opus-4-8 claude-sonnet-5].each do |id|
+          model = provider.supported_models.find { |m| m["id"] == id }
+          expect(model["context_length"]).to eq(1_000_000), "#{id} context"
+          expect(model["max_output_tokens"]).to eq(128_000), "#{id} max output"
+        end
+      end
+
+      it "keeps Haiku 4.5 at 200K context / 64K output" do
+        Ai::ProviderManagementService.send(:sync_anthropic_models, provider)
+        provider.reload
+
+        haiku = provider.supported_models.find { |m| m["id"] == "claude-haiku-4-5-20251001" }
+        expect(haiku["context_length"]).to eq(200_000)
+        expect(haiku["max_output_tokens"]).to eq(64_000)
+      end
+
+      it "sorts Fable first, then Opus, then Sonnet, then Haiku" do
+        Ai::ProviderManagementService.send(:sync_anthropic_models, provider)
+        provider.reload
+
+        expect(provider.supported_models.map { |m| m["id"] }).to eq(
+          %w[claude-fable-5 claude-opus-4-8 claude-sonnet-5 claude-haiku-4-5-20251001]
+        )
       end
     end
 

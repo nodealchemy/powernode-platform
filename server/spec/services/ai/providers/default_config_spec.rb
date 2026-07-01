@@ -8,8 +8,8 @@ RSpec.describe Ai::Providers::DefaultConfig do
       types = described_class.types
 
       expect(types).to be_an(Array)
-      expect(types).to include("openai", "anthropic", "google", "azure_openai", "groq", "mistral", "cohere", "grok")
-      expect(types.size).to eq(8)
+      expect(types).to include("openai", "anthropic", "google", "azure_openai", "groq", "mistral", "cohere", "grok", "runway", "elevenlabs")
+      expect(types.size).to eq(10)
     end
   end
 

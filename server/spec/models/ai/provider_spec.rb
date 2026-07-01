@@ -207,7 +207,7 @@ RSpec.describe Ai::Provider, type: :model do
         provider = build(:ai_provider, provider_type: 'openai', configuration: nil)
         provider.valid?
 
-        expect(provider.configuration['models']).to include('gpt-3.5-turbo')
+        expect(provider.configuration['models']).to include('gpt-4.1-mini')
         expect(provider.configuration['default_model']).to be_present
       end
     end

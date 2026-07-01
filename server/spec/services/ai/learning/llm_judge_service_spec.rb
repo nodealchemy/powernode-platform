@@ -14,7 +14,7 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
 
   describe "#initialize" do
     it "uses default evaluator model" do
-      expect(service.evaluator_model).to eq("claude-sonnet-4-5-20250929")
+      expect(service.evaluator_model).to eq("claude-sonnet-5")
     end
 
     it "accepts custom evaluator model" do
