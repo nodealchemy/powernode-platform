@@ -38,7 +38,7 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | Cryptographic material safety (GENERIC principles) | core+knowledge | CLAUDE.md + `guidance-crypto-material-safety` + agent `BASE_GUARDRAILS` | review (private specifics → CLAUDE.local.md) |
 | Design principles (Reuse First, Quality Gates, Stop&Ask, Surface Assumptions, Audit=report, Verify, Trace Changes, Plan Before Multi-File, etc.) | core | CLAUDE.md | — |
 | Architecture principles (Pull Never Push, Extension Isolation, Service Boundaries) | core | CLAUDE.md | `core-purity-check.sh` (isolation) |
-| Bulk operation safety | core | CLAUDE.md | — |
+| **Bulk operation safety (state the count, never batch-approve)** | core+knowledge | CLAUDE.md + `guidance-bulk-op-safety` + agent `BASE_GUARDRAILS` + loop guardrails | — (cross-executor recall) |
 | Submodule safety | core | CLAUDE.md | `submodule-boundary-check.sh` |
 | Terminology | core | CLAUDE.md | — |
 | Worker architecture invariants (no jobs in server/, no sidekiq in server Gemfile) | core | CLAUDE.md | `pattern-validation.sh` |

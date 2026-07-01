@@ -91,7 +91,7 @@ Generic key-handling principles — apply to ALL key material. Private-extension
 ### Bulk Operation Safety
 - **State the count** before ANY bulk operation: "This will affect N items."
 - Operations affecting **more than 5 items** require explicit user confirmation; show the first 3 and last 1.
-- **Never batch-approve** training decisions, permission grants, financial operations, or **auto-discovered code changes** — review individually.
+- **Never batch-approve** training decisions, permission grants, financial operations, or **auto-discovered code changes** — review individually. (also `guidance-bulk-op-safety` + agent `BASE_GUARDRAILS` + loop guardrails so all executors carry it)
 
 ### Design Principles
 - **Reuse First**: `platform.discover_skills` + `search_knowledge` + `code_semantic_search` before proposing anything new — never greenfield when infrastructure exists.

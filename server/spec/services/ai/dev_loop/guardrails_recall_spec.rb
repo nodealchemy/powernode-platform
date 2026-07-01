@@ -19,6 +19,10 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
         expect(guardrails).to include(match(/guidance-\*/))
         expect(guardrails).to include(match(/search_knowledge/))
       end
+
+      it "#{const_name} includes the never-batch-approve bulk-op guardrail" do
+        expect(guardrails).to include(match(/batch-approve/i))
+      end
     end
   end
 
@@ -43,6 +47,11 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
     it "includes the crypto-material-safety rule (migrated cross-executor)" do
       expect(baseline).to match(/Vault-only/)
       expect(baseline).to match(/never handle key material directly/)
+    end
+
+    it "includes the bulk-operation-safety rule (migrated cross-executor)" do
+      expect(baseline).to match(/batch-approve/i)
+      expect(baseline).to match(/state the count/i)
     end
   end
 end
