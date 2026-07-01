@@ -2,6 +2,7 @@
 
 require_relative 'credential_resolver'
 require_relative 'ai/llm/client'
+require_relative 'ai/llm/refusal_handler'
 
 # LLM client that calls AI providers directly from the worker process.
 #
@@ -47,7 +48,13 @@ class LlmProxyClient
     model ||= config["model"]
 
     tools = symbolize_tools(tools)
-    response = client.complete_with_tools(messages: messages, tools: tools, model: model, **opts)
+    # Wrap the provider call in the adapt→fallback refusal handler. For non-Fable
+    # models this is a straight pass-through (the handler returns the first
+    # response untouched); for Fable/Mythos a refusal triggers one reframe then a
+    # server-resolved non-Fable fallback.
+    response = refusal_handler(config, model).run(messages: messages) do |attempt_model, attempt_messages|
+      client.complete_with_tools(messages: attempt_messages, tools: tools, model: attempt_model, **opts)
+    end
     format_response(response)
   end
 
@@ -85,9 +92,11 @@ class LlmProxyClient
     tools = tools_response["tools"] || []
     tools_enabled = tools_response["tools_enabled"]
 
-    # If tools disabled, fall back to simple completion
+    # If tools disabled, fall back to simple completion (still refusal-guarded).
     unless tools_enabled && tools.any?
-      response = client.complete(messages: messages, model: model, **opts)
+      response = refusal_handler(provider_config, model).run(messages: messages) do |attempt_model, attempt_messages|
+        client.complete(messages: attempt_messages, model: attempt_model, **opts)
+      end
       return format_response(response)
     end
 
@@ -96,18 +105,45 @@ class LlmProxyClient
     total_usage = { prompt_tokens: 0, completion_tokens: 0, cached_tokens: 0, total_tokens: 0 }
     total_cost = 0.0
     last_response = nil
+    last_served_by = nil
+    last_refusal_recovery = nil
     max_iterations = opts.delete(:max_iterations) || TOOL_LOOP_MAX_ITERATIONS
 
     max_iterations.times do |iteration|
-      # Call LLM with tools -- provider called directly
+      # Call LLM with tools -- provider called directly, wrapped in the refusal
+      # handler so a Fable refusal mid-loop adapts/falls back rather than aborting.
       symbolized_tools = symbolize_tools(tools)
-      response = client.complete_with_tools(
-        messages: current_messages, tools: symbolized_tools, model: model, **opts
-      )
+      response = refusal_handler(provider_config, model).run(messages: current_messages) do |attempt_model, attempt_messages|
+        client.complete_with_tools(messages: attempt_messages, tools: symbolized_tools, model: attempt_model, **opts)
+      end
+
+      # Carry the recovery audit trail (for server-side learn) to the result.
+      if response.refusal_recovery
+        last_refusal_recovery = response.refusal_recovery
+        last_served_by = response.served_by
+      end
+      # Sticky fallback: once we fell back to a non-Fable model, keep using it for
+      # the rest of the loop so we don't re-trigger the same refusal every turn.
+      model = response.served_by if response.served_by.present? && response.served_by != model
 
       accumulate_usage(total_usage, response.usage)
       total_cost += calculate_response_cost(response, model)
       last_response = response
+
+      # Terminal refusal (fallback also declined, or no fallback) — surface loudly,
+      # never a silent nil, and stop the loop.
+      if response.refusal
+        return {
+          "content" => nil,
+          "usage" => total_usage,
+          "tool_calls_log" => tool_calls_log,
+          "finish_reason" => "refusal",
+          "cost" => total_cost,
+          "refusal" => response.refusal,
+          "served_by" => nil,
+          "refusal_recovery" => last_refusal_recovery
+        }.compact
+      end
 
       # If no tool calls, we're done
       unless response.has_tool_calls?
@@ -116,8 +152,10 @@ class LlmProxyClient
           "usage" => total_usage,
           "tool_calls_log" => tool_calls_log,
           "finish_reason" => response.finish_reason,
-          "cost" => total_cost
-        }
+          "cost" => total_cost,
+          "served_by" => last_served_by,
+          "refusal_recovery" => last_refusal_recovery
+        }.compact
       end
 
       # Add assistant message with tool calls to conversation
@@ -169,8 +207,24 @@ class LlmProxyClient
       "usage" => total_usage,
       "tool_calls_log" => tool_calls_log,
       "finish_reason" => "max_iterations",
-      "cost" => total_cost
-    }
+      "cost" => total_cost,
+      "served_by" => last_served_by,
+      "refusal_recovery" => last_refusal_recovery
+    }.compact
+  end
+
+  # Build a refusal handler for a provider call. `fallback_models` is resolved
+  # SERVER-side (Ai::AgentModelSelector reasoning tier, excluding the refused
+  # model) and rides along the provider_config the worker already fetches; the
+  # worker never picks a model itself. For non-Fable models the handler is a
+  # straight pass-through.
+  def refusal_handler(config, model)
+    fallbacks = config.is_a?(Hash) ? Array(config["fallback_models"] || config[:fallback_models]) : []
+    Ai::Llm::RefusalHandler.new(
+      model: model,
+      fallback_models: fallbacks,
+      logger: PowernodeWorker.application.logger
+    )
   end
 
   # Run the full agentic tool loop with reasoning/reflection.
@@ -290,7 +344,13 @@ class LlmProxyClient
       "model" => response.model,
       "tool_calls" => response.tool_calls.presence,
       "cost" => cost,
-      "thinking_content" => response.thinking_content
+      "thinking_content" => response.thinking_content,
+      # Refusal metadata rides the existing flat JSON body back to the server.
+      # `.compact` drops these for every non-refusal call, so the hot path is
+      # byte-identical to before.
+      "refusal" => response.refusal,
+      "served_by" => response.served_by,
+      "refusal_recovery" => response.refusal_recovery
     }.compact
 
     # Propagate error details so callers can see provider failures

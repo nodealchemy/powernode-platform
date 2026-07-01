@@ -29,7 +29,12 @@ require "uri"
 class WorkerLlmClient
   class WorkerLlmError < StandardError; end
 
-  LLM_TIMEOUT = 120 # seconds -- LLM calls can be slow
+  # A single worker call can now run up to THREE sequential provider attempts
+  # (original → reframe → non-Fable fallback) inside the refusal handler, and
+  # Fable turns are themselves minutes-long — so the server→worker read timeout
+  # is generous enough to cover the full adapt→fallback path without aborting
+  # mid-recovery. (The worker's own per-attempt provider timeout is separate.)
+  LLM_TIMEOUT = 600 # seconds -- LLM calls can be slow; refusal recovery is up to 3 attempts
   OPEN_TIMEOUT = 10  # seconds
 
   attr_reader :provider, :credential
@@ -152,7 +157,10 @@ class WorkerLlmClient
       model: model,
       usage: symbolize_usage(usage),
       cost: data["cost"],
-      provider: provider_name
+      provider: provider_name,
+      refusal: data["refusal"],
+      served_by: data["served_by"],
+      refusal_recovery: data["refusal_recovery"]
     )
     track_llm_usage!(response, model)
 
@@ -247,7 +255,11 @@ class WorkerLlmClient
       usage: symbolize_usage(data["usage"]),
       thinking_content: data["thinking_content"],
       cost: data["cost"],
-      provider: provider_name
+      provider: provider_name,
+      # Refusal metadata threaded back from the worker's refusal handler.
+      refusal: data["refusal"],
+      served_by: data["served_by"],
+      refusal_recovery: data["refusal_recovery"]
     )
   end
 

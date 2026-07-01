@@ -113,7 +113,12 @@ module Api
               provider_credential_id: credential&.id,
               provider_base_url: provider&.api_base_url,
               provider_name: provider&.name,
-              model: model
+              model: model,
+              # Non-Fable reasoning fallbacks for the worker's refusal handler.
+              # Resolved SERVER-side (no hardcoded id), and ONLY computed for
+              # refusal-capable models so the hot path stays cheap for everything
+              # else.
+              fallback_models: refusal_fallbacks_for(agent, model)
             )
           rescue ActiveRecord::RecordNotFound
             render_error("Agent not found", status: :not_found)
@@ -157,6 +162,22 @@ module Api
             )
           rescue ActiveRecord::RecordNotFound
             render_error("Account not found", status: :not_found)
+          end
+
+          private
+
+          # Ordered non-Fable reasoning fallbacks for the worker's refusal handler.
+          # Gated on refusal_capable? — non-Fable models never pay the resolution
+          # cost. Best-effort: a resolution failure must never break the config call.
+          def refusal_fallbacks_for(agent, model)
+            return [] unless ::Ai::Llm::ModelCapabilities.refusal_capable?(model)
+
+            ::Ai::ModelFallbackResolver.reasoning_fallbacks(
+              account: agent.account, agent_type: agent.agent_type, exclude: model
+            )
+          rescue StandardError => e
+            Rails.logger.warn("[provider_config] refusal fallback resolution failed: #{e.message}")
+            []
           end
         end
       end

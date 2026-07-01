@@ -31,6 +31,7 @@ require_relative '../app/controllers/jobs_controller'
 
 # AI LLM client for direct provider calls (bypassing server proxy)
 require_relative '../app/services/ai/llm/client'
+require_relative '../app/services/ai/llm/refusal_handler'
 require_relative '../app/services/ai/embedding_service'
 require_relative '../app/services/credential_resolver'
 
