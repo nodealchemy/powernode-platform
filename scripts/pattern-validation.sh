@@ -317,6 +317,24 @@ else
 fi
 
 echo ""
+echo -e "${BLUE}## Kill-Switch Compliance (Worker)${NC}"
+# Model-agnostic enforcement of worker/CLAUDE.md L11 (recall guidance-kill-switch-compliance):
+# every AI-execution worker job MUST `include AiSuspensionCheckConcern` AND call
+# `bail_if_ai_suspended!` so the global emergency_halt / per-account kill switch stops it.
+# Delegated to the dedicated guard so the authoritative required-job list stays next to the
+# logic; the guard mirrors the regression specs and does a marker sweep for new jobs.
+total_checks=$((total_checks + 1))
+echo -n "Checking: AI-execution worker jobs honor the kill switch (AiSuspensionCheckConcern)... "
+if ks_out=$(./scripts/checks/kill-switch-compliance-check.sh 2>&1); then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC}"
+    echo "$ks_out" | sed 's/^/    /'
+    failed_checks=$((failed_checks + 1))
+fi
+
+echo ""
 echo -e "${BLUE}=== AUDIT SUMMARY ===${NC}"
 echo "Total Checks: $total_checks"
 echo -e "Passed: ${GREEN}$passed_checks${NC}"

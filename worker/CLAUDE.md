@@ -8,7 +8,7 @@ Sidekiq standalone worker for Powernode.
 - API-only communication with server (mTLS for `/api/v1/internal/*`; ActionCable WebSocket still uses JWT)
 - `Rails.logger` - no puts/print
 - `# frozen_string_literal: true` pragma required
-- All AI execution jobs MUST include `AiSuspensionCheckConcern` for kill switch compliance
+- All AI execution jobs MUST include `AiSuspensionCheckConcern` for kill switch compliance (and call `bail_if_ai_suspended!` first in `execute()`; enforced by `scripts/pattern-validation.sh` for any executor — recall `guidance-kill-switch-compliance`)
 
 ## MCP-First Worker Workflow
 

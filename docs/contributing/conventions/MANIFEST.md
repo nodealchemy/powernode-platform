@@ -42,6 +42,7 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | Submodule safety | core | CLAUDE.md | `submodule-boundary-check.sh` |
 | Terminology | core | CLAUDE.md | — |
 | Worker architecture invariants (no jobs in server/, no sidekiq in server Gemfile) | core | CLAUDE.md | `pattern-validation.sh` |
+| **Worker: AI-execution jobs MUST include `AiSuspensionCheckConcern` (kill-switch compliance)** | core+knowledge | worker/CLAUDE.md + `guidance-kill-switch-compliance` | `pattern-validation.sh` (via `scripts/checks/kill-switch-compliance-check.sh`) |
 | Service management + operations reference | doc | service-and-ops.md | — |
 | Automation scripts | doc | service-and-ops.md | — |
 | Test execution + multi-agent rules + patterns | doc | testing-patterns.md | — |
