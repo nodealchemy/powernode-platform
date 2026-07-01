@@ -57,8 +57,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
-CONTROLLERS_DIR="server/app/controllers/api/v1"
-ALLOWLIST="scripts/account-scoping-allowlist.txt"
+# Scan dir + allowlist are overridable (ACCOUNT_SCOPING_DIR / _ALLOWLIST) so the
+# guard's own spec can point it at an isolated fixture tree (cf. MCP_TOOLS_DIR in
+# the sibling check-mcp-actions.sh). Defaults are the real user-facing surface.
+CONTROLLERS_DIR="${ACCOUNT_SCOPING_DIR:-server/app/controllers/api/v1}"
+ALLOWLIST="${ACCOUNT_SCOPING_ALLOWLIST:-scripts/account-scoping-allowlist.txt}"
 
 # Color codes (match pattern-validation.sh)
 RED='\033[0;31m'
@@ -126,6 +129,23 @@ filtered_hits() {
 
         # Inline opt-out annotation
         if printf '%s' "$linetext" | grep -qP '#\s*scoping-ok:'; then
+            continue
+        fi
+
+        # Comment false-positive: a WHOLE-LINE comment (first non-space char is
+        # '#', e.g. a historical "# Previously Model.all leaked..." note) is not
+        # live code and carries no IDOR risk. Suppress only this shape. It is
+        # provably fail-safe as long as the line carries NO '#{...}' interpolation:
+        # the ONLY way a '#'-leading line executes Ruby is a '#{...}' inside an
+        # interpolating heredoc/percent-string body (whose leading '#' is literal
+        # text, e.g. a markdown/shell/SQL fragment) — and '#{Model.find(params)}'
+        # there IS a live query. So we refuse to suppress ANY line containing '#{'
+        # (start OR mid-line); without interpolation a '#'-leading line is a pure
+        # comment or non-interpolated literal text and cannot hide a real call.
+        # Inline trailing comments after real code are also NOT stripped (fail-safe);
+        # annotate those with '# scoping-ok:' if intentional.
+        local trimmed_line="${linetext#"${linetext%%[![:space:]]*}"}"
+        if [[ "$trimmed_line" == "#"* && "$trimmed_line" != *'#{'* ]]; then
             continue
         fi
 
