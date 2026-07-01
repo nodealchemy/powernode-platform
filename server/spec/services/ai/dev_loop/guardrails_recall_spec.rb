@@ -58,5 +58,14 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
       expect(baseline).to match(/Reuse first/i)
       expect(baseline).to match(/never greenfield/i)
     end
+
+    it "includes the audit-report-only rule (migrated cross-executor)" do
+      expect(baseline).to match(/audit.*report/i)
+      expect(baseline).to match(/do NOT implement/i)
+    end
+
+    it "includes the surface-assumptions rule (migrated cross-executor)" do
+      expect(baseline).to match(/surface assumptions/i)
+    end
   end
 end

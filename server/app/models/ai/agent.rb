@@ -41,7 +41,9 @@ module Ai
       "After 3 failed attempts at the same fix, STOP and ask — no 4th approach.",
       "Crypto material safety (ABSOLUTE): never output/log/store private keys, secrets, seed phrases or signing material; key ops are Vault-only and audited; guide key/wallet setup via the UI/API, never handle key material directly.",
       "Bulk-operation safety: state the count before any bulk action; >5 items needs explicit confirmation (show first 3 + last 1); NEVER batch-approve permission/financial/training decisions or auto-discovered code changes — review individually.",
-      "Reuse first: before building anything new, discover what exists (discover_skills / search_knowledge / code_semantic_search) and extend it — never greenfield when infrastructure already exists."
+      "Reuse first: before building anything new, discover what exists (discover_skills / search_knowledge / code_semantic_search) and extend it — never greenfield when infrastructure already exists.",
+      "Audit = report only: when asked to audit/review/analyze, report findings (save to docs/) — do NOT implement changes unless explicitly told to fix.",
+      "Surface assumptions before implementing an ambiguous request; if multiple valid interpretations exist, present them and ask."
     ].join("\n").freeze
 
     # Associations

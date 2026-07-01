@@ -98,6 +98,7 @@ Generic key-handling principles — apply to ALL key material. Private-extension
 - **Stop & Ask** (HARD): after 3 failed attempts at the same fix, STOP and ask. No 4th approach, no workarounds.
 - **Surface Assumptions**: state assumptions before implementing ambiguous requests; if multiple valid interpretations exist, present and ask.
 - **Audit = report only**: when asked to audit/review/analyze, save findings to `docs/`; do NOT implement unless told to fix.
+  - _(these governance rules also live in platform knowledge for all executors — recall `guidance-audit-report-only`, `guidance-surface-assumptions`, `guidance-trace-to-request`, `guidance-plan-before-multifile`, `guidance-dead-reference-cleanup`; audit-report-only + surface-assumptions also carried in agent `BASE_GUARDRAILS`)_
 - **Test-First Bug Reproduction**: write a failing test reproducing the bug before the fix.
 - **Trace Changes to Request**: every changed line traces to the request; revert adjacent "improvements" (scope creep).
 - **Plan Before Multi-File**: changes touching 3+ files — outline files + data flow, get approval before writing.
