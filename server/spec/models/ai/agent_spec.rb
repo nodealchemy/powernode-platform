@@ -367,4 +367,32 @@ RSpec.describe Ai::Agent, type: :model do
       expect(agent.skill_slugs).to eq([])
     end
   end
+
+  describe '#resolved_model Fable candidacy gate (pinned path)' do
+    let(:gate_account) { create(:account) }
+    let(:gate_provider) do
+      p = create(:ai_provider, :anthropic, account: gate_account,
+        supported_models: [
+          { 'id' => 'claude-fable-5', 'name' => 'claude-fable-5' },
+          { 'id' => 'claude-opus-4-8', 'name' => 'claude-opus-4-8' }
+        ])
+      create(:ai_provider_credential, account: gate_account, provider: p)
+      p
+    end
+    let(:pinned_agent) do
+      create(:ai_agent, account: gate_account, provider: gate_provider,
+        agent_type: 'code_assistant',
+        mcp_metadata: { 'model_config' => { 'model' => 'claude-fable-5' } })
+    end
+
+    it 'does NOT honor a Fable pin when the framework is off (falls through to a non-Fable model)' do
+      expect(pinned_agent.resolved_model).not_to eq('claude-fable-5')
+      expect(Ai::FableRouting.fable_model?(pinned_agent.resolved_model)).to be(false)
+    end
+
+    it 'honors the Fable pin when the framework is on' do
+      gate_account.update!(settings: { 'fable_routing_enabled' => true })
+      expect(pinned_agent.resolved_model).to eq('claude-fable-5')
+    end
+  end
 end

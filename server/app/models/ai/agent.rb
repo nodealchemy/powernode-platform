@@ -303,6 +303,11 @@ module Ai
       return fallback_resolution if acct.nil?
 
       pinned = mcp_metadata&.dig("model_config", "model").presence
+      # Fable-5 candidacy gate: a Fable/Mythos PIN is NOT honored while the
+      # framework is off (Fable is non-selectable / not yet available) — drop the
+      # pin and fall through to the selector, which also excludes Fable when off,
+      # so a non-Fable model is chosen. Honored normally when the toggle is on.
+      pinned = nil if pinned && ::Ai::FableRouting.fable_model?(pinned) && !::Ai::FableRouting.enabled_for?(acct)
       if pinned && (prov = provider_for_pinned_model(pinned, acct))
         return resolution_for(pinned, prov)
       end
