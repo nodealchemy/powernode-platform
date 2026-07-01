@@ -75,7 +75,10 @@ module Ai
         end
 
         # (2) VISIBLE FALLBACK — non-Fable reasoning model, ORIGINAL history as-is.
-        fallback = @fallback_models.first
+        # Defensive: never fall back to the model that just refused (the resolver
+        # already excludes it, but a stale/misconfigured list must not waste a retry
+        # or recurse into the same refusal).
+        fallback = @fallback_models.reject { |m| m == @model }.first
         if fallback.blank?
           log(:no_fallback, @model, category: category, phase: phase)
           return terminal_refusal(reframed, reframed: true, fell_back: false,

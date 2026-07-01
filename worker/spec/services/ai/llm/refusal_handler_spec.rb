@@ -83,6 +83,15 @@ RSpec.describe Ai::Llm::RefusalHandler do
     expect(resp.refusal_recovery).to include('fell_back' => true, 'resolved' => false)
   end
 
+  it 'never retries against a fallback equal to the refused model (goes terminal)' do
+    handler = described_class.new(model: 'claude-fable-5', fallback_models: ['claude-fable-5'])
+    attempts = []
+    resp = handler.run(messages: messages) { |m, _msgs| attempts << m; refusal_response }
+    expect(attempts).to eq(%w[claude-fable-5 claude-fable-5]) # original + reframe only; no wasted 3rd attempt
+    expect(resp.refused?).to be true
+    expect(resp.refusal_recovery).to include('fell_back' => false, 'resolved' => false)
+  end
+
   it 'surfaces a structured refusal (never nil) when no fallback model is configured' do
     handler = described_class.new(model: 'claude-fable-5', fallback_models: [])
     attempts = []
