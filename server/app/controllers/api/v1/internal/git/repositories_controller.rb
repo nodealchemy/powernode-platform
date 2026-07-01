@@ -110,10 +110,19 @@ module Api
 
           # POST /api/v1/internal/git/repositories/sync_all_pipelines
           # Worker-scheduled: enqueue a PipelineSyncJob for every active git repo
-          # with a credential, so Devops::GitPipeline (CI status) stays populated.
+          # with an active credential, so Devops::GitPipeline (CI status) stays
+          # populated. Repos with no credential (or an inactive one) are skipped
+          # here rather than enqueued-then-skipped in the worker every tick —
+          # syncing without a usable credential can never succeed, so the enqueue
+          # + credential lookup is wasted work. INNER-joining the credential and
+          # requiring is_active proactively pauses sync until a usable credential
+          # is (re)configured, at which point the next tick resumes automatically.
           def sync_all_pipelines
             enqueued = 0
-            ::Devops::GitRepository.active.where.not(git_provider_credential_id: nil).find_each do |repo|
+            ::Devops::GitRepository.active
+                                   .joins(:credential)
+                                   .merge(::Devops::GitProviderCredential.active)
+                                   .find_each do |repo|
               WorkerJobService.enqueue_job("Git::PipelineSyncJob", args: [ repo.id ], queue: "services")
               enqueued += 1
             end
