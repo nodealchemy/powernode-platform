@@ -35,6 +35,41 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
     end
   end
 
+  describe '#build_agent_options (effort mapping)' do
+    let(:messages) { [{ role: 'user', content: 'Implement the login page' }] }
+
+    before { allow(agent).to receive(:resolved_model).and_return('claude-fable-5') }
+
+    context 'with the framework INERT (default OFF)' do
+      it 'does not populate :effort — request is behavior-neutral' do
+        opts = executor.send(:build_agent_options, agent, provider, messages)
+        expect(opts).not_to have_key(:effort)
+        expect(opts[:model]).to eq('claude-fable-5')
+      end
+    end
+
+    context 'with the framework enabled' do
+      before { allow(Ai::FableRouting).to receive(:enabled_for?).with(account).and_return(true) }
+
+      it 'populates a valid :effort for an effort-capable model' do
+        opts = executor.send(:build_agent_options, agent, provider, messages)
+        expect(Ai::Routing::EffortMapper::VALID_EFFORTS).to include(opts[:effort])
+      end
+
+      it 'honors an explicit agent effort pin over derivation' do
+        allow(agent).to receive(:mcp_metadata).and_return({ 'model_config' => { 'effort' => 'max' } })
+        opts = executor.send(:build_agent_options, agent, provider, messages)
+        expect(opts[:effort]).to eq('max')
+      end
+
+      it 'does NOT populate :effort for a non-effort-capable model' do
+        allow(agent).to receive(:resolved_model).and_return('claude-3-5-sonnet')
+        opts = executor.send(:build_agent_options, agent, provider, messages)
+        expect(opts).not_to have_key(:effort)
+      end
+    end
+  end
+
   describe '#execute' do
     context 'when no executor is found' do
       before do

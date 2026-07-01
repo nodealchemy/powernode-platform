@@ -124,7 +124,7 @@ module Ai
         client = WorkerLlmClient.new(agent_id: agent.id)
         provider_type = provider.provider_type
         messages = build_agent_messages(agent)
-        options = build_agent_options(agent, provider)
+        options = build_agent_options(agent, provider, messages)
 
         # Use AgentToolBridgeService when agent has platform tool access configured
         tool_bridge = Ai::AgentToolBridgeService.new(agent: agent, account: account)
@@ -176,7 +176,11 @@ module Ai
           model: model,
           max_tokens: options[:max_tokens] || 4096,
           temperature: options[:temperature] || 0.7,
-          system_prompt: system_prompt
+          system_prompt: system_prompt,
+          # Carry the resolved reasoning-effort onto the tool-bridge path too
+          # (otherwise this path would silently drop it). Omitted when unset so
+          # non-effort models / inert framework are unchanged.
+          **(options[:effort].present? ? { effort: options[:effort] } : {})
         )
 
         tool_calls_summary = result[:tool_calls_log]&.map { |tc| tc[:tool] }&.tally || {}
@@ -459,15 +463,43 @@ module Ai
         ]
       end
 
-      def build_agent_options(agent, provider)
+      def build_agent_options(agent, provider, messages = [])
         metadata = agent.mcp_metadata || {}
         model_config = metadata.dig("ollama_config") || metadata.dig("model_config") || metadata
-        {
-          # #37: resolve model via Ai::Agent resolution triple (pinned → selector → default)
-          model: agent.resolved_model,
+        # #37: resolve model via Ai::Agent resolution triple (pinned → selector → default)
+        model = agent.resolved_model
+        options = {
+          model: model,
           max_tokens: model_config["max_tokens"] || 4096,
           temperature: model_config["temperature"] || 0.7
         }
+        effort = resolve_effort(model, model_config, messages)
+        options[:effort] = effort if effort
+        options
+      end
+
+      # Resolve the reasoning-effort value for this call, or nil when effort must
+      # not be set. Gated by the Fable-5 framework master switch → INERT by
+      # default: no output_config.effort is populated anywhere until an operator
+      # enables the framework. When enabled, precedence is explicit pin (agent
+      # model_config.effort or loop configuration.effort) > complexity-derived >
+      # default. Only effort-capable models get a value (EffortMapper returns nil
+      # for everything else, so legacy models are unchanged).
+      def resolve_effort(model, model_config, messages)
+        return nil unless ::Ai::FableRouting.enabled_for?(account)
+
+        pinned = model_config["effort"].presence ||
+                 ralph_loop&.configuration&.dig("effort").presence
+        task_type = task.metadata.is_a?(Hash) ? (task.metadata["task_type"] || task.metadata[:task_type]) : nil
+
+        ::Ai::Routing::EffortMapper.resolve(
+          account: account,
+          model: model,
+          pinned_effort: pinned,
+          task_type: task_type,
+          messages: messages,
+          tools: []
+        )
       end
 
       def default_system_prompt
