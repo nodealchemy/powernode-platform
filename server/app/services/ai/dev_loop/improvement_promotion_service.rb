@@ -14,19 +14,15 @@ module Ai
       LOOP_SPEC_PATH = ".claude/loops/dev-improve/PROMPT.md"
       LOOP_BRANCH = "dev-loop/dev-improve"
 
-      GUARDRAILS = [
-        "One task per iteration — finish or report before pulling the next",
-        "Consult model-agnostic guidance BEFORE changing code: run search_knowledge with tag guidance-* and honor the applicable safety/governance/convention rules — the SessionStart digest is Claude-only, so non-Claude executors MUST query",
-        "Never batch-approve — review auto-discovered changes, permission grants, and financial/training decisions ONE at a time; state the count before any bulk action (>5 items needs explicit confirmation)",
+      # Shared head + tail (incl. Fable autonomy/honesty tunings) live in
+      # Ai::DevLoop::LoopGuardrails; only the improve-specific middle lines are here.
+      GUARDRAILS = LoopGuardrails.compose(
         "Re-verify the finding against current code BEFORE changing anything (findings rot)",
         "Write a failing spec reproducing the finding FIRST; confirm it is red",
         "Independent review: run /code-review on the diff BEFORE committing (don't trust spec-green alone)",
-        "Run the verification gate before reporting done: scripts/validate.sh (specs + tsc + pattern-validation + gitleaks) or the targeted specs/tsc/pattern-validation for what you changed — do not rely on '/verify' (Claude-only)",
         "Never introduce a core->extension dependency or a private-extension name into a core file",
-        "Commit only to the loop branch — never develop/master, never push",
-        "After 3 failed attempts on the same task, report outcome=failed and stop",
-        "On a Fable/Mythos refusal (stop_reason \"refusal\"), don't panic or manually retry — it auto-reframes once then falls back to Opus and logs it; prefer goal+constraints prompting over step-by-step for Fable (search_knowledge tag:guidance-fable5-compliance)"
-      ].freeze
+        "Commit only to the loop branch — never develop/master, never push"
+      )
 
       Result = Struct.new(:ralph_loop, :ralph_task, :created, keyword_init: true)
 

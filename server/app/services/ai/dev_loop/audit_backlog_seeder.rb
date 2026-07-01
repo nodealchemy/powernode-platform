@@ -19,18 +19,14 @@ module Ai
 
       HEADING = /^## (F\d+-\d+) — (S\d) \[(XS|S|M|L)\] ([a-z_-]+) \((\w+)\)\s*$/
 
-      GUARDRAILS = [
-        "One task per iteration — finish or report before pulling the next",
-        "Consult model-agnostic guidance BEFORE changing code: run search_knowledge with tag guidance-* and honor the applicable safety/governance/convention rules — the SessionStart digest is Claude-only, so non-Claude executors MUST query",
-        "Never batch-approve — review auto-discovered changes, permission grants, and financial/training decisions ONE at a time; state the count before any bulk action (>5 items needs explicit confirmation)",
+      # Shared head + tail (incl. Fable autonomy/honesty tunings) live in
+      # Ai::DevLoop::LoopGuardrails; only the audit-specific middle lines are here.
+      GUARDRAILS = LoopGuardrails.compose(
         "Write a failing spec reproducing the finding BEFORE the fix; confirm it is red",
         "Search before changing — verify the claim against current code first (findings may have rotted)",
         "No placeholder implementations",
-        "Run the verification gate before reporting done: scripts/validate.sh (specs + tsc + pattern-validation + gitleaks) or the targeted specs/tsc/pattern-validation for what you changed — do not rely on '/verify' (Claude-only)",
-        "After 3 failed attempts on the same task, report outcome=failed and stop",
-        "Commit only to the loop branch — never develop/master, never push",
-        "On a Fable/Mythos refusal (stop_reason \"refusal\"), don't panic or manually retry — it auto-reframes once then falls back to Opus and logs it; prefer goal+constraints prompting over step-by-step for Fable (search_knowledge tag:guidance-fable5-compliance)"
-      ].freeze
+        "Commit only to the loop branch — never develop/master, never push"
+      )
 
       Result = Struct.new(:ralph_loop, :created, :skipped, :total_parsed, keyword_init: true)
 
