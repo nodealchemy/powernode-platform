@@ -51,9 +51,9 @@ Rules are routed by **trigger shape** — the mechanism that surfaces or enforce
 ## Critical Rules (always-on)
 
 ### Git
-- **NEVER** commit unless explicitly requested. **NEVER** include Claude attribution in commits.
+- **NEVER** commit unless explicitly requested. **NEVER** include AI attribution (any executor — Claude/Grok/Codex/Gemini/etc.) in commits — no "Generated with" / "Co-Authored-By" from any model.
 - Branch: `develop` → `feature/*` → `release/*` → `master`. Tags/release branches: **NO "v" prefix** (`0.2.0`, `release/0.2.0`).
-- **Staged commits**: group changes into logical commits by concern — never one monolithic commit.
+- **Staged commits**: group changes into logical commits by concern — never one monolithic commit. (also `guidance-git-conventions`)
 
 ### Permission-Based Access Control (CRITICAL)
 **Frontend MUST use permissions ONLY — NEVER roles for access control.**
@@ -114,14 +114,14 @@ Generic key-handling principles — apply to ALL key material. Private-extension
 _These three invariants are also in the cross-executor `guidance-architecture-invariants` knowledge entry (recalled by any executor via `search_knowledge tag:guidance-*`), stated generically for all models._
 
 ### Submodule Safety (CRITICAL)
-- Submodules: public `extensions/{system,marketing,supply-chain}` + private `extensions/private/*`. **Do NOT run `git submodule sync`** on the public ones (drops the private upstream remote).
+- Submodules: public `extensions/{system,marketing,supply-chain}` + private `extensions/private/*`. **Do NOT run `git submodule sync`** on the public ones (drops the private upstream remote). (also `guidance-submodule-safety`)
 - **CWD verification**: before EVERY `git add`/`git commit`, run `git rev-parse --show-toplevel` and confirm the repo.
 - **Survey both statuses**: `git status` in root AND `git -C extensions/<name> status` — submodule changes are invisible to the parent.
 - **Never commit extension files from parent**; commit **inside** the submodule FIRST, then update the pointer in the parent.
 - Maintainer-local detail (private extensions, audit sinks) lives in `CLAUDE.local.md` — never the public repo.
 
 ### File Organization
-**NEVER save files to project root.** Use `docs/{getting-started,concepts,guides,reference,operations,contributing}/`. `docs/reference/auto/` is auto-generated — do not edit.
+**NEVER save files to project root.** Use `docs/{getting-started,concepts,guides,reference,operations,contributing}/`. `docs/reference/auto/` is auto-generated — do not edit. (also `guidance-file-organization`; enforced by `pattern-validation.sh`)
 
 ### Terminology
 | Term | Means | Not |

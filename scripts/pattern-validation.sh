@@ -386,6 +386,43 @@ else
 fi
 
 echo ""
+echo -e "${BLUE}## File Organization${NC}"
+# Model-agnostic enforcement of the "NEVER save files to project root" rule
+# (recall knowledge guidance-file-organization). Loose docs/reports/scratch files must
+# live under docs/{getting-started,concepts,guides,reference,operations,contributing}/,
+# NEVER at the repo root. This scans ROOT ONLY (no recursion, -maxdepth 1) for REGULAR
+# FILES not in the allowlist of legitimate top-level files below (project docs like
+# README/LICENSE, build/config manifests, and dotfiles like .gitignore/.gitmodules).
+# Directories are never flagged. A genuinely-new legitimate root file must be added to
+# root_file_allowlist (deliberate vetting, mirroring the other baseline-style guards); a
+# stray report/scratch file at root FAILS here. CLAUDE.local.md and a file-form `.git`
+# (worktree checkout) are allowlisted for live/worktree parity.
+root_file_allowlist=" \
+  CHANGELOG.md CLAUDE.md CLAUDE.local.md CODE_OF_CONDUCT.md CONTRIBUTING.md \
+  GOVERNANCE.md LICENSE Makefile README.md ROADMAP.md SECURITY.md VERSION \
+  extensions_loader_helper.rb package.json package-lock.json playwright.config.ts \
+  .commitlintrc.json .env.example .git .gitflow .gitignore .gitleaks.toml \
+  .gitmessage .gitmodules .releaserc.json "
+total_checks=$((total_checks + 1))
+echo -n "Checking: No stray files at repo root (file-organization guard)... "
+stray_root_files=""
+while IFS= read -r rf; do
+    base=$(basename "$rf")
+    case " $root_file_allowlist " in
+        *" $base "*) : ;;                     # allowlisted legitimate root file
+        *) stray_root_files+="$base " ;;      # not vetted -> stray
+    esac
+done < <(find . -maxdepth 1 -type f 2>/dev/null)
+stray_root_files=$(echo "$stray_root_files" | xargs 2>/dev/null || echo "")
+if [ -z "$stray_root_files" ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Stray root file(s) — move under docs/ or allowlist if legitimate: $stray_root_files)"
+    failed_checks=$((failed_checks + 1))
+fi
+
+echo ""
 echo -e "${BLUE}=== AUDIT SUMMARY ===${NC}"
 echo "Total Checks: $total_checks"
 echo -e "Passed: ${GREEN}$passed_checks${NC}"

@@ -20,7 +20,7 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | Rule (from old CLAUDE.md) | Home | Where | Enforcement |
 |---|---|---|---|
 | Project overview, core models, specialists | core | CLAUDE.md | — |
-| Git rules (never commit unless asked, no attribution, branch/tag naming) | core | CLAUDE.md | — |
+| Git rules (never commit unless asked, no AI attribution [ANY executor], branch/tag naming, staged commits) | core+knowledge | CLAUDE.md + `guidance-git-conventions` | — (cross-executor recall) |
 | Business submodule / core-mode note | core | CLAUDE.md | — |
 | **Permission-based access control (permissions not roles)** | core+knowledge | CLAUDE.md + `guidance-permissions-not-roles` | `permission-not-roles-check.sh` (nudge) + `pattern-validation.sh` (scan) |
 | Frontend: colors / theme classes | doc+hook | frontend-patterns.md | `hardcoded-color-check.sh` + scan |
@@ -41,7 +41,7 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | **Design: Reuse First (discover before building; never greenfield)** | core+knowledge | CLAUDE.md + `guidance-reuse-first` + agent `BASE_GUARDRAILS` | — (cross-executor recall) |
 | **Architecture principles (Pull Never Push, Extension Isolation, Service Boundaries)** | core+knowledge | CLAUDE.md + `guidance-architecture-invariants` | `core-purity-check.sh` (isolation hook) + `pattern-validation.sh` extension-isolation scan mirror |
 | **Bulk operation safety (state the count, never batch-approve)** | core+knowledge | CLAUDE.md + `guidance-bulk-op-safety` + agent `BASE_GUARDRAILS` + loop guardrails | — (cross-executor recall) |
-| Submodule safety | core | CLAUDE.md | `submodule-boundary-check.sh` |
+| Submodule safety | core+knowledge | CLAUDE.md + `guidance-submodule-safety` | `submodule-boundary-check.sh` (hook) — process rules, no static scan |
 | Terminology | core | CLAUDE.md | — |
 | Worker architecture invariants (no jobs in server/, no sidekiq in server Gemfile) | core | CLAUDE.md | `pattern-validation.sh` |
 | **Worker: AI-execution jobs MUST include `AiSuspensionCheckConcern` (kill-switch compliance)** | core+knowledge | worker/CLAUDE.md + `guidance-kill-switch-compliance` | `pattern-validation.sh` (via `scripts/checks/kill-switch-compliance-check.sh`) |
@@ -51,7 +51,7 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | MCP-first workflow (4 phases) | doc | mcp-first-workflow.md | SessionStart digest |
 | MCP tool catalog | pointer | reference/auto/mcp-tools.md | auto-generated |
 | Knowledge quality lifecycle + tool evolution | doc | knowledge-lifecycle.md | — |
-| File organization (NEVER save to root) | core | CLAUDE.md | — |
+| File organization (NEVER save to root) | core+knowledge | CLAUDE.md + `guidance-file-organization` | `pattern-validation.sh` (no stray root files) |
 | Key platform documentation (fallback table) | core | CLAUDE.md | — |
 
 _Verification:_ `wc -l CLAUDE.md` ≈ 150; no `conventions/*.md` references a private-extension namespace/alias/path (derive the name list from `extensions/private/*`); every row above resolves to an existing home.
