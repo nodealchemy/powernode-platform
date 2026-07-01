@@ -21,6 +21,7 @@ module Ai
 
       GUARDRAILS = [
         "One task per iteration — finish or report before pulling the next",
+        "Consult model-agnostic guidance BEFORE changing code: run search_knowledge with tag guidance-* and honor the applicable safety/governance/convention rules — the SessionStart digest is Claude-only, so non-Claude executors MUST query",
         "Write a failing spec reproducing the finding BEFORE the fix; confirm it is red",
         "Search before changing — verify the claim against current code first (findings may have rotted)",
         "No placeholder implementations",

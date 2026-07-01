@@ -2,7 +2,14 @@
 
 Every rule that lived in the 410-line root `CLAUDE.md` maps to **exactly one authoritative home** below. This is the lossless-migration gate: no rule may be orphaned, and the home determines how it is enforced/recalled (per the "route by trigger shape" principle).
 
-**Homes:** `core` = stays in the slim CLAUDE.md (outage-safe); `hook` = `.claude/hooks/*.sh` (edit-time); `scan` = `scripts/pattern-validation.sh` (adherence metric); `doc` = a `conventions/*.md` reference recalled via MCP-first + the SessionStart digest.
+**Homes:** `core` = stays in the slim CLAUDE.md (outage-safe); `hook` = `.claude/hooks/*.sh` (edit-time); `scan` = `scripts/pattern-validation.sh` (adherence metric); `doc` = a `conventions/*.md` reference recalled via MCP-first + the SessionStart digest; `knowledge` = a `guidance-*`-tagged platform knowledge entry (created via `create_knowledge`), recalled cross-executor via `search_knowledge` — it reaches non-Claude executors, unlike the Claude-only SessionStart digest.
+
+## Cross-executor recall wiring
+
+The `doc`/SessionStart digest is **Claude-only**. `knowledge`-home rules (`guidance-*` entries) are delivered to *every* executor — Grok/Codex/Gemini/etc. as well as Claude — through two model-agnostic seams that instruct the executor to run `search_knowledge tag:guidance-*` before implementing and honor applicable rules:
+
+- **Loop guardrails** — the `guidance-*` recall line in `Ai::DevLoop::CampaignDriver::DEFAULT_GUARDRAILS`, `Ai::DevLoop::AuditBacklogSeeder::GUARDRAILS`, and `Ai::DevLoop::ImprovementPromotionService::GUARDRAILS`, delivered in the `dev_next_task` payload to loop-driven executors.
+- **Agent baseline** — `Ai::Agent::BASE_GUARDRAILS`, prepended into every agent's system prompt (`build_system_prompt_with_profile`) regardless of model/executor.
 
 ## Core-purity assertion (gate #9)
 

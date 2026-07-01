@@ -30,6 +30,17 @@ module Ai
     # resolved_model/provider/credential. Not persisted.
     attr_accessor :resolving_account
 
+    # Model-agnostic baseline guardrails carried by EVERY agent's system prompt,
+    # regardless of its per-seed prompt or which executor/model runs it. This is
+    # the agent-side seam for cross-executor rule delivery: the SessionStart
+    # guidance digest is Claude-only, so non-Claude executors receive the core
+    # baseline here (and loop-driven executors via the dev_next_task guardrails).
+    # Keep TIGHT — this reloads on every call. Later increments APPEND lines.
+    BASE_GUARDRAILS = [
+      "Before acting, query platform guidance (search_knowledge tag:guidance-*) and honor applicable rules.",
+      "After 3 failed attempts at the same fix, STOP and ask — no 4th approach."
+    ].join("\n").freeze
+
     # Associations
     # Optional: a global (platform-provided) agent has account_id nil.
     belongs_to :account, optional: true
@@ -194,7 +205,7 @@ module Ai
         end
       end
 
-      [base_prompt, skill_prompts, profile_lines.join("\n")].reject(&:blank?).join("\n\n")
+      [BASE_GUARDRAILS, base_prompt, skill_prompts, profile_lines.join("\n")].reject(&:blank?).join("\n\n")
     end
 
     # Runtime model resolution — agents own model selection. With a pinned model

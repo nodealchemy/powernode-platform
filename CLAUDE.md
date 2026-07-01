@@ -44,7 +44,7 @@ Rules are routed by **trigger shape** — the mechanism that surfaces or enforce
 
 - **Auto-memory** (`MEMORY.md` index, loaded each session) records operational decisions, incidents, and your working preferences. Consult it; it reflects what was true when written — verify file/flag references before acting.
 - **MCP-first** is mandatory for non-trivial work: query `platform.query_learnings` / `search_knowledge` / `code_semantic_search` before changing code (full protocol: [conventions/mcp-first-workflow.md](docs/contributing/conventions/mcp-first-workflow.md)). Contribute back after (`create_learning` / `create_knowledge`).
-- Migrated convention rules are tagged `guidance-*` in platform knowledge and digested at session start.
+- Migrated convention rules are tagged `guidance-*` in platform knowledge and digested at session start. The SessionStart digest is **Claude-only**; non-Claude executors receive `guidance-*` via the loop guardrails payload (`dev_next_task`) and the `Ai::Agent` `BASE_GUARDRAILS` baseline, both of which instruct every executor to query `search_knowledge tag:guidance-*` before implementing.
 
 ---
 
