@@ -153,16 +153,16 @@ module Ai
         default_config = case provider_type.to_s.downcase
         when "openai"
                            {
-                             "models" => %w[gpt-3.5-turbo gpt-4],
-                             "default_model" => "gpt-3.5-turbo",
+                             "models" => %w[gpt-4.1 gpt-4.1-mini gpt-4o],
+                             "default_model" => "gpt-4.1-mini",
                              "api_key" => nil,
                              "temperature" => 0.7,
                              "max_tokens" => 2000
                            }
         when "anthropic"
                            {
-                             "models" => %w[claude-opus-4-6 claude-sonnet-4-5-20250929 claude-haiku-4-5-20251001],
-                             "default_model" => "claude-haiku-4-5-20251001",
+                             "models" => %w[claude-opus-4-8 claude-sonnet-5 claude-haiku-4-5],
+                             "default_model" => "claude-haiku-4-5",
                              "api_key" => nil,
                              "temperature" => 0.7,
                              "max_tokens" => 2000

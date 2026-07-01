@@ -443,24 +443,37 @@ if admin_account && admin_user
         'recommended_for' => [ 'complex_workflows', 'advanced_reasoning', 'long_horizon_agentic', 'research', 'critical_decision_making', 'multi_hour_tasks' ]
       },
       {
-        'name' => 'claude-opus-4.1',
-        'id' => 'claude-opus-4-1-20250805',
-        'display_name' => 'Claude Opus 4.1',
-        'context_length' => 200000,
-        'max_output_tokens' => 32000,
+        'name' => 'claude-opus-4-8',
+        'id' => 'claude-opus-4-8',
+        'display_name' => 'Claude Opus 4.8',
+        'context_length' => 1000000,
+        'max_output_tokens' => 128000,
         'cost_per_1k_tokens' => {
-          'input' => 0.015,
-          'output' => 0.075
+          'input' => 0.005,
+          'output' => 0.025
         },
         'capabilities' => [ 'text', 'code', 'complex_reasoning', 'highest_intelligence', 'vision', 'long_context', 'advanced_analysis', 'extended_thinking', 'agentic_workflows' ],
         'recommended_for' => [ 'complex_workflows', 'strategic_analysis', 'advanced_reasoning', 'research', 'critical_decision_making', 'multi_hour_tasks' ]
       },
       {
+        'name' => 'claude-sonnet-5',
+        'id' => 'claude-sonnet-5',
+        'display_name' => 'Claude Sonnet 5',
+        'context_length' => 1000000,
+        'max_output_tokens' => 128000,
+        'cost_per_1k_tokens' => {
+          'input' => 0.003,
+          'output' => 0.015
+        },
+        'capabilities' => [ 'text', 'code', 'analysis', 'reasoning', 'vision', 'long_context', 'best_coding', 'complex_agents', 'computer_use' ],
+        'recommended_for' => [ 'coding', 'complex_agents', 'workflow_orchestration', 'agentic_tasks', 'general_purpose' ]
+      },
+      {
         'name' => 'claude-sonnet-4-6',
         'id' => 'claude-sonnet-4-6',
         'display_name' => 'Claude Sonnet 4.6',
-        'context_length' => 200000,
-        'max_output_tokens' => 64000,
+        'context_length' => 1000000,
+        'max_output_tokens' => 128000,
         'cost_per_1k_tokens' => {
           'input' => 0.003,
           'output' => 0.015
@@ -469,21 +482,8 @@ if admin_account && admin_user
         'recommended_for' => [ 'coding', 'complex_agents', 'workflow_orchestration', 'agentic_tasks', 'general_purpose' ]
       },
       {
-        'name' => 'claude-sonnet-4.5',
-        'id' => 'claude-sonnet-4-5-20250929',
-        'display_name' => 'Claude Sonnet 4.5',
-        'context_length' => 200000,
-        'max_output_tokens' => 64000,
-        'cost_per_1k_tokens' => {
-          'input' => 0.003,
-          'output' => 0.015
-        },
-        'capabilities' => [ 'text', 'code', 'analysis', 'reasoning', 'vision', 'long_context', 'best_coding', 'complex_agents', 'computer_use' ],
-        'recommended_for' => [ 'coding', 'complex_agents', 'workflow_orchestration', 'agentic_tasks', 'general_purpose' ]
-      },
-      {
-        'name' => 'claude-haiku-4.5',
-        'id' => 'claude-haiku-4-5-20251001',
+        'name' => 'claude-haiku-4-5',
+        'id' => 'claude-haiku-4-5',
         'display_name' => 'Claude Haiku 4.5',
         'context_length' => 200000,
         'max_output_tokens' => 64000,
@@ -498,7 +498,7 @@ if admin_account && admin_user
     configuration_schema: {
       'api_version' => '2023-06-01',
       'auth_type' => 'x-api-key',
-      'default_model' => 'claude-haiku-4-5-20251001',
+      'default_model' => 'claude-haiku-4-5',
       'supports_streaming' => true,
       'supports_functions' => true,
       'max_retries' => 3,

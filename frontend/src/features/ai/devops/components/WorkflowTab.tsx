@@ -34,7 +34,7 @@ export const WorkflowTab: React.FC<WorkflowTabProps> = ({
           placeholder={`{
   "nodes": [
     {"id": "trigger", "type": "trigger", "label": "Event", "config": {}},
-    {"id": "process", "type": "ai", "label": "Process", "config": {"model": "claude-sonnet-4-5-20250929"}},
+    {"id": "process", "type": "ai", "label": "Process", "config": {"model": "claude-sonnet-5"}},
     {"id": "output", "type": "action", "label": "Output", "config": {}}
   ],
   "edges": [

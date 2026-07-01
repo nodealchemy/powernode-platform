@@ -53,6 +53,8 @@ class Ai::ProviderManagementService
     "claude-opus-4-7"            => { "input" => 0.005,   "output" => 0.025,   "cached_input" => 0.0005,  "tier" => "premium" },
     "claude-opus-4-6"            => { "input" => 0.005,   "output" => 0.025,   "cached_input" => 0.0005,  "tier" => "premium" },
     "claude-opus-4-5"            => { "input" => 0.005,   "output" => 0.025,   "cached_input" => 0.0005,  "tier" => "premium" },
+    "claude-sonnet-5"            => { "input" => 0.003,   "output" => 0.015,   "cached_input" => 0.0003,  "tier" => "standard" },
+    "claude-sonnet-4-6"          => { "input" => 0.003,   "output" => 0.015,   "cached_input" => 0.0003,  "tier" => "standard" },
     "claude-sonnet-4-5"          => { "input" => 0.003,   "output" => 0.015,   "cached_input" => 0.0003,  "tier" => "standard" },
     "claude-sonnet-4"            => { "input" => 0.003,   "output" => 0.015,   "cached_input" => 0.0003,  "tier" => "standard" },
     "claude-haiku-4-5"           => { "input" => 0.001,   "output" => 0.005,   "cached_input" => 0.0001,  "tier" => "economy" },

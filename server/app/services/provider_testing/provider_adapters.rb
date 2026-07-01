@@ -62,7 +62,7 @@ module ProviderTesting
       }
 
       payload = {
-        model: config["model"] || "gpt-3.5-turbo",
+        model: config["model"] || "gpt-4.1-mini",
         messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }
@@ -88,7 +88,7 @@ module ProviderTesting
       }
 
       payload = {
-        model: config["model"] || "claude-haiku-4-5-20251001",
+        model: config["model"] || "claude-haiku-4-5",
         messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }

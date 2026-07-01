@@ -114,7 +114,7 @@ module Ai
       end
 
       def default_evaluator_model
-        "claude-sonnet-4-5-20250929"
+        "claude-sonnet-5"
       end
     end
   end

@@ -20,7 +20,7 @@ module Ai
             configuration: {
               api_base_url: "https://api.openai.com/v1",
               default_model: "gpt-4.1-mini",
-              supported_models: %w[gpt-4.1 gpt-4.1-mini gpt-4.1-nano o3 o4-mini gpt-4o gpt-4o-mini gpt-4-turbo gpt-3.5-turbo],
+              supported_models: %w[gpt-4.1 gpt-4.1-mini gpt-4.1-nano o3 o4-mini gpt-4o gpt-4o-mini],
               capabilities: %w[chat completions embeddings images]
             }
           },
@@ -28,8 +28,8 @@ module Ai
             name: "Anthropic",
             configuration: {
               api_base_url: "https://api.anthropic.com/v1",
-              default_model: "claude-haiku-4-5-20251001",
-              supported_models: %w[claude-opus-4-8 claude-sonnet-4-6 claude-haiku-4-5-20251001 claude-sonnet-4-5-20250929 claude-opus-4-1-20250805],
+              default_model: "claude-haiku-4-5",
+              supported_models: %w[claude-opus-4-8 claude-sonnet-5 claude-sonnet-4-6 claude-haiku-4-5],
               capabilities: %w[chat completions]
             }
           },

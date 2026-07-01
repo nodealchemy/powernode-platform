@@ -79,18 +79,28 @@ module Ai
             name.gsub("Claude", "Claude")     # Ensure proper casing
           end
 
-          # Fable/Mythos (Project Glasswing) share a 1M-token context window; every
-          # other Anthropic model this syncs is 200K.
+          # Fable/Mythos and the current generation (Opus 4.6+, Sonnet 4.6+/5)
+          # carry a 1M-token context window; older Anthropic models are 200K.
           def anthropic_context_length(model_id)
-            return 1_000_000 if fable_family?(model_id)
+            return 1_000_000 if fable_family?(model_id) || current_generation?(model_id)
             200000
           end
 
           def extract_max_output_tokens(model_id)
-            # Fable/Mythos support 128K output; Opus 32K; others 8K.
-            return 128000 if fable_family?(model_id)
+            # Fable/Mythos + current generation: 128K. Haiku 4.5 and Sonnet 4.5:
+            # 64K. Older Opus: 32K. Everything else keeps the legacy 8K fallback.
+            return 128000 if fable_family?(model_id) || current_generation?(model_id)
+            return 64000 if model_id.include?("haiku-4-5") || model_id.include?("sonnet-4-5")
             return 32000 if model_id.include?("opus")
             8192
+          end
+
+          # Current-generation ids sharing the 1M/128K envelope (prefix-based,
+          # mirroring Ai::Llm::ModelCapabilities::ADAPTIVE_ONLY_PREFIXES plus the
+          # 4-6 family, which shares the envelope but still allows sampling).
+          def current_generation?(model_id)
+            %w[claude-opus-4-8 claude-opus-4-7 claude-opus-4-6 claude-sonnet-5 claude-sonnet-4-6]
+              .any? { |prefix| model_id.start_with?(prefix) }
           end
 
           def extract_anthropic_capabilities(model_id)
@@ -107,15 +117,20 @@ module Ai
           end
 
           def anthropic_model_sort_priority(model_id)
-            # Higher priority = listed first
+            # Higher priority = listed first. Newest generation first within each
+            # tier; retired Claude-3-era branches removed (those ids 404 now).
             return 120 if fable_family?(model_id)
-            return 100 if model_id.include?("opus-4-5")
-            return 90 if model_id.include?("opus-4")
-            return 80 if model_id.include?("sonnet-4-5")
-            return 70 if model_id.include?("sonnet-4")
-            return 60 if model_id.include?("sonnet-3")
-            return 50 if model_id.include?("haiku-3-5")
-            return 40 if model_id.include?("haiku-3")
+            return 110 if model_id.include?("opus-4-8")
+            return 105 if model_id.include?("opus-4-7")
+            return 100 if model_id.include?("opus-4-6")
+            return 95 if model_id.include?("opus-4-5")
+            return 90 if model_id.include?("opus")
+            return 85 if model_id.include?("sonnet-5")
+            return 80 if model_id.include?("sonnet-4-6")
+            return 75 if model_id.include?("sonnet-4-5")
+            return 70 if model_id.include?("sonnet")
+            return 50 if model_id.include?("haiku-4-5")
+            return 40 if model_id.include?("haiku")
             0
           end
         end

@@ -112,16 +112,22 @@ module Ai
             capabilities: %w[text_generation chat],
             supported_models: [
               {
+                name: "gpt-4.1",
+                id: "gpt-4.1",
+                context_length: 1_000_000,
+                cost_per_1k_tokens: { input: 0.002, output: 0.008 }
+              },
+              {
+                name: "gpt-4.1-mini",
+                id: "gpt-4.1-mini",
+                context_length: 1_000_000,
+                cost_per_1k_tokens: { input: 0.0004, output: 0.0016 }
+              },
+              {
                 name: "gpt-4o",
                 id: "gpt-4o",
                 context_length: 128_000,
                 cost_per_1k_tokens: { input: 0.0025, output: 0.01 }
-              },
-              {
-                name: "gpt-3.5-turbo",
-                id: "gpt-3.5-turbo",
-                context_length: 16_385,
-                cost_per_1k_tokens: { input: 0.0005, output: 0.0015 }
               }
             ],
             configuration_schema: {
@@ -133,8 +139,8 @@ module Ai
               required: %w[api_key model]
             },
             configuration: {
-              models: %w[gpt-3.5-turbo gpt-4],
-              default_model: "gpt-3.5-turbo"
+              models: %w[gpt-4.1 gpt-4.1-mini gpt-4o],
+              default_model: "gpt-4.1-mini"
             },
             rate_limits: {
               requests_per_minute: 3500,
@@ -154,29 +160,29 @@ module Ai
             capabilities: %w[text_generation chat],
             supported_models: [
               {
-                name: "claude-opus-4.5",
-                id: "claude-opus-4-5-20251101",
-                context_length: 200_000,
-                max_output_tokens: 32_000,
-                cost_per_1k_tokens: { input: 0.015, output: 0.075 }
+                name: "claude-opus-4-8",
+                id: "claude-opus-4-8",
+                context_length: 1_000_000,
+                max_output_tokens: 128_000,
+                cost_per_1k_tokens: { input: 0.005, output: 0.025 }
               },
               {
-                name: "claude-sonnet-4.5",
-                id: "claude-sonnet-4-5-20250929",
-                context_length: 200_000,
-                max_output_tokens: 64_000,
+                name: "claude-sonnet-5",
+                id: "claude-sonnet-5",
+                context_length: 1_000_000,
+                max_output_tokens: 128_000,
                 cost_per_1k_tokens: { input: 0.003, output: 0.015 }
               },
               {
                 name: "claude-sonnet-4-6",
                 id: "claude-sonnet-4-6",
-                context_length: 200_000,
-                max_output_tokens: 64_000,
+                context_length: 1_000_000,
+                max_output_tokens: 128_000,
                 cost_per_1k_tokens: { input: 0.003, output: 0.015 }
               },
               {
-                name: "claude-haiku-4.5",
-                id: "claude-haiku-4-5-20251001",
+                name: "claude-haiku-4-5",
+                id: "claude-haiku-4-5",
                 context_length: 200_000,
                 max_output_tokens: 64_000,
                 cost_per_1k_tokens: { input: 0.001, output: 0.005 }
@@ -191,8 +197,8 @@ module Ai
               required: %w[api_key model]
             },
             configuration: {
-              models: %w[claude-opus-4.5 claude-sonnet-4.5 claude-sonnet-4 claude-haiku-4.5],
-              default_model: "claude-sonnet-4.5"
+              models: %w[claude-opus-4-8 claude-sonnet-5 claude-sonnet-4-6 claude-haiku-4-5],
+              default_model: "claude-sonnet-5"
             },
             rate_limits: {
               requests_per_minute: 1000,
