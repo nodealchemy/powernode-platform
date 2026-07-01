@@ -30,6 +30,22 @@ RSpec.describe Ai::Llm::Adapters::AnthropicAdapter, "refusal detection" do
       expect(response.content).to be_nil
     end
 
+    it "nils content and tool_calls on a refusal even if a billed partial is present" do
+      parsed = {
+        "content" => [{ "type" => "text", "text" => "partial billed" },
+                      { "type" => "tool_use", "id" => "t1", "name" => "x", "input" => {} }],
+        "stop_reason" => "refusal", "stop_details" => { "category" => "cyber" },
+        "usage" => { "input_tokens" => 4, "output_tokens" => 7 }
+      }
+      allow(adapter).to receive(:http_post).and_return([200, parsed, {}])
+
+      response = adapter.complete(messages: messages, model: "claude-fable-5")
+
+      expect(response.refused?).to be true
+      expect(response.content).to be_nil
+      expect(response.tool_calls).to eq([])
+    end
+
     it "does not flag a normal response as a refusal" do
       parsed = {
         "content" => [{ "type" => "text", "text" => "done" }],

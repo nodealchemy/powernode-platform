@@ -31,7 +31,11 @@ module Ai
         effort: true,
         prefill: false,
         max_output: 128_000,
-        context_window: 1_000_000
+        context_window: 1_000_000,
+        # High-effort adaptive-only turns (esp. Fable) can run for minutes; the
+        # per-request HTTP read timeout must cover that, and align with the
+        # server→worker 600s envelope, or long non-stream turns hit ReadTimeout.
+        request_timeout: 600
       }.freeze
 
       # Everything else routed through the Anthropic builder — opus-4-6 / sonnet-4-6 /
@@ -44,7 +48,9 @@ module Ai
         effort: false,
         prefill: true,
         max_output: nil,
-        context_window: nil
+        context_window: nil,
+        # Legacy/permissive models keep the historical 120s HTTP read timeout.
+        request_timeout: 120
       }.freeze
 
       # Prefixes whose models use the adaptive-only reasoning surface. Prefix-based,
@@ -97,6 +103,10 @@ module Ai
 
       # Context window in tokens (nil when unknown).
       def context_window(model_id) = profile(model_id)[:context_window]
+
+      # Per-request HTTP read timeout (seconds). Adaptive-only/effort-capable
+      # models get a long timeout (minutes-long turns); everything else 120s.
+      def request_timeout_seconds(model_id) = profile(model_id)[:request_timeout]
 
       # Whether this model runs the request-time safety classifier that can
       # return a benign-request refusal — i.e. whether the adapt→fallback→learn

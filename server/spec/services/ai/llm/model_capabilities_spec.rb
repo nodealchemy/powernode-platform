@@ -38,6 +38,24 @@ RSpec.describe Ai::Llm::ModelCapabilities do
     end
   end
 
+  describe ".request_timeout_seconds (capability-aware HTTP read timeout)" do
+    %w[claude-fable-5 claude-mythos-5 claude-opus-4-8 claude-sonnet-5].each do |model|
+      it "is 600s for adaptive-only #{model}" do
+        expect(described_class.request_timeout_seconds(model)).to eq(600)
+      end
+    end
+
+    %w[claude-opus-4-6 claude-haiku-4-5 gpt-4o].each do |model|
+      it "is 120s for legacy #{model}" do
+        expect(described_class.request_timeout_seconds(model)).to eq(120)
+      end
+    end
+
+    it "defaults to 120s for a nil/unknown model" do
+      expect(described_class.request_timeout_seconds(nil)).to eq(120)
+    end
+  end
+
   describe ".refusal_capable? (adapt→fallback framework gate)" do
     %w[claude-fable-5 claude-mythos-5 claude-fable-5-20260701].each do |model|
       it "is true for the refusal-classifier model #{model}" do

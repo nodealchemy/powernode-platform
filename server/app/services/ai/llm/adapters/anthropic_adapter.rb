@@ -328,8 +328,10 @@ module Ai
                                       content_present: text_content.present? || tool_calls.any?)
 
           build_response(
-            content: text_content.presence,
-            tool_calls: tool_calls,
+            # On a refusal, nil content/tool_calls (as the streaming path does) so a
+            # billed partial is never handed to a caller that doesn't check refused?.
+            content: (refusal ? nil : text_content.presence),
+            tool_calls: (refusal ? [] : tool_calls),
             finish_reason: parsed["stop_reason"],
             model: parsed["model"] || model,
             usage: {
@@ -338,7 +340,7 @@ module Ai
               cached_tokens: usage["cache_read_input_tokens"] || 0,
               total_tokens: (usage["input_tokens"] || 0) + (usage["output_tokens"] || 0)
             },
-            thinking_content: thinking.presence,
+            thinking_content: (refusal ? nil : thinking.presence),
             refusal: refusal,
             raw_response: parsed
           )

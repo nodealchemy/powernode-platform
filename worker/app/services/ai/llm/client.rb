@@ -37,11 +37,11 @@ module Ai
           case provider_format
           when :openai
             body = build_openai_body(messages, model, **opts)
-            s, p, _ = http_post(openai_url, body)
+            s, p, _ = http_post(openai_url, body, model)
             s == 200 ? parse_openai_response(p, model) : openai_handle_error(s, p)
           when :anthropic
             body = build_anthropic_body(messages, model, **opts)
-            s, p, _ = http_post(anthropic_url, body)
+            s, p, _ = http_post(anthropic_url, body, model)
             s == 200 ? parse_anthropic_response(p, model) : anthropic_handle_error(s, p)
           when :ollama
             body = build_ollama_body(messages, model, stream: false, **opts)
@@ -69,13 +69,13 @@ module Ai
             body = build_openai_body(messages, model, **opts)
             body[:tools] = tools.map { |t| { type: "function", function: { name: t[:name], description: t[:description], parameters: t[:parameters], strict: t[:strict] || false }.compact } }
             body[:tool_choice] = opts[:tool_choice] || "auto"
-            s, p, _ = http_post(openai_url, body)
+            s, p, _ = http_post(openai_url, body, model)
             s == 200 ? parse_openai_response(p, model) : openai_handle_error(s, p)
           when :anthropic
             body = build_anthropic_body(messages, model, **opts)
             body[:tools] = tools.map { |t| { name: t[:name], description: t[:description], input_schema: t[:parameters] || t[:input_schema] } }
             body[:tool_choice] = opts[:tool_choice] ? anthropic_tool_choice(opts[:tool_choice]) : { type: "auto" }
-            s, p, _ = http_post(anthropic_url, body)
+            s, p, _ = http_post(anthropic_url, body, model)
             s == 200 ? parse_anthropic_response(p, model) : anthropic_handle_error(s, p)
           when :ollama
             body = build_ollama_body(messages, model, stream: false, **opts)
@@ -92,13 +92,13 @@ module Ai
           when :openai
             body = build_openai_body(messages, model, **opts)
             body[:response_format] = { type: "json_schema", json_schema: { name: schema[:name] || "response", schema: schema[:schema] || schema, strict: true } }
-            s, p, _ = http_post(openai_url, body)
+            s, p, _ = http_post(openai_url, body, model)
             s == 200 ? parse_openai_response(p, model) : openai_handle_error(s, p)
           when :anthropic
             body = build_anthropic_body(messages, model, **opts)
             # Merge — don't clobber output_config.effort that the builder may have set.
             body[:output_config] = (body[:output_config] || {}).merge(format: { type: "json_schema", schema: schema[:schema] || schema })
-            s, p, _ = http_post(anthropic_url, body)
+            s, p, _ = http_post(anthropic_url, body, model)
             s == 200 ? parse_anthropic_response(p, model) : anthropic_handle_error(s, p)
           when :ollama
             body = build_ollama_body(messages, model, stream: false, **opts)
@@ -136,8 +136,11 @@ module Ai
       def openai_url = "#{@base_url}/chat/completions"
       def anthropic_url = "#{@base_url}/messages"
       def ollama_url = @base_url.end_with?("/api") ? "#{@base_url}/chat" : "#{@base_url}/api/chat"
-      def http_post(url, body)
-        r = HTTParty.post(url, headers: @headers, body: body.to_json, timeout: 120)
+      def http_post(url, body, model = nil)
+        # Capability-aware read timeout: adaptive-only/effort models (Fable etc.)
+        # can run for minutes → 600s; legacy models keep 120s.
+        timeout = ModelCapabilities.request_timeout_seconds(model)
+        r = HTTParty.post(url, headers: @headers, body: body.to_json, timeout: timeout)
         [r.code, r.parsed_response, r.headers]
       end
       def http_stream(url, body)
@@ -386,8 +389,12 @@ module Ai
         # content. Populating `refusal` here means a refusal never returns as a
         # silent nil.
         refusal = anthropic_refusal(parsed["stop_reason"], parsed["stop_details"], content_present: text.present? || tcs.any?)
-        build_response(content: text.presence, tool_calls: tcs, finish_reason: parsed["stop_reason"],
-                       model: parsed["model"] || model, raw_response: parsed, thinking_content: think.presence,
+        # On a refusal, nil the content/tool_calls (as the streaming path does) so a
+        # billed partial is never handed to a caller that doesn't check refused?.
+        build_response(content: (refusal ? nil : text.presence), tool_calls: (refusal ? [] : tcs),
+                       finish_reason: parsed["stop_reason"],
+                       model: parsed["model"] || model, raw_response: parsed,
+                       thinking_content: (refusal ? nil : think.presence),
                        refusal: refusal,
                        usage: { prompt_tokens: u["input_tokens"] || 0, completion_tokens: u["output_tokens"] || 0,
                                 cached_tokens: u["cache_read_input_tokens"] || 0,
@@ -479,7 +486,12 @@ module Ai
         usage[:total_tokens] = (usage[:prompt_tokens] || 0) + (usage[:completion_tokens] || 0)
         yield Chunk.new(type: :stream_end, done: true, usage: usage, stream_id: sid, timestamp: ts)
         # A mid-stream refusal already streamed a partial (billed) — DISCARD it
-        # rather than returning it as a complete answer.
+        # rather than returning it as a complete answer. The refusal is SURFACED as
+        # a structured refusal (never a silent-empty stream).
+        # TODO(fable5 follow-up): streaming adapt/fallback (reframe + model switch)
+        # requires restarting the SSE stream on a new model; the non-stream paths do
+        # this via RefusalHandler. Deferred as a separate follow-up (risky restart) —
+        # today a streamed Fable refusal surfaces structurally and callers can retry.
         refusal = anthropic_refusal(fin, refusal_details, content_present: acc.present?)
         build_response(content: (refusal ? nil : acc.presence), tool_calls: (refusal ? [] : tcs),
                        finish_reason: fin, model: model, usage: usage,

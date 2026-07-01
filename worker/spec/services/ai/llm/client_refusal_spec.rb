@@ -39,6 +39,24 @@ RSpec.describe Ai::Llm::Client, 'refusal detection' do
       expect(response.refusal['category']).to be_nil
     end
 
+    it 'nils content and tool_calls on a refusal even if a billed partial is present' do
+      parsed = {
+        'content' => [{ 'type' => 'text', 'text' => 'partial billed answer' },
+                      { 'type' => 'tool_use', 'id' => 't1', 'name' => 'x', 'input' => {} }],
+        'stop_reason' => 'refusal',
+        'stop_details' => { 'category' => 'cyber' },
+        'usage' => { 'input_tokens' => 5, 'output_tokens' => 9 }
+      }
+      allow(client).to receive(:http_post).and_return([200, parsed, {}])
+
+      response = client.complete(messages: messages, model: 'claude-fable-5')
+
+      expect(response.refused?).to be true
+      expect(response.content).to be_nil          # billed partial not handed to the caller
+      expect(response.tool_calls).to eq([])
+      expect(response.refusal['phase']).to eq('mid_stream')
+    end
+
     it 'does NOT flag a normal end_turn response as a refusal' do
       parsed = {
         'content' => [{ 'type' => 'text', 'text' => 'ok' }],
