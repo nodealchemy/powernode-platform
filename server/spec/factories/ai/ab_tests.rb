@@ -98,7 +98,7 @@ FactoryBot.define do
       variants do
         [
           { "id" => "gpt4", "name" => "GPT-4", "config" => { "model" => "gpt-4" } },
-          { "id" => "claude3", "name" => "Claude 3", "config" => { "model" => "claude-3-opus" } }
+          { "id" => "claude3", "name" => "Claude 3", "config" => { "model" => "claude-opus-4-8" } }
         ]
       end
     end

@@ -69,7 +69,7 @@ FactoryBot.define do
     end
 
     trait :evaluated_by_claude do
-      evaluator_model { "claude-3-opus" }
+      evaluator_model { "claude-opus-4-8" }
     end
 
     trait :evaluated_by_gpt4 do

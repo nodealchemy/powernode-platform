@@ -140,7 +140,7 @@ RSpec.describe Ai::ProviderClientService, type: :service do
       end
 
       it 'formats Anthropic request correctly' do
-        service.send_message(messages, { model: 'claude-3-sonnet-20240229', max_tokens: 150 })
+        service.send_message(messages, { model: 'claude-sonnet-4-6', max_tokens: 150 })
 
         expect(WebMock).to have_requested(:post, 'https://api.anthropic.com/v1/messages')
           .with(
@@ -157,7 +157,7 @@ RSpec.describe Ai::ProviderClientService, type: :service do
           { role: 'user', content: 'Hello!' }
         ]
 
-        result = service.send_message(system_messages, { model: 'claude-3-sonnet-20240229', max_tokens: 100 })
+        result = service.send_message(system_messages, { model: 'claude-sonnet-4-6', max_tokens: 100 })
         expect(result[:success]).to be true
       end
     end
@@ -525,7 +525,7 @@ RSpec.describe Ai::ProviderClientService, type: :service do
               text: 'Hello! How can I help you today?'
             }
           ],
-          model: 'claude-3-sonnet-20240229',
+          model: 'claude-sonnet-4-6',
           role: 'assistant',
           usage: {
             input_tokens: 12,

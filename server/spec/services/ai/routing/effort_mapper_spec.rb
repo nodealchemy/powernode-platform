@@ -5,7 +5,7 @@ require "rails_helper"
 RSpec.describe Ai::Routing::EffortMapper do
   let(:account) { create(:account) }
   let(:effort_model) { "claude-fable-5" }      # adaptive-only → supports_effort?
-  let(:legacy_model) { "claude-3-5-sonnet" }   # permissive → no effort param
+  let(:legacy_model) { "claude-sonnet-4-6" }   # permissive → no effort param
 
   it "returns nil for a model that does not accept output_config.effort" do
     result = described_class.resolve(

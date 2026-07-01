@@ -24,7 +24,7 @@ RSpec.describe Ai::Llm::ModelCapabilities do
   end
 
   describe "permissive / legacy models" do
-    %w[claude-opus-4-6 claude-sonnet-4-6 claude-haiku-4-5 claude-3-5-sonnet gpt-4o grok-3].each do |model|
+    %w[claude-opus-4-6 claude-sonnet-4-6 claude-haiku-4-5 claude-opus-4-5 gpt-4o grok-3].each do |model|
       it "keeps today's permissive behavior for #{model}" do
         expect(described_class.supports_sampling_params?(model)).to be(true)
         expect(described_class.thinking_mode(model)).to eq(:configurable)

@@ -58,7 +58,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
     end
 
     it 'does NOT populate :effort for a non-effort-capable model' do
-      allow(agent).to receive(:resolved_model).and_return('claude-3-5-sonnet')
+      allow(agent).to receive(:resolved_model).and_return('claude-sonnet-4-6')
       opts = executor.send(:build_agent_options, agent, provider, messages)
       expect(opts).not_to have_key(:effort)
     end

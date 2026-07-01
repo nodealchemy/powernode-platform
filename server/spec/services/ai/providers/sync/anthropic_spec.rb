@@ -19,7 +19,7 @@ RSpec.describe Ai::Providers::Sync::Anthropic do
         { id: "claude-opus-4-5-20251101", display_name: "Claude Opus 4.5", created_at: "2025-11-01T00:00:00Z" },
         { id: "claude-sonnet-4-5-20250929", display_name: "Claude Sonnet 4.5", created_at: "2025-09-29T00:00:00Z" },
         { id: "claude-haiku-4-5-20251001", display_name: "Claude Haiku 4.5", created_at: "2025-10-01T00:00:00Z" },
-        { id: "claude-3-opus-20240229", display_name: "Claude 3 Opus", created_at: "2024-02-29T00:00:00Z" }
+        { id: "claude-opus-4-1-20250805", display_name: "Claude Opus 4.1", created_at: "2025-08-05T00:00:00Z" }
       ]
     }
   end

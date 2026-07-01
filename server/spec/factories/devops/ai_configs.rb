@@ -87,7 +87,7 @@ FactoryBot.define do
 
     trait :anthropic do
       provider { "anthropic" }
-      model { "claude-3-opus-20240229" }
+      model { "claude-opus-4-8" }
     end
 
     trait :google do

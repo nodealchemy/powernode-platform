@@ -311,19 +311,19 @@ FactoryBot.define do
       supported_models do
         [
           {
-            "name" => "claude-3-sonnet-20240229",
-            "id" => "claude-3-sonnet-20240229",
+            "name" => "claude-sonnet-4-6",
+            "id" => "claude-sonnet-4-6",
             "context_length" => 200000,
             "cost_per_token" => 0.003
           },
           {
-            "name" => "claude-3-opus-20240229",
-            "id" => "claude-3-opus-20240229",
-            "context_length" => 200000,
+            "name" => "claude-opus-4-8",
+            "id" => "claude-opus-4-8",
+            "context_length" => 1000000,
             "cost_per_token" => 0.015
           },
           {
-            "name" => "claude-3-haiku-20240307",
+            "name" => "claude-3-haiku-20240307", # deprecated, retires 2026-04-19
             "id" => "claude-3-haiku-20240307",
             "context_length" => 200000,
             "cost_per_token" => 0.00025
@@ -340,7 +340,7 @@ FactoryBot.define do
             },
             "model" => {
               "type" => "string",
-              "enum" => [ "claude-3-sonnet-20240229", "claude-3-opus-20240229", "claude-3-haiku-20240307" ],
+              "enum" => [ "claude-sonnet-4-6", "claude-opus-4-8", "claude-3-haiku-20240307" ],
               "description" => "Model to use"
             }
           },
