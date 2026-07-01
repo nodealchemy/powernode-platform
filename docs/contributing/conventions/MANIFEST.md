@@ -42,6 +42,7 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | **Design: Reuse First (discover before building; never greenfield)** | core+knowledge | CLAUDE.md + `guidance-reuse-first` + agent `BASE_GUARDRAILS` | — (cross-executor recall) |
 | **Architecture principles (Pull Never Push, Extension Isolation, Service Boundaries)** | core+knowledge | CLAUDE.md + `guidance-architecture-invariants` | `core-purity-check.sh` (isolation hook) + `pattern-validation.sh` extension-isolation scan mirror |
 | **Bulk operation safety (state the count, never batch-approve)** | core+knowledge | CLAUDE.md + `guidance-bulk-op-safety` + agent `BASE_GUARDRAILS` + loop guardrails | — (cross-executor recall) |
+| **Claude Fable 5 compliance (thinking always-on / no sampling params / no prefill / 30-day retention; refusal auto-reframe→Opus; effort from complexity; routing gated, default off)** | doc+knowledge | fable5-compliance.md + `guidance-fable5-compliance` + agent `BASE_GUARDRAILS` + loop guardrails | enforced in code (`Ai::Llm::ModelCapabilities` request builder, `Ai::FableRouting` toggle, `Ai::Routing::EffortMapper`); cross-executor recall via SessionStart digest + `search_knowledge` |
 | Submodule safety | core+knowledge | CLAUDE.md + `guidance-submodule-safety` | `submodule-boundary-check.sh` (hook) — process rules, no static scan |
 | Terminology | core | CLAUDE.md | — |
 | Worker architecture invariants (no jobs in server/, no sidekiq in server Gemfile) | core | CLAUDE.md | `pattern-validation.sh` |
