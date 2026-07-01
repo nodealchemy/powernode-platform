@@ -256,7 +256,16 @@ module Ai
     # success/cost/duration is rolled into a per-(provider, model, agent_type)
     # counter row scoped to this account.
     def record_model_performance
-      model_name = agent&.model
+      metrics = performance_metrics.is_a?(Hash) ? performance_metrics : {}
+      # A refusal's model accounting is owned by WorkerLlmClient#record_refusal!
+      # (it logs the refused-model FAILURE + the ModelRefusalEvent). Skip here so
+      # we don't double-count, and don't credit the refused Fable model a success.
+      return if metrics["refused"] || metrics[:refused]
+
+      # Credit the model that ACTUALLY served: on a Fable→X fallback the success
+      # belongs to X (served_by), not the configured Fable model.
+      served_by  = (metrics["served_by"] || metrics[:served_by]).presence
+      model_name = served_by || agent&.model
       return unless ai_provider_id.present? && model_name.present? && agent&.agent_type.present?
 
       Ai::AgentModelPerformance.record!(

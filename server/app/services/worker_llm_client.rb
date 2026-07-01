@@ -83,6 +83,7 @@ class WorkerLlmClient
     ))
     response = build_response(result)
     track_llm_usage!(response, model)
+    record_refusal!(response, model)
     response
   end
 
@@ -97,6 +98,7 @@ class WorkerLlmClient
     ))
     response = build_response(result)
     track_llm_usage!(response, model)
+    record_refusal!(response, model)
 
     # Simulate stream events for callers that expect a block
     if block_given?
@@ -121,6 +123,7 @@ class WorkerLlmClient
     ))
     response = build_response(result)
     track_llm_usage!(response, model)
+    record_refusal!(response, model)
     response
   end
 
@@ -134,6 +137,7 @@ class WorkerLlmClient
     ))
     response = build_response(result)
     track_llm_usage!(response, model)
+    record_refusal!(response, model)
     response
   end
 
@@ -163,6 +167,7 @@ class WorkerLlmClient
       refusal_recovery: data["refusal_recovery"]
     )
     track_llm_usage!(response, model)
+    record_refusal!(response, model)
 
     result
   end
@@ -312,5 +317,82 @@ class WorkerLlmClient
                                                    .where(agent_id: @agent_id)
                                                    .order(created_at: :desc)
                                                    .first
+  end
+
+  # LEARN step: whenever the worker reports a refusal (recovered or terminal),
+  # log it LOUDLY, append an Ai::ModelRefusalEvent, record a FAILURE for the
+  # refused (model, agent_type) so its AgentModelSelector empirical score drops,
+  # and let the promotion service pre-route past-threshold combos away from Fable.
+  # Universal: every agent-scoped WorkerLlmClient call site flows through here
+  # (including the TrackedWorkerLlmClient wrapper, which delegates to this inner
+  # client). Best-effort — a learning-log write must never break the LLM call.
+  def record_refusal!(response, model)
+    recovery = response.respond_to?(:refusal_recovery) ? response.refusal_recovery : nil
+    refusal  = response.respond_to?(:refusal) ? response.refusal : nil
+    return unless recovery.present? || refusal.present?
+
+    category  = dig_meta(recovery, "category") || dig_meta(refusal, "category")
+    phase     = dig_meta(recovery, "phase") || dig_meta(refusal, "phase") || "pre_output"
+    served_by = dig_meta(recovery, "served_by")
+    reframed  = recovery ? !!dig_meta(recovery, "reframed") : false
+    fell_back = recovery ? !!dig_meta(recovery, "fell_back") : false
+    ctx = refusal_recording_context
+
+    # LOUD, attributed — fires even when we cannot attribute/record to a row.
+    Rails.logger.warn(
+      "[Refusal] model=#{model} agent_type=#{ctx[:agent_type] || 'unknown'} " \
+      "category=#{category || 'null'} phase=#{phase} reframed=#{reframed} " \
+      "fell_back=#{fell_back} served_by=#{served_by || 'none'}"
+    )
+
+    return if ctx[:account_id].blank? || ctx[:provider_id].blank? || ctx[:agent_type].blank?
+
+    event = Ai::ModelRefusalEvent.record!(
+      account_id: ctx[:account_id], provider_id: ctx[:provider_id],
+      model: model, agent_type: ctx[:agent_type],
+      phase: phase, category: category,
+      reframed: reframed, fell_back: fell_back,
+      served_by_model: served_by,
+      explanation: dig_meta(refusal, "explanation")
+    )
+
+    # A refusal is a FAILURE for the refused (model, agent_type).
+    Ai::AgentModelPerformance.record!(
+      account_id: ctx[:account_id], provider_id: ctx[:provider_id],
+      model: model, agent_type: ctx[:agent_type], success: false
+    )
+
+    if event
+      Ai::ModelRefusalPromotionService.new(account_id: ctx[:account_id]).maybe_promote(
+        model: model, agent_type: ctx[:agent_type], category: category, fallback_model: served_by
+      )
+    end
+  rescue StandardError => e
+    Rails.logger.warn("[WorkerLlmClient] refusal recording failed: #{e.class}: #{e.message}")
+  end
+
+  def dig_meta(hash, key)
+    return nil unless hash.is_a?(Hash)
+
+    hash[key] || hash[key.to_sym]
+  end
+
+  # Resolve (account, provider, agent_type) for the refused call. The provider is
+  # the one that actually served (resolved_provider), so the failure lands on the
+  # same (account, provider, model, agent_type) tuple AgentModelSelector scores.
+  def refusal_recording_context
+    @_refusal_ctx ||= if @agent_id.present?
+                        agent = Ai::Agent.find_by(id: @agent_id)
+                        if agent
+                          prov = (agent.resolved_provider rescue nil) || agent.provider
+                          { account_id: agent.account_id, provider_id: prov&.id, agent_type: agent.agent_type }
+                        else
+                          {}
+                        end
+                      elsif @provider
+                        { account_id: @provider.account_id, provider_id: @provider.id, agent_type: nil }
+                      else
+                        {}
+                      end
   end
 end

@@ -116,8 +116,14 @@ class TrackedWorkerLlmClient
         completion_tokens: response.completion_tokens,
         cached_tokens: response.cached_tokens,
         model: response.model,
-        provider: response.provider
-      }
+        provider: response.provider,
+        # Served-by attribution for the model-performance signal: on a Fable→X
+        # fallback the SUCCESS belongs to X, not the configured Fable model. On a
+        # terminal refusal, `refused` tells record_model_performance to skip
+        # (WorkerLlmClient already recorded the refused-model failure).
+        served_by: (response.respond_to?(:served_by) ? response.served_by : nil),
+        refused: (response.respond_to?(:refused?) ? response.refused? : false)
+      }.compact
     )
   rescue => e
     Rails.logger.warn "[TrackedWorkerLlmClient] Failed to update execution #{execution.id}: #{e.message}"

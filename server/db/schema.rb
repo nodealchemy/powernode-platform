@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_29_000016) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_01_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -3002,6 +3002,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_29_000016) do
     t.index ["model_id", "provider_type"], name: "index_ai_model_pricings_on_model_id_and_provider_type", unique: true
     t.index ["provider_type"], name: "index_ai_model_pricings_on_provider_type"
     t.index ["source"], name: "index_ai_model_pricings_on_source"
+  end
+
+  create_table "ai_model_refusal_events", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_execution_id"
+    t.string "agent_type", limit: 50, null: false
+    t.uuid "ai_provider_id", null: false
+    t.string "category"
+    t.datetime "created_at", null: false
+    t.text "explanation"
+    t.boolean "fell_back", default: false, null: false
+    t.string "model", limit: 120, null: false
+    t.string "phase", null: false
+    t.boolean "reframed", default: false, null: false
+    t.string "served_by_model"
+    t.string "task_type", limit: 120
+    t.string "tool_surface", limit: 120
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "agent_type", "tool_surface", "category"], name: "idx_refusal_events_promotion_key"
+    t.index ["account_id", "model", "agent_type"], name: "idx_refusal_events_account_model_type"
+    t.index ["created_at"], name: "index_ai_model_refusal_events_on_created_at"
   end
 
   create_table "ai_model_routing_rules", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
