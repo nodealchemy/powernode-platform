@@ -12,6 +12,11 @@ module Ai
     class Client
       OPENAI_COMPATIBLE = %w[openai groq mistral azure grok cohere deepseek].freeze
       ANTHROPIC_VERSION = "2023-06-01"
+      # Historical streaming read-timeout floor. Capability-aware read timeouts
+      # (adaptive-only models → 600s) never drop below this, so legacy streaming
+      # behaviour is preserved while long adaptive turns get their full budget.
+      # Mirrors server Ai::Llm::Adapters::BaseAdapter::STREAM_READ_TIMEOUT_FLOOR.
+      STREAM_READ_TIMEOUT_FLOOR = 300
 
       class RequestError < StandardError
         attr_reader :status_code
@@ -143,11 +148,14 @@ module Ai
         r = HTTParty.post(url, headers: @headers, body: body.to_json, timeout: timeout)
         [r.code, r.parsed_response, r.headers]
       end
-      def http_stream(url, body)
+      def http_stream(url, body, model = nil)
         uri = URI.parse(url)
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = uri.scheme == "https"
-        http.read_timeout = 300
+        # Capability-aware read timeout, never below the historical streaming floor:
+        # an adaptive-only/effort turn (Fable etc.) may go >300s before the next SSE
+        # chunk, so it gets its 600s profile timeout; every other model keeps 300s.
+        http.read_timeout = [ModelCapabilities.request_timeout_seconds(model), STREAM_READ_TIMEOUT_FLOOR].max
         http.open_timeout = 30
         req = Net::HTTP::Post.new(uri.request_uri)
         @headers.each { |k, v| req[k] = v }
@@ -281,7 +289,7 @@ module Ai
         body = build_openai_body(messages, model, **opts).merge(stream: true, stream_options: { include_usage: true })
         acc = ""; tc_buf = {}; usage = {}; sid = SecureRandom.uuid; fin = nil
         yield Chunk.new(type: :stream_start, stream_id: sid, timestamp: ts)
-        http_stream(openai_url, body) do |resp|
+        http_stream(openai_url, body, model) do |resp|
           parse_sse_stream(resp) do |p|
             c = p.dig("choices", 0); next unless c
             d = c["delta"] || {}
@@ -442,7 +450,7 @@ module Ai
         body = build_anthropic_body(messages, model, **opts).merge(stream: true)
         acc = ""; tcs = []; cur = nil; usage = {}; sid = SecureRandom.uuid; fin = nil; think = ""; refusal_details = nil
         yield Chunk.new(type: :stream_start, stream_id: sid, timestamp: ts)
-        http_stream(anthropic_url, body) do |resp|
+        http_stream(anthropic_url, body, model) do |resp|
           parse_anthropic_sse(resp) do |evt, p|
             case evt
             when "content_block_start"
