@@ -479,15 +479,13 @@ module Ai
       end
 
       # Resolve the reasoning-effort value for this call, or nil when effort must
-      # not be set. Gated by the Fable-5 framework master switch → INERT by
-      # default: no output_config.effort is populated anywhere until an operator
-      # enables the framework. When enabled, precedence is explicit pin (agent
-      # model_config.effort or loop configuration.effort) > complexity-derived >
-      # default. Only effort-capable models get a value (EffortMapper returns nil
-      # for everything else, so legacy models are unchanged).
+      # not be set. LIVE for every effort-capable model — NOT gated by the Fable
+      # framework switch (effort is a quality change the operator wants on deploy).
+      # Precedence: explicit pin (agent model_config.effort or loop
+      # configuration.effort) > complexity-derived > default. Only effort-capable
+      # models get a value (EffortMapper returns nil for everything else, so legacy
+      # models are unchanged).
       def resolve_effort(model, model_config, messages)
-        return nil unless ::Ai::FableRouting.enabled_for?(account)
-
         pinned = model_config["effort"].presence ||
                  ralph_loop&.configuration&.dig("effort").presence
         task_type = task.metadata.is_a?(Hash) ? (task.metadata["task_type"] || task.metadata[:task_type]) : nil

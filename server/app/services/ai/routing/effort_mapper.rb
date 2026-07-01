@@ -18,9 +18,10 @@ module Ai
     # Ai::Llm::ModelCapabilities.supports_effort?), so the caller simply omits the
     # param and legacy models are unchanged.
     #
-    # Pure/stateless mapping utility: the DECISION to populate effort (and the
-    # framework master switch that gates it) lives with the caller
-    # (Ai::Ralph::TaskExecutor#resolve_effort) — this only computes the value.
+    # Pure/stateless mapping utility: the DECISION to populate effort lives with
+    # the caller (Ai::Ralph::TaskExecutor#resolve_effort) — this only computes the
+    # value. Effort is LIVE for every effort-capable model (not gated by the Fable
+    # framework switch).
     class EffortMapper
       COMPLEXITY_TO_EFFORT = {
         "trivial"  => "low",
