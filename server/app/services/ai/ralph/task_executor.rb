@@ -560,6 +560,10 @@ module Ai
           output: output,
           checks_passed: true,
           commit_sha: result[:last_commit_sha],
+          # Served-by attribution carried through to the iteration record + the
+          # maker/checker gate (present only when the maker fell back).
+          served_by: result[:served_by],
+          refusal_recovery: result[:refusal_recovery],
           # G3 follow-up: best-effort real unified diff of the commit (present only on
           # the git-tool agent path when a commit was made); the maker/checker prefers
           # it over the file-list summary. Absent on non-git paths ⇒ checker falls back.

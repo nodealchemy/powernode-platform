@@ -175,6 +175,23 @@ module Ai
             learning: extract_learning(scrubbed_output)
           )
 
+          # LOUD served-by attribution: when the maker's call refused and fell back
+          # (e.g. Fable→Opus), record which model actually served on the iteration
+          # so it's visible AND the maker/checker gate below can honor the served
+          # model. No-op on the normal (no-fallback) path.
+          if result[:served_by].present?
+            category = result.dig(:refusal_recovery, "category") || "unknown"
+            iteration.update!(ai_response_metadata: (iteration.ai_response_metadata || {}).merge(
+              "served_by" => result[:served_by],
+              "refusal_category" => result.dig(:refusal_recovery, "category"),
+              "served_by_note" => "served by #{result[:served_by]} — Fable refused: #{category}"
+            ))
+            Rails.logger.warn(
+              "[IterationExecution] iteration #{iteration.id} served by #{result[:served_by]} " \
+              "(Fable refused: #{category})"
+            )
+          end
+
           # Set git_branch when commits were made
           if result[:commit_sha].present?
             iteration.update_columns(git_branch: ralph_loop.branch)
@@ -309,7 +326,12 @@ module Ai
         # model distinct from the maker/executor), or on a wiring error — a checker
         # outage must never wedge the loop, and the G1 test gate still runs.
         def maker_checker_gate_failed?(iteration, task, output, result)
-          policy = Ai::Ralph::MakerCheckerPolicy.new(ralph_loop)
+          # Compare the self-review ban against the model that ACTUALLY served the
+          # maker (served_by, when it fell back), not the configured model — so a
+          # Fable→Opus maker fallback can't silently collide with an Opus checker.
+          served_maker = result[:served_by].presence ||
+                         iteration.ai_response_metadata&.dig("served_by")
+          policy = Ai::Ralph::MakerCheckerPolicy.new(ralph_loop, served_maker_model: served_maker)
           return false unless policy.enabled?
 
           unless policy.distinct_checker?

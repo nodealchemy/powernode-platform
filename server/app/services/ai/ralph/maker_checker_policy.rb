@@ -35,9 +35,14 @@ module Ai
       MAKER_AGENT_TYPE   = "assistant"
       CHECKER_AGENT_TYPE = "code_assistant"
 
-      def initialize(ralph_loop)
+      # @param served_maker_model [String, nil] the model that ACTUALLY served the
+      #   maker's (executor's) call for this iteration. When the maker refused and
+      #   fell back (e.g. Fable→Opus), this is the fallback model — and it, not the
+      #   configured model, is what the self-review ban must compare against.
+      def initialize(ralph_loop, served_maker_model: nil)
         @ralph_loop = ralph_loop
         @config = ralph_loop.configuration || {}
+        @served_maker_model = served_maker_model.presence
       end
 
       # Opt-in: the semantic checker gate only runs when explicitly enabled, so
@@ -54,15 +59,21 @@ module Ai
         preset == CHEAP_EXPLORE_STRONG_VERIFY
       end
 
-      # The maker (executor) model. Under the preset, a cheap-tier model; otherwise
-      # the loop executor's resolved model (the agent that actually does the work).
+      # The maker (executor) model the self-review ban compares against. When the
+      # maker's call fell back to another model this iteration, the SERVED-BY model
+      # wins — so a Fable→Opus maker fallback can't silently collide with an Opus
+      # checker. Absent a served-by signal, falls back to the configured resolution
+      # (preset cheap-tier, else the loop executor's resolved model).
       def maker_model
-        @maker_model ||=
-          if cheap_explore_strong_verify?
-            tier_model(MAKER_TIER, MAKER_AGENT_TYPE) || executor_model
-          else
-            executor_model
-          end
+        @maker_model ||= @served_maker_model || configured_maker_model
+      end
+
+      def configured_maker_model
+        if cheap_explore_strong_verify?
+          tier_model(MAKER_TIER, MAKER_AGENT_TYPE) || executor_model
+        else
+          executor_model
+        end
       end
 
       # The checker (verifier) model. Precedence: explicit config override →

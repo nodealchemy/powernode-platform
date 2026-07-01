@@ -85,4 +85,24 @@ RSpec.describe Ai::Ralph::MakerCheckerPolicy do
       expect(described_class.new(loop_with("maker_checker" => true)).criteria).to eq([])
     end
   end
+
+  describe "served-by-aware self-review ban (Fable→Opus maker fallback)" do
+    let(:preset_config) { { "maker_checker" => true, "preset" => "cheap_explore_strong_verify" } }
+
+    it "compares against the SERVED-BY maker model, not the configured cheap maker" do
+      # This iteration's maker refused and fell back to the reasoning model — which
+      # is exactly the checker. Comparing the CONFIGURED cheap maker would miss the
+      # collision; comparing served-by catches it and skips the gate.
+      policy = described_class.new(loop_with(preset_config), served_maker_model: "gpt-4o")
+      expect(policy.checker_model).to eq("gpt-4o")
+      expect(policy.maker_model).to eq("gpt-4o")   # served-by wins over configured cheap maker
+      expect(policy.distinct_checker?).to be false # self-review collision detected
+    end
+
+    it "falls back to the configured maker when there is no served-by signal" do
+      policy = described_class.new(loop_with(preset_config))
+      expect(policy.maker_model).to eq("gpt-4o-mini")
+      expect(policy.distinct_checker?).to be true
+    end
+  end
 end

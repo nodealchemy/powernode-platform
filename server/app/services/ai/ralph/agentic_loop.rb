@@ -141,6 +141,11 @@ module Ai
           content: content,
           response: last_response.raw_response,
           metadata: { usage: last_response.usage, cost: last_response.cost },
+          # Served-by attribution: when the maker's call refused and fell back
+          # (e.g. Fable→Opus), record the model that actually served so the
+          # maker/checker self-review ban compares against it.
+          served_by: (last_response.respond_to?(:served_by) ? last_response.served_by : nil),
+          refusal_recovery: (last_response.respond_to?(:refusal_recovery) ? last_response.refusal_recovery : nil),
           file_changes: @git_executor&.file_changes || [],
           last_commit_sha: @git_executor&.last_commit_sha,
           # G3 follow-up: carry the REAL unified diff of the commit (best-effort —
