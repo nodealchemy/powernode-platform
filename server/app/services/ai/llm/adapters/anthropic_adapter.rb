@@ -13,7 +13,9 @@ module Ai
       #   - Named SSE events (event: content_block_delta\ndata: {json}\n\n)
       #   - Structured output: output_config: { format: { type: "json", schema: {...} } }
       #   - Prompt caching: cache_control: { type: "ephemeral" } (max 4 breakpoints)
-      #   - Extended thinking: thinking: { type: "enabled", budget_tokens: N }
+      #   - Thinking: capability-profile-driven (Ai::Llm::ModelCapabilities). Adaptive-only
+      #     models (Fable/Mythos/Opus 4.7+/Sonnet 5) have thinking always on and reject
+      #     any explicit thinking block; the legacy budget_tokens path has been removed.
       class AnthropicAdapter < BaseAdapter
         ANTHROPIC_VERSION = "2023-06-01"
 
@@ -227,15 +229,15 @@ module Ai
           end
           body[:stop_sequences] = opts[:stop] if opts[:stop]
 
-          case Ai::Llm::ModelCapabilities.thinking_mode(model)
-          when :configurable
-            # Legacy models: honor an explicit thinking budget.
-            body[:thinking] = { type: "enabled", budget_tokens: opts[:thinking_budget] } if opts[:thinking_budget]
-          when :adaptive_only
-            # Thinking is ALWAYS on: never emit type: enabled/disabled (either 400s).
-            # Omit `thinking` entirely unless the caller explicitly asks to surface the
-            # reasoning summary. Depth is controlled by output_config.effort below.
-            body[:thinking] = { type: "adaptive", display: "summarized" } if opts[:surface_reasoning]
+          # Thinking is ALWAYS on for adaptive-only models (Fable 5 / Mythos 5 / Opus
+          # 4.7 / Opus 4.8 / Sonnet 5): never emit an enabled/disabled/budget_tokens
+          # block (all 400). Omit `thinking` unless the caller explicitly asks to
+          # surface the reasoning summary; depth is controlled by output_config.effort
+          # below. Legacy (:configurable) models get no thinking block — no caller uses
+          # thinking today, and the deprecated {type:"enabled",budget_tokens:N} path
+          # was removed.
+          if Ai::Llm::ModelCapabilities.thinking_mode(model) == :adaptive_only && opts[:surface_reasoning]
+            body[:thinking] = { type: "adaptive", display: "summarized" }
           end
 
           # Effort controls reasoning depth on effort-capable models. Merge into

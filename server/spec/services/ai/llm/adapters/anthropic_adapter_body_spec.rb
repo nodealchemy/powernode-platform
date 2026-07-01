@@ -11,7 +11,7 @@ RSpec.describe Ai::Llm::Adapters::AnthropicAdapter, "#build_messages_body" do
   end
 
   let(:messages) { [{ role: "user", content: "hi" }] }
-  let(:opts) { { temperature: 0.7, top_p: 0.9, thinking_budget: 5000, effort: "high" } }
+  let(:opts) { { temperature: 0.7, top_p: 0.9, effort: "high" } }
 
   def body_for(model, extra = {})
     adapter.send(:build_messages_body, messages, model, **opts.merge(extra))
@@ -47,8 +47,8 @@ RSpec.describe Ai::Llm::Adapters::AnthropicAdapter, "#build_messages_body" do
       expect(body[:top_p]).to eq(0.9)
     end
 
-    it "honors an explicit thinking budget as an enabled block" do
-      expect(body[:thinking]).to eq(type: "enabled", budget_tokens: 5000)
+    it "emits no thinking block (no caller uses thinking; the budget_tokens path was removed)" do
+      expect(body).not_to have_key(:thinking)
     end
 
     it "does not send output_config.effort (effort unsupported)" do
