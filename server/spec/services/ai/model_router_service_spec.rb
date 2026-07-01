@@ -232,4 +232,24 @@ RSpec.describe Ai::ModelRouterService do
       expect(service.send(:calculate_alternative_cost, candidates, "selected")).to be_nil
     end
   end
+
+  describe "#models_for_tier Fable candidacy gate" do
+    subject(:router) { described_class.new(account: account) }
+
+    before { allow(provider).to receive(:available_models).and_return(%w[claude-opus-4-8 claude-fable-5]) }
+
+    it "excludes Fable from the premium tier when the framework is OFF (default)" do
+      models = router.send(:models_for_tier, "premium", provider)
+
+      expect(models).to include("claude-opus-4-8")
+      expect(models).not_to include("claude-fable-5")
+    end
+
+    it "includes Fable in the premium tier when the framework is ON" do
+      account.update!(settings: { "fable_routing_enabled" => true })
+      models = router.send(:models_for_tier, "premium", provider)
+
+      expect(models).to include("claude-fable-5")
+    end
+  end
 end

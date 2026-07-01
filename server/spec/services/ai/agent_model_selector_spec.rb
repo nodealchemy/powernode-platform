@@ -215,6 +215,35 @@ RSpec.describe Ai::AgentModelSelector do
       end
     end
 
+    # Candidacy gate: OFF must make Fable NON-SELECTABLE, not merely un-preferred.
+    # The UCB exploration term rewards Fable's zero-trial state, so it could win on
+    # exploration alone if it stayed in the pool — exclusion is what prevents that.
+    context "candidacy gate under maximal UCB exploration" do
+      before do
+        # Opus accrues a large trial history → high total_observed → Fable's
+        # zero-trial exploration bonus is maximal; with Fable in the pool it wins
+        # on exploration alone (non-allowlisted agent_type ⇒ no preference bonus).
+        Ai::AgentModelPerformance.create!(
+          account: account, provider: provider,
+          model: "claude-opus-4-8", agent_type: "assistant",
+          total_runs: 200, successful_runs: 100
+        )
+      end
+
+      it "toggle OFF → excludes Fable entirely; never selected despite max UCB" do
+        result = described_class.recommend(account: account, agent_type: "assistant")
+
+        expect(result[:model]).to eq("claude-opus-4-8")
+      end
+
+      it "toggle ON → Fable re-enters the pool and UCB can select it" do
+        account.update!(settings: { "fable_routing_enabled" => true })
+        result = described_class.recommend(account: account, agent_type: "assistant")
+
+        expect(result[:model]).to eq("claude-fable-5")
+      end
+    end
+
     describe ".default_fable_preferred_agent_types" do
       it "derives from the reasoning-tier profiles (not hardcoded)" do
         expected = described_class::AGENT_TYPE_PROFILES.select { |_t, p| p[:tier] == :reasoning }.keys

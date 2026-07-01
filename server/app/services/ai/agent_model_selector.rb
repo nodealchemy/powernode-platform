@@ -55,10 +55,9 @@ module Ai
     # disable exploration (pure exploitation). ENV-tunable per deployment.
     EXPLORATION_COEFFICIENT = (ENV["AI_MODEL_SELECTOR_EXPLORATION_C"] || 0.3).to_f
 
-    # ---- Fable-5 routing preference (INERT by default; gated by Ai::FableRouting) ----
-    # Model families that run the request-time safety classifier AND carry the
-    # premium (2× Opus) price — the ones the preference steers toward.
-    FABLE_MODEL_PREFIXES = %w[claude-fable claude-mythos].freeze
+    # ---- Fable-5 candidacy + routing preference (gated by Ai::FableRouting) ----
+    # Fable/Mythos model-family detection lives in Ai::FableRouting.fable_model?
+    # (single source of truth, shared with Ai::ModelRouterService).
 
     # Agent_types we NEVER steer to Fable even when reasoning-tier: security- or
     # refusal-prone work stays on a non-Fable reasoning model (the inc1 refusal
@@ -107,6 +106,18 @@ module Ai
     def recommend
       profile = merge_requirements(AGENT_TYPE_PROFILES[@agent_type] || AGENT_TYPE_PROFILES["assistant"])
       candidates = enumerate_candidates
+
+      # Fable-5 CANDIDACY gate. When the framework is OFF (default), Fable/Mythos
+      # are EXCLUDED from the candidate set entirely — so they can't be selected by
+      # preference, UCB exploration, empirical score, or a cost tie (inc0 put Fable
+      # in supported_models, and the zero-trial UCB term could otherwise let an
+      # unavailable model win). The toggle is read ONLY when a Fable candidate is
+      # actually present, so non-Fable providers pay nothing and stay unchanged.
+      has_fable = candidates.any? { |c| ::Ai::FableRouting.fable_model?(c[:model_id]) }
+      if has_fable && !fable_enabled?
+        candidates = candidates.reject { |c| ::Ai::FableRouting.fable_model?(c[:model_id]) }
+        has_fable = false
+      end
       return fallback if candidates.empty?
 
       # UCB exploration baseline: total observed runs across all candidate arms
@@ -115,10 +126,9 @@ module Ai
       # term is 0 for everyone and the static priors decide.
       total_observed = candidates.sum { |c| empirical_signal(c[:provider], c[:model_id])[:n] }
 
-      # Computed ONCE per recommend(): nil (no preference) unless the framework is
-      # enabled for this account AND the agent_type is allowlisted AND cost/refusal
-      # gates pass. When nil, score() adds 0.0 → selection is bit-for-bit as before.
-      fable_ctx = fable_preference_context
+      # Preference bonus is only relevant when Fable survived into the pool (i.e.
+      # the framework is ON). Computed once; nil ⇒ score() adds 0.0.
+      fable_ctx = has_fable ? fable_preference_context : nil
 
       scored = candidates.map { |c| score(c, profile, total_observed: total_observed, fable_ctx: fable_ctx) }
 
@@ -311,7 +321,7 @@ module Ai
     # budget backstop. When the switch is OFF (default) NOTHING below it runs, so
     # the inert deploy issues zero extra queries and selection is unchanged.
     def compute_fable_preference_context
-      return nil unless ::Ai::FableRouting.enabled_for?(@account)
+      return nil unless fable_enabled?
       return nil unless fable_preferred_agent_type?
       # (3) Learned-routing HARD override — an active inc1 pre-route rule that
       # steers this agent_type's Fable usage to a fallback suppresses the
@@ -367,9 +377,16 @@ module Ai
       allowlist.include?(@agent_type)
     end
 
+    # Whether the Fable-5 framework is enabled for this account — memoized so the
+    # toggle (and any SiteSetting fallback read) resolves at most once per recommend.
+    def fable_enabled?
+      return @fable_enabled if defined?(@fable_enabled)
+
+      @fable_enabled = ::Ai::FableRouting.enabled_for?(@account)
+    end
+
     def fable_model?(model_id)
-      mid = model_id.to_s
-      FABLE_MODEL_PREFIXES.any? { |prefix| mid.start_with?(prefix) }
+      ::Ai::FableRouting.fable_model?(model_id)
     end
 
     # Account-level cost backstop, mirroring ModelRouterService#budget_aware_downgrade.

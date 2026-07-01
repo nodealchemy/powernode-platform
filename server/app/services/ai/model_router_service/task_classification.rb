@@ -103,12 +103,21 @@ module Ai
       def models_for_tier(tier, provider)
         tier_patterns = MODEL_TIERS[tier] || MODEL_TIERS["standard"]
 
-        # Get available models from the provider's synced model list
+        # Get available models from the provider's synced model list.
         available = Array(provider.available_models).compact
+        # Fable-5 CANDIDACY gate (mirrors Ai::AgentModelSelector): when the Fable
+        # framework is OFF for this account, Fable/Mythos are not selectable — drop
+        # them from the tier pool (and the default fallback below) so an
+        # unavailable model can never be routed to. Read the toggle only when a
+        # Fable model is actually present.
+        if available.any? { |m| ::Ai::FableRouting.fable_model?(m) } && !::Ai::FableRouting.enabled_for?(@account)
+          available = available.reject { |m| ::Ai::FableRouting.fable_model?(m) }
+        end
         if available.empty?
           # No synced models: fall back to the provider's configured default so
           # downstream callers (route_and_build_client) never receive a nil model.
           default = provider.default_model
+          default = nil if default.present? && ::Ai::FableRouting.fable_model?(default) && !::Ai::FableRouting.enabled_for?(@account)
           return default.present? ? [default] : []
         end
 
