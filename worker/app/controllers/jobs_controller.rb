@@ -198,6 +198,7 @@ class JobsController
       opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
       opts[:temperature] = data['temperature'] if data['temperature']
       opts[:system_prompt] = data['system_prompt'] if data['system_prompt']
+      opts[:effort] = data['effort'] if data['effort']
 
       llm_opts = apply_llm_provider_target({ messages: data['messages'], model: data['model'], **opts }, data)
       result = build_llm_proxy_client.complete(**llm_opts)
@@ -220,6 +221,7 @@ class JobsController
       opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
       opts[:temperature] = data['temperature'] if data['temperature']
       opts[:tool_choice] = data['tool_choice'] if data['tool_choice']
+      opts[:effort] = data['effort'] if data['effort']
 
       llm_opts = apply_llm_provider_target({ messages: data['messages'], tools: data['tools'] || [], model: data['model'], **opts }, data)
       result = build_llm_proxy_client.complete_with_tools(**llm_opts)
@@ -243,6 +245,7 @@ class JobsController
       opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
       opts[:temperature] = data['temperature'] if data['temperature']
       opts[:system_prompt] = data['system_prompt'] if data['system_prompt']
+      opts[:effort] = data['effort'] if data['effort']
 
       # Use standard complete -- the worker collects the full response.
       # Streaming to the end user is handled server-side via ActionCable.
@@ -265,6 +268,7 @@ class JobsController
     begin
       opts = {}
       opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
+      opts[:effort] = data['effort'] if data['effort']
 
       llm_opts = apply_llm_provider_target({ messages: data['messages'], schema: data['schema'], model: data['model'], **opts }, data)
       result = build_llm_proxy_client.complete_structured(**llm_opts)

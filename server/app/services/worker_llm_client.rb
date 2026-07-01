@@ -74,7 +74,7 @@ class WorkerLlmClient
     result = call_worker("/api/v1/llm/complete", build_payload(
       messages: messages,
       model: model,
-      **opts.slice(:max_tokens, :temperature, :system_prompt, :top_p, :stop)
+      **opts.slice(:max_tokens, :temperature, :system_prompt, :top_p, :stop, :effort)
     ))
     response = build_response(result)
     track_llm_usage!(response, model)
@@ -88,7 +88,7 @@ class WorkerLlmClient
     result = call_worker("/api/v1/llm/stream", build_payload(
       messages: messages,
       model: model,
-      **opts.slice(:max_tokens, :temperature, :system_prompt, :top_p, :stop)
+      **opts.slice(:max_tokens, :temperature, :system_prompt, :top_p, :stop, :effort)
     ))
     response = build_response(result)
     track_llm_usage!(response, model)
@@ -112,7 +112,7 @@ class WorkerLlmClient
       messages: messages,
       tools: tools,
       model: model,
-      **opts.slice(:max_tokens, :temperature, :tool_choice, :system_prompt)
+      **opts.slice(:max_tokens, :temperature, :tool_choice, :system_prompt, :effort)
     ))
     response = build_response(result)
     track_llm_usage!(response, model)
@@ -125,7 +125,7 @@ class WorkerLlmClient
       messages: messages,
       schema: schema,
       model: model,
-      **opts.slice(:max_tokens, :temperature)
+      **opts.slice(:max_tokens, :temperature, :effort)
     ))
     response = build_response(result)
     track_llm_usage!(response, model)

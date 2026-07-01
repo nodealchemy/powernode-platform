@@ -178,13 +178,14 @@ module Ai
 
         def complete_structured(messages:, schema:, model:, **opts)
           body = build_messages_body(messages, model, **opts)
-          # Anthropic uses output_config for structured output (GA since late 2025)
-          body[:output_config] = {
+          # Anthropic uses output_config for structured output (GA since late 2025).
+          # Merge — don't clobber output_config.effort that the builder may have set.
+          body[:output_config] = (body[:output_config] || {}).merge(
             format: {
               type: "json_schema",
               schema: schema[:schema] || schema
             }
-          }
+          )
 
           status, parsed, _headers = http_post("/messages", body)
 
@@ -217,13 +218,31 @@ module Ai
           }
 
           body[:system] = build_system_param(system_content, opts) if system_content.present?
-          body[:temperature] = opts[:temperature] if opts[:temperature]
-          body[:top_p] = opts[:top_p] if opts[:top_p]
+
+          # Sampling params 400 on Fable 5 / Mythos 5 / Opus 4.7 / Opus 4.8 / Sonnet 5 —
+          # only send them for models whose capability profile permits sampling.
+          if Ai::Llm::ModelCapabilities.supports_sampling_params?(model)
+            body[:temperature] = opts[:temperature] if opts[:temperature]
+            body[:top_p] = opts[:top_p] if opts[:top_p]
+          end
           body[:stop_sequences] = opts[:stop] if opts[:stop]
 
-          # Extended thinking
-          if opts[:thinking_budget]
-            body[:thinking] = { type: "enabled", budget_tokens: opts[:thinking_budget] }
+          case Ai::Llm::ModelCapabilities.thinking_mode(model)
+          when :configurable
+            # Legacy models: honor an explicit thinking budget.
+            body[:thinking] = { type: "enabled", budget_tokens: opts[:thinking_budget] } if opts[:thinking_budget]
+          when :adaptive_only
+            # Thinking is ALWAYS on: never emit type: enabled/disabled (either 400s).
+            # Omit `thinking` entirely unless the caller explicitly asks to surface the
+            # reasoning summary. Depth is controlled by output_config.effort below.
+            body[:thinking] = { type: "adaptive", display: "summarized" } if opts[:surface_reasoning]
+          end
+
+          # Effort controls reasoning depth on effort-capable models. Merge into
+          # output_config so it composes with output_config.format (structured output),
+          # which complete_structured layers on after this builder runs.
+          if Ai::Llm::ModelCapabilities.supports_effort?(model) && opts[:effort]
+            body[:output_config] = (body[:output_config] || {}).merge(effort: opts[:effort])
           end
 
           body

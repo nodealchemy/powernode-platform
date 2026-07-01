@@ -4,6 +4,7 @@ require 'net/http'
 require 'json'
 require 'uri'
 require_relative 'response'
+require_relative 'model_capabilities'
 
 module Ai
   module Llm
@@ -95,7 +96,8 @@ module Ai
             s == 200 ? parse_openai_response(p, model) : openai_handle_error(s, p)
           when :anthropic
             body = build_anthropic_body(messages, model, **opts)
-            body[:output_config] = { format: { type: "json_schema", schema: schema[:schema] || schema } }
+            # Merge — don't clobber output_config.effort that the builder may have set.
+            body[:output_config] = (body[:output_config] || {}).merge(format: { type: "json_schema", schema: schema[:schema] || schema })
             s, p, _ = http_post(anthropic_url, body)
             s == 200 ? parse_anthropic_response(p, model) : anthropic_handle_error(s, p)
           when :ollama
@@ -322,10 +324,33 @@ module Ai
         if sys.present?
           body[:system] = opts[:cache_system_prompt] ? [{ type: "text", text: sys, cache_control: { type: "ephemeral" } }] : sys
         end
-        body[:temperature] = opts[:temperature] if opts[:temperature]
-        body[:top_p] = opts[:top_p] if opts[:top_p]
+
+        # Sampling params 400 on Fable 5 / Mythos 5 / Opus 4.7 / Opus 4.8 / Sonnet 5 —
+        # only send them for models whose capability profile permits sampling.
+        if ModelCapabilities.supports_sampling_params?(model)
+          body[:temperature] = opts[:temperature] if opts[:temperature]
+          body[:top_p] = opts[:top_p] if opts[:top_p]
+        end
         body[:stop_sequences] = opts[:stop] if opts[:stop]
-        body[:thinking] = { type: "enabled", budget_tokens: opts[:thinking_budget] } if opts[:thinking_budget]
+
+        case ModelCapabilities.thinking_mode(model)
+        when :configurable
+          # Legacy models: honor an explicit thinking budget.
+          body[:thinking] = { type: "enabled", budget_tokens: opts[:thinking_budget] } if opts[:thinking_budget]
+        when :adaptive_only
+          # Thinking is ALWAYS on: never emit type: enabled/disabled (either 400s).
+          # Omit `thinking` entirely unless the caller explicitly asks to surface the
+          # reasoning summary. Depth is controlled by output_config.effort below.
+          body[:thinking] = { type: "adaptive", display: "summarized" } if opts[:surface_reasoning]
+        end
+
+        # Effort controls reasoning depth on effort-capable models. Merge into
+        # output_config so it composes with output_config.format (structured output),
+        # which callers layer on after this builder runs.
+        if ModelCapabilities.supports_effort?(model) && opts[:effort]
+          body[:output_config] = (body[:output_config] || {}).merge(effort: opts[:effort])
+        end
+
         body
       end
 
