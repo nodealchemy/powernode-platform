@@ -25,7 +25,17 @@ WorkingDirectory=/opt/powernode
 ExecStart=/opt/powernode/scripts/systemd/powernode-reverse-proxy.sh
 
 Restart=on-failure
+# Exponential restart backoff (systemd >= 254): Traefik once exited 1 within ~1.5s
+# of start (a transient early-exit; journal showed the accept-loop shutdown log
+# "use of closed network connection" on :80/:443), and a fixed tight RestartSec=5s
+# burned through StartLimitBurst in ~25s, turning a transient failure into a
+# permanent `failed`. Back off from 5s up to 30s over the retry sequence so a
+# transient condition gets time to clear; StartLimitBurst below stays the
+# crash-loop safety net for a genuinely permanent failure (6th start still trips
+# well within StartLimitIntervalSec).
 RestartSec=5s
+RestartSteps=3
+RestartMaxDelaySec=30s
 TimeoutStartSec=60s
 TimeoutStopSec=15s
 
