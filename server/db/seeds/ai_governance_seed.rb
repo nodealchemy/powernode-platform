@@ -92,6 +92,7 @@ policies_data = [
       'cost_threshold_usd' => 5.0,
       'per' => 'workflow_execution',
       'model_cost_rates' => {
+        'claude-fable-5' => { 'input_per_1k' => 0.010, 'output_per_1k' => 0.050 },
         'claude-sonnet-4-5-20250929' => { 'input_per_1k' => 0.003, 'output_per_1k' => 0.015 },
         'claude-opus-4-5-20251101' => { 'input_per_1k' => 0.015, 'output_per_1k' => 0.075 }
       }
@@ -144,7 +145,7 @@ policies_data = [
     conditions: {
       'track_model_changes' => true,
       'track_provider_changes' => true,
-      'approved_models' => %w[claude-sonnet-4-5-20250929 claude-opus-4-5-20251101 gpt-4o text-embedding-3-large],
+      'approved_models' => %w[claude-fable-5 claude-sonnet-4-5-20250929 claude-opus-4-5-20251101 gpt-4o text-embedding-3-large],
       'approved_providers' => %w[anthropic openai]
     },
     actions: {

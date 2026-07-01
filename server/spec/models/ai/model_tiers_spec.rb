@@ -16,6 +16,14 @@ RSpec.describe Ai::ModelTiers do
       expect(described_class.classify("claude-opus-4-20250514")).to eq(:reasoning)
     end
 
+    it "classifies claude-fable-5 as :reasoning" do
+      expect(described_class.classify("claude-fable-5")).to eq(:reasoning)
+    end
+
+    it "classifies claude-mythos-5 as :reasoning" do
+      expect(described_class.classify("claude-mythos-5")).to eq(:reasoning)
+    end
+
     it "classifies a gpt-4o id as :reasoning" do
       expect(described_class.classify("gpt-4o")).to eq(:reasoning)
     end

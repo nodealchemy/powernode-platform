@@ -37,7 +37,7 @@ module Ai
                     {
                       "name" => format_anthropic_model_name(model["id"]),
                       "id" => model["id"],
-                      "context_length" => 200000,
+                      "context_length" => anthropic_context_length(model["id"]),
                       "max_output_tokens" => extract_max_output_tokens(model["id"]),
                       "description" => model["display_name"] || format_anthropic_model_name(model["id"]),
                       "capabilities" => extract_anthropic_capabilities(model["id"]),
@@ -79,21 +79,36 @@ module Ai
             name.gsub("Claude", "Claude")     # Ensure proper casing
           end
 
+          # Fable/Mythos (Project Glasswing) share a 1M-token context window; every
+          # other Anthropic model this syncs is 200K.
+          def anthropic_context_length(model_id)
+            return 1_000_000 if fable_family?(model_id)
+            200000
+          end
+
           def extract_max_output_tokens(model_id)
-            # Opus models have higher output limits
+            # Fable/Mythos support 128K output; Opus 32K; others 8K.
+            return 128000 if fable_family?(model_id)
             return 32000 if model_id.include?("opus")
             8192
           end
 
           def extract_anthropic_capabilities(model_id)
             capabilities = [ "text_generation", "chat", "vision" ]
-            capabilities << "code_generation" if model_id.include?("opus") || model_id.include?("sonnet")
-            capabilities << "extended_thinking" if model_id.include?("opus")
+            fable = fable_family?(model_id)
+            capabilities << "code_generation" if fable || model_id.include?("opus") || model_id.include?("sonnet")
+            capabilities << "extended_thinking" if fable || model_id.include?("opus")
+            capabilities << "reasoning" if fable
             capabilities
+          end
+
+          def fable_family?(model_id)
+            model_id.include?("fable") || model_id.include?("mythos")
           end
 
           def anthropic_model_sort_priority(model_id)
             # Higher priority = listed first
+            return 120 if fable_family?(model_id)
             return 100 if model_id.include?("opus-4-5")
             return 90 if model_id.include?("opus-4")
             return 80 if model_id.include?("sonnet-4-5")

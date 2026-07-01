@@ -430,6 +430,19 @@ if admin_account && admin_user
     ],
     supported_models: [
       {
+        'name' => 'claude-fable-5',
+        'id' => 'claude-fable-5',
+        'display_name' => 'Claude Fable 5',
+        'context_length' => 1000000,
+        'max_output_tokens' => 128000,
+        'cost_per_1k_tokens' => {
+          'input' => 0.010,
+          'output' => 0.050
+        },
+        'capabilities' => [ 'text', 'code', 'reasoning', 'complex_reasoning', 'highest_intelligence', 'code_generation', 'extended_thinking', 'vision', 'long_context', 'advanced_analysis', 'agentic_workflows' ],
+        'recommended_for' => [ 'complex_workflows', 'advanced_reasoning', 'long_horizon_agentic', 'research', 'critical_decision_making', 'multi_hour_tasks' ]
+      },
+      {
         'name' => 'claude-opus-4.1',
         'id' => 'claude-opus-4-1-20250805',
         'display_name' => 'Claude Opus 4.1',

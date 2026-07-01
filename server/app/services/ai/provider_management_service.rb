@@ -48,6 +48,9 @@ class Ai::ProviderManagementService
     "gpt-4-turbo"                => { "input" => 0.01,    "output" => 0.03,    "cached_input" => 0.005,   "tier" => "premium" },
     "gpt-3.5-turbo"              => { "input" => 0.0005,  "output" => 0.0015,  "cached_input" => 0.00025, "tier" => "economy" },
     # Anthropic (Feb 2026)
+    "claude-fable-5"             => { "input" => 0.010,   "output" => 0.050,   "cached_input" => 0.001,   "tier" => "premium" },
+    "claude-opus-4-8"            => { "input" => 0.005,   "output" => 0.025,   "cached_input" => 0.0005,  "tier" => "premium" },
+    "claude-opus-4-7"            => { "input" => 0.005,   "output" => 0.025,   "cached_input" => 0.0005,  "tier" => "premium" },
     "claude-opus-4-6"            => { "input" => 0.005,   "output" => 0.025,   "cached_input" => 0.0005,  "tier" => "premium" },
     "claude-opus-4-5"            => { "input" => 0.005,   "output" => 0.025,   "cached_input" => 0.0005,  "tier" => "premium" },
     "claude-sonnet-4-5"          => { "input" => 0.003,   "output" => 0.015,   "cached_input" => 0.0003,  "tier" => "standard" },

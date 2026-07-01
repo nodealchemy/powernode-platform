@@ -10,7 +10,7 @@ module Ai
     # Prefix → tier. Tier 1 reasoning (full-power), tier 2 standard
     # (cost-effective), tier 3 light (cheap/local).
     TIERS = {
-      reasoning: %w[claude-opus claude-sonnet o3 o3-pro gpt-4o grok-3 grok-4],
+      reasoning: %w[claude-fable claude-mythos claude-opus claude-sonnet o3 o3-pro gpt-4o grok-3 grok-4],
       standard:  %w[gpt-4.1-mini gpt-4.1 claude-haiku grok-3-mini o3-mini],
       light:     %w[gpt-4o-mini llama qwen codellama]
     }.freeze
