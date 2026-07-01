@@ -71,6 +71,15 @@ module Devops
     # Cap the per-advisory OSV calls (primary id + a few aliases) so a noisy
     # advisory can't fan out into an unbounded request burst.
     OSV_MAX_LOOKUPS = 4
+    # Overall WALL-CLOCK budget for ALL OSV lookups in a single scan. Per-advisory
+    # memoization bounds DUPLICATE ids but not the count of DISTINCT advisories, so a
+    # requirements file with many distinct Python CVEs could otherwise stall the land
+    # scan up to (distinct_ids x OSV_TIMEOUT_SECONDS) when OSV is unreachable. Once the
+    # cumulative lookup time crosses this budget, every REMAINING id falls back to the
+    # fail-safe blocking default without a network call — capping worst-case latency at
+    # roughly OSV_SCAN_BUDGET_SECONDS + OSV_TIMEOUT_SECONDS (one in-flight request may
+    # straddle the deadline). Fail-safe: exhausting the budget only ever yields HIGH.
+    OSV_SCAN_BUDGET_SECONDS = 20
 
     # Each ecosystem is a stock, manifest-driven auditor. Running the tool when its
     # manifest/binary is absent simply errors/no-ops, which we skip cleanly — so we
@@ -161,14 +170,17 @@ module Devops
       report = JSON.parse(output)
       deps = report.is_a?(Hash) ? Array(report["dependencies"]) : Array(report)
       # One per-scan memo of OSV id → severity so a CVE shared by several packages
-      # (and a recurring alias) is fetched at most once, bounding both duplicate
-      # work and the worst-case latency when OSV is slow/unreachable.
+      # (and a recurring alias) is fetched at most once, bounding duplicate work.
+      # `deadline` is the per-scan wall-clock budget (OSV_SCAN_BUDGET_SECONDS) that
+      # bounds the DISTINCT-id count too: once crossed, remaining ids fail safe to
+      # HIGH without a lookup, capping worst-case latency when OSV is unreachable.
       osv_cache = {}
+      deadline = monotonic_now + OSV_SCAN_BUDGET_SECONDS
       deps.flat_map do |dep|
         dep ||= {}
         Array(dep["vulns"]).filter_map do |vuln|
           vuln ||= {}
-          severity = pip_severity(vuln, osv_cache)
+          severity = pip_severity(vuln, osv_cache, deadline)
           next unless blocking?(severity)
 
           finding(severity, dep["name"], pip_advisory_id(vuln))
@@ -183,8 +195,8 @@ module Devops
     # Python advisory no longer over-blocks) as well as upward. On ANY lookup
     # failure/timeout/parse-error we fall back to the fail-safe blocking default,
     # so the gate is never made less safe when OSV is unavailable.
-    def pip_severity(vuln, osv_cache)
-      osv_severity(pip_advisory_ids(vuln), osv_cache) || PIP_DEFAULT_SEVERITY
+    def pip_severity(vuln, osv_cache, deadline)
+      osv_severity(pip_advisory_ids(vuln), osv_cache, deadline) || PIP_DEFAULT_SEVERITY
     end
 
     # The advisory id plus its aliases, de-duped and bounded — OSV is keyed by id,
@@ -202,11 +214,31 @@ module Devops
     # its aliases DISAGREE, the gate honors the more severe rating and never
     # under-blocks on source ambiguity. Each id is looked up at most once per scan
     # (memoized, including nil results, so an OSV outage can't re-burn the timeout).
-    def osv_severity(ids, osv_cache)
+    # Once the per-scan wall-clock budget (`deadline`) is crossed we stop starting new
+    # lookups. A budget-skipped id contributes the fail-safe blocking DEFAULT (not nil):
+    # a skip means we deliberately DIDN'T consult OSV for latency, so it must never let
+    # an already-resolved lower rating under-block — even when the deadline lands BETWEEN
+    # an advisory's own id and a still-unfetched (possibly more-severe) alias. The floor
+    # is left UNCACHED (we never actually looked it up); since `deadline` is fixed and
+    # the clock only advances, every subsequent id short-circuits to the same floor.
+    def osv_severity(ids, osv_cache, deadline)
       ids.reduce(nil) do |acc, id|
-        severity = osv_cache.key?(id) ? osv_cache[id] : (osv_cache[id] = osv_lookup_severity(id))
+        severity =
+          if osv_cache.key?(id)
+            osv_cache[id]
+          elsif monotonic_now >= deadline
+            PIP_DEFAULT_SEVERITY
+          else
+            osv_cache[id] = osv_lookup_severity(id)
+          end
         higher_severity(acc, severity)
       end
+    end
+
+    # Monotonic seconds — immune to wall-clock adjustments — for the per-scan lookup
+    # budget. Extracted so the budget is deterministically testable.
+    def monotonic_now
+      Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
 
     # The more severe of two ratings (nil-tolerant). Unknown labels rank lowest.

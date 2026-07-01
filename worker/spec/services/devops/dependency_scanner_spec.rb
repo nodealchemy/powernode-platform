@@ -305,6 +305,91 @@ RSpec.describe Devops::DependencyScanner do
     end
   end
 
+  # A per-scan WALL-CLOCK budget caps the cumulative OSV lookup time. Per-advisory
+  # memoization bounds DUPLICATE ids but not the count of DISTINCT advisories, so a
+  # requirements file with many distinct Python CVEs could otherwise stall the land
+  # scan up to (distinct_ids x OSV_TIMEOUT_SECONDS) when OSV is unreachable. Once the
+  # budget is crossed every remaining id falls back to the fail-safe HIGH block
+  # WITHOUT a network call. The monotonic clock is stubbed so the budget is exercised
+  # deterministically, with no real elapsed time.
+  describe ".scan pip-audit OSV lookup budget" do
+    let(:many_pip_advisories) do
+      { "dependencies" => [
+        { "name" => "pkg-a", "vulns" => [ { "id" => "PYSEC-A" } ] },
+        { "name" => "pkg-b", "vulns" => [ { "id" => "PYSEC-B" } ] },
+        { "name" => "pkg-c", "vulns" => [ { "id" => "PYSEC-C" } ] }
+      ] }.to_json
+    end
+
+    def scan_many
+      described_class.scan("/ws", runner: runner_for("pip-audit" => { exit_code: 1, output: many_pip_advisories, error: nil }))
+    end
+
+    # Drive the monotonic clock: `values` is consumed one per call, holding the last
+    # value once drained. Other clock ids pass through to the real implementation.
+    def stub_monotonic(values)
+      allow(Process).to receive(:clock_gettime).and_call_original
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) do
+        values.length > 1 ? values.shift : values.last
+      end
+    end
+
+    it "stops making OSV lookups once the per-scan wall-clock budget is exhausted and falls the rest back to HIGH" do
+      # Every advisory, IF looked up, resolves to MEDIUM (would be omitted).
+      osv_cvss("PYSEC-A", CVSS_MEDIUM)
+      osv_cvss("PYSEC-B", CVSS_MEDIUM)
+      osv_cvss("PYSEC-C", CVSS_MEDIUM)
+      # start=0 (deadline set), first id still in budget, then the clock jumps far
+      # PAST the deadline for the remaining ids.
+      stub_monotonic([ 0.0, 0.0, 3_600.0 ])
+
+      findings = scan_many
+
+      # PYSEC-A looked up within budget → MEDIUM → omitted. PYSEC-B/PYSEC-C are past
+      # the budget → never fetched → fail-safe HIGH.
+      expect(a_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-A")).to have_been_made.once
+      expect(a_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-B")).not_to have_been_made
+      expect(a_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-C")).not_to have_been_made
+      expect(findings.map { |f| f[:detail] }).to contain_exactly(
+        a_string_including("PYSEC-B"), a_string_including("PYSEC-C")
+      )
+      expect(findings.map { |f| f[:severity] }.uniq).to eq([ "high" ])
+    end
+
+    it "fails a single advisory safe to HIGH when the budget is crossed BETWEEN its id and a still-unfetched alias (never under-blocks)" do
+      one_advisory = { "dependencies" => [
+        { "name" => "pkg-mix", "vulns" => [ { "id" => "PYSEC-MIX", "aliases" => [ "CVE-MIX" ] } ] }
+      ] }.to_json
+      # Primary id resolves MEDIUM within budget; the alias (which could be more
+      # severe) is budget-skipped. A budget skip must NOT let the MEDIUM under-block.
+      osv_cvss("PYSEC-MIX", CVSS_MEDIUM)
+      stub_monotonic([ 0.0, 0.0, 3_600.0 ]) # deadline set, primary in budget, alias past deadline
+
+      findings = described_class.scan("/ws", runner: runner_for("pip-audit" => { exit_code: 1, output: one_advisory, error: nil }))
+
+      expect(a_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-MIX")).to have_been_made.once
+      expect(a_request(:get, "https://api.osv.dev/v1/vulns/CVE-MIX")).not_to have_been_made
+      expect(findings.size).to eq(1)
+      expect(findings.first[:severity]).to eq("high") # fail-safe, not the MEDIUM primary
+      expect(findings.first[:detail]).to include("pkg-mix").and include("PYSEC-MIX")
+    end
+
+    it "makes every distinct OSV lookup when the scan stays within the budget" do
+      osv_cvss("PYSEC-A", CVSS_MEDIUM)
+      osv_cvss("PYSEC-B", CVSS_MEDIUM)
+      osv_cvss("PYSEC-C", CVSS_MEDIUM)
+      # Clock never advances → budget never trips, so every distinct id is resolved.
+      stub_monotonic([ 0.0 ])
+
+      findings = scan_many
+
+      expect(a_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-A")).to have_been_made.once
+      expect(a_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-B")).to have_been_made.once
+      expect(a_request(:get, "https://api.osv.dev/v1/vulns/PYSEC-C")).to have_been_made.once
+      expect(findings).to eq([]) # all MEDIUM → all omitted
+    end
+  end
+
   # The CVSS v3.x base-score computation is the only path that can lower a Python
   # advisory's severity below the blocking threshold, so it is unit-tested directly
   # against canonical vectors to guarantee it never under-scores a real CVSS.
