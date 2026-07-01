@@ -281,6 +281,21 @@ module Ai
       # Phase 1: Pre-execution reasoning
       if reasoning_mode.present?
         reasoning_mode = reasoning_mode.to_sym
+
+        # Fable/Mythos have always-on adaptive thinking AND run a reasoning_extraction
+        # safety classifier. The chain_of_thought / star scaffolds make the model emit
+        # its own reasoning as text and inject it back as an assistant turn — redundant
+        # on a native reasoner and a refusal trigger there. Skip them for that family
+        # (plan_and_execute produces subtasks, not a reasoning transcript, so it is
+        # unaffected). See guidance-fable5-compliance.
+        if %i[chain_of_thought star].include?(reasoning_mode) &&
+           ::Ai::Llm::ModelCapabilities.refusal_capable?(model)
+          Rails.logger.info "[AgentToolBridge] Skipping #{reasoning_mode} scaffold for adaptive-thinking model #{model} (native reasoning; avoids reasoning_extraction refusal)"
+          reasoning_mode = nil
+        end
+      end
+
+      if reasoning_mode.present?
         Rails.logger.info "[AgentToolBridge] Reasoning mode: #{reasoning_mode} for agent #{agent.id}"
 
         case reasoning_mode
