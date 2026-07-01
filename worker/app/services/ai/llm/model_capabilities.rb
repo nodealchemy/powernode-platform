@@ -14,7 +14,7 @@ module Ai
     # parameters that older models accept, so the request builder must decide per
     # model which parameters are legal:
     #   - Fable 5 / Mythos 5 / Opus 4.7 / Opus 4.8 / Sonnet 5 reject sampling params
-    #     (temperature/top_p/top_k) AND thinking.budget_tokens.
+    #     (temperature/top_p/top_k).
     #   - Fable 5 / Mythos 5 additionally reject an explicit `thinking` block of any
     #     kind (thinking is ALWAYS on): both {type:"enabled",...} and
     #     {type:"disabled"} are 400s. The `thinking` param must be OMITTED, or set to
