@@ -471,15 +471,6 @@ module Ai
         Rails.logger.warn "[ExtractionService] LLM client setup failed: #{e.message}"
         []
       end
-
-      def default_model_for(provider_type)
-        case provider_type
-        when "ollama"    then "qwen2.5:14b"
-        when "anthropic" then "claude-haiku-4-5"
-        when "openai"    then "gpt-4.1-mini"
-        else "qwen2.5:14b"
-        end
-      end
     end
   end
 end
