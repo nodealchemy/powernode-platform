@@ -63,7 +63,7 @@ currentUser?.roles?.includes('admin')                 // ❌ FORBIDDEN
 user.role === 'manager'                               // ❌ FORBIDDEN
 ```
 **Backend**: `current_user.has_permission?('name')` — NEVER `permissions.include?()` (returns objects).
-Backstopped by `permission-not-roles-check.sh` (advisory).
+Backstopped by `permission-not-roles-check.sh` (advisory) + `pattern-validation.sh` (scan) + recall `guidance-permissions-not-roles`.
 
 ### Cryptographic Material Safety (ABSOLUTE)
 Generic key-handling principles — apply to ALL key material. Private-extension specifics (audit sinks, wallet/signing internals) live in the extension / `CLAUDE.local.md`, never here. The full table below is also carried model-agnostically (in `guidance-crypto-material-safety` + agent `BASE_GUARDRAILS`) so all executors carry it; it stays in core because it is outage-safe/absolute.

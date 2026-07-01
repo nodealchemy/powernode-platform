@@ -162,6 +162,21 @@ check_pattern "Permission method implementation" \
     "grep -r 'def has_permission?' server/app/models/ | wc -l" \
     "positive" "1"
 
+# Access control uses PERMISSIONS, never roles (model-agnostic promotion of the
+# advisory hook permission-not-roles-check.sh; recall knowledge guidance-permissions-not-roles).
+# The genuine silent-auth bug is calling `.include?` on the `permissions` HAS_MANY
+# association, which returns Permission OBJECTS — so a name-STRING test is always
+# false (e.g. `current_user.permissions.include?('x')`). The correct call is
+# `current_user.has_permission?('x')`. We match the association-access form
+# (`<receiver>.permissions.include?(`) rather than the hook's bare `permissions.include?(`
+# regex, because the bare form has many LEGITIMATE uses that test membership in a
+# name-STRING array (user_permissions / valid_permissions / effective_permissions /
+# allowed_permissions / current_permissions locals, ApiKey scope arrays) — those are
+# not bugs and must not fail the gate.
+check_pattern "Forbidden permissions-association include? (use has_permission?)" \
+    "grep -rnE '\.permissions\.include\?\(' server/app --include='*.rb' 2>/dev/null | grep -v '_spec\.rb' | wc -l" \
+    "empty"
+
 check_pattern "Model concern usage" \
     "grep -r 'include.*\\(PasswordSecurity\\|Auditable\\)' server/app/models/ | wc -l" \
     "positive" "2"

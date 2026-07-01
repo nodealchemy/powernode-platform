@@ -22,7 +22,7 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | Project overview, core models, specialists | core | CLAUDE.md | — |
 | Git rules (never commit unless asked, no attribution, branch/tag naming) | core | CLAUDE.md | — |
 | Business submodule / core-mode note | core | CLAUDE.md | — |
-| **Permission-based access control (permissions not roles)** | core | CLAUDE.md | `permission-not-roles-check.sh` (nudge) + `pattern-validation.sh` |
+| **Permission-based access control (permissions not roles)** | core+knowledge | CLAUDE.md + `guidance-permissions-not-roles` | `permission-not-roles-check.sh` (nudge) + `pattern-validation.sh` (scan) |
 | Frontend: colors / theme classes | doc+hook | frontend-patterns.md | `hardcoded-color-check.sh` + scan |
 | Frontend: no `any` | doc+hook | frontend-patterns.md | `no-any-type-check.sh` + scan |
 | Frontend: no console.log | doc+hook | frontend-patterns.md | `console-log-check.sh` + scan |
