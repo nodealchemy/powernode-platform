@@ -432,7 +432,8 @@ class Ai::ProviderClientService
     }
 
     body[:system] = system_content if system_content.present?
-    body[:temperature] = options[:temperature] if options[:temperature]
+    # Sampling params 400 on Fable / Opus 4.7+ / Sonnet 5 — gate on the capability profile.
+    body[:temperature] = options[:temperature] if options[:temperature] && Ai::Llm::ModelCapabilities.supports_sampling_params?(model)
 
     response = self.class.post(url, headers: @headers, body: body.to_json)
     handle_chat_response(response)
@@ -696,8 +697,9 @@ class Ai::ProviderClientService
     # Add system prompt if provided
     body[:system] = options[:system_prompt] if options[:system_prompt].present?
 
-    # Add temperature if provided
-    body[:temperature] = options[:temperature] if options[:temperature]
+    # Add temperature if provided — sampling params 400 on Fable / Opus 4.7+ /
+    # Sonnet 5, so gate on the capability profile.
+    body[:temperature] = options[:temperature] if options[:temperature] && Ai::Llm::ModelCapabilities.supports_sampling_params?(model)
 
     response = self.class.post(url, headers: @headers, body: body.to_json)
     handle_response(response)
@@ -723,7 +725,8 @@ class Ai::ProviderClientService
 
     body[:system] = system_content if system_content.present?
     body[:system] = options[:system_prompt] if options[:system_prompt].present? && body[:system].blank?
-    body[:temperature] = options[:temperature] if options[:temperature]
+    # Sampling params 400 on Fable / Opus 4.7+ / Sonnet 5 — gate on the capability profile.
+    body[:temperature] = options[:temperature] if options[:temperature] && Ai::Llm::ModelCapabilities.supports_sampling_params?(model)
 
     full_url = "#{provider.api_base_url}#{url}"
     stream_response_with_sse(full_url, body, :anthropic, &block)

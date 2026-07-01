@@ -37,9 +37,11 @@ module ChatFallbackProvidersConcern
     body_hash = {
       model: model,
       messages: chat_messages,
-      max_tokens: max_tokens,
-      temperature: temperature
+      max_tokens: max_tokens
     }
+    # Fable / Opus 4.7+ / Sonnet 5 reject sampling params (HTTP 400). Only send
+    # temperature for models whose capability profile permits it.
+    body_hash[:temperature] = temperature if Ai::Llm::ModelCapabilities.supports_sampling_params?(model)
     body_hash[:system] = system_content if system_content.present?
 
     response = make_http_request(url,

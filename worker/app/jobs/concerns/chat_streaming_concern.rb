@@ -67,9 +67,11 @@ module ChatStreamingConcern
       model: model,
       messages: chat_messages,
       max_tokens: max_tokens,
-      temperature: temperature,
       stream: true
     }
+    # Fable / Opus 4.7+ / Sonnet 5 reject sampling params (HTTP 400). Only send
+    # temperature for models whose capability profile permits it.
+    body_hash[:temperature] = temperature if Ai::Llm::ModelCapabilities.supports_sampling_params?(model)
     body_hash[:system] = system_content if system_content.present?
     body = body_hash.to_json
 
