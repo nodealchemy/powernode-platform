@@ -49,6 +49,37 @@ RSpec.describe LlmProxyClient, 'refusal recovery wiring', type: :service do
     end
   end
 
+  describe '#complete' do
+    it 'adapts→falls back to a non-Fable model on refusal' do
+      inner = instance_double(Ai::Llm::Client)
+      allow(proxy).to receive(:build_llm_client).and_return(inner)
+      allow(inner).to receive(:complete) do |model:, **_kw|
+        model == 'claude-fable-5' ? refusal_resp : ok_resp(model)
+      end
+
+      result = proxy.complete(agent_id: 'a1', messages: [{ role: 'user', content: 'hi' }])
+
+      expect(result['content']).to eq('answer')
+      expect(result['served_by']).to eq('claude-opus-4-8')
+    end
+  end
+
+  describe '#complete_structured' do
+    it 'adapts→falls back to a non-Fable model on refusal' do
+      inner = instance_double(Ai::Llm::Client)
+      allow(proxy).to receive(:build_llm_client).and_return(inner)
+      allow(inner).to receive(:complete_structured) do |model:, **_kw|
+        model == 'claude-fable-5' ? refusal_resp : ok_resp(model)
+      end
+
+      result = proxy.complete_structured(agent_id: 'a1',
+                                         messages: [{ role: 'user', content: 'hi' }],
+                                         schema: { 'type' => 'object' })
+
+      expect(result['served_by']).to eq('claude-opus-4-8')
+    end
+  end
+
   describe '#execute_tool_loop (no-tools fast path)' do
     it 'surfaces a terminal refusal (never a silent nil) when fable + fallback both refuse' do
       allow(proxy).to receive(:call_server)

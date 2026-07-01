@@ -36,7 +36,11 @@ class LlmProxyClient
     client = build_llm_client(config)
     model ||= config["model"]
 
-    response = client.complete(messages: messages, model: model, **opts)
+    # Refusal-guarded: conversational Fable agents also adapt/fall back. Also
+    # covers the worker's /llm/stream endpoint, which resolves to #complete.
+    response = refusal_handler(config, model).run(messages: messages) do |attempt_model, attempt_messages|
+      client.complete(messages: attempt_messages, model: attempt_model, **opts)
+    end
     format_response(response)
   end
 
@@ -66,7 +70,10 @@ class LlmProxyClient
     model ||= config["model"]
 
     schema = deep_symbolize(schema)
-    response = client.complete_structured(messages: messages, schema: schema, model: model, **opts)
+    # Refusal-guarded: evaluator/structured Fable agents adapt/fall back too.
+    response = refusal_handler(config, model).run(messages: messages) do |attempt_model, attempt_messages|
+      client.complete_structured(messages: attempt_messages, schema: schema, model: attempt_model, **opts)
+    end
     format_response(response)
   end
 

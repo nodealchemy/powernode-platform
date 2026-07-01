@@ -190,7 +190,10 @@ module Ai
           cost: nil,
           executor_type: "agent",
           executor_id: agent.id,
-          tool_calls_log: result[:tool_calls_log]
+          tool_calls_log: result[:tool_calls_log],
+          # Carry served-by attribution through to the iteration record + maker/checker.
+          served_by: result[:served_by],
+          refusal_recovery: result[:refusal_recovery]
         }
       rescue StandardError => e
         Rails.logger.error("Agent bridge execution failed: #{e.message}\n#{e.backtrace.first(5).join("\n")}")

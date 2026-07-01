@@ -154,6 +154,11 @@ module Ai
       # Surface non-truncated results for tools whitelisted in CARD_TOOLS.
       # Frontend reads these from message.content_metadata.cards.
       chat_cards = []
+      # Served-by attribution: carry the model that ACTUALLY served (when the
+      # maker's call refused and fell back) through to the caller so the ralph
+      # maker/checker served-by logic isn't defeated on the tool-bridge path.
+      last_served_by = nil
+      last_refusal_recovery = nil
 
       tool_names = tools.map { |t| t[:name] || t.dig(:function, :name) }.compact
       Rails.logger.info "[AgentToolBridge] Starting loop: model=#{model} tools=#{tool_names.length} (#{tool_names.join(', ')}) messages=#{messages.length} system_prompt_length=#{opts[:system_prompt]&.length}"
@@ -174,6 +179,16 @@ module Ai
 
         accumulate_usage(accumulated_usage, response.usage)
 
+        # Track served-by / recovery across iterations (sticky to the fallback
+        # model once a refusal fell back, so later iterations don't re-refuse).
+        if response.respond_to?(:served_by) && response.served_by.present?
+          last_served_by = response.served_by
+          model = response.served_by if response.served_by != model
+        end
+        if response.respond_to?(:refusal_recovery) && response.refusal_recovery.present?
+          last_refusal_recovery = response.refusal_recovery
+        end
+
         # Return if text-only response or iteration cap reached
         unless response.has_tool_calls? && iteration < max_iter
           if response.has_tool_calls?
@@ -185,7 +200,10 @@ module Ai
             usage: accumulated_usage,
             tool_calls_log: tool_calls_log,
             chat_cards: chat_cards,
-            finish_reason: response.finish_reason
+            finish_reason: response.finish_reason,
+            served_by: last_served_by,
+            refusal_recovery: last_refusal_recovery,
+            refusal: (response.respond_to?(:refusal) ? response.refusal : nil)
           }
         end
 
