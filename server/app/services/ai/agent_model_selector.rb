@@ -55,6 +55,36 @@ module Ai
     # disable exploration (pure exploitation). ENV-tunable per deployment.
     EXPLORATION_COEFFICIENT = (ENV["AI_MODEL_SELECTOR_EXPLORATION_C"] || 0.3).to_f
 
+    # ---- Fable-5 routing preference (INERT by default; gated by Ai::FableRouting) ----
+    # Model families that run the request-time safety classifier AND carry the
+    # premium (2× Opus) price — the ones the preference steers toward.
+    FABLE_MODEL_PREFIXES = %w[claude-fable claude-mythos].freeze
+
+    # Agent_types we NEVER steer to Fable even when reasoning-tier: security- or
+    # refusal-prone work stays on a non-Fable reasoning model (the inc1 refusal
+    # framework handles any refusals; we don't pay the premium to eat a refusal
+    # round-trip). Empty today — no profile is security-typed — a forward guard.
+    FABLE_SECURITY_EXCLUDED_AGENT_TYPES = %w[].freeze
+
+    # Additive score bump for a Fable/Mythos candidate on an allowlisted
+    # agent_type when the framework is enabled. Sized to clear the reasoning-tier
+    # field at cold-start yet stay small enough that a sustained empirical-failure
+    # signal (or a learned pre-route rule) can still pull selection back off
+    # Fable. ENV-tunable per deployment.
+    FABLE_PREFERENCE_BONUS = (ENV["AI_FABLE_PREFERENCE_BONUS"] || 0.5).to_f
+
+    # Operator override for the default (derived) Fable-preferred agent_type
+    # allowlist — Account#settings[FABLE_AGENT_TYPES_SETTING] = ["code_assistant", ...].
+    FABLE_AGENT_TYPES_SETTING = "fable_routing_agent_types"
+
+    # Default Fable-preferred agent_types: DERIVED from the reasoning-tier
+    # profiles (so a future reasoning-tier agent_type is auto-included), minus the
+    # security/refusal-prone exclusions. Never hardcoded.
+    def self.default_fable_preferred_agent_types
+      AGENT_TYPE_PROFILES.select { |_type, profile| profile[:tier] == :reasoning }.keys -
+        FABLE_SECURITY_EXCLUDED_AGENT_TYPES
+    end
+
     def self.recommend(account:, agent_type:, role: nil, description: nil, requirements: {}, provider: nil)
       new(account: account, agent_type: agent_type, role: role, description: description,
           requirements: requirements, provider: provider).recommend
@@ -85,7 +115,12 @@ module Ai
       # term is 0 for everyone and the static priors decide.
       total_observed = candidates.sum { |c| empirical_signal(c[:provider], c[:model_id])[:n] }
 
-      scored = candidates.map { |c| score(c, profile, total_observed: total_observed) }
+      # Computed ONCE per recommend(): nil (no preference) unless the framework is
+      # enabled for this account AND the agent_type is allowlisted AND cost/refusal
+      # gates pass. When nil, score() adds 0.0 → selection is bit-for-bit as before.
+      fable_ctx = fable_preference_context
+
+      scored = candidates.map { |c| score(c, profile, total_observed: total_observed, fable_ctx: fable_ctx) }
 
       # Hard-filter to candidates satisfying required capabilities; degrade
       # gracefully to the full set when nothing matches (e.g. no model in
@@ -169,7 +204,7 @@ module Ai
     # rival candidate has tier and cost advantages.
     EMPIRICAL_FULL_CONFIDENCE_SAMPLE = 30
 
-    def score(c, profile, total_observed: 0)
+    def score(c, profile, total_observed: 0, fable_ctx: nil)
       req_satisfied = (profile[:required] - c[:capabilities]).empty?
       pref_match    = profile[:preferred].empty? ? 0.5 : (profile[:preferred] & c[:capabilities]).size.to_f / profile[:preferred].size
       tier_bonus    = c[:tier] == profile[:tier] ? 0.25 : 0.0
@@ -182,14 +217,21 @@ module Ai
 
       exploration = exploration_bonus(empirical_data[:n], total_observed)
 
+      # Fable-5 preference: 0.0 unless the (memoized) context is present AND this
+      # candidate is a Fable/Mythos model. Additive — never a hard pick — so the
+      # empirical signal / a learned pre-route rule can still overrule it. When the
+      # framework is off (default), fable_ctx is nil ⇒ 0.0 ⇒ total is unchanged.
+      fable_bonus = (fable_ctx && fable_model?(c[:model_id])) ? fable_ctx[:bonus] : 0.0
+
       total = (req_satisfied ? 1.0 : 0.0) +
               (pref_match * 0.5) +
               tier_bonus +
               cost_bonus +
               (empirical * empirical_weight) +
-              exploration
+              exploration +
+              fable_bonus
 
-      c.merge(
+      result = c.merge(
         req_satisfied:      req_satisfied,
         pref_match_score:   pref_match.round(3),
         tier_bonus:         tier_bonus,
@@ -200,6 +242,10 @@ module Ai
         exploration_bonus:  exploration.round(3),
         total_score:        total.round(3)
       )
+      # Only surface the key when it actually applied, so the toggle-off path
+      # returns exactly the same score_details shape as before.
+      result[:fable_bonus] = fable_bonus.round(3) if fable_bonus.positive?
+      result
     end
 
     # UCB1-style exploration term: high for under-sampled arms, decaying as a
@@ -251,6 +297,56 @@ module Ai
                      (n.to_f / EMPIRICAL_FULL_CONFIDENCE_SAMPLE).clamp(0.0, 1.0)
                    end
       { rate: rate, n: n, confidence: confidence }
+    end
+
+    # The Fable-5 preference context for this recommend() — memoized so the gate
+    # queries run at most once. nil = no preference (add 0.0 in score()).
+    def fable_preference_context
+      return @fable_preference_context if defined?(@fable_preference_context)
+
+      @fable_preference_context = compute_fable_preference_context
+    end
+
+    # Gate order (cheapest first, short-circuiting): master switch → allowlist →
+    # budget backstop. When the switch is OFF (default) NOTHING below it runs, so
+    # the inert deploy issues zero extra queries and selection is unchanged.
+    def compute_fable_preference_context
+      return nil unless ::Ai::FableRouting.enabled_for?(@account)
+      return nil unless fable_preferred_agent_type?
+      # (2c) Cost backstop — account budget >90% consumed ⇒ suppress the premium.
+      return nil if fable_budget_exhausted?
+
+      { bonus: FABLE_PREFERENCE_BONUS }
+    end
+
+    # Allowlist membership: operator override (Account#settings) when present,
+    # else the derived reasoning-tier default.
+    def fable_preferred_agent_type?
+      override = ::Ai::FableRouting.setting(@account, FABLE_AGENT_TYPES_SETTING)
+      allowlist = override.present? ? Array(override).map(&:to_s) : self.class.default_fable_preferred_agent_types
+      allowlist.include?(@agent_type)
+    end
+
+    def fable_model?(model_id)
+      mid = model_id.to_s
+      FABLE_MODEL_PREFIXES.any? { |prefix| mid.start_with?(prefix) }
+    end
+
+    # Account-level cost backstop, mirroring ModelRouterService#budget_aware_downgrade.
+    # Runs ONLY on the otherwise-Fable-eligible path (never on the inert deploy),
+    # so the monthly-cost SUM is not paid on every resolution. Best-effort.
+    def fable_budget_exhausted?
+      monthly_budget = @account.settings&.dig("ai_monthly_budget")
+      return false if monthly_budget.blank?
+
+      month_cost = ::Ai::AgentExecution.joins(:agent)
+                                       .where(ai_agents: { account_id: @account.id })
+                                       .where("ai_agent_executions.created_at >= ?", Time.current.beginning_of_month)
+                                       .sum(:cost_usd).to_f
+      month_cost >= monthly_budget.to_f * 0.9
+    rescue StandardError => e
+      Rails.logger.warn("[AgentModelSelector] Fable budget check failed: #{e.class}: #{e.message}")
+      false
     end
 
     def fallback

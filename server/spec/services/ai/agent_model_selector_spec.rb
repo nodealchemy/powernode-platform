@@ -102,4 +102,83 @@ RSpec.describe Ai::AgentModelSelector do
       end
     end
   end
+
+  # 2b — Fable-5 routing preference. Two reasoning-tier models with IDENTICAL
+  # base scores (opus first so it wins any cold-start tie); the ONLY thing that
+  # can flip selection to Fable is the gated preference bonus. This makes the
+  # toggle-off = behavior-neutral guarantee directly observable.
+  describe "Fable-5 routing preference" do
+    let(:reasoning_models) do
+      [
+        { "name" => "claude-opus-4-8", "id" => "claude-opus-4-8",
+          "cost_per_1k_tokens" => { "input" => 0.005 },
+          "capabilities" => %w[text_generation chat code_generation extended_thinking function_calling] },
+        { "name" => "claude-fable-5", "id" => "claude-fable-5",
+          "cost_per_1k_tokens" => { "input" => 0.010 },
+          "capabilities" => %w[text_generation chat code_generation extended_thinking function_calling] }
+      ]
+    end
+    let!(:provider) do
+      p = create(:ai_provider, :anthropic, account: account, supported_models: reasoning_models)
+      create(:ai_provider_credential, account: account, provider: p)
+      p
+    end
+
+    context "with the framework OFF (default — inert deploy)" do
+      it "selects the same non-Fable model as before and applies NO fable bonus" do
+        result = described_class.recommend(account: account, agent_type: "code_assistant")
+
+        expect(result[:model]).to eq("claude-opus-4-8")
+        expect(result[:score_details]).not_to have_key(:fable_bonus)
+      end
+
+      it "runs no budget query when off (zero cost/perf impact on the inert path)" do
+        expect(Ai::AgentExecution).not_to receive(:joins)
+        described_class.recommend(account: account, agent_type: "code_assistant")
+      end
+    end
+
+    context "with the framework ON for an allowlisted agent_type" do
+      before { account.update!(settings: { "fable_routing_enabled" => true }) }
+
+      it "prefers Fable for a reasoning-tier allowlisted agent_type" do
+        result = described_class.recommend(account: account, agent_type: "code_assistant")
+
+        expect(result[:model]).to eq("claude-fable-5")
+        expect(result[:score_details][:fable_bonus]).to eq(described_class::FABLE_PREFERENCE_BONUS.round(3))
+      end
+
+      it "does NOT prefer Fable for a non-allowlisted agent_type" do
+        result = described_class.recommend(account: account, agent_type: "assistant")
+
+        expect(result[:model]).to eq("claude-opus-4-8")
+      end
+
+      it "honors an operator allowlist override from Account#settings" do
+        # Override excludes code_assistant → the preference must not engage.
+        account.update!(settings: { "fable_routing_enabled" => true, "fable_routing_agent_types" => %w[data_analyst] })
+        result = described_class.recommend(account: account, agent_type: "code_assistant")
+
+        expect(result[:model]).to eq("claude-opus-4-8")
+      end
+
+      it "suppresses the preference when the account budget is >90% consumed" do
+        creator = create(:user, account: account)
+        budget_agent = create(:ai_agent, account: account, provider: provider, creator: creator)
+        create(:ai_agent_execution, account: account, agent: budget_agent, provider: provider, cost_usd: 95)
+        account.update!(settings: { "fable_routing_enabled" => true, "ai_monthly_budget" => 100 })
+
+        result = described_class.recommend(account: account, agent_type: "code_assistant")
+
+        expect(result[:model]).to eq("claude-opus-4-8")
+      end
+    end
+
+    describe ".default_fable_preferred_agent_types" do
+      it "derives from the reasoning-tier profiles (not hardcoded)" do
+        expected = described_class::AGENT_TYPE_PROFILES.select { |_t, p| p[:tier] == :reasoning }.keys
+        expect(described_class.default_fable_preferred_agent_types).to match_array(expected)
+      end
+    end
+  end
 end
