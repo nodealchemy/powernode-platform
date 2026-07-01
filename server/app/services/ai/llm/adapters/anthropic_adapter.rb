@@ -229,31 +229,18 @@ module Ai
 
           body[:system] = build_system_param(system_content, opts) if system_content.present?
 
-          # Sampling params 400 on Fable 5 / Mythos 5 / Opus 4.7 / Opus 4.8 / Sonnet 5 —
-          # only send them for models whose capability profile permits sampling.
-          if Ai::Llm::ModelCapabilities.supports_sampling_params?(model)
-            body[:temperature] = opts[:temperature] if opts[:temperature]
-            body[:top_p] = opts[:top_p] if opts[:top_p]
-          end
           body[:stop_sequences] = opts[:stop] if opts[:stop]
 
-          # Thinking is ALWAYS on for adaptive-only models (Fable 5 / Mythos 5 / Opus
-          # 4.7 / Opus 4.8 / Sonnet 5): never emit an enabled/disabled/budget_tokens
-          # block (all 400). Omit `thinking` unless the caller explicitly asks to
-          # surface the reasoning summary; depth is controlled by output_config.effort
-          # below. Legacy (:configurable) models get no thinking block — no caller uses
-          # thinking today, and the deprecated {type:"enabled",budget_tokens:N} path
-          # was removed.
-          if Ai::Llm::ModelCapabilities.thinking_mode(model) == :adaptive_only && opts[:surface_reasoning]
-            body[:thinking] = { type: "adaptive", display: "summarized" }
-          end
-
-          # Effort controls reasoning depth on effort-capable models. Merge into
-          # output_config so it composes with output_config.format (structured output),
-          # which complete_structured layers on after this builder runs.
-          if Ai::Llm::ModelCapabilities.supports_effort?(model) && opts[:effort]
-            body[:output_config] = (body[:output_config] || {}).merge(effort: opts[:effort])
-          end
+          # Capability-gated request params (sampling / thinking / effort) go through
+          # the single ModelCapabilities gate — the one choke point so no builder
+          # re-implements it and 400s on an adaptive-only model (Fable 5 / Mythos 5 /
+          # Opus 4.7 / Opus 4.8 / Sonnet 5). It merges effort into output_config,
+          # which complete_structured layers output_config.format onto afterward.
+          Ai::Llm::ModelCapabilities.apply_anthropic_request_gate!(
+            body, model,
+            temperature: opts[:temperature], top_p: opts[:top_p],
+            surface_reasoning: opts[:surface_reasoning], effort: opts[:effort]
+          )
 
           body
         end

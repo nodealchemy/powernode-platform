@@ -432,8 +432,9 @@ class Ai::ProviderClientService
     }
 
     body[:system] = system_content if system_content.present?
-    # Sampling params 400 on Fable / Opus 4.7+ / Sonnet 5 — gate on the capability profile.
-    body[:temperature] = options[:temperature] if options[:temperature] && Ai::Llm::ModelCapabilities.supports_sampling_params?(model)
+    # Capability-gated request params funnel through the single ModelCapabilities
+    # gate (sampling params 400 on Fable / Opus 4.7+ / Sonnet 5).
+    Ai::Llm::ModelCapabilities.apply_anthropic_request_gate!(body, model, temperature: options[:temperature])
 
     response = self.class.post(url, headers: @headers, body: body.to_json)
     handle_chat_response(response)
@@ -697,9 +698,9 @@ class Ai::ProviderClientService
     # Add system prompt if provided
     body[:system] = options[:system_prompt] if options[:system_prompt].present?
 
-    # Add temperature if provided — sampling params 400 on Fable / Opus 4.7+ /
-    # Sonnet 5, so gate on the capability profile.
-    body[:temperature] = options[:temperature] if options[:temperature] && Ai::Llm::ModelCapabilities.supports_sampling_params?(model)
+    # Capability-gated request params funnel through the single ModelCapabilities
+    # gate (sampling params 400 on Fable / Opus 4.7+ / Sonnet 5).
+    Ai::Llm::ModelCapabilities.apply_anthropic_request_gate!(body, model, temperature: options[:temperature])
 
     response = self.class.post(url, headers: @headers, body: body.to_json)
     handle_response(response)
@@ -725,8 +726,9 @@ class Ai::ProviderClientService
 
     body[:system] = system_content if system_content.present?
     body[:system] = options[:system_prompt] if options[:system_prompt].present? && body[:system].blank?
-    # Sampling params 400 on Fable / Opus 4.7+ / Sonnet 5 — gate on the capability profile.
-    body[:temperature] = options[:temperature] if options[:temperature] && Ai::Llm::ModelCapabilities.supports_sampling_params?(model)
+    # Capability-gated request params funnel through the single ModelCapabilities
+    # gate (sampling params 400 on Fable / Opus 4.7+ / Sonnet 5).
+    Ai::Llm::ModelCapabilities.apply_anthropic_request_gate!(body, model, temperature: options[:temperature])
 
     full_url = "#{provider.api_base_url}#{url}"
     stream_response_with_sse(full_url, body, :anthropic, &block)

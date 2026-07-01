@@ -115,6 +115,26 @@ module Ai
         mid = model_id.to_s
         REFUSAL_CLASSIFIER_PREFIXES.any? { |prefix| mid.start_with?(prefix) }
       end
+
+      # Apply the per-model Anthropic request gate to a request-body Hash in place
+      # (returns the Hash). THE single choke point for capability-gated request
+      # params, so no call site re-implements the gate and silently 400s on an
+      # adaptive-only model (the interactive-chat regression fixed per-site during
+      # Fable 5 onboarding). Only the params the caller passes are considered:
+      #   - sampling params (temperature/top_p) only when supports_sampling_params?
+      #   - an adaptive `thinking` block only when surface_reasoning is asked on an
+      #     adaptive-only model (thinking is always-on there; an explicit
+      #     enabled/disabled block 400s); depth is set via output_config.effort
+      #   - output_config.effort only when supports_effort? (merged, never clobbered)
+      def apply_anthropic_request_gate!(body, model_id, temperature: nil, top_p: nil, surface_reasoning: false, effort: nil)
+        if supports_sampling_params?(model_id)
+          body[:temperature] = temperature if temperature
+          body[:top_p] = top_p if top_p
+        end
+        body[:thinking] = { type: "adaptive", display: "summarized" } if thinking_mode(model_id) == :adaptive_only && surface_reasoning
+        body[:output_config] = (body[:output_config] || {}).merge(effort: effort) if supports_effort?(model_id) && effort
+        body
+      end
     end
   end
 end
