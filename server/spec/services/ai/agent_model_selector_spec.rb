@@ -136,6 +136,11 @@ RSpec.describe Ai::AgentModelSelector do
         expect(Ai::AgentExecution).not_to receive(:joins)
         described_class.recommend(account: account, agent_type: "code_assistant")
       end
+
+      it "runs no pre-route query when off (zero extra ModelRoutingRule reads)" do
+        expect(Ai::ModelRoutingRule).not_to receive(:for_account)
+        described_class.recommend(account: account, agent_type: "code_assistant")
+      end
     end
 
     context "with the framework ON for an allowlisted agent_type" do
@@ -171,6 +176,42 @@ RSpec.describe Ai::AgentModelSelector do
         result = described_class.recommend(account: account, agent_type: "code_assistant")
 
         expect(result[:model]).to eq("claude-opus-4-8")
+      end
+    end
+
+    # 3 — inc1 learned pre-route rules must be able to OVERRIDE the preference.
+    context "composing with inc1 learned pre-route rules" do
+      before { account.update!(settings: { "fable_routing_enabled" => true }) }
+
+      def create_preroute_rule(agent_type:, model: "claude-fable-5", active: true)
+        Ai::ModelRoutingRule.create!(
+          account: account,
+          name: "fable-refusal-preroute:#{model}:#{agent_type}:any",
+          rule_type: "quality_based", priority: 100, is_active: active,
+          conditions: { "request_types" => [agent_type], "model_patterns" => [Regexp.escape(model)] },
+          target: { "model_names" => %w[claude-opus-4-8], "strategy" => "quality_optimized" }
+        )
+      end
+
+      it "hard-suppresses the preference (learned routing overrides it)" do
+        create_preroute_rule(agent_type: "code_assistant")
+        result = described_class.recommend(account: account, agent_type: "code_assistant")
+
+        expect(result[:model]).to eq("claude-opus-4-8")
+      end
+
+      it "does not suppress when the rule targets a different agent_type" do
+        create_preroute_rule(agent_type: "data_analyst")
+        result = described_class.recommend(account: account, agent_type: "code_assistant")
+
+        expect(result[:model]).to eq("claude-fable-5")
+      end
+
+      it "does not suppress when the rule is inactive" do
+        create_preroute_rule(agent_type: "code_assistant", active: false)
+        result = described_class.recommend(account: account, agent_type: "code_assistant")
+
+        expect(result[:model]).to eq("claude-fable-5")
       end
     end
 

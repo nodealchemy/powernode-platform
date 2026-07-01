@@ -313,10 +313,50 @@ module Ai
     def compute_fable_preference_context
       return nil unless ::Ai::FableRouting.enabled_for?(@account)
       return nil unless fable_preferred_agent_type?
+      # (3) Learned-routing HARD override — an active inc1 pre-route rule that
+      # steers this agent_type's Fable usage to a fallback suppresses the
+      # preference (checked before the pricier budget SUM).
+      return nil if fable_preroute_suppressed?
       # (2c) Cost backstop — account budget >90% consumed ⇒ suppress the premium.
       return nil if fable_budget_exhausted?
 
       { bonus: FABLE_PREFERENCE_BONUS }
+    end
+
+    # (3) Compose with inc1 learned-routing. The refusal framework writes
+    # `fable-refusal-preroute:*` Ai::ModelRoutingRule records once a (Fable model,
+    # agent_type[, category]) combo refuses past threshold — but those rules had
+    # NO consumer on the agent-resolution path. This gives them teeth: an active
+    # pre-route rule whose conditions target this agent_type AND match a
+    # Fable/Mythos model hard-suppresses the preference, so a learned "Fable keeps
+    # refusing this agent_type" always overrides the static preference. Read-only
+    # consumption — the rules stay owned by inc1. We match the rule's request_types
+    # + model_patterns precisely; refusal_category is intentionally NOT matched
+    # (the request's category is unknown at selection time), so suppression spans
+    # all categories for that (agent_type, Fable) pair — erring toward not using a
+    # model that has been refusing. The name prefix is backed by a partial unique
+    # index, so the scan is cheap.
+    def fable_preroute_suppressed?
+      ::Ai::ModelRoutingRule.for_account(@account).active
+                            .where("name LIKE ?", "fable-refusal-preroute:%")
+                            .to_a
+                            .any? { |rule| preroute_rule_targets_fable_for_agent_type?(rule) }
+    rescue StandardError => e
+      Rails.logger.warn("[AgentModelSelector] Fable pre-route check failed: #{e.class}: #{e.message}")
+      false
+    end
+
+    def preroute_rule_targets_fable_for_agent_type?(rule)
+      conditions = rule.conditions || {}
+      return false unless Array(conditions["request_types"]).map(&:to_s).include?(@agent_type)
+
+      Array(conditions["model_patterns"]).any? { |pattern| fable_model_pattern?(pattern) }
+    end
+
+    # The promotion service stores model_patterns as Regexp.escape'd model ids
+    # (e.g. "claude\\-fable\\-5"); strip the escapes and prefix-test the family.
+    def fable_model_pattern?(pattern)
+      fable_model?(pattern.to_s.delete("\\"))
     end
 
     # Allowlist membership: operator override (Account#settings) when present,
