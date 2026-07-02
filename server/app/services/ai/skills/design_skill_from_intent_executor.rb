@@ -22,7 +22,6 @@ module Ai
     class DesignSkillFromIntentExecutor
       MAX_SHORTLIST_TOOLS = 20
       MAX_RECIPE_STEPS    = 8
-      DEFAULT_MODEL       = "gpt-4o-mini" # cheap; recipe design is structured
 
       class DesignError < StandardError; end
 
@@ -162,10 +161,11 @@ module Ai
       end
 
       def designer_model(llm)
-        # Use the LLM's default model; recipe design is structured output, not creative.
-        # Most modern small models (4o-mini, sonnet, haiku) handle this fine.
-        llm.respond_to?(:provider) && llm.provider.respond_to?(:default_model) ?
-          llm.provider.default_model : DEFAULT_MODEL
+        # Resolve from the client's bound provider (default_model already falls
+        # back to the provider's first available model) — never a hardcoded
+        # vendor id, since the account may be Anthropic/Ollama-only. Recipe
+        # design is structured output; modern small models handle it fine.
+        llm.provider&.default_model
       end
 
       def build_design_messages(intent, shortlist, suggested_name, max_steps)

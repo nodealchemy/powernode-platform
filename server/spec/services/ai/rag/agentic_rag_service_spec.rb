@@ -83,4 +83,32 @@ RSpec.describe Ai::Rag::AgenticRagService, type: :service do
       end
     end
   end
+
+  describe "agent-bound model resolution" do
+    let(:agent) { instance_double(Ai::Agent, id: "agent-1", resolved_model: "claude-sonnet-5") }
+    let(:client) { double("TrackedWorkerLlmClient") }
+    let(:captured_models) { [] }
+
+    before do
+      allow(service).to receive(:discover_service_agent).and_return(agent)
+      allow(service).to receive(:build_agent_client).with(agent).and_return(client)
+      allow(client).to receive(:complete) do |model:, **|
+        captured_models << model
+        double(success?: true, content: "an answer")
+      end
+    end
+
+    it "reformulates queries with the bound agent's resolved model, never a hardcoded OpenAI id" do
+      gaps = { uncovered_terms: %w[rails], low_score_count: 0, total_results: 1 }
+      service.send(:reformulate_query, "orig query", "current query", gaps)
+
+      expect(captured_models).to eq(["claude-sonnet-5"])
+    end
+
+    it "synthesizes answers with the bound agent's resolved model, never a hardcoded OpenAI id" do
+      service.send(:synthesize_answer, "what is ruby?", [{ id: "1", content: "Ruby is a language" }])
+
+      expect(captured_models).to eq(["claude-sonnet-5"])
+    end
+  end
 end

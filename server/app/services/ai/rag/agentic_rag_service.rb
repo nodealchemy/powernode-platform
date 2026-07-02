@@ -134,13 +134,13 @@ module Ai
 
         if agent
           client = build_agent_client(agent)
-          llm_reformulate(client, original_query, current_query, gaps)
+          llm_reformulate(client, agent_model(agent), original_query, current_query, gaps)
         else
           heuristic_reformulate(original_query, gaps)
         end
       end
 
-      def llm_reformulate(client, original_query, current_query, gaps)
+      def llm_reformulate(client, model, original_query, current_query, gaps)
         system_content = resolve_prompt_template(
           REFORMULATE_SLUG,
           account: @account,
@@ -164,7 +164,7 @@ module Ai
 
         response = client.complete(
           messages: messages,
-          model: "gpt-4.1",
+          model: model,
           max_tokens: 100
         )
 
@@ -218,7 +218,7 @@ module Ai
 
         response = client.complete(
           messages: messages,
-          model: "gpt-4.1",
+          model: agent_model(agent),
           max_tokens: 500
         )
 

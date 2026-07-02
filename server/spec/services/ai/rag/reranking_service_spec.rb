@@ -43,6 +43,35 @@ RSpec.describe Ai::Rag::RerankingService, type: :service do
       expect(ruby_results).not_to be_empty
     end
 
+    context "with an agent-bound LLM client" do
+      let(:agent) { instance_double(Ai::Agent, id: "agent-1", resolved_model: "claude-sonnet-5") }
+      let(:client) { double("TrackedWorkerLlmClient") }
+      let(:captured_models) { [] }
+
+      before do
+        allow(service).to receive(:discover_service_agent).and_return(agent)
+        allow(service).to receive(:build_agent_client).with(agent).and_return(client)
+        allow(client).to receive(:complete_structured) do |model:, **|
+          captured_models << model
+          double(success?: false)
+        end
+      end
+
+      it "passes the bound agent's resolved model to the client, never a hardcoded OpenAI id" do
+        service.rerank(query: "Ruby programming", results: sample_results)
+
+        expect(captured_models).not_to be_empty
+        expect(captured_models).to all(eq("claude-sonnet-5"))
+        expect(captured_models).not_to include(a_string_matching(/\Agpt-/))
+      end
+
+      it "honors an explicit model override" do
+        service.rerank(query: "Ruby programming", results: sample_results, model: "custom-model")
+
+        expect(captured_models).to all(eq("custom-model"))
+      end
+    end
+
     it "uses heuristic reranking with keyword overlap scoring" do
       results = [
         { id: "a", content: "Ruby is great for web development", score: 0.5, source: "keyword" },

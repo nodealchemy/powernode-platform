@@ -7,7 +7,6 @@ module Ai
       include AgentBackedService
 
       BATCH_SIZE = 10
-      FALLBACK_MODEL = "gpt-4.1"
 
       PROMPT_SLUG = "ai-rag-relevance-scoring"
       FALLBACK_PROMPT = "You are a relevance scoring expert. Score each passage for relevance to the query. " \
@@ -39,12 +38,14 @@ module Ai
         @account = account
       end
 
-      # Rerank results using LLM or heuristic fallback
+      # Rerank results using LLM or heuristic fallback.
+      # Without an explicit model override, the model is resolved from the
+      # bound agent (agent_model — pinned model / selector pick / provider
+      # default), so the id always matches the agent's provider.
       def rerank(query:, results:, model: nil, top_k: nil)
         return [] if results.blank?
 
         top_k ||= results.size
-        model ||= resolve_reranking_model
 
         # Attempt LLM-based reranking
         reranked = llm_rerank(query, results, model)
@@ -64,6 +65,9 @@ module Ai
         )
         return nil unless agent
 
+        # Resolve the model from the bound agent unless the caller pinned one —
+        # never a hardcoded vendor id (the agent may be Anthropic/Ollama-backed).
+        model ||= agent_model(agent)
         client = build_agent_client(agent)
 
         all_scores = []
@@ -124,15 +128,6 @@ module Ai
       rescue StandardError => e
         Rails.logger.warn "[RerankingService] Batch scoring failed: #{e.message}"
         nil
-      end
-
-      def resolve_reranking_model
-        router = Ai::ModelRouterService.new(account: @account, strategy: "quality_optimized")
-        routing = router.route_for_task(task_type: "analysis")
-        routing[:recommended_models]&.first || FALLBACK_MODEL
-      rescue StandardError => e
-        Rails.logger.debug "[RerankingService] Model resolution via router failed, using fallback: #{e.message}"
-        FALLBACK_MODEL
       end
 
       def heuristic_rerank(query, results)
