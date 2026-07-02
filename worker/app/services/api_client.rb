@@ -77,17 +77,6 @@ class ApiClient
     })
   end
 
-  def get_webhook_events(status: 'pending', limit: 100)
-    get('/api/v1/webhooks/events', { status: status, limit: limit })
-  end
-
-  def update_webhook_event(event_id, status, error_message = nil)
-    put("/api/v1/webhooks/events/#{event_id}", {
-      status: status,
-      error_message: error_message
-    })
-  end
-
   def create_audit_log(user_id: nil, account_id:, action:, resource_type:, resource_id:, metadata: {})
     post('/api/v1/audit_logs', {
       user_id: user_id,

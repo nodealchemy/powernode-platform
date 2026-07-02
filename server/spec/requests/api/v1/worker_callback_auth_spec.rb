@@ -82,16 +82,17 @@ RSpec.describe "Worker-callback auth carve-outs", type: :request do
     end
   end
 
-  describe "Api::V1::Webhooks::EventsController" do
+  describe "Api::V1::WebhookEventsController" do
     let(:webhook_event) { create(:webhook_event, account: worker.account) }
 
     it "passes worker JWT through require_webhook_permission without NoMethodError" do
-      get "/api/v1/webhooks/events/#{webhook_event.id}", headers: worker_headers, as: :json
+      get "/api/v1/webhook_events/#{webhook_event.id}", headers: worker_headers, as: :json
 
-      # The carve-out's job: get past require_webhook_permission for worker callers.
-      # A separate pre-existing bug in #serialize_event references the non-existent
-      # column webhook_endpoint_id and 500s; that bug is out of scope here. We
-      # assert that the FAILURE, if any, is NOT a has_permission? NoMethodError.
+      # The carve-out's job: get past require_webhook_permission for worker callers
+      # (return if worker_authenticated?) without an `undefined method has_permission?
+      # for nil` NoMethodError. The canonical controller serializes only real columns,
+      # so a worker caller receives the event.
+      expect(response).to have_http_status(:ok)
       log_tail = File.exist?("log/test.log") ? File.read("log/test.log").lines.last(80).join : ""
       expect(log_tail).not_to include("undefined method `has_permission?' for nil"),
         "the worker-auth carve-out in require_webhook_permission has regressed"

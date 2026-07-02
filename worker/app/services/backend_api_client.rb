@@ -166,14 +166,6 @@ class BackendApiClient
     })
   end
 
-  # Webhook event updates
-  def update_webhook_event(event_id, status, error_message = nil)
-    patch("/api/v1/webhooks/events/#{event_id}", {
-      status: status,
-      error_message: error_message
-    })
-  end
-
   # File processing operations
   def get_file_processing_job(job_id)
     get("/api/v1/worker/processing_jobs/#{job_id}")

@@ -1147,18 +1147,12 @@ Rails.application.routes.draw do
 
         # Container registry build notifications
         post "container_registry", to: "container_registry#handle"
-
-        # Generic webhook event processing (for worker service)
-        resources :events, only: [ :show, :update ] do
-          member do
-            patch :processing
-            patch :processed
-            patch :failed
-          end
-        end
       end
 
-      # Webhook events resource (top-level for worker compatibility)
+      # Webhook event processing (for worker service). The canonical
+      # WebhookEventsController operates on the real webhook_events schema; the
+      # former Api::V1::Webhooks::EventsController duplicate was removed (it
+      # referenced ~a dozen nonexistent columns/methods and had no live caller).
       resources :webhook_events, only: [ :show, :update ] do
         member do
           patch :processing
