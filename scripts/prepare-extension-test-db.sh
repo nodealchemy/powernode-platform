@@ -27,12 +27,52 @@
 # (public-safe). In core mode (no private extensions present) this degrades to a plain core
 # `db:prepare`. Operates on the TEST database ONLY (RAILS_ENV=test); never touches dev/prod.
 #
+# RELATION TO maintain_test_schema! (purge-deadlock hardening)
+# -------------------------------------------------------------
+# server/spec/rails_helper.rb deliberately does NOT call
+# ActiveRecord::Migration.maintain_test_schema!. That Rails default auto-invokes
+# db:test:prepare, whose purge (a) can deadlock/half-complete against concurrent
+# rspec processes and leave schema_migrations dropped or empty, and (b) reloads
+# the CORE-ONLY schema.rb, re-assuming the private-extension migrations as applied
+# without running them — silently destroying the tables this script built.
+# rails_helper instead runs a READ-ONLY check_all_pending! and aborts with a
+# pointer here. THIS SCRIPT is the one sanctioned way to (re)build a test DB.
+#
+# RECOVERY (stale schema / "pending migrations" abort / deadlocked half-prepare)
+# ------------------------------------------------------------------------------
+#   1. Stop any rspec/parallel_tests processes still attached to the test DB
+#      (a half-completed purge usually means one is holding a connection):
+#          pkill -f rspec   # scoped to this checkout if you run multiple
+#   2. Re-run this script from the repo root of the affected checkout/worktree:
+#          bash scripts/prepare-extension-test-db.sh
+#      It drops and rebuilds the isolated test DB (TEST_ENV_NUMBER from
+#      server/.env.test.local) including private-extension tables.
+#   3. If db:drop itself hangs on "database is being accessed by other users",
+#      terminate the stragglers, then retry step 2:
+#          psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+#                   WHERE datname = '<your powernode_test…>' AND pid <> pg_backend_pid();"
+#
+# Concurrent invocations for the SAME checkout are serialized with an flock so
+# two sessions can't interleave drop/create/migrate (the other cause of a
+# half-prepared DB). Different worktrees use different lock files (and different
+# TEST_ENV_NUMBER databases), so they proceed in parallel.
+#
 # Usage:
 #   scripts/prepare-extension-test-db.sh                 # prepare the test DB for THIS checkout/worktree
 #   (the isolated TEST_ENV_NUMBER is read from server/.env.test.local automatically in the test env)
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Serialize concurrent preps of the SAME checkout (see header). Keyed by repo
+# path so distinct worktrees (distinct test DBs) don't contend.
+LOCK_FILE="${TMPDIR:-/tmp}/prepare-extension-test-db.$(printf '%s' "$REPO" | sha1sum | cut -d' ' -f1).lock"
+exec 9>"$LOCK_FILE"
+if ! flock -w 900 9; then
+  echo "error: another prepare-extension-test-db.sh run for $REPO is still holding" >&2
+  echo "       $LOCK_FILE after 15min — investigate/kill it, then retry." >&2
+  exit 1
+fi
 SERVER="$REPO/server"
 [ -d "$SERVER" ] || { echo "error: $SERVER not found" >&2; exit 1; }
 

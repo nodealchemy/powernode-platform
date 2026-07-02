@@ -32,14 +32,40 @@ require 'vcr'
 #
 Rails.root.glob('spec/support/**/*.rb').sort_by(&:to_s).each { |f| require f }
 
-# Ensures that the test database schema matches the current schema file.
-# If there are pending migrations it will invoke `db:test:prepare` to
-# recreate the test database by loading the schema.
-# If you are not using ActiveRecord, you can remove these lines.
+# Schema-staleness guard — deliberately NOT maintain_test_schema!.
+#
+# The Rails default (ActiveRecord::Migration.maintain_test_schema!) silently
+# invokes `db:test:prepare` when it thinks the schema is stale, which PURGES and
+# reloads the test database. That auto-purge is hostile here twice over:
+#   1. It can deadlock/half-complete when other rspec processes (parallel specs,
+#      concurrent worktree sessions) hold connections — leaving a dropped/empty
+#      schema_migrations behind, and a hand-edited schema.rb makes it trigger
+#      spuriously.
+#   2. Reloading the CORE-ONLY schema.rb re-assumes the private-extension engine
+#      migrations as applied WITHOUT running them, silently destroying the
+#      business_*/trading_* tables that scripts/prepare-extension-test-db.sh
+#      built (see that script's header for the full mechanism).
+#
+# So instead: a READ-ONLY pending-migration check that never mutates the DB and
+# fails loudly with the sanctioned recovery path.
 begin
-  ActiveRecord::Migration.maintain_test_schema!
+  ActiveRecord::Migration.check_all_pending!
 rescue ActiveRecord::PendingMigrationError => e
-  abort e.to_s.strip
+  abort(<<~MSG)
+    [rails_helper] The test database schema is stale (pending migrations).
+
+    Auto-recovery via db:test:prepare is DISABLED here: the purge it performs can
+    deadlock against concurrent rspec processes and silently drops the private-
+    extension tables (core-only schema.rb re-assumes engine migrations unrun).
+
+    Recover with:
+        bash scripts/prepare-extension-test-db.sh
+
+    (run from the repo root of THIS checkout/worktree; it rebuilds the isolated
+    test DB including private-extension tables — see the script header.)
+
+    #{e.message.strip}
+  MSG
 end
 RSpec.configure do |config|
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
