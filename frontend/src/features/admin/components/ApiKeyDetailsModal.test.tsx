@@ -36,7 +36,7 @@ jest.mock('@/features/devops/api-keys/services/apiKeysApi', () => ({
 
 // Mock Button component
 jest.mock('@/shared/components/ui/Button', () => ({
-  Button: ({ children, onClick, variant }: any) => (
+  Button: ({ children, onClick, variant }: { children?: React.ReactNode; onClick?: () => void; disabled?: boolean; variant?: string; title?: string; className?: string; size?: string }) => (
     <button onClick={onClick} data-variant={variant}>
       {children}
     </button>

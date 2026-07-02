@@ -27,9 +27,9 @@ const mockSwitchToPrimary = jest.fn();
 
 jest.mock('../services/accountSwitcherApi', () => ({
   accountSwitcherApi: {
-    getAccessibleAccounts: (...args: any[]) => mockGetAccessibleAccounts(...args),
-    switchAccount: (...args: any[]) => mockSwitchAccount(...args),
-    switchToPrimary: (...args: any[]) => mockSwitchToPrimary(...args)
+    getAccessibleAccounts: (...args: unknown[]) => mockGetAccessibleAccounts(...args),
+    switchAccount: (...args: unknown[]) => mockSwitchAccount(...args),
+    switchToPrimary: (...args: unknown[]) => mockSwitchToPrimary(...args)
   }
 }));
 

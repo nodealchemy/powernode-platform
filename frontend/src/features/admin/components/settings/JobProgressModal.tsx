@@ -18,6 +18,10 @@ interface ServiceInfo {
   name: string;
   type: string;
   status?: string;
+  protocol?: string;
+  host?: string;
+  port?: number | string;
+  discovered_method?: string;
 }
 
 interface JobResult {
@@ -263,7 +267,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
               {(result.services?.length ?? 0) > 0 ? (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   { }
-                  {result.services?.map((service: any, index: number) => (
+                  {result.services?.map((service, index) => (
                     <div key={index} className="flex items-center justify-between p-2 bg-theme-surface rounded">
                       <div>
                         <span className="font-medium">{service.name}</span>

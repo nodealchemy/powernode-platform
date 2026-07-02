@@ -13,7 +13,7 @@ const render = (ui: ReactElement) =>
 
 // Mock LoadingSpinner
 jest.mock('@/shared/components/ui/LoadingSpinner', () => ({
-  LoadingSpinner: ({ size }: any) => <div data-testid="loading-spinner" data-size={size}>Loading...</div>
+  LoadingSpinner: ({ size }: { size?: string }) => <div data-testid="loading-spinner" data-size={size}>Loading...</div>
 }));
 
 describe('AuditLogTable', () => {

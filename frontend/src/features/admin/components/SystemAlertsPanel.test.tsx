@@ -14,14 +14,14 @@ const mockGetActiveAlerts = jest.fn();
 const mockDismissAlert = jest.fn();
 jest.mock('@/shared/services/admin/performanceApi', () => ({
   performanceApi: {
-    getActiveAlerts: (...args: any[]) => mockGetActiveAlerts(...args),
-    dismissAlert: (...args: any[]) => mockDismissAlert(...args)
+    getActiveAlerts: (...args: unknown[]) => mockGetActiveAlerts(...args),
+    dismissAlert: (...args: unknown[]) => mockDismissAlert(...args)
   }
 }));
 
 // Mock Button component
 jest.mock('@/shared/components/ui/Button', () => ({
-  Button: ({ children, onClick, disabled, variant, title, className }: any) => (
+  Button: ({ children, onClick, disabled, variant, title, className }: { children?: React.ReactNode; onClick?: () => void; disabled?: boolean; variant?: string; title?: string; className?: string; size?: string }) => (
     <button
       onClick={onClick}
       disabled={disabled}

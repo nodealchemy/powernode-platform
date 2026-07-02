@@ -35,10 +35,10 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 
 // Mock TabContainer layout component - render all panels unconditionally for testing
 jest.mock('@/shared/components/layout/TabContainer', () => ({
-  TabContainer: ({ children, tabs, activeTab, onTabChange }: any) => (
+  TabContainer: ({ children, tabs, activeTab, onTabChange }: { children?: React.ReactNode; tabs?: Array<{ id: string; label: string }>; activeTab?: string; onTabChange?: (tabId: string) => void }) => (
     <div data-testid="tabs" data-value={activeTab}>
       <div data-testid="tabs-list">
-        {tabs?.map((tab: any) => (
+        {tabs?.map((tab) => (
           <button
             key={tab.id}
             data-testid={`tab-trigger-${tab.id}`}
@@ -51,7 +51,7 @@ jest.mock('@/shared/components/layout/TabContainer', () => ({
       {children}
     </div>
   ),
-  TabPanel: ({ children, tabId, className }: any) => (
+  TabPanel: ({ children, tabId, className }: { children?: React.ReactNode; tabId: string; className?: string }) => (
     <div data-testid={`tab-content-${tabId}`} className={className}>
       {children}
     </div>
@@ -60,7 +60,7 @@ jest.mock('@/shared/components/layout/TabContainer', () => ({
 
 // Mock child components
 jest.mock('../components/ContainerList', () => ({
-  ContainerList: ({ onSelectContainer, onViewLogs }: any) => (
+  ContainerList: ({ onSelectContainer, onViewLogs }: { onSelectContainer?: (container: { id: string; status: string; template: { name: string } }) => void; onViewLogs?: (container: { id: string }) => void }) => (
     <div data-testid="container-list">
       Container List
       <button
@@ -86,7 +86,7 @@ jest.mock('../components/ContainerList', () => ({
 }));
 
 jest.mock('../components/TemplateList', () => ({
-  TemplateList: ({ onSelectTemplate, onExecuteTemplate }: any) => (
+  TemplateList: ({ onSelectTemplate, onExecuteTemplate }: { onSelectTemplate: (template: { id: string; name: string }) => void; onExecuteTemplate: (template: { id: string; name: string }) => void }) => (
     <div data-testid="template-list">
       Template List
       <button
@@ -110,7 +110,7 @@ jest.mock('../components/TemplateList', () => ({
 }));
 
 jest.mock('../components/QuotaDisplay', () => ({
-  QuotaDisplay: ({ compact }: any) => (
+  QuotaDisplay: ({ compact }: { compact?: boolean }) => (
     <div data-testid="quota-display" data-compact={compact}>
       Quota Display
     </div>
@@ -118,7 +118,7 @@ jest.mock('../components/QuotaDisplay', () => ({
 }));
 
 jest.mock('../components/TemplateFormModal', () => ({
-  TemplateFormModal: ({ isOpen, mode, templateId }: any) =>
+  TemplateFormModal: ({ isOpen, mode, templateId }: { isOpen: boolean; mode?: string; templateId?: string | null }) =>
     isOpen ? (
       <div data-testid="template-form-modal" data-mode={mode} data-template-id={templateId}>
         Template Form Modal
@@ -127,7 +127,7 @@ jest.mock('../components/TemplateFormModal', () => ({
 }));
 
 jest.mock('../components/ExecuteContainerModal', () => ({
-  ExecuteContainerModal: ({ isOpen, template }: any) =>
+  ExecuteContainerModal: ({ isOpen, template }: { isOpen: boolean; template?: { id: string; name: string } | null }) =>
     isOpen ? (
       <div data-testid="execute-container-modal" data-template-id={template?.id}>
         Execute Container Modal
@@ -135,8 +135,15 @@ jest.mock('../components/ExecuteContainerModal', () => ({
     ) : null,
 }));
 
+const createTestStore = () =>
+  configureStore({
+    reducer: {
+      auth: (state = { user: null, isAuthenticated: false }) => state,
+    },
+  });
+
 describe('ContainersPage', () => {
-  let store: any;
+  let store: ReturnType<typeof createTestStore>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -149,11 +156,7 @@ describe('ContainersPage', () => {
       execution: { id: 'exec-1' },
     });
 
-    store = configureStore({
-      reducer: {
-        auth: (state = { user: null, isAuthenticated: false }) => state,
-      },
-    });
+    store = createTestStore();
   });
 
   const renderComponent = (props = {}) => {

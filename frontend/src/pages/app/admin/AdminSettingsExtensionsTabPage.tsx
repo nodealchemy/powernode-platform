@@ -164,12 +164,12 @@ export const AdminSettingsExtensionsTabPage: React.FC = () => {
                   data-testid={`extension-toggle-${ext.slug}`}
                 >
                   {isToggling ? (
-                    <span className="flex items-center justify-center h-5 w-5 transform rounded-full bg-white shadow">
+                    <span className="flex items-center justify-center h-5 w-5 transform rounded-full bg-theme-surface shadow">
                       <Loader2 className="w-3 h-3 animate-spin text-theme-tertiary" />
                     </span>
                   ) : (
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-theme-surface shadow ring-0 transition duration-200 ease-in-out ${
                         ext.enabled ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />

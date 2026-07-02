@@ -146,7 +146,7 @@ export const MessageList = React.memo<MessageListProps>(({
     const hasError = message.metadata?.error;
     const isDeleted = !!message.deleted_at;
     const isEditing = editingMessageId === message.id;
-    // Edit/delete: any user message of the current user. We accept either the
+    // Edit/delete applies to user messages of the current user. We accept either the
     // explicit user_id field OR a missing user_id when sender_info matches —
     // older messages and some optimistic-paint paths don't populate user_id,
     // and the backend enforces ownership on the actual mutation.

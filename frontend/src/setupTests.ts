@@ -26,9 +26,11 @@ Object.defineProperty(globalThis, 'import', {
  
 const originalError = console.error;
  
-console.error = (...args: any[]) => {
-  const errorMessage = typeof args[0] === 'string' ? args[0] :
-                       args[0]?.message ? String(args[0].message) : '';
+console.error = (...args: unknown[]) => {
+  const first = args[0];
+  const errorMessage = typeof first === 'string' ? first :
+                       (first instanceof Error || (typeof first === 'object' && first !== null && 'message' in first))
+                         ? String((first as { message: unknown }).message) : '';
 
   if (
     // React act() warnings

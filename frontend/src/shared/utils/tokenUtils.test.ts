@@ -24,7 +24,7 @@ describe('tokenUtils', () => {
   });
 
   // Helper function to create mock JWT tokens
-  const createJWT = (payload: any) => {
+  const createJWT = (payload: unknown) => {
     const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
     const payloadStr = btoa(JSON.stringify(payload));
     const signature = 'mock-signature';
@@ -446,7 +446,7 @@ describe('tokenUtils', () => {
     });
 
     it('handles circular reference objects in errors', () => {
-      const circularError: any = { message: 'Circular error' };
+      const circularError: Record<string, unknown> = { message: 'Circular error' };
       circularError.self = circularError;
       
       expect(() => isTokenInvalidError(circularError)).not.toThrow();

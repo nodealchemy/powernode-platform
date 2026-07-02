@@ -69,7 +69,7 @@ export const AppPreviewPanel: React.FC<AppPreviewPanelProps> = ({ url, port, con
               key={iframeKey}
               src={url}
               title="App Preview"
-              className="w-full h-96 bg-white"
+              className="w-full h-96 bg-theme-surface"
               sandbox="allow-scripts allow-same-origin allow-forms"
             />
           </div>

@@ -120,7 +120,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
                 <Button
                   variant="outline"
                   onClick={onViewAll}
-                  className={`border-white/30 ${styles.text} hover:bg-white hover:bg-white/10`}
+                  className={`border-white/30 ${styles.text} hover:bg-theme-on-primary/10`}
                 >
                   View Details
                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -129,7 +129,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
               <button
                 onClick={() => dismissAlert(alert.id)}
                 aria-label="Dismiss alert"
-                className={`p-1 rounded-full hover:bg-white hover:bg-white/10 ${styles.text}`}
+                className={`p-1 rounded-full hover:bg-theme-on-primary/10 ${styles.text}`}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -174,7 +174,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
                 return (
                   <div
                     key={alert.id}
-                    className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full"
+                    className="flex items-center gap-2 px-3 py-1 bg-theme-on-primary/10 rounded-full"
                   >
                     <Icon className="w-4 h-4 text-white" />
                     <span className="text-sm text-white truncate max-w-[150px]">
@@ -193,7 +193,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
               <Button
                 variant="outline"
                 onClick={onViewAll}
-                className="border-white/30 text-white hover:bg-white hover:bg-white/10"
+                className="border-white/30 text-white hover:bg-theme-on-primary/10"
               >
                 View All
                 <ChevronRight className="w-4 h-4 ml-1" />

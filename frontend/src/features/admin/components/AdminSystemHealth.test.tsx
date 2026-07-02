@@ -3,7 +3,7 @@ import { AdminSystemHealth } from './AdminSystemHealth';
 
 // Mock Button component
 jest.mock('@/shared/components/ui/Button', () => ({
-  Button: ({ children, onClick, variant, disabled }: any) => (
+  Button: ({ children, onClick, variant, disabled }: { children?: React.ReactNode; onClick?: () => void; disabled?: boolean; variant?: string; title?: string; className?: string; size?: string }) => (
     <button onClick={onClick} data-variant={variant} disabled={disabled}>
       {children}
     </button>

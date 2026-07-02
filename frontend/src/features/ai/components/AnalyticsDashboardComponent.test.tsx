@@ -26,13 +26,13 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 
 // Mock components
 jest.mock('@/shared/components/layout/PageContainer', () => ({
-  PageContainer: ({ children, title, description, actions }: any) => (
+  PageContainer: ({ children, title, description, actions }: { children?: React.ReactNode; title?: string; description?: string; actions?: Array<{ id: string; label: string; onClick?: () => void; disabled?: boolean }> }) => (
     <div data-testid="page-container" data-title={title}>
       <h1>{title}</h1>
       <p>{description}</p>
       {actions && (
         <div data-testid="actions">
-          {actions.map((action: any) => (
+          {actions.map((action) => (
             <button key={action.id} onClick={action.onClick} disabled={action.disabled}>
               {action.label}
             </button>
@@ -45,21 +45,21 @@ jest.mock('@/shared/components/layout/PageContainer', () => ({
 }));
 
 jest.mock('@/shared/components/ui/Card', () => ({
-  Card: ({ children, className }: any) => (
+  Card: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
     <div data-testid="card" className={className}>{children}</div>
   )
 }));
 
 jest.mock('@/shared/components/ui/Badge', () => ({
-  Badge: ({ children, variant, size }: any) => (
+  Badge: ({ children, variant, size }: { children?: React.ReactNode; variant?: string; size?: string }) => (
     <span data-testid="badge" data-variant={variant} data-size={size}>{children}</span>
   )
 }));
 
 jest.mock('@/shared/components/ui/Select', () => ({
-  Select: ({ value, onValueChange, options }: any) => (
+  Select: ({ value, onValueChange, options }: { value?: string; onValueChange: (value: string) => void; options: Array<{ value: string; label: string }> }) => (
     <select value={value} onChange={(e) => onValueChange(e.target.value)} data-testid="select">
-      {options.map((opt: any) => (
+      {options.map((opt) => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
       ))}
     </select>
@@ -67,7 +67,7 @@ jest.mock('@/shared/components/ui/Select', () => ({
 }));
 
 jest.mock('@/shared/components/ui/LoadingSpinner', () => ({
-  LoadingSpinner: ({ className }: any) => <div data-testid="loading-spinner" className={className}>Loading...</div>
+  LoadingSpinner: ({ className }: { className?: string }) => <div data-testid="loading-spinner" className={className}>Loading...</div>
 }));
 
 // Helper to wait for all async state updates to complete

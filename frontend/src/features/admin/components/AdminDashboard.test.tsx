@@ -23,13 +23,13 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 const mockGetOverview = jest.fn();
 jest.mock('../services/adminSettingsApi', () => ({
   adminSettingsApi: {
-    getOverview: (...args: any[]) => mockGetOverview(...args)
+    getOverview: (...args: unknown[]) => mockGetOverview(...args)
   }
 }));
 
 // Mock child components
 jest.mock('./AdminMetricsGrid', () => ({
-  AdminMetricsGrid: ({ metrics, loading }: any) => (
+  AdminMetricsGrid: ({ metrics, loading }: { metrics: { total_users?: number; total_accounts?: number }; loading?: boolean }) => (
     <div data-testid="metrics-grid" data-loading={loading}>
       <span>Total Users: {metrics.total_users}</span>
       <span>Total Accounts: {metrics.total_accounts}</span>
@@ -38,7 +38,7 @@ jest.mock('./AdminMetricsGrid', () => ({
 }));
 
 jest.mock('./AdminSystemHealth', () => ({
-  AdminSystemHealth: ({ systemHealth, uptime, loading }: any) => (
+  AdminSystemHealth: ({ systemHealth, uptime, loading }: { systemHealth?: string; uptime?: number; loading?: boolean }) => (
     <div data-testid="system-health" data-loading={loading}>
       <span>Health: {systemHealth}</span>
       <span>Uptime: {uptime}%</span>
@@ -47,7 +47,7 @@ jest.mock('./AdminSystemHealth', () => ({
 }));
 
 jest.mock('./AdminAlertsBanner', () => ({
-  AdminAlertsBanner: ({ onViewAll }: any) => (
+  AdminAlertsBanner: ({ onViewAll }: { onViewAll?: () => void }) => (
     <div data-testid="alerts-banner">
       <button onClick={onViewAll}>View Alerts</button>
     </div>
@@ -59,7 +59,7 @@ jest.mock('./SystemAlertsPanel', () => ({
 }));
 
 jest.mock('@/shared/components/ui/Button', () => ({
-  Button: ({ children, onClick, disabled, variant }: any) => (
+  Button: ({ children, onClick, disabled, variant }: { children?: React.ReactNode; onClick?: () => void; disabled?: boolean; variant?: string; title?: string; className?: string; size?: string }) => (
     <button onClick={onClick} disabled={disabled} data-variant={variant}>
       {children}
     </button>

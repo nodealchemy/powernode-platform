@@ -23,7 +23,7 @@ jest.mock('@/shared/hooks/NavigationContext', () => ({
 
 // Mock userUtils
 jest.mock('@/shared/utils/userUtils', () => ({
-  getUserInitials: (user: any) => user?.name ? user.name.charAt(0).toUpperCase() : '?'
+  getUserInitials: (user: { name?: string } | null | undefined) => user?.name ? user.name.charAt(0).toUpperCase() : '?'
 }));
 
 describe('UserMenu', () => {

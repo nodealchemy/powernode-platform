@@ -8,7 +8,7 @@ import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 // Mock hooks - hasPermissions checks user permissions
 const mockHasPermissions = jest.fn();
 jest.mock('@/shared/utils/permissionUtils', () => ({
-  hasPermissions: (user: any, permissions: string[]) => mockHasPermissions(user, permissions)
+  hasPermissions: (user: unknown, permissions: string[]) => mockHasPermissions(user, permissions)
 }));
 
 // Mock child components

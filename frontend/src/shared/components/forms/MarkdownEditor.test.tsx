@@ -3,7 +3,7 @@ import { MarkdownEditor } from './MarkdownEditor';
 
 // Mock the MDEditor component
 jest.mock('@uiw/react-md-editor', () => {
-  const MockMDEditor = ({ value, onChange, placeholder, hideToolbar, preview }: any) => (
+  const MockMDEditor = ({ value, onChange, placeholder, hideToolbar, preview }: { value?: string; onChange: (value: string) => void; placeholder?: string; hideToolbar?: boolean; preview?: string }) => (
     <div data-testid="md-editor">
       <textarea
         data-testid="md-textarea"

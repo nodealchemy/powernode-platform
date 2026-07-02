@@ -43,8 +43,15 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate
 }));
 
+const createTestStore = () =>
+  configureStore({
+    reducer: {
+      auth: (state = { user: null, isAuthenticated: false }) => state,
+    },
+  });
+
 describe('EnhancedAIOverview', () => {
-  let store: any;
+  let store: ReturnType<typeof createTestStore>;
   let mockSubscribe: jest.Mock;
   let mockIsConnected: jest.Mock;
 
@@ -93,11 +100,7 @@ describe('EnhancedAIOverview', () => {
     jest.useFakeTimers();
 
     // Setup store
-    store = configureStore({
-      reducer: {
-        auth: (state = { user: null, isAuthenticated: false }) => state
-      }
-    });
+    store = createTestStore();
 
     // Setup AI orchestration monitor mocks
     mockSubscribe = jest.fn(() => jest.fn()); // Return unsubscribe function

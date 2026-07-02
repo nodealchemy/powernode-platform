@@ -215,6 +215,146 @@ export interface OptimizationStats {
 }
 
 // ============================================================================
+// Escalation Audit Types (inc6 endpoints)
+// ============================================================================
+
+export interface TimeRangeInfo {
+  start: string;
+  end: string;
+  period: string;
+  seconds: number;
+}
+
+export type EscalationTier = 'frontier' | 'reasoning';
+
+export type EscalationTimeRange = '1h' | '6h' | '24h' | '7d' | '30d' | '90d';
+
+export interface EscalationFilters extends QueryFilters {
+  tier?: EscalationTier;
+  time_range?: EscalationTimeRange;
+  limit?: number;
+}
+
+export type EscalationOutcome = 'succeeded' | 'failed' | 'timeout' | 'error';
+
+export interface EscalationDecision {
+  id: string;
+  created_at: string;
+  model_tier: string | null;
+  delivered_model: string | null;
+  baseline_tier: string | null;
+  effort: string | null;
+  task_type: string | null;
+  complexity_level: string | null;
+  complexity_score: number | null;
+  agent_id: string | null;
+  agent_type: string | null;
+  rationale_summary: string | null;
+  top_signals: string[];
+  outcome: EscalationOutcome | null;
+  cost_usd: number | null;
+  latency_ms: number | null;
+  tokens_used: number | null;
+  quality_score: number | null;
+}
+
+export interface EscalationCohortStats {
+  decisions: number;
+  measured: number;
+  success_rate: number | null;
+  avg_cost_usd: number | null;
+  avg_latency_ms: number | null;
+}
+
+export interface EscalationBenefitDeltas {
+  success_rate: number | null;
+  avg_cost_usd: number | null;
+  avg_latency_ms: number | null;
+}
+
+export interface EscalationBenefitBucket {
+  task_type: string | null;
+  complexity_level: string | null;
+  escalated: EscalationCohortStats;
+  standard: EscalationCohortStats;
+  matched: boolean;
+  deltas: EscalationBenefitDeltas;
+}
+
+export interface EscalationBenefitSummary {
+  matched_buckets: number;
+  total_buckets: number;
+  escalated_measured: number;
+  standard_measured: number;
+  escalated_success_rate: number | null;
+  standard_success_rate: number | null;
+  success_rate_delta: number | null;
+  avg_cost_delta: number | null;
+  avg_latency_delta: number | null;
+}
+
+export type EscalationAdvisoryStatus =
+  | 'no_escalations'
+  | 'insufficient_comparison_data'
+  | 'insufficient_data'
+  | 'non_positive_benefit'
+  | 'beneficial';
+
+export interface EscalationBenefitAdvisory {
+  recommend_tightening: boolean;
+  status: EscalationAdvisoryStatus;
+  threshold: number;
+  escalated_measured: number;
+  success_rate_delta: number | null;
+  message: string;
+}
+
+export interface EscalationRollup {
+  period_days: number;
+  total_decisions: number;
+  escalated_decisions: number;
+  selections: {
+    frontier: number;
+    reasoning: number;
+    high_effort: number;
+  };
+  top_rationale_categories: {
+    by_complexity_level: Record<string, number>;
+    by_task_type: Record<string, number>;
+    by_decision_kind: Record<string, number>;
+  };
+  spend: {
+    total_usd: number;
+    escalated_usd: number;
+    escalated_share_pct: number;
+  };
+  benefit: EscalationBenefitSummary;
+  advisory: EscalationBenefitAdvisory;
+}
+
+export interface EscalationBenefit {
+  task_type_filter: string | null;
+  buckets: EscalationBenefitBucket[];
+  summary: EscalationBenefitSummary;
+  advisory: EscalationBenefitAdvisory;
+}
+
+export interface EscalationsResponse {
+  escalations: EscalationDecision[];
+  time_range: TimeRangeInfo;
+}
+
+export interface EscalationRollupResponse {
+  rollup: EscalationRollup;
+  time_range: TimeRangeInfo;
+}
+
+export interface EscalationBenefitResponse {
+  benefit: EscalationBenefit;
+  time_range: TimeRangeInfo;
+}
+
+// ============================================================================
 // Service
 // ============================================================================
 
@@ -380,6 +520,37 @@ class ModelRouterApiService extends BaseApiService {
       new_optimizations_created: number;
       message: string;
     }>(`${this.basePath}/optimizations/identify`);
+  }
+
+  // ==========================================================================
+  // Escalation Audit (inc6)
+  // ==========================================================================
+
+  /**
+   * Get recent escalation-marked routing decisions
+   * GET /api/v1/ai/model_router/escalations
+   */
+  async getEscalations(filters?: EscalationFilters): Promise<EscalationsResponse> {
+    const queryString = this.buildQueryString(filters);
+    return this.get<EscalationsResponse>(`${this.basePath}/escalations${queryString}`);
+  }
+
+  /**
+   * Get escalation rollup (selection counts, rationale categories, spend share, advisory)
+   * GET /api/v1/ai/model_router/escalations/rollup
+   */
+  async getEscalationRollup(timeRange?: EscalationTimeRange): Promise<EscalationRollupResponse> {
+    const queryString = timeRange ? `?time_range=${timeRange}` : '';
+    return this.get<EscalationRollupResponse>(`${this.basePath}/escalations/rollup${queryString}`);
+  }
+
+  /**
+   * Get escalated-vs-baseline benefit deltas
+   * GET /api/v1/ai/model_router/escalations/benefit
+   */
+  async getEscalationBenefit(timeRange?: EscalationTimeRange, taskType?: string): Promise<EscalationBenefitResponse> {
+    const queryString = this.buildQueryString({ time_range: timeRange, task_type: taskType });
+    return this.get<EscalationBenefitResponse>(`${this.basePath}/escalations/benefit${queryString}`);
   }
 
   /**

@@ -3,16 +3,16 @@ import TeamAnalyticsDashboard from '../TeamAnalyticsDashboard';
 import type { TeamAnalytics } from '@/shared/services/ai/TeamsApiService';
 
 jest.mock('recharts', () => {
-  const MC = ({ children, ...p }: any) => <div data-testid={p['data-testid'] || 'chart'}>{children}</div>;
-  return { ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
+  const MC = ({ children, ...p }: { children?: React.ReactNode; 'data-testid'?: string }) => <div data-testid={p['data-testid'] || 'chart'}>{children}</div>;
+  return { ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div data-testid="responsive-container">{children}</div>,
     AreaChart: MC, Area: MC, XAxis: MC, YAxis: MC, CartesianGrid: MC, Tooltip: MC,
     PieChart: MC, Pie: MC, Cell: MC, BarChart: MC, Bar: MC, ComposedChart: MC, Line: MC, Legend: MC };
 });
 
 jest.mock('@/shared/components/layout/TabContainer', () => ({
-  TabContainer: ({ children, tabs, activeTab, onTabChange }: any) => (
+  TabContainer: ({ children, tabs, activeTab, onTabChange }: { children?: React.ReactNode; tabs: Array<{ id: string; label: string }>; activeTab?: string; onTabChange: (tabId: string) => void }) => (
     <div data-testid="tab-container">
-      {tabs.map((t: any) => (
+      {tabs.map((t) => (
         <button key={t.id} data-testid={`tab-${t.id}`} onClick={() => onTabChange(t.id)} className={activeTab === t.id ? 'active' : ''}>
           {t.label}
         </button>
@@ -20,7 +20,7 @@ jest.mock('@/shared/components/layout/TabContainer', () => ({
       {children}
     </div>
   ),
-  TabPanel: ({ children, tabId, activeTab }: any) => (
+  TabPanel: ({ children, tabId, activeTab }: { children?: React.ReactNode; tabId: string; activeTab?: string }) => (
     activeTab === tabId ? <div data-testid={`panel-${tabId}`}>{children}</div> : null
   ),
 }));

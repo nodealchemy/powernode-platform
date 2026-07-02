@@ -309,7 +309,7 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
           }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            className={`inline-block h-4 w-4 transform rounded-full bg-theme-surface transition-transform ${
               routingConfig.auto_handoff_enabled ? 'translate-x-6' : 'translate-x-1'
             }`}
           />

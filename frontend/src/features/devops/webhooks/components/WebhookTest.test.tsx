@@ -7,21 +7,21 @@ const mockTestWebhook = jest.fn();
 
 jest.mock('@/features/devops/webhooks/services/webhooksApi', () => ({
   webhooksApi: {
-    getAvailableEvents: (...args: any[]) => mockGetAvailableEvents(...args),
-    testWebhook: (...args: any[]) => mockTestWebhook(...args),
+    getAvailableEvents: (...args: unknown[]) => mockGetAvailableEvents(...args),
+    testWebhook: (...args: unknown[]) => mockTestWebhook(...args),
     formatEventType: (type: string) => type.replace('.', ' - ')
   }
 }));
 
 // Mock LoadingSpinner
 jest.mock('@/shared/components/ui/LoadingSpinner', () => ({
-  LoadingSpinner: ({ size }: any) => <div data-testid="loading-spinner" data-size={size}>Loading...</div>
+  LoadingSpinner: ({ size }: { size?: string }) => <div data-testid="loading-spinner" data-size={size}>Loading...</div>
 }));
 
 // Mock CodeBlock
 jest.mock('@/shared/components/ui/CodeBlock', () => ({
   __esModule: true,
-  default: ({ code, language }: any) => (
+  default: ({ code, language }: { code?: string; language?: string }) => (
     <pre data-testid="code-block" data-language={language}>{code}</pre>
   )
 }));

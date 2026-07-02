@@ -5,7 +5,7 @@ import { ImpersonationBanner } from './ImpersonationBanner';
 
 // Mock Button component
 jest.mock('@/shared/components/ui/Button', () => ({
-  Button: ({ children, onClick, disabled, variant, size }: any) => (
+  Button: ({ children, onClick, disabled, variant, size }: { children?: React.ReactNode; onClick?: () => void; disabled?: boolean; variant?: string; size?: string }) => (
     <button
       onClick={onClick}
       disabled={disabled}

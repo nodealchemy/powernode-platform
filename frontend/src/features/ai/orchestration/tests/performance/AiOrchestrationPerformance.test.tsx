@@ -8,7 +8,7 @@ import { agentsApi } from '@/shared/services/ai';
 // Mock ESM packages before importing components
 jest.mock('remark-gfm', () => () => ({}));
 jest.mock('remark-breaks', () => () => ({}));
-jest.mock('react-markdown', () => ({ children }: any) => <div>{children}</div>);
+jest.mock('react-markdown', () => ({ children }: { children?: React.ReactNode }) => <div>{children}</div>);
 
 // Mock all API services
 jest.mock('@/shared/services/ai', () => ({

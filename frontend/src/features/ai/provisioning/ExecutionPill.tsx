@@ -51,7 +51,7 @@ export const ExecutionPill: React.FC<ExecutionPillProps> = ({
               onClose();
             }}
             aria-label="Dismiss"
-            className="flex items-center justify-center h-6 w-6 rounded-full hover:bg-white/20 transition-colors"
+            className="flex items-center justify-center h-6 w-6 rounded-full hover:bg-theme-on-primary/20 transition-colors"
           >
             <X className="h-3.5 w-3.5" />
           </button>

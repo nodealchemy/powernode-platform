@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import { AiProvidersPage } from './AiProvidersPage';
+import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { providersApi } from '@/shared/services/ai';
 
 // Mock the AI provider API
@@ -55,18 +56,18 @@ jest.mock('@/shared/hooks/usePermissions', () => ({
 
 // Mock UI components
 jest.mock('@/shared/components/layout/PageContainer', () => ({
-  PageContainer: ({ title, description, actions, children }: any) => (
+  PageContainer: ({ title, description, actions, children }: { title?: string; description?: string; actions?: React.ReactNode; children?: React.ReactNode }) => (
     <div data-testid="page-container">
       <div data-testid="page-header">
         <h1>{title}</h1>
         <p>{description}</p>
         <div data-testid="page-actions">
-          {Array.isArray(actions) ? actions.map((action: any, i: number) => (
-            typeof action === 'object' && action.label ? (
+          {Array.isArray(actions) ? actions.map((action: { label?: string; onClick?: () => void; disabled?: boolean } | React.ReactNode, i: number) => (
+            typeof action === 'object' && action !== null && 'label' in action && action.label ? (
               <button key={i} onClick={action.onClick} disabled={action.disabled}>
                 {action.label}
               </button>
-            ) : action
+            ) : (action as React.ReactNode)
           )) : actions}
         </div>
       </div>
@@ -80,7 +81,7 @@ jest.mock('@/shared/components/ui/LoadingSpinner', () => ({
 }));
 
 jest.mock('@/shared/components/ui/EmptyState', () => ({
-  EmptyState: ({ title, description, action }: any) => (
+  EmptyState: ({ title, description, action }: { title?: string; description?: string; action?: React.ReactNode }) => (
     <div data-testid="empty-state">
       <h3>{title}</h3>
       <p>{description}</p>
@@ -91,7 +92,7 @@ jest.mock('@/shared/components/ui/EmptyState', () => ({
 
 // Mock child components
 jest.mock('./AiProviderCard', () => ({
-  AiProviderCard: ({ provider, onUpdate, canManage, onViewDetails, onEditProvider }: any) => (
+  AiProviderCard: ({ provider, onUpdate, canManage, onViewDetails, onEditProvider }: { provider: { id: string; name: string; type?: string; is_active?: boolean }; onUpdate?: () => void; canManage?: boolean; onViewDetails?: (id: string) => void; onEditProvider?: (id: string) => void }) => (
     <div data-testid={`provider-card-${provider.id}`}>
       <h3>{provider.name}</h3>
       <p>{provider.type}</p>
@@ -104,7 +105,7 @@ jest.mock('./AiProviderCard', () => ({
 }));
 
 jest.mock('./AiProviderFilters', () => ({
-  AiProviderFilters: ({ filters, onFiltersChange }: any) => (
+  AiProviderFilters: ({ filters, onFiltersChange }: { filters?: Record<string, unknown>; onFiltersChange: (filters: { provider_type?: string; is_active?: boolean }) => void }) => (
     <div data-testid="provider-filters">
       <select data-testid="type-filter" onChange={(e) => onFiltersChange({ provider_type: e.target.value })}>
         <option value="">All Types</option>
@@ -123,7 +124,7 @@ jest.mock('./AiProviderFilters', () => ({
 }));
 
 jest.mock('./CreateProviderModal', () => ({
-  CreateProviderModal: ({ isOpen, onClose, onSuccess }: any) => (
+  CreateProviderModal: ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: (provider: { id: string; name: string }) => void }) => (
     isOpen ? (
       <div data-testid="create-provider-modal">
         <button onClick={() => { onSuccess({ id: 'new-provider', name: 'New Provider' }); onClose(); }}>
@@ -136,7 +137,7 @@ jest.mock('./CreateProviderModal', () => ({
 }));
 
 jest.mock('./EditProviderModal', () => ({
-  EditProviderModal: ({ isOpen, providerId, onClose, onSuccess }: any) => (
+  EditProviderModal: ({ isOpen, providerId, onClose, onSuccess }: { isOpen: boolean; providerId?: string | null; onClose: () => void; onSuccess: () => void }) => (
     isOpen ? (
       <div data-testid="edit-provider-modal">
         <p>Editing provider: {providerId}</p>
@@ -150,7 +151,7 @@ jest.mock('./EditProviderModal', () => ({
 }));
 
 jest.mock('./SetupDefaultProvidersModal', () => ({
-  SetupDefaultProvidersModal: ({ isOpen, onClose, onConfirm }: any) => (
+  SetupDefaultProvidersModal: ({ isOpen, onClose, onConfirm }: { isOpen: boolean; onClose: () => void; onConfirm?: () => void }) => (
     isOpen ? (
       <div data-testid="setup-defaults-modal">
         <button onClick={() => { onConfirm?.(); onClose(); }}>
@@ -163,7 +164,7 @@ jest.mock('./SetupDefaultProvidersModal', () => ({
 }));
 
 jest.mock('./BulkTestModal', () => ({
-  BulkTestModal: ({ isOpen, onClose, onConfirm }: any) => (
+  BulkTestModal: ({ isOpen, onClose, onConfirm }: { isOpen: boolean; onClose: () => void; onConfirm?: () => void }) => (
     isOpen ? (
       <div data-testid="bulk-test-modal">
         <p>Test all providers</p>
@@ -174,8 +175,15 @@ jest.mock('./BulkTestModal', () => ({
   )
 }));
 
+const createTestStore = () =>
+  configureStore({
+    reducer: {
+      auth: (state = { user: null, isAuthenticated: false }) => state,
+    },
+  });
+
 describe('AiProvidersPage', () => {
-  let store: any;
+  let store: ReturnType<typeof createTestStore>;
 
   const mockProviders = [
     {
@@ -257,11 +265,7 @@ describe('AiProvidersPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    store = configureStore({
-      reducer: {
-        auth: (state = { user: null, isAuthenticated: false }) => state
-      }
-    });
+    store = createTestStore();
 
     (providersApi.getProviders as jest.Mock).mockResolvedValue({
       items: mockProviders,
@@ -276,7 +280,7 @@ describe('AiProvidersPage', () => {
 
   // Wrapper component that captures and renders actions
   const TestWrapper: React.FC = () => {
-    const [actions, setActions] = useState<any[]>([]);
+    const [actions, setActions] = useState<PageAction[]>([]);
 
     return (
       <>
@@ -285,7 +289,7 @@ describe('AiProvidersPage', () => {
           <h1>AI Providers</h1>
           <p>Manage AI providers and their configurations</p>
           <div data-testid="page-actions">
-            {actions.map((action: any, i: number) => (
+            {actions.map((action, i) => (
               <button key={i} onClick={action.onClick} disabled={action.disabled}>
                 {action.label}
               </button>

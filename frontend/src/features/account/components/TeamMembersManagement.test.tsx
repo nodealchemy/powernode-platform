@@ -7,7 +7,7 @@ import { usersApi } from '@/features/account/users/services/usersApi';
 // Mock ConfirmationModal - auto-confirm by default
 jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
   useConfirmation: () => ({
-    confirm: (opts: any) => { opts.onConfirm(); },
+    confirm: (opts: { onConfirm: () => void }) => { opts.onConfirm(); },
     ConfirmationDialog: null,
   }),
 }));

@@ -9,16 +9,16 @@ const mockRegenerateBackupCodes = jest.fn();
 
 jest.mock('@/shared/services/account/twoFactorApi', () => ({
   twoFactorApi: {
-    getStatus: (...args: any[]) => mockGetStatus(...args),
-    disable: (...args: any[]) => mockDisable(...args),
-    getBackupCodes: (...args: any[]) => mockGetBackupCodes(...args),
-    regenerateBackupCodes: (...args: any[]) => mockRegenerateBackupCodes(...args)
+    getStatus: (...args: unknown[]) => mockGetStatus(...args),
+    disable: (...args: unknown[]) => mockDisable(...args),
+    getBackupCodes: (...args: unknown[]) => mockGetBackupCodes(...args),
+    regenerateBackupCodes: (...args: unknown[]) => mockRegenerateBackupCodes(...args)
   }
 }));
 
 // Mock TwoFactorSetup component
 jest.mock('@/features/account/auth/components/TwoFactorSetup', () => ({
-  TwoFactorSetup: ({ onComplete, onCancel }: any) => (
+  TwoFactorSetup: ({ onComplete, onCancel }: { onComplete: () => void; onCancel: () => void }) => (
     <div data-testid="two-factor-setup">
       <button onClick={onComplete}>Complete Setup</button>
       <button onClick={onCancel}>Cancel Setup</button>
@@ -29,7 +29,7 @@ jest.mock('@/features/account/auth/components/TwoFactorSetup', () => ({
 // Mock Modal
 jest.mock('@/shared/components/ui/Modal', () => ({
   __esModule: true,
-  default: ({ isOpen, onClose, title, children }: any) =>
+  default: ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title?: string; children?: React.ReactNode }) =>
     isOpen ? (
       <div data-testid="modal">
         <h2>{title}</h2>

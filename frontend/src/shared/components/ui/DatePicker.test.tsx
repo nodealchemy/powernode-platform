@@ -3,7 +3,7 @@ import { DatePicker } from './DatePicker';
 
 // Mock ReactDatePicker to test useNativeInput=false case
 jest.mock('./ReactDatePicker', () => ({
-  ReactDatePicker: ({ selected, onChange, disabled, placeholder }: any) => (
+  ReactDatePicker: ({ selected, onChange, disabled, placeholder }: { selected?: Date | null; onChange: (date: Date) => void; disabled?: boolean; placeholder?: string }) => (
     <div data-testid="react-date-picker">
       <input
         type="text"

@@ -33,7 +33,7 @@ jest.mock('lucide-react', () => ({
 
 // Mock Badge component
 jest.mock('@/shared/components/ui/Badge', () => ({
-  Badge: ({ children, variant, className }: any) => (
+  Badge: ({ children, variant, className }: { children?: React.ReactNode; variant?: string; className?: string }) => (
     <span data-testid="badge" data-variant={variant} className={className}>
       {children}
     </span>

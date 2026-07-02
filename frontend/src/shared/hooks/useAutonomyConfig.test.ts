@@ -6,8 +6,8 @@ const mockPatch = jest.fn();
 jest.mock('@/shared/services/apiClient', () => ({
   __esModule: true,
   default: {
-    get: (...args: any[]) => mockGet(...args),
-    patch: (...args: any[]) => mockPatch(...args),
+    get: (...args: unknown[]) => mockGet(...args),
+    patch: (...args: unknown[]) => mockPatch(...args),
   },
 }));
 
