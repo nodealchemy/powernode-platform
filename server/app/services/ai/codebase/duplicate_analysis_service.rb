@@ -22,6 +22,8 @@ module Ai
     # /internal/codebase/analyze. Triage is best-effort (returns untriaged clones
     # if no LLM credential is configured).
     class DuplicateAnalysisService
+      include LlmTriagePipeline
+
       DEFAULT_SCOPES = %w[frontend/src server/app worker/app].freeze
       MIN_TOKENS     = 50
       MIN_LINES      = 5
@@ -109,21 +111,10 @@ module Ai
         { file: f["name"].to_s.sub("#{@base_path}/", ""), start: f["start"], end: f["end"] }
       end
 
-      # ── ② AI triage ──────────────────────────────────────────────────────────
+      # ── ② AI triage (shared plumbing in LlmTriagePipeline) ───────────────────
 
-      def run_triage(groups, model:)
-        client = Ai::Llm::Client.for_account(@account)
-        resolved = model.presence || default_model(client)
-        return [groups, "skipped (no LLM credential)"] if client.nil? || resolved.blank?
-
-        triaged = []
-        groups.each_slice(TRIAGE_BATCH) do |batch|
-          triaged.concat(triage_batch(client, resolved, batch))
-        rescue => e
-          Rails.logger.warn "[DuplicateAnalysis] triage batch failed: #{e.message}"
-          triaged.concat(batch)
-        end
-        [triaged, "completed (#{resolved})"]
+      def triage_log_tag
+        "DuplicateAnalysis"
       end
 
       def triage_batch(client, model, batch)
@@ -158,33 +149,6 @@ module Ai
         "- generated: machine-generated/scaffolded code where duplication is expected\n" \
         "- coincidental: superficially similar tokens but semantically unrelated\n" \
         "Reserve extract_candidate for cases where the shared logic is real and DRYing it genuinely reduces maintenance risk."
-      end
-
-      def extract_results(content)
-        return [] if content.blank?
-
-        text = content.to_s.gsub(/```(?:json)?/i, "")
-        first = text.index("{")
-        last  = text.rindex("}")
-        return [] unless first && last && last > first
-
-        parsed = JSON.parse(text[first..last]) rescue nil
-        parsed.is_a?(Hash) ? Array(parsed["results"]) : []
-      end
-
-      def default_model(client)
-        return nil unless client
-
-        models = client.provider&.available_models rescue nil
-        first = models.is_a?(Array) ? models.first : nil
-        first.is_a?(Hash) ? (first["id"] || first["name"] || first[:id] || first[:name]) : first
-      end
-
-      def run(command)
-        IO.popen(command, err: [:child, :out]) { |io| io.read(CMD_BYTE_CAP) }
-      rescue Errno::ENOENT, Errno::EPIPE => e
-        Rails.logger.warn "[DuplicateAnalysis] command failed: #{e.message}"
-        nil
       end
     end
   end

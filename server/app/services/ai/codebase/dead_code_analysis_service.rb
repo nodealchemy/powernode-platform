@@ -22,6 +22,8 @@ module Ai
     # /internal/codebase/analyze. Triage is best-effort: with no LLM credential
     # configured, verified candidates are returned untriaged.
     class DeadCodeAnalysisService
+      include LlmTriagePipeline
+
       MAX_CANDIDATES = 400      # cap analyzer output we bother to verify
       MAX_TRIAGE     = 200      # cap verified candidates sent to the LLM
       TRIAGE_BATCH   = 25       # candidates per LLM call
@@ -127,21 +129,10 @@ module Ai
         end
       end
 
-      # ── ③ AI triage ─────────────────────────────────────────────────────────
+      # ── ③ AI triage (shared plumbing in LlmTriagePipeline) ──────────────────
 
-      def run_triage(candidates, model:)
-        client = Ai::Llm::Client.for_account(@account)
-        resolved = model.presence || default_model(client)
-        return [candidates, "skipped (no LLM credential)"] if client.nil? || resolved.blank?
-
-        triaged = []
-        candidates.each_slice(TRIAGE_BATCH) do |batch|
-          triaged.concat(triage_batch(client, resolved, batch))
-        rescue => e
-          Rails.logger.warn "[DeadCodeAnalysis] triage batch failed: #{e.message}"
-          triaged.concat(batch)
-        end
-        [triaged, "completed (#{resolved})"]
+      def triage_log_tag
+        "DeadCodeAnalysis"
       end
 
       def triage_batch(client, model, batch)
@@ -171,20 +162,6 @@ module Ai
         end
       end
 
-      # Robustly pull the {"results":[...]} array from an LLM text response,
-      # tolerating markdown fences / surrounding prose.
-      def extract_results(content)
-        return [] if content.blank?
-
-        text = content.to_s.gsub(/```(?:json)?/i, "")
-        first = text.index("{")
-        last  = text.rindex("}")
-        return [] unless first && last && last > first
-
-        parsed = JSON.parse(text[first..last]) rescue nil
-        parsed.is_a?(Hash) ? Array(parsed["results"]) : []
-      end
-
       def triage_system_prompt
         "You triage dead-code candidates for an INTERNAL application (NOT a published library). Each candidate has been GREP-VERIFIED to have ZERO references anywhere in the repository, outside its own definition. For an internal app a zero-reference symbol is dead BY DEFAULT — classify real_dead unless there is SPECIFIC evidence otherwise:\n" \
         "- real_dead: zero references and no specific reason to keep — safe to remove. THIS IS THE DEFAULT.\n" \
@@ -193,23 +170,6 @@ module Ai
         "- test_only: a helper/fixture used only by tests.\n" \
         "- uncertain: plausibly reached in a way grep can't see (lazy/dynamic import, string-keyed route component, conditional render).\n" \
         "Reserve the non-real_dead categories for specific evidence; do NOT default everything to public_api."
-      end
-
-      # ── helpers ─────────────────────────────────────────────────────────────
-
-      def default_model(client)
-        return nil unless client
-
-        models = client.provider&.available_models rescue nil
-        first = models.is_a?(Array) ? models.first : nil
-        first.is_a?(Hash) ? (first["id"] || first["name"] || first[:id] || first[:name]) : first
-      end
-
-      def run(command)
-        IO.popen(command, err: [:child, :out]) { |io| io.read(CMD_BYTE_CAP) }
-      rescue Errno::ENOENT, Errno::EPIPE => e
-        Rails.logger.warn "[DeadCodeAnalysis] command failed: #{e.message}"
-        nil
       end
     end
   end
