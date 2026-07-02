@@ -7,7 +7,7 @@ RSpec.describe 'Api::V1::Activities', type: :request do
   let(:worker) { create(:worker, account: account) }
 
   let(:user_with_permission) do
-    create(:user, account: account, permissions: [ 'system.workers.read' ])
+    create(:user, account: account, permissions: [ 'admin.workers.read' ])
   end
 
   let(:user_without_permission) do
@@ -27,7 +27,7 @@ RSpec.describe 'Api::V1::Activities', type: :request do
   end
 
   describe 'GET /api/v1/workers/:worker_id/activities' do
-    context 'with system.workers.read permission' do
+    context 'with admin.workers.read permission' do
       # Note: The controller filters by params[:action] which in Rails is the
       # controller action name ("index"), so activities are filtered by
       # activity_type: "index" and none match. Tests verify the response
@@ -180,7 +180,7 @@ RSpec.describe 'Api::V1::Activities', type: :request do
             headers: auth_headers_for(user_without_permission),
             as: :json
 
-        expect_error_response('Permission denied: system.workers.read', 403)
+        expect_error_response('Permission denied: admin.workers.read', 403)
       end
     end
 
@@ -240,7 +240,7 @@ RSpec.describe 'Api::V1::Activities', type: :request do
             headers: auth_headers_for(user_without_permission),
             as: :json
 
-        expect_error_response('Permission denied: system.workers.read', 403)
+        expect_error_response('Permission denied: admin.workers.read', 403)
       end
     end
   end
@@ -293,12 +293,6 @@ RSpec.describe 'Api::V1::Activities', type: :request do
         expect(worker_data['id']).to eq(worker.id)
       end
 
-      # NOTE: the existing examples above authenticate as user_with_permission
-      # ('system.workers.read'), which currently 403s against the controller's
-      # 'admin.workers.read' check — that systemic mismatch is tracked separately
-      # (fingerprint rspec-systemic-permission-403-200-mismatch). The examples
-      # below grant the permission the controller actually enforces so the
-      # perf-fix behavior is executed.
       let(:worker_admin_user) do
         create(:user, account: account, permissions: [ 'admin.workers.read' ])
       end
@@ -346,7 +340,7 @@ RSpec.describe 'Api::V1::Activities', type: :request do
             headers: auth_headers_for(user_without_permission),
             as: :json
 
-        expect_error_response('Permission denied: system.workers.read', 403)
+        expect_error_response('Permission denied: admin.workers.read', 403)
       end
     end
   end
@@ -382,7 +376,7 @@ RSpec.describe 'Api::V1::Activities', type: :request do
                headers: auth_headers_for(user_without_permission),
                as: :json
 
-        expect_error_response('Permission denied: system.workers.read', 403)
+        expect_error_response('Permission denied: admin.workers.read', 403)
       end
     end
   end

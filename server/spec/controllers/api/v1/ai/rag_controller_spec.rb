@@ -4,10 +4,11 @@ require 'rails_helper'
 
 RSpec.describe Api::V1::Ai::RagController, type: :controller do
   let(:account) { create(:account) }
-  # RAG endpoints are gated by the kb.* permission family (reads -> kb.read,
-  # creates -> kb.create, updates -> kb.update, deletes -> kb.delete). Grant the
+  # RAG endpoints are gated by the ai.rag.* permission family (reads ->
+  # ai.rag.read, creates -> ai.rag.create, updates -> ai.rag.update, deletes ->
+  # ai.rag.delete) — distinct from the kb.* article knowledge base. Grant the
   # full set so each per-action example exercises its own behavior, not the guard.
-  let(:user) { create(:user, account: account, permissions: ['kb.read', 'kb.create', 'kb.update', 'kb.delete']) }
+  let(:user) { create(:user, account: account, permissions: ['ai.rag.read', 'ai.rag.create', 'ai.rag.update', 'ai.rag.delete']) }
   let(:no_perms_user) { create(:user, account: account, permissions: []) }
 
   let!(:knowledge_base) { create(:ai_knowledge_base, account: account) }
