@@ -1,19 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Brain, Lightbulb, Eraser } from 'lucide-react';
-import { Card, CardContent } from '@/shared/components/ui/Card';
+import { Lightbulb, Eraser } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
-import { agentsApi } from '@/shared/services/ai';
 import { MemoryStats } from './AgentMemoryStats';
 import { MemoryTimeline } from './MemoryTimeline';
 import { SharedLearningsPanel } from './SharedLearningsPanel';
-import { fetchMemoryStats, deleteMemory } from '../api/memoryApi';
+import { AgentSelectorCard } from './AgentSelectorCard';
+import { deleteMemory } from '../api/memoryApi';
 import { contextApi } from '../api/contextApi';
-import { useMemoryFilters } from '../hooks/useMemoryFilters';
+import { useAgentMemorySelection } from '../hooks/useAgentMemorySelection';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
-import type { AiAgent } from '@/shared/types/ai';
-import type { MemoryStats as MemoryStatsType, MemoryEntry } from '../types/memory';
+import type { MemoryEntry } from '../types/memory';
 
 interface AgentMemoryContentProps {
   onActionsReady?: (actions: PageAction[]) => void;
@@ -21,53 +19,15 @@ interface AgentMemoryContentProps {
 
 export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onActionsReady }) => {
   const { addNotification } = useNotifications();
-  const { agentId: urlAgentId, setAgentId: setUrlAgentId } = useMemoryFilters();
-  const [agents, setAgents] = useState<AiAgent[]>([]);
-  const [agentsLoading, setAgentsLoading] = useState(true);
-  const [selectedAgentId, setSelectedAgentId] = useState(urlAgentId || '');
+  const {
+    agents,
+    agentsLoading,
+    selectedAgentId,
+    handleAgentChange,
+    stats,
+    loadStats,
+  } = useAgentMemorySelection();
   const [refreshKey, setRefreshKey] = useState(0);
-  const [stats, setStats] = useState<MemoryStatsType | undefined>();
-
-  // Sync agent selection to URL
-  const handleAgentChange = useCallback((id: string) => {
-    setSelectedAgentId(id);
-    setUrlAgentId(id);
-  }, [setUrlAgentId]);
-
-  useEffect(() => {
-    const loadAgents = async () => {
-      try {
-        setAgentsLoading(true);
-        const { items } = await agentsApi.getAgents({ per_page: 100 });
-        const agentsList = (items || []) as AiAgent[];
-        setAgents(agentsList);
-        if (agentsList.length > 0 && !selectedAgentId) {
-          const firstId = agentsList[0].id;
-          setSelectedAgentId(firstId);
-          setUrlAgentId(firstId);
-        }
-      } catch (_error) {
-        addNotification({ type: 'error', message: 'Failed to load agents' });
-      } finally {
-        setAgentsLoading(false);
-      }
-    };
-    loadAgents();
-  }, []);
-
-  const loadStats = useCallback(async () => {
-    if (!selectedAgentId) return;
-    try {
-      const data = await fetchMemoryStats(selectedAgentId);
-      setStats(data);
-    } catch (_error) {
-      // Stats failure is non-critical
-    }
-  }, [selectedAgentId]);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
 
   const handleRefresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -149,26 +109,11 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
       </div>
 
       {/* Agent Selector */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <Brain className="h-5 w-5 text-theme-primary shrink-0" />
-            <label className="text-sm font-medium text-theme-secondary shrink-0">Agent:</label>
-            <select
-              value={selectedAgentId}
-              onChange={(e) => handleAgentChange(e.target.value)}
-              className="flex-1 text-sm rounded-lg bg-theme-surface border border-theme text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
-            >
-              {agents.length === 0 && <option value="">No agents available</option>}
-              {agents.map((agent) => (
-                <option key={agent.id} value={agent.id}>
-                  {agent.name} ({agent.status})
-                </option>
-              ))}
-            </select>
-          </div>
-        </CardContent>
-      </Card>
+      <AgentSelectorCard
+        agents={agents}
+        selectedAgentId={selectedAgentId}
+        onAgentChange={handleAgentChange}
+      />
 
       {selectedAgentId && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -176,7 +121,7 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
             <MemoryTimeline
               key={`timeline-${selectedAgentId}-${refreshKey}`}
               agentId={selectedAgentId}
-              stats={stats}
+              stats={stats ?? undefined}
               onDeleteEntry={handleDeleteEntry}
             />
           </div>
@@ -184,7 +129,7 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
             <MemoryStats
               key={`stats-${refreshKey}`}
               agentId={selectedAgentId}
-              stats={stats}
+              stats={stats ?? undefined}
             />
             <SharedLearningsPanel />
           </div>
