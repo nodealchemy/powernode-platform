@@ -147,6 +147,15 @@ header are touched). Run it after adding/renaming/retiering a platform agent so 
 can `Task(subagent_type: "<slug>")` it; `ACCOUNT_ID=<uuid>` overrides the default account,
 `TARGET_DIR=<path>` overrides the output directory (mainly for tests).
 
+**Naming disambiguation** — two similarly named "Claude agent" surfaces point in opposite
+directions and must not be confused. `server/db/seeds/claude_agents_seed.rb` seeds **platform**
+`Ai::Agent` records INTO the database (provider-agnostic reasoning/analysis agents; "claude" in
+the filename is legacy naming — the model is chosen at runtime by `Ai::AgentModelSelector`).
+`Ai::ClaudeExport::AgentSkeletonSync` is the inverse: it **exports** those platform agents OUT of
+the database as generated, gitignored Claude Code subagent skeletons. Seeding creates the records
+the exporter later reads; neither replaces the other, and a change to one is never a change to
+the other.
+
 ## Learning feed-forward usage
 
 `Ai::Learning::GuidancePromotionService#promote`

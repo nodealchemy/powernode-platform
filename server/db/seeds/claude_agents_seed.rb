@@ -2,6 +2,8 @@
 
 # Reasoning & Analysis Agents Seed Data
 # Creates provider-agnostic specialized agents (model chosen at runtime by Ai::AgentModelSelector)
+# NOT the Claude Code export: this seeds PLATFORM Ai::Agent records INTO the DB ("claude" is legacy
+# naming); Ai::ClaudeExport::AgentSkeletonSync is the inverse — it EXPORTS platform agents OUT as CC skeletons.
 
 puts "🧠 Creating reasoning/analysis workflow agents..."
 

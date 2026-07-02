@@ -2,6 +2,9 @@
 
 module Ai
   module ClaudeExport
+    # NOT the platform-agent seed: this EXPORTS platform Ai::Agent records OUT as Claude Code
+    # skeletons; server/db/seeds/claude_agents_seed.rb is the inverse — it seeds PLATFORM agents INTO the DB.
+    #
     # Syncs platform Ai::Agent records to native Claude Code subagent skeletons
     # (<target_dir>/<slug>.md) so any Claude Code session can `Task(subagent_type:
     # "<slug>")` a platform-defined agent. The skeleton is a THIN MCP bootstrap —
