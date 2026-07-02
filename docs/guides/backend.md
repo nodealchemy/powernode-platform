@@ -557,17 +557,28 @@ Use `critical` only for security responses and kill-switch handlers. Renewals an
 
 ### Scheduled jobs (cron)
 
-```ruby
-# worker/config/initializers/sidekiq.rb (excerpt)
-Sidekiq.configure_server do |config|
-  config.on(:startup) do
-    Sidekiq::Cron::Job.load_from_hash({
-      'rotate_secrets' => { 'cron' => '0 2 * * *', 'class' => 'SecretsRotationJob', 'queue' => 'low' },
-      'health_check'   => { 'cron' => '*/5 * * * *', 'class' => 'SystemHealthCheckJob', 'queue' => 'low' }
-    })
-  end
-end
+Cron scheduling uses the `sidekiq-scheduler` gem. The schedule is declared in the `:scheduler:` section of `worker/config/sidekiq.yml`:
+
+```yaml
+# worker/config/sidekiq.yml (excerpt)
+:scheduler:
+  :enabled: true
+  :schedule:
+    devops_approval_expiry:
+      cron: '0 * * * *'  # Every hour at minute 0
+      class: Devops::ApprovalExpiryJob
+      queue: default
+      description: 'Expire stale DevOps pipeline step approval tokens'
+
+    daily_database_backup:
+      cron: '0 2 * * *'  # Every day at 2:00 AM UTC
+      class: Maintenance::ScheduledBackupJob
+      queue: maintenance
+      args: ['full']
+      description: 'Automated daily full database backup'
 ```
+
+Extension schedules (e.g. `extensions/system/worker/config/sidekiq_system.yml`) are merged into the `:scheduler:` section at boot by `worker/config/application.rb`, and only for extensions that are enabled.
 
 For scheduled jobs that are part of the platform's autonomy loop (decay, consolidation, etc.), see [`docs/concepts/agents-and-autonomy.md`](../concepts/agents-and-autonomy.md). The full live cron schedule is in `worker/config/sidekiq.yml`.
 
