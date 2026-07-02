@@ -27,14 +27,15 @@
 | Vault KV/PKI/Transit clients | `server/app/services/security/vault_client.rb`, `vault_pki_client.rb`, `vault_transit_client.rb` | Vault backend internals |
 | Vault credential provider | `server/app/services/security/vault_credential_provider.rb` | Existing Vault read/write abstraction |
 | Vault model concern | `server/app/models/concerns/vault_credential.rb` | Models that store secrets in Vault |
-| **Existing migration service** | `server/app/services/security/vault_migration_service.rb` | Generalize → bidirectional |
 | DB-encryption (the other backend) | `server/app/models/concerns/account_peppered_encryption.rb` + Rails `encrypts` (`user.rb`, `ai/data_source_credential.rb`, `external_agent.rb`) | DatabaseBackend internals |
 | Vault-configured detection | `server/config/initializers/vault.rb` (`vault_configured?` from ENV **or** `db_config`) | Basis for the toggle |
 | Infra/Vault admin config | `server/app/controllers/concerns/admin_settings/infrastructure_config_actions.rb` | Where the toggle + addr/creds are set |
 
-So two backends and a migration service already exist in pieces; what's missing is the
-**unifying facade**, a **first-class toggle**, and making migration **bidirectional + driven
-from settings/the wizard**.
+So two backends already exist in pieces; what's missing is the **unifying facade**, a
+**first-class toggle**, and a **bidirectional migration service driven from settings/the
+wizard**. (A one-way DB→Vault `Security::VaultMigrationService` existed but had zero
+invocation paths and was deleted as dead code — see git history if its per-model
+migrate/verify loops are useful as a starting point.)
 
 ## 3. Architecture: one facade, two backends
 
@@ -72,7 +73,7 @@ Security::SecretStore                      # the only thing callers touch
 
 ## 5. Migration service (bidirectional)
 
-Generalize `vault_migration_service` → `Security::SecretMigrationService`:
+Introduce `Security::SecretMigrationService`:
 
 ```
 SecretMigrationService.run(from: :vault|:database, to: :database|:vault, dry_run:)
@@ -118,7 +119,7 @@ SecretMigrationService.run(from: :vault|:database, to: :database|:vault, dry_run
   behavior change for existing Vault users.
 - **Phase B — Toggle:** `secret_backend` setting + `vault_configured?`-gated UI; `SecretStore`
   honors it; fail-closed semantics.
-- **Phase C — Migration:** generalize `vault_migration_service` to bidirectional + verified +
+- **Phase C — Migration:** build `Security::SecretMigrationService` as bidirectional + verified +
   resumable worker job; settings/wizard trigger.
 - **Phase D — Adopt:** migrate remaining credential models onto `SecretStore` (incremental).
 
