@@ -121,7 +121,6 @@ The largest category — covers the entire AI platform. Selected examples:
 | `AiBudgetRolloverJob` | `ai_orchestration` | Monthly budget rollover |
 | `AiContainerAgentJob` | `ai_agents` | Containerised agent execution |
 | `AiExecutionCancellationJob` | `ai_cancellations` | Fast execution cancellation |
-| `AiExecutionTimeoutCleanupJob` | `ai_orchestration` | Timeout cleanup |
 | `AiWebhookDeliveryJob` | `ai_orchestration` | AI webhook delivery |
 | `AiWorkspaceResponseJob` | `ai_conversations` | Workspace response handling |
 | `AiConversationResponseJob` | `ai_conversations` | Conversation response generation |
