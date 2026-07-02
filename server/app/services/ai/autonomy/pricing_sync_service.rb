@@ -175,7 +175,7 @@ module Ai
               input_per_1k: pricing["input"],
               output_per_1k: pricing["output"],
               cached_input_per_1k: pricing["cached_input"] || 0,
-              tier: pricing["tier"],
+              tier: classify_tier(pricing["input"]),
               source: "constant_fallback",
               last_synced_at: Time.current,
               metadata: {}

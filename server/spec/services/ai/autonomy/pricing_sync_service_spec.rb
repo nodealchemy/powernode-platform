@@ -101,6 +101,26 @@ RSpec.describe Ai::Autonomy::PricingSyncService do
     end
   end
 
+  describe ".seed_from_constant tier derivation" do
+    it "derives the persisted tier from ModelTiers price bands instead of hand labels" do
+      result = { synced: 0, failed: 0, errors: [] }
+      described_class.send(:seed_from_constant, result)
+
+      # gpt-4.1 ($0.002/1k in) sits in the STANDARD band; the old hand label said premium.
+      expect(Ai::ModelPricing.find_by(model_id: "gpt-4.1").tier).to eq("standard")
+
+      Ai::ModelPricing.find_each do |row|
+        expect(row.tier)
+          .to eq(Ai::ModelTiers.to_label(Ai::ModelTiers.tier_for_price(row.input_per_1k))),
+              "#{row.model_id} tier #{row.tier} diverged from the price-band ladder"
+      end
+    end
+
+    it "MODEL_PRICING no longer carries hand-labeled tiers" do
+      expect(Ai::ProviderManagementService::MODEL_PRICING.values.any? { |v| v.key?("tier") }).to be(false)
+    end
+  end
+
   describe ".sync! stored tier (litellm path)" do
     def litellm_payload(input_per_token)
       {

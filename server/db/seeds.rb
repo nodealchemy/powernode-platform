@@ -226,7 +226,7 @@ if Powernode::Seeds.baseline?
         mp.input_per_1k = pricing["input"]
         mp.output_per_1k = pricing["output"]
         mp.cached_input_per_1k = pricing["cached_input"] || 0
-        mp.tier = pricing["tier"]
+        mp.tier = Ai::ModelTiers.to_label(Ai::ModelTiers.tier_for_price(pricing["input"]))
         mp.source = "constant_fallback"
         mp.last_synced_at = Time.current
         mp.metadata = {}
