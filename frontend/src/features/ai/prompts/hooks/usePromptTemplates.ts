@@ -53,7 +53,7 @@ export function usePromptTemplates(params?: PromptTemplatesParams): UsePromptTem
     } finally {
       setLoading(false);
     }
-  }, [params?.category, params?.domain, params?.is_active, params?.root_only, params?.search]);
+  }, [params?.category, params?.domain, params?.is_active, params?.root_only, params?.scope, params?.search]);
 
   useEffect(() => {
     loadTemplates();
