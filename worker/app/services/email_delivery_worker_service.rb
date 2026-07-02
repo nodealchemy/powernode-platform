@@ -5,6 +5,24 @@ require 'mail'
 require 'net/smtp'
 
 class EmailDeliveryWorkerService < BaseWorkerService
+  # Raised for transient delivery failures (server busy, timeouts, connection
+  # resets). These MUST propagate out of the service so the enqueuing Sidekiq
+  # job (retry: 3) can retry the delivery — swallowing them into a result hash
+  # permanently drops the email. Permanent SMTP failures (auth, syntax, 5xx
+  # fatal) stay handled as error result hashes because retrying cannot help.
+  class TransientDeliveryError < StandardError; end
+
+  TRANSIENT_SMTP_ERRORS = [
+    Net::SMTPServerBusy, # 4xx — server explicitly asks to retry later
+    Net::OpenTimeout,
+    Net::ReadTimeout,
+    Errno::ECONNREFUSED,
+    Errno::ECONNRESET,
+    Errno::ETIMEDOUT,
+    SocketError,
+    EOFError
+  ].freeze
+
   EMAIL_TYPES = %w[
     password_reset
     email_verification
@@ -56,6 +74,10 @@ class EmailDeliveryWorkerService < BaseWorkerService
       # Process template if provided
       final_body = template ? render_email_template(template, template_data, body) : body
 
+      # Hoisted to locals: the Mail.new block below is instance_eval'd in
+      # Mail::Message context, so service methods are not callable inside it.
+      plain_text_body = strip_html_tags(final_body)
+
       # Create and configure mail message
       mail = Mail.new do
         from     options[:from] || ENV['SMTP_FROM_ADDRESS'] || 'noreply@powernode.dev'
@@ -74,7 +96,7 @@ class EmailDeliveryWorkerService < BaseWorkerService
           # Add plain text version if HTML is provided
           text_part do
             content_type 'text/plain; charset=UTF-8'
-            body strip_html_tags(final_body)
+            body plain_text_body
           end
         end
 
@@ -134,7 +156,7 @@ class EmailDeliveryWorkerService < BaseWorkerService
           delivery_id: delivery_id,
           message_id: mail.message_id,
           email_type: email_type
-        }, "Email sent successfully")
+        }, message: "Email sent successfully")
       else
         # Update delivery record as failed
         update_delivery_record(delivery_id, 'failed', {
@@ -152,6 +174,17 @@ class EmailDeliveryWorkerService < BaseWorkerService
         error_response("Email delivery failed: #{delivery_result[:error]}")
       end
 
+    rescue TransientDeliveryError => e
+      # Record the attempt as failed, then RAISE so the enqueuing Sidekiq job's
+      # retry: 3 fires. Each retry creates a fresh delivery record.
+      if delivery_id
+        update_delivery_record(delivery_id, 'failed', {
+          error_message: e.message,
+          failed_at: Time.current.iso8601
+        })
+      end
+      log_error("Transient email delivery failure — raising for Sidekiq retry", e, email_type: email_type, to: to)
+      raise
     rescue => e
       log_error("Email sending failed", e, email_type: email_type, to: to)
       error_response("Email sending failed: #{e.message}")
@@ -174,17 +207,24 @@ class EmailDeliveryWorkerService < BaseWorkerService
         recipient: recipient.is_a?(Hash) ? recipient : { email: email }
       )
 
-      result = send_email(
-        to: email,
-        subject: subject,
-        body: body,
-        email_type: email_type,
-        account_id: account_id,
-        user_id: user_id,
-        template: template,
-        template_data: personalized_data,
-        **options
-      )
+      # A transient failure for one recipient must not abort the batch (or,
+      # via a Sidekiq retry, re-send to recipients already delivered), so it
+      # is recorded as a per-recipient failed result here.
+      result = begin
+        send_email(
+          to: email,
+          subject: subject,
+          body: body,
+          email_type: email_type,
+          account_id: account_id,
+          user_id: user_id,
+          template: template,
+          template_data: personalized_data,
+          **options
+        )
+      rescue TransientDeliveryError => e
+        error_response("Email delivery failed: #{e.message}")
+      end
 
       results << {
         email: email,
@@ -213,7 +253,7 @@ class EmailDeliveryWorkerService < BaseWorkerService
         successful: successful_count,
         failed: failed_count
       }
-    }, "Bulk email sending completed")
+    }, message: "Bulk email sending completed")
   end
 
   # Send transactional emails with predefined templates
@@ -289,11 +329,11 @@ class EmailDeliveryWorkerService < BaseWorkerService
   def deliver_mail(mail)
     begin
       mail.deliver!
-      success_response(nil, "Mail delivered successfully")
+      success_response(nil, message: "Mail delivered successfully")
+    rescue *TRANSIENT_SMTP_ERRORS => e
+      raise TransientDeliveryError, "Transient mail delivery failure (#{e.class}): #{e.message}"
     rescue Net::SMTPAuthenticationError => e
       error_response("SMTP Authentication failed: #{e.message}")
-    rescue Net::SMTPServerBusy => e
-      error_response("SMTP Server busy: #{e.message}")
     rescue Net::SMTPSyntaxError => e
       error_response("SMTP Syntax error: #{e.message}")
     rescue Net::SMTPFatalError => e
