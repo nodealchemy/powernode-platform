@@ -14,6 +14,8 @@ module Ai
   # endpoint/response shapes below follow Runway's documented contract and should
   # be validated against the live API before production use.
   class VideoGenerationService
+    include Ai::MediaGenerationCommon
+
     class GenerationError < StandardError; end
 
     PROVIDER_TYPE = "runway"
@@ -57,23 +59,6 @@ module Ai
     end
 
     private
-
-    def resolve_provider_and_credential
-      provider = Ai::Provider.where(account: account, provider_type: PROVIDER_TYPE, is_active: true).first
-      raise GenerationError, "No active #{PROVIDER_TYPE} provider found for account #{account.id}" unless provider
-
-      credential = provider.provider_credentials.active.where(account_id: account.id).first
-      raise GenerationError, "No active credential found for #{PROVIDER_TYPE} provider #{provider.id}" unless credential
-
-      [provider, credential]
-    end
-
-    def default_model(provider)
-      first = provider.supported_models&.first
-      model = first.is_a?(Hash) ? (first["id"] || first["name"]) : first
-      model || provider.metadata&.dig("default_model") ||
-        raise(GenerationError, "No model configured for #{PROVIDER_TYPE} provider")
-    end
 
     def auth_headers(api_key, provider)
       headers = { "Authorization" => "Bearer #{api_key}", "Content-Type" => "application/json" }
@@ -133,37 +118,20 @@ module Ai
     end
 
     def store_video(bytes, filename:, prompt:, model:)
-      io = StringIO.new(bytes)
-      FileStorageService.new(account).upload_file(
-        io,
+      store_generated_file(
+        bytes,
         filename: filename,
         content_type: "video/mp4",
-        category: "ai_generated",
-        uploaded_by_id: user&.id,
         metadata: {
           generator: PROVIDER_TYPE,
           model: model,
-          prompt: prompt,
-          generated_at: Time.current.iso8601
+          prompt: prompt
         }
       )
-    rescue FileStorageService::StorageNotFoundError => e
-      Rails.logger.warn "[VideoGenerationService] No file storage configured, skipping upload: #{e.message}"
-      nil
-    end
-
-    def api_error(resp)
-      body = begin
-        JSON.parse(resp.body.to_s)
-      rescue JSON::ParserError
-        { "error" => resp.body.to_s }
-      end
-      body.dig("error", "message") || body["error"] || body["message"] || "HTTP #{resp.status}"
     end
 
     def generate_filename(prompt)
-      slug = prompt.parameterize[0..40]
-      "ai_generated_#{slug}_#{SecureRandom.hex(4)}.mp4"
+      media_filename(prompt, prefix: "ai_generated", ext: "mp4")
     end
   end
 end

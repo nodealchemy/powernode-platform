@@ -2,6 +2,9 @@
 
 module Ai
   class ImageGenerationService
+    include Ai::MediaGenerationCommon
+
+    PROVIDER_TYPE = "openai"
     OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations"
 
     VALID_SIZES = %w[1024x1024 1024x1792 1792x1024].freeze
@@ -35,7 +38,7 @@ module Ai
     def generate(prompt:, size: "1024x1024", quality: "hd", style: "vivid", model: "dall-e-3", filename: nil, store: true)
       validate_params!(size, quality, style)
 
-      credential = resolve_credential
+      _provider, credential = resolve_provider_and_credential
       api_key = credential.credentials["api_key"]
       raise GenerationError, "No API key found for OpenAI provider" if api_key.blank?
 
@@ -81,19 +84,6 @@ module Ai
       raise GenerationError, "Invalid style: #{style}. Valid: #{VALID_STYLES.join(', ')}" unless VALID_STYLES.include?(style)
     end
 
-    def resolve_credential
-      # Find an OpenAI provider for this account
-      provider = Ai::Provider.where(account: account, provider_type: "openai", is_active: true)
-                             .first
-
-      raise GenerationError, "No active OpenAI provider found for account #{account.id}" unless provider
-
-      credential = provider.provider_credentials.active.where(account_id: account.id).first
-      raise GenerationError, "No active credential found for OpenAI provider #{provider.id}" unless credential
-
-      credential
-    end
-
     def call_api(api_key, prompt:, size:, quality:, style:, model:)
       body = {
         model: model,
@@ -110,11 +100,7 @@ module Ai
         "Content-Type" => "application/json"
       ).timeout(120).post(OPENAI_IMAGES_URL, json: body)
 
-      unless response.status.success?
-        error_body = JSON.parse(response.body.to_s) rescue { "error" => { "message" => response.body.to_s } }
-        error_msg = error_body.dig("error", "message") || "Unknown API error (HTTP #{response.status})"
-        raise GenerationError, "DALL-E API error: #{error_msg}"
-      end
+      raise GenerationError, "DALL-E API error: #{api_error(response)}" unless response.status.success?
 
       JSON.parse(response.body.to_s)
     rescue HTTP::Error => e
@@ -132,33 +118,22 @@ module Ai
     end
 
     def store_image(b64_data, filename:, prompt:, revised_prompt:, model:, size:)
-      raw_bytes = Base64.decode64(b64_data)
-      io = StringIO.new(raw_bytes)
-
-      storage_service = FileStorageService.new(account)
-      storage_service.upload_file(
-        io,
+      store_generated_file(
+        Base64.decode64(b64_data),
         filename: filename,
         content_type: "image/png",
-        category: "ai_generated",
-        uploaded_by_id: user&.id,
         metadata: {
           generator: "dall-e",
           model: model,
           prompt: prompt,
           revised_prompt: revised_prompt,
-          size: size,
-          generated_at: Time.current.iso8601
+          size: size
         }
       )
-    rescue FileStorageService::StorageNotFoundError => e
-      Rails.logger.warn "[ImageGenerationService] No file storage configured, skipping upload: #{e.message}"
-      nil
     end
 
     def generate_filename(prompt)
-      slug = prompt.parameterize[0..40]
-      "ai_generated_#{slug}_#{SecureRandom.hex(4)}.png"
+      media_filename(prompt, prefix: "ai_generated", ext: "png")
     end
   end
 end
