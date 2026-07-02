@@ -218,6 +218,18 @@ class WorkerJobService
       })
     end
 
+    # Enqueue delivery of the operator-configured MCP monitoring webhook.
+    # The API server runs no Sidekiq, so the ad-hoc (url, payload) POST is owned
+    # by the standalone worker's Webhooks::MonitoringWebhookDeliveryJob. `payload`
+    # is the pre-serialized JSON body. Called from Mcp::BroadcastService.
+    def enqueue_mcp_monitoring_webhook(webhook_url, payload)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Webhooks::MonitoringWebhookDeliveryJob",
+        "args" => [ webhook_url, payload ],
+        "queue" => "webhooks"
+      })
+    end
+
     # ==========================================
     # AI Skills Jobs
     # ==========================================

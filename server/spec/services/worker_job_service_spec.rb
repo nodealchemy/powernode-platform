@@ -62,6 +62,18 @@ RSpec.describe WorkerJobService do
     end
   end
 
+  describe ".enqueue_mcp_monitoring_webhook" do
+    it "dispatches Webhooks::MonitoringWebhookDeliveryJob with the raw url+payload on the webhooks queue" do
+      payload = capture_payload do
+        described_class.enqueue_mcp_monitoring_webhook("https://hooks.example.com/mcp", '{"event":"x"}')
+      end
+
+      expect(payload["job_class"]).to eq("Webhooks::MonitoringWebhookDeliveryJob")
+      expect(payload["queue"]).to eq("webhooks")
+      expect(payload["args"]).to eq([ "https://hooks.example.com/mcp", '{"event":"x"}' ])
+    end
+  end
+
   describe ".enqueue_ai_self_challenge" do
     let(:challenge_id) { "challenge-123" }
     let(:account_id) { "account-xyz" }

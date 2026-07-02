@@ -280,8 +280,9 @@ module Mcp
     webhook_url = Rails.application.credentials.dig(:monitoring, :webhook_url)
     return unless webhook_url
 
-    # Send async webhook request
-    WebhookDeliveryJob.perform_async(webhook_url, message.to_json)
+    # The API server runs no Sidekiq — dispatch the ad-hoc (url, payload)
+    # delivery to the standalone worker via the HTTP job seam.
+    WorkerJobService.enqueue_mcp_monitoring_webhook(webhook_url, message.to_json)
 
     @logger.debug "[MCP_BROADCAST] Queued webhook delivery"
   end
