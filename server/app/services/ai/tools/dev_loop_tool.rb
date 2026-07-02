@@ -349,40 +349,43 @@ module Ai
           task.pass!(iteration_number: iteration.iteration_number)
           # complete! appends the learning to the loop but doesn't embed it; do the
           # mid-run embed here so the passed path matches the others (G12).
-          embed_learning_mid_run(loop_record, params[:learning])
+          embed_learning_mid_run(loop_record, params[:learning], task: task, files: params[:files_changed])
         when "failed"
           iteration.fail!(error_message: summary)
           task.fail!(error_message: summary)
-          capture_learning(loop_record, task, iteration, params[:learning])
+          capture_learning(loop_record, task, iteration, params[:learning], files: params[:files_changed])
         when "blocked"
           iteration.fail!(error_message: summary, error_code: "blocked")
           task.block!(reason: summary)
-          capture_learning(loop_record, task, iteration, params[:learning])
+          capture_learning(loop_record, task, iteration, params[:learning], files: params[:files_changed])
         when "skipped"
           iteration.skip!(reason: summary)
           task.skip!(reason: summary)
-          capture_learning(loop_record, task, iteration, params[:learning])
+          capture_learning(loop_record, task, iteration, params[:learning], files: params[:files_changed])
         end
       end
 
-      def capture_learning(loop_record, task, iteration, learning)
+      def capture_learning(loop_record, task, iteration, learning, files: nil)
         return if learning.blank?
 
         loop_record.add_learning(learning, context: {
-          iteration: iteration.iteration_number, task_key: task.task_key
+          iteration: iteration.iteration_number, task_key: task.task_key, files: files
         })
         iteration.update!(learning_extracted: learning)
-        embed_learning_mid_run(loop_record, learning)
+        embed_learning_mid_run(loop_record, learning, task: task, files: files)
       end
 
       # G12: promote a learning to the embedded/compound store as soon as it's
       # captured — not only at loop completion (which a long campaign never reaches
-      # mid-run). extract_learning is idempotent (near-dup dedup) and rescue-safe.
-      def embed_learning_mid_run(loop_record, learning)
+      # mid-run). Inc7: thread the loop/task context (task_key, changed files) so the
+      # extractor can derive title/tags/importance. extract_learning is idempotent
+      # (near-dup dedup) and rescue-safe.
+      def embed_learning_mid_run(loop_record, learning, task: nil, files: nil)
         return if learning.blank?
 
+        context = { task_key: task&.task_key, files: files }.compact
         ::Ai::Learning::RalphLearningExtractor.new(account: account)
-                                              .extract_learning(loop_record, learning)
+                                              .extract_learning(loop_record, learning, context: context)
       rescue StandardError => e
         Rails.logger.warn("[DevLoopTool] mid-run learning embed failed for loop #{loop_record.id}: #{e.message}")
       end

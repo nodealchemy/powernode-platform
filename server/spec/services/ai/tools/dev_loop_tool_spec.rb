@@ -388,7 +388,10 @@ RSpec.describe Ai::Tools::DevLoopTool do
     it "embeds each captured learning mid-run, not only at completion (G12)" do
       extractor = instance_double(Ai::Learning::RalphLearningExtractor)
       allow(Ai::Learning::RalphLearningExtractor).to receive(:new).and_return(extractor)
-      expect(extractor).to receive(:extract_learning).with(an_instance_of(Ai::RalphLoop), /worker running/)
+      # Inc7: the loop/task context (task_key, changed files) is threaded so the
+      # extractor can derive tags/importance.
+      expect(extractor).to receive(:extract_learning)
+        .with(an_instance_of(Ai::RalphLoop), /worker running/, context: hash_including(task_key: "F9-99"))
 
       tool.execute(params: {
         action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "F9-99",
