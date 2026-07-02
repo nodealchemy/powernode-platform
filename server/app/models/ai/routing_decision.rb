@@ -148,6 +148,7 @@ module Ai
       self.request_metadata ||= {}
       self.candidates_evaluated ||= []
       self.scoring_breakdown ||= {}
+      self.rationale ||= {}
     end
 
     def validate_request_metadata
