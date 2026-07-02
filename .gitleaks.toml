@@ -138,6 +138,14 @@ paths = [
     # restructure from the parent repo; entries below cover known false
     # positives, not blanket-disabling extensions/).
     '''extensions/system/agent/cmd/powernode-agent/internal/cli/commit_cmd\.go$''',
+    # hub-backend appliance boot script: the database-url rule greedily matches from
+    # the PASSWORDLESS loopback DATABASE_URL (postgres://powernode@localhost — no
+    # password; postgres runs trust-auth on 127.0.0.1 and the role is created WITH
+    # LOGIN SUPERUSER + no password) across newlines to the '@' in the admin email a
+    # few lines below. No literal secret exists in this file — secret_key_base, AR
+    # encryption keys, JWT_SECRET_KEY and the admin password are all openssl-generated
+    # at first boot into a runtime conf, never stored in the script. (IMP-22e47fc38156)
+    '''extensions/system/modules/powernode-hub-backend/rootfs/usr/local/bin/rails-start\.sh$''',
 ]
 
 # Ignore specific regex patterns in content
