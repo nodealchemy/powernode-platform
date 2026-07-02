@@ -30,15 +30,6 @@ Simple examples demonstrating Ollama integration with Powernode AI features.
 
 ## Examples
 
-### 01-basic-chat.rb
-
-Basic Ollama connectivity test. Verifies your Ollama setup is working correctly.
-
-```bash
-cd server
-bundle exec rails runner ../examples/ollama/01-basic-chat.rb
-```
-
 ### 02-simple-ralph-loop.rb
 
 Creates and runs a simple Ralph Loop with 3 tasks using Ollama.
@@ -57,7 +48,7 @@ The examples use these defaults:
 To use a different model, set environment variables:
 ```bash
 export OLLAMA_MODEL=mistral
-bundle exec rails runner ../examples/ollama/01-basic-chat.rb
+bundle exec rails runner ../examples/ollama/02-simple-ralph-loop.rb
 ```
 
 ## Troubleshooting

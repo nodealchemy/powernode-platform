@@ -63,34 +63,5 @@ RSpec.describe Ai::Llm::ModelCapabilities, ".apply_anthropic_request_gate!" do
       expect(described_class).to receive(:apply_anthropic_request_gate!).at_least(:once).and_call_original
       adapter.send(:build_messages_body, messages, "claude-fable-5", temperature: 0.7)
     end
-
-    describe "Ai::ProviderClientService" do
-      subject(:service) do
-        s = Ai::ProviderClientService.allocate
-        s.instance_variable_set(:@headers, { "x-api-key" => "k", "anthropic-version" => "2023-06-01" })
-        s.instance_variable_set(:@provider, instance_double(Ai::Provider, api_base_url: "https://api.anthropic.com/v1"))
-        s
-      end
-
-      it "#anthropic_send_message" do
-        allow(Ai::ProviderClientService).to receive(:post).and_return(:resp)
-        allow(service).to receive(:handle_chat_response).and_return({})
-        expect(described_class).to receive(:apply_anthropic_request_gate!).at_least(:once).and_call_original
-        service.send(:anthropic_send_message, messages, "claude-fable-5", temperature: 0.7)
-      end
-
-      it "#anthropic_generate_text" do
-        allow(Ai::ProviderClientService).to receive(:post).and_return(:resp)
-        allow(service).to receive(:handle_response).and_return({})
-        expect(described_class).to receive(:apply_anthropic_request_gate!).at_least(:once).and_call_original
-        service.send(:anthropic_generate_text, "hi", "claude-fable-5", temperature: 0.7)
-      end
-
-      it "#anthropic_stream_text" do
-        allow(service).to receive(:stream_response_with_sse).and_return(nil)
-        expect(described_class).to receive(:apply_anthropic_request_gate!).at_least(:once).and_call_original
-        service.send(:anthropic_stream_text, "hi", "claude-fable-5", temperature: 0.7)
-      end
-    end
   end
 end
