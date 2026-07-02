@@ -173,6 +173,21 @@ RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
         expect(data).not_to have_key('credential_id')
         expect(data.dig('credential', 'id')).to eq(credential.id)
       end
+
+      it 'nests provider_type and api_base_url under the credential (no top-level provider for a credential-backed repo)' do
+        # Contract guard: Git::PipelineSyncJob builds its client_config from
+        # credential.provider_type and credential.provider.api_base_url. The
+        # serializer emits credential XOR a top-level provider, so a
+        # credential-backed repo must carry the provider info UNDER the credential,
+        # with no top-level `provider` key — otherwise client_config resolves
+        # all-nil and default_base_url(nil) raises on the pipeline-sync path.
+        get api_v1_internal_git_repository_path(repository), headers: internal_headers
+
+        data = JSON.parse(response.body)['data']
+        expect(data).not_to have_key('provider')
+        expect(data.dig('credential', 'provider_type')).to eq(credential.provider_type)
+        expect(data.dig('credential', 'provider', 'api_base_url')).to eq(git_provider.api_base_url)
+      end
     end
 
     context 'with non-existent repository' do

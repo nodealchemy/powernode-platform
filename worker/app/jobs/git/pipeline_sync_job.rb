@@ -44,10 +44,24 @@ module Git
       end
       credential = decrypted_response["data"]
 
+      # Resolve the provider connection config from the CANONICAL serialized shapes —
+      # NOT flat keys the servers never emit. For a credential-backed repo,
+      # serialize_repository nests provider_type at credential.provider_type and the
+      # API base URL at credential.provider.api_base_url; the decrypted-credential
+      # endpoint nests the token under `credentials` and provider info under `provider`.
+      # A no-credential (devops-provider) repo instead carries a top-level `provider`,
+      # kept as a last-resort fallback. The token is passed straight through to the
+      # provider client and is NEVER logged.
+      credential_secrets = credential["credentials"] || {}
+
       client_config = {
-        provider_type: repository.dig("provider", "provider_type") || credential["provider_type"],
-        api_base_url: repository.dig("provider", "api_base_url") || credential["api_base_url"],
-        token: credential["access_token"] || credential["token"]
+        provider_type: repository.dig("credential", "provider_type") ||
+                       credential.dig("provider", "provider_type") ||
+                       repository.dig("provider", "provider_type"),
+        api_base_url: repository.dig("credential", "provider", "api_base_url") ||
+                      credential.dig("provider", "api_base_url") ||
+                      repository.dig("provider", "api_base_url"),
+        token: credential_secrets["access_token"] || credential_secrets["token"]
       }
 
       owner = repository["owner"]

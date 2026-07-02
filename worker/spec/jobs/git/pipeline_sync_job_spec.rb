@@ -18,22 +18,33 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
       'full_name' => 'owner/test-repo',
       'owner' => 'owner',
       'default_branch' => 'main',
-      # Mirrors the server serialize_repository contract: the credential is nested
-      # as credential:{id}, never a top-level credential_id. The worker resolves it
-      # via repository.dig("credential", "id").
+      # Faithful to the server serialize_repository credential branch: the credential
+      # is nested as credential:{id}, and provider info lives UNDER the credential
+      # (credential.provider_type + credential.provider.api_base_url). The serializer
+      # emits credential XOR a top-level provider, so a credential-backed repo carries
+      # NO top-level `provider` key. The worker resolves the id via
+      # repository.dig("credential", "id") and the connection config from these shapes.
       'credential' => {
-        'id' => credential_id
-      },
-      'provider' => {
+        'id' => credential_id,
         'provider_type' => 'github',
-        'api_base_url' => nil
+        'provider' => { 'id' => 'gp-uuid', 'api_base_url' => nil }
       }
     }
   end
 
   let(:sample_decrypted) do
+    # Faithful to GET /internal/git/credentials/:id/decrypted: the token is nested
+    # under `credentials` and provider info under `provider` — neither is flat/top-level.
     {
-      'access_token' => 'ghp_test_token_123'
+      'id' => credential_id,
+      'auth_type' => 'personal_access_token',
+      'credentials' => { 'access_token' => 'ghp_test_token_123' },
+      'provider' => {
+        'id' => 'gp-uuid',
+        'provider_type' => 'github',
+        'api_base_url' => nil,
+        'web_base_url' => nil
+      }
     }
   end
 
@@ -193,6 +204,33 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
       end
     end
 
+    context 'with a faithful credential-backed serialized shape (client_config resolution)' do
+      # Sibling of the credential_id dig fix (IMP-22bd378f8144). After the nested id
+      # resolves, #execute must build a COMPLETE client_config from the CANONICAL
+      # serialized shapes: provider_type from credential.provider_type, api_base_url
+      # from credential.provider.api_base_url, and the token from the decrypted
+      # `credentials` hash. Reading the old flat keys yields
+      # {provider_type: nil, api_base_url: nil, token: nil} → default_base_url(nil)
+      # raises ArgumentError on the scheduled (no-rescue) fetch_pipelines_from_provider
+      # path, dead-lettering the job. The shared fixtures are faithful (credential-only
+      # repo, nested decrypted), so a green result proves real resolution rather than
+      # leaning on a top-level provider / flat token the server never emits.
+      it 'resolves a complete client_config and proceeds past default_base_url (scheduled path)' do
+        result = job_instance.execute(repository_id)
+
+        expect(result).to include(success: true, synced_count: 2)
+        expect(WebMock).to have_requested(:get, %r{https://api\.github\.com/repos/owner/test-repo/actions/runs})
+          .at_least_once
+      end
+
+      it 'authenticates using the token nested under the decrypted `credentials` hash' do
+        job_instance.execute(repository_id)
+
+        expect(WebMock).to have_requested(:get, %r{https://api\.github\.com/repos/owner/test-repo/actions/runs})
+          .with(headers: { 'Authorization' => 'token ghp_test_token_123' }).at_least_once
+      end
+    end
+
     context 'syncing single pipeline' do
       it 'fetches pipeline details from provider' do
         result = job_instance.execute(repository_id, external_pipeline_id)
@@ -301,11 +339,9 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
           'full_name' => 'group/gitlab-repo',
           'owner' => 'group',
           'credential' => {
-            'id' => credential_id
-          },
-          'provider' => {
+            'id' => credential_id,
             'provider_type' => 'gitlab',
-            'api_base_url' => nil
+            'provider' => { 'id' => 'gp-uuid', 'api_base_url' => nil }
           }
         }
       end
@@ -372,11 +408,9 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
           'full_name' => 'owner/gitea-repo',
           'owner' => 'owner',
           'credential' => {
-            'id' => credential_id
-          },
-          'provider' => {
+            'id' => credential_id,
             'provider_type' => 'gitea',
-            'api_base_url' => 'https://git.example.com/api/v1'
+            'provider' => { 'id' => 'gp-uuid', 'api_base_url' => 'https://git.example.com/api/v1' }
           }
         }
       end

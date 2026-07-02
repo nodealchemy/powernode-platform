@@ -191,6 +191,23 @@ RSpec.describe 'Api::V1::Internal::Git::Credentials', type: :request do
         expect(json['data']['provider']['web_base_url']).to eq(git_provider.web_base_url)
       end
 
+      it 'nests the token under `credentials` and provider info under `provider` (never flat top-level)' do
+        # Contract guard: Git::PipelineSyncJob reads the token from
+        # data.credentials.<access_token|token> and provider info from data.provider.*.
+        # If this endpoint ever flattened the token or provider fields to top-level
+        # keys, the worker's client_config would resolve nil and pipeline sync would
+        # break. Assert the KEY nesting only (never the secret value).
+        get decrypted_api_v1_internal_git_credential_path(credential),
+            headers: internal_headers
+
+        data = JSON.parse(response.body)['data']
+        expect(data['credentials']).to include('access_token')
+        expect(data).not_to have_key('access_token')
+        expect(data).not_to have_key('token')
+        expect(data).not_to have_key('provider_type')
+        expect(data).not_to have_key('api_base_url')
+      end
+
       it 'handles decryption errors gracefully' do
         allow_any_instance_of(Devops::GitProviderCredential).to receive(:credentials).and_raise(StandardError.new('Decryption failed'))
 
