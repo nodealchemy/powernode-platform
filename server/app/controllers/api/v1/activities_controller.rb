@@ -3,6 +3,10 @@
 # Worker Activities Controller
 # Manages activity tracking and viewing for workers
 class Api::V1::ActivitiesController < ApplicationController
+  # Upper bound for the summary window: keeps the response payload (one bucket
+  # per hour) and the query window bounded against arbitrary ?hours= input.
+  MAX_SUMMARY_HOURS = 168 # 7 days
+
   before_action -> { require_permission("admin.workers.read") }
   before_action :set_worker
   before_action :set_activity, only: [ :show ]
@@ -64,47 +68,42 @@ class Api::V1::ActivitiesController < ApplicationController
 
   # GET /api/v1/workers/:worker_id/activities/summary
   def summary
-    hours = [ params[:hours]&.to_i || 24, 1 ].max
+    hours = (params[:hours]&.to_i || 24).clamp(1, MAX_SUMMARY_HOURS)
 
     # Get activities within time range
     activities = @worker.worker_activities.where("occurred_at > ?", hours.hours.ago)
 
-    # Generate hourly breakdown
-    requests_by_hour = {}
-    actions_breakdown = {}
-    hourly_breakdown = {}
+    # Hourly breakdown via a single set-based GROUP BY (was: one COUNT query per hour)
+    hourly_counts = activities
+                      .group(Arel.sql("date_trunc('hour', occurred_at)"))
+                      .count
+                      .transform_keys { |t| hour_bucket_key(t) }
 
-    (0...hours).each do |hour_ago|
-      hour_start = hour_ago.hours.ago.beginning_of_hour
-      hour_end = hour_start + 1.hour
-      hour_key = hour_start.strftime("%Y-%m-%d %H:00")
-      count = activities.where(occurred_at: hour_start...hour_end).count
-      requests_by_hour[hour_key] = count
-      hourly_breakdown[hour_key] = count
+    requests_by_hour = (0...hours).each_with_object({}) do |hour_ago, acc|
+      hour_key = hour_ago.hours.ago.beginning_of_hour.strftime("%Y-%m-%d %H:00")
+      acc[hour_key] = hourly_counts[hour_key] || 0
     end
+    hourly_breakdown = requests_by_hour.dup
 
-    # Actions breakdown
-    activities.group(:activity_type).count.each do |action, count|
-      actions_breakdown[action] = count
-    end
+    total_requests = activities.count
+    successful_requests = activities.successful.count
 
     summary_data = {
-      total_requests: activities.count,
-      successful_requests: activities.successful.count,
+      total_requests: total_requests,
+      successful_requests: successful_requests,
       failed_requests: activities.failed.count,
       unique_actions: activities.distinct.pluck(:activity_type),
       last_activity: activities.order(:occurred_at).last&.occurred_at&.iso8601,
       requests_by_hour: requests_by_hour,
-      actions_breakdown: actions_breakdown,
+      actions_breakdown: activities.group(:activity_type).count,
       hourly_breakdown: hourly_breakdown,
-      success_rate: activities.count > 0 ? (activities.successful.count.to_f / activities.count * 100).round(2) : 0
+      success_rate: total_requests > 0 ? (successful_requests.to_f / total_requests * 100).round(2) : 0
     }
 
-    # Add average response time if available
-    durations = activities.where.not("details->>'duration' IS NULL").pluck("(details->>'duration')::float")
-    if durations.any?
-      summary_data[:average_response_time] = (durations.sum / durations.size).round(3)
-    end
+    # Add average response time if available (AVG in the DB — was: pluck all details JSONB into Ruby)
+    average_duration = activities.where("details->>'duration' IS NOT NULL")
+                                 .average(Arel.sql("(details->>'duration')::float"))
+    summary_data[:average_response_time] = average_duration.to_f.round(3) if average_duration
 
     render_success({
       worker: {
@@ -155,6 +154,13 @@ class Api::V1::ActivitiesController < ApplicationController
     render_error("Activity not found", status: :not_found)
   end
 
+  # Normalize a date_trunc('hour', ...) GROUP BY key (Time or String depending on
+  # adapter casting) to the "%Y-%m-%d %H:00" bucket labels used in the response.
+  def hour_bucket_key(time)
+    time = Time.zone.parse(time) if time.is_a?(String)
+    time.in_time_zone.strftime("%Y-%m-%d %H:00")
+  end
+
   def apply_status_filter(activities, status)
     case status
     when "success"
@@ -185,14 +191,11 @@ class Api::V1::ActivitiesController < ApplicationController
     successful_recent = recent_activities.successful.count
     success_rate = total_recent > 0 ? (successful_recent.to_f / total_recent * 100).round(2) : 0
 
-    # Calculate average response time
-    activities_with_duration = recent_activities.where("details::jsonb ? 'duration'")
-    avg_response_time = if activities_with_duration.any?
-      durations = activities_with_duration.pluck(:details).map { |d| d["duration"].to_f }.compact
-      durations.any? ? durations.sum / durations.size : 0
-    else
-      0
-    end
+    # Calculate average response time (AVG in the DB — was: pluck full details JSONB
+    # for every 24h row to average one float in Ruby)
+    avg_response_time = recent_activities.where("details->>'duration' IS NOT NULL")
+                                         .average(Arel.sql("(details->>'duration')::float"))
+                                         .to_f
 
     {
       total_recent: total_recent,

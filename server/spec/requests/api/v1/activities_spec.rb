@@ -247,16 +247,8 @@ RSpec.describe 'Api::V1::Activities', type: :request do
 
   describe 'GET /api/v1/workers/:worker_id/activities/summary' do
     context 'with permission' do
-      # The controller's summary action uses raw SQL in pluck() which triggers
-      # ActiveRecord::UnknownAttributeReference in Rails 8. We need to build
-      # auth headers BEFORE stubbing pluck, because token generation also uses pluck.
       it 'returns activity summary for default time range' do
         headers = auth_headers_for(user_with_permission)
-        allow_any_instance_of(ActiveRecord::Relation).to receive(:pluck)
-          .and_call_original
-        allow_any_instance_of(ActiveRecord::Relation).to receive(:pluck)
-          .with("(details->>'duration')::float")
-          .and_return([])
 
         get "/api/v1/workers/#{worker.id}/activities/summary",
             headers: headers,
@@ -277,11 +269,6 @@ RSpec.describe 'Api::V1::Activities', type: :request do
 
       it 'respects hours parameter' do
         headers = auth_headers_for(user_with_permission)
-        allow_any_instance_of(ActiveRecord::Relation).to receive(:pluck)
-          .and_call_original
-        allow_any_instance_of(ActiveRecord::Relation).to receive(:pluck)
-          .with("(details->>'duration')::float")
-          .and_return([])
 
         get "/api/v1/workers/#{worker.id}/activities/summary?hours=12",
             headers: headers,
@@ -295,11 +282,6 @@ RSpec.describe 'Api::V1::Activities', type: :request do
 
       it 'includes worker information' do
         headers = auth_headers_for(user_with_permission)
-        allow_any_instance_of(ActiveRecord::Relation).to receive(:pluck)
-          .and_call_original
-        allow_any_instance_of(ActiveRecord::Relation).to receive(:pluck)
-          .with("(details->>'duration')::float")
-          .and_return([])
 
         get "/api/v1/workers/#{worker.id}/activities/summary",
             headers: headers,
@@ -309,6 +291,52 @@ RSpec.describe 'Api::V1::Activities', type: :request do
         worker_data = json_response['data']['worker']
 
         expect(worker_data['id']).to eq(worker.id)
+      end
+
+      # NOTE: the existing examples above authenticate as user_with_permission
+      # ('system.workers.read'), which currently 403s against the controller's
+      # 'admin.workers.read' check — that systemic mismatch is tracked separately
+      # (fingerprint rspec-systemic-permission-403-200-mismatch). The examples
+      # below grant the permission the controller actually enforces so the
+      # perf-fix behavior is executed.
+      let(:worker_admin_user) do
+        create(:user, account: account, permissions: [ 'admin.workers.read' ])
+      end
+
+      it 'caps the hours parameter at MAX_SUMMARY_HOURS' do
+        get "/api/v1/workers/#{worker.id}/activities/summary?hours=100000",
+            headers: auth_headers_for(worker_admin_user),
+            as: :json
+
+        expect_success_response
+        expect(json_response['data']['time_range']['hours'])
+          .to eq(Api::V1::ActivitiesController::MAX_SUMMARY_HOURS)
+        expect(json_response['data']['summary']['requests_by_hour'].size)
+          .to eq(Api::V1::ActivitiesController::MAX_SUMMARY_HOURS)
+      end
+
+      it 'computes set-based aggregates matching the created activities' do
+        create(:worker_activity, :api_request, worker: worker, occurred_at: 30.minutes.ago,
+               details: { 'status' => 'success', 'duration' => 100 })
+        create(:worker_activity, :api_request, worker: worker, occurred_at: 40.minutes.ago,
+               details: { 'status' => 'success', 'duration' => 300 })
+        create(:worker_activity, :failed, worker: worker, occurred_at: 90.minutes.ago)
+
+        get "/api/v1/workers/#{worker.id}/activities/summary?hours=6",
+            headers: auth_headers_for(worker_admin_user),
+            as: :json
+
+        expect_success_response
+        summary = json_response['data']['summary']
+
+        # 3 created here + the 3 let! activities (all within 6h, all successful)
+        expect(summary['total_requests']).to eq(6)
+        expect(summary['successful_requests']).to eq(5)
+        expect(summary['failed_requests']).to eq(1)
+        expect(summary['average_response_time']).to eq(200.0)
+        expect(summary['requests_by_hour'].values.sum).to eq(6)
+        expect(summary['actions_breakdown'].values.sum).to eq(6)
+        expect(summary['success_rate']).to eq(83.33)
       end
     end
 
