@@ -107,6 +107,37 @@ RSpec.describe Ai::A2a::ProtocolService, type: :service do
       end
     end
 
+    context "graph relevance scoring (perf)" do
+      let!(:matching_cards) do
+        %w[Two Three].map do |suffix|
+          create(:ai_agent_card,
+                 account: account,
+                 agent: create(:ai_agent, account: account, provider: provider, name: "Summarizer #{suffix}"),
+                 name: "Summarize Agent #{suffix}",
+                 visibility: "private",
+                 status: "active",
+                 capabilities: { "skills" => [{ "id" => "summarize", "name" => "Summarize" }] })
+        end
+      end
+      let!(:skill_node) do
+        create(:ai_knowledge_graph_node, account: account, entity_type: "skill", name: "Summarize")
+      end
+
+      it "runs the loop-invariant skill-graph traversal once per discovery, not once per card" do
+        traversal = instance_double(Ai::SkillGraph::TraversalService)
+        allow(Ai::SkillGraph::TraversalService).to receive(:new).and_return(traversal)
+        allow(traversal).to receive(:traverse)
+          .and_return({ discovered_skills: [{ name: "Summarize" }] })
+
+        result = service.discover_agents(task_description: "summarize this document", visibility: :internal)
+
+        expect(result[:success]).to be true
+        expect(result[:agents].size).to be >= 2
+        expect(Ai::SkillGraph::TraversalService).to have_received(:new).once
+        expect(traversal).to have_received(:traverse).once
+      end
+    end
+
     it "handles empty results gracefully" do
       result = service.discover_agents(
         task_description: "zzz_nonexistent_task_xyz_12345",

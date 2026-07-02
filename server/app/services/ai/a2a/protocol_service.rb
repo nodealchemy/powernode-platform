@@ -50,9 +50,10 @@ module Ai
           end
         end
 
+        graph_context = build_graph_relevance_context(task_description)
         ranked = matched_cards.map do |card|
           { agent_card: card.to_a2a_json, id: card.id, name: card.name,
-            relevance_score: compute_relevance(card, task_description),
+            relevance_score: compute_relevance(card, task_description, graph_context),
             success_rate: card.success_rate, avg_response_time_ms: card.avg_response_time_ms }
         end.sort_by { |a| -(a[:relevance_score] || 0) }
 
@@ -394,7 +395,7 @@ module Ai
         []
       end
 
-      def compute_relevance(card, description)
+      def compute_relevance(card, description, graph_context = nil)
         kw = description.downcase.split(/\s+/).reject { |w| w.length < 3 }
         name_lower = card.name.to_s.downcase
         desc_lower = card.description.to_s.downcase
@@ -406,36 +407,61 @@ module Ai
         score += 0.1 if card.task_count.to_i > 10
 
         # Graph distance scoring: boost agents whose skills are graph-close to task requirements
-        begin
-          graph_score = compute_graph_relevance(card, description)
-          score += graph_score if graph_score > 0
-        rescue => e
-          Rails.logger.warn "[A2A Protocol] Graph relevance scoring failed: #{e.message}"
+        if graph_context
+          begin
+            graph_score = compute_graph_relevance(card, graph_context)
+            score += graph_score if graph_score > 0
+          rescue => e
+            Rails.logger.warn "[A2A Protocol] Graph relevance scoring failed: #{e.message}"
+          end
         end
 
         [score, 1.0].min.round(3)
       end
 
-      def compute_graph_relevance(card, description)
-        return 0.0 unless @account.ai_knowledge_graph_nodes.active.skill_nodes.exists?
+      # Builds the loop-invariant part of graph relevance scoring ONCE per
+      # discovery call: the skill-graph traversal for the task description and
+      # the required-skill node lookups do not depend on the candidate card, so
+      # running them inside the per-card loop repeated identical queries/LLM-free
+      # traversals for every candidate. Returns nil when graph scoring is not
+      # applicable (no skill nodes / no required skills discovered).
+      def build_graph_relevance_context(description)
+        return nil unless @account.ai_knowledge_graph_nodes.active.skill_nodes.exists?
 
         traversal = Ai::SkillGraph::TraversalService.new(@account).traverse(
           task_context: description, mode: :auto, token_budget: 500
         )
         required_names = (traversal[:discovered_skills] || []).map { |s| s[:name] }.compact
-        return 0.0 if required_names.empty?
+        return nil if required_names.empty?
 
+        required_nodes = required_names.filter_map do |req_name|
+          @account.ai_knowledge_graph_nodes.active.skill_nodes.find_by(name: req_name)
+        end
+        return nil if required_nodes.empty?
+
+        {
+          required_nodes: required_nodes,
+          graph_service: Ai::KnowledgeGraph::GraphService.new(@account),
+          skill_node_cache: {} # per-discovery memo: agent skill slug -> graph node (or nil)
+        }
+      rescue => e
+        Rails.logger.warn "[A2A Protocol] Graph relevance context error: #{e.message}"
+        nil
+      end
+
+      def compute_graph_relevance(card, graph_context)
         agent_skill_slugs = extract_skill_ids(card)
-        graph_service = Ai::KnowledgeGraph::GraphService.new(@account)
+        graph_service = graph_context[:graph_service]
+        node_cache = graph_context[:skill_node_cache]
         total_distance_score = 0.0
 
-        required_names.each do |req_name|
-          req_node = @account.ai_knowledge_graph_nodes.active.skill_nodes.find_by(name: req_name)
-          next unless req_node
-
+        graph_context[:required_nodes].each do |req_node|
           agent_skill_slugs.each do |agent_slug|
-            agent_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: agent_slug)
-            agent_node = agent_skill&.knowledge_graph_node
+            unless node_cache.key?(agent_slug)
+              agent_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: agent_slug)
+              node_cache[agent_slug] = agent_skill&.knowledge_graph_node
+            end
+            agent_node = node_cache[agent_slug]
             next unless agent_node&.status == "active"
 
             path = graph_service.shortest_path(source: agent_node, target: req_node)
