@@ -311,6 +311,7 @@ module Ai
           outcome: resolved_outcome,
           cost_usd: cost_usd,
           latency_ms: duration_ms,
+          latency_seam: "agent_execution",
           tokens_used: tokens_used,
           quality_score: quality
         )

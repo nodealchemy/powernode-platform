@@ -371,6 +371,8 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
       expect(decision.actual_tokens_used).to eq(150)
       expect(decision.actual_cost_usd).to be_within(0.0001).of(0.004)
       expect(decision.actual_latency_ms).to be_present
+      # Latency semantics tag: this seam records whole-iteration duration.
+      expect(decision.rationale["latency_seam"]).to eq("ralph_iteration")
     end
 
     it "records a failed outcome on a failed iteration" do

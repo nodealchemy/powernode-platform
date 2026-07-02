@@ -28,6 +28,8 @@ RSpec.describe Ai::AgentExecution, "routing-decision outcome feedback" do
     expect(decision.actual_cost_usd).to be_within(0.0001).of(0.0125)
     expect(decision.actual_latency_ms).to eq(1234)
     expect(decision.actual_tokens_used).to eq(900)
+    # Latency semantics tag: this seam records AgentExecution duration_ms.
+    expect(decision.rationale["latency_seam"]).to eq("agent_execution")
   end
 
   it "records a failed outcome when the execution fails" do

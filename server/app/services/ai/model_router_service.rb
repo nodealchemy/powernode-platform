@@ -120,6 +120,7 @@ module Ai
             outcome: "succeeded",
             cost_usd: result[:cost_usd],
             latency_ms: execution_time,
+            latency_seam: "router_request",
             tokens_used: result[:tokens_used],
             quality_score: result[:quality_score]
           )

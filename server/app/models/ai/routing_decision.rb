@@ -10,6 +10,12 @@ module Ai
 
     STRATEGIES = %w[round_robin weighted cost_optimized latency_optimized quality_optimized hybrid ml_based fallback].freeze
     OUTCOMES = %w[succeeded failed timeout fallback rate_limited error].freeze
+    # Latency-recording seams. Each seam measures a DIFFERENT duration (e.g.
+    # agent_execution = AgentExecution#duration_ms, ralph_iteration = whole
+    # Ralph-iteration wall clock, router_request = routed request round-trip),
+    # so latency rollups must never pool across seams. The tag rides on the
+    # rationale jsonb (key "latency_seam") — no dedicated column.
+    LATENCY_SEAMS = %w[agent_execution ralph_iteration router_request].freeze
 
     # ==========================================================================
     # ASSOCIATIONS
@@ -54,11 +60,16 @@ module Ai
     # INSTANCE METHODS
     # ==========================================================================
 
-    # Record the outcome of this routing decision
-    def record_outcome!(outcome:, cost_usd: nil, latency_ms: nil, tokens_used: nil, quality_score: nil)
+    # Record the outcome of this routing decision. latency_seam tags WHICH seam
+    # measured latency_ms (semantics differ per seam — see LATENCY_SEAMS).
+    def record_outcome!(outcome:, cost_usd: nil, latency_ms: nil, tokens_used: nil, quality_score: nil,
+                        latency_seam: nil)
       attrs = { outcome: outcome }
       attrs[:actual_cost_usd] = cost_usd if cost_usd.present?
       attrs[:actual_latency_ms] = latency_ms if latency_ms.present?
+      if latency_ms.present? && latency_seam.present?
+        attrs[:rationale] = (rationale || {}).merge("latency_seam" => latency_seam.to_s)
+      end
       attrs[:actual_tokens_used] = tokens_used if tokens_used.present?
       attrs[:quality_score] = quality_score if quality_score.present?
 

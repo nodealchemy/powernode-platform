@@ -445,6 +445,7 @@ module Ai
             outcome: succeeded ? "succeeded" : "failed",
             cost_usd: result[:cost],
             latency_ms: iteration.duration_ms,
+            latency_seam: "ralph_iteration",
             tokens_used: tokens.positive? ? tokens : nil
           )
         rescue StandardError => e
