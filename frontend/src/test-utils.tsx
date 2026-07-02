@@ -16,12 +16,44 @@ export const mockNotifications = {
   hideNotification: jest.fn()
 };
 
+// Minimal state/action shapes for the basic test store below.
+// `user`/`plans` are intentionally loose (unknown) so tests can inject any mock shape.
+export interface TestAuthState {
+  user: unknown;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  [key: string]: unknown;
+}
+
+export interface TestPlansState {
+  plans: unknown[];
+  isLoading: boolean;
+  [key: string]: unknown;
+}
+
+export interface TestRootState {
+  auth: TestAuthState;
+  plans: TestPlansState;
+}
+
+// Tests preload partial slices (and sometimes extra slices) — keep this permissive.
+export interface TestPreloadedState {
+  auth?: Partial<TestAuthState>;
+  plans?: Partial<TestPlansState>;
+  [slice: string]: unknown;
+}
+
+interface TestAction {
+  type: string;
+  payload?: unknown;
+}
+
 // Basic Redux store for testing
-export const createTestStore = (preloadedState?: any) => {
-  const rootReducer = (state: any = {
+export const createTestStore = (preloadedState?: TestPreloadedState) => {
+  const rootReducer = (state: TestRootState = {
     auth: { user: null, isLoading: false, isAuthenticated: false },
     plans: { plans: [], isLoading: false }
-  }, action: any) => {
+  }, action: TestAction) => {
     return {
       auth: (state.auth && typeof state.auth === 'object') ? 
         (() => {
@@ -29,11 +61,11 @@ export const createTestStore = (preloadedState?: any) => {
             case 'auth/loginStart':
               return { ...state.auth, isLoading: true };
             case 'auth/loginSuccess':
-              return { 
-                ...state.auth, 
-                user: action.payload?.user, 
-                isLoading: false, 
-                isAuthenticated: true 
+              return {
+                ...state.auth,
+                user: (action.payload as { user?: unknown } | undefined)?.user,
+                isLoading: false,
+                isAuthenticated: true
               };
             case 'auth/logout':
               return { user: null, isLoading: false, isAuthenticated: false };
@@ -47,7 +79,7 @@ export const createTestStore = (preloadedState?: any) => {
             case 'plans/fetchStart':
               return { ...state.plans, isLoading: true };
             case 'plans/fetchSuccess':
-              return { ...state.plans, plans: action.payload, isLoading: false };
+              return { ...state.plans, plans: action.payload as unknown[], isLoading: false };
             default:
               return state.plans;
           }
@@ -57,14 +89,14 @@ export const createTestStore = (preloadedState?: any) => {
 
   return configureStore({
     reducer: rootReducer,
-    preloadedState
+    preloadedState: preloadedState as TestRootState | undefined
   });
 };
 
 // Test wrapper component
 interface AllTheProvidersProps {
   children: React.ReactNode;
-  initialState?: any;
+  initialState?: TestPreloadedState;
 }
 
 const AllTheProviders: React.FC<AllTheProvidersProps> = ({ children, initialState }) => {
@@ -85,8 +117,8 @@ const AllTheProviders: React.FC<AllTheProvidersProps> = ({ children, initialStat
 
 // Support both new and legacy interfaces
 export interface ExtendedRenderOptions extends Omit<RenderOptions, 'wrapper'> {
-  preloadedState?: any;
-  initialState?: any; // Legacy support
+  preloadedState?: TestPreloadedState;
+  initialState?: TestPreloadedState; // Legacy support
 }
 
 export const renderWithProviders = (

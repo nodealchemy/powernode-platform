@@ -174,8 +174,15 @@ jest.mock('./BulkTestModal', () => ({
   )
 }));
 
+const createTestStore = () =>
+  configureStore({
+    reducer: {
+      auth: (state = { user: null, isAuthenticated: false }) => state,
+    },
+  });
+
 describe('AiProvidersPage', () => {
-  let store: any;
+  let store: ReturnType<typeof createTestStore>;
 
   const mockProviders = [
     {
@@ -257,11 +264,7 @@ describe('AiProvidersPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    store = configureStore({
-      reducer: {
-        auth: (state = { user: null, isAuthenticated: false }) => state
-      }
-    });
+    store = createTestStore();
 
     (providersApi.getProviders as jest.Mock).mockResolvedValue({
       items: mockProviders,

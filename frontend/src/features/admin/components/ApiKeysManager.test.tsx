@@ -34,12 +34,12 @@ const mockCopyToClipboard = jest.fn();
 
 jest.mock('@/features/devops/api-keys/services/apiKeysApi', () => ({
   apiKeysApi: {
-    getApiKeys: (...args: any[]) => mockGetApiKeys(...args),
-    toggleStatus: (...args: any[]) => mockToggleStatus(...args),
-    regenerateApiKey: (...args: any[]) => mockRegenerateApiKey(...args),
-    deleteApiKey: (...args: any[]) => mockDeleteApiKey(...args),
-    getApiKey: (...args: any[]) => mockGetApiKey(...args),
-    copyToClipboard: (...args: any[]) => mockCopyToClipboard(...args),
+    getApiKeys: (...args: unknown[]) => mockGetApiKeys(...args),
+    toggleStatus: (...args: unknown[]) => mockToggleStatus(...args),
+    regenerateApiKey: (...args: unknown[]) => mockRegenerateApiKey(...args),
+    deleteApiKey: (...args: unknown[]) => mockDeleteApiKey(...args),
+    getApiKey: (...args: unknown[]) => mockGetApiKey(...args),
+    copyToClipboard: (...args: unknown[]) => mockCopyToClipboard(...args),
     formatUsageCount: (count: number) => count.toLocaleString(),
     getStatusColor: (status: string) => status === 'active' ? 'bg-theme-success-bg' : 'bg-theme-error-bg',
     getStatusText: (status: string) => status === 'active' ? 'Active' : 'Revoked',

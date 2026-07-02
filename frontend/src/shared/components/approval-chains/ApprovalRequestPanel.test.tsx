@@ -6,8 +6,8 @@ const mockPost = jest.fn();
 jest.mock('@/shared/services/apiClient', () => ({
   __esModule: true,
   default: {
-    get: (...args: any[]) => mockGet(...args),
-    post: (...args: any[]) => mockPost(...args),
+    get: (...args: unknown[]) => mockGet(...args),
+    post: (...args: unknown[]) => mockPost(...args),
   },
 }));
 

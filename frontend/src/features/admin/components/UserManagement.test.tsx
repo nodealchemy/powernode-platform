@@ -8,7 +8,7 @@ import { UserManagement } from './UserManagement';
 const mockGetUsers = jest.fn();
 jest.mock('../services/adminSettingsApi', () => ({
   adminSettingsApi: {
-    getUsers: (...args: any[]) => mockGetUsers(...args)
+    getUsers: (...args: unknown[]) => mockGetUsers(...args)
   }
 }));
 

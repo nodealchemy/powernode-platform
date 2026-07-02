@@ -20,12 +20,12 @@ const mockRejectDelegationRequest = jest.fn();
 
 jest.mock('@/features/delegations/services/delegationApi', () => ({
   delegationApi: {
-    getDelegations: (...args: any[]) => mockGetDelegations(...args),
-    getDelegationRequests: (...args: any[]) => mockGetDelegationRequests(...args),
-    createDelegation: (...args: any[]) => mockCreateDelegation(...args),
-    revokeDelegation: (...args: any[]) => mockRevokeDelegation(...args),
-    approveDelegationRequest: (...args: any[]) => mockApproveDelegationRequest(...args),
-    rejectDelegationRequest: (...args: any[]) => mockRejectDelegationRequest(...args)
+    getDelegations: (...args: unknown[]) => mockGetDelegations(...args),
+    getDelegationRequests: (...args: unknown[]) => mockGetDelegationRequests(...args),
+    createDelegation: (...args: unknown[]) => mockCreateDelegation(...args),
+    revokeDelegation: (...args: unknown[]) => mockRevokeDelegation(...args),
+    approveDelegationRequest: (...args: unknown[]) => mockApproveDelegationRequest(...args),
+    rejectDelegationRequest: (...args: unknown[]) => mockRejectDelegationRequest(...args)
   },
   DELEGATION_PERMISSIONS: [
     { key: 'business.billing.read', label: 'View Billing', description: 'View billing information' },

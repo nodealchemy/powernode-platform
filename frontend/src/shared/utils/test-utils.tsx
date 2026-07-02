@@ -2,17 +2,25 @@ import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, EnhancedStore } from '@reduxjs/toolkit';
 import authReducer from '@/shared/services/slices/authSlice';
 import uiReducer from '@/shared/services/slices/uiSlice';
 import configReducer from '@/shared/services/slices/configSlice';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 
+// Combined state derived from the real reducers. Tests preload loose partial
+// shapes, so the public option stays Record<string, unknown> and is cast here.
+type TestRootState = {
+  auth: ReturnType<typeof authReducer>;
+  ui: ReturnType<typeof uiReducer>;
+  config: ReturnType<typeof configReducer>;
+};
+
 // This type interface extends the default options for render from RTL, as well
 // as allows the user to specify other things such as initialState, store.
 interface ExtendedRenderOptions extends Omit<RenderOptions, 'wrapper'> {
-  preloadedState?: any;
-  store?: any;
+  preloadedState?: Record<string, unknown>;
+  store?: EnhancedStore;
   route?: string;
 }
 
@@ -27,7 +35,7 @@ export function renderWithProviders(
         ui: uiReducer,
         config: configReducer,
       },
-      ...(preloadedState && { preloadedState }),
+      ...(preloadedState && { preloadedState: preloadedState as TestRootState }),
     }),
     route = '/',
     ...renderOptions

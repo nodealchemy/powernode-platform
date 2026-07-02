@@ -8,8 +8,8 @@ const mockGetAvailablePermissions = jest.fn();
 
 jest.mock('@/features/delegations/services/delegationApi', () => ({
   delegationApi: {
-    getAvailableRoles: (...args: any[]) => mockGetAvailableRoles(...args),
-    getAvailablePermissions: (...args: any[]) => mockGetAvailablePermissions(...args)
+    getAvailableRoles: (...args: unknown[]) => mockGetAvailableRoles(...args),
+    getAvailablePermissions: (...args: unknown[]) => mockGetAvailablePermissions(...args)
   }
 }));
 

@@ -27,7 +27,7 @@ jest.mock('@/shared/hooks/NavigationContext', () => ({
 
 // Mock NavigationItem
 jest.mock('./NavigationItem', () => ({
-  NavigationItem: ({ item }: { item: any }) => (
+  NavigationItem: ({ item }: { item: { id: string; name: string } }) => (
     <div data-testid={`nav-item-${item.id}`}>{item.name}</div>
   ),
 }));

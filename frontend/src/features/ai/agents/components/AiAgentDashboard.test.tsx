@@ -123,8 +123,15 @@ jest.mock('./EditAgentModal', () => ({
   )
 }));
 
+const createTestStore = () =>
+  configureStore({
+    reducer: {
+      auth: (state = { user: null, isAuthenticated: false }) => state,
+    },
+  });
+
 describe('AiAgentDashboard', () => {
-  let store: any;
+  let store: ReturnType<typeof createTestStore>;
 
   const mockAgents = [
     {
@@ -218,11 +225,7 @@ describe('AiAgentDashboard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    store = configureStore({
-      reducer: {
-        auth: (state = { user: null, isAuthenticated: false }) => state
-      }
-    });
+    store = createTestStore();
 
     // Setup API mocks - component expects { items: [...] } response format
     (agentsApi.getAgents as jest.Mock).mockResolvedValue({

@@ -33,11 +33,11 @@ jest.mock('@/shared/hooks/useNotificationWebSocket', () => ({
 
 jest.mock('../services/notificationApi', () => ({
   notificationApi: {
-    getNotifications: (...args: any[]) => mockGetNotifications(...args),
-    getUnreadCount: (...args: any[]) => mockGetUnreadCount(...args),
-    markAsRead: (...args: any[]) => mockMarkAsRead(...args),
-    dismiss: (...args: any[]) => mockDismiss(...args),
-    markAllAsRead: (...args: any[]) => mockMarkAllAsRead(...args)
+    getNotifications: (...args: unknown[]) => mockGetNotifications(...args),
+    getUnreadCount: (...args: unknown[]) => mockGetUnreadCount(...args),
+    markAsRead: (...args: unknown[]) => mockMarkAsRead(...args),
+    dismiss: (...args: unknown[]) => mockDismiss(...args),
+    markAllAsRead: (...args: unknown[]) => mockMarkAllAsRead(...args)
   }
 }));
 

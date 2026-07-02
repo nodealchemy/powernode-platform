@@ -49,7 +49,7 @@ const mockGetAvailableEvents = jest.fn();
 
 jest.mock('@/features/devops/webhooks/services/webhooksApi', () => ({
   webhooksApi: {
-    getAvailableEvents: (...args: any[]) => mockGetAvailableEvents(...args),
+    getAvailableEvents: (...args: unknown[]) => mockGetAvailableEvents(...args),
     getDefaultFormData: () => ({
       url: '',
       description: '',

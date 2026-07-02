@@ -85,17 +85,20 @@ jest.mock('../components/FederationPartnerList', () => ({
   ),
 }));
 
+const createTestStore = () =>
+  configureStore({
+    reducer: {
+      auth: (state = { user: null, isAuthenticated: false }) => state,
+    },
+  });
+
 describe('CommunityAgentsPage', () => {
-  let store: any;
+  let store: ReturnType<typeof createTestStore>;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    store = configureStore({
-      reducer: {
-        auth: (state = { user: null, isAuthenticated: false }) => state,
-      },
-    });
+    store = createTestStore();
   });
 
   const renderComponent = (props = {}) => {

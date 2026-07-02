@@ -9,10 +9,10 @@ const mockRegenerateBackupCodes = jest.fn();
 
 jest.mock('@/shared/services/account/twoFactorApi', () => ({
   twoFactorApi: {
-    getStatus: (...args: any[]) => mockGetStatus(...args),
-    disable: (...args: any[]) => mockDisable(...args),
-    getBackupCodes: (...args: any[]) => mockGetBackupCodes(...args),
-    regenerateBackupCodes: (...args: any[]) => mockRegenerateBackupCodes(...args)
+    getStatus: (...args: unknown[]) => mockGetStatus(...args),
+    disable: (...args: unknown[]) => mockDisable(...args),
+    getBackupCodes: (...args: unknown[]) => mockGetBackupCodes(...args),
+    regenerateBackupCodes: (...args: unknown[]) => mockRegenerateBackupCodes(...args)
   }
 }));
 

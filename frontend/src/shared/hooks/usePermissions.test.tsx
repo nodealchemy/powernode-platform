@@ -15,7 +15,7 @@ const createMockUser = (permissions: string[] = [], roles: string[] = []) => ({
 });
 
 // Create mock store with different user states
-const createMockStore = (user: any = null) => {
+const createMockStore = (user: unknown = null) => {
   return configureStore({
     reducer: {
       auth: (state = { user }, action) => {

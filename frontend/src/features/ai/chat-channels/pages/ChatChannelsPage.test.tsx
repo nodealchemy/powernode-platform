@@ -72,17 +72,20 @@ jest.mock('../components/ChannelDetailPanel', () => ({
   ),
 }));
 
+const createTestStore = () =>
+  configureStore({
+    reducer: {
+      auth: (state = { user: null, isAuthenticated: false }) => state,
+    },
+  });
+
 describe('ChatChannelsPage', () => {
-  let store: any;
+  let store: ReturnType<typeof createTestStore>;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    store = configureStore({
-      reducer: {
-        auth: (state = { user: null, isAuthenticated: false }) => state,
-      },
-    });
+    store = createTestStore();
   });
 
   const renderComponent = (props = {}) => {

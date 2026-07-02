@@ -238,7 +238,7 @@ describe('ImageGalleryModal', () => {
 
     it('shows loading state while fetching images', async () => {
       // Create a promise that we can control
-      let resolvePromise: (value: any) => void;
+      let resolvePromise: (value: Awaited<ReturnType<typeof mockFilesApi.getAvailableImages>>) => void;
       mockFilesApi.getAvailableImages.mockImplementation(
         () =>
           new Promise((resolve) => {

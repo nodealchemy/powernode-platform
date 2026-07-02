@@ -9,7 +9,7 @@ const mockApi = jest.mocked(api);
 
 // Helper to create a full AxiosResponse mock
  
-const createMockResponse = (data: any) => ({
+const createMockResponse = <T,>(data: T) => ({
   data,
   status: 200,
   statusText: 'OK',

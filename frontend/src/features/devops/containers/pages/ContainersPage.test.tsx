@@ -135,8 +135,15 @@ jest.mock('../components/ExecuteContainerModal', () => ({
     ) : null,
 }));
 
+const createTestStore = () =>
+  configureStore({
+    reducer: {
+      auth: (state = { user: null, isAuthenticated: false }) => state,
+    },
+  });
+
 describe('ContainersPage', () => {
-  let store: any;
+  let store: ReturnType<typeof createTestStore>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -149,11 +156,7 @@ describe('ContainersPage', () => {
       execution: { id: 'exec-1' },
     });
 
-    store = configureStore({
-      reducer: {
-        auth: (state = { user: null, isAuthenticated: false }) => state,
-      },
-    });
+    store = createTestStore();
   });
 
   const renderComponent = (props = {}) => {

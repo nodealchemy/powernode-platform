@@ -23,7 +23,7 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 const mockGetOverview = jest.fn();
 jest.mock('../services/adminSettingsApi', () => ({
   adminSettingsApi: {
-    getOverview: (...args: any[]) => mockGetOverview(...args)
+    getOverview: (...args: unknown[]) => mockGetOverview(...args)
   }
 }));
 

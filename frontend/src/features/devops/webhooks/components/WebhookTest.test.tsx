@@ -7,8 +7,8 @@ const mockTestWebhook = jest.fn();
 
 jest.mock('@/features/devops/webhooks/services/webhooksApi', () => ({
   webhooksApi: {
-    getAvailableEvents: (...args: any[]) => mockGetAvailableEvents(...args),
-    testWebhook: (...args: any[]) => mockTestWebhook(...args),
+    getAvailableEvents: (...args: unknown[]) => mockGetAvailableEvents(...args),
+    testWebhook: (...args: unknown[]) => mockTestWebhook(...args),
     formatEventType: (type: string) => type.replace('.', ' - ')
   }
 }));
