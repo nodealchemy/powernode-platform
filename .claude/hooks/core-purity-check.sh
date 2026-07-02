@@ -43,6 +43,23 @@ esac
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/opt/powernode}"
 
+# --- Out-of-tree guard: the hook fires on EVERY Write/Edit in a session, including
+# files that live OUTSIDE this repository (session-dir orchestration scripts,
+# ~/.claude scratch files, other checkouts). Core-purity only constrains THIS
+# repo's core tree — resolve the git toplevel containing the written file and
+# exit 0 on a mismatch (or when the file isn't inside any git repo). Files inside
+# an in-repo submodule were already exempted by the extensions/ check above, so
+# a submodule's different toplevel can't weaken the gate here. Full strictness
+# is preserved for every in-repo core path (toplevels match → fall through).
+FILE_TOPLEVEL=$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev/null)
+PROJECT_TOPLEVEL=$(git -C "$PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null)
+if [[ -z "$FILE_TOPLEVEL" || "$FILE_TOPLEVEL" != "$PROJECT_TOPLEVEL" ]]; then
+  # Fail-open ONLY for out-of-repo paths; if the project dir itself has no
+  # toplevel (broken env) the mismatch branch also fails open, per the hook's
+  # documented fail-open-on-uncertainty doctrine.
+  exit 0
+fi
+
 # --- Extension-isolation (placement gate): a CORE frontend/src file must not
 # live inside a subtree named after an extension (e.g. features/<slug>/,
 # shared/services/<slug>/). Such code belongs IN that extension's frontend tree,
