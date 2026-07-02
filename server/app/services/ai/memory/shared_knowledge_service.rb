@@ -216,12 +216,18 @@ module Ai
       # Import high-importance CompoundLearning entries as SharedKnowledge.
       # Caps per-call work via `max_per_run` so the worker's HTTP timeout
       # (120s default) doesn't kill mid-batch — caller chains follow-up
-      # invocations until `remaining` reaches 0.
-      def import_from_learnings(team: nil, min_importance: 0.7, max_per_run: 500)
+      # invocations until `remaining` reaches 0. Each processed learning
+      # (imported OR skipped as duplicate) is stamped `last_event_processed_at`
+      # and excluded from the scope for 24h, so the batch cursor genuinely
+      # advances across chained runs instead of re-embedding the same
+      # head-of-scope batch forever (the failure mode that stalled the
+      # shared-knowledge feedback pipeline).
+      def import_from_learnings(team: nil, min_importance: 0.7, max_per_run: 100)
         scope = Ai::CompoundLearning
           .active
           .for_account(@account.id)
           .where("importance_score >= ?", min_importance)
+          .where("last_event_processed_at IS NULL OR last_event_processed_at < ?", 24.hours.ago)
 
         scope = scope.for_team(team.id) if team
 
@@ -253,13 +259,19 @@ module Ai
 
           if result[:success]
             imported += 1
-            learning.touch_event_processed!
           else
             skipped += 1
           end
+
+          # Advance the cursor for skipped learnings too — a duplicate means the
+          # content already exists in shared knowledge, so re-processing it on
+          # every run only burns embedding calls and blocks the backlog.
+          learning.touch_event_processed!
         end
 
-        remaining = scope.count - batch.size
+        # Processed learnings just left the scope (last_event_processed_at is
+        # now current), so the recomputed count IS the remaining backlog.
+        remaining = scope.count
         Rails.logger.info("[SharedKnowledge] Import: #{imported} imported, #{skipped} skipped (duplicates), #{[ remaining, 0 ].max} remaining")
         { success: true, imported: imported, skipped: skipped, remaining: [ remaining, 0 ].max }
       rescue StandardError => e
@@ -340,7 +352,12 @@ module Ai
           end
         end
 
-        remaining = scope.count - batch.size
+        # `recalculate_quality_score!` stamps both `last_quality_recalc_at` and
+        # `last_event_processed_at`, so processed rows have already left the
+        # scope — the recomputed count IS the remaining backlog. Subtracting
+        # batch.size again would under-report (often to 0) and prematurely stop
+        # the worker's chained drain passes.
+        remaining = scope.count
         Rails.logger.info("[SharedKnowledge] Batch quality recalc: #{recalculated} updated, #{skipped} skipped by event-driven, #{[ remaining, 0 ].max} remaining")
         { success: true, recalculated: recalculated, skipped_by_event: skipped, remaining: [ remaining, 0 ].max }
       rescue StandardError => e
