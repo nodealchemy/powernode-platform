@@ -30,7 +30,8 @@ module Ai
 
       def initialize(account:, evaluator_model: nil)
         @account = account
-        @evaluator_model = evaluator_model || default_evaluator_model
+        @explicit_evaluator_model = evaluator_model.presence
+        @evaluator_model = @explicit_evaluator_model || default_evaluator_model
       end
 
       def evaluate(agent_output:, task_description: nil, expected_output: nil)
@@ -68,12 +69,28 @@ module Ai
         return nil unless agent
 
         client = build_agent_client(agent)
+        messages = [{ role: "user", content: prompt }]
+        model = @evaluator_model || agent_model(agent)
+        effort = nil
+
+        # inc4: governed per-task tier routing ("analysis" — bulk LLM-judge
+        # scoring has no escalation basis of its own). Only applies when the
+        # caller did not explicitly pin evaluator_model — that pin is the
+        # articulable override, same precedence the resolver itself gives an
+        # agent-level model pin. Gated OFF by default ⇒ resolve_task_tier
+        # returns nil, model/effort unchanged.
+        if @explicit_evaluator_model.blank? &&
+           (resolution = resolve_task_tier(agent: agent, task_type: "analysis", messages: messages))
+          model = resolution.model.presence || model
+          effort = resolution.effort
+        end
 
         response = client.complete(
-          messages: [{ role: "user", content: prompt }],
-          model: @evaluator_model || agent_model(agent),
+          messages: messages,
+          model: model,
           temperature: agent_temperature(agent),
-          max_tokens: agent_max_tokens(agent)
+          max_tokens: agent_max_tokens(agent),
+          **({ effort: effort }.compact)
         )
 
         response.success? ? response.content : nil

@@ -90,20 +90,37 @@ module Ai
         client = find_economy_client
         return nil unless client
 
+        agent = @economy_agent
+        baseline_model = agent && agent_model(agent)
+        return nil unless baseline_model
+
         system_content = resolve_prompt_template(
           PROMPT_SLUG,
           account: @account,
           fallback: FALLBACK_PROMPT
         )
+        messages = [
+          { role: "system", content: system_content },
+          { role: "user", content: content.truncate(2000) }
+        ]
+
+        model = baseline_model
+        effort = nil
+
+        # inc4: governed per-task tier routing ("summarization" — bulk context
+        # compression has no escalation basis of its own). Gated OFF by default
+        # ⇒ resolve_task_tier returns nil, model/effort unchanged.
+        if (resolution = resolve_task_tier(agent: agent, task_type: "summarization", messages: messages))
+          model = resolution.model.presence || model
+          effort = resolution.effort
+        end
 
         response = client.complete(
-          messages: [
-            { role: "system", content: system_content },
-            { role: "user", content: content.truncate(2000) }
-          ],
-          model: @economy_credential.provider.default_model,
+          messages: messages,
+          model: model,
           max_tokens: (content.length / (CHARS_PER_TOKEN * 2)),
-          temperature: 0.1
+          temperature: 0.1,
+          **({ effort: effort }.compact)
         )
 
         response.success? ? response.content : nil
@@ -112,6 +129,12 @@ module Ai
         nil
       end
 
+      # Returns the WorkerLlmClient for the economy agent, memoizing the agent
+      # itself in @economy_agent so #llm_compress can resolve a baseline model
+      # from it (previously read a never-assigned @economy_credential ivar,
+      # which meant this LLM-compression path always raised and silently fell
+      # back to extractive compression — fixed here as part of threading tier
+      # routing through, since that requires a real agent/model baseline).
       def find_economy_client
         return @economy_client if defined?(@economy_client)
 
@@ -121,6 +144,7 @@ module Ai
         )
         # Fall back to any active agent — compression is a lightweight utility call
         agent ||= @account.ai_agents.active.first
+        @economy_agent = agent
         @economy_client = agent ? build_agent_client(agent) : nil
       end
     end

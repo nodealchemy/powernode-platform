@@ -149,6 +149,72 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
     end
   end
 
+  describe "governed tier routing (campaign 019f2163 inc4)" do
+    let(:user) { create(:user, account: account) }
+    let(:provider) { create(:ai_provider, :anthropic, account: account) }
+    let(:judge_agent) { create(:ai_agent, account: account, provider: provider, creator: user, name: "LLM Judge") }
+    let(:client) { instance_double(WorkerLlmClient) }
+
+    before do
+      judge_agent
+      allow(WorkerLlmClient).to receive(:new).with(hash_including(agent_id: judge_agent.id)).and_return(client)
+    end
+
+    context "gate OFF (default)" do
+      it "never invokes the tier resolver and uses the hardcoded evaluator_model baseline" do
+        expect(Ai::Routing::TaskTierResolver).not_to receive(:resolve)
+        expect(client).to receive(:complete).with(hash_including(model: "claude-sonnet-5")).and_return(
+          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+                                 usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+        )
+        service.evaluate(agent_output: "Test output")
+      end
+    end
+
+    context "gate ON, no explicit evaluator_model pin" do
+      before { account.update!(settings: { "ai_task_tier_routing_enabled" => true }) }
+
+      it "classifies with the explicit analysis task_type and lands on a cheap (light/standard) tier" do
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+                                 usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+        )
+        expect_any_instance_of(Ai::Routing::TaskComplexityClassifierService)
+          .to receive(:classify_preview)
+          .with(hash_including(task_type: "analysis"))
+          .and_return(
+            complexity_level: "moderate", complexity_score: 0.3, recommended_tier: "standard",
+            signals: { token_density: 0.3, tool_complexity: 0.0, conversation_depth: 0.0,
+                       content_complexity: 0.0, task_type_baseline: 0.5,
+                       raw: { token_count: 80, tool_count: 0, message_count: 1 } },
+            classifier_version: "1.0.0"
+          )
+
+        service.evaluate(agent_output: "Test output", task_description: "Write code")
+
+        decision = Ai::RoutingDecision.last
+        expect(decision).to be_present
+        expect(%w[light standard]).to include(decision.model_tier)
+        expect(decision.rationale["decision"]).not_to eq("escalate")
+        expect(decision.rationale.dig("complexity", "task_type")).to eq("analysis")
+      end
+    end
+
+    context "gate ON but the caller explicitly pinned evaluator_model" do
+      before { account.update!(settings: { "ai_task_tier_routing_enabled" => true }) }
+
+      it "honors the pin — never invokes the tier resolver" do
+        pinned_service = described_class.new(account: account, evaluator_model: "gpt-4")
+        expect(Ai::Routing::TaskTierResolver).not_to receive(:resolve)
+        expect(client).to receive(:complete).with(hash_including(model: "gpt-4")).and_return(
+          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+                                 usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+        )
+        pinned_service.evaluate(agent_output: "Test output")
+      end
+    end
+  end
+
   describe "FALLBACK_PROMPT" do
     it "includes all four dimensions" do
       prompt = described_class::FALLBACK_PROMPT

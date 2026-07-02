@@ -119,6 +119,30 @@ module AgentBackedService
     end
   end
 
+  # Governed per-task tier resolution (campaign 019f2163 inc4) for
+  # AgentBackedService callers whose LLM calls bypass the TaskExecutor /
+  # ProviderExecution seams entirely (bulk/background utility calls — KG
+  # extraction, context compression, LLM-judge scoring — that have no
+  # escalation basis of their own). Mirrors the exact gated pattern those two
+  # seams use: behind the account gate `ai_task_tier_routing_enabled` (default
+  # OFF ⇒ this returns nil immediately, no resolver call at all — callers fall
+  # back to their pre-existing baseline model resolution byte-identically). ON,
+  # resolves + persists a governance record (Ai::RoutingDecision +
+  # Ai::TaskComplexityAssessment) for the given explicit task_type and returns
+  # the Resolution, or nil on any resolver failure.
+  def resolve_task_tier(agent:, task_type:, messages:, tools: [])
+    return nil unless ::Ai::Routing::TaskTierResolver.enabled_for?(service_account)
+
+    resolution = ::Ai::Routing::TaskTierResolver.resolve(
+      account: service_account, agent: agent, task_type: task_type, messages: messages, tools: tools
+    )
+    resolution&.persist!
+    resolution
+  rescue StandardError => e
+    Rails.logger.warn("[AgentBackedService] tier routing failed for task_type=#{task_type}: #{e.class}: #{e.message}")
+    nil
+  end
+
   # --- Discovery internals ---
 
   # Use SemanticToolDiscoveryService to find agents matching the task.

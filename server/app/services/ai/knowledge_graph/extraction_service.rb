@@ -217,11 +217,23 @@ module Ai
           }
         ]
 
-        clients.each do |client, model|
+        clients.each do |client, model, agent|
+          call_model = model
+          call_effort = nil
+
+          # inc4: governed per-task tier routing ("extraction" — bulk KG
+          # extraction has no escalation basis of its own). Gated OFF by
+          # default ⇒ resolve_task_tier returns nil, model/effort unchanged.
+          if agent && (resolution = resolve_task_tier(agent: agent, task_type: "extraction", messages: messages))
+            call_model = resolution.model.presence || model
+            call_effort = resolution.effort
+          end
+
           response = client.complete_structured(
             messages: messages,
             schema: EXTRACTION_SCHEMA,
-            model: model
+            model: call_model,
+            **({ effort: call_effort }.compact)
           )
 
           unless response.success?
@@ -450,7 +462,7 @@ module Ai
           if provider && credential
             model = curator.resolved_model
             Rails.logger.info "[ExtractionService] Primary: #{curator.name} (#{provider.name}/#{model})"
-            clients << [WorkerLlmClient.new(agent_id: curator.id), model]
+            clients << [WorkerLlmClient.new(agent_id: curator.id), model, curator]
           end
         end
 
@@ -462,7 +474,7 @@ module Ai
           )
           if kg_agent
             Rails.logger.info "[ExtractionService] Using knowledge-graph-curator agent"
-            clients << [build_agent_client(kg_agent), agent_model(kg_agent)]
+            clients << [build_agent_client(kg_agent), agent_model(kg_agent), kg_agent]
           end
         end
 
