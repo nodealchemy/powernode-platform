@@ -400,6 +400,59 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
           expect(tasks.map { |t| t['id'] }).to eq([disabled_task.id])
         end
       end
+
+      # The worker's Maintenance::ScheduledTaskExecutorJob sub-executors read
+      # task['command'] (execute_custom_command) and task['configuration']
+      # (execute_data_cleanup / _database_backup / _report_generation). Both are
+      # stored in the parameters jsonb (the model has no dedicated columns), so
+      # the serialized payload must surface them under the keys the worker reads,
+      # or a manual custom_command run fails with "Command not allowed" and
+      # config-driven runs silently ignore their configured parameters.
+      context 'worker execution-contract fields' do
+        let!(:custom_command_task) do
+          create(:scheduled_task,
+            name: 'Nightly Rake',
+            task_type: 'custom_command',
+            cron_expression: '0 5 * * *',
+            is_active: true,
+            next_run_at: 1.hour.ago,
+            parameters: { 'command' => "rails runner 'puts 1'" }
+          )
+        end
+
+        let!(:config_task) do
+          create(:scheduled_task,
+            name: 'Prune Audit Logs',
+            task_type: 'data_cleanup',
+            cron_expression: '0 6 * * *',
+            is_active: true,
+            next_run_at: 1.hour.ago,
+            parameters: { 'cleanup_type' => 'audit_logs', 'days_to_keep' => 45 }
+          )
+        end
+
+        it 'serializes command for a custom_command task so the worker can run it' do
+          get '/api/v1/internal/maintenance/scheduled_tasks',
+              params: { task_id: custom_command_task.id },
+              headers: internal_headers
+
+          expect_success_response
+          task = json_response['data']['tasks'].first
+          expect(task).to have_key('command')
+          expect(task['command']).to eq("rails runner 'puts 1'")
+        end
+
+        it 'serializes configuration for a config-driven task so the worker honors it' do
+          get '/api/v1/internal/maintenance/scheduled_tasks',
+              params: { task_id: config_task.id },
+              headers: internal_headers
+
+          expect_success_response
+          task = json_response['data']['tasks'].first
+          expect(task).to have_key('configuration')
+          expect(task['configuration']).to include('cleanup_type' => 'audit_logs', 'days_to_keep' => 45)
+        end
+      end
     end
 
     context 'without authentication' do

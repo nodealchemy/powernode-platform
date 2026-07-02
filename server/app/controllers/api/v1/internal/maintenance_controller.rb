@@ -198,6 +198,17 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
           task_type: task.task_type,
           cron_expression: task.cron_expression,
           parameters: task.parameters,
+          # The worker's Maintenance::ScheduledTaskExecutorJob sub-executors read
+          # task['command'] (execute_custom_command) and task['configuration']
+          # (execute_data_cleanup / _database_backup / _report_generation). The
+          # ScheduledTask model has no dedicated command/configuration columns —
+          # both live inside the parameters jsonb — so surface them under the keys
+          # the worker expects. Without this a manual custom_command run hits
+          # valid_command?(nil) -> "Command not allowed for security reasons" and
+          # config-driven runs silently fall back to defaults (cleanup_type 'all',
+          # backup_type 'full', report_type 'system'), ignoring their parameters.
+          command: task.parameters&.dig("command"),
+          configuration: task.parameters,
           next_run_at: task.next_run_at,
           last_run_at: task.last_run_at
         }
