@@ -187,6 +187,24 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
             expect(result[:learning_ids]).not_to be_empty
           end
         end
+
+        it "records a neutral injection for each injected learning" do
+          learning = Ai::CompoundLearning.find_by!(title: "Use caching")
+
+          result = service.build_compound_context(
+            agent: agent,
+            task_description: "caching queries"
+          )
+
+          expect(result[:learning_ids]).to include(learning.id)
+          learning.reload
+          expect(learning.access_count).to eq(1)
+          expect(learning.injection_count).to eq(1)
+          expect(learning.last_injected_at).to be_within(5.seconds).of(Time.current)
+          # Neutral: the outcome only resolves on later reinforcement
+          expect(learning.positive_outcome_count).to eq(0)
+          expect(learning.negative_outcome_count).to eq(0)
+        end
       end
 
       it "respects token budget" do
@@ -212,6 +230,41 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
         expect(result[:context]).to be_nil
         expect(result[:learning_ids]).to eq([])
       end
+    end
+  end
+
+  describe "#boost_injected_learnings_on_success" do
+    it "resolves recent neutral injections as positive outcomes without re-counting the injection" do
+      learning = create(:ai_compound_learning,
+                        account: account,
+                        injection_count: 3,
+                        positive_outcome_count: 2,
+                        last_injected_at: 5.minutes.ago,
+                        confidence_score: 0.5)
+      execution = double("TeamExecution", created_at: 1.hour.ago)
+      allow(execution).to receive(:respond_to?).with(:created_at).and_return(true)
+
+      service.send(:boost_injected_learnings_on_success, execution)
+      learning.reload
+
+      expect(learning.injection_count).to eq(3)
+      expect(learning.positive_outcome_count).to eq(3)
+      expect(learning.effectiveness_score.to_f).to eq(1.0)
+      expect(learning.confidence_score.to_f).to be_within(0.001).of(0.52)
+    end
+
+    it "skips learnings not injected since the execution started" do
+      learning = create(:ai_compound_learning,
+                        account: account,
+                        injection_count: 2,
+                        positive_outcome_count: 0,
+                        last_injected_at: 2.days.ago)
+      execution = double("TeamExecution", created_at: 1.hour.ago)
+      allow(execution).to receive(:respond_to?).with(:created_at).and_return(true)
+
+      service.send(:boost_injected_learnings_on_success, execution)
+
+      expect(learning.reload.positive_outcome_count).to eq(0)
     end
   end
 

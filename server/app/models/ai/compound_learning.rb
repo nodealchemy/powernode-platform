@@ -136,6 +136,27 @@ module Ai
       touch_event_processed!
     end
 
+    # Neutral injection recorded at recall time (context injection). Counts the
+    # injection immediately; the outcome resolves later — positively via
+    # record_positive_outcome! when the consuming execution succeeds, or stays
+    # unresolved (which correctly depresses effectiveness for learnings that get
+    # injected but never credited).
+    def record_injection!
+      increment!(:injection_count)
+      update!(last_injected_at: Time.current)
+      recalculate_effectiveness!
+      touch_event_processed!
+    end
+
+    # Resolve a previously recorded (neutral) injection as positive. Does NOT
+    # bump injection_count — the injection was already counted at recall, unlike
+    # record_injection_outcome! which records an injection+outcome pair at once.
+    def record_positive_outcome!
+      increment!(:positive_outcome_count)
+      recalculate_effectiveness!
+      touch_event_processed!
+    end
+
     def record_access!
       increment!(:access_count)
     end

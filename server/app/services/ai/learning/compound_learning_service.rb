@@ -170,6 +170,11 @@ module Ai
           used_chars += line.length + 1
           learning_ids << learning.id
           learning.record_access!
+          # Recall-driven crediting: record a neutral injection now; the outcome
+          # resolves via boost_injected_learnings_on_success (positive) or stays
+          # unresolved. Without this, injection_count/effectiveness never move on
+          # the recall path and effectiveness metrics starve.
+          learning.record_injection!
         end
 
         return { context: nil, token_estimate: 0, learning_ids: [] } if lines.size == 1
@@ -555,6 +560,9 @@ module Ai
           .where("last_injected_at >= ?", execution_start)
 
         recently_injected.find_each do |learning|
+          # Resolve the neutral injection recorded at recall as a positive
+          # outcome (injection_count was already advanced by record_injection!).
+          learning.record_positive_outcome!
           learning.update_column(:confidence_score, [learning.confidence_score + 0.02, 1.0].min)
         end
       rescue StandardError => e

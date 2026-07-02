@@ -207,6 +207,46 @@ RSpec.describe Ai::CompoundLearning, type: :model do
     end
   end
 
+  describe "#record_injection!" do
+    let(:learning) { create(:ai_compound_learning, account: account, ai_agent_team: team) }
+
+    it "records a neutral injection without an outcome" do
+      learning.record_injection!
+      learning.reload
+
+      expect(learning.injection_count).to eq(1)
+      expect(learning.positive_outcome_count).to eq(0)
+      expect(learning.negative_outcome_count).to eq(0)
+      expect(learning.last_injected_at).to be_within(2.seconds).of(Time.current)
+      expect(learning.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+  end
+
+  describe "#record_positive_outcome!" do
+    it "credits a positive outcome without re-counting the injection" do
+      learning = create(:ai_compound_learning, account: account, ai_agent_team: team,
+                        injection_count: 3, positive_outcome_count: 1)
+
+      learning.record_positive_outcome!
+      learning.reload
+
+      expect(learning.injection_count).to eq(3)
+      expect(learning.positive_outcome_count).to eq(2)
+      expect(learning.effectiveness_score.to_f).to be_within(0.001).of(2.0 / 3)
+    end
+
+    it "does not compute effectiveness below the 3-injection floor" do
+      learning = create(:ai_compound_learning, account: account, ai_agent_team: team,
+                        injection_count: 1, effectiveness_score: nil)
+
+      learning.record_positive_outcome!
+      learning.reload
+
+      expect(learning.positive_outcome_count).to eq(1)
+      expect(learning.effectiveness_score).to be_nil
+    end
+  end
+
   # ============================================================================
   # SCOPES
   # ============================================================================
