@@ -7,6 +7,7 @@ module Devops
 
     # Concerns
     include Auditable
+    include WebhookSignable
 
     # Constants
     STATUSES = %w[active inactive].freeze
@@ -116,26 +117,14 @@ module Devops
       save!
     end
 
-    def regenerate_signature_secret!
-      self.signature_secret = "whsig_#{SecureRandom.base64(32).tr('+/', '-_')}"
-      save!
-    end
-
     def masked_secret
       return nil unless secret_key.present?
 
       "#{secret_key[0..7]}#{'*' * 24}#{secret_key[-8..]}"
     end
 
-    def generate_signature(payload)
-      return nil unless signature_secret.present?
-
-      timestamp = Time.current.to_i
-      payload_string = "#{timestamp}.#{payload}"
-      signature = OpenSSL::HMAC.hexdigest("SHA256", signature_secret, payload_string)
-
-      "t=#{timestamp},v1=#{signature}"
-    end
+    # generate_signature / regenerate_signature_secret! are provided by the
+    # WebhookSignable concern.
 
     def next_retry_delay(attempt_number)
       base_delay = 5 # seconds
@@ -168,7 +157,7 @@ module Devops
 
     def generate_secrets
       self.secret_key ||= generate_secret_value
-      self.signature_secret ||= "whsig_#{SecureRandom.base64(32).tr('+/', '-_')}"
+      self.signature_secret ||= Security::WebhookAuthenticator.generate_signing_secret
     end
 
     def generate_secret_value

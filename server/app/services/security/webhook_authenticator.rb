@@ -21,6 +21,51 @@ module Security
         true
       end
 
+      # Boolean form of verify_hmac_sha256! — returns true/false instead of raising.
+      # Used by webhook receivers that must never 500 and by boolean verifier seams.
+      def valid_hmac_sha256?(payload:, signature:, secret:, header_prefix: "sha256=")
+        return false if payload.blank? || signature.blank? || secret.blank?
+
+        expected_signature = "#{header_prefix}#{compute_hmac_sha256(payload, secret)}"
+        secure_compare(expected_signature, signature)
+      end
+
+      # Sign a payload with a timestamped HMAC-SHA256 header (Stripe style):
+      #   t=<unix_ts>,v1=<hex hmac of "<ts>.<payload>">
+      def sign_timestamped(payload:, secret:)
+        return nil if secret.blank?
+
+        timestamp = Time.current.to_i
+        signature = compute_hmac_sha256("#{timestamp}.#{payload}", secret)
+
+        "t=#{timestamp},v1=#{signature}"
+      end
+
+      # Verify a timestamped HMAC header produced by sign_timestamped.
+      # Returns true/false; rejects stale timestamps beyond max_skew (replay protection).
+      def verify_timestamped(payload:, header:, secret:, max_skew: MAX_TIME_SKEW)
+        return false if header.blank? || secret.blank?
+
+        parts = header.split(",").each_with_object({}) do |part, hash|
+          key, value = part.split("=", 2)
+          hash[key] = value
+        end
+
+        timestamp = parts["t"]&.to_i
+        signature = parts["v1"]
+        return false unless timestamp && signature
+
+        return false if (Time.current.to_i - timestamp).abs > max_skew
+
+        expected_signature = compute_hmac_sha256("#{timestamp}.#{payload}", secret)
+        secure_compare(expected_signature, signature)
+      end
+
+      # Generate a prefixed signing secret (e.g. "whsig_..." / "whsec_...")
+      def generate_signing_secret(prefix: "whsig")
+        "#{prefix}_#{SecureRandom.base64(32).tr('+/', '-_')}"
+      end
+
       # Verify Ed25519 signature (Discord style)
       def verify_ed25519!(payload:, signature:, timestamp:, public_key:)
         return false if payload.blank? || signature.blank? || public_key.blank?

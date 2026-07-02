@@ -357,4 +357,93 @@ RSpec.describe Security::WebhookAuthenticator do
       expect(described_class.generate_token).not_to eq(described_class.generate_token)
     end
   end
+
+  describe ".valid_hmac_sha256?" do
+    it "returns true for a valid signature" do
+      expect(
+        described_class.valid_hmac_sha256?(payload: payload, signature: valid_hmac_signature, secret: secret)
+      ).to be(true)
+    end
+
+    it "returns false (does not raise) for a forged signature" do
+      forged = valid_hmac_signature(p: "#{payload}x")
+
+      expect(
+        described_class.valid_hmac_sha256?(payload: payload, signature: forged, secret: secret)
+      ).to be(false)
+    end
+
+    it "returns false for blank inputs" do
+      expect(described_class.valid_hmac_sha256?(payload: payload, signature: "", secret: secret)).to be(false)
+      expect(described_class.valid_hmac_sha256?(payload: "", signature: valid_hmac_signature, secret: secret)).to be(false)
+      expect(described_class.valid_hmac_sha256?(payload: payload, signature: valid_hmac_signature, secret: "")).to be(false)
+    end
+
+    it "honors a custom (or empty) header_prefix" do
+      bare = valid_hmac_signature(prefix: "")
+
+      expect(
+        described_class.valid_hmac_sha256?(payload: payload, signature: bare, secret: secret, header_prefix: "")
+      ).to be(true)
+      expect(
+        described_class.valid_hmac_sha256?(payload: payload, signature: bare, secret: secret)
+      ).to be(false)
+    end
+  end
+
+  describe ".sign_timestamped / .verify_timestamped" do
+    it "produces a t=<ts>,v1=<hex> header that round-trips through verify_timestamped" do
+      header = described_class.sign_timestamped(payload: payload, secret: secret)
+
+      expect(header).to match(/\At=\d+,v1=[0-9a-f]{64}\z/)
+      expect(
+        described_class.verify_timestamped(payload: payload, header: header, secret: secret)
+      ).to be(true)
+    end
+
+    it "rejects a header signed with a different secret" do
+      header = described_class.sign_timestamped(payload: payload, secret: SecureRandom.hex(32))
+
+      expect(
+        described_class.verify_timestamped(payload: payload, header: header, secret: secret)
+      ).to be(false)
+    end
+
+    it "rejects a tampered payload" do
+      header = described_class.sign_timestamped(payload: payload, secret: secret)
+
+      expect(
+        described_class.verify_timestamped(payload: "#{payload}x", header: header, secret: secret)
+      ).to be(false)
+    end
+
+    it "rejects a stale timestamp outside max_skew" do
+      stale_ts = Time.current.to_i - 3600
+      sig = OpenSSL::HMAC.hexdigest("SHA256", secret, "#{stale_ts}.#{payload}")
+      header = "t=#{stale_ts},v1=#{sig}"
+
+      expect(
+        described_class.verify_timestamped(payload: payload, header: header, secret: secret)
+      ).to be(false)
+    end
+
+    it "rejects malformed headers and blank inputs" do
+      expect(described_class.verify_timestamped(payload: payload, header: "garbage", secret: secret)).to be(false)
+      expect(described_class.verify_timestamped(payload: payload, header: "", secret: secret)).to be(false)
+      expect(described_class.verify_timestamped(payload: payload, header: "t=1,v1=abc", secret: "")).to be(false)
+    end
+  end
+
+  describe ".generate_signing_secret" do
+    it "returns a whsig-prefixed urlsafe secret by default" do
+      value = described_class.generate_signing_secret
+
+      expect(value).to match(/\Awhsig_[A-Za-z0-9_\-=]+\z/)
+    end
+
+    it "honors a custom prefix and returns unique values" do
+      expect(described_class.generate_signing_secret(prefix: "whsec")).to start_with("whsec_")
+      expect(described_class.generate_signing_secret).not_to eq(described_class.generate_signing_secret)
+    end
+  end
 end
