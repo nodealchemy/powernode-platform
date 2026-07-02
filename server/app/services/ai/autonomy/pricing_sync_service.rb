@@ -233,11 +233,11 @@ module Ai
           end
         end
 
+        # Stored tier derives from the SAME price bands as Ai::ModelTiers (single
+        # source of truth for price -> tier). The stored label vocabulary stays
+        # economy/standard/premium: :frontier folds into "premium" via #to_label.
         def classify_tier(input_per_1k)
-          if input_per_1k >= 0.003 then "premium"
-          elsif input_per_1k >= 0.0005 then "standard"
-          else "economy"
-          end
+          Ai::ModelTiers.to_label(Ai::ModelTiers.tier_for_price(input_per_1k))
         end
       end
     end

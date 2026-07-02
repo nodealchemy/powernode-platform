@@ -51,6 +51,18 @@ echo ""
 RESULTS=()
 OVERALL_EXIT=0
 
+# 0. Preflight: gem pre-activation doctor (fail fast — a newer-than-locked json
+# orphan crashes boot with "already activated json-X", so nothing after this
+# can run reliably; see scripts/doctor-gem-preactivation.sh for remediation)
+echo -e "${BLUE}[0/4] Gem pre-activation doctor...${NC}"
+if "$SCRIPT_DIR/doctor-gem-preactivation.sh"; then
+  echo ""
+else
+  echo ""
+  echo -e "${RED}Gem pre-activation doctor FAILED — fix the orphan gem before validating.${NC}"
+  exit 1
+fi
+
 # 1. Backend RSpec tests
 if [[ "$SKIP_TESTS" == "false" ]]; then
   echo -e "${BLUE}[1/4] Running backend specs...${NC}"
