@@ -1,12 +1,13 @@
 // Model Router Page - Intelligent AI Request Routing
 import React, { useState, useEffect } from 'react';
-import { Route, BarChart3, Zap, Trash2, TrendingUp } from 'lucide-react';
+import { Route, BarChart3, Zap, Trash2, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useAuth } from '@/shared/hooks/useAuth';
 import {
   modelRouterApi,
   RoutingRule,
@@ -16,13 +17,19 @@ import {
   ProviderRanking,
   OptimizationRecommendation,
   CostOptimizationLog,
-  OptimizationStats
+  OptimizationStats,
+  EscalationDecision,
+  EscalationRollup,
+  EscalationBenefit,
+  EscalationTier,
+  EscalationTimeRange
 } from '@/shared/services/ai/ModelRouterApiService';
 import {
   RulesTab,
   DecisionsTab,
   AnalyticsTab,
   OptimizationTab,
+  EscalationsTab,
 } from '@/features/ai/model-router/components/router-page';
 
 // Type guard for API errors
@@ -40,10 +47,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-type TabType = 'rules' | 'decisions' | 'analytics' | 'optimization';
+type TabType = 'rules' | 'decisions' | 'analytics' | 'optimization' | 'escalations';
 
 export const ModelRouterContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const { currentUser } = useAuth();
+  const canReadRouting = currentUser?.permissions?.includes('ai.routing.read') || false;
   const [activeTab, setActiveTab] = useState<TabType>('rules');
   const [rules, setRules] = useState<RoutingRule[]>([]);
   const [decisions, setDecisions] = useState<RoutingDecision[]>([]);
@@ -54,6 +63,14 @@ export const ModelRouterContent: React.FC = () => {
   const [optimizations, setOptimizations] = useState<CostOptimizationLog[]>([]);
   const [optimizationStats, setOptimizationStats] = useState<OptimizationStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Escalations tab state (loaded on demand)
+  const [escalations, setEscalations] = useState<EscalationDecision[]>([]);
+  const [escalationRollup, setEscalationRollup] = useState<EscalationRollup | null>(null);
+  const [escalationBenefit, setEscalationBenefit] = useState<EscalationBenefit | null>(null);
+  const [escalationsLoading, setEscalationsLoading] = useState(false);
+  const [escalationTier, setEscalationTier] = useState<EscalationTier | 'all'>('all');
+  const [escalationTimeRange, setEscalationTimeRange] = useState<EscalationTimeRange>('7d');
 
   // Create rule modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -73,6 +90,34 @@ export const ModelRouterContent: React.FC = () => {
   usePageWebSocket({ pageType: 'ai', onDataUpdate: () => { loadData(); } });
 
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => {
+    if (activeTab === 'escalations' && canReadRouting) {
+      loadEscalationData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, escalationTier, escalationTimeRange, canReadRouting]);
+
+  const loadEscalationData = async () => {
+    try {
+      setEscalationsLoading(true);
+      const [escalationsRes, rollupRes, benefitRes] = await Promise.all([
+        modelRouterApi.getEscalations({
+          time_range: escalationTimeRange,
+          ...(escalationTier !== 'all' ? { tier: escalationTier } : {})
+        }),
+        modelRouterApi.getEscalationRollup(escalationTimeRange),
+        modelRouterApi.getEscalationBenefit(escalationTimeRange)
+      ]);
+      setEscalations(escalationsRes.escalations || []);
+      setEscalationRollup(rollupRes.rollup || null);
+      setEscalationBenefit(benefitRes.benefit || null);
+    } catch (error) {
+      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to load escalation data') }));
+    } finally {
+      setEscalationsLoading(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -211,7 +256,8 @@ export const ModelRouterContent: React.FC = () => {
     { id: 'rules' as TabType, label: 'Rules', icon: Route },
     { id: 'decisions' as TabType, label: 'Decisions', icon: Zap },
     { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 },
-    { id: 'optimization' as TabType, label: 'Optimization', icon: TrendingUp }
+    { id: 'optimization' as TabType, label: 'Optimization', icon: TrendingUp },
+    ...(canReadRouting ? [{ id: 'escalations' as TabType, label: 'Escalations', icon: ArrowUpRight }] : [])
   ];
 
   return (
@@ -275,6 +321,18 @@ export const ModelRouterContent: React.FC = () => {
               optimizationStats={optimizationStats}
               onIdentifyOptimizations={handleIdentifyOptimizations}
               onApplyOptimization={handleApplyOptimization}
+            />
+          )}
+          {activeTab === 'escalations' && canReadRouting && (
+            <EscalationsTab
+              escalations={escalations}
+              rollup={escalationRollup}
+              benefit={escalationBenefit}
+              loading={escalationsLoading}
+              tierFilter={escalationTier}
+              timeRange={escalationTimeRange}
+              onTierChange={setEscalationTier}
+              onTimeRangeChange={setEscalationTimeRange}
             />
           )}
         </>
