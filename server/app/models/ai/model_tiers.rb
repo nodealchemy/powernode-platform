@@ -126,13 +126,23 @@ module Ai
       best_tier
     end
 
+    # Band-only ladder tier for a raw input price ($/1k input tokens, i.e.
+    # Ai::ModelPricing#input_per_1k). Public seam for callers that persist a
+    # price-derived tier (e.g. Ai::Autonomy::PricingSyncService), so the stored
+    # tier and #classify share the SAME PRICE_BANDS ladder. Nil/zero/negative
+    # prices fall below the lowest band => :light.
+    def tier_for_price(input_per_1k)
+      price = input_per_1k.to_f
+      PRICE_BANDS.each { |threshold, tier| return tier if price >= threshold }
+      :light
+    end
+
     # Classify by input price band. nil when no positive price is known.
     def price_classify(mid)
       price = price_for(mid)
       return nil if price.nil? || price <= 0
 
-      PRICE_BANDS.each { |threshold, tier| return tier if price >= threshold }
-      :light
+      tier_for_price(price)
     end
 
     # Cheapest known input_per_1k for a model id: exact match, else longest-prefix
