@@ -46,8 +46,20 @@ module Paginatable
   end
 
   # Generate pagination metadata for API response
+  # @param collection [Object, nil] Optional Kaminari-paginated collection;
+  #   when given, metadata is derived directly from it (current_page /
+  #   total_pages / total_count / limit_value)
   # @return [Hash] Pagination metadata
-  def pagination_meta
+  def pagination_meta(collection = nil)
+    if collection
+      return {
+        current_page: collection.current_page,
+        total_pages: collection.total_pages,
+        total_count: collection.total_count,
+        per_page: collection.limit_value
+      }
+    end
+
     return {} unless @pagination_state
 
     {

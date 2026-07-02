@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Kb::ArticlesController < ApplicationController
+  include Paginatable
   skip_before_action :authenticate_request, only: [ :index, :show, :search ]
   # Try to authenticate if token provided (allows viewing drafts for editors)
   before_action :authenticate_optional, only: [ :index, :show, :search ]
@@ -443,12 +444,4 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       .transform_keys { |date| date.strftime("%Y-%m-%d") }
   end
 
-  def pagination_meta(collection)
-    {
-      current_page: collection.current_page,
-      total_pages: collection.total_pages,
-      total_count: collection.total_count,
-      per_page: collection.limit_value
-    }
-  end
 end

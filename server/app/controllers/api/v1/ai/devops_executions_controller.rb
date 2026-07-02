@@ -4,6 +4,7 @@ module Api
   module V1
     module Ai
       class DevopsExecutionsController < ApplicationController
+        include Paginatable
         before_action :set_service
 
         # GET /api/v1/ai/devops/executions
@@ -118,14 +119,6 @@ module Api
           json
         end
 
-        def pagination_meta(collection)
-          {
-            current_page: collection.current_page,
-            total_pages: collection.total_pages,
-            total_count: collection.total_count,
-            per_page: collection.limit_value
-          }
-        end
       end
     end
   end

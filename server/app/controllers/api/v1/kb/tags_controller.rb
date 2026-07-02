@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Kb::TagsController < ApplicationController
+  include Paginatable
   skip_before_action :authenticate_request, only: [ :index, :articles ]
 
   # GET /api/v1/kb/tags
@@ -65,12 +66,4 @@ class Api::V1::Kb::TagsController < ApplicationController
     }
   end
 
-  def pagination_meta(collection)
-    {
-      current_page: collection.current_page,
-      total_pages: collection.total_pages,
-      total_count: collection.total_count,
-      per_page: collection.limit_value
-    }
-  end
 end

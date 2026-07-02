@@ -4,6 +4,7 @@ module Api
   module V1
     module Ai
       class GovernanceController < ApplicationController
+        include Paginatable
         # Authorization on the dedicated ai.governance.* family: reads gate on
         # `ai.governance.read`, writes on `ai.governance.manage` (both catalog-
         # defined). Decoupled from the coarse `ai.manage` gate so AI-operator
@@ -485,14 +486,6 @@ module Api
           }
         end
 
-        def pagination_meta(collection)
-          {
-            current_page: collection.current_page,
-            total_pages: collection.total_pages,
-            total_count: collection.total_count,
-            per_page: collection.limit_value
-          }
-        end
       end
     end
   end

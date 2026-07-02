@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Kb::CategoriesController < ApplicationController
+  include Paginatable
   skip_before_action :authenticate_request, only: [ :index, :show, :tree ]
   before_action :authenticate_if_present, only: [ :index, :show, :tree ]
   before_action :set_category, only: [ :show, :update, :destroy ]
@@ -228,12 +229,4 @@ class Api::V1::Kb::CategoriesController < ApplicationController
     }
   end
 
-  def pagination_meta(collection)
-    {
-      current_page: collection.current_page,
-      total_pages: collection.total_pages,
-      total_count: collection.total_count,
-      per_page: collection.limit_value
-    }
-  end
 end

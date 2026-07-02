@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Kb::CommentsController < ApplicationController
+  include Paginatable
   skip_before_action :authenticate_request, only: [ :index, :show ]
   before_action :set_article, only: [ :index, :create ]
   before_action :set_comment, only: [ :show, :approve, :reject, :spam, :destroy, :moderate ]
@@ -220,12 +221,4 @@ class Api::V1::Kb::CommentsController < ApplicationController
     }
   end
 
-  def pagination_meta(collection)
-    {
-      current_page: collection.current_page,
-      total_pages: collection.total_pages,
-      total_count: collection.total_count,
-      per_page: collection.limit_value
-    }
-  end
 end
