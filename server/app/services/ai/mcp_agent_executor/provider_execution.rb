@@ -18,7 +18,7 @@ class Ai::McpAgentExecutor
 
       llm_client = build_llm_client
       messages = build_messages_for_llm(execution_context)
-      model, opts = resolve_model_config(execution_context)
+      model, opts = resolve_model_config(execution_context, messages)
 
       tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account)
 
@@ -70,11 +70,31 @@ class Ai::McpAgentExecutor
     end
 
     # Resolve model, temperature, max_tokens, and system prompt from agent config
-    def resolve_model_config(execution_context)
+    def resolve_model_config(execution_context, messages = [])
       model_config = @agent.mcp_metadata&.dig("model_config") || {}
       # #37: resolve via the agent's selector triple (any active provider) rather
       # than a hardcoded model_config/manifest read.
       model = @agent.resolved_model
+
+      # inc2: governed per-task tier routing — MODEL/tier only on this provider
+      # path. Behind the account gate `ai_task_tier_routing_enabled` (default OFF ⇒
+      # identical to pre-inc2). EFFORT is intentionally NOT wired here yet; see the
+      # inc3 seam note below.
+      if ::Ai::Routing::TaskTierResolver.enabled_for?(@account) &&
+         (resolution = resolve_task_tier(messages))
+        resolution.persist!(agent_execution: routing_agent_execution)
+        model = resolution.model.presence || model
+
+        # ── INC3 SEAM ──────────────────────────────────────────────────────────
+        # Wire reasoning effort on this provider path here by forwarding the value
+        # the resolver already computed:
+        #   opts[:effort] = resolution.effort if resolution.effort
+        # (WorkerLlmClient#complete and AgentToolBridgeService#execute_tool_loop
+        # must accept + forward :effort; the worker's apply_anthropic_request_gate!
+        # already drops it for non-effort-capable models.) NOT wired in inc2.
+        # ───────────────────────────────────────────────────────────────────────
+      end
+
       max_tokens = execution_context.dig(:context, "max_tokens") ||
                    model_config["max_tokens"] || 2000
       temperature = execution_context.dig(:context, "temperature") ||
@@ -88,6 +108,24 @@ class Ai::McpAgentExecutor
                system_prompt: system_prompt }.compact
 
       [model, opts]
+    end
+
+    # Governed tier resolution for this MCP agent execution ("agent_task" complexity
+    # profile). Returns nil on failure so the caller falls back to the baseline
+    # resolved_model.
+    def resolve_task_tier(messages)
+      ::Ai::Routing::TaskTierResolver.resolve(
+        account: @account, agent: @agent, task_type: nil, messages: messages, tools: []
+      )
+    rescue StandardError => e
+      @logger.warn("[MCP_AGENT_EXECUTOR] tier routing failed, using baseline: #{e.class}: #{e.message}")
+      nil
+    end
+
+    # The AgentExecution to link a routing decision to, when one is available and
+    # is a real record (guards against the test double / nil).
+    def routing_agent_execution
+      @execution if @execution.is_a?(::Ai::AgentExecution)
     end
 
     def format_tool_loop_result(result, model)

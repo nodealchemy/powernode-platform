@@ -466,16 +466,50 @@ module Ai
       def build_agent_options(agent, provider, messages = [])
         metadata = agent.mcp_metadata || {}
         model_config = metadata.dig("ollama_config") || metadata.dig("model_config") || metadata
-        # #37: resolve model via Ai::Agent resolution triple (pinned → selector → default)
-        model = agent.resolved_model
+
+        # inc2: governed per-task tier routing. Behind the account gate
+        # `ai_task_tier_routing_enabled` (default OFF ⇒ identical to the pre-inc2
+        # path below). When ON, MODEL comes from the resolver's tier and EFFORT from
+        # the resolver (which internally applies EffortMapper precedence against the
+        # final model). A resolver failure returns nil ⇒ we fall through to baseline.
+        if ::Ai::Routing::TaskTierResolver.enabled_for?(account) &&
+           (resolution = resolve_task_tier(agent, model_config, messages))
+          resolution.persist!
+          model = resolution.model.presence || agent.resolved_model
+          effort = resolution.effort
+        else
+          # #37: resolve model via Ai::Agent resolution triple (pinned → selector → default)
+          model = agent.resolved_model
+          effort = resolve_effort(model, model_config, messages)
+        end
+
         options = {
           model: model,
           max_tokens: model_config["max_tokens"] || 4096,
           temperature: model_config["temperature"] || 0.7
         }
-        effort = resolve_effort(model, model_config, messages)
         options[:effort] = effort if effort
         options
+      end
+
+      # Governed tier resolution for this task. Effort pin + optional operator tier
+      # pin come from the agent model_config / loop configuration; task_type from
+      # the task metadata. Returns nil on failure so the caller falls back to the
+      # baseline (resolved_model + EffortMapper) path.
+      def resolve_task_tier(agent, model_config, messages)
+        pinned_effort = model_config["effort"].presence ||
+                        ralph_loop&.configuration&.dig("effort").presence
+        operator_tier = model_config["routing_tier"].presence ||
+                        ralph_loop&.configuration&.dig("routing_tier").presence
+        task_type = task.metadata.is_a?(Hash) ? (task.metadata["task_type"] || task.metadata[:task_type]) : nil
+
+        ::Ai::Routing::TaskTierResolver.resolve(
+          account: account, agent: agent, task_type: task_type, messages: messages,
+          tools: [], pinned_effort: pinned_effort, operator_tier_pin: operator_tier
+        )
+      rescue StandardError => e
+        Rails.logger.warn("[TaskExecutor] tier routing failed, using baseline: #{e.class}: #{e.message}")
+        nil
       end
 
       # Resolve the reasoning-effort value for this call, or nil when effort must

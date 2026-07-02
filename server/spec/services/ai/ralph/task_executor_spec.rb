@@ -64,6 +64,49 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
     end
   end
 
+  describe '#build_agent_options — inc2 governed tier routing gate' do
+    let(:messages) { [{ role: 'user', content: 'Implement the login page' }] }
+
+    before { allow(agent).to receive(:resolved_model).and_return('claude-fable-5') }
+
+    context 'when the account gate is OFF (default) — byte-identical to pre-inc2' do
+      it 'never invokes the resolver' do
+        expect(Ai::Routing::TaskTierResolver).not_to receive(:resolve)
+        executor.send(:build_agent_options, agent, provider, messages)
+      end
+
+      it 'uses the agent resolved_model and the EffortMapper-derived effort' do
+        opts = executor.send(:build_agent_options, agent, provider, messages)
+        expect(opts[:model]).to eq('claude-fable-5')
+        expect(Ai::Routing::EffortMapper::VALID_EFFORTS).to include(opts[:effort])
+      end
+    end
+
+    context 'when the account gate is ON' do
+      let(:resolution) do
+        instance_double(Ai::Routing::TaskTierResolver::Resolution,
+                        model: 'claude-opus-4-8', effort: 'xhigh')
+      end
+
+      before do
+        allow(Ai::Routing::TaskTierResolver).to receive(:enabled_for?).with(account).and_return(true)
+        allow(Ai::Routing::TaskTierResolver).to receive(:resolve).and_return(resolution)
+        allow(resolution).to receive(:persist!)
+      end
+
+      it 'takes MODEL from the resolver tier and EFFORT from the resolver' do
+        opts = executor.send(:build_agent_options, agent, provider, messages)
+        expect(opts[:model]).to eq('claude-opus-4-8')
+        expect(opts[:effort]).to eq('xhigh')
+      end
+
+      it 'persists the governance record' do
+        expect(resolution).to receive(:persist!)
+        executor.send(:build_agent_options, agent, provider, messages)
+      end
+    end
+  end
+
   describe '#execute' do
     context 'when no executor is found' do
       before do

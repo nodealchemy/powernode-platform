@@ -312,4 +312,50 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       expect(code).to eq(-32603)
     end
   end
+
+  describe 'resolve_model_config (private) — inc2 governed tier routing (model/tier only)' do
+    let(:execution_context) { { context: {}, input: "hi" } }
+    let(:messages) { [{ role: "user", content: "hi" }] }
+
+    before do
+      allow(agent).to receive(:resolved_model).and_return('claude-sonnet-4-6')
+      allow(agent).to receive(:build_system_prompt_with_profile).and_return('sys')
+    end
+
+    context 'when the account gate is OFF (default)' do
+      it 'never invokes the resolver and keeps the baseline resolved_model' do
+        expect(Ai::Routing::TaskTierResolver).not_to receive(:resolve)
+        model, = executor.send(:resolve_model_config, execution_context, messages)
+        expect(model).to eq('claude-sonnet-4-6')
+      end
+    end
+
+    context 'when the account gate is ON' do
+      let(:resolution) do
+        instance_double(Ai::Routing::TaskTierResolver::Resolution,
+                        model: 'claude-opus-4-8', effort: 'xhigh')
+      end
+
+      before do
+        allow(Ai::Routing::TaskTierResolver).to receive(:enabled_for?).with(account).and_return(true)
+        allow(Ai::Routing::TaskTierResolver).to receive(:resolve).and_return(resolution)
+        allow(resolution).to receive(:persist!)
+      end
+
+      it 'takes MODEL from the resolver tier' do
+        model, = executor.send(:resolve_model_config, execution_context, messages)
+        expect(model).to eq('claude-opus-4-8')
+      end
+
+      it 'does NOT wire effort on this path yet (inc3 seam) — opts carry no :effort' do
+        _model, opts = executor.send(:resolve_model_config, execution_context, messages)
+        expect(opts).not_to have_key(:effort)
+      end
+
+      it 'persists the governance record' do
+        expect(resolution).to receive(:persist!)
+        executor.send(:resolve_model_config, execution_context, messages)
+      end
+    end
+  end
 end
