@@ -81,6 +81,12 @@ module Mcp
 
     @logger.info "[McpOauthService] OAuth tokens obtained for MCP server #{@server.name} (#{@server.id})"
     response
+  rescue OAuthError => e
+    # Preserve the specific error class (AuthorizationError for CSRF/state
+    # failures, OAuthError for provider failures) — callers rescue them
+    # separately (see Api::V1::McpOauthController#callback).
+    @server.update!(oauth_error: e.message)
+    raise
   rescue StandardError => e
     @server.update!(oauth_error: e.message)
     raise OAuthError, "Token exchange failed: #{e.message}"
