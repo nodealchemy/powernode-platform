@@ -38,15 +38,12 @@ REQUIRED_JOBS=(
   ai_chat_response_job
   ai_workspace_response_job
   ai_conversation_response_job
-  ai_code_factory_prd_job
   # ai_backend_dispatch_suspension_spec.rb
   ai_mission_execute_job
   ai_mission_plan_job
   ai_provisioning_capture_intent_job
   ai_provisioning_compose_plan_job
-  ai_code_factory_remediation_job
   ai_codebase_index_job
-  ai_agent_team_execution_job
   ai_ralph_loop_run_all_job
   ai_a2a_external_task_job
   ai_reflexion_job

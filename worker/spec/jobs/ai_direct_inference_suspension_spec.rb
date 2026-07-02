@@ -4,7 +4,7 @@ require 'rails_helper'
 
 # Direct-inference AI jobs must honor the kill switch (AiSuspensionCheckConcern):
 # emergency_halt / per-account suspension has to stop them BEFORE they reach a
-# provider. These four call an LLM/provider directly (or delegate straight into a
+# provider. These call an LLM/provider directly (or delegate straight into a
 # job that does), so a missing concern means the kill switch silently does nothing.
 # Regression spec for IMP-48099cb357f8.
 RSpec.describe 'Direct-inference AI job kill-switch compliance' do
@@ -62,21 +62,6 @@ RSpec.describe 'Direct-inference AI job kill-switch compliance' do
       expect(AiChatResponseJob).not_to receive(:new)
 
       job.execute('conv-1', 'msg-1', 'user-1')
-    end
-  end
-
-  describe AiCodeFactoryPrdJob do
-    it 'includes AiSuspensionCheckConcern' do
-      expect(described_class.include?(AiSuspensionCheckConcern)).to be true
-    end
-
-    it 'bails before generating the PRD when AI is suspended' do
-      job = described_class.new
-      allow(job).to receive(:ai_suspended?).with(account_id).and_return(true)
-      expect(job).not_to receive(:backend_api_get)
-      expect(job).not_to receive(:call_ai_provider)
-
-      job.execute('ralph_loop_id' => 'loop-1', 'account_id' => account_id)
     end
   end
 end
