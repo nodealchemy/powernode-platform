@@ -14,7 +14,7 @@ module Ai
   #          falls back to all when nothing matches required strictly).
   #   * +0.5 × preferred_capability_match_ratio
   #   * +0.25 tier_bonus when model's capability tier matches profile's
-  #          desired tier (reasoning / standard / light — see Ai::ModelTiers).
+  #          desired tier (light / standard / reasoning / frontier — see Ai::ModelTiers).
   #   * +cost_bonus (cheaper is better; capped at +0.3).
   #   * +(0.4..1.4) × empirical_success_rate from Ai::AgentModelPerformance,
   #          confidence-weighted by sample size. Defaults to 0.5 when absent
@@ -33,6 +33,14 @@ module Ai
   # the per-(account, agent_type, provider, model) record converges to the best
   # available model for each agent profile without manual model pinning.
   class AgentModelSelector
+    # Per-profile desired tier on the 4-tier ladder (Ai::ModelTiers). code_assistant
+    # and data_analyst stay :reasoning: the Fable-preference allowlist is DERIVED
+    # from the reasoning-tier profiles (see .default_fable_preferred_agent_types),
+    # so lowering them to :standard would empty that allowlist and disable frontier
+    # routing. Moving everyday profiles to a :standard default (with per-task
+    # escalation to reasoning/frontier) is a routing-policy change deferred to the
+    # per-task escalation increment, so standard-default agents are never stranded
+    # below reasoning in the interim.
     AGENT_TYPE_PROFILES = {
       "assistant"         => { required: %w[text_generation chat], preferred: %w[function_calling],                              tier: :standard },
       "code_assistant"    => { required: %w[text_generation chat], preferred: %w[code_generation extended_thinking function_calling], tier: :reasoning },

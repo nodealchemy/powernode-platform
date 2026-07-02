@@ -107,9 +107,9 @@ RSpec.describe Ai::Agent, type: :model do
       create(:ai_provider, account: account, provider_type: "custom",
                            capabilities: %w[text_generation chat],
                            supported_models: [
-                             { "id" => "llama-3-8b",      "name" => "llama-3-8b",
+                             { "id" => "llama-3-8b",     "name" => "llama-3-8b",
                                "capabilities" => %w[text_generation chat] },
-                             { "id" => "claude-sonnet-4", "name" => "claude-sonnet-4",
+                             { "id" => "claude-opus-4",  "name" => "claude-opus-4",
                                "capabilities" => %w[text_generation chat] }
                            ])
     end
@@ -130,7 +130,7 @@ RSpec.describe Ai::Agent, type: :model do
       create(:ai_agent_skill, agent: agent, skill: reasoning_skill, is_active: true)
 
       expect(Ai::ModelTiers.classify(agent.resolved_model)).to eq(:reasoning)
-      expect(agent.resolved_model).to eq("claude-sonnet-4")
+      expect(agent.resolved_model).to eq("claude-opus-4")
     end
 
     it "does not force reasoning when the skill is inactive (proves the skill is what steers)" do

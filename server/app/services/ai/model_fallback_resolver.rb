@@ -4,13 +4,17 @@ module Ai
   # Resolves a NON-Fable reasoning-tier fallback model for a Fable/Mythos refusal,
   # dynamically — model ids are NEVER hardcoded (honors the no-hardcoded-model-names
   # convention). Reuses the shared tier classifier (Ai::ModelTiers) and the cost/
-  # capability selector (Ai::AgentModelSelector), then filters out the refused model
-  # and every Fable/Mythos model (which would just re-trigger the classifier).
+  # capability selector (Ai::AgentModelSelector), keeping only :reasoning-tier
+  # candidates and dropping the refused model. Fable/Mythos are now :frontier, so
+  # the reasoning-tier filter already excludes them; EXCLUDE_PREFIXES stays as a
+  # belt-and-suspenders guard (they run the refusal classifier and would just
+  # re-trigger it) and to exclude the refused model itself.
   #
   # Called SERVER-side from the provider_config endpoint; the resolved list rides
   # along to the worker's Ai::Llm::RefusalHandler as `fallback_models`.
   class ModelFallbackResolver
     # Fable/Mythos run the refusal classifier — never a valid fallback TARGET.
+    # (Also :frontier, so already outside the reasoning-tier candidate set.)
     EXCLUDE_PREFIXES = %w[claude-fable claude-mythos].freeze
 
     def self.reasoning_fallbacks(account:, agent_type: nil, exclude: nil)
