@@ -41,6 +41,20 @@ module Ai
         )
       end
 
+      # Same precedence (pin > complexity-derived > default) against an ALREADY
+      # classified complexity level — so a caller that has already run one
+      # classification (e.g. Ai::Routing::TaskTierResolver) derives effort without
+      # a second classify. Returns nil for non-effort-capable models. Single source
+      # of truth for the mapping (COMPLEXITY_TO_EFFORT / DEFAULT_EFFORT / VALID_EFFORTS).
+      def self.effort_for_level(model:, complexity_level:, pinned_effort: nil)
+        return nil unless ::Ai::Llm::ModelCapabilities.supports_effort?(model.to_s)
+
+        pinned = pinned_effort.to_s.strip.downcase
+        return pinned if VALID_EFFORTS.include?(pinned)
+
+        COMPLEXITY_TO_EFFORT[complexity_level.to_s] || DEFAULT_EFFORT
+      end
+
       def initialize(account:, model:)
         @account = account
         @model = model.to_s

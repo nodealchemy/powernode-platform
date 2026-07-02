@@ -357,34 +357,44 @@ module Ai
     # erring toward not using a family that has been refusing. The name prefix is
     # backed by a partial unique index, so the scan is cheap.
     def fable_preroute_suppressed?
-      ::Ai::ModelRoutingRule.for_account(@account).active
+      self.class.fable_preroute_suppressed?(account: @account, agent_type: @agent_type)
+    end
+
+    # Class-level twin of the instance check, so the governed per-task tier router
+    # (Ai::Routing::TaskTierResolver) enforces the SAME learned-routing suppression
+    # when deciding whether frontier is admissible — one source of truth, no drift.
+    def self.fable_preroute_suppressed?(account:, agent_type:)
+      ::Ai::ModelRoutingRule.for_account(account).active
                             .where("name LIKE ?", "fable-refusal-preroute:%")
                             .to_a
-                            .any? { |rule| preroute_rule_targets_fable_for_agent_type?(rule) }
+                            .any? { |rule| preroute_rule_targets_fable_for_agent_type?(rule, agent_type) }
     rescue StandardError => e
       Rails.logger.warn("[AgentModelSelector] Fable pre-route check failed: #{e.class}: #{e.message}")
       false
     end
 
-    def preroute_rule_targets_fable_for_agent_type?(rule)
+    def self.preroute_rule_targets_fable_for_agent_type?(rule, agent_type)
       conditions = rule.conditions || {}
-      return false unless Array(conditions["request_types"]).map(&:to_s).include?(@agent_type)
+      return false unless Array(conditions["request_types"]).map(&:to_s).include?(agent_type.to_s)
 
-      Array(conditions["model_patterns"]).any? { |pattern| fable_model_pattern?(pattern) }
-    end
-
-    # The promotion service stores model_patterns as Regexp.escape'd model ids
-    # (e.g. "claude\\-fable\\-5"); strip the escapes and prefix-test the family.
-    def fable_model_pattern?(pattern)
-      fable_model?(pattern.to_s.delete("\\"))
+      # model_patterns are stored Regexp.escape'd (e.g. "claude\\-fable\\-5"); strip
+      # the escapes and prefix-test the Fable/Mythos family.
+      Array(conditions["model_patterns"]).any? { |pattern| ::Ai::FableRouting.fable_model?(pattern.to_s.delete("\\")) }
     end
 
     # Allowlist membership: operator override (Account#settings) when present,
     # else the derived reasoning-tier default.
     def fable_preferred_agent_type?
-      override = ::Ai::FableRouting.setting(@account, FABLE_AGENT_TYPES_SETTING)
-      allowlist = override.present? ? Array(override).map(&:to_s) : self.class.default_fable_preferred_agent_types
-      allowlist.include?(@agent_type)
+      self.class.fable_preferred_agent_type?(account: @account, agent_type: @agent_type)
+    end
+
+    # Class-level allowlist membership (operator override → derived default), shared
+    # with Ai::Routing::TaskTierResolver so frontier admission and Fable-candidacy
+    # use the exact same allowlist.
+    def self.fable_preferred_agent_type?(account:, agent_type:)
+      override = ::Ai::FableRouting.setting(account, FABLE_AGENT_TYPES_SETTING)
+      allowlist = override.present? ? Array(override).map(&:to_s) : default_fable_preferred_agent_types
+      allowlist.include?(agent_type.to_s)
     end
 
     # Whether the Fable-5 framework is enabled for this account — memoized so the
@@ -403,11 +413,16 @@ module Ai
     # Runs ONLY on the otherwise-Fable-eligible path (never on the inert deploy),
     # so the monthly-cost SUM is not paid on every resolution. Best-effort.
     def fable_budget_exhausted?
-      monthly_budget = @account.settings&.dig("ai_monthly_budget")
+      self.class.fable_budget_exhausted?(@account)
+    end
+
+    # Class-level twin, shared with Ai::Routing::TaskTierResolver's frontier gate.
+    def self.fable_budget_exhausted?(account)
+      monthly_budget = account.settings&.dig("ai_monthly_budget")
       return false if monthly_budget.blank?
 
       month_cost = ::Ai::AgentExecution.joins(:agent)
-                                       .where(ai_agents: { account_id: @account.id })
+                                       .where(ai_agents: { account_id: account.id })
                                        .where("ai_agent_executions.created_at >= ?", Time.current.beginning_of_month)
                                        .sum(:cost_usd).to_f
       month_cost >= monthly_budget.to_f * 0.9
