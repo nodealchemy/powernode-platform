@@ -56,11 +56,13 @@ module Api
           signature = request.headers["X-Gitea-Signature"] || request.headers["X-Hub-Signature-256"]
           return false unless signature
 
-          # Handle sha256= prefix
-          signature = signature.sub(/\Asha256=/, "")
-          expected = OpenSSL::HMAC.hexdigest("sha256", secret, @raw_body)
-
-          Rack::Utils.secure_compare(expected, signature)
+          # Gitea sends a bare hex digest; GitHub-style senders prefix with "sha256="
+          Security::WebhookAuthenticator.valid_hmac_sha256?(
+            payload: @raw_body,
+            signature: signature.sub(/\Asha256=/, ""),
+            secret: secret,
+            header_prefix: ""
+          )
         end
 
         def process_build_event(template, payload)

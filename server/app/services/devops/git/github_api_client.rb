@@ -206,10 +206,11 @@ module Devops
 
     # Webhook Signature Verification
     def verify_webhook_signature(payload, signature, secret)
-      return false unless signature.present? && secret.present?
-
-      expected = "sha256=" + OpenSSL::HMAC.hexdigest("SHA256", secret, payload)
-      Rack::Utils.secure_compare(expected, signature)
+      Security::WebhookAuthenticator.valid_hmac_sha256?(
+        payload: payload,
+        signature: signature,
+        secret: secret
+      )
     end
 
     # GitHub Actions (CI/CD)

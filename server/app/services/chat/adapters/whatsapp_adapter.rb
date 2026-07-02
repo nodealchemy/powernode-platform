@@ -23,10 +23,11 @@ module Chat
         app_secret = credentials[:app_secret]
         return false if app_secret.blank?
 
-        body = request.raw_post
-        expected_signature = "sha256=" + OpenSSL::HMAC.hexdigest("SHA256", app_secret, body)
-
-        ActiveSupport::SecurityUtils.secure_compare(signature_header, expected_signature)
+        Security::WebhookAuthenticator.valid_hmac_sha256?(
+          payload: request.raw_post,
+          signature: signature_header,
+          secret: app_secret
+        )
       end
 
       def parse_webhook(payload)
