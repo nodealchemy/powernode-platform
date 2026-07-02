@@ -2503,6 +2503,10 @@ Rails.application.routes.draw do
             get "optimizations", action: :optimizations_index
             post "optimizations/identify", action: :identify_optimizations
             post "optimizations/:id/apply", action: :apply_optimization
+            # inc6: escalation audit surface + benefit measurement
+            get "escalations", action: :escalations
+            get "escalations/rollup", action: :escalation_rollup
+            get "escalations/benefit", action: :escalation_benefit
           end
         end
 

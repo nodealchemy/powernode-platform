@@ -7,7 +7,7 @@ module Api
         include AuditLogging
 
         before_action :validate_permissions
-        before_action :set_time_range, only: [ :statistics, :cost_analysis ]
+        before_action :set_time_range, only: [ :statistics, :cost_analysis, :escalations, :escalation_rollup, :escalation_benefit ]
 
         # POST /api/v1/ai/model_router/route
         def route
@@ -165,11 +165,52 @@ module Api
           render_error("Optimization not found", status: :not_found)
         end
 
+        # GET /api/v1/ai/model_router/escalations — inc6 escalation audit surface
+        def escalations
+          router_service = ::Ai::ModelRouterService.new(
+            account: current_user.account, strategy: "cost_optimized"
+          )
+
+          render_success({
+            escalations: router_service.escalation_decisions(
+              time_range: @time_range, tier: params[:tier], limit: escalation_limit
+            ),
+            time_range: time_range_info
+          })
+        end
+
+        # GET /api/v1/ai/model_router/escalations/rollup
+        def escalation_rollup
+          router_service = ::Ai::ModelRouterService.new(
+            account: current_user.account, strategy: "cost_optimized"
+          )
+
+          render_success({
+            rollup: router_service.escalation_rollup(time_range: @time_range),
+            time_range: time_range_info
+          })
+        end
+
+        # GET /api/v1/ai/model_router/escalations/benefit
+        def escalation_benefit
+          router_service = ::Ai::ModelRouterService.new(
+            account: current_user.account, strategy: "cost_optimized"
+          )
+
+          render_success({
+            benefit: router_service.escalation_benefit_deltas(
+              time_range: @time_range, task_type: params[:task_type]
+            ),
+            time_range: time_range_info
+          })
+        end
+
         private
 
         def validate_permissions
           case action_name
-          when "statistics", "cost_analysis", "provider_rankings", "recommendations", "optimizations_index"
+          when "statistics", "cost_analysis", "provider_rankings", "recommendations", "optimizations_index",
+               "escalations", "escalation_rollup", "escalation_benefit"
             require_permission("ai.routing.read")
           when "route"
             require_permission("ai.routing.manage")
@@ -197,6 +238,10 @@ module Api
             period: params[:time_range] || "24h",
             seconds: @time_range.to_i
           }
+        end
+
+        def escalation_limit
+          [ params[:limit]&.to_i || 50, 200 ].min
         end
 
         def pagination_data(collection)

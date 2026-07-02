@@ -272,4 +272,85 @@ RSpec.describe "Api::V1::Ai::ModelRouterAnalyticsController", type: :request do
       expect(response).to have_http_status(:not_found)
     end
   end
+
+  # =========================================================================
+  # ESCALATION AUDIT SURFACE (ai.routing.read) — inc6
+  # =========================================================================
+  describe "GET /api/v1/ai/model_router/escalations" do
+    let(:path) { "#{base_path}/escalations" }
+
+    before do
+      allow(router_service).to receive(:escalation_decisions).and_return([
+        { id: SecureRandom.uuid, model_tier: "frontier", task_type: "reasoning", outcome: "succeeded" }
+      ])
+    end
+
+    it 'returns 401 when unauthenticated' do
+      get path, headers: { 'Content-Type' => 'application/json' }
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'returns 403 when user lacks ai.routing.read permission' do
+      get path, headers: auth_headers_for(no_perms_user)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'lists escalation decisions with the time range' do
+      get path, params: { tier: "frontier", time_range: "7d" }, headers: auth_headers_for(read_user)
+      expect(response).to have_http_status(:success)
+      expect(json_response['data']['escalations']).to be_present
+      expect(json_response['data']['time_range']).to be_present
+    end
+
+    it 'forwards the tier and limit filters to the service' do
+      expect(router_service).to receive(:escalation_decisions)
+        .with(hash_including(tier: "frontier", limit: 25)).and_return([])
+      get path, params: { tier: "frontier", limit: "25" }, headers: auth_headers_for(read_user)
+    end
+  end
+
+  describe "GET /api/v1/ai/model_router/escalations/rollup" do
+    let(:path) { "#{base_path}/escalations/rollup" }
+
+    before do
+      allow(router_service).to receive(:escalation_rollup).and_return({
+        total_decisions: 5, escalated_decisions: 2,
+        advisory: { recommend_tightening: false, status: "beneficial" }
+      })
+    end
+
+    it 'returns 403 when user lacks ai.routing.read permission' do
+      get path, headers: auth_headers_for(no_perms_user)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'returns the rollup with advisory' do
+      get path, params: { time_range: "7d" }, headers: auth_headers_for(read_user)
+      expect(response).to have_http_status(:success)
+      expect(json_response['data']['rollup']['advisory']).to be_present
+    end
+  end
+
+  describe "GET /api/v1/ai/model_router/escalations/benefit" do
+    let(:path) { "#{base_path}/escalations/benefit" }
+
+    before do
+      allow(router_service).to receive(:escalation_benefit_deltas).and_return({
+        buckets: [], summary: { matched_buckets: 0 }, advisory: { recommend_tightening: false }
+      })
+    end
+
+    it 'returns 403 when user lacks ai.routing.read permission' do
+      get path, headers: auth_headers_for(no_perms_user)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'returns the benefit deltas, forwarding the task_type filter' do
+      expect(router_service).to receive(:escalation_benefit_deltas)
+        .with(hash_including(task_type: "code_generation")).and_return({ buckets: [], summary: {}, advisory: {} })
+      get path, params: { task_type: "code_generation" }, headers: auth_headers_for(read_user)
+      expect(response).to have_http_status(:success)
+      expect(json_response['data']['benefit']).to be_present
+    end
+  end
 end

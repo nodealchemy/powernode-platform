@@ -5,6 +5,21 @@ module Ai
     module RoutingAnalytics
       extend ActiveSupport::Concern
 
+      # ── inc6: escalation audit surface + benefit measurement ────────────────
+      # An "escalation" is a governed tier decision (Ai::Routing::TaskTierResolver)
+      # whose persisted rationale marks decision == "escalate" — the model tier was
+      # raised above the agent's baseline. The controlled benefit comparison holds
+      # complexity level FIXED (from the linked Ai::TaskComplexityAssessment) and
+      # compares escalated selections against standard-tier selections of the same
+      # complexity.
+      ESCALATION_DECISION_LABEL = "escalate"
+      ESCALATED_MODEL_TIERS = %w[reasoning frontier].freeze
+      HIGH_EFFORT_LEVELS = %w[xhigh max].freeze
+      # Below this many escalated decisions WITH a recorded outcome, we never advise
+      # tightening — the sample is too small to conclude escalation isn't paying off.
+      BENEFIT_ADVISORY_MIN_DECISIONS = 10
+      MAX_ESCALATION_ROWS = 200
+
       # Analyze potential cost savings
       def analyze_cost_savings(time_range: 30.days)
         decisions = Ai::RoutingDecision.for_account(@account)
@@ -124,6 +139,78 @@ module Ai
         end.sort_by { |p| -p[:score] }
       end
 
+      # ── inc6 (a1): recent escalation decisions ──────────────────────────────
+      # Escalation-marked RoutingDecisions, newest first, filterable by delivered
+      # tier (frontier/reasoning) and time window. Reads model/tier/effort/rationale
+      # off the row's jsonb (no association iteration ⇒ no N+1).
+      def escalation_decisions(time_range: 7.days, tier: nil, limit: 50)
+        scope = escalation_scope(time_range: time_range)
+        if tier.present? && ESCALATED_MODEL_TIERS.include?(tier.to_s)
+          scope = scope.where(model_tier: tier.to_s)
+        end
+        capped = [ [ limit.to_i, 1 ].max, MAX_ESCALATION_ROWS ].min
+        scope.order(created_at: :desc).limit(capped).map { |d| escalation_summary(d) }
+      end
+
+      # ── inc6 (a2): "why did we escalate/use Fable this window" rollup ────────
+      # Selection counts, top rationale categories, escalated spend share, and the
+      # embedded benefit summary + advisory.
+      def escalation_rollup(time_range: 7.days)
+        window = window_scope(time_range: time_range)
+        escalated = escalation_scope(time_range: time_range)
+        benefit = escalation_benefit_deltas(time_range: time_range)
+
+        total_spend = window.where.not(actual_cost_usd: nil).sum(:actual_cost_usd).to_f
+        escalated_spend = escalated.where.not(actual_cost_usd: nil).sum(:actual_cost_usd).to_f
+
+        {
+          period_days: (time_range / 1.day).to_i,
+          total_decisions: window.count,
+          escalated_decisions: escalated.count,
+          selections: {
+            frontier: window.where(model_tier: "frontier").count,
+            reasoning: window.where(model_tier: "reasoning").count,
+            high_effort: window.where("rationale->>'effort' IN (?)", HIGH_EFFORT_LEVELS).count
+          },
+          top_rationale_categories: {
+            by_complexity_level: jsonb_group_count(escalated, "rationale->'complexity'->>'level'"),
+            by_task_type: jsonb_group_count(escalated, "rationale->'complexity'->>'task_type'"),
+            by_decision_kind: jsonb_group_count(window, "rationale->>'decision'")
+          },
+          spend: {
+            total_usd: total_spend.round(6),
+            escalated_usd: escalated_spend.round(6),
+            escalated_share_pct: total_spend > 0 ? (escalated_spend / total_spend * 100).round(2) : 0.0
+          },
+          benefit: benefit[:summary],
+          advisory: benefit[:advisory]
+        }
+      end
+
+      # ── inc6 (b2/b3): escalated-vs-baseline benefit deltas + advisory ────────
+      # Controlled comparison: bucket governed decisions by [task_type,
+      # complexity_level] (complexity from the LINKED assessment — the controlled
+      # variable), then within each bucket compare the escalated cohort against the
+      # standard-tier cohort (held/effort-substituted/downgraded to standard) on
+      # success rate, avg cost, avg latency. The advisory fires when the escalated
+      # cohort shows non-positive benefit at scale.
+      def escalation_benefit_deltas(time_range: 7.days, task_type: nil)
+        decisions = ::Ai::RoutingDecision.for_account(@account)
+                                         .where("created_at >= ?", time_range.ago)
+                                         .where.not(complexity_assessment_id: nil)
+                                         .includes(:complexity_assessment)
+                                         .to_a
+                                         .select { |d| d.complexity_assessment.present? }
+        if task_type.present?
+          decisions = decisions.select { |d| d.complexity_assessment.task_type == task_type }
+        end
+
+        buckets = build_benefit_buckets(decisions)
+        summary = summarize_benefit(buckets)
+        { task_type_filter: task_type, buckets: buckets.map { |b| b[:public] }, summary: summary,
+          advisory: benefit_advisory(summary) }
+      end
+
       private
 
       def record_routing_decision(provider:, request_context:, matching_rule:, scoring_details:, start_time:)
@@ -170,6 +257,187 @@ module Ai
             model_name: result[:model_name]
           }
         )
+      end
+
+      # ── inc6 escalation helpers ─────────────────────────────────────────────
+
+      def window_scope(time_range:)
+        ::Ai::RoutingDecision.for_account(@account).where("created_at >= ?", time_range.ago)
+      end
+
+      def escalation_scope(time_range:)
+        window_scope(time_range: time_range)
+          .where("rationale->>'decision' = ?", ESCALATION_DECISION_LABEL)
+      end
+
+      # Group a relation by a jsonb path expression, dropping the NULL bucket (rows
+      # from the non-governed routing path carry no rationale.decision).
+      def jsonb_group_count(scope, path_sql)
+        scope.group(Arel.sql(path_sql)).count.reject { |k, _| k.nil? }
+      end
+
+      def escalation_summary(decision)
+        rationale = decision.rationale || {}
+        complexity = rationale["complexity"] || {}
+        metadata = decision.request_metadata || {}
+        {
+          id: decision.id,
+          created_at: decision.created_at,
+          model_tier: decision.model_tier,
+          delivered_model: rationale["delivered_model"],
+          baseline_tier: rationale["baseline_tier"],
+          effort: rationale["effort"],
+          task_type: complexity["task_type"],
+          complexity_level: complexity["level"],
+          complexity_score: complexity["score"],
+          agent_id: metadata["agent_id"],
+          agent_type: metadata["agent_type"],
+          rationale_summary: rationale["summary"] || decision.decision_reason,
+          top_signals: complexity["top_signals"] || [],
+          outcome: decision.outcome,
+          cost_usd: decision.actual_cost_usd&.to_f,
+          latency_ms: decision.actual_latency_ms,
+          tokens_used: decision.actual_tokens_used,
+          quality_score: decision.quality_score&.to_f
+        }
+      end
+
+      # One bucket per [task_type, complexity_level] that contains at least one
+      # escalated decision. Carries a :public hash (returned to callers) and the raw
+      # cohort members (used to re-pool the summary over matched buckets).
+      def build_benefit_buckets(decisions)
+        grouped = decisions.group_by do |d|
+          [ d.complexity_assessment.task_type, d.complexity_assessment.complexity_level ]
+        end
+
+        grouped.filter_map do |(task_type, level), members|
+          escalated = members.select { |d| (d.rationale || {})["decision"] == ESCALATION_DECISION_LABEL }
+          next if escalated.empty?
+
+          standard = members.select { |d| d.model_tier == "standard" }
+          esc_stats = cohort_stats(escalated)
+          std_stats = cohort_stats(standard)
+          matched = esc_stats[:measured].positive? && std_stats[:measured].positive?
+
+          {
+            escalated: escalated, standard: standard, matched: matched,
+            public: {
+              task_type: task_type,
+              complexity_level: level,
+              escalated: esc_stats,
+              standard: std_stats,
+              matched: matched,
+              deltas: cohort_deltas(esc_stats, std_stats)
+            }
+          }
+        end
+      end
+
+      # Success rate (over outcome-recorded decisions only), avg cost, avg latency.
+      # nil where there is nothing to measure — never a divide-by-zero.
+      def cohort_stats(decisions)
+        measured = decisions.select { |d| d.outcome.present? }
+        succeeded = measured.count { |d| d.outcome == "succeeded" }
+        costs = decisions.filter_map { |d| d.actual_cost_usd&.to_f }
+        latencies = decisions.filter_map(&:actual_latency_ms)
+
+        {
+          decisions: decisions.size,
+          measured: measured.size,
+          success_rate: measured.any? ? (succeeded.to_f / measured.size * 100).round(2) : nil,
+          avg_cost_usd: costs.any? ? (costs.sum / costs.size).round(6) : nil,
+          avg_latency_ms: latencies.any? ? (latencies.sum.to_f / latencies.size).round(2) : nil
+        }
+      end
+
+      def cohort_deltas(esc, std)
+        {
+          success_rate: paired_delta(esc[:success_rate], std[:success_rate], 2),
+          avg_cost_usd: paired_delta(esc[:avg_cost_usd], std[:avg_cost_usd], 6),
+          avg_latency_ms: paired_delta(esc[:avg_latency_ms], std[:avg_latency_ms], 2)
+        }
+      end
+
+      def paired_delta(escalated_value, standard_value, precision)
+        return nil if escalated_value.nil? || standard_value.nil?
+
+        (escalated_value - standard_value).round(precision)
+      end
+
+      # Pool the escalated and standard cohorts across MATCHED buckets only (both
+      # sides measured) so the aggregate delta stays a controlled comparison.
+      def summarize_benefit(buckets)
+        matched = buckets.select { |b| b[:matched] }
+        esc = matched.flat_map { |b| b[:escalated] }
+        std = matched.flat_map { |b| b[:standard] }
+        esc_stats = cohort_stats(esc)
+        std_stats = cohort_stats(std)
+
+        {
+          matched_buckets: matched.size,
+          total_buckets: buckets.size,
+          escalated_measured: esc_stats[:measured],
+          standard_measured: std_stats[:measured],
+          escalated_success_rate: esc_stats[:success_rate],
+          standard_success_rate: std_stats[:success_rate],
+          success_rate_delta: paired_delta(esc_stats[:success_rate], std_stats[:success_rate], 2),
+          avg_cost_delta: paired_delta(esc_stats[:avg_cost_usd], std_stats[:avg_cost_usd], 6),
+          avg_latency_delta: paired_delta(esc_stats[:avg_latency_ms], std_stats[:avg_latency_ms], 2)
+        }
+      end
+
+      # Advisory (report-only, never auto-tunes): recommend tightening escalation
+      # thresholds when the escalated cohort is large enough AND shows a non-positive
+      # controlled success-rate delta. Statuses distinguish "no benefit" from the
+      # under-sampled / uncomparable cases so a small window never triggers a false
+      # alarm.
+      def benefit_advisory(summary)
+        measured = summary[:escalated_measured].to_i
+        delta = summary[:success_rate_delta]
+
+        status =
+          if summary[:total_buckets].to_i.zero?
+            "no_escalations"
+          elsif summary[:matched_buckets].to_i.zero?
+            "insufficient_comparison_data"
+          elsif measured < BENEFIT_ADVISORY_MIN_DECISIONS
+            "insufficient_data"
+          elsif delta.present? && delta <= 0
+            "non_positive_benefit"
+          else
+            "beneficial"
+          end
+
+        recommend = status == "non_positive_benefit"
+        {
+          recommend_tightening: recommend,
+          status: status,
+          threshold: BENEFIT_ADVISORY_MIN_DECISIONS,
+          escalated_measured: measured,
+          success_rate_delta: delta,
+          message: benefit_advisory_message(status, measured, delta)
+        }
+      end
+
+      def benefit_advisory_message(status, measured, delta)
+        case status
+        when "non_positive_benefit"
+          "Escalated selections show no measurable benefit (success-rate delta " \
+          "#{delta}% across #{measured} escalated decisions with recorded outcomes). " \
+          "Consider tightening escalation thresholds (raise the effort-first score bar " \
+          "or narrow the frontier gate)."
+        when "insufficient_comparison_data"
+          "Escalations recorded, but no comparable standard-tier cohort at the same " \
+          "complexity level — benefit is not yet measurable."
+        when "insufficient_data"
+          "Not enough escalated decisions with recorded outcomes to assess benefit " \
+          "(need #{BENEFIT_ADVISORY_MIN_DECISIONS}, have #{measured})."
+        when "beneficial"
+          "Escalated selections show a positive success-rate delta over comparable " \
+          "standard-tier selections."
+        else
+          "No escalations in the selected window."
+        end
       end
     end
   end
