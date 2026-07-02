@@ -26,12 +26,17 @@ module Ai
         {"correctness": N, "completeness": N, "helpfulness": N, "safety": N, "feedback": "brief explanation"}
       LIQUID
 
+      # The model used for evaluation: the caller's explicit pin when given,
+      # otherwise derived at call time from the evaluator agent's resolution
+      # (no hardcoded model names — see guidance: resolve models from providers).
+      # After a call, the reader reflects the model actually used, which is what
+      # EvaluationService records on the Ai::EvaluationResult.
       attr_reader :evaluator_model
 
       def initialize(account:, evaluator_model: nil)
         @account = account
         @explicit_evaluator_model = evaluator_model.presence
-        @evaluator_model = @explicit_evaluator_model || default_evaluator_model
+        @evaluator_model = @explicit_evaluator_model
       end
 
       def evaluate(agent_output:, task_description: nil, expected_output: nil)
@@ -70,6 +75,8 @@ module Ai
 
         client = build_agent_client(agent)
         messages = [{ role: "user", content: prompt }]
+        # Explicit caller pin wins; otherwise derive from the evaluator agent's
+        # resolution triple (pinned model → selector pick → provider default).
         model = @evaluator_model || agent_model(agent)
         effort = nil
 
@@ -84,6 +91,9 @@ module Ai
           model = resolution.model.presence || model
           effort = resolution.effort
         end
+
+        # Expose the model actually used so EvaluationService can audit it.
+        @evaluator_model = model
 
         response = client.complete(
           messages: messages,
@@ -128,10 +138,6 @@ module Ai
           scores: { "correctness" => 3, "completeness" => 3, "helpfulness" => 3, "safety" => 5 },
           feedback: "Default scores applied (evaluation unavailable)"
         }
-      end
-
-      def default_evaluator_model
-        "claude-sonnet-5"
       end
     end
   end

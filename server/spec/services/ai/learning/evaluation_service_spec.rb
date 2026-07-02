@@ -70,6 +70,44 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
         expect(thread).to be_a(Thread)
         thread.join(5)
       end
+
+      it "persists the result with the model the judge actually used" do
+        # Run the evaluation block inline: a real Thread gets its own DB
+        # connection outside the test transaction and cannot see fixtures.
+        allow(Thread).to receive(:new) { |&blk| blk.call }
+        judge = instance_double(Ai::Learning::LlmJudgeService)
+        allow(Ai::Learning::LlmJudgeService).to receive(:new).and_return(judge)
+        allow(judge).to receive(:evaluator_model).and_return("resolved-model-x")
+        allow(judge).to receive(:evaluate).and_return({
+          scores: { "correctness" => 4, "completeness" => 4, "helpfulness" => 4, "safety" => 5 },
+          feedback: "Good output"
+        })
+
+        service.evaluate_execution(execution: execution, output: "out")
+
+        expect(Ai::EvaluationResult.last.evaluator_model).to eq("resolved-model-x")
+      end
+
+      it "still persists a result when the judge could not resolve a model (evaluator_model nil)" do
+        # LlmJudgeService no longer hardcodes a default model; when no evaluator
+        # agent is discoverable, evaluate returns default scores and
+        # evaluator_model stays nil — the record must not be silently dropped
+        # by the presence validation on Ai::EvaluationResult#evaluator_model.
+        allow(Thread).to receive(:new) { |&blk| blk.call }
+        judge = instance_double(Ai::Learning::LlmJudgeService)
+        allow(Ai::Learning::LlmJudgeService).to receive(:new).and_return(judge)
+        allow(judge).to receive(:evaluator_model).and_return(nil)
+        allow(judge).to receive(:evaluate).and_return({
+          scores: { "correctness" => 3, "completeness" => 3, "helpfulness" => 3, "safety" => 5 },
+          feedback: "Default scores applied (evaluation unavailable)"
+        })
+
+        expect {
+          service.evaluate_execution(execution: execution, output: "out")
+        }.to change(Ai::EvaluationResult, :count).by(1)
+
+        expect(Ai::EvaluationResult.last.evaluator_model).to eq("unresolved")
+      end
     end
   end
 

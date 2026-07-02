@@ -13,8 +13,8 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
   end
 
   describe "#initialize" do
-    it "uses default evaluator model" do
-      expect(service.evaluator_model).to eq("claude-sonnet-5")
+    it "has no hardcoded default — the model derives from the evaluator agent at call time" do
+      expect(service.evaluator_model).to be_nil
     end
 
     it "accepts custom evaluator model" do
@@ -161,13 +161,17 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
     end
 
     context "gate OFF (default)" do
-      it "never invokes the tier resolver and uses the hardcoded evaluator_model baseline" do
+      it "never invokes the tier resolver and uses the evaluator agent's resolved model as baseline" do
+        derived_default = judge_agent.resolved_model
+        expect(derived_default).to be_present # sanity: derivation must yield a model
         expect(Ai::Routing::TaskTierResolver).not_to receive(:resolve)
-        expect(client).to receive(:complete).with(hash_including(model: "claude-sonnet-5")).and_return(
+        expect(client).to receive(:complete).with(hash_including(model: derived_default)).and_return(
           Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
                                  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
         service.evaluate(agent_output: "Test output")
+        # The reader reflects the model actually used (audited by EvaluationService)
+        expect(service.evaluator_model).to eq(derived_default)
       end
     end
 

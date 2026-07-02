@@ -15,7 +15,7 @@ module Ai
           judge = Ai::Learning::LlmJudgeService.new(account: @account)
           scores = judge.evaluate(
             agent_output: output,
-            task_description: context[:task_description] || execution.input_data&.dig("prompt"),
+            task_description: context[:task_description] || execution.input_parameters&.dig("prompt"),
             expected_output: context[:expected_output]
           )
 
@@ -23,7 +23,11 @@ module Ai
             account: @account,
             agent: execution.agent,
             execution_id: execution.id,
-            evaluator_model: judge.evaluator_model,
+            # evaluator_model is derived from the evaluator agent at call time
+            # (no hardcoded default); it stays nil when no evaluator agent could
+            # be resolved — record a sentinel so the presence validation does
+            # not silently drop the (default-scored) result.
+            evaluator_model: judge.evaluator_model || "unresolved",
             scores: scores[:scores],
             feedback: scores[:feedback]
           )
