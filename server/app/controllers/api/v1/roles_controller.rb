@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Api::V1::RolesController < ApplicationController
+  include RoleAssignmentGuard
+
   before_action -> { require_permission("admin.role.read") }, only: [ :index, :show, :users ]
   before_action -> { require_permission("admin.role.create") }, only: [ :create ]
   before_action -> { require_permission("admin.role.update") }, only: [ :update ]
@@ -97,10 +99,13 @@ class Api::V1::RolesController < ApplicationController
 
     # System/regular admins can assign any visible role; others only roles whose
     # effective permissions are a subset of their own (no privilege escalation).
-    unless current_user.has_permission?("system.admin") || current_user.has_permission?("admin.access")
+    # Mirrors RoleAssignmentGuard#can_assign_role? but hoists the admin check and
+    # permission_names lookup out of the per-role filter (system roles are
+    # already excluded by the query above, so its system_role? guard is moot).
+    unless role_assignment_admin?
       user_permissions = current_user.permission_names
       assignable_roles = assignable_roles.select do |role|
-        role.permission_names.all? { |perm| user_permissions.include?(perm) }
+        role_permissions_subset_of_user?(role, user_permissions)
       end
     end
 
@@ -179,16 +184,6 @@ class Api::V1::RolesController < ApplicationController
     (current - names).each { |n| role.remove_permission(n) }
     (names - current).each { |n| role.add_permission(n) }
     [ true, nil ]
-  end
-
-  # Check if the current user can assign a specific role to a user
-  def can_assign_role?(role)
-    return true if current_user.has_permission?("system.admin") || current_user.has_permission?("admin.access")
-    return false if role.system_role?
-
-    # Non-admins may only assign roles whose effective permissions they all hold
-    user_permissions = current_user.permission_names
-    role.permission_names.all? { |perm| user_permissions.include?(perm) }
   end
 
   # `users_count` / `permission_names` may be supplied by the index (computed in

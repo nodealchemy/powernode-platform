@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Api::V1::Admin::UsersController < ApplicationController
+  include RoleAssignmentGuard
+
   before_action -> { require_permission("admin.user.read") }, only: [ :index, :show ]
   before_action -> { require_permission("admin.user.create") }, only: [ :create ]
   before_action -> { require_permission("admin.user.update") }, only: [ :update ]
@@ -321,18 +323,4 @@ class Api::V1::Admin::UsersController < ApplicationController
     }
   end
 
-  # Check if current user can assign a specific role
-  def can_assign_role?(role)
-    # System admins and regular admins can assign any role
-    return true if current_user.has_permission?("system.admin") || current_user.has_permission?("admin.access")
-
-    # System roles cannot be assigned by non-admin users
-    return false if role.system_role?
-
-    # Non-admin users can only assign roles that have permissions they also have
-    user_permissions = current_user.permission_names
-    role_permissions = role.permission_names
-
-    role_permissions.all? { |perm| user_permissions.include?(perm) }
-  end
 end

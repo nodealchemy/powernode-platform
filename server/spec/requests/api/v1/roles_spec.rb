@@ -404,6 +404,41 @@ RSpec.describe 'Api::V1::Roles', type: :request do
       # All assignable roles should have system_role: false
       expect(role_types.compact.uniq).not_to include(true)
     end
+
+    # Privilege-escalation defense (shared RoleAssignmentGuard): a non-admin may
+    # only be offered roles whose effective permissions are a subset of their
+    # own. A role granting a permission they do NOT hold must never be offered —
+    # otherwise assigning it would escalate privilege. Characterizes the
+    # `assignable` call site of the escalation guard.
+    context 'privilege escalation (non-admin subset filtering)' do
+      let(:limited_user) { create(:user, account: account, permissions: [ 'users.read' ]) }
+      let(:limited_headers) { auth_headers_for(limited_user) }
+
+      let!(:subset_role) do
+        role = create(:role, name: 'assignable_subset', account_id: account.id)
+        role.role_permissions.create!(permission_name: 'users.read')
+        role
+      end
+      let!(:escalation_role) do
+        role = create(:role, name: 'assignable_escalation', account_id: account.id)
+        role.role_permissions.create!(permission_name: 'admin.role.delete')
+        role
+      end
+
+      it 'offers roles whose permissions the user already holds' do
+        get '/api/v1/roles/assignable', headers: limited_headers, as: :json
+
+        names = json_response['data'].map { |r| r['name'] }
+        expect(names).to include('assignable_subset')
+      end
+
+      it 'never offers a role granting a permission the user lacks' do
+        get '/api/v1/roles/assignable', headers: limited_headers, as: :json
+
+        names = json_response['data'].map { |r| r['name'] }
+        expect(names).not_to include('assignable_escalation')
+      end
+    end
   end
 
   describe 'POST /api/v1/roles/:role_id/assign_to_user/:user_id' do

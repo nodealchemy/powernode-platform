@@ -336,6 +336,45 @@ RSpec.describe 'Api::V1::Admin::UsersController', type: :request do
         expect(response).to have_http_status(:forbidden)
       end
     end
+
+    # Privilege-escalation defense (shared RoleAssignmentGuard): an
+    # admin.user.update holder who is NOT a system/regular admin may only assign
+    # roles whose effective permissions are a subset of their own. Assigning a
+    # role that grants a permission they lack must be rejected (403), never
+    # silently allowed. Characterizes the `update` call site of the guard.
+    context 'privilege escalation on role assignment (non-admin assigner)' do
+      let(:limited_admin) { create(:user, account: account, permissions: [ 'admin.user.update', 'users.read' ]) }
+      let(:limited_headers) { auth_headers_for(limited_admin) }
+
+      let!(:subset_role) do
+        role = create(:role, name: 'update_subset')
+        role.role_permissions.create!(permission_name: 'users.read')
+        role
+      end
+      let!(:escalation_role) do
+        role = create(:role, name: 'update_escalation')
+        role.role_permissions.create!(permission_name: 'admin.role.delete')
+        role
+      end
+
+      it 'rejects assigning a role granting a permission the assigner lacks' do
+        patch "/api/v1/admin/users/#{target_user.id}",
+              params: { user: { roles: [ 'update_escalation' ] } }.to_json,
+              headers: limited_headers
+
+        expect_error_response('You do not have permission to assign the following roles', 403)
+        expect(target_user.reload.roles.pluck(:name)).not_to include('update_escalation')
+      end
+
+      it 'allows assigning a role whose permissions the assigner holds' do
+        patch "/api/v1/admin/users/#{target_user.id}",
+              params: { user: { roles: [ 'update_subset' ] } }.to_json,
+              headers: limited_headers
+
+        expect_success_response
+        expect(target_user.reload.roles.pluck(:name)).to include('update_subset')
+      end
+    end
   end
 
   describe 'DELETE /api/v1/admin/users/:id' do
