@@ -99,7 +99,7 @@ export function useProvidersPage() {
 
   const handleRefresh = useCallback(() => {
     loadProviders(false);
-  }, []);
+  }, [loadProviders]);
 
   const handleSetupDefaults = useCallback(async (providerTypes?: string[]) => {
     try {
@@ -128,7 +128,7 @@ export function useProvidersPage() {
       });
     }
     setShowSetupModal(false);
-  }, [addNotification]);
+  }, [addNotification, loadProviders]);
 
   const handleBulkTest = useCallback(async () => {
     try {
@@ -164,7 +164,7 @@ export function useProvidersPage() {
       });
     }
     setShowBulkTestModal(false);
-  }, [addNotification]);
+  }, [addNotification, loadProviders]);
 
   const handleProviderUpdate = useCallback(() => {
     loadProviders(false);
