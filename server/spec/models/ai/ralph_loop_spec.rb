@@ -272,4 +272,200 @@ RSpec.describe Ai::RalphLoop, type: :model do
       expect(metered).not_to include(cc, ext)
     end
   end
+
+  # ==========================================================================
+  # Ai::RalphLoopConcerns::StateMachine — lifecycle transitions, guards,
+  # repeating-task completion block, and reset!.
+  # ==========================================================================
+  describe "state machine" do
+    describe "#start!" do
+      it "transitions pending -> running and stamps started_at" do
+        loop_record.start!
+        loop_record.reload
+
+        expect(loop_record.status).to eq("running")
+        expect(loop_record.started_at).to be_present
+      end
+
+      %i[running paused completed failed cancelled].each do |state|
+        it "refuses to start from #{state}" do
+          record = create(:ai_ralph_loop, state, account: account)
+
+          expect { record.start! }
+            .to raise_error(Ai::RalphLoop::InvalidTransitionError, /Cannot start loop in #{state} status/)
+        end
+      end
+    end
+
+    describe "#pause! / #resume!" do
+      it "pauses a running loop and resumes it back to running" do
+        record = create(:ai_ralph_loop, :running, account: account)
+
+        record.pause!
+        expect(record.reload.status).to eq("paused")
+
+        record.resume!
+        expect(record.reload.status).to eq("running")
+      end
+
+      it "refuses to pause a loop that is not running" do
+        expect { loop_record.pause! }
+          .to raise_error(Ai::RalphLoop::InvalidTransitionError, /Cannot pause/)
+      end
+
+      it "refuses to resume a loop that is not paused" do
+        record = create(:ai_ralph_loop, :running, account: account)
+
+        expect { record.resume! }
+          .to raise_error(Ai::RalphLoop::InvalidTransitionError, /Cannot resume/)
+      end
+    end
+
+    describe "#complete!" do
+      it "transitions running -> completed, stamping completed_at and merging the final result" do
+        record = create(:ai_ralph_loop, :running, account: account, configuration: { "keep" => "me" })
+
+        record.complete!(result: { "tasks_passed" => 3 })
+        record.reload
+
+        expect(record.status).to eq("completed")
+        expect(record.completed_at).to be_present
+        expect(record.configuration["keep"]).to eq("me")
+        expect(record.configuration["final_result"]).to eq({ "tasks_passed" => 3 })
+      end
+
+      it "completes from paused as well" do
+        record = create(:ai_ralph_loop, :paused, account: account)
+
+        expect { record.complete! }.to change { record.reload.status }.from("paused").to("completed")
+      end
+
+      it "refuses to complete a pending loop" do
+        expect { loop_record.complete! }
+          .to raise_error(Ai::RalphLoop::InvalidTransitionError, /Cannot complete/)
+      end
+
+      it "BLOCKS completion while repeating tasks exist (loop stays running, no error)" do
+        record = create(:ai_ralph_loop, :running, account: account)
+        create(:ai_ralph_task, ralph_loop: record, repeating: true)
+
+        expect(Rails.logger).to receive(:warn).with(a_string_including("Blocked completion"))
+        expect { record.complete! }.not_to raise_error
+
+        expect(record.reload.status).to eq("running")
+        expect(record.completed_at).to be_nil
+      end
+    end
+
+    describe "#fail!" do
+      %i[pending running paused].each do |state|
+        it "fails from #{state} recording the error details" do
+          record = create(:ai_ralph_loop, state, account: account)
+
+          record.fail!(error_message: "boom", error_code: "E_BOOM", error_details: { "step" => 4 })
+          record.reload
+
+          expect(record.status).to eq("failed")
+          expect(record.completed_at).to be_present
+          expect(record.error_message).to eq("boom")
+          expect(record.error_code).to eq("E_BOOM")
+          expect(record.error_details).to eq({ "step" => 4 })
+        end
+      end
+
+      it "refuses to fail an already-terminal loop" do
+        record = create(:ai_ralph_loop, :completed, account: account)
+
+        expect { record.fail!(error_message: "late") }
+          .to raise_error(Ai::RalphLoop::InvalidTransitionError, /Cannot fail/)
+      end
+    end
+
+    describe "#cancel!" do
+      it "cancels any non-terminal loop and records the reason" do
+        record = create(:ai_ralph_loop, :running, account: account)
+
+        record.cancel!(reason: "operator abort")
+        record.reload
+
+        expect(record.status).to eq("cancelled")
+        expect(record.completed_at).to be_present
+        expect(record.configuration["cancellation_reason"]).to eq("operator abort")
+      end
+
+      %i[completed failed cancelled].each do |state|
+        it "refuses to cancel a #{state} loop" do
+          record = create(:ai_ralph_loop, state, account: account)
+
+          expect { record.cancel! }
+            .to raise_error(Ai::RalphLoop::InvalidTransitionError, /Cannot cancel/)
+        end
+      end
+    end
+
+    describe "#reset!" do
+      let(:record) { create(:ai_ralph_loop, :failed, account: account, current_iteration: 4) }
+
+      before do
+        create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 1)
+        create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 2)
+      end
+
+      it "clears iteration history and restores the loop to a clean pending state" do
+        record.reset!
+        record.reload
+
+        expect(record.status).to eq("pending")
+        expect(record.current_iteration).to eq(0)
+        expect(record.started_at).to be_nil
+        expect(record.completed_at).to be_nil
+        expect(record.error_message).to be_nil
+        expect(record.error_code).to be_nil
+        expect(record.error_details).to eq({})
+        expect(record.ralph_iterations.count).to eq(0)
+      end
+
+      it "resets non-skipped tasks to pending but preserves intentionally skipped tasks" do
+        passed = create(:ai_ralph_task, :passed, ralph_loop: record, execution_attempts: 3)
+        failed = create(:ai_ralph_task, :failed, ralph_loop: record, execution_attempts: 2)
+        skipped = create(:ai_ralph_task, :skipped, ralph_loop: record)
+
+        record.reset!
+
+        expect(passed.reload).to have_attributes(
+          status: "pending", execution_attempts: 0, completed_in_iteration: nil, iteration_completed_at: nil
+        )
+        expect(failed.reload).to have_attributes(status: "pending", error_message: nil, error_code: nil)
+        expect(skipped.reload.status).to eq("skipped")
+      end
+
+      %i[pending running paused].each do |state|
+        it "refuses to reset a non-terminal (#{state}) loop" do
+          live = create(:ai_ralph_loop, state, account: account)
+
+          expect { live.reset! }
+            .to raise_error(Ai::RalphLoop::InvalidTransitionError, /Cannot reset/)
+        end
+      end
+    end
+
+    describe "state predicates" do
+      it "classifies terminal vs in-progress statuses" do
+        expect(create(:ai_ralph_loop, :completed, account: account)).to be_terminal
+        expect(create(:ai_ralph_loop, :failed, account: account)).to be_terminal
+        expect(create(:ai_ralph_loop, :cancelled, account: account)).to be_terminal
+        expect(create(:ai_ralph_loop, :running, account: account)).to be_in_progress
+        expect(loop_record).to be_in_progress
+      end
+
+      it "reports max_iterations_reached? only when a positive cap is hit" do
+        expect(create(:ai_ralph_loop, account: account, max_iterations: 3, current_iteration: 3))
+          .to be_max_iterations_reached
+        expect(create(:ai_ralph_loop, account: account, max_iterations: 3, current_iteration: 2))
+          .not_to be_max_iterations_reached
+        expect(create(:ai_ralph_loop, account: account, max_iterations: 0, current_iteration: 99))
+          .not_to be_max_iterations_reached
+      end
+    end
+  end
 end

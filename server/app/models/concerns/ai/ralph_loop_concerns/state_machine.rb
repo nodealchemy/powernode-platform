@@ -7,10 +7,15 @@ module Ai
 
       TERMINAL_STATUSES = %w[completed cancelled failed].freeze
 
+      # NOTE: this concern was extracted from Ai::RalphLoop, where
+      # InvalidTransitionError is defined. A bare `raise InvalidTransitionError`
+      # here resolves against this module's lexical scope and raises NameError
+      # instead — guards must use the fully qualified constant.
+
       # State transition methods
 
       def start!
-        raise InvalidTransitionError, "Cannot start loop in #{status} status" unless can_start?
+        raise Ai::RalphLoop::InvalidTransitionError, "Cannot start loop in #{status} status" unless can_start?
 
         update!(
           status: "running",
@@ -19,19 +24,19 @@ module Ai
       end
 
       def pause!
-        raise InvalidTransitionError, "Cannot pause loop in #{status} status" unless can_pause?
+        raise Ai::RalphLoop::InvalidTransitionError, "Cannot pause loop in #{status} status" unless can_pause?
 
         update!(status: "paused")
       end
 
       def resume!
-        raise InvalidTransitionError, "Cannot resume loop in #{status} status" unless can_resume?
+        raise Ai::RalphLoop::InvalidTransitionError, "Cannot resume loop in #{status} status" unless can_resume?
 
         update!(status: "running")
       end
 
       def complete!(result: {})
-        raise InvalidTransitionError, "Cannot complete loop in #{status} status" unless can_complete?
+        raise Ai::RalphLoop::InvalidTransitionError, "Cannot complete loop in #{status} status" unless can_complete?
 
         if ralph_tasks.where(repeating: true).exists?
           Rails.logger.warn("[RalphLoop] Blocked completion of loop #{id} — has repeating tasks")
@@ -63,7 +68,7 @@ module Ai
       end
 
       def fail!(error_message:, error_code: nil, error_details: {})
-        raise InvalidTransitionError, "Cannot fail loop in #{status} status" unless can_fail?
+        raise Ai::RalphLoop::InvalidTransitionError, "Cannot fail loop in #{status} status" unless can_fail?
 
         update!(
           status: "failed",
@@ -75,7 +80,7 @@ module Ai
       end
 
       def cancel!(reason: nil)
-        raise InvalidTransitionError, "Cannot cancel loop in #{status} status" unless can_cancel?
+        raise Ai::RalphLoop::InvalidTransitionError, "Cannot cancel loop in #{status} status" unless can_cancel?
 
         update!(
           status: "cancelled",
@@ -85,7 +90,7 @@ module Ai
       end
 
       def reset!
-        raise InvalidTransitionError, "Cannot reset loop in #{status} status" unless can_reset?
+        raise Ai::RalphLoop::InvalidTransitionError, "Cannot reset loop in #{status} status" unless can_reset?
 
         transaction do
           # Clear previous iteration history
