@@ -71,6 +71,21 @@ A `/campaign run` is a `/dev-loop` iteration with campaign context — every loo
   file depend on a private extension.
 - **Crypto-material safety absolute**; **3-strikes → stop & ask**; honour `emergency_halt` / kill-switch.
 
+## Class-sweep discovery mode
+
+When a run identifies a **recurring bug class** — the same defect shape surfacing file after file
+across rounds — do not keep draining it one instance per iteration. The `improvement` MCP tool's
+`discover_improvements` action takes an optional `class_tag`: pass the class's learning tag (the
+same tag `query_learnings` uses, e.g. `class:server-worker-jobseam`) and the tool switches to a
+targeted all-instances sweep. It returns the account's known instances of the class (active/verified
+`CompoundLearning`s carrying the tag) plus sweep guidance: derive the class's detection pattern,
+widen the scan to EVERY pattern match across the whole tree, verify each candidate on HEAD, and
+offer one `create_improvement` per instance with the class tag embedded in the fingerprint
+(`<class_tag>|<file>|<detail>`) so instances dedupe individually and the class's recurrence stays
+measurable. The sweep changes only DISCOVERY exhaustiveness — approval stays per-offer (the
+bulk-operation rule over auto-discovered changes is unchanged) — so a learned class is exhausted in
+one pass instead of resurfacing one instance per round.
+
 ## Deploy notes
 
 The `ai.campaigns.read` / `ai.campaigns.manage` permissions are code-defined in the catalog — a

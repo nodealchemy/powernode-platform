@@ -34,6 +34,46 @@ RSpec.describe Ai::Tools::ImprovementTool do
     end
   end
 
+  describe "discover_improvements" do
+    it "returns general discovery guidance when no class_tag is given" do
+      result = tool.execute(params: { action: "discover_improvements" })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:mode]).to eq("general")
+      expect(result[:data][:guidance]).to include("pattern-validation")
+    end
+
+    describe "class-sweep mode (class_tag)" do
+      it "returns sweep guidance plus the account's known instances from tagged learnings" do
+        create(:ai_compound_learning, account: account,
+               title: "Server enqueues worker-only job constants",
+               tags: ["class:server-worker-jobseam"])
+        create(:ai_compound_learning, account: account, tags: ["unrelated"])
+        create(:ai_compound_learning, :deprecated, account: account, tags: ["class:server-worker-jobseam"])
+        create(:ai_compound_learning, account: create(:account), tags: ["class:server-worker-jobseam"])
+
+        result = tool.execute(params: { action: "discover_improvements", class_tag: "class:server-worker-jobseam" })
+
+        expect(result[:success]).to be true
+        expect(result[:data][:mode]).to eq("class_sweep")
+        expect(result[:data][:class_tag]).to eq("class:server-worker-jobseam")
+        expect(result[:data][:known_instances].size).to eq(1)
+        expect(result[:data][:known_instances].first[:title]).to eq("Server enqueues worker-only job constants")
+        # exhaustive semantics: the whole class in one pass, fingerprints carry the class tag
+        expect(result[:data][:guidance]).to include("ONE pass")
+        expect(result[:data][:guidance]).to include("class:server-worker-jobseam|<file>")
+      end
+
+      it "still returns sweep guidance when no learnings carry the tag yet" do
+        result = tool.execute(params: { action: "discover_improvements", class_tag: "class:ghost" })
+
+        expect(result[:success]).to be true
+        expect(result[:data][:mode]).to eq("class_sweep")
+        expect(result[:data][:known_instances]).to eq([])
+      end
+    end
+  end
+
   describe "create_improvement" do
     it "persists a pending code-quality offer with the fingerprint in evidence" do
       result = create_offer

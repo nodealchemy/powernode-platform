@@ -22,6 +22,7 @@ module Ai
           description: "Discover, offer, triage and approve code-quality improvements for the dev-improve loop",
           parameters: {
             action: { type: "string", required: true, description: "discover_improvements | create_improvement | list_improvements | approve_improvement | dismiss_improvement | revert_improvement | enable_autonomy | disable_autonomy | scoreboard" },
+            class_tag: { type: "string", required: false, description: "Recurring-bug-class learning tag (as used by query_learnings); switches discover_improvements to a class-sweep that exhausts ALL instances of the class in one pass" },
             recommendation_type: { type: "string", required: false, description: CODE_TYPES.join(" | ") },
             repository: { type: "string", required: false, description: "Repository id/full_name; resolved to a Devops::GitRepository target when known, else recorded as a tag" },
             agent_id: { type: "string", required: false, description: "Agent (UUID/slug/name) to drain the dev-improve loop when enabling autonomy" },
@@ -45,8 +46,12 @@ module Ai
           "discover_improvements" => {
             description: "Guidance for running discovery: run code_static_analysis + pattern-validation.sh " \
                          "(and code_dead_code / code_find_duplicates), verify each finding reproduces on HEAD, " \
-                         "then call create_improvement for each vetted finding.",
-            parameters: {}
+                         "then call create_improvement for each vetted finding. Pass class_tag (a recurring " \
+                         "bug-class learning tag) to switch to a targeted class-sweep that returns the known " \
+                         "instances and exhausts every pattern match of the class in ONE pass.",
+            parameters: {
+              class_tag: { type: "string", required: false, description: "Recurring-bug-class learning tag, e.g. class:server-worker-jobseam" }
+            }
           },
           "create_improvement" => {
             description: "Persist one vetted code-quality finding as a pending offer. Idempotent on fingerprint " \
@@ -118,7 +123,7 @@ module Ai
         return error_result("Account context required") unless account
 
         case params[:action]
-        when "discover_improvements" then discover_guidance
+        when "discover_improvements" then discover_guidance(params)
         when "create_improvement" then create_improvement(params)
         when "list_improvements" then list_improvements(params)
         when "approve_improvement" then approve_improvement(params)
@@ -133,8 +138,12 @@ module Ai
 
       private
 
-      def discover_guidance
+      def discover_guidance(params = {})
+        class_tag = params[:class_tag].to_s.strip
+        return class_sweep_guidance(class_tag) if class_tag.present?
+
         success_result(
+          mode: "general",
           guidance: "Run platform.code_static_analysis and scripts/pattern-validation.sh (plus code_dead_code / " \
                     "code_find_duplicates as needed). For EACH finding: verify it still reproduces on HEAD " \
                     "(use code_blast_radius before proposing a deletion), then call create_improvement with a " \
@@ -147,6 +156,36 @@ module Ai
                     "a Tailwind/theme '\\b' word-boundary also matches the position before a '-bg'/'-fg'/'-border' " \
                     "suffix, so 'bg-theme-<c>\\b.*text-theme-<c>' wrongly flags the CORRECT fg/bg triad " \
                     "('bg-theme-<c>-bg' / 'text-theme-<c>-fg') — anchor with '(?![-a-z])' as that check does.",
+          code_types: CODE_TYPES
+        )
+      end
+
+      # Targeted all-instances class-sweep: when a recurring bug class has been
+      # identified (tagged learnings — the same tag query_learnings uses), widen
+      # discovery from "the finding that surfaced it" to EVERY pattern match of
+      # the class so it is exhausted in one pass instead of resurfacing one
+      # instance per round.
+      def class_sweep_guidance(class_tag)
+        learnings = Ai::CompoundLearning
+                    .where(account: account, status: %w[active verified])
+                    .with_tag(class_tag)
+                    .recent
+                    .limit(25)
+
+        success_result(
+          mode: "class_sweep",
+          class_tag: class_tag,
+          known_instances: learnings.map { |l|
+            { id: l.id, title: l.title, category: l.category, content: l.content.to_s.truncate(500) }
+          },
+          guidance: "Class sweep for '#{class_tag}': derive the class's detection pattern from the known " \
+                    "instances above (query_learnings with this tag reads the same source), then widen the scan " \
+                    "to EVERY pattern match across the whole tree — not just the file that surfaced the class — " \
+                    "and exhaust the class in ONE pass. Verify each candidate reproduces on HEAD, then call " \
+                    "create_improvement once per instance with a fingerprint embedding the class tag " \
+                    "(e.g. '#{class_tag}|<file>|<detail>') so instances dedupe individually and the class's " \
+                    "recurrence stays measurable. Approval remains per-offer (bulk-operation rule unchanged); " \
+                    "instances under extensions/private/* stay extension-tagged (gate #9).",
           code_types: CODE_TYPES
         )
       end
