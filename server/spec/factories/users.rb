@@ -30,10 +30,13 @@ FactoryBot.define do
       end
     end
 
-    # Default role assignment happens in after_create callback
-    after(:create) do |user, evaluator|
-      # User gets 'member' role by default via model callback if no custom permissions
-    end
+    # Default role comes from the model callback (assign_default_role): the
+    # FIRST user created in an account gets the OWNER role (all resource
+    # permissions — account bootstrap); later users get 'member'. Positive
+    # request specs lean on that owner grant, so do NOT expect a bare
+    # create(:user, account:) to be unprivileged. For a negative-authorization
+    # actor, pass permissions: [] (or use PermissionTestHelpers#
+    # user_without_permissions) to get a genuinely permissionless user.
 
     trait :owner do
       after(:create) do |user|

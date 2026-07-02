@@ -44,7 +44,7 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
 
     context 'without proper permissions' do
       it 'returns forbidden error' do
-        user_without_permissions = create(:user, account: account)
+        user_without_permissions = create(:user, account: account, permissions: [])
         headers_without_permissions = auth_headers_for(user_without_permissions)
 
         get '/api/v1/ai/monitoring/dashboard', headers: headers_without_permissions, as: :json

@@ -24,7 +24,7 @@ RSpec.describe 'Api::V1::Reports', type: :request do
     end
 
     context 'without permission' do
-      let(:limited_user) { create(:user, account: account) }
+      let(:limited_user) { create(:user, account: account, permissions: []) }
       let(:limited_headers) { auth_headers_for(limited_user) }
 
       it 'returns forbidden' do
