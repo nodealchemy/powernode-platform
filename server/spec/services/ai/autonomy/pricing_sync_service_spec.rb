@@ -44,6 +44,46 @@ RSpec.describe Ai::Autonomy::PricingSyncService do
     end
   end
 
+  describe ".pricing_for prefix matching" do
+    context "with nested DB prefixes (gpt-4o vs gpt-4o-mini)" do
+      before do
+        Ai::ModelPricing.create!(
+          model_id: "gpt-4o", provider_type: "openai",
+          input_per_1k: 0.0025, output_per_1k: 0.01, cached_input_per_1k: 0.00125,
+          tier: "standard", source: "litellm", last_synced_at: Time.current, metadata: {}
+        )
+        Ai::ModelPricing.create!(
+          model_id: "gpt-4o-mini", provider_type: "openai",
+          input_per_1k: 0.00015, output_per_1k: 0.0006, cached_input_per_1k: 0.000075,
+          tier: "economy", source: "litellm", last_synced_at: Time.current, metadata: {}
+        )
+      end
+
+      it "resolves a dated variant to the LONGEST matching prefix, not another candidate" do
+        pricing = described_class.pricing_for("gpt-4o-mini-2026-06-06")
+        expect(pricing["input"]).to eq(0.00015)
+      end
+
+      it "still prefers an exact match over any prefix" do
+        expect(described_class.pricing_for("gpt-4o")["input"]).to eq(0.0025)
+      end
+    end
+
+    context "constant fallback (no DB rows)" do
+      it "resolves nested constant prefixes by LONGEST prefix, not insertion order" do
+        pricing = described_class.pricing_for("gpt-4o-mini-2026-06-06")
+        expect(pricing["input"])
+          .to eq(Ai::ProviderManagementService::MODEL_PRICING["gpt-4o-mini"]["input"])
+      end
+
+      it "derives the tier label from the ModelTiers price bands" do
+        pricing = described_class.pricing_for("gpt-4o-mini-2026-06-06")
+        expect(pricing["tier"])
+          .to eq(Ai::ModelTiers.to_label(Ai::ModelTiers.tier_for_price(pricing["input"])))
+      end
+    end
+  end
+
   describe ".sync! stored tier (litellm path)" do
     def litellm_payload(input_per_token)
       {

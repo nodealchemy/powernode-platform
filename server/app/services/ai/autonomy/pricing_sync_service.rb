@@ -42,13 +42,21 @@ module Ai
           db_pricing = Ai::ModelPricing.find_by(model_id: model_id)
           return db_pricing.pricing_hash if db_pricing
 
-          # 2. Prefix match on DB
-          prefix_match = Ai::ModelPricing.where("? LIKE model_id || '%'", model_id).order(model_id: :desc).first
+          # 2. Longest-prefix match on DB (mirrors Ai::ModelTiers longest-prefix semantics)
+          prefix_match = Ai::ModelPricing.where("? LIKE model_id || '%'", model_id)
+                                         .order(Arel.sql("LENGTH(model_id) DESC"))
+                                         .first
           return prefix_match.pricing_hash if prefix_match
 
-          # 3. Fall back to constant
-          Ai::ProviderManagementService::MODEL_PRICING[model_id] ||
-            Ai::ProviderManagementService::MODEL_PRICING.find { |key, _| model_id.start_with?(key) }&.last
+          # 3. Fall back to constant: exact match, else LONGEST matching prefix.
+          # Tier derives from the ModelTiers price bands (the constant carries no labels).
+          constant = Ai::ProviderManagementService::MODEL_PRICING[model_id] ||
+                     Ai::ProviderManagementService::MODEL_PRICING
+                       .select { |key, _| model_id.start_with?(key) }
+                       .max_by { |key, _| key.length }&.last
+          return nil unless constant
+
+          constant.merge("tier" => classify_tier(constant["input"]))
         end
 
         private
