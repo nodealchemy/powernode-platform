@@ -7,21 +7,20 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
-import { agentsApi } from '@/shared/services/ai';
 import { MemoryStatsBar } from '../components/MemoryStatsBar';
 import { MemoryTierTabs } from '../components/MemoryTierTabs';
 import { MemoryEntryCard } from '../components/MemoryEntryCard';
 import { MemoryFilterBar } from '../components/MemoryFilterBar';
 import { SharedKnowledgeList } from '../components/SharedKnowledgeList';
+import { AgentSelectorCard } from '../components/AgentSelectorCard';
 import { useInfiniteMemory } from '../hooks/useInfiniteMemory';
 import { useMemoryFilters } from '../hooks/useMemoryFilters';
+import { useAgentMemorySelection } from '../hooks/useAgentMemorySelection';
 import {
-  fetchMemoryStats,
   fetchSharedKnowledge,
   deleteMemory,
 } from '../api/memoryApi';
-import type { MemoryStats, MemoryEntry, SharedKnowledgeEntry } from '../types/memory';
-import type { AiAgent } from '@/shared/types/ai';
+import type { MemoryEntry, SharedKnowledgeEntry } from '../types/memory';
 
 interface MemoryExplorerContentProps {
   onActionsReady?: (actions: PageAction[]) => void;
@@ -29,14 +28,17 @@ interface MemoryExplorerContentProps {
 
 export const MemoryExplorerContent: React.FC<MemoryExplorerContentProps> = ({ onActionsReady }) => {
   const { addNotification } = useNotifications();
-  const { tier: activeTier, filters, activeFilterCount, setTier, setSearch, setFilter, clearFilters, agentId: urlAgentId, setAgentId: setUrlAgentId } = useMemoryFilters();
+  const { tier: activeTier, filters, activeFilterCount, setTier, setSearch, setFilter, clearFilters } = useMemoryFilters();
 
-  const [agents, setAgents] = useState<AiAgent[]>([]);
-  const [agentsLoading, setAgentsLoading] = useState(true);
-  const [selectedAgentId, setSelectedAgentId] = useState(urlAgentId || '');
-
-  const [stats, setStats] = useState<MemoryStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(false);
+  const {
+    agents,
+    agentsLoading,
+    selectedAgentId,
+    handleAgentChange,
+    stats,
+    statsLoading,
+    loadStats,
+  } = useAgentMemorySelection({ clearStatsOnError: true });
 
   const [sharedKnowledge, setSharedKnowledge] = useState<SharedKnowledgeEntry[]>([]);
   const [sharedLoading, setSharedLoading] = useState(false);
@@ -71,47 +73,6 @@ export const MemoryExplorerContent: React.FC<MemoryExplorerContentProps> = ({ on
     return () => observer.disconnect();
   }, [hasMore, loadingMore, loadMore]);
 
-  const handleAgentChange = useCallback((id: string) => {
-    setSelectedAgentId(id);
-    setUrlAgentId(id);
-  }, [setUrlAgentId]);
-
-  // Load agents list
-  useEffect(() => {
-    const loadAgents = async () => {
-      try {
-        setAgentsLoading(true);
-        const { items } = await agentsApi.getAgents({ per_page: 100 });
-        const agentsList = (items || []) as AiAgent[];
-        setAgents(agentsList);
-        if (agentsList.length > 0 && !selectedAgentId) {
-          const firstId = agentsList[0].id;
-          setSelectedAgentId(firstId);
-          setUrlAgentId(firstId);
-        }
-      } catch (_error) {
-        addNotification({ type: 'error', message: 'Failed to load agents' });
-      } finally {
-        setAgentsLoading(false);
-      }
-    };
-    loadAgents();
-  }, []);
-
-  // Load stats when agent changes
-  const loadStats = useCallback(async () => {
-    if (!selectedAgentId) return;
-    try {
-      setStatsLoading(true);
-      const data = await fetchMemoryStats(selectedAgentId);
-      setStats(data);
-    } catch (_error) {
-      setStats(null);
-    } finally {
-      setStatsLoading(false);
-    }
-  }, [selectedAgentId]);
-
   // Load shared knowledge
   const loadSharedKnowledge = useCallback(async () => {
     try {
@@ -125,10 +86,10 @@ export const MemoryExplorerContent: React.FC<MemoryExplorerContentProps> = ({ on
     }
   }, []);
 
+  // Stats loading on agent change is handled inside useAgentMemorySelection
   useEffect(() => {
-    loadStats();
     loadSharedKnowledge();
-  }, [loadStats, loadSharedKnowledge]);
+  }, [loadSharedKnowledge]);
 
   const handleDelete = async (entry: MemoryEntry) => {
     if (!selectedAgentId || !entry.key) return;
@@ -168,26 +129,11 @@ export const MemoryExplorerContent: React.FC<MemoryExplorerContentProps> = ({ on
   return (
     <div className="space-y-6">
       {/* Agent Selector */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <Brain className="h-5 w-5 text-theme-primary shrink-0" />
-            <label className="text-sm font-medium text-theme-secondary shrink-0">Agent:</label>
-            <select
-              value={selectedAgentId}
-              onChange={(e) => handleAgentChange(e.target.value)}
-              className="flex-1 text-sm rounded-lg bg-theme-surface border border-theme text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
-            >
-              {agents.length === 0 && <option value="">No agents available</option>}
-              {agents.map((agent) => (
-                <option key={agent.id} value={agent.id}>
-                  {agent.name} ({agent.status})
-                </option>
-              ))}
-            </select>
-          </div>
-        </CardContent>
-      </Card>
+      <AgentSelectorCard
+        agents={agents}
+        selectedAgentId={selectedAgentId}
+        onAgentChange={handleAgentChange}
+      />
 
       {/* Stats Bar */}
       <MemoryStatsBar stats={stats} loading={statsLoading} onTierClick={setTier} />
