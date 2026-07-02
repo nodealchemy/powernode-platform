@@ -43,23 +43,28 @@ class ScheduledTaskService
 
   class << self
     def list_tasks
-      tasks = ScheduledTask.includes(:user, :executions).order(:name)
+      tasks = ScheduledTask.includes(:task_executions).order(:name)
 
       tasks.map do |task|
+        # Sort/count/filter the eager-loaded association in Ruby so the
+        # includes above actually saves queries rather than re-querying per row.
+        executions = task.task_executions.sort_by(&:created_at)
         {
           id: task.id,
           name: task.name,
-          description: task.description,
+          description: task.parameters&.dig("description"),
           type: task.task_type,
-          cron_schedule: task.cron_schedule,
-          enabled: task.enabled,
-          next_run: calculate_next_run(task.cron_schedule),
-          last_execution: format_last_execution(task.executions.order(:created_at).last),
-          created_by: task.user&.email,
+          cron_schedule: task.cron_expression,
+          enabled: task.enabled?,
+          command: task.parameters&.dig("command"),
+          next_run: task.next_run_at&.iso8601,
+          last_execution: format_last_execution(executions.last),
+          # scheduled_tasks has no creator association/column
+          created_by: nil,
           created_at: task.created_at.iso8601,
           updated_at: task.updated_at.iso8601,
-          execution_count: task.executions.count,
-          success_rate: calculate_success_rate(task.executions)
+          execution_count: executions.size,
+          success_rate: calculate_success_rate(executions)
         }
       end
     end
@@ -97,14 +102,16 @@ class ScheduledTaskService
         end
       end
 
+      # Map admin params onto the real schema: name / task_type / cron_expression /
+      # is_active columns, with description and command living inside the
+      # `parameters` jsonb (the shape the worker-facing controller and Sidekiq
+      # executor already read — command at parameters["command"]).
       task = ScheduledTask.new(
         name: task_params[:name],
-        description: task_params[:description],
         task_type: task_params[:type],
-        cron_schedule: task_params[:cron_schedule],
-        enabled: task_params[:enabled] || true,
-        command: task_params[:command],
-        user: user
+        cron_expression: task_params[:cron_schedule],
+        is_active: enabled_from(task_params),
+        parameters: merge_task_parameters({}, task_params)
       )
 
       if task.save
@@ -144,11 +151,33 @@ class ScheduledTaskService
         }
       end
 
-      # Update task attributes
-      task.assign_attributes(
-        task_params.slice(:name, :description, :cron_schedule, :enabled, :command).compact
-      )
+      # Security: editing a custom_command task (or promoting a task to one, or
+      # changing the command it runs) is as privileged as creating one — mirror
+      # the create_task gate so update can't be used to smuggle in an
+      # unvalidated command or to escalate past the system.admin requirement.
+      effective_type = task_params[:type].presence || task.task_type
+      if effective_type == "custom_command"
+        unless user.has_permission?("system.admin")
+          return {
+            success: false,
+            error: "Custom command tasks require system administrator privileges"
+          }
+        end
+
+        if task_params.key?(:command) && !valid_custom_command?(task_params[:command])
+          return {
+            success: false,
+            error: "Invalid command. Only rails, bundle, rake, and ruby commands are allowed. Shell metacharacters are forbidden."
+          }
+        end
+      end
+
+      # Update only the provided attributes, mapped onto the real schema.
+      task.name = task_params[:name] if task_params.key?(:name)
+      task.cron_expression = task_params[:cron_schedule] if task_params.key?(:cron_schedule)
+      task.is_active = enabled_from(task_params) if task_params.key?(:enabled)
       task.task_type = task_params[:type] if task_params[:type]
+      task.parameters = merge_task_parameters(task.parameters, task_params)
 
       if task.save
         Rails.logger.info "Updated scheduled task: #{task.name} by #{user.email}"
@@ -276,12 +305,26 @@ class ScheduledTaskService
       false
     end
 
-    def calculate_next_run(cron_schedule)
-      # This would use a gem like 'cron_parser' to calculate next run time
-      # For now, return a placeholder
-      1.day.from_now.iso8601
-    rescue StandardError
-      nil
+    # Coerce the admin `enabled` param (JSON boolean or string) into is_active.
+    # Absent, nil, or blank defaults to enabled (matches the is_active DB
+    # default); anything else casts through ActiveModel's boolean type. Blank/nil
+    # must fall back to the default rather than cast to nil — is_active validates
+    # inclusion in [true, false], so a nil would fail the save.
+    def enabled_from(task_params, default: true)
+      value = task_params[:enabled]
+      return default if value.nil? || value == ""
+
+      ActiveModel::Type::Boolean.new.cast(value)
+    end
+
+    # Fold the admin `description`/`command` params into the `parameters` jsonb
+    # without clobbering existing config keys the worker relies on. Only keys
+    # actually supplied by the request are overwritten.
+    def merge_task_parameters(base, task_params)
+      params = (base || {}).deep_dup
+      params["description"] = task_params[:description] if task_params.key?(:description)
+      params["command"] = task_params[:command] if task_params.key?(:command)
+      params
     end
 
     def format_last_execution(execution)
@@ -293,97 +336,53 @@ class ScheduledTaskService
         started_at: execution.started_at.iso8601,
         completed_at: execution.completed_at&.iso8601,
         duration: execution.completed_at ? (execution.completed_at - execution.started_at).to_i : nil,
-        triggered_by: execution.triggered_by,
         error_message: execution.error_message
       }
     end
 
+    # Operates on an enumerable of loaded executions (counts in Ruby) so callers
+    # can pass the eager-loaded association without triggering extra queries.
     def calculate_success_rate(executions)
       return 0 if executions.empty?
 
-      successful = executions.where(status: "completed").count
-      total = executions.count
+      successful = executions.count { |e| e.status == "completed" }
 
-      (successful.to_f / total * 100).round(2)
+      (successful.to_f / executions.size * 100).round(2)
     end
 
     def format_task_response(task)
       {
         id: task.id,
         name: task.name,
-        description: task.description,
+        description: task.parameters&.dig("description"),
         type: task.task_type,
-        cron_schedule: task.cron_schedule,
-        enabled: task.enabled,
+        cron_schedule: task.cron_expression,
+        enabled: task.enabled?,
+        command: task.parameters&.dig("command"),
+        next_run: task.next_run_at&.iso8601,
         created_at: task.created_at.iso8601,
         updated_at: task.updated_at.iso8601
       }
     end
 
+    # The API server runs no Sidekiq. The standalone worker discovers due tasks
+    # by polling the worker-facing controller (is_active AND next_run_at <= now),
+    # so "scheduling" a task means computing its next_run_at from the cron
+    # expression; "unscheduling" clears it. next_run_at is the real column the
+    # worker reads.
     def schedule_task(task)
-      return unless task.enabled? && task.cron_schedule.present?
+      return unless task.enabled? && task.cron_expression.present?
 
-      job_name = "scheduled_task_#{task.id}"
+      next_run = calculate_next_run_time(task.cron_expression)
+      task.update_column(:next_run_at, next_run) if next_run
 
-      # Use Sidekiq-scheduler if available
-      if defined?(Sidekiq::Scheduler)
-        Sidekiq.set_schedule(job_name, {
-          "cron" => task.cron_schedule,
-          "class" => "ScheduledTaskJob",
-          "args" => [ task.id ],
-          "queue" => "scheduled_tasks",
-          "description" => "Scheduled task: #{task.name}"
-        })
-
-        # Reload the schedule
-        Sidekiq::Scheduler.reload_schedule!
-
-        Rails.logger.info "Scheduled task '#{task.name}' (#{task.id}) with cron: #{task.cron_schedule}"
-      else
-        # Fallback: Store schedule in Redis for custom scheduler
-        schedule_key = "powernode:scheduled_tasks:#{task.id}"
-        schedule_data = {
-          task_id: task.id,
-          name: task.name,
-          cron_schedule: task.cron_schedule,
-          next_run_at: calculate_next_run_time(task.cron_schedule),
-          enabled: true,
-          created_at: Time.current.iso8601
-        }
-
-        redis_client.set(schedule_key, schedule_data.to_json)
-        redis_client.expire(schedule_key, 24.hours.to_i)
-        redis_client.sadd("powernode:scheduled_tasks:active", task.id)
-        redis_client.expire("powernode:scheduled_tasks:active", 24.hours.to_i)
-
-        Rails.logger.info "Scheduled task '#{task.name}' (#{task.id}) registered in Redis"
-      end
-
-      # Update task with next execution time
-      next_run = calculate_next_run_time(task.cron_schedule)
-      task.update_column(:next_execution_at, next_run) if task.respond_to?(:next_execution_at)
+      Rails.logger.info "Scheduled task '#{task.name}' (#{task.id}) next_run_at=#{next_run}"
     end
 
     def unschedule_task(task)
-      job_name = "scheduled_task_#{task.id}"
+      task.update_column(:next_run_at, nil)
 
-      if defined?(Sidekiq::Scheduler)
-        # Remove from Sidekiq-scheduler
-        Sidekiq.remove_schedule(job_name)
-        Sidekiq::Scheduler.reload_schedule!
-
-        Rails.logger.info "Unscheduled task '#{task.name}' (#{task.id}) from Sidekiq-scheduler"
-      else
-        # Remove from Redis
-        schedule_key = "powernode:scheduled_tasks:#{task.id}"
-        redis_client.del(schedule_key)
-        redis_client.srem("powernode:scheduled_tasks:active", task.id)
-
-        Rails.logger.info "Unscheduled task '#{task.name}' (#{task.id}) from Redis"
-      end
-
-      # Clear next execution time
-      task.update_column(:next_execution_at, nil) if task.respond_to?(:next_execution_at)
+      Rails.logger.info "Unscheduled task '#{task.name}' (#{task.id})"
     end
 
     def calculate_next_run_time(cron_schedule)
@@ -418,10 +417,6 @@ class ScheduledTaskService
     rescue StandardError => e
       Rails.logger.warn "Failed to calculate next run time for cron '#{cron_schedule}': #{e.message}"
       1.day.from_now
-    end
-
-    def redis_client
-      @redis_client ||= Powernode::Redis.client
     end
 
     def execute_data_cleanup_task(task)
