@@ -208,12 +208,19 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
 
     context 'when provider is not active' do
       before do
+        # Exercise the REAL gate: build_llm_client checks the agent's RESOLVED
+        # provider (@agent.resolved_provider&.is_active?), not the raw
+        # agent.provider association — stub the resolution to land on this
+        # provider so the inactive flag actually reaches the gate.
+        allow(agent).to receive(:resolved_provider).and_return(provider)
         allow(provider).to receive(:is_active?).and_return(false)
       end
 
-      it 'returns error result' do
+      it 'returns a ProviderError result' do
         result = executor.execute(input_parameters)
         expect(result).to include("error")
+        expect(result["error"]["type"]).to eq("Ai::McpAgentExecutor::ProviderError")
+        expect(result["error"]["message"]).to match(/not active/i)
       end
     end
 
