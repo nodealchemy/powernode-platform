@@ -102,7 +102,13 @@ The benefit comparison buckets governed `Ai::RoutingDecision` rows by `[task_typ
 complexity_level]` (the controlled variable, read off the linked `TaskComplexityAssessment`),
 then within each bucket compares the escalated cohort against the standard-tier cohort
 (held/effort-substituted/downgraded to standard) on success rate, average cost, and average
-latency. Only buckets where BOTH cohorts have measured outcomes are pooled into the aggregate
+latency. Success rate and cost are pooled; latency is **segmented by recording seam**
+(`rationale.latency_seam`, tagged at `RoutingDecision#record_outcome!` time —
+`agent_execution` = `AgentExecution#duration_ms`, `ralph_iteration` = whole-iteration
+duration, `router_request` = routed request round-trip; untagged legacy rows fall into
+`unknown`) because the seams measure different durations — latency deltas are computed per
+seam and only for seams present in both cohorts (`avg_latency_delta_by_seam`).
+Only buckets where BOTH cohorts have measured outcomes are pooled into the aggregate
 summary — an unmatched bucket contributes to `total_buckets` but not `matched_buckets`, so a
 lopsided sample can't skew the delta.
 

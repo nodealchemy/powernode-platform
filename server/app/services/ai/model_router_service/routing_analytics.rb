@@ -297,6 +297,7 @@ module Ai
           outcome: decision.outcome,
           cost_usd: decision.actual_cost_usd&.to_f,
           latency_ms: decision.actual_latency_ms,
+          latency_seam: rationale["latency_seam"],
           tokens_used: decision.actual_tokens_used,
           quality_score: decision.quality_score&.to_f
         }
@@ -334,28 +335,47 @@ module Ai
       end
 
       # Success rate (over outcome-recorded decisions only), avg cost, avg latency.
-      # nil where there is nothing to measure — never a divide-by-zero.
+      # nil where there is nothing to measure — never a divide-by-zero. Latency is
+      # SEGMENTED by recording seam (rationale.latency_seam — semantics differ per
+      # seam, e.g. execution duration vs whole-iteration duration) and never pooled
+      # across seams; untagged legacy rows fall into the "unknown" seam.
       def cohort_stats(decisions)
         measured = decisions.select { |d| d.outcome.present? }
         succeeded = measured.count { |d| d.outcome == "succeeded" }
         costs = decisions.filter_map { |d| d.actual_cost_usd&.to_f }
-        latencies = decisions.filter_map(&:actual_latency_ms)
 
         {
           decisions: decisions.size,
           measured: measured.size,
           success_rate: measured.any? ? (succeeded.to_f / measured.size * 100).round(2) : nil,
           avg_cost_usd: costs.any? ? (costs.sum / costs.size).round(6) : nil,
-          avg_latency_ms: latencies.any? ? (latencies.sum.to_f / latencies.size).round(2) : nil
+          avg_latency_ms_by_seam: avg_latency_by_seam(decisions)
         }
+      end
+
+      def avg_latency_by_seam(decisions)
+        decisions
+          .select(&:actual_latency_ms)
+          .group_by { |d| (d.rationale || {})["latency_seam"].presence || "unknown" }
+          .transform_values { |ds| (ds.sum(&:actual_latency_ms).to_f / ds.size).round(2) }
       end
 
       def cohort_deltas(esc, std)
         {
           success_rate: paired_delta(esc[:success_rate], std[:success_rate], 2),
           avg_cost_usd: paired_delta(esc[:avg_cost_usd], std[:avg_cost_usd], 6),
-          avg_latency_ms: paired_delta(esc[:avg_latency_ms], std[:avg_latency_ms], 2)
+          avg_latency_ms_by_seam: seam_latency_deltas(esc, std)
         }
+      end
+
+      # Per-seam latency deltas over the seams present in BOTH cohorts — a
+      # cross-seam comparison would mix measurement semantics.
+      def seam_latency_deltas(esc, std)
+        esc_by_seam = esc[:avg_latency_ms_by_seam] || {}
+        std_by_seam = std[:avg_latency_ms_by_seam] || {}
+        (esc_by_seam.keys & std_by_seam.keys).to_h do |seam|
+          [ seam, paired_delta(esc_by_seam[seam], std_by_seam[seam], 2) ]
+        end
       end
 
       def paired_delta(escalated_value, standard_value, precision)
@@ -382,7 +402,7 @@ module Ai
           standard_success_rate: std_stats[:success_rate],
           success_rate_delta: paired_delta(esc_stats[:success_rate], std_stats[:success_rate], 2),
           avg_cost_delta: paired_delta(esc_stats[:avg_cost_usd], std_stats[:avg_cost_usd], 6),
-          avg_latency_delta: paired_delta(esc_stats[:avg_latency_ms], std_stats[:avg_latency_ms], 2)
+          avg_latency_delta_by_seam: seam_latency_deltas(esc_stats, std_stats)
         }
       end
 

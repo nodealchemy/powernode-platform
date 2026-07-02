@@ -46,19 +46,27 @@ RSpec.describe Ai::ModelRouterService, "escalation analytics" do
   end
 
   def escalated_decision(level: "complex", task_type: "code_generation", effort: "xhigh",
-                         tier: "reasoning", outcome_trait: :successful, acct: account, assessment: nil)
-    create(:ai_routing_decision, outcome_trait, account: acct, model_tier: tier,
-           complexity_assessment: assessment,
-           request_metadata: { "agent_id" => "agent-1", "agent_type" => "code_assistant", "effort" => effort },
-           rationale: escalate_rationale(level: level, task_type: task_type, effort: effort, tier: tier))
+                         tier: "reasoning", outcome_trait: :successful, acct: account, assessment: nil,
+                         seam: nil, latency_ms: nil)
+    rationale = escalate_rationale(level: level, task_type: task_type, effort: effort, tier: tier)
+    rationale = rationale.merge("latency_seam" => seam) if seam
+    attrs = { account: acct, model_tier: tier, complexity_assessment: assessment,
+              request_metadata: { "agent_id" => "agent-1", "agent_type" => "code_assistant", "effort" => effort },
+              rationale: rationale }
+    attrs[:actual_latency_ms] = latency_ms if latency_ms
+    create(:ai_routing_decision, outcome_trait, **attrs)
   end
 
   def standard_decision(level: "complex", task_type: "code_generation", kind: "baseline",
-                        outcome_trait: :successful, acct: account, assessment: nil)
-    create(:ai_routing_decision, outcome_trait, account: acct, model_tier: "standard",
-           complexity_assessment: assessment,
-           request_metadata: { "agent_id" => "agent-2", "agent_type" => "code_assistant" },
-           rationale: held_rationale(level: level, task_type: task_type, kind: kind))
+                        outcome_trait: :successful, acct: account, assessment: nil,
+                        seam: nil, latency_ms: nil)
+    rationale = held_rationale(level: level, task_type: task_type, kind: kind)
+    rationale = rationale.merge("latency_seam" => seam) if seam
+    attrs = { account: acct, model_tier: "standard", complexity_assessment: assessment,
+              request_metadata: { "agent_id" => "agent-2", "agent_type" => "code_assistant" },
+              rationale: rationale }
+    attrs[:actual_latency_ms] = latency_ms if latency_ms
+    create(:ai_routing_decision, outcome_trait, **attrs)
   end
 
   def assessment_for(level: "complex", task_type: "code_generation")
@@ -196,6 +204,7 @@ RSpec.describe Ai::ModelRouterService, "escalation analytics" do
       expect(benefit[:buckets]).to eq([])
       expect(benefit[:summary][:success_rate_delta]).to be_nil
       expect(benefit[:summary][:matched_buckets]).to eq(0)
+      expect(benefit[:summary][:avg_latency_delta_by_seam]).to eq({})
       expect(benefit[:advisory][:recommend_tightening]).to be(false)
       expect(benefit[:advisory][:status]).to eq("no_escalations")
     end
@@ -231,6 +240,55 @@ RSpec.describe Ai::ModelRouterService, "escalation analytics" do
 
       benefit = service.escalation_benefit_deltas(task_type: "reasoning")
       expect(benefit[:buckets].map { |b| b[:task_type] }.uniq).to eq([ "reasoning" ])
+    end
+  end
+
+  # =========================================================================
+  # (b2) latency semantics — segmented by recording seam, never pooled
+  # =========================================================================
+  # Latency is recorded with different semantics per seam (agent_execution =
+  # AgentExecution duration; ralph_iteration = whole-iteration duration), so
+  # latency rollups are segmented by the rationale.latency_seam tag while
+  # success rate and cost stay pooled.
+  describe "latency seam segmentation" do
+    it "segments cohort latency and deltas by seam, comparing only shared seams" do
+      a = assessment_for
+      escalated_decision(assessment: a, seam: "agent_execution", latency_ms: 250)
+      escalated_decision(assessment: assessment_for, seam: "ralph_iteration", latency_ms: 60_000)
+      standard_decision(assessment: assessment_for, seam: "agent_execution", latency_ms: 500)
+
+      benefit = service.escalation_benefit_deltas
+      summary = benefit[:summary]
+
+      # success/cost stay pooled
+      expect(summary[:success_rate_delta]).to eq(0.0)
+      expect(summary[:avg_cost_delta]).to eq(0.0)
+      # latency delta only for the seam present in BOTH cohorts
+      expect(summary[:avg_latency_delta_by_seam]).to eq({ "agent_execution" => -250.0 })
+      expect(summary).not_to have_key(:avg_latency_delta)
+
+      bucket = benefit[:buckets].first
+      expect(bucket[:escalated][:avg_latency_ms_by_seam]).to include("agent_execution" => 250.0)
+      expect(bucket[:standard][:avg_latency_ms_by_seam]).to eq({ "agent_execution" => 500.0 })
+      expect(bucket[:deltas][:avg_latency_ms_by_seam]).to eq({ "agent_execution" => -250.0 })
+    end
+
+    it "buckets untagged latencies under the unknown seam (legacy rows)" do
+      escalated_decision(assessment: assessment_for, latency_ms: 300)
+      standard_decision(assessment: assessment_for, latency_ms: 100)
+
+      summary = service.escalation_benefit_deltas[:summary]
+      expect(summary[:avg_latency_delta_by_seam]).to eq({ "unknown" => 200.0 })
+    end
+
+    it "yields no latency deltas when cohorts share no seam" do
+      escalated_decision(assessment: assessment_for, seam: "ralph_iteration", latency_ms: 60_000)
+      standard_decision(assessment: assessment_for, seam: "agent_execution", latency_ms: 500)
+
+      summary = service.escalation_benefit_deltas[:summary]
+      expect(summary[:avg_latency_delta_by_seam]).to eq({})
+      # success stays pooled and comparable even without a shared latency seam
+      expect(summary[:success_rate_delta]).to eq(0.0)
     end
   end
 
