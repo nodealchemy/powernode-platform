@@ -35,6 +35,28 @@ RSpec.describe Ai::Tools::RalphLoopTool do
       expect(result[:success]).to be true
       expect(result[:improvement]).to include(:net_improvement_velocity, :per_kind)
     end
+
+    it "includes the loop convergence metric (empty state when nothing surfaced)" do
+      result = tool.execute(params: { action: "get_ralph_loop_statistics" })
+
+      expect(result[:success]).to be true
+      expect(result[:convergence]).to include(
+        window_days: 30, improvements_scanned: 0, surfaced_classes: 0,
+        recurrent_classes: 0, recurrence_rate: nil, classes: []
+      )
+    end
+
+    it "reports recurrence of an already-learned bug class" do
+      create(:ai_compound_learning, account: account, tags: ["class:jobseam"], created_at: 5.days.ago)
+      create(:ai_improvement_recommendation,
+             account: account, recommendation_type: "convention_adherence",
+             target_type: "Account", target_id: account.id,
+             evidence: { "fingerprint" => "class:jobseam|server/app/foo.rb|detail" })
+
+      result = tool.execute(params: { action: "get_ralph_loop_statistics" })
+
+      expect(result[:convergence]).to include(surfaced_classes: 1, recurrent_classes: 1, recurrence_rate: 1.0)
+    end
   end
 
   describe "list_ralph_loops" do

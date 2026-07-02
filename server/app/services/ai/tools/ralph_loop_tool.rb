@@ -63,7 +63,8 @@ module Ai
             }
           },
           "get_ralph_loop_statistics" => {
-            description: "Get aggregate statistics across all Ralph Loops — iteration counts, success rates, timing",
+            description: "Get aggregate statistics across all Ralph Loops — iteration counts, success rates, timing, " \
+                         "improvement scoreboard, and the convergence metric (recurrence rate of already-learned bug classes per discovery window)",
             parameters: {}
           }
         }
@@ -182,6 +183,8 @@ module Ai
           total_iterations_today: loops.sum(:daily_iteration_count),
           # Tier-2(c): ungameable improvement metric (revert-adjusted velocity + per-kind revert_rate)
           improvement: Ai::RalphTask.improvement_scoreboard(account: account),
+          # Convergence: recurrence rate of already-learned bug classes per discovery window
+          convergence: Ai::Autonomy::LoopConvergenceService.compute(account: account),
           loops: loops.map { |l|
             { name: l.name, status: l.status, paused: l.schedule_paused,
               iterations_today: l.daily_iteration_count, agent: l.default_agent&.name }
