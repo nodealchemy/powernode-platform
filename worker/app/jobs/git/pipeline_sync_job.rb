@@ -64,6 +64,23 @@ module Git
         token: credential_secrets["access_token"] || credential_secrets["token"]
       }
 
+      # A non-github/gitlab (self-hosted, e.g. gitea) provider with no configured
+      # api_base_url has no resolvable endpoint — there is no public default, so
+      # make_provider_request -> default_base_url would raise ArgumentError. That is a
+      # PERMANENT misconfiguration retrying can never fix, and on the scheduled
+      # (recent-pipelines) path it is unrescued, so it escapes execute's
+      # `rescue BackendApiClient::ApiError` and dead-letters into a Sidekiq retry storm.
+      # Skip gracefully instead — same principle as the 404 credential skip above.
+      # (Transient provider errors — 5xx/timeouts — still propagate so Sidekiq retries;
+      # a blanket rescue on fetch_pipelines_from_provider would wrongly swallow those.)
+      if client_config[:api_base_url].to_s.strip.empty? &&
+         !%w[github gitlab].include?(client_config[:provider_type])
+        log_warn "Skipping pipeline sync: no API base URL configured for self-hosted provider",
+                 repository_id: repository_id,
+                 provider_type: client_config[:provider_type]
+        return { skipped: true, reason: "no api_base_url configured for self-hosted provider" }
+      end
+
       owner = repository["owner"]
       name = repository["name"]
 

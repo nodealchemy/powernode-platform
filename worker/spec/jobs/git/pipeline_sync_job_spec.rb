@@ -432,6 +432,54 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
       end
     end
 
+    context 'scheduled path with a self-hosted provider that has no resolvable base URL' do
+      # Robustness/misconfig edge (separate from the client_config shape fix
+      # IMP-f3786ab4d0ee): a credential-backed gitea/self-hosted repo whose provider
+      # api_base_url is blank resolves client_config[:api_base_url] = nil for a
+      # non-github/gitlab provider. There is no public default endpoint for a
+      # self-hosted provider, so this is a PERMANENT misconfiguration retrying can
+      # never fix. It must skip gracefully (mirroring the 404 credential skip) rather
+      # than letting default_base_url raise ArgumentError and escape execute's
+      # `rescue BackendApiClient::ApiError`, dead-lettering the scheduled sync into a
+      # Sidekiq retry storm. (A blanket rescue on fetch_pipelines_from_provider would
+      # instead over-swallow transient 5xx that SHOULD retry — see the sibling test
+      # 'when provider API fails'.)
+      let(:sample_repository) do
+        {
+          'id' => repository_id,
+          'name' => 'gitea-repo',
+          'full_name' => 'owner/gitea-repo',
+          'owner' => 'owner',
+          'credential' => {
+            'id' => credential_id,
+            'provider_type' => 'gitea',
+            'provider' => { 'id' => 'gp-uuid', 'api_base_url' => nil }
+          }
+        }
+      end
+
+      let(:sample_decrypted) do
+        {
+          'id' => credential_id,
+          'auth_type' => 'personal_access_token',
+          'credentials' => { 'access_token' => 'gitea_test_token' },
+          'provider' => { 'id' => 'gp-uuid', 'provider_type' => 'gitea', 'api_base_url' => nil, 'web_base_url' => nil }
+        }
+      end
+
+      it 'does not raise on the scheduled path (no dead-letter / retry storm)' do
+        expect { job_instance.execute(repository_id) }.not_to raise_error
+      end
+
+      it 'skips gracefully rather than calling a provider with an unresolvable base URL' do
+        result = job_instance.execute(repository_id)
+
+        expect(result).to include(skipped: true)
+        expect(api_client_double).not_to have_received(:post)
+        expect(WebMock).not_to have_requested(:get, %r{/actions/runs})
+      end
+    end
+
     context 'when provider API fails' do
       before do
         stub_request(:get, %r{https://api.github.com/.*})
