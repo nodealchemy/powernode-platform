@@ -477,6 +477,65 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
     end
   end
 
+  # Envelope characterization for the vault admin-settings actions: these must
+  # return the standard { success:, data: } envelope (render_success) even on
+  # infrastructure-failure paths (webhook-style soft errors inside a 200).
+  describe 'GET /api/v1/admin_settings/vault (vault_config)' do
+    let(:headers) { auth_headers_for(user_with_settings_view) }
+
+    it 'returns the standard success envelope with status/config/keys even when Vault is unavailable' do
+      allow(Security::VaultClient).to receive(:instance).and_raise(StandardError, 'vault down')
+
+      get '/api/v1/admin_settings/vault', headers: headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      body = response.parsed_body
+      expect(body['success']).to be(true)
+      expect(body['data'].keys).to include('status', 'config', 'keys')
+      expect(body['data']['status']['connected']).to be(false)
+    end
+  end
+
+  describe 'POST /api/v1/admin_settings/vault/test (test_vault_connection)' do
+    let(:headers) { auth_headers_for(user_with_settings_view) }
+
+    it 'returns a success envelope with connected:false and an error when config is missing' do
+      allow(Security::VaultClient).to receive(:admin_setting_config).and_return({})
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with('VAULT_ADDR').and_return(nil)
+      allow(ENV).to receive(:[]).with('VAULT_ROLE_ID').and_return(nil)
+      allow(ENV).to receive(:[]).with('VAULT_SECRET_ID').and_return(nil)
+
+      post '/api/v1/admin_settings/vault/test', headers: headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      body = response.parsed_body
+      expect(body['success']).to be(true)
+      expect(body['data']['connected']).to be(false)
+      expect(body['data']['error']).to include('Missing:')
+    end
+
+    it 'returns a success envelope with connected:false and latency when Vault is unreachable' do
+      allow(Security::VaultClient).to receive(:admin_setting_config).and_return(
+        'vault_addr' => 'http://vault.example.internal:8200',
+        'vault_role_id' => 'test-role',
+        'vault_secret_id' => 'test-secret'
+      )
+      failing_client = instance_double(Vault::Client)
+      allow(failing_client).to receive(:auth).and_raise(Vault::HTTPConnectionError.new('http://vault.example.internal:8200', StandardError.new('refused')))
+      allow(Vault::Client).to receive(:new).and_return(failing_client)
+
+      post '/api/v1/admin_settings/vault/test', headers: headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      body = response.parsed_body
+      expect(body['success']).to be(true)
+      expect(body['data']['connected']).to be(false)
+      expect(body['data']['error']).to include('Cannot reach Vault')
+      expect(body['data']).to have_key('latency_ms')
+    end
+  end
+
   # ===========================================================================
   # SECURITY-CONFIG ACTION AUTHORIZATION
   #

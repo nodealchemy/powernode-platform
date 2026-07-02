@@ -107,8 +107,9 @@ module AdminSettings
       wallet_key_count = key_stats[:secured_count]
       recent_key_ops = key_stats[:recent_operations]
 
-      render json: {
-        success: true,
+      # NOTE: uses the data: keyword because the payload's :status key would
+      # otherwise collide with render_success's HTTP-status keyword.
+      render_success(
         data: {
           status: {
             connected: connected,
@@ -128,7 +129,7 @@ module AdminSettings
             recent_operations: recent_key_ops
           }
         }
-      }
+      )
     rescue StandardError => e
       Rails.logger.error("[AdminSettings] vault_config failed: #{e.class}: #{e.message}")
       render_error("Vault configuration check failed: #{e.message}", :internal_server_error)
@@ -171,7 +172,7 @@ module AdminSettings
         missing << "VAULT_ADDR" unless vault_addr.present?
         missing << "VAULT_ROLE_ID" unless role_id.present?
         missing << "VAULT_SECRET_ID" unless secret_id.present?
-        return render json: { success: true, data: { connected: false, error: "Missing: #{missing.join(', ')}" } }
+        return render_success(connected: false, error: "Missing: #{missing.join(', ')}")
       end
 
       # Test with a raw Vault client to get the actual error
@@ -191,22 +192,19 @@ module AdminSettings
       # Refresh singleton with successful config
       Security::VaultClient.reconfigure!
 
-      render json: {
-        success: true,
-        data: {
-          connected: sealed == false,
-          sealed: sealed,
-          initialized: initialized,
-          version: version,
-          latency_ms: latency_ms
-        }
-      }
-    rescue Vault::HTTPConnectionError => e
+      render_success(
+        connected: sealed == false,
+        sealed: sealed,
+        initialized: initialized,
+        version: version,
+        latency_ms: latency_ms
+      )
+    rescue Vault::HTTPConnectionError
       latency_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time) * 1000).round(1)
-      render json: { success: true, data: { connected: false, error: "Cannot reach Vault at #{vault_addr}", latency_ms: latency_ms } }
+      render_success(connected: false, error: "Cannot reach Vault at #{vault_addr}", latency_ms: latency_ms)
     rescue StandardError => e
       latency_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time) * 1000).round(1)
-      render json: { success: true, data: { connected: false, error: e.message.truncate(200), latency_ms: latency_ms } }
+      render_success(connected: false, error: e.message.truncate(200), latency_ms: latency_ms)
     end
 
     private
