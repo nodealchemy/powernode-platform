@@ -83,7 +83,13 @@ The seeded admin works for poking around. For routine work, create a personal ac
 
 ```bash
 cd server && bundle exec rails c
-User.create!(email: 'dev@example.com', password: 'DevPassword123!', name: 'Developer')
+```
+
+```ruby
+# Every user belongs to an account, so create one first (or reuse an existing account)
+# Note: the password strength validator rejects common patterns (e.g. anything containing "password")
+account = Account.create!(name: 'Dev Account')
+account.users.create!(email: 'dev@example.com', password: 'Local-Dev-Only-7#Horse', name: 'Developer')
 ```
 
 Log in at http://localhost:3001 with the credentials you just created.
