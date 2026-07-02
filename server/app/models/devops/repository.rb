@@ -97,7 +97,9 @@ module Devops
     end
 
     def enqueue_sync
-      Devops::ProviderSyncJob.perform_async(id)
+      # The API server runs no Sidekiq; dispatch to the standalone worker over the
+      # HTTP seam instead of referencing an in-process job constant.
+      WorkerJobService.enqueue_devops_provider_sync(id)
     end
   end
 end

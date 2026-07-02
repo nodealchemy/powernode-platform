@@ -193,22 +193,27 @@ class ScheduledTaskService
 
       execution = TaskExecution.create!(
         scheduled_task: task,
-        user: user,
-        status: "pending",
-        started_at: Time.current,
-        triggered_by: "manual"
+        status: "running",
+        started_at: Time.current
       )
 
-      # Execute the task in background
-      ScheduledTaskJob.perform_async(execution.id)
+      # The API server runs no Sidekiq; dispatch the run to the standalone worker
+      # over the HTTP seam (WorkerJobService), which enqueues the real
+      # Maintenance::ScheduledTaskExecutorJob in the worker's Sidekiq. Never
+      # reference an in-process job constant here.
+      WorkerJobService.enqueue_job(
+        "Maintenance::ScheduledTaskExecutorJob",
+        args: [ task.id, execution.id ],
+        queue: "maintenance"
+      )
 
-      Rails.logger.info "Manual execution of task #{task.name} initiated by #{user.email}"
+      Rails.logger.info "Manual execution of task #{task.name} initiated by #{user&.email}"
 
       {
         success: true,
         execution: {
           id: execution.id,
-          status: "pending",
+          status: execution.status,
           started_at: execution.started_at.iso8601,
           triggered_by: "manual"
         }

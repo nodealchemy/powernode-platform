@@ -270,12 +270,9 @@ RSpec.describe 'Api::V1::Webhooks::Events', type: :request do
       end
 
       it 'marks event for retry when retriable' do
-        # WebhookDeliveryJob.perform_at is called in the controller for retriable events
-        unless defined?(WebhookDeliveryJob)
-          stub_const('WebhookDeliveryJob', Class.new { def self.perform_at(*); end })
-        end
-        allow(WebhookDeliveryJob).to receive(:perform_at).and_return(true)
-
+        # The API server runs no Sidekiq: the failed callback records state only and
+        # enqueues no in-process job (previously this stubbed an undefined
+        # WebhookDeliveryJob to mask a NameError — the enqueue has been removed).
         patch "/api/v1/webhooks/events/#{webhook_event.id}/failed", params: failed_params, headers: headers, as: :json
 
         expect_success_response

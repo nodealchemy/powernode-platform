@@ -74,10 +74,11 @@ module Api
             next_retry_at: @event.retriable? ? calculate_next_retry(@event) : nil
           )
 
-          if @event.status == "pending"
-            # Schedule retry
-            WebhookDeliveryJob.perform_at(@event.next_retry_at, @event.id)
-          end
+          # The API server runs no Sidekiq. Retries are re-driven by the worker's
+          # webhook processor (via its own Sidekiq retry); this callback only
+          # records that the event is pending again with its next_retry_at —
+          # matching Api::V1::WebhookEventsController#failed. Never enqueue an
+          # in-process job constant here.
 
           render_success(
             { webhook_event: serialize_event(@event) },
