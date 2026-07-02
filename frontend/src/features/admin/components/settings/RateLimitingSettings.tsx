@@ -333,7 +333,7 @@ export const RateLimitingSettings: React.FC = () => {
             <div className={`relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full ${
               config.enabled ? 'bg-theme-success-bg' : 'bg-theme-background-secondary/50'
             }`}>
-              <div className={`absolute left-0 top-0 bg-white w-6 h-6 rounded-full shadow transition-transform duration-200 ease-in-out ${
+              <div className={`absolute left-0 top-0 bg-theme-surface w-6 h-6 rounded-full shadow transition-transform duration-200 ease-in-out ${
                 config.enabled ? 'transform translate-x-4' : ''
               }`}></div>
             </div>

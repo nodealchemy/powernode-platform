@@ -65,7 +65,7 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
       {/* Header */}
       <div className={`${bgColor} p-4`}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/20">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-theme-on-primary/20">
             <ProviderIcon type={provider.provider_type} />
           </div>
           <div className="flex-1 min-w-0">
@@ -82,7 +82,7 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
               <div className="relative">
                 <button
                   onClick={() => setShowMenu(!showMenu)}
-                  className="p-1 rounded-full hover:bg-white/20 text-white"
+                  className="p-1 rounded-full hover:bg-theme-on-primary/20 text-white"
                   aria-label="More options"
                 >
                   <MoreVertical className="w-4 h-4" />

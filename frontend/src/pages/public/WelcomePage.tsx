@@ -46,15 +46,15 @@ export const WelcomePage: React.FC = () => {
 
               {/* Trust Badges */}
               <div className="flex justify-center flex-wrap gap-3 mb-10">
-                <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
+                <div className="inline-flex items-center space-x-2 bg-theme-on-primary/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
                   <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                   <span className="text-sm font-medium text-white/90">AI-Native</span>
                 </div>
-                <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
+                <div className="inline-flex items-center space-x-2 bg-theme-on-primary/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
                   <span className="w-2 h-2 bg-theme-info-bg rounded-full" />
                   <span className="text-sm font-medium text-white/90">Self-Hosted</span>
                 </div>
-                <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
+                <div className="inline-flex items-center space-x-2 bg-theme-on-primary/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
                   <span className="w-2 h-2 bg-violet-400 rounded-full" />
                   <span className="text-sm font-medium text-white/90">Business Ready</span>
                 </div>
@@ -79,7 +79,7 @@ export const WelcomePage: React.FC = () => {
                     </svg>
                   </Link>
                 )}
-                <Link to="/login" className="inline-flex items-center justify-center px-8 py-4 border-2 border-white/20 hover:border-white/40 text-white font-semibold rounded-xl transition-all duration-200 hover:bg-white/5 text-lg">
+                <Link to="/login" className="inline-flex items-center justify-center px-8 py-4 border-2 border-white/20 hover:border-white/40 text-white font-semibold rounded-xl transition-all duration-200 hover:bg-theme-on-primary/5 text-lg">
                   Sign In
                 </Link>
               </div>
@@ -108,7 +108,7 @@ export const WelcomePage: React.FC = () => {
         </section>
 
         {/* Core Platform Features */}
-        <section className="py-24 bg-white/[0.02]">
+        <section className="py-24 bg-theme-on-primary/[0.02]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <p className="text-theme-info-fg font-semibold text-sm tracking-wider uppercase mb-3">Platform Capabilities</p>
@@ -118,7 +118,7 @@ export const WelcomePage: React.FC = () => {
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* AI Agents */}
-              <div className="group bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-theme-info-border/30 transition-all duration-300 hover:bg-white/[0.08]">
+              <div className="group bg-theme-on-primary/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-theme-info-border/30 transition-all duration-300 hover:bg-theme-on-primary/[0.08]">
                 <div className="w-14 h-14 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <svg className="w-7 h-7 text-theme-info-fg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
@@ -134,7 +134,7 @@ export const WelcomePage: React.FC = () => {
               </div>
 
               {/* Knowledge Graph */}
-              <div className="group bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-violet-500/30 transition-all duration-300 hover:bg-white/[0.08]">
+              <div className="group bg-theme-on-primary/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-violet-500/30 transition-all duration-300 hover:bg-theme-on-primary/[0.08]">
                 <div className="w-14 h-14 bg-gradient-to-br from-violet-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <svg className="w-7 h-7 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
@@ -150,7 +150,7 @@ export const WelcomePage: React.FC = () => {
               </div>
 
               {/* Workflows */}
-              <div className="group bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-cyan-500/30 transition-all duration-300 hover:bg-white/[0.08]">
+              <div className="group bg-theme-on-primary/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-cyan-500/30 transition-all duration-300 hover:bg-theme-on-primary/[0.08]">
                 <div className="w-14 h-14 bg-gradient-to-br from-cyan-500/20 to-teal-600/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <svg className="w-7 h-7 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
@@ -166,7 +166,7 @@ export const WelcomePage: React.FC = () => {
               </div>
 
               {/* Memory System */}
-              <div className="group bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-amber-500/30 transition-all duration-300 hover:bg-white/[0.08]">
+              <div className="group bg-theme-on-primary/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-amber-500/30 transition-all duration-300 hover:bg-theme-on-primary/[0.08]">
                 <div className="w-14 h-14 bg-gradient-to-br from-amber-500/20 to-orange-600/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <svg className="w-7 h-7 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
@@ -182,7 +182,7 @@ export const WelcomePage: React.FC = () => {
               </div>
 
               {/* MCP Tools */}
-              <div className="group bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-emerald-500/30 transition-all duration-300 hover:bg-white/[0.08]">
+              <div className="group bg-theme-on-primary/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-emerald-500/30 transition-all duration-300 hover:bg-theme-on-primary/[0.08]">
                 <div className="w-14 h-14 bg-gradient-to-br from-emerald-500/20 to-green-600/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <svg className="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.42 15.17l-5.1-5.1m0 0L11.42 4.97m-5.1 5.1h13.26M4.92 19.92l5.1-5.1m0 0l5.1 5.1m-5.1-5.1V1.56" />
@@ -198,7 +198,7 @@ export const WelcomePage: React.FC = () => {
               </div>
 
               {/* Safety & Autonomy */}
-              <div className="group bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-rose-500/30 transition-all duration-300 hover:bg-white/[0.08]">
+              <div className="group bg-theme-on-primary/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-rose-500/30 transition-all duration-300 hover:bg-theme-on-primary/[0.08]">
                 <div className="w-14 h-14 bg-gradient-to-br from-rose-500/20 to-red-600/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <svg className="w-7 h-7 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
@@ -288,7 +288,7 @@ export const WelcomePage: React.FC = () => {
         </section>
 
         {/* How It Works */}
-        <section className="py-24 bg-white/[0.02]">
+        <section className="py-24 bg-theme-on-primary/[0.02]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <p className="text-violet-400 font-semibold text-sm tracking-wider uppercase mb-3">How It Works</p>
@@ -346,7 +346,7 @@ export const WelcomePage: React.FC = () => {
                     </svg>
                   </Link>
                 )}
-                <Link to="/login" className="inline-flex items-center justify-center px-10 py-4 border-2 border-white/20 hover:border-white/40 text-white font-semibold rounded-xl transition-all duration-200 hover:bg-white/5 text-lg">
+                <Link to="/login" className="inline-flex items-center justify-center px-10 py-4 border-2 border-white/20 hover:border-white/40 text-white font-semibold rounded-xl transition-all duration-200 hover:bg-theme-on-primary/5 text-lg">
                   Sign In
                 </Link>
               </div>

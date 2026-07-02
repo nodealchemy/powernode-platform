@@ -160,7 +160,7 @@ export const AgentFormFields: React.FC<AgentFormFieldsProps> = ({
             <div className={`w-11 h-6 rounded-full transition-colors ${
               form.values.is_active ? 'bg-theme-success-bg' : 'bg-theme-background-secondary'
             }`}>
-              <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+              <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-theme-surface rounded-full shadow transform transition-transform ${
                 form.values.is_active ? 'translate-x-5' : 'translate-x-0'
               }`} />
             </div>
