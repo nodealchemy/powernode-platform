@@ -163,16 +163,10 @@
       queue: maintenance
       description: 'Prune stale MCP sessions, revoked OAuth tokens/grants, and orphaned DCR client registrations'
 
-    # System extension — package repository metadata sync. Daily fetch of
-    # upstream apt/rpm package indexes for enabled repos (account-scoped +
-    # shared), upserts system_packages rows, marks obsoleted entries.
-    # Provides the upstream catalog for the "create module from package"
-    # materialization flow.
-    system_package_repository_sync:
-      cron: '0 5 * * *'  # Every day at 5:00 AM UTC
-      class: SystemPackageRepositorySyncJob
-      queue: system
-      description: 'Sync apt/rpm package metadata from enabled upstream repositories'
+    # NOTE: System-extension scheduled jobs (e.g. package repository sync)
+    # live in extensions/system/worker/config/sidekiq_system.yml and are
+    # merged by config/application.rb's generic extension scan, which skips
+    # disabled extensions.
 
     # NOTE: Billing scheduled jobs (billing_scheduler, daily_payment_reconciliation,
     # billing_cleanup) live in the business extension and load only when its worker
