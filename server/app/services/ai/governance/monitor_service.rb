@@ -74,9 +74,14 @@ module Ai
         indicators = []
         agents = Ai::Agent.where(account: @account, status: "active")
 
-        agent_ids = agents.pluck(:id)
+        agents_by_id = agents.index_by(&:id)
+        agent_ids = agents_by_id.keys
+        # Preload all trust scores once — collusion_score is called for every pair,
+        # so per-pair point queries refetch each agent's score N-1 times (O(N^2) queries).
+        trust_scores = Ai::AgentTrustScore.where(agent_id: agent_ids).pluck(:agent_id, :overall_score).to_h
+
         agent_ids.combination(2).each do |a_id, b_id|
-          score = collusion_score(a_id, b_id)
+          score = collusion_score(a_id, b_id, trust_scores)
           next if score < COLLUSION_THRESHOLD
 
           indicator = Ai::CollusionIndicator.create!(
@@ -89,7 +94,7 @@ module Ai
           indicators << indicator
 
           create_report(
-            subject_agent: Ai::Agent.find(a_id),
+            subject_agent: agents_by_id.fetch(a_id),
             report_type: "collusion_suspicion",
             severity: score >= 0.9 ? "critical" : "warning",
             evidence: { indicator_id: indicator.id, correlation_score: score, paired_with: b_id },
@@ -183,7 +188,8 @@ module Ai
         end
       end
 
-      def collusion_score(agent_a_id, agent_b_id)
+      # trust_scores: preloaded { agent_id => overall_score } map (see detect_collusion!).
+      def collusion_score(agent_a_id, agent_b_id, trust_scores)
         # Inter-agent mutual-approval reciprocity is not modeled yet: there is no peer-review
         # table with reviewer/reviewed/outcome semantics (Ai::AgentReview is the marketplace
         # template-review model — agent_template_id/user_id/rating/status). The prior query
@@ -193,8 +199,8 @@ module Ai
         # explicit 0.0 placeholder (mirrors the output_similarity TBD term below).
         reciprocity = 0.0
 
-        trust_a = Ai::AgentTrustScore.find_by(agent_id: agent_a_id)&.overall_score
-        trust_b = Ai::AgentTrustScore.find_by(agent_id: agent_b_id)&.overall_score
+        trust_a = trust_scores[agent_a_id]
+        trust_b = trust_scores[agent_b_id]
         trust_coupling = (trust_a && trust_b) ? 1.0 - (trust_a - trust_b).abs : 0.0
 
         (0.3 * reciprocity + 0.3 * trust_coupling + 0.4 * 0.0).round(4) # output_similarity TBD
