@@ -341,6 +341,56 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
   end
 
   # ===========================================================================
+  # inc6: routing-decision outcome feedback (benefit measurement). When the Ralph
+  # seam resolved a governed tier decision, its id is threaded onto the executor
+  # result; the iteration-completion path feeds success/cost/tokens back onto the
+  # decision via RoutingDecision#record_outcome!.
+  # ===========================================================================
+
+  describe "routing-decision outcome recording" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+    let(:decision) do
+      create(:ai_routing_decision, account: account, model_tier: "reasoning", outcome: nil,
+             rationale: { "decision" => "escalate" })
+    end
+
+    before { ralph_loop.update!(configuration: { "real_test_execution" => false }) }
+
+    it "records a succeeded outcome (with cost/tokens) on a successful iteration" do
+      result = { success: true, output: "done", checks_passed: true,
+                 tokens: { input: 100, output: 50 }, cost: 0.004, routing_decision_id: decision.id }
+
+      service.send(:process_successful_iteration, iteration, task, result)
+
+      decision.reload
+      expect(decision.outcome).to eq("succeeded")
+      expect(decision.actual_tokens_used).to eq(150)
+      expect(decision.actual_cost_usd).to be_within(0.0001).of(0.004)
+      expect(decision.actual_latency_ms).to be_present
+    end
+
+    it "records a failed outcome on a failed iteration" do
+      result = { success: false, error: "boom", error_code: "E1",
+                 tokens: { input: 10, output: 0 }, cost: 0, routing_decision_id: decision.id }
+
+      service.send(:process_failed_iteration, iteration, task, result)
+
+      expect(decision.reload.outcome).to eq("failed")
+    end
+
+    it "no-ops when the result carries no routing decision id (gate OFF path)" do
+      result = { success: true, output: "done", checks_passed: true, tokens: {}, cost: 0 }
+
+      expect { service.send(:process_successful_iteration, iteration, task, result) }.not_to raise_error
+      expect(decision.reload.outcome).to be_nil
+    end
+  end
+
+  # ===========================================================================
   # G3: semantic maker/checker gate (separate-model evaluator) wired into the
   # task-completion path. Composes WITH the G1 real-test gate.
   # ===========================================================================

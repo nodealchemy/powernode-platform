@@ -236,6 +236,11 @@ module Ai
           # Extract and store shared learnings (from the scrubbed output)
           store_iteration_learnings(scrubbed_output)
 
+          # inc6: feed the executor-run outcome back onto the governed routing
+          # decision (benefit measurement). A successful iteration means the model
+          # produced a usable result for its tier selection.
+          record_routing_decision_outcome(result, iteration, succeeded: true)
+
           # Broadcast real-time updates
           broadcast_iteration_completed(iteration)
           broadcast_task_status_changed(task)
@@ -413,10 +418,37 @@ module Ai
           ralph_loop.increment_iteration!
           task.reset! if task.repeating?
 
+          # inc6: record the failed executor-run outcome on the governed routing
+          # decision (benefit measurement).
+          record_routing_decision_outcome(result, iteration, succeeded: false)
+
           # Broadcast real-time updates
           broadcast_iteration_completed(iteration)
           broadcast_task_status_changed(task)
           broadcast_progress
+        end
+
+        # inc6: best-effort outcome feedback for the Ralph seam. The decision id
+        # rides on the executor result (Ai::Ralph::TaskExecutor stashes it after
+        # persisting the governance record); when present and not yet recorded, feed
+        # success/cost/latency/tokens onto it via the existing record_outcome!. A
+        # failure here must never wedge the iteration.
+        def record_routing_decision_outcome(result, iteration, succeeded:)
+          decision_id = result[:routing_decision_id]
+          return if decision_id.blank?
+
+          decision = ::Ai::RoutingDecision.find_by(id: decision_id)
+          return unless decision && decision.outcome.blank?
+
+          tokens = result.dig(:tokens, :input).to_i + result.dig(:tokens, :output).to_i
+          decision.record_outcome!(
+            outcome: succeeded ? "succeeded" : "failed",
+            cost_usd: result[:cost],
+            latency_ms: iteration.duration_ms,
+            tokens_used: tokens.positive? ? tokens : nil
+          )
+        rescue StandardError => e
+          Rails.logger.error("[IterationExecution] routing outcome record failed for decision #{decision_id}: #{e.message}")
         end
 
         def extract_learning(output)

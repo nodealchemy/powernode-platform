@@ -104,6 +104,18 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         expect(resolution).to receive(:persist!)
         executor.send(:build_agent_options, agent, provider, messages)
       end
+
+      # inc6: the persisted decision id is stashed so the iteration-completion path
+      # can feed its outcome back onto the decision (benefit measurement).
+      it 'threads the persisted routing decision id into the executor result' do
+        decision = create(:ai_routing_decision, account: account)
+        allow(resolution).to receive(:persist!).and_return(decision)
+
+        executor.send(:build_agent_options, agent, provider, messages)
+        result = executor.send(:normalize_result, { success: true, content: "ok", metadata: {} }, agent)
+
+        expect(result[:routing_decision_id]).to eq(decision.id)
+      end
     end
   end
 

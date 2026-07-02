@@ -195,6 +195,9 @@ module Ai
           executor_type: "agent",
           executor_id: agent.id,
           tool_calls_log: result[:tool_calls_log],
+          # inc6: carry the governed routing decision id so the completion path can
+          # record its outcome (nil on the gate-OFF / unresolved path).
+          routing_decision_id: @routing_decision_id,
           # Carry served-by attribution through to the iteration record + maker/checker.
           served_by: result[:served_by],
           refusal_recovery: result[:refusal_recovery]
@@ -474,7 +477,11 @@ module Ai
         # final model). A resolver failure returns nil ⇒ we fall through to baseline.
         if ::Ai::Routing::TaskTierResolver.enabled_for?(account) &&
            (resolution = resolve_task_tier(agent, model_config, messages))
-          resolution.persist!
+          # inc6: stash the persisted decision id so the iteration-completion path
+          # can feed its outcome back onto the decision (benefit measurement). This
+          # seam has no Ai::AgentExecution to carry the link, so the executor result
+          # carries it instead.
+          @routing_decision_id = resolution.persist!&.id
           model = resolution.model.presence || agent.resolved_model
           effort = resolution.effort
         else
@@ -642,7 +649,9 @@ module Ai
           },
           cost: result.dig(:metadata, :cost) || 0,
           executor_type: "agent",
-          executor_id: agent.id
+          executor_id: agent.id,
+          # inc6: carry the governed routing decision id (nil when gate OFF / unresolved).
+          routing_decision_id: @routing_decision_id
         }
       end
 

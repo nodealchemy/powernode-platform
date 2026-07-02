@@ -47,6 +47,7 @@ module Ai
     after_update :propagate_cost_to_budget, if: -> { saved_change_to_cost_usd? && cost_usd.present? && cost_usd > 0 }
     after_update :trigger_trust_evaluation, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
     after_update :record_model_performance, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
+    after_update :record_routing_decision_outcome, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
 
     # Methods
     def pending?
@@ -290,6 +291,32 @@ module Ai
       )
     rescue StandardError => e
       Rails.logger.error("[AgentExecution] Model performance record failed for execution #{id}: #{e.message}")
+    end
+
+    # inc6 benefit measurement: feed this execution's terminal outcome/cost/latency/
+    # tokens back onto any Ai::RoutingDecision the tier-routing seam linked to it
+    # (agent_execution_id), via the existing RoutingDecision#record_outcome!. Reuses
+    # the data this execution already collected — no new collection. Only touches
+    # decisions with no outcome yet (idempotent, never clobbers a recorded outcome).
+    def record_routing_decision_outcome
+      decisions = Ai::RoutingDecision.where(agent_execution_id: id, outcome: nil)
+      return if decisions.empty?
+
+      metrics = performance_metrics.is_a?(Hash) ? performance_metrics : {}
+      quality = (metrics["quality_score"] || metrics[:quality_score]).presence
+      resolved_outcome = status == "completed" ? "succeeded" : "failed"
+
+      decisions.find_each do |decision|
+        decision.record_outcome!(
+          outcome: resolved_outcome,
+          cost_usd: cost_usd,
+          latency_ms: duration_ms,
+          tokens_used: tokens_used,
+          quality_score: quality
+        )
+      rescue StandardError => e
+        Rails.logger.error("[AgentExecution] Routing outcome record failed for decision #{decision.id}: #{e.message}")
+      end
     end
   end
 end
