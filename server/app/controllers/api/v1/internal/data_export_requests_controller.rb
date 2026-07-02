@@ -17,8 +17,8 @@ module Api
           @export_request.status = "pending"
 
           if @export_request.save
-            # Queue processing job
-            DataManagement::ExportProcessingJob.perform_later(@export_request.id)
+            # Queue processing through the worker HTTP API seam
+            queue_worker_export_job(@export_request.id)
 
             render_success({ data_export_request: serialize_request(@export_request) }, status: :created)
           else
@@ -48,6 +48,18 @@ module Api
 
         private
 
+        # Dispatch export processing through the worker HTTP API seam. The old
+        # DataManagement::Export{Processing,Execution}Job classes never existed
+        # (server or worker) and the server runs no Sidekiq/ActiveJob backend,
+        # so enqueuing them raised NameError (500). Compliance::DataExportJob is
+        # the worker job that processes DataManagement::ExportRequest records.
+        def queue_worker_export_job(export_request_id)
+          WorkerApiClient.new.queue_job("Compliance::DataExportJob", [ export_request_id ], queue: "compliance")
+        rescue WorkerApiClient::ApiError => e
+          Rails.logger.error "[DataExportRequests] Failed to queue Compliance::DataExportJob " \
+                             "for #{export_request_id}: #{e.message}"
+        end
+
         def set_export_request
           @export_request = DataManagement::ExportRequest.find(params[:id])
         rescue ActiveRecord::RecordNotFound
@@ -75,8 +87,8 @@ module Api
             processing_started_at: Time.current
           )
 
-          # Execute export in background
-          DataManagement::ExportExecutionJob.perform_later(@export_request.id)
+          # Execute export in background through the worker HTTP API seam
+          queue_worker_export_job(@export_request.id)
 
           render_success(
             { data_export_request: serialize_request(@export_request) },

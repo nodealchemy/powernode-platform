@@ -26,12 +26,12 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
     allow(AuditLog).to receive(:log_action).and_return(true)
     allow(NotificationService).to receive(:send_email).and_return(true)
 
-    # Stub job classes at both the top level and within the controller namespace
-    job_stub = Class.new { def self.perform_later(*); end }
-    stub_const('DataManagement::ExportProcessingJob', job_stub)
-    stub_const('DataManagement::ExportExecutionJob', job_stub)
-    stub_const('Api::V1::Internal::DataManagement::ExportProcessingJob', job_stub)
-    stub_const('Api::V1::Internal::DataManagement::ExportExecutionJob', job_stub)
+    # The controller dispatches processing through the worker HTTP API seam
+    allow(WorkerApiClient).to receive(:new).and_return(worker_api_client)
+  end
+
+  let(:worker_api_client) do
+    instance_double(WorkerApiClient, queue_job: { 'success' => true })
   end
 
   # Helper to create export request
@@ -103,6 +103,25 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
 
         expect(data['data_export_request']['status']).to eq('pending')
       end
+
+      it 'queues Compliance::DataExportJob through the worker API seam' do
+        post '/api/v1/internal/data_export_requests', params: valid_params, headers: internal_headers, as: :json
+
+        expect(response).to have_http_status(:created)
+        expect(worker_api_client).to have_received(:queue_job)
+          .with('Compliance::DataExportJob', [ DataManagement::ExportRequest.order(:created_at).last.id ], queue: 'compliance')
+      end
+
+      it 'still succeeds when the worker API is unavailable' do
+        allow(worker_api_client).to receive(:queue_job)
+          .and_raise(WorkerApiClient::ApiError, 'worker down')
+
+        expect {
+          post '/api/v1/internal/data_export_requests', params: valid_params, headers: internal_headers, as: :json
+        }.to change(DataManagement::ExportRequest, :count).by(1)
+
+        expect(response).to have_http_status(:created)
+      end
     end
   end
 
@@ -120,6 +139,8 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
 
         export_request.reload
         expect(export_request.status).to eq('processing')
+        expect(worker_api_client).to have_received(:queue_job)
+          .with('Compliance::DataExportJob', [ export_request.id ], queue: 'compliance')
       end
 
       it 'rejects non-pending request' do

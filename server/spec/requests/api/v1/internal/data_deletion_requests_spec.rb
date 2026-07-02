@@ -28,13 +28,12 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
     allow(NotificationService).to receive(:send_email).and_return(true)
     allow(Notification).to receive(:create).and_return(Notification.new)
 
-    # Stub job classes at both the top level and within the controller namespace
-    # (the Api::V1::Internal::DataManagement module shadows top-level DataManagement)
-    job_stub = Class.new { def self.perform_later(*); end }
-    stub_const('DataManagement::DeletionProcessingJob', job_stub)
-    stub_const('DataManagement::DeletionExecutionJob', job_stub)
-    stub_const('Api::V1::Internal::DataManagement::DeletionProcessingJob', job_stub)
-    stub_const('Api::V1::Internal::DataManagement::DeletionExecutionJob', job_stub)
+    # The controller dispatches processing through the worker HTTP API seam
+    allow(WorkerApiClient).to receive(:new).and_return(worker_api_client)
+  end
+
+  let(:worker_api_client) do
+    instance_double(WorkerApiClient, queue_job: { 'success' => true })
   end
 
   # Helper to create deletion request
@@ -108,6 +107,27 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
         data = json_response_data
 
         expect(data['data_deletion_request']['status']).to eq('pending')
+      end
+
+      it 'queues Compliance::DataDeletionJob through the worker API seam' do
+        post '/api/v1/internal/data_deletion_requests', params: valid_params, headers: internal_headers, as: :json
+
+        expect(response).to have_http_status(:created)
+        expect(worker_api_client).to have_received(:queue_job)
+          .with('Compliance::DataDeletionJob',
+                [ DataManagement::DeletionRequest.order(:created_at).last.id ],
+                queue: 'compliance')
+      end
+
+      it 'still succeeds when the worker API is unavailable' do
+        allow(worker_api_client).to receive(:queue_job)
+          .and_raise(WorkerApiClient::ApiError, 'worker down')
+
+        expect {
+          post '/api/v1/internal/data_deletion_requests', params: valid_params, headers: internal_headers, as: :json
+        }.to change(DataManagement::DeletionRequest, :count).by(1)
+
+        expect(response).to have_http_status(:created)
       end
     end
   end
@@ -186,6 +206,8 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
 
         deletion_request.reload
         expect(deletion_request.status).to eq('processing')
+        expect(worker_api_client).to have_received(:queue_job)
+          .with('Compliance::DataDeletionJob', [ deletion_request.id ], queue: 'compliance')
       end
 
       it 'rejects non-approved request' do

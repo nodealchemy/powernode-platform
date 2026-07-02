@@ -219,10 +219,17 @@ class Api::V1::WebhooksController < ApplicationController
                                       .includes(:webhook_endpoint)
 
     retry_count = 0
+    worker_client = WorkerApiClient.new
     failed_deliveries.each do |delivery|
-      if delivery.webhook_endpoint.active? && delivery.can_retry?
-        WebhookRetryJob.perform_later(delivery.id)
+      next unless delivery.webhook_endpoint.active? && delivery.can_retry?
+
+      begin
+        # Retry jobs run in the standalone worker; dispatch through the HTTP
+        # worker API seam (the server runs no Sidekiq and has no job classes).
+        worker_client.queue_job("Webhooks::WebhookRetryJob", [ delivery.id ], queue: "webhooks")
         retry_count += 1
+      rescue WorkerApiClient::ApiError => e
+        Rails.logger.error "[Webhooks] Failed to queue retry for delivery #{delivery.id}: #{e.message}"
       end
     end
 
@@ -312,8 +319,14 @@ class Api::V1::WebhooksController < ApplicationController
       error_message: nil
     )
 
-    # Queue for immediate retry
-    WebhookRetryJob.perform_later(delivery.id) if defined?(WebhookRetryJob)
+    # Queue for immediate retry through the HTTP worker API seam (the retry job
+    # lives only in the standalone worker; it was never defined server-side, so
+    # the old `if defined?(WebhookRetryJob)` guard silently skipped the enqueue).
+    begin
+      WorkerApiClient.new.queue_job("Webhooks::WebhookRetryJob", [ delivery.id ], queue: "webhooks")
+    rescue WorkerApiClient::ApiError => e
+      Rails.logger.error "[Webhooks] Failed to queue retry for delivery #{delivery.id}: #{e.message}"
+    end
 
     log_webhook_action("webhook_delivery_retry", delivery.webhook_endpoint, {
       delivery_id: delivery.id,

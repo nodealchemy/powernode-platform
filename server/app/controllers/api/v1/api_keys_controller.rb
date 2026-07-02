@@ -209,7 +209,7 @@ class Api::V1::ApiKeysController < ApplicationController
   def scoped_api_keys
     @scoped_api_keys ||=
       if current_user.has_permission?("admin.access")
-        ApiKey.all
+        ApiKey.all # scoping-ok: admin.access grants the global admin view (mirrors scoped_audit_logs)
       else
         ApiKey.where(account: current_user.account)
       end

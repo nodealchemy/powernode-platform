@@ -10,26 +10,6 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
     unless Api::V1::Internal::DataManagement.const_defined?(:ExportRequest, false)
       Api::V1::Internal::DataManagement.const_set(:ExportRequest, ::DataManagement::ExportRequest)
     end
-
-    # Define stub job classes that the controller references but don't exist.
-    # Must be defined both at top-level DataManagement:: and within
-    # Api::V1::Internal::DataManagement:: since the controller's namespace resolution
-    # will find the latter first.
-    stub_job = Class.new(ApplicationJob) { def perform(*args); end }
-
-    unless defined?(::DataManagement::ExportProcessingJob)
-      ::DataManagement.const_set(:ExportProcessingJob, stub_job)
-    end
-    unless Api::V1::Internal::DataManagement.const_defined?(:ExportProcessingJob, false)
-      Api::V1::Internal::DataManagement.const_set(:ExportProcessingJob, ::DataManagement::ExportProcessingJob)
-    end
-
-    unless defined?(::DataManagement::ExportExecutionJob)
-      ::DataManagement.const_set(:ExportExecutionJob, stub_job)
-    end
-    unless Api::V1::Internal::DataManagement.const_defined?(:ExportExecutionJob, false)
-      Api::V1::Internal::DataManagement.const_set(:ExportExecutionJob, ::DataManagement::ExportExecutionJob)
-    end
   end
 
   # Worker JWT authentication via InternalBaseController
@@ -50,6 +30,10 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
   before do
     # Stub NotificationService.send_email which the controller calls
     allow(NotificationService).to receive(:send_email).and_return(true)
+
+    # The controller dispatches processing through the worker HTTP API seam
+    allow(WorkerApiClient).to receive(:new)
+      .and_return(instance_double(WorkerApiClient, queue_job: { 'success' => true }))
   end
 
   describe 'GET /api/v1/internal/data_export_requests/:id' do

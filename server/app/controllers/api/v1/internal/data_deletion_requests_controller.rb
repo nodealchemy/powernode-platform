@@ -17,8 +17,8 @@ module Api
           @deletion_request.status = "pending"
 
           if @deletion_request.save
-            # Queue processing job
-            DataManagement::DeletionProcessingJob.perform_later(@deletion_request.id)
+            # Queue processing through the worker HTTP API seam
+            queue_worker_deletion_job(@deletion_request.id)
 
             render_success({ data_deletion_request: serialize_request(@deletion_request) }, status: :created)
           else
@@ -47,6 +47,18 @@ module Api
         end
 
         private
+
+        # Dispatch deletion processing through the worker HTTP API seam. The old
+        # DataManagement::Deletion{Processing,Execution}Job classes never existed
+        # (server or worker) and the server runs no Sidekiq/ActiveJob backend,
+        # so enqueuing them raised NameError (500). Compliance::DataDeletionJob
+        # is the worker job that processes DataManagement::DeletionRequest records.
+        def queue_worker_deletion_job(deletion_request_id)
+          WorkerApiClient.new.queue_job("Compliance::DataDeletionJob", [ deletion_request_id ], queue: "compliance")
+        rescue WorkerApiClient::ApiError => e
+          Rails.logger.error "[DataDeletionRequests] Failed to queue Compliance::DataDeletionJob " \
+                             "for #{deletion_request_id}: #{e.message}"
+        end
 
         def set_deletion_request
           @deletion_request = DataManagement::DeletionRequest.find(params[:id])
@@ -148,8 +160,8 @@ module Api
           log_internal_audit("data_deletion.execute", "DeletionRequest", @deletion_request.id,
                              account_id: @deletion_request.account_id)
 
-          # Execute deletion in background
-          DataManagement::DeletionExecutionJob.perform_later(@deletion_request.id)
+          # Execute deletion in background through the worker HTTP API seam
+          queue_worker_deletion_job(@deletion_request.id)
 
           render_success(
             { data_deletion_request: serialize_request(@deletion_request) },

@@ -73,28 +73,23 @@ class Api::V1::AuditLogsController < ApplicationController
     filters = audit_log_filters
     format = params[:format] || "csv"
 
-    if should_use_background_export?
-      job_id = AuditLogExportJob.perform_later(current_user.id, filters, format).job_id
+    # NOTE: result sets over 5,000 rows used to enqueue AuditLogExportJob, but
+    # that class was never defined anywhere (server or worker) so those exports
+    # 500'd with NameError — and the server runs no Sidekiq/ActiveJob backend.
+    # Until a worker-side export job exists, always export synchronously with
+    # the same 1,000-row cap the inline path has always applied.
+    logs = scoped_audit_logs.includes(:user, :account)
+                            .apply_filters(filters)
+                            .order(created_at: :desc)
+                            .limit(1000)
 
-      render_success(
-        message: "Export job queued successfully",
-        data: { job_id: job_id, estimated_completion: 5.minutes.from_now.iso8601 },
-        status: :accepted
-      )
-    else
-      logs = scoped_audit_logs.includes(:user, :account)
-                              .apply_filters(filters)
-                              .order(created_at: :desc)
-                              .limit(1000)
-
-      render_success(
-        data: {
-          format: format,
-          content: query_service.generate_export_data(logs, format),
-          filename: "audit_logs_#{Date.current.strftime('%Y%m%d')}.#{format}"
-        }
-      )
-    end
+    render_success(
+      data: {
+        format: format,
+        content: query_service.generate_export_data(logs, format),
+        filename: "audit_logs_#{Date.current.strftime('%Y%m%d')}.#{format}"
+      }
+    )
   end
 
   # POST /api/v1/audit_logs
@@ -188,10 +183,6 @@ class Api::V1::AuditLogsController < ApplicationController
       date_to: params[:date_to]&.to_date,
       status: params[:status]
     }.compact
-  end
-
-  def should_use_background_export?
-    scoped_audit_logs.apply_filters(audit_log_filters).count > 5000
   end
 
   def extract_audit_params

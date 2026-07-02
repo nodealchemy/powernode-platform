@@ -483,13 +483,14 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
   #      scoped to the caller's account, so one tenant could trigger a
   #      platform-wide retry storm across every other tenant's failed deliveries.
   #
-  # WebhookRetryJob is defined only in the standalone worker app; the Rails
-  # server never loads it. We stub it as a constant spy so we can both (a) keep
-  # the unconditional perform_later call from raising NameError and (b) observe
-  # exactly which deliveries get enqueued.
+  # Webhooks::WebhookRetryJob is defined only in the standalone worker app; the
+  # controller dispatches it through the worker HTTP API seam (WorkerApiClient),
+  # which we stub so we can observe exactly which deliveries get enqueued.
   # ==========================================================================
   describe 'POST /api/v1/webhooks/retry_failed' do
-    let(:retry_job) { spy('WebhookRetryJob') }
+    let(:worker_api_client) do
+      instance_double(WorkerApiClient, queue_job: { 'success' => true })
+    end
     let(:caller_user) { create(:user, account: account, permissions: [ 'webhook.update' ]) }
     let(:caller_headers) { auth_headers_for(caller_user) }
 
@@ -508,21 +509,23 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
       create(:webhook_delivery, :failed, webhook_endpoint: endpoint_b, next_retry_at: 1.minute.ago)
     end
 
-    before { stub_const('WebhookRetryJob', retry_job) }
+    before { allow(WorkerApiClient).to receive(:new).and_return(worker_api_client) }
 
     it 'requires the webhook.update permission' do
       post '/api/v1/webhooks/retry_failed', headers: auth_headers_for(regular_user), as: :json
 
       expect(response).to have_http_status(:forbidden)
-      expect(retry_job).not_to have_received(:perform_later)
+      expect(worker_api_client).not_to have_received(:queue_job)
     end
 
     it 'only retries the calling account deliveries (no cross-tenant retry storm)' do
       post '/api/v1/webhooks/retry_failed', headers: caller_headers, as: :json
 
       expect_success_response
-      expect(retry_job).to have_received(:perform_later).with(delivery_a.id)
-      expect(retry_job).not_to have_received(:perform_later).with(delivery_b.id)
+      expect(worker_api_client).to have_received(:queue_job)
+        .with('Webhooks::WebhookRetryJob', [ delivery_a.id ], queue: 'webhooks')
+      expect(worker_api_client).not_to have_received(:queue_job)
+        .with('Webhooks::WebhookRetryJob', [ delivery_b.id ], queue: 'webhooks')
 
       expect(json_response['data']['retry_count']).to eq(1)
       expect(json_response['data']['total_failed']).to eq(1)
@@ -533,7 +536,18 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
 
       expect_success_response
       expect(json_response['data']['retry_count']).to eq(1)
-      expect(retry_job).to have_received(:perform_later).with(delivery_a.id).once
+      expect(worker_api_client).to have_received(:queue_job)
+        .with('Webhooks::WebhookRetryJob', [ delivery_a.id ], queue: 'webhooks').once
+    end
+
+    it 'returns success with retry_count 0 when the worker API is unavailable' do
+      allow(worker_api_client).to receive(:queue_job)
+        .and_raise(WorkerApiClient::ApiError, 'worker down')
+
+      post '/api/v1/webhooks/retry_failed', headers: caller_headers, as: :json
+
+      expect_success_response
+      expect(json_response['data']['retry_count']).to eq(0)
     end
   end
 

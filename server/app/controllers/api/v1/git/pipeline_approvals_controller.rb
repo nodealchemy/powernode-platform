@@ -173,10 +173,12 @@ module Api
             }
           )
 
-          # Trigger pipeline continuation if configured
-          if pipeline.respond_to?(:auto_continue_on_approval?) && pipeline.auto_continue_on_approval?
-            ::Devops::PipelineContinuationJob.perform_later(pipeline.id, approval.gate_name)
-          end
+          # NOTE: an auto-continuation branch used to enqueue
+          # ::Devops::PipelineContinuationJob here, but that job class never
+          # existed (server or worker; the server runs no Sidekiq/ActiveJob
+          # backend) and no model defines auto_continue_on_approval?, so the
+          # branch was statically dead. If auto-continuation ships, dispatch it
+          # through the worker HTTP API seam (WorkerApiClient#queue_job).
 
           Rails.logger.info "Pipeline #{approval.git_pipeline_id} approved at gate #{approval.gate_name} by #{current_user.id}"
         end
