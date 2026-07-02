@@ -20,9 +20,6 @@ module Ai
     class TokenAnalyticsService
       include Ai::Concerns::AccountScoped
 
-      # Tier definitions for grouping models
-      MODEL_TIERS = Ai::ModelRouterService::MODEL_TIERS
-
       # Default forecasting parameters
       DEFAULT_FORECAST_MONTHS = 3
       DEFLATION_FACTOR = 0.95 # 5% cost deflation per month (model prices trend down)
@@ -308,12 +305,10 @@ module Ai
       # CALCULATION HELPERS
       # ==========================================================================
 
+      # Group a model under a router tier LABEL (economy/standard/premium) via the
+      # unified price-ladder classifier — no hardcoded model-name list.
       def detect_tier(model_name)
-        downcased = model_name.to_s.downcase
-        MODEL_TIERS.each do |tier, patterns|
-          return tier if patterns.any? { |p| downcased.include?(p) }
-        end
-        "standard"
+        ::Ai::ModelTiers.to_label(::Ai::ModelTiers.classify(model_name))
       end
 
       def estimate_formatting_overhead(metrics)

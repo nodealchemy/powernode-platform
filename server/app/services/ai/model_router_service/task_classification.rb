@@ -100,8 +100,19 @@ module Ai
         tier
       end
 
+      # Resolve the provider's models for a router tier LABEL (economy/standard/
+      # premium), derived live from Ai::ModelTiers.classify over the provider's
+      # synced catalog — NOT a static model-name list. Label→ladder mapping:
+      # economy→:light, standard→:standard, premium→:reasoning. Frontier (Fable/
+      # Mythos) is admitted into "premium" ONLY when the Fable framework is enabled
+      # for the account; otherwise frontier stays out of every tier (mirrors the
+      # candidacy gate below), so a "premium" request can never silently route to a
+      # gated frontier model.
       def models_for_tier(tier, provider)
-        tier_patterns = MODEL_TIERS[tier] || MODEL_TIERS["standard"]
+        ladder = ::Ai::ModelTiers.from_label(tier)
+        fable_on = ::Ai::FableRouting.enabled_for?(@account)
+        wanted = [ladder]
+        wanted << :frontier if ladder == :reasoning && fable_on
 
         # Get available models from the provider's synced model list.
         available = Array(provider.available_models).compact
@@ -110,22 +121,19 @@ module Ai
         # them from the tier pool (and the default fallback below) so an
         # unavailable model can never be routed to. Read the toggle only when a
         # Fable model is actually present.
-        if available.any? { |m| ::Ai::FableRouting.fable_model?(m) } && !::Ai::FableRouting.enabled_for?(@account)
+        if available.any? { |m| ::Ai::FableRouting.fable_model?(m) } && !fable_on
           available = available.reject { |m| ::Ai::FableRouting.fable_model?(m) }
         end
         if available.empty?
           # No synced models: fall back to the provider's configured default so
           # downstream callers (route_and_build_client) never receive a nil model.
           default = provider.default_model
-          default = nil if default.present? && ::Ai::FableRouting.fable_model?(default) && !::Ai::FableRouting.enabled_for?(@account)
+          default = nil if default.present? && ::Ai::FableRouting.fable_model?(default) && !fable_on
           return default.present? ? [default] : []
         end
 
-        # Match tier patterns against available models
-        matched = available.select do |model_id|
-          downcased = model_id.to_s.downcase
-          tier_patterns.any? { |pattern| downcased.include?(pattern) }
-        end
+        # Match by unified tier classification (price-ladder aware, no hardcoded ids).
+        matched = available.select { |model_id| wanted.include?(::Ai::ModelTiers.classify(model_id)) }
 
         matched.presence || available.first(3)
       end

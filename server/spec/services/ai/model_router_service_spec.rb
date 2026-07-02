@@ -25,15 +25,25 @@ RSpec.describe Ai::ModelRouterService do
     end
   end
 
-  describe "MODEL_TIERS" do
-    it "defines economy, standard, and premium tiers" do
-      expect(described_class::MODEL_TIERS.keys).to contain_exactly("economy", "standard", "premium")
+  describe "#models_for_tier (derives from Ai::ModelTiers, not a static list)" do
+    subject(:router) { described_class.new(account: account) }
+
+    before do
+      # A live catalog spanning the ladder: gpt-4o-mini ⇒ :light, gpt-4.1 ⇒
+      # :standard, gpt-4o ⇒ :reasoning (via Ai::ModelTiers.classify).
+      allow(provider).to receive(:available_models).and_return(%w[gpt-4o-mini gpt-4.1 gpt-4o])
     end
 
-    it "includes expected models in each tier" do
-      expect(described_class::MODEL_TIERS["economy"]).to include("gpt-4.1-nano")
-      expect(described_class::MODEL_TIERS["standard"]).to include("gpt-4.1-mini")
-      expect(described_class::MODEL_TIERS["premium"]).to include("gpt-4.1")
+    it "maps the economy label onto :light models" do
+      expect(router.send(:models_for_tier, "economy", provider)).to eq(%w[gpt-4o-mini])
+    end
+
+    it "maps the standard label onto :standard models" do
+      expect(router.send(:models_for_tier, "standard", provider)).to eq(%w[gpt-4.1])
+    end
+
+    it "maps the premium label onto :reasoning models (excludes light/standard)" do
+      expect(router.send(:models_for_tier, "premium", provider)).to eq(%w[gpt-4o])
     end
   end
 
