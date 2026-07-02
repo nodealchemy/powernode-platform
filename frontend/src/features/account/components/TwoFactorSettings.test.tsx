@@ -18,7 +18,7 @@ jest.mock('@/shared/services/account/twoFactorApi', () => ({
 
 // Mock TwoFactorSetup component
 jest.mock('@/features/account/auth/components/TwoFactorSetup', () => ({
-  TwoFactorSetup: ({ onComplete, onCancel }: any) => (
+  TwoFactorSetup: ({ onComplete, onCancel }: { onComplete: () => void; onCancel: () => void }) => (
     <div data-testid="two-factor-setup">
       <button onClick={onComplete}>Complete Setup</button>
       <button onClick={onCancel}>Cancel Setup</button>
@@ -29,7 +29,7 @@ jest.mock('@/features/account/auth/components/TwoFactorSetup', () => ({
 // Mock Modal
 jest.mock('@/shared/components/ui/Modal', () => ({
   __esModule: true,
-  default: ({ isOpen, onClose, title, children }: any) =>
+  default: ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title?: string; children?: React.ReactNode }) =>
     isOpen ? (
       <div data-testid="modal">
         <h2>{title}</h2>

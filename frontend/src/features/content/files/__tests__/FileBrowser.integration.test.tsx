@@ -16,7 +16,7 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 // Mock lucide icons
 jest.mock('lucide-react', () => ({
   Search: () => <span data-testid="search-icon" />,
-  RefreshCw: ({ className }: any) => <span data-testid="refresh-icon" className={className} />,
+  RefreshCw: ({ className }: { className?: string }) => <span data-testid="refresh-icon" className={className} />,
   ChevronLeft: () => <span data-testid="chevron-left" />,
   ChevronRight: () => <span data-testid="chevron-right" />,
   X: () => <span data-testid="x-icon" />,
@@ -35,7 +35,7 @@ jest.mock('lucide-react', () => ({
 
 // Mock FileItem component (named export)
 jest.mock('../components/FileItem', () => ({
-  FileItem: function MockFileItem({ file, onView, onDownload, onDelete }: any) {
+  FileItem: function MockFileItem({ file, onView, onDownload, onDelete }: { file: { id: string; filename: string; file_size: number; download_count?: number }; onView?: (file: { id: string; filename: string; file_size: number; download_count?: number }) => void; onDownload?: (file: { id: string; filename: string; file_size: number; download_count?: number }) => void; onDelete?: (file: { id: string; filename: string; file_size: number; download_count?: number }) => void }) {
     return (
       <div data-testid={`file-item-${file.id}`} className="file-item">
         <span
@@ -66,7 +66,7 @@ jest.mock('../components/FileItem', () => ({
 
 // Mock FileDetails component (named export)
 jest.mock('../components/FileDetails', () => ({
-  FileDetails: function MockFileDetails({ file, isOpen, onClose }: any) {
+  FileDetails: function MockFileDetails({ file, isOpen, onClose }: { file?: { filename?: string } | null; isOpen: boolean; onClose: () => void }) {
     if (!isOpen) return null;
     return (
       <div role="dialog" data-testid="file-details-modal">

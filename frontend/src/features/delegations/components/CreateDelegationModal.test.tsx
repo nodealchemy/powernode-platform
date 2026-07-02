@@ -15,7 +15,7 @@ jest.mock('@/features/delegations/services/delegationApi', () => ({
 
 // Mock PermissionSelector
 jest.mock('@/features/account/components/PermissionSelector', () => ({
-  PermissionSelector: ({ onRoleChange, onPermissionChange, selectedRoleId, selectedPermissionIds, loading }: any) => (
+  PermissionSelector: ({ onRoleChange, onPermissionChange, selectedRoleId, selectedPermissionIds, loading }: { onRoleChange: (roleId: string) => void; onPermissionChange: (permissionIds: string[]) => void; selectedRoleId?: string | null; selectedPermissionIds: string[]; loading?: boolean }) => (
     <div data-testid="permission-selector">
       {loading && <span>Loading permissions...</span>}
       <button onClick={() => onRoleChange('role-1')}>Select Role</button>

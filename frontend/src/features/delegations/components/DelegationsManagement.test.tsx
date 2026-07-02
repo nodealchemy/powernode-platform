@@ -5,7 +5,7 @@ import { DelegationsManagement } from './DelegationsManagement';
 // Mock ConfirmationModal - auto-confirm by default
 jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
   useConfirmation: () => ({
-    confirm: (opts: any) => { opts.onConfirm(); },
+    confirm: (opts: { onConfirm: () => void }) => { opts.onConfirm(); },
     ConfirmationDialog: null,
   }),
 }));
@@ -36,7 +36,7 @@ jest.mock('@/features/delegations/services/delegationApi', () => ({
 
 // Mock child modals
 jest.mock('./CreateDelegationModal', () => ({
-  CreateDelegationModal: ({ onClose, onCreate }: any) => (
+  CreateDelegationModal: ({ onClose, onCreate }: { onClose: () => void; onCreate: (data: { name: string }) => void }) => (
     <div data-testid="create-delegation-modal">
       <button onClick={onClose}>Close Create Modal</button>
       <button onClick={() => onCreate({ name: 'Test' })}>Create</button>
@@ -45,7 +45,7 @@ jest.mock('./CreateDelegationModal', () => ({
 }));
 
 jest.mock('./DelegationDetailsModal', () => ({
-  DelegationDetailsModal: ({ delegation, onClose, onRevoke }: any) => (
+  DelegationDetailsModal: ({ delegation, onClose, onRevoke }: { delegation: { id: string; name: string }; onClose: () => void; onRevoke: (id: string) => void }) => (
     <div data-testid="delegation-details-modal">
       <span>Details: {delegation.name}</span>
       <button onClick={onClose}>Close Details</button>
@@ -55,7 +55,7 @@ jest.mock('./DelegationDetailsModal', () => ({
 }));
 
 jest.mock('./DelegationRequestModal', () => ({
-  DelegationRequestModal: ({ request, onClose, onApprove, onReject }: any) => (
+  DelegationRequestModal: ({ request, onClose, onApprove, onReject }: { request: { id: string; requestedByName?: string }; onClose: () => void; onApprove: (id: string) => void; onReject: (id: string, reason: string) => void }) => (
     <div data-testid="delegation-request-modal">
       <span>Request: {request.requestedByName}</span>
       <button onClick={onClose}>Close Request</button>

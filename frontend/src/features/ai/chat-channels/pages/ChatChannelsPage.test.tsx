@@ -32,7 +32,7 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 const mockOnSelectChannel = jest.fn();
 
 jest.mock('../components/ChannelListPanel', () => ({
-  ChannelListPanel: ({ selectedChannelId, onSelectChannel }: any) => {
+  ChannelListPanel: ({ selectedChannelId, onSelectChannel }: { selectedChannelId?: string | null; onSelectChannel: (channel: { id: string; name: string; platform: string; status: string }) => void }) => {
     // Store the callback so tests can trigger channel selection
     mockOnSelectChannel.mockImplementation(onSelectChannel);
     return (
@@ -57,7 +57,7 @@ jest.mock('../components/ChannelListPanel', () => ({
 }));
 
 jest.mock('../components/ChannelDetailPanel', () => ({
-  ChannelDetailPanel: ({ channel }: any) => (
+  ChannelDetailPanel: ({ channel }: { channel?: { id: string; name: string; platform: string; status: string } | null }) => (
     <div data-testid="channel-detail-panel">
       {channel ? (
         <>

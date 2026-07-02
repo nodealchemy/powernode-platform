@@ -29,18 +29,18 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 
 // Mock UI components
 jest.mock('@/shared/components/ui/Tabs', () => ({
-  Tabs: ({ children, value, onValueChange: _onValueChange }: any) => (
+  Tabs: ({ children, value, onValueChange: _onValueChange }: { children?: React.ReactNode; value?: string; onValueChange?: (value: string) => void }) => (
     <div data-testid="tabs" data-value={value}>
       {children}
     </div>
   ),
-  TabsList: ({ children }: any) => <div data-testid="tabs-list">{children}</div>,
-  TabsTrigger: ({ children, value, onClick }: any) => (
+  TabsList: ({ children }: { children?: React.ReactNode }) => <div data-testid="tabs-list">{children}</div>,
+  TabsTrigger: ({ children, value, onClick }: { children?: React.ReactNode; value: string; onClick?: (value: string) => void }) => (
     <button data-testid={`tab-trigger-${value}`} onClick={() => onClick?.(value)}>
       {children}
     </button>
   ),
-  TabsContent: ({ children, value, className }: any) => (
+  TabsContent: ({ children, value, className }: { children?: React.ReactNode; value: string; className?: string }) => (
     <div data-testid={`tab-content-${value}`} className={className}>
       {children}
     </div>
@@ -49,7 +49,7 @@ jest.mock('@/shared/components/ui/Tabs', () => ({
 
 // Mock child components
 jest.mock('../components/AgentDiscovery', () => ({
-  AgentDiscovery: ({ onInvokeAgent, onSelectAgent }: any) => (
+  AgentDiscovery: ({ onInvokeAgent, onSelectAgent }: { onInvokeAgent?: (agent: { id: string; name: string }) => void; onSelectAgent?: (agent: { id: string; name: string }) => void }) => (
     <div data-testid="agent-discovery">
       Agent Discovery Component
       <button
@@ -69,7 +69,7 @@ jest.mock('../components/AgentDiscovery', () => ({
 }));
 
 jest.mock('../components/FederationPartnerList', () => ({
-  FederationPartnerList: ({ onSelectPartner, onCreatePartner }: any) => (
+  FederationPartnerList: ({ onSelectPartner, onCreatePartner }: { onSelectPartner?: (partner: { id: string; name: string }) => void; onCreatePartner?: () => void }) => (
     <div data-testid="federation-partner-list">
       Federation Partner List
       <button

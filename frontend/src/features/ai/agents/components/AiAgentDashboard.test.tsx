@@ -37,11 +37,11 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 
 // Mock UI components
 jest.mock('@/shared/components/ui/LoadingSpinner', () => ({
-  LoadingSpinner: ({ message }: any) => <div data-testid="loading-spinner">{message || 'Loading...'}</div>
+  LoadingSpinner: ({ message }: { message?: string }) => <div data-testid="loading-spinner">{message || 'Loading...'}</div>
 }));
 
 jest.mock('@/shared/components/ui/EmptyState', () => ({
-  EmptyState: ({ title, description, action }: any) => (
+  EmptyState: ({ title, description, action }: { title?: string; description?: string; action?: React.ReactNode }) => (
     <div data-testid="empty-state">
       <h3>{title}</h3>
       <p>{description}</p>
@@ -51,19 +51,19 @@ jest.mock('@/shared/components/ui/EmptyState', () => ({
 }));
 
 jest.mock('@/shared/components/ui/Badge', () => ({
-  Badge: ({ children, variant }: any) => (
+  Badge: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
     <span data-testid="badge" data-variant={variant}>{children}</span>
   )
 }));
 
 jest.mock('@/shared/components/ui/Card', () => ({
-  Card: ({ children, className }: any) => (
+  Card: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
     <div data-testid="card" className={className}>{children}</div>
   )
 }));
 
 jest.mock('@/shared/components/ui/Button', () => ({
-  Button: ({ children, onClick, variant, size, className, disabled }: any) => (
+  Button: ({ children, onClick, variant, size, className, disabled }: { children?: React.ReactNode; onClick?: () => void; variant?: string; size?: string; className?: string; disabled?: boolean }) => (
     <button
       onClick={onClick}
       data-variant={variant}
@@ -77,12 +77,12 @@ jest.mock('@/shared/components/ui/Button', () => ({
 }));
 
 jest.mock('@/shared/components/layout/PageContainer', () => ({
-  PageContainer: ({ children, title, description, actions }: any) => (
+  PageContainer: ({ children, title, description, actions }: { children?: React.ReactNode; title?: string; description?: string; actions?: Array<{ label?: string; onClick?: () => void }> }) => (
     <div data-testid="page-container">
       <h1>{title}</h1>
       <p>{description}</p>
       <div data-testid="page-actions">
-        {actions?.map((action: any, idx: number) => (
+        {actions?.map((action, idx) => (
           <button key={idx} onClick={action.onClick}>{action.label}</button>
         ))}
       </div>
@@ -100,7 +100,7 @@ jest.mock('@/features/ai/chat/context/ChatWindowContext', () => ({
 
 // Mock modal components
 jest.mock('./CreateAgentModal', () => ({
-  CreateAgentModal: ({ isOpen, onClose, onAgentCreated }: any) => (
+  CreateAgentModal: ({ isOpen, onClose, onAgentCreated }: { isOpen: boolean; onClose: () => void; onAgentCreated: () => void }) => (
     isOpen ? (
       <div data-testid="create-agent-modal">
         <button onClick={() => onAgentCreated()}>Create Agent</button>
@@ -111,7 +111,7 @@ jest.mock('./CreateAgentModal', () => ({
 }));
 
 jest.mock('./EditAgentModal', () => ({
-  EditAgentModal: ({ isOpen, agent, onClose, onAgentUpdated, onAgentDeleted }: any) => (
+  EditAgentModal: ({ isOpen, agent, onClose, onAgentUpdated, onAgentDeleted }: { isOpen: boolean; agent?: { name?: string } | null; onClose: () => void; onAgentUpdated: () => void; onAgentDeleted: () => void }) => (
     isOpen ? (
       <div data-testid="edit-agent-modal">
         <span>Editing: {agent?.name}</span>

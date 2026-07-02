@@ -6,7 +6,7 @@ let mockShouldAutoConfirm = true;
 const mockConfirmFn = jest.fn();
 jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
   useConfirmation: () => ({
-    confirm: (opts: any) => {
+    confirm: (opts: { onConfirm: () => void }) => {
       mockConfirmFn(opts);
       if (mockShouldAutoConfirm) {
         opts.onConfirm();
@@ -50,12 +50,12 @@ jest.mock('@/features/devops/api-keys/services/apiKeysApi', () => ({
 
 // Mock child modals
 jest.mock('./CreateApiKeyModal', () => ({
-  CreateApiKeyModal: ({ isOpen, onClose }: any) =>
+  CreateApiKeyModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
     isOpen ? <div data-testid="create-modal">Create Modal<button onClick={onClose}>Close</button></div> : null
 }));
 
 jest.mock('./ApiKeyDetailsModal', () => ({
-  ApiKeyDetailsModal: ({ isOpen, onClose }: any) =>
+  ApiKeyDetailsModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
     isOpen ? <div data-testid="details-modal">Details Modal<button onClick={onClose}>Close</button></div> : null
 }));
 

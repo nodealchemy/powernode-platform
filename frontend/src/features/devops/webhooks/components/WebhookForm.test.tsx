@@ -5,7 +5,7 @@ import { WebhookForm } from './WebhookForm';
 const mockReset = jest.fn();
 const mockSetValue = jest.fn();
 const mockHandleBlur = jest.fn();
-const mockHandleSubmit = jest.fn((e: any) => {
+const mockHandleSubmit = jest.fn((e?: { preventDefault?: () => void }) => {
   e?.preventDefault?.();
   return Promise.resolve();
 });
@@ -66,13 +66,13 @@ jest.mock('@/features/devops/webhooks/services/webhooksApi', () => ({
 
 // Mock LoadingSpinner
 jest.mock('@/shared/components/ui/LoadingSpinner', () => ({
-  LoadingSpinner: ({ size }: any) => <div data-testid="loading-spinner" data-size={size}>Loading...</div>
+  LoadingSpinner: ({ size }: { size?: string }) => <div data-testid="loading-spinner" data-size={size}>Loading...</div>
 }));
 
 // Mock ErrorAlert
 jest.mock('@/shared/components/ui/ErrorAlert', () => ({
   __esModule: true,
-  default: ({ message, onClose }: any) => (
+  default: ({ message, onClose }: { message?: string; onClose?: () => void }) => (
     <div data-testid="error-alert">
       {message}
       <button onClick={onClose}>Close</button>

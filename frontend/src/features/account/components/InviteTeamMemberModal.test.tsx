@@ -5,7 +5,7 @@ import { InviteTeamMemberModal } from './InviteTeamMemberModal';
 const mockReset = jest.fn();
 const mockSetValue = jest.fn();
 const mockHandleBlur = jest.fn();
-const mockHandleSubmit = jest.fn((e: any) => {
+const mockHandleSubmit = jest.fn((e?: { preventDefault?: () => void }) => {
   e?.preventDefault?.();
   return Promise.resolve();
 });
@@ -49,7 +49,7 @@ jest.mock('@/shared/services/account/invitationsApi', () => ({
 
 // Mock Modal component
 jest.mock('@/shared/components/ui/Modal', () => ({
-  Modal: ({ isOpen, onClose, title, subtitle, children }: any) =>
+  Modal: ({ isOpen, onClose, title, subtitle, children }: { isOpen: boolean; onClose: () => void; title?: string; subtitle?: string; children?: React.ReactNode }) =>
     isOpen ? (
       <div data-testid="modal">
         <h2>{title}</h2>
@@ -62,7 +62,7 @@ jest.mock('@/shared/components/ui/Modal', () => ({
 
 // Mock FormField component
 jest.mock('@/shared/components/ui/FormField', () => ({
-  FormField: ({ label, value, onChange, placeholder, type, disabled, error }: any) => (
+  FormField: ({ label, value, onChange, placeholder, type, disabled, error }: { label?: string; value?: string; onChange: (value: string) => void; placeholder?: string; type?: string; disabled?: boolean; error?: string }) => (
     <div>
       <label>{label}</label>
       {type === 'textarea' ? (
@@ -90,7 +90,7 @@ jest.mock('@/shared/components/ui/FormField', () => ({
 
 // Mock Button component
 jest.mock('@/shared/components/ui/Button', () => ({
-  Button: ({ children, onClick, type, disabled, loading, variant }: any) => (
+  Button: ({ children, onClick, type, disabled, loading, variant }: { children?: React.ReactNode; onClick?: () => void; type?: 'button' | 'submit' | 'reset'; disabled?: boolean; loading?: boolean; variant?: string }) => (
     <button
       type={type || 'button'}
       onClick={onClick}

@@ -15,13 +15,13 @@ jest.mock('@/features/devops/webhooks/services/webhooksApi', () => ({
 
 // Mock LoadingSpinner
 jest.mock('@/shared/components/ui/LoadingSpinner', () => ({
-  LoadingSpinner: ({ size }: any) => <div data-testid="loading-spinner" data-size={size}>Loading...</div>
+  LoadingSpinner: ({ size }: { size?: string }) => <div data-testid="loading-spinner" data-size={size}>Loading...</div>
 }));
 
 // Mock CodeBlock
 jest.mock('@/shared/components/ui/CodeBlock', () => ({
   __esModule: true,
-  default: ({ code, language }: any) => (
+  default: ({ code, language }: { code?: string; language?: string }) => (
     <pre data-testid="code-block" data-language={language}>{code}</pre>
   )
 }));
