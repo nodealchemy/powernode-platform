@@ -57,9 +57,12 @@ module Ai
             )
           end
 
-          # Check for budget overrun on active plans
+          # Check for budget overrun on active plans.
+          # The active budget is keyed only on agent.id, so it is loop-invariant —
+          # compute it once here rather than re-querying it for every plan.
+          budget = Ai::AgentBudget.where(agent_id: agent.id).active.first
+
           Ai::GoalPlan.where(ai_agent_id: agent.id, status: "executing").each do |plan|
-            budget = Ai::AgentBudget.where(agent_id: agent.id).active.first
             next unless budget && plan.estimated_cost_usd
 
             if budget.remaining_cents < (plan.estimated_cost_usd * 100 * 0.5)
