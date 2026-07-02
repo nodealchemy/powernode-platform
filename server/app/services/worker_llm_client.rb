@@ -52,7 +52,7 @@ class WorkerLlmClient
     @agent_id = agent_id
     @budget = budget
     @skip_budget_tracking = skip_budget_tracking
-    @worker_url = Rails.application.config.worker_url
+    @transport = WorkerTransport.new(open_timeout: OPEN_TIMEOUT, read_timeout: LLM_TIMEOUT)
   end
 
   # Factory: build from provider + credential (explicit)
@@ -209,34 +209,18 @@ class WorkerLlmClient
     payload.merge(params.compact)
   end
 
+  # Shared Net::HTTP + JWT plumbing lives in WorkerTransport; this maps its
+  # typed errors onto WorkerLlmError semantics.
   def call_worker(path, payload)
-    uri = URI("#{@worker_url}#{path}")
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = uri.scheme == "https"
-    http.read_timeout = LLM_TIMEOUT
-    http.open_timeout = OPEN_TIMEOUT
-
-    request = Net::HTTP::Post.new(uri)
-    request["Content-Type"] = "application/json"
-    request["Accept"] = "application/json"
-    request["Authorization"] = "Bearer #{WorkerJobService.system_worker_jwt}"
-    request.body = payload.to_json
-
-    response = http.request(request)
-    parsed = JSON.parse(response.body)
-
-    case response.code.to_i
-    when 200..299
-      parsed
-    else
-      error_msg = parsed["error"] || "Worker LLM call failed (HTTP #{response.code})"
-      Rails.logger.error "[WorkerLlmClient] #{path} failed (#{response.code}): #{error_msg}"
-      raise WorkerLlmError, error_msg
-    end
-  rescue Net::ReadTimeout, Net::OpenTimeout => e
+    @transport.post(path, payload)
+  rescue WorkerTransport::HttpError => e
+    error_msg = (e.parsed.is_a?(Hash) && e.parsed["error"]) || "Worker LLM call failed (HTTP #{e.status})"
+    Rails.logger.error "[WorkerLlmClient] #{path} failed (#{e.status}): #{error_msg}"
+    raise WorkerLlmError, error_msg
+  rescue WorkerTransport::TimeoutError => e
     Rails.logger.error "[WorkerLlmClient] Timeout on #{path}: #{e.message}"
     raise WorkerLlmError, "Worker LLM timeout: #{e.message}"
-  rescue Errno::ECONNREFUSED, SocketError => e
+  rescue WorkerTransport::ConnectionError => e
     Rails.logger.error "[WorkerLlmClient] Connection error on #{path}: #{e.message}"
     raise WorkerLlmError, "Worker unavailable: #{e.message}"
   rescue JSON::ParserError => e

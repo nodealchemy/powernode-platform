@@ -7,9 +7,12 @@ class WorkerApiClient
   class AuthenticationError < ApiError; end
   class NetworkError < ApiError; end
 
+  TIMEOUT = 10 # seconds
+
+  # Base-URL resolution is unified across all worker clients on
+  # Rails.application.config.worker_url (WORKER_URL env) via WorkerTransport.
   def initialize(base_url: nil)
-    @base_url = base_url || ENV.fetch("API_BASE_URL", detect_base_url)
-    @timeout = 10 # seconds
+    @transport = WorkerTransport.new(base_url: base_url, open_timeout: TIMEOUT, read_timeout: TIMEOUT)
   end
 
   # Queue a file processing job
@@ -126,55 +129,18 @@ class WorkerApiClient
     request(:post, path, body)
   end
 
+  # Shared Net::HTTP + JWT plumbing lives in WorkerTransport; this maps its
+  # typed errors onto the client's ApiError hierarchy.
   def request(method, path, body = nil)
-    uri = URI.join(@base_url, path)
+    method == :get ? @transport.get(path) : @transport.post(path, body)
+  rescue WorkerTransport::HttpError => e
+    raise AuthenticationError, "Worker service authentication failed" if e.status == 401
 
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.open_timeout = @timeout
-    http.read_timeout = @timeout
-
-    request = case method
-    when :get
-                Net::HTTP::Get.new(uri.request_uri)
-    when :post
-                req = Net::HTTP::Post.new(uri.request_uri)
-                req["Content-Type"] = "application/json"
-                req.body = body.to_json if body
-                req
-    end
-
-    request["Authorization"] = "Bearer #{WorkerJobService.system_worker_jwt}"
-    request["Accept"] = "application/json"
-
-    response = http.request(request)
-
-    case response
-    when Net::HTTPSuccess
-      begin
-        JSON.parse(response.body)
-      rescue JSON::ParserError => e
-        Rails.logger.warn "[WorkerApiClient] Failed to parse JSON response: #{e.message}"
-        {}
-      end
-    when Net::HTTPUnauthorized
-      raise AuthenticationError, "Worker service authentication failed"
-    else
-      raise ApiError, "Worker API returned #{response.code}: #{response.body}"
-    end
-  rescue Timeout::Error, Errno::ECONNREFUSED, Errno::EHOSTUNREACH => e
+    raise ApiError, "Worker API returned #{e.status}: #{e.body}"
+  rescue JSON::ParserError => e
+    Rails.logger.warn "[WorkerApiClient] Failed to parse JSON response: #{e.message}"
+    {}
+  rescue WorkerTransport::TimeoutError, WorkerTransport::ConnectionError => e
     raise NetworkError, "Cannot connect to worker service: #{e.message}"
-  end
-
-  def detect_base_url
-    # Detect base URL from Rails configuration or environment
-    # Worker service runs on its own port (default 4567)
-    ENV.fetch("WORKER_API_URL") do
-      if Rails.env.production? || Rails.env.staging?
-        ENV.fetch("WORKER_SERVICE_URL") { raise "WORKER_SERVICE_URL environment variable must be set in production" }
-      else
-        # Development: worker service runs on port 4567
-        "http://localhost:#{ENV.fetch('WORKER_PORT', 4567)}"
-      end
-    end
   end
 end

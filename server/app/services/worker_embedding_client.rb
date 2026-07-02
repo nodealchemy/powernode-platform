@@ -15,7 +15,7 @@ class WorkerEmbeddingClient
   TIMEOUT = 30 # seconds
 
   def initialize
-    @worker_url = Rails.application.config.worker_url
+    @transport = WorkerTransport.new(open_timeout: 5, read_timeout: TIMEOUT)
   end
 
   # Generate a single embedding via the worker
@@ -46,29 +46,14 @@ class WorkerEmbeddingClient
 
   private
 
+  # Shared Net::HTTP + JWT plumbing lives in WorkerTransport; this maps its
+  # typed errors onto the client's nil-on-failure semantics.
   def make_request(path, payload)
-    uri = URI("#{@worker_url}#{path}")
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = uri.scheme == "https"
-    http.read_timeout = TIMEOUT
-    http.open_timeout = 5
-
-    request = Net::HTTP::Post.new(uri)
-    request["Content-Type"] = "application/json"
-    request["Accept"] = "application/json"
-    request["Authorization"] = "Bearer #{WorkerJobService.system_worker_jwt}"
-    request.body = payload.to_json
-
-    response = http.request(request)
-
-    case response.code.to_i
-    when 200..299
-      JSON.parse(response.body)
-    else
-      Rails.logger.error "[WorkerEmbeddingClient] Request failed (#{response.code}): #{response.body}"
-      nil
-    end
-  rescue Net::ReadTimeout, Net::OpenTimeout, Errno::ECONNREFUSED, SocketError => e
+    @transport.post(path, payload)
+  rescue WorkerTransport::HttpError => e
+    Rails.logger.error "[WorkerEmbeddingClient] Request failed (#{e.status}): #{e.body}"
+    nil
+  rescue WorkerTransport::TimeoutError, WorkerTransport::ConnectionError => e
     Rails.logger.error "[WorkerEmbeddingClient] Connection error: #{e.message}"
     nil
   end
