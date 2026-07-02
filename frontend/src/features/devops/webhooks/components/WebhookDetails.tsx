@@ -328,7 +328,7 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
             { id: 'deliveries', label: 'Delivery History', icon: Activity },
             { id: 'test', label: 'Test Webhook', icon: TestTube }
           ].map(tab => (
-            <Button variant="outline" onClick={() => setActiveTab(tab.id as WebhookTabKey)}
+            <Button key={tab.id} variant="outline" onClick={() => setActiveTab(tab.id as WebhookTabKey)}
               className={`flex items-center gap-2 px-6 py-3 font-medium transition-all duration-200 ${
                 activeTab === tab.id
                   ? 'bg-theme-interactive-primary text-white border-b-2 border-theme-interactive-primary'

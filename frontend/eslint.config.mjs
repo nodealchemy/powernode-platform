@@ -118,6 +118,7 @@ export default tseslint.config(
       'no-undef': 'off', // Handled by TypeScript
 
       // React-specific rules
+      'react/jsx-key': 'error', // Unkeyed list renders cause state-mismatch bugs on reorder
       'react/jsx-uses-react': 'off', // Not needed in React 17+
       'react/react-in-jsx-scope': 'off', // Not needed in React 17+
       // exhaustive-deps disabled - the codebase uses many intentional mount-only effects

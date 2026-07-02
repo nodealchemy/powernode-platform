@@ -217,7 +217,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
               <label className="block text-sm font-medium text-theme-primary mb-2">Severity</label>
               <div className="flex flex-wrap gap-2">
                 {['critical', 'high', 'medium', 'low'].map(severity => (
-                  <Button variant="outline" onClick={() => toggleFilter('severity', severity)}
+                  <Button key={severity} variant="outline" onClick={() => toggleFilter('severity', severity)}
                     className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                       filters.severity.includes(severity)
                         ? 'bg-theme-interactive-primary text-white'
@@ -234,7 +234,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
               <label className="block text-sm font-medium text-theme-primary mb-2">Type</label>
               <div className="flex flex-wrap gap-2">
                 {(['cpu', 'memory', 'disk', 'error_rate', 'response_time', 'queue_size'] as const).map((type: PerformanceAlert['type']) => (
-                  <Button variant="outline" onClick={() => toggleFilter('type', type)}
+                  <Button key={type} variant="outline" onClick={() => toggleFilter('type', type)}
                     className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                       filters.type.includes(type)
                         ? 'bg-theme-interactive-primary text-white'
