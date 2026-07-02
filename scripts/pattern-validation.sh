@@ -260,6 +260,24 @@ check_pattern "Forbidden ActiveRecord usage (should be empty)" \
     "grep -rn 'ActiveRecord' worker/app/ | grep -v '# .*ActiveRecord\|health_controller\|connection_pool' | wc -l" \
     "empty"
 
+# Server→worker job-seam guard: the server is Sidekiq-FREE, so server/app must
+# never enqueue via a bare job constant (Const.perform_async/perform_later/...)
+# that is undefined on the server load path — it resolves at runtime and raises
+# NameError in production (the WebhookRetryJob class of bug). The dedicated
+# guard verifies each enqueued constant is actually defined server-side, skips
+# comments and defined?()-guarded lines, and baselines the current
+# improvement-tracked set (allowlist + inline `# job-seam-ok:`), so this FAILS
+# only on NEW violations. Run the guard directly for per-file detail.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No new server→worker job-seam NameErrors (bare job-constant enqueues)... "
+if bash scripts/check-server-worker-job-seam.sh >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (New bare job-constant enqueue(s) in server/app; run: bash scripts/check-server-worker-job-seam.sh)"
+    failed_checks=$((failed_checks + 1))
+fi
+
 echo ""
 echo -e "${BLUE}## Code Quality Patterns${NC}"
 
