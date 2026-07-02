@@ -39,6 +39,18 @@ FactoryBot.define do
       }
     end
 
+    # GLOBAL (platform-provided) agent: account_id nil, but creator/provider
+    # still require a real account to satisfy their own validations — they
+    # anchor to a throwaway owner account (override via owner_account:).
+    trait :global do
+      transient do
+        owner_account { create(:account) }
+      end
+      account { nil }
+      creator { association :user, account: owner_account }
+      provider { association :ai_provider, account: owner_account }
+    end
+
     trait :inactive do
       status { 'inactive' }
     end

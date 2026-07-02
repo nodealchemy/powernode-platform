@@ -17,6 +17,12 @@ FactoryBot.define do
     metadata { {} }
     usage_count { 0 }
 
+    # GLOBAL (platform-provided) skill: account_id nil — Ai::Skill's account
+    # association is optional with no other account-anchored associations.
+    trait :global do
+      account { nil }
+    end
+
     trait :system_skill do
       is_system { true }
     end

@@ -47,11 +47,7 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
   # class comment: one query, account row wins a same-slug override.
   describe "#syncable_agents (account + global scope resolution)" do
     def build_global_agent(name:, description: nil)
-      owner_account = create(:account)
-      create(:ai_agent, account: nil,
-                         creator: create(:user, account: owner_account),
-                         provider: create(:ai_provider, account: owner_account),
-                         name: name, description: description)
+      create(:ai_agent, :global, name: name, description: description)
     end
 
     it "includes GLOBAL platform agents and the account's own active agents" do
