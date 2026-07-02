@@ -49,7 +49,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
   const [exportProgress, setExportProgress] = useState(0);
   const { showNotification } = useNotifications();
 
-  const formatOptions = [
+  const formatOptions: Array<{ value: ExportFormat; label: string; description: string; icon: React.ReactNode }> = [
     {
       value: 'csv',
       label: 'CSV',
@@ -193,7 +193,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
   };
 
    
-  const updateExportOptions = (key: keyof ExportOptions, value: any) => {
+  const updateExportOptions = <K extends keyof ExportOptions>(key: K, value: ExportOptions[K]) => {
     setExportOptions(prev => ({ ...prev, [key]: value }));
   };
 
@@ -270,7 +270,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
                   name="scope"
                   value={scope.value}
                   checked={exportOptions.scope === scope.value}
-                  onChange={(e) => updateExportOptions('scope', e.target.value)}
+                  onChange={(e) => updateExportOptions('scope', e.target.value as ExportScope)}
                   className="mt-1"
                 />
                 <div>
