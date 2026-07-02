@@ -179,7 +179,7 @@ module Ai
       return false unless webhook_url.present?
       return false if webhook_attempts >= 3
 
-      AiWebhookDeliveryJob.perform_later(id)
+      WorkerJobService.enqueue_ai_webhook_delivery(id)
       true
     end
 
@@ -228,7 +228,11 @@ module Ai
       return unless webhook_url.present?
       return unless finished?
 
-      AiWebhookDeliveryJob.perform_later(id)
+      WorkerJobService.enqueue_ai_webhook_delivery(id)
+    rescue StandardError => e
+      # Delivery is enqueued off the request/transaction path — a worker outage
+      # must not roll back the status transition that fired this callback.
+      Rails.logger.error("[AgentExecution] Webhook enqueue failed for execution #{id}: #{e.message}")
     end
 
     def propagate_cost_to_budget

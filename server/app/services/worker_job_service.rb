@@ -133,6 +133,20 @@ class WorkerJobService
       })
     end
 
+    # Enqueue AI agent-execution webhook delivery. The API server runs no Sidekiq,
+    # so the outbound webhook fan-out is owned by the standalone worker's
+    # AiWebhookDeliveryJob (queue: ai_agents, retry: 2), which fetches the
+    # execution + webhook URLs back from the server and POSTs the completion
+    # payload. Called from Ai::AgentExecution#trigger_webhook / #retry_webhook!.
+    def enqueue_ai_webhook_delivery(agent_execution_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiWebhookDeliveryJob",
+        "args" => [ agent_execution_id ],
+        "queue" => "ai_agents",
+        "options" => { "retry" => 2 }
+      })
+    end
+
     # Enqueue AI team execution job
     def enqueue_ai_team_execution(team_id:, user_id:, input: {}, context: {})
       new.make_worker_request("POST", "/api/v1/jobs", {

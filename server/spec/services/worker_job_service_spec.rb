@@ -74,6 +74,17 @@ RSpec.describe WorkerJobService do
     end
   end
 
+  describe ".enqueue_ai_webhook_delivery" do
+    it "dispatches AiWebhookDeliveryJob with the execution id on the ai_agents queue" do
+      payload = capture_payload { described_class.enqueue_ai_webhook_delivery("exec-123") }
+
+      expect(payload["job_class"]).to eq("AiWebhookDeliveryJob")
+      expect(payload["queue"]).to eq("ai_agents")
+      expect(payload["args"]).to eq([ "exec-123" ])
+      expect(payload["options"]).to eq({ "retry" => 2 })
+    end
+  end
+
   describe ".enqueue_ai_self_challenge" do
     let(:challenge_id) { "challenge-123" }
     let(:account_id) { "account-xyz" }
