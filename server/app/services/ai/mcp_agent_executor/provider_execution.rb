@@ -75,24 +75,22 @@ class Ai::McpAgentExecutor
       # #37: resolve via the agent's selector triple (any active provider) rather
       # than a hardcoded model_config/manifest read.
       model = @agent.resolved_model
+      effort = nil
 
-      # inc2: governed per-task tier routing — MODEL/tier only on this provider
-      # path. Behind the account gate `ai_task_tier_routing_enabled` (default OFF ⇒
-      # identical to pre-inc2). EFFORT is intentionally NOT wired here yet; see the
-      # inc3 seam note below.
+      # inc2: governed per-task tier routing — MODEL/tier on this provider path.
+      # Behind the account gate `ai_task_tier_routing_enabled` (default OFF ⇒
+      # identical to pre-inc2/pre-inc3 behavior; opts carries no :effort).
+      # inc3: EFFORT parity — forward the resolver's computed effort the same way
+      # Ai::Ralph::TaskExecutor#build_agent_options does. WorkerLlmClient#complete/
+      # #execute_tool_loop and AgentToolBridgeService#execute_tool_loop already
+      # forward an :effort opt untouched; the worker's apply_anthropic_request_gate!
+      # drops it for non-effort-capable models, so EffortMapper's nil return is the
+      # only gate needed here.
       if ::Ai::Routing::TaskTierResolver.enabled_for?(@account) &&
          (resolution = resolve_task_tier(messages))
         resolution.persist!(agent_execution: routing_agent_execution)
         model = resolution.model.presence || model
-
-        # ── INC3 SEAM ──────────────────────────────────────────────────────────
-        # Wire reasoning effort on this provider path here by forwarding the value
-        # the resolver already computed:
-        #   opts[:effort] = resolution.effort if resolution.effort
-        # (WorkerLlmClient#complete and AgentToolBridgeService#execute_tool_loop
-        # must accept + forward :effort; the worker's apply_anthropic_request_gate!
-        # already drops it for non-effort-capable models.) NOT wired in inc2.
-        # ───────────────────────────────────────────────────────────────────────
+        effort = resolution.effort if resolution.effort
       end
 
       max_tokens = execution_context.dig(:context, "max_tokens") ||
@@ -105,7 +103,7 @@ class Ai::McpAgentExecutor
                       @agent.mcp_tool_manifest&.dig("system_prompt")
 
       opts = { max_tokens: max_tokens, temperature: temperature,
-               system_prompt: system_prompt }.compact
+               system_prompt: system_prompt, effort: effort }.compact
 
       [model, opts]
     end

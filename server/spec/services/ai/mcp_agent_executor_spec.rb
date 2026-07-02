@@ -313,7 +313,7 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
     end
   end
 
-  describe 'resolve_model_config (private) — inc2 governed tier routing (model/tier only)' do
+  describe 'resolve_model_config (private) — inc2 governed tier routing + inc3 effort parity' do
     let(:execution_context) { { context: {}, input: "hi" } }
     let(:messages) { [{ role: "user", content: "hi" }] }
 
@@ -327,6 +327,11 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
         expect(Ai::Routing::TaskTierResolver).not_to receive(:resolve)
         model, = executor.send(:resolve_model_config, execution_context, messages)
         expect(model).to eq('claude-sonnet-4-6')
+      end
+
+      it 'populates no :effort (inertness — byte-identical to pre-inc3 behavior)' do
+        _model, opts = executor.send(:resolve_model_config, execution_context, messages)
+        expect(opts).not_to have_key(:effort)
       end
     end
 
@@ -347,14 +352,27 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
         expect(model).to eq('claude-opus-4-8')
       end
 
-      it 'does NOT wire effort on this path yet (inc3 seam) — opts carry no :effort' do
+      it 'wires the resolved effort onto opts (inc3) for an effort-capable model' do
         _model, opts = executor.send(:resolve_model_config, execution_context, messages)
-        expect(opts).not_to have_key(:effort)
+        expect(opts[:effort]).to eq('xhigh')
       end
 
       it 'persists the governance record' do
         expect(resolution).to receive(:persist!)
         executor.send(:resolve_model_config, execution_context, messages)
+      end
+
+      context 'when the resolver model is not effort-capable (e.g. claude-haiku-4-5)' do
+        let(:resolution) do
+          instance_double(Ai::Routing::TaskTierResolver::Resolution,
+                          model: 'claude-haiku-4-5', effort: nil)
+        end
+
+        it 'omits :effort from opts (EffortMapper already returned nil upstream)' do
+          expect(Ai::Llm::ModelCapabilities.supports_effort?('claude-haiku-4-5')).to be(false)
+          _model, opts = executor.send(:resolve_model_config, execution_context, messages)
+          expect(opts).not_to have_key(:effort)
+        end
       end
     end
   end

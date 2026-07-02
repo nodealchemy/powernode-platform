@@ -91,6 +91,11 @@ RSpec.describe Ai::Routing::TaskTierResolver do
       expect(res.tier).to eq(:standard)                 # NOT escalated to reasoning
       expect(res.effort).to eq("xhigh")                 # complex → xhigh, in place
       expect(res.rationale.dig(:effort_first, :chosen)).to eq("effort_bump")
+
+      # Governance: an above-default effort choice (xhigh) is never silent — the
+      # persisted Ai::RoutingDecision rationale must carry the effort choice.
+      decision = res.persist!
+      expect(decision.rationale["effort"]).to eq("xhigh")
     end
 
     it "escalates the tier when a complex task exceeds the escalation score" do
@@ -145,8 +150,14 @@ RSpec.describe Ai::Routing::TaskTierResolver do
         res = described_class.resolve(account: account, agent: agent, task_type: "code_review", messages: messages)
         expect(res.tier).to eq(:frontier)
         expect(res.model).to start_with("claude-fable")
+        expect(res.effort).to eq("max")                   # expert → max
         expect(res.rationale[:evidence]).to be_present
         expect(res.rationale.dig(:gates, :fable_routing_enabled)).to be(true)
+
+        # Governance: max effort is never silent — the persisted rationale must
+        # carry the effort choice.
+        decision = res.persist!
+        expect(decision.rationale["effort"]).to eq("max")
       end
     end
 
