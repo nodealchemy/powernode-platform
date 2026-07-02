@@ -274,6 +274,7 @@ RSpec.describe Api::V1::Ai::TieredMemoryController, type: :controller do
       allow(Ai::Memory::SharedKnowledgeService).to receive(:new).and_return(shared)
       allow(shared).to receive(:import_from_learnings).and_return({ imported: 3 })
       allow(shared).to receive(:recalculate_all_quality).and_return({ success: true, recalculated: 5 })
+      allow(shared).to receive(:backfill_embeddings).and_return({ success: true, embedded: 0, failed: 0, remaining: 0 })
       allow(shared).to receive(:stats).and_return({ total: 10, active: 8 })
 
       post :shared_maintenance
@@ -287,6 +288,7 @@ RSpec.describe Api::V1::Ai::TieredMemoryController, type: :controller do
 
       expect(shared).to receive(:import_from_learnings).ordered.and_return({ imported: 2 })
       expect(shared).to receive(:recalculate_all_quality).ordered.and_return({ success: true, recalculated: 3 })
+      expect(shared).to receive(:backfill_embeddings).ordered.and_return({ success: true, embedded: 0, failed: 0, remaining: 0 })
       expect(shared).to receive(:stats).ordered.and_return({ total: 5 })
 
       post :shared_maintenance
@@ -297,6 +299,7 @@ RSpec.describe Api::V1::Ai::TieredMemoryController, type: :controller do
       allow(Ai::Memory::SharedKnowledgeService).to receive(:new).and_return(shared)
       allow(shared).to receive(:import_from_learnings).and_return({ imported: 1 })
       allow(shared).to receive(:recalculate_all_quality).and_return({ success: true, recalculated: 7 })
+      allow(shared).to receive(:backfill_embeddings).and_return({ success: true, embedded: 0, failed: 0, remaining: 0 })
       allow(shared).to receive(:stats).and_return({ total: 10 })
 
       post :shared_maintenance

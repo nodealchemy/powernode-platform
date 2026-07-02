@@ -414,6 +414,78 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
   end
 
   # ===========================================================================
+  # import_from_learnings backlog draining (fixes the stalled feedback pipeline:
+  # duplicate-skipped learnings used to stay in scope forever, so every daily
+  # run re-embedded the same head-of-scope batch and the backlog never drained)
+  # ===========================================================================
+
+  describe "#import_from_learnings backlog draining" do
+    let(:team) { create(:ai_agent_team, account: account) }
+
+    def build_learning(title, content)
+      Ai::CompoundLearning.create!(
+        account: account,
+        ai_agent_team: team,
+        title: title,
+        content: content,
+        category: "best_practice",
+        importance_score: 0.85,
+        scope: "global",
+        status: "active",
+        extraction_method: "auto_success"
+      )
+    end
+
+    it "marks duplicate-skipped learnings processed so the batch cursor advances" do
+      # Single fixed embedding (default stub) → the learning dedups against
+      # the pre-existing shared knowledge entry.
+      service.create(
+        title: "Existing Entry",
+        content: "Duplicate learning content that already exists in shared knowledge.",
+        content_type: "procedure"
+      )
+      learning = build_learning("Dup Learning", "Duplicate learning content that already exists in shared knowledge.")
+
+      result = service.import_from_learnings(min_importance: 0.7)
+
+      expect(result[:skipped]).to eq(1)
+      expect(result[:remaining]).to eq(0)
+      expect(learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "excludes recently processed learnings from subsequent runs" do
+      build_learning("Once Imported", "Content imported on the first pass of the day.")
+
+      first = service.import_from_learnings(min_importance: 0.7)
+      second = service.import_from_learnings(min_importance: 0.7)
+
+      expect(first[:imported] + first[:skipped]).to eq(1)
+      expect(second[:imported]).to eq(0)
+      expect(second[:skipped]).to eq(0)
+      expect(second[:remaining]).to eq(0)
+    end
+
+    it "reports honest remaining when capped by max_per_run" do
+      embeddings = 3.times.map { Array.new(1536) { rand(-1.0..1.0) } }
+      call_count = 0
+      allow_any_instance_of(Ai::Memory::EmbeddingService)
+        .to receive(:generate) do
+          idx = call_count % embeddings.size
+          call_count += 1
+          embeddings[idx]
+        end
+
+      build_learning("Backlog A", "First distinct learning body for backlog drain testing.")
+      build_learning("Backlog B", "Second completely different content about worker queue tuning.")
+
+      result = service.import_from_learnings(min_importance: 0.7, max_per_run: 1)
+
+      expect(result[:imported]).to eq(1)
+      expect(result[:remaining]).to eq(1)
+    end
+  end
+
+  # ===========================================================================
   # backfill_embeddings
   # ===========================================================================
 
@@ -606,6 +678,22 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
       # Embedding-independent freshness signal so event_processed_24h reflects
       # ongoing pipeline health, not only new-embedding activity.
       expect(entry.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "reports honest remaining when capped by max_per_run (no double subtraction)" do
+      3.times do |i|
+        create(:ai_shared_knowledge, account: account,
+               last_quality_recalc_at: (2 + i).days.ago,
+               last_event_processed_at: nil)
+      end
+
+      result = service.recalculate_all_quality(max_per_run: 2)
+
+      expect(result[:recalculated]).to eq(2)
+      # Processed rows leave the stale scope (recalc stamps both timestamps),
+      # so `remaining` must be the recomputed scope count — subtracting the
+      # batch size again would report 0 and stop the worker's drain chain.
+      expect(result[:remaining]).to eq(1)
     end
   end
 
