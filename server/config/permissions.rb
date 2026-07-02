@@ -197,6 +197,7 @@ module Permissions
     "git.pipelines.trigger" => "Trigger CI/CD pipelines",
     "git.pipelines.cancel" => "Cancel CI/CD pipelines",
     "git.pipelines.logs" => "View pipeline logs",
+    "git.pipelines.manage" => "Manage CI/CD pipeline deliveries and rollbacks",
 
     # Git Webhook Events
     "git.webhooks.read" => "View Git webhook events",
