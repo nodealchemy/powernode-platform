@@ -363,7 +363,7 @@ This section is for backend developers extending the policy system to gate a new
 2. **Register the category from the extension engine.** Example for a hypothetical SDWAN action:
 
 ```ruby
-# extensions/system/server/lib/system/engine.rb
+# extensions/system/server/lib/powernode_system/engine.rb
 config.after_initialize do
   Ai::InterventionPolicy.register_categories!([
     "system.sdwan.new_peer_provisioning",
