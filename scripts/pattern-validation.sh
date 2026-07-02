@@ -368,6 +368,33 @@ else
 fi
 
 echo ""
+echo -e "${BLUE}## Migration Version Uniqueness${NC}"
+# Duplicate-migration-version guard: schema_migrations is keyed by VERSION, so if two
+# migrations anywhere on the migration path (core server/ + public AND private extension
+# engines) share a leading timestamp, only ONE ever runs — the other is silently treated
+# as already-applied and its schema changes are never made (in test OR production).
+# prepare-extension-test-db.sh WARNS at test-DB build time; this is the durable gate.
+# The version is the leading numeric stamp of the filename; migration dirs are globbed so
+# core mode (no extensions/private/*) and partial checkouts degrade gracefully.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No duplicate migration versions across core + extensions... "
+dup_migration_versions=$(find server/db/migrate extensions/*/server/db/migrate extensions/private/*/server/db/migrate \
+    -name '[0-9]*_*.rb' 2>/dev/null | xargs -r -n1 basename | sed 's/_.*//' | sort | uniq -d)
+if [ -z "$dup_migration_versions" ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Colliding migration version(s) — only one per version will ever run; re-timestamp the newer one:)"
+    while IFS= read -r v; do
+        [ -n "$v" ] || continue
+        echo "    version $v is used by:"
+        find server/db/migrate extensions/*/server/db/migrate extensions/private/*/server/db/migrate \
+            -name "${v}_*.rb" 2>/dev/null | sed 's/^/      /'
+    done <<< "$dup_migration_versions"
+    failed_checks=$((failed_checks + 1))
+fi
+
+echo ""
 echo -e "${BLUE}## Kill-Switch Compliance (Worker)${NC}"
 # Model-agnostic enforcement of worker/CLAUDE.md L11 (recall guidance-kill-switch-compliance):
 # every AI-execution worker job MUST `include AiSuspensionCheckConcern` AND call
