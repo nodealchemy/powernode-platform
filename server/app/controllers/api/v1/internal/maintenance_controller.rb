@@ -170,14 +170,25 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
   end
 
   # GET /api/v1/internal/maintenance/scheduled_tasks
-  # Returns tasks that are due for execution
+  # Returns tasks that are due for execution, or — when an explicit task_id is
+  # given — that single task regardless of its due window or active flag.
+  # The by-id form serves the manual "run now" path (ScheduledTaskService#
+  # execute_task dispatches the worker with a specific task id): an ad-hoc run
+  # targets a task whose next_run_at is normally in the future or nil, so it is
+  # absent from the due list. The run is already authorized server-side, so we
+  # return the task by id without re-applying the due/active filters.
   def list_due_tasks
-    due_before = params[:due_before] ? Time.parse(params[:due_before]) : Time.current
+    tasks =
+      if params[:task_id].present?
+        ScheduledTask.where(id: params[:task_id])
+      else
+        due_before = params[:due_before] ? Time.parse(params[:due_before]) : Time.current
 
-    tasks = ScheduledTask.where(is_active: true)
-                         .where("next_run_at <= ?", due_before)
-                         .order(:next_run_at)
-                         .limit(params[:limit] || 50)
+        ScheduledTask.where(is_active: true)
+                     .where("next_run_at <= ?", due_before)
+                     .order(:next_run_at)
+                     .limit(params[:limit] || 50)
+      end
 
     render_success({
       tasks: tasks.map { |task|

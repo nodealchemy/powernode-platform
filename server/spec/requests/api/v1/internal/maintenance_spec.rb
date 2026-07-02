@@ -378,6 +378,28 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
           'last_run_at'
         )
       end
+
+      context 'when a specific task_id is requested (manual "run now")' do
+        it 'returns that task even when its next_run_at is not yet due' do
+          get '/api/v1/internal/maintenance/scheduled_tasks',
+              params: { task_id: future_task.id },
+              headers: internal_headers
+
+          expect_success_response
+          tasks = json_response['data']['tasks']
+          expect(tasks.map { |t| t['id'] }).to eq([future_task.id])
+        end
+
+        it 'returns a disabled task by id (the manual run is already authorized)' do
+          get '/api/v1/internal/maintenance/scheduled_tasks',
+              params: { task_id: disabled_task.id },
+              headers: internal_headers
+
+          expect_success_response
+          tasks = json_response['data']['tasks']
+          expect(tasks.map { |t| t['id'] }).to eq([disabled_task.id])
+        end
+      end
     end
 
     context 'without authentication' do

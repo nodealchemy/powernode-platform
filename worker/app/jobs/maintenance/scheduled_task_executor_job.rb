@@ -97,10 +97,12 @@ module Maintenance
     private
 
     def fetch_due_tasks(task_id = nil)
-      # Fetch a specific task or all due tasks
-      response = api_client.get("/api/v1/internal/maintenance/scheduled_tasks",
-        due_before: 1.minute.from_now.iso8601
-      )
+      # A specific task_id means a manual "run now" for that task — fetch it by
+      # id regardless of its due window (an ad-hoc run targets a task whose
+      # next_run_at is typically in the future or nil, so it is absent from the
+      # due list). With no id, scan the due list for the scheduler's sweep.
+      query = task_id ? { task_id: task_id } : { due_before: 1.minute.from_now.iso8601 }
+      response = api_client.get("/api/v1/internal/maintenance/scheduled_tasks", query)
       response['data'] || { 'tasks' => [] }
     rescue => e
       log_error "Failed to fetch tasks", e
