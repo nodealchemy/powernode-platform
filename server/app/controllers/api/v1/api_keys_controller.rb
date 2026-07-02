@@ -10,7 +10,7 @@ class Api::V1::ApiKeysController < ApplicationController
     per_page = [ (params[:per_page] || 20).to_i, 100 ].min # Max 100 per page
     offset = (page - 1) * per_page
 
-    api_keys_query = ApiKey.includes(:created_by, :account).order(:created_at)
+    api_keys_query = scoped_api_keys.includes(:created_by, :account).order(:created_at)
     total_count = api_keys_query.count
     api_keys = api_keys_query.limit(per_page).offset(offset)
 
@@ -138,7 +138,7 @@ class Api::V1::ApiKeysController < ApplicationController
   def usage_stats
     api_key_id = params[:api_key_id]
 
-    usage_query = ApiKeyUsage.includes(:api_key)
+    usage_query = ApiKeyUsage.where(api_key: scoped_api_keys).includes(:api_key)
     usage_query = usage_query.where(api_key_id: api_key_id) if api_key_id.present?
 
     date_range = parse_date_range
@@ -202,6 +202,18 @@ class Api::V1::ApiKeysController < ApplicationController
   end
 
   private
+
+  # Account-scope the visible key set (mirrors audit_logs_controller#scoped_audit_logs):
+  # `admin.access` keeps the global admin view; everyone else (e.g. `accounts.manage`
+  # holders) only sees their own account's keys.
+  def scoped_api_keys
+    @scoped_api_keys ||=
+      if current_user.has_permission?("admin.access")
+        ApiKey.all
+      else
+        ApiKey.where(account: current_user.account)
+      end
+  end
 
   def find_api_key
     @api_key = ApiKey.find(params[:id])
@@ -279,17 +291,20 @@ class Api::V1::ApiKeysController < ApplicationController
   end
 
   def api_key_stats
+    keys = scoped_api_keys
     {
-      total_keys: ApiKey.count,
-      active_keys: ApiKey.active.count,
-      revoked_keys: ApiKey.revoked.count,
-      expired_keys: ApiKey.expired.count,
-      requests_today: ApiKeyUsage.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).sum(:request_count),
-      most_used_keys: ApiKey.joins(:api_key_usages)
-                           .group("api_keys.name")
-                           .order("SUM(api_key_usages.request_count) DESC")
-                           .limit(5)
-                           .sum("api_key_usages.request_count")
+      total_keys: keys.count,
+      active_keys: keys.active.count,
+      revoked_keys: keys.revoked.count,
+      expired_keys: keys.expired.count,
+      requests_today: ApiKeyUsage.where(api_key: keys)
+                                 .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
+                                 .sum(:request_count),
+      most_used_keys: keys.joins(:api_key_usages)
+                          .group("api_keys.name")
+                          .order("SUM(api_key_usages.request_count) DESC")
+                          .limit(5)
+                          .sum("api_key_usages.request_count")
     }
   end
 

@@ -81,6 +81,36 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
         expect_error_response('Access token required', 401)
       end
     end
+
+    context 'cross-tenant isolation' do
+      let(:other_account) { create(:account) }
+      let!(:other_account_key) { create(:api_key, account: other_account) }
+
+      it 'does not return another account keys to an accounts.manage user' do
+        get '/api/v1/api_keys', headers: auth_headers_for(user_with_account_manage), as: :json
+
+        expect_success_response
+        returned_ids = json_response['data']['api_keys'].map { |k| k['id'] }
+
+        expect(returned_ids).to match_array(ApiKey.where(account: account).pluck(:id))
+        expect(returned_ids).not_to include(other_account_key.id)
+      end
+
+      it 'scopes stats to the current account for an accounts.manage user' do
+        get '/api/v1/api_keys', headers: auth_headers_for(user_with_account_manage), as: :json
+
+        expect_success_response
+        expect(json_response['data']['stats']['total_keys']).to eq(ApiKey.where(account: account).count)
+      end
+
+      it 'scopes pagination total_count to the current account' do
+        get '/api/v1/api_keys', headers: auth_headers_for(user_with_account_manage), as: :json
+
+        expect_success_response
+        expect(json_response['data']['pagination']['total_count'])
+          .to eq(ApiKey.where(account: account).count)
+      end
+    end
   end
 
   describe 'GET /api/v1/api_keys/:id' do
