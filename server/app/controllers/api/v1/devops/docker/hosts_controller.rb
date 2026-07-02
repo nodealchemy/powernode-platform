@@ -6,6 +6,7 @@ module Api
       module Docker
         class HostsController < ApplicationController
           include AuditLogging
+          include ::Devops::TlsCredentialParams
 
           # test_connection is a read-effect connectivity probe (no host mutation).
           before_action -> { require_permission("devops.docker.read") }, only: %i[index show health test_connection]
@@ -139,22 +140,6 @@ module Api
             )
 
             build_tls_credentials(permitted)
-          end
-
-          def build_tls_credentials(permitted)
-            tls_ca = permitted.delete(:tls_ca)
-            tls_cert = permitted.delete(:tls_cert)
-            tls_key = permitted.delete(:tls_key)
-
-            if tls_ca.present? || tls_cert.present? || tls_key.present?
-              permitted[:encrypted_tls_credentials] = {
-                ca_cert: tls_ca,
-                client_cert: tls_cert,
-                client_key: tls_key
-              }.to_json
-            end
-
-            permitted
           end
         end
       end

@@ -250,4 +250,64 @@ RSpec.describe 'Api::V1::Devops::Docker::Hosts', type: :request do
       expect(health['recent_events']).to be_present
     end
   end
+
+  # Characterization of build_tls_credentials (shared Devops::TlsCredentialParams
+  # concern): raw tls_ca/tls_cert/tls_key params are packed into the single
+  # encrypted_tls_credentials JSON blob (keys ca_cert/client_cert/client_key) and
+  # the raw keys are dropped. Fixtures are obviously-fake placeholders, not real
+  # key material.
+  describe 'TLS credential packing' do
+    let(:headers) { auth_headers_for(user_with_manage) }
+
+    before do
+      allow_any_instance_of(Devops::Docker::ApiClient).to receive(:ping).and_return("OK")
+      allow_any_instance_of(Devops::Docker::ApiClient).to receive(:info).and_return(
+        { "ServerVersion" => "24.0.7", "ApiVersion" => "1.45", "OperatingSystem" => "Ubuntu",
+          "Architecture" => "x86_64", "KernelVersion" => "5.15.0", "Containers" => 0, "Images" => 0,
+          "MemTotal" => 8_589_934_592, "NCPU" => 4 }
+      )
+    end
+
+    it 'packs raw tls params into the encrypted_tls_credentials blob on create' do
+      post '/api/v1/devops/docker/hosts',
+           params: { host: { name: 'TLS Host', api_endpoint: 'https://docker.example.com:2376',
+                             environment: 'development', tls_ca: 'placeholder-ca',
+                             tls_cert: 'placeholder-client-cert', tls_key: 'placeholder-client-key' } },
+           headers: headers, as: :json
+
+      expect_success_response
+      host = Devops::DockerHost.find(json_response['data']['host']['id'])
+      expect(JSON.parse(host.encrypted_tls_credentials)).to eq(
+        'ca_cert' => 'placeholder-ca',
+        'client_cert' => 'placeholder-client-cert',
+        'client_key' => 'placeholder-client-key'
+      )
+    end
+
+    it 'leaves encrypted_tls_credentials unset when no tls params are given' do
+      post '/api/v1/devops/docker/hosts',
+           params: { host: { name: 'No TLS Host', api_endpoint: 'https://docker.example.com:2376',
+                             environment: 'development' } },
+           headers: headers, as: :json
+
+      expect_success_response
+      host = Devops::DockerHost.find(json_response['data']['host']['id'])
+      expect(host.encrypted_tls_credentials).to be_nil
+    end
+
+    it 'repacks encrypted_tls_credentials on update' do
+      host = create(:devops_docker_host, account: account)
+
+      patch "/api/v1/devops/docker/hosts/#{host.id}",
+            params: { host: { tls_ca: 'updated-ca', tls_cert: 'updated-cert', tls_key: 'updated-key' } },
+            headers: headers, as: :json
+
+      expect_success_response
+      expect(JSON.parse(host.reload.encrypted_tls_credentials)).to eq(
+        'ca_cert' => 'updated-ca',
+        'client_cert' => 'updated-cert',
+        'client_key' => 'updated-key'
+      )
+    end
+  end
 end

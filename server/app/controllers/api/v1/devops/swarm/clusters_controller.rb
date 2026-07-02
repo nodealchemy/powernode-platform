@@ -6,6 +6,7 @@ module Api
       module Swarm
         class ClustersController < ApplicationController
           include AuditLogging
+          include ::Devops::TlsCredentialParams
 
           before_action -> { require_permission("devops.swarm.read") }, only: %i[index show health test_connection]
           before_action -> { require_permission("devops.swarm.manage") }, only: %i[create update destroy sync]
@@ -120,22 +121,6 @@ module Api
             )
 
             build_tls_credentials(permitted)
-          end
-
-          def build_tls_credentials(permitted)
-            tls_ca = permitted.delete(:tls_ca)
-            tls_cert = permitted.delete(:tls_cert)
-            tls_key = permitted.delete(:tls_key)
-
-            if tls_ca.present? || tls_cert.present? || tls_key.present?
-              permitted[:encrypted_tls_credentials] = {
-                ca_cert: tls_ca,
-                client_cert: tls_cert,
-                client_key: tls_key
-              }.to_json
-            end
-
-            permitted
           end
         end
       end
