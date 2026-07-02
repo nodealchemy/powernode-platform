@@ -87,6 +87,10 @@ module Ai
           known_models = Set.new(Ai::ProviderManagementService::MODEL_PRICING.keys)
           known_models.merge(Ai::ModelPricing.pluck(:model_id))
 
+          # Loop-invariant: upserts happen after the loop, so the catalog size
+          # cannot change mid-iteration — compute the sparse-catalog check once.
+          sparse_catalog = Ai::ModelPricing.count < 10
+
           records_to_upsert = []
 
           data.each do |raw_key, model_data|
@@ -98,7 +102,7 @@ module Ai
             provider_type = detect_provider_type(raw_key, model_data)
 
             # Only process models we already track, or all if we have fewer than 10
-            next unless known_models.include?(model_id) || Ai::ModelPricing.count < 10 || known_models.any? { |k| model_id.start_with?(k) || k.start_with?(model_id) }
+            next unless known_models.include?(model_id) || sparse_catalog || known_models.any? { |k| model_id.start_with?(k) || k.start_with?(model_id) }
 
             input_per_1k = (model_data["input_cost_per_token"].to_f * 1000).round(8)
             output_per_1k = (model_data["output_cost_per_token"].to_f * 1000).round(8)

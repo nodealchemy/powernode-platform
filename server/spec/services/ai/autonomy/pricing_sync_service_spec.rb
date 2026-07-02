@@ -84,6 +84,23 @@ RSpec.describe Ai::Autonomy::PricingSyncService do
     end
   end
 
+  describe ".process_litellm_data catalog-size check" do
+    it "queries Ai::ModelPricing.count once, not once per model" do
+      payload = (1..25).to_h do |i|
+        ["zz-unknown-model-#{i}", {
+          "input_cost_per_token" => 0.000001,
+          "output_cost_per_token" => 0.000002,
+          "litellm_provider" => "unknown"
+        }]
+      end
+      allow(Ai::ModelPricing).to receive(:count).and_call_original
+
+      described_class.send(:process_litellm_data, payload, { synced: 0, failed: 0, errors: [] })
+
+      expect(Ai::ModelPricing).to have_received(:count).once
+    end
+  end
+
   describe ".sync! stored tier (litellm path)" do
     def litellm_payload(input_per_token)
       {
