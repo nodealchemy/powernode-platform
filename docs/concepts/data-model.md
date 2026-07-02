@@ -364,14 +364,15 @@ end
 ### Working with existing models
 
 ```ruby
-user = User.create!(first_name: "John", last_name: "Doe", email: "john@example.com")
+# Users always belong to an account, so create (or find) the account first
+account = Account.create!(name: "Acme Corp")
+user = account.users.create!(name: "John Doe", email: "john@example.com", password: "Correct-Horse-Battery-9!")
 puts user.id
 # => "0198ebd9-6018-7c94-ad91-9eb1cf7745d5"
 
-# Associations work normally
-plan = Plan.first
-subscription = user.account.subscriptions.create!(plan: plan, quantity: 1)
-puts subscription.id
+# Associations work normally — child records get UUIDv7 primary keys too
+endpoint = account.webhook_endpoints.create!(url: "https://example.com/hooks")
+puts endpoint.id
 # => "0198ebd9-6019-7a12-bb33-4ed2cf8845d3"
 ```
 
