@@ -252,44 +252,6 @@ class ScheduledTaskService
       { success: false, error: e.message }
     end
 
-    def execute_scheduled_task(execution_id)
-      execution = TaskExecution.find(execution_id)
-      task = execution.scheduled_task
-
-      execution.update!(status: "running", started_at: Time.current)
-
-      begin
-        result = case task.task_type
-        when "data_cleanup"
-                   execute_data_cleanup_task(task)
-        when "report_generation"
-                   execute_report_generation_task(task)
-        when "custom_command"
-                   execute_custom_command_task(task)
-        else
-                   { success: false, error: "Unknown task type: #{task.task_type}" }
-        end
-
-        execution.update!(
-          status: result[:success] ? "completed" : "failed",
-          completed_at: Time.current,
-          output: result[:output] || result[:message],
-          error_message: result[:error]
-        )
-
-        Rails.logger.info "Task execution #{execution.id} completed with status: #{execution.status}"
-        result
-      rescue StandardError => e
-        execution.update!(
-          status: "failed",
-          completed_at: Time.current,
-          error_message: e.message
-        )
-        Rails.logger.error "Task execution #{execution.id} failed: #{e.message}"
-        raise e
-      end
-    end
-
     private
 
     def valid_cron_schedule?(schedule)
@@ -417,84 +379,6 @@ class ScheduledTaskService
     rescue StandardError => e
       Rails.logger.warn "Failed to calculate next run time for cron '#{cron_schedule}': #{e.message}"
       1.day.from_now
-    end
-
-    def execute_data_cleanup_task(task)
-      results = []
-
-      # Parse command for specific cleanup operations
-      if task.command&.include?("audit_logs")
-        days = extract_days_from_command(task.command) || 90
-        result = DataManagement::CleanupService.cleanup_audit_logs(days)
-        results << "Audit logs: #{result[:cleaned_count]} records cleaned"
-      end
-
-      if task.command&.include?("sessions")
-        result = DataManagement::CleanupService.cleanup_expired_sessions
-        results << "Sessions: #{result[:cleaned_count]} expired sessions cleaned"
-      end
-
-      if task.command&.include?("temp_files")
-        result = DataManagement::CleanupService.cleanup_temp_files
-        results << "Temp files: #{result[:cleaned_count]} files cleaned"
-      end
-
-      if task.command&.include?("cache")
-        result = DataManagement::CleanupService.clear_application_cache
-        results << "Cache: #{result[:cleared_entries]} entries cleared"
-      end
-
-      {
-        success: true,
-        output: results.join("; "),
-        message: "Data cleanup completed"
-      }
-    end
-
-    def execute_report_generation_task(task)
-      # This would integrate with your reporting system
-      {
-        success: true,
-        output: "Report generation completed",
-        message: "Scheduled report generated successfully"
-      }
-    end
-
-    def execute_custom_command_task(task)
-      return { success: false, error: "No command specified" } unless task.command.present?
-
-      # Defense in depth: re-validate command at execution time
-      unless valid_custom_command?(task.command)
-        Rails.logger.error "Blocked execution of invalid command: #{task.command.truncate(100)}"
-        return {
-          success: false,
-          error: "Command validation failed. Only rails, bundle, rake, and ruby commands are allowed."
-        }
-      end
-
-      # Execute custom command safely using Open3 for better control
-      begin
-        require "open3"
-        stdout, stderr, status = Open3.capture3(task.command)
-        output = stdout.presence || stderr
-
-        {
-          success: status.success?,
-          output: output.truncate(10_000),
-          error: status.success? ? nil : "Command failed with exit code #{status.exitstatus}"
-        }
-      rescue StandardError => e
-        Rails.logger.error "Custom command execution error: #{e.message}"
-        {
-          success: false,
-          error: "Failed to execute command: #{e.message}"
-        }
-      end
-    end
-
-    def extract_days_from_command(command)
-      match = command.match(/--days[=\s]+(\d+)/)
-      match ? match[1].to_i : nil
     end
 
     # Validates that a custom command is safe to execute
