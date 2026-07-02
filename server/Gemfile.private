@@ -10,4 +10,25 @@
 # gems that must never reach the public mirror and that public/core-mode clones
 # can't resolve. The committed Gemfile.lock stays public-only and clean.
 ENV["POWERNODE_INCLUDE_PRIVATE_EXTENSIONS"] ||= "1"
+
+# ── Boot-critical gem lockstep (json pre-activation incident guard) ──
+# RubyGems pre-activates the NEWEST installed version of these gems before
+# bundler runs. A private-mode resolution that drifts ahead of the committed
+# public Gemfile.lock installs that newer version into the shared gemset, and
+# core-mode boot then crashes with "You have already activated <gem>-X"
+# (this is exactly how the json 2.20.0 orphan kept coming back: this bundle's
+# lock resolved json/rdoc ahead of the public pins, and every private
+# `bundle install` reinstalled the orphan). Pin them to the public lock so
+# both bundles share one installed version. Doctor:
+# scripts/doctor-gem-preactivation.sh. NEVER bump the public lock pin to
+# "fix" a mismatch — uninstall the orphan instead.
+public_lock = File.expand_path("Gemfile.lock", __dir__)
+if File.readable?(public_lock)
+  public_lock_text = File.read(public_lock)
+  %w[json rdoc].each do |name|
+    version = public_lock_text[/^    #{Regexp.escape(name)} \(([0-9][0-9.]*)\)$/, 1]
+    gem name, version if version
+  end
+end
+
 eval_gemfile "Gemfile"
