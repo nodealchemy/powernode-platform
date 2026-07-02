@@ -9,7 +9,7 @@ require 'rails_helper'
 # to stop them. Regression spec for IMP-7f395d55d15b.
 #
 # One scope is excluded by design:
-#   * ai_memory_consolidation_job / ai_memory_maintenance_job — global, cross-account
+#   * ai_memory_maintenance_job — global, cross-account
 #     (handled separately; no single account to gate on).
 #
 # ai_goal_plan_execution_job / ai_self_challenge_job previously could not be gated
@@ -82,24 +82,6 @@ RSpec.describe 'Backend-dispatch AI job kill-switch compliance' do
     end
   end
 
-  describe AiCodeFactoryRemediationJob do
-    it 'includes AiSuspensionCheckConcern' do
-      expect(described_class.include?(AiSuspensionCheckConcern)).to be true
-    end
-
-    it 'bails before generating remediation patches when AI is suspended' do
-      job = described_class.new
-      allow(job).to receive(:ai_suspended?).with(account_id).and_return(true)
-      expect(job).not_to receive(:backend_api_post)
-
-      job.execute(
-        'review_state_id' => 'rs-1',
-        'account_id' => account_id,
-        'findings' => [{ 'file_path' => 'a.rb', 'message' => 'x' }]
-      )
-    end
-  end
-
   describe AiCodebaseIndexJob do
     it 'includes AiSuspensionCheckConcern' do
       expect(described_class.include?(AiSuspensionCheckConcern)).to be true
@@ -117,21 +99,6 @@ RSpec.describe 'Backend-dispatch AI job kill-switch compliance' do
   end
 
   # ---- account_id resolved from a fetched backend record ------------------
-
-  describe AiAgentTeamExecutionJob do
-    it 'includes AiSuspensionCheckConcern' do
-      expect(described_class.include?(AiSuspensionCheckConcern)).to be true
-    end
-
-    it 'bails before orchestrating the team when AI is suspended' do
-      job = described_class.new
-      allow(job).to receive(:fetch_team).and_return('account_id' => account_id, 'id' => 't-1')
-      allow(job).to receive(:ai_suspended?).with(account_id).and_return(true)
-      expect(job).not_to receive(:execute_team_orchestration)
-
-      job.execute('team_id' => 't-1', 'user_id' => 'u-1', 'input' => 'hi')
-    end
-  end
 
   describe AiRalphLoopRunAllJob do
     it 'includes AiSuspensionCheckConcern' do

@@ -64,14 +64,6 @@ The largest category — covers the entire AI platform. Selected examples:
 | `AiTeamExecutionJob` | `ai_execution` | Multi-agent team orchestration |
 | `AiChatResponseJob` | `ai_conversations` | AI conversation response generation |
 | `AiChatAttachmentProcessingJob` | `ai_conversations` | Process chat attachments |
-| `AiChatContextBuilderJob` | `ai_conversations` | Build conversation context |
-| `AiCodeFactoryRunJob` | `ai_agents` | Code Factory pipeline run |
-| `AiCodeFactoryPrdJob` | `ai_agents` | PRD generation |
-| `AiCodeFactoryTaskGenJob` | `ai_agents` | Task generation from PRD |
-| `AiCodeFactoryRemediationJob` | `ai_agents` | Code remediation |
-| `AiCodeFactoryEvidenceJob` | `ai_agents` | Evidence collection |
-| `AiCodeFactoryHarnessGapJob` | `ai_agents` | Test harness gap analysis |
-| `AiCodeReviewJob` | `ai_agents` | Automated code review |
 | `AiMissionAnalyzeJob` | `ai_agents` | Mission analysis stage (Ralph) |
 | `AiMissionPlanJob` | `ai_agents` | Mission planning stage |
 | `AiMissionExecuteJob` | `ai_agents` | Mission execution stage |
@@ -80,8 +72,6 @@ The largest category — covers the entire AI platform. Selected examples:
 | `AiMissionDeployJob` | `ai_agents` | Mission deployment stage |
 | `AiMissionMergeJob` | `ai_agents` | Mission merge stage |
 | `AiMissionCleanupJob` | `ai_agents` | Mission cleanup |
-| `AiMemoryConsolidationJob` | `ai_orchestration` | STM → LTM memory promotion |
-| `AiMemoryDecayJob` | `ai_orchestration` | Memory importance decay |
 | `AiMemoryMaintenanceJob` | `ai_orchestration` | Memory pool maintenance |
 | `AiMemoryPoolCleanupJob` | `ai_orchestration` | Pool cleanup |
 | `AiConsolidateMemoryEntryJob` | `ai_orchestration` | Individual entry consolidation |
@@ -108,19 +98,13 @@ The largest category — covers the entire AI platform. Selected examples:
 | `AiMonitoringAnalysisJob` | `ai_orchestration` | AI usage analysis |
 | `AiMonitoringHealthCheckJob` | `ai_orchestration` | AI health monitoring |
 | `AiPredictiveMonitorJob` | `ai_orchestration` | Predictive monitoring |
-| `AiNotificationDigestJob` | `ai_orchestration` | AI notification digest |
-| `AiReviewAnalysisJob` | `ai_orchestration` | Review analysis |
-| `AiTaskReviewProcessJob` | `ai_orchestration` | Task review processing |
 | `AiTeamMessageCleanupJob` | `ai_orchestration` | Team message cleanup |
 | `AiTeamOptimizeJob` | `ai_orchestration` | Team optimisation |
-| `AiTemplateUpdateJob` | `ai_orchestration` | Template updates |
 | `AiTrajectoryBuildJob` | `ai_orchestration` | Execution trajectory building |
 | `AiA2aExternalTaskJob` | `ai_agents` | A2A external task handling |
 | `AiA2aTaskExecutionJob` | `ai_agents` | A2A task execution |
 | `AiBudgetReconciliationJob` | `ai_orchestration` | Cost budget reconciliation |
 | `AiBudgetRolloverJob` | `ai_orchestration` | Monthly budget rollover |
-| `AiContainerAgentJob` | `ai_agents` | Containerised agent execution |
-| `AiExecutionCancellationJob` | `ai_cancellations` | Fast execution cancellation |
 | `AiWebhookDeliveryJob` | `ai_orchestration` | AI webhook delivery |
 | `AiWorkspaceResponseJob` | `ai_conversations` | Workspace response handling |
 | `AiConversationResponseJob` | `ai_conversations` | Conversation response generation |
@@ -235,7 +219,7 @@ The largest category — covers the entire AI platform. Selected examples:
 
 | Priority | Queues |
 |----------|--------|
-| **3 (Critical)** | `critical`, `high`, `subscription_lifecycle` _(business ext)_, `ai_cancellations`, `devops_high`, `system` _(system ext)_ |
+| **3 (Critical)** | `critical`, `high`, `subscription_lifecycle` _(business ext)_, `devops_high`, `system` _(system ext)_ |
 | **2 (Standard)** | `ai_agents`, `ai_conversations`, `ai_execution`, `ai_orchestration`, `ai_testing`, `devops_default`, `devops_webhooks`, `file_processing`, `services`, `compliance`, `email`, `reports`, `integrations`, `mcp`, `billing` _(business ext)_, `billing_scheduler` _(business ext)_ |
 | **1 (Low)** | `notifications`, `analytics`, `schedules`, `webhooks`, `maintenance`, `default` |
 

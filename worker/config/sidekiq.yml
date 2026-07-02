@@ -20,7 +20,6 @@
   - [critical, 3]                # Critical system operations
   - [high, 3]                    # High priority tasks
   - [subscription_lifecycle, 3]  # Billing lifecycle (renewals, cancellations)
-  - [ai_cancellations, 3]        # AI task cancellations (fast processing)
   - [devops_high, 3]             # High priority DevOps operations (pipeline execution, deployment)
   - [system, 3]                  # System extension jobs: NodeInstance provision/sync/control,
                                  # module commit/build, image create, instance pool dispatch.
