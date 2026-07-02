@@ -20,7 +20,11 @@ module Git
         return { error: "Repository not found" }
       end
 
-      credential_id = repository["credential_id"]
+      # The server serializer (serialize_repository) emits the credential nested
+      # as credential:{id} — it never emits a top-level credential_id. Dig the
+      # canonical shape so a repo with a valid, active credential resolves its id
+      # (a genuinely-missing credential still yields nil → 404 graceful-skip below).
+      credential_id = repository.dig("credential", "id")
 
       # Get decrypted credentials. A missing credential record yields a 404
       # ("Credential not found") from the backend — a PERMANENT condition that

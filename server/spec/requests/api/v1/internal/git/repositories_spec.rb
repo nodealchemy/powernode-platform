@@ -161,6 +161,18 @@ RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
         expect(json['data']['credential']['id']).to eq(credential.id)
         expect(json['data']['credential']['provider_type']).to eq(credential.provider_type)
       end
+
+      it 'serializes the credential id in the nested credential:{id} shape the worker digs (never a top-level credential_id)' do
+        # Contract guard: Git::PipelineSyncJob resolves the credential via
+        # repository.dig("credential", "id"). If the serializer ever regressed to a
+        # top-level credential_id (or dropped the nested id), pipeline sync would
+        # silently 404-skip every repo. Lock the shape the worker relies on.
+        get api_v1_internal_git_repository_path(repository), headers: internal_headers
+
+        data = JSON.parse(response.body)['data']
+        expect(data).not_to have_key('credential_id')
+        expect(data.dig('credential', 'id')).to eq(credential.id)
+      end
     end
 
     context 'with non-existent repository' do

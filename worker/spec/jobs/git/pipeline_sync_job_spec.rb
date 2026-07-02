@@ -18,7 +18,12 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
       'full_name' => 'owner/test-repo',
       'owner' => 'owner',
       'default_branch' => 'main',
-      'credential_id' => credential_id,
+      # Mirrors the server serialize_repository contract: the credential is nested
+      # as credential:{id}, never a top-level credential_id. The worker resolves it
+      # via repository.dig("credential", "id").
+      'credential' => {
+        'id' => credential_id
+      },
       'provider' => {
         'provider_type' => 'github',
         'api_base_url' => nil
@@ -141,6 +146,53 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
       end
     end
 
+    context 'when the repository is serialized with the real nested credential shape' do
+      # Regression guard for the credential_id field mismatch. serialize_repository
+      # emits the credential nested as credential:{id} and NEVER a top-level
+      # credential_id; because credential/provider are mutually exclusive in that
+      # serializer, a credential-bearing repo also carries NO top-level provider key.
+      # A repo WITH a valid, active credential must resolve the nested id and reach
+      # the decrypted-credential lookup rather than the 404 graceful-skip meant for
+      # genuinely-missing credentials. Fixture is faithful (credential only) so the
+      # test cannot pass by leaning on a top-level provider the server never emits.
+      let(:sample_repository) do
+        {
+          'id' => repository_id,
+          'name' => 'test-repo',
+          'full_name' => 'owner/test-repo',
+          'owner' => 'owner',
+          'default_branch' => 'main',
+          'credential' => { 'id' => credential_id }
+        }
+      end
+
+      before do
+        # Pre-fix behavior: reading a non-existent top-level credential_id yields nil,
+        # so the worker calls the decrypted endpoint with an EMPTY id and 404-skips —
+        # the exact symptom that silently no-oped valid-credential repos.
+        allow(api_client_double).to receive(:get)
+          .with('/api/v1/internal/git/credentials//decrypted')
+          .and_raise(BackendApiClient::ApiError.new('Credential not found', 404))
+        # Post-fix, the nested id resolves. Short-circuit right after the lookup with
+        # a transient (non-404) error so this example asserts ONLY the fix's guarantee
+        # — the decrypted endpoint is reached with the real credential id, not the
+        # downstream provider-config resolution (tracked as a separate follow-up).
+        allow(api_client_double).to receive(:get)
+          .with("/api/v1/internal/git/credentials/#{credential_id}/decrypted")
+          .and_raise(BackendApiClient::ApiError.new('short-circuit', 503))
+      end
+
+      it 'digs the nested credential id and reaches the decrypted lookup (no false 404-skip)' do
+        # A transient error propagates (not the 404 skip path), proving the lookup
+        # was actually reached with the resolved id.
+        expect { job_instance.execute(repository_id, external_pipeline_id) }
+          .to raise_error(BackendApiClient::ApiError, /short-circuit/)
+
+        expect(api_client_double).to have_received(:get)
+          .with("/api/v1/internal/git/credentials/#{credential_id}/decrypted")
+      end
+    end
+
     context 'syncing single pipeline' do
       it 'fetches pipeline details from provider' do
         result = job_instance.execute(repository_id, external_pipeline_id)
@@ -248,7 +300,9 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
           'name' => 'gitlab-repo',
           'full_name' => 'group/gitlab-repo',
           'owner' => 'group',
-          'credential_id' => credential_id,
+          'credential' => {
+            'id' => credential_id
+          },
           'provider' => {
             'provider_type' => 'gitlab',
             'api_base_url' => nil
@@ -317,7 +371,9 @@ RSpec.describe Git::PipelineSyncJob, type: :job do
           'name' => 'gitea-repo',
           'full_name' => 'owner/gitea-repo',
           'owner' => 'owner',
-          'credential_id' => credential_id,
+          'credential' => {
+            'id' => credential_id
+          },
           'provider' => {
             'provider_type' => 'gitea',
             'api_base_url' => 'https://git.example.com/api/v1'
