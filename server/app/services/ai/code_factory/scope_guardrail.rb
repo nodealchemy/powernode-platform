@@ -51,7 +51,7 @@ module Ai
         return result(true, [], nil) if files.empty?
 
         allow_globs = Array(@config["allow"])
-        deny_globs  = DEFAULT_DENYLIST + Array(@config["deny"])
+        extra_deny  = Array(@config["deny"])
 
         # Allow globs override everything — exempt those files from both checks.
         considered = files.reject { |f| matches_any?(f, allow_globs) }
@@ -59,9 +59,12 @@ module Ai
         violations = []
         flagged = {}
 
-        # Protected-path denylist.
+        # Protected-path denylist. Per-loop config "deny" globs are unconditional;
+        # the DEFAULT (catalog) list is evaluated through keep_manual_pattern so the
+        # broad *credential*/*secret* NAME globs don't flag structural/test/concern
+        # files (see Ai::Loop::PolicyCatalog::NAME_HINT_GLOBS).
         considered.each do |file|
-          pattern = matching_pattern(file, deny_globs)
+          pattern = matching_pattern(file, extra_deny) || Ai::Loop::PolicyCatalog.keep_manual_pattern(file)
           next unless pattern
 
           violations << { file: file, reason: "protected path (#{pattern})" }

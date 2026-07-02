@@ -40,6 +40,27 @@ module Ai
         "**/config/credentials*", "**/config/master.key", "**/.env*"
       ].freeze
 
+      # NAME-HINT globs — the subset of KEEP_MANUAL_DENYLIST that matches on a bare
+      # WORD in the filename. These are deliberately broad and produce recurring false
+      # positives on files that merely carry the word (a spec for a credential
+      # validator, a display concern, a factory) without storing or handling secret
+      # material. A name-hint match is therefore subject to NAME_HINT_EXEMPT below.
+      # Everything else in the denylist — directory-form globs (**/credentials/**,
+      # **/secrets/**, **/vault/**, **/signing/**, ...), Rails secret files, and the
+      # key-material name globs (*private_key* / *api_key* / *signer*) — stays
+      # UNCONDITIONAL (fail-closed), even for specs and concerns.
+      NAME_HINT_GLOBS = ["**/*credential*", "**/*secret*"].freeze
+
+      # Structural/test shapes exempt from a NAME-HINT match only. These files do not
+      # store live key material: test code, factories, and mixin concerns named after
+      # the domain object they decorate. A genuine secret-storage concern belongs
+      # under a gated directory (vault/ signing/ credentials/ secrets/), which remains
+      # unconditionally keep-manual regardless of this list.
+      NAME_HINT_EXEMPT = [
+        "**/spec/**", "**/*_spec.rb", "**/test/**", "**/tests/**", "**/__tests__/**",
+        "**/*.spec.*", "**/*.test.*", "**/factories/**", "**/concerns/**"
+      ].freeze
+
       # GOOD-FIRST — the loop-friendly task categories the article calls out as the
       # right place to start an autonomous loop (low blast-radius, objective "done").
       GOOD_FIRST = %w[
@@ -54,10 +75,27 @@ module Ai
         # @param path [String, nil]
         # @return [Boolean] true when the path falls under the keep-manual denylist.
         def keep_manual?(path)
-          file = path.to_s
-          return false if file.blank?
+          keep_manual_pattern(path).present?
+        end
 
-          KEEP_MANUAL_DENYLIST.any? { |glob| File.fnmatch(glob, file, FNM) }
+        # The glob that makes a path keep-manual, or nil. Unconditional globs win
+        # first; a NAME-HINT glob (broad *credential*/*secret* filename match) only
+        # counts when the file is not a structural/test shape (NAME_HINT_EXEMPT).
+        # @param path [String, nil]
+        # @return [String, nil] the matching denylist glob, or nil when allowed
+        def keep_manual_pattern(path)
+          file = path.to_s
+          return nil if file.blank?
+
+          unconditional = KEEP_MANUAL_DENYLIST - NAME_HINT_GLOBS
+          hit = unconditional.find { |glob| File.fnmatch(glob, file, FNM) }
+          return hit if hit
+
+          name_hit = NAME_HINT_GLOBS.find { |glob| File.fnmatch(glob, file, FNM) }
+          return nil unless name_hit
+          return nil if NAME_HINT_EXEMPT.any? { |glob| File.fnmatch(glob, file, FNM) }
+
+          name_hit
         end
 
         # @param category [String, Symbol, nil]

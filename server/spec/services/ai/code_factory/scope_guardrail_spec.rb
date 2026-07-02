@@ -86,6 +86,16 @@ RSpec.describe Ai::CodeFactory::ScopeGuardrail do
       expect(described_class.new.evaluate([manual_path])[:allowed]).to be false
     end
 
+    it "does NOT block structural/test files merely named credential (catalog refinement)" do
+      result = described_class.new.evaluate([
+        "server/spec/services/ai/provider_management_service/credential_validation_spec.rb",
+        "server/app/models/concerns/credential_display.rb"
+      ])
+
+      expect(result[:allowed]).to be true
+      expect(result[:violations]).to eq([])
+    end
+
     it "extends the denylist via config deny" do
       config = { "deny" => ["**/danger_zone/**"] }
       result = described_class.new(config: config).evaluate(["server/app/danger_zone/x.rb"])
