@@ -357,8 +357,6 @@ All cron schedules live in `worker/config/sidekiq.yml`.
 |---------|---------|
 | `EmailDeliveryWorkerService` | Email delivery |
 | `EmailConfigurationService` | Email provider config |
-| `AnalyticsWorkerService` | Analytics processing |
-| `AnalyticsNotificationService` | Analytics-based notifications |
 | `FileProcessingService` | File upload processing |
 | `PdfReportWorkerService` | PDF report generation |
 | `FirebaseService` | Push notifications (Firebase) |
