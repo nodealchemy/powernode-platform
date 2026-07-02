@@ -324,15 +324,16 @@ if [ -f "$TARGET/server/Gemfile.private" ]; then
 fi
 
 # ---------- 6. gem pre-activation doctor (warn-only) ----------
-# A json gem newer than the lock pin crashes boot ("already activated json-X").
-# Warn here so the orphan is caught at worktree setup, not first boot.
+# A boot-critical gem (json, rdoc, ...) newer than the lock pin crashes boot
+# ("already activated <gem>-X"). Warn here so the orphan is caught at worktree
+# setup, not first boot.
 info "gem pre-activation doctor"
 if [ ! -x "$SELF_DIR/doctor-gem-preactivation.sh" ]; then
   skip "doctor-gem-preactivation.sh not found next to this script — skipped"
 elif "$SELF_DIR/doctor-gem-preactivation.sh" >/dev/null 2>&1; then
-  ok "no newer-than-locked json orphan installed"
+  ok "no newer-than-locked boot-critical gem orphan installed"
 else
-  warn "json gem pre-activation hazard detected — run scripts/doctor-gem-preactivation.sh for the 'gem uninstall' remediation (do NOT bump the lock pin)"
+  warn "gem pre-activation hazard detected — run scripts/doctor-gem-preactivation.sh for the 'gem uninstall' remediation (do NOT bump the lock pin)"
 fi
 
 info "${C_OK}worktree ready${C_RST}  ${C_DIM}$TARGET${C_RST}"

@@ -51,9 +51,10 @@ echo ""
 RESULTS=()
 OVERALL_EXIT=0
 
-# 0. Preflight: gem pre-activation doctor (fail fast — a newer-than-locked json
-# orphan crashes boot with "already activated json-X", so nothing after this
-# can run reliably; see scripts/doctor-gem-preactivation.sh for remediation)
+# 0. Preflight: gem pre-activation doctor (fail fast — a newer-than-locked orphan
+# of a boot-critical gem (json, rdoc, ...) crashes boot with "already activated
+# <gem>-X", so nothing after this can run reliably; see
+# scripts/doctor-gem-preactivation.sh for remediation)
 echo -e "${BLUE}[0/4] Gem pre-activation doctor...${NC}"
 if "$SCRIPT_DIR/doctor-gem-preactivation.sh"; then
   echo ""
