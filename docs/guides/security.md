@@ -68,27 +68,21 @@ Defense-in-depth: each layer assumes the layer in front of it has been bypassed 
 ### JWT configuration
 
 ```ruby
-JWT_CONFIG = {
-  algorithm: 'HS256',
-  access_token_expiry:  15.minutes,
-  refresh_token_expiry: 7.days,
-  issuer:   'powernode-api',
-  audience: ['powernode-frontend', 'powernode-mobile'],
+# server/config/initializers/jwt.rb (effective defaults)
+config.jwt_algorithm = ENV.fetch("JWT_ALGORITHM", Rails.env.production? ? "RS256" : "HS256")
+config.jwt_issuer    = ENV.fetch("JWT_ISSUER", "powernode-platform")
+config.jwt_audience  = ENV.fetch("JWT_AUDIENCE", "powernode-api")
 
-  require_iss: true,
-  require_aud: true,
-  require_exp: true,
-  require_nbf: true,
-  leeway: 10.seconds,
-
-  # Key rotation
-  kid: -> { TokenService.current_key_id },
-  verify_iss: true,
-  verify_aud: true,
-}.freeze
+config.jwt_access_token_expiration        = 15.minutes
+config.jwt_refresh_token_expiration       = 7.days
+config.jwt_worker_token_expiration        = 30.days
+config.jwt_service_token_expiration       = 1.year
+config.jwt_impersonation_token_expiration = 8.hours
 ```
 
-Tokens carry `kid` (key ID) so the platform can rotate signing keys without invalidating outstanding tokens — see [`docs/operations/production-deployment.md`](../operations/production-deployment.md) for the rotation runbook.
+Production signs with **RS256** (`JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` env vars, or the Vault-backed `Security::JwtKeyStore`); development and test default to **HS256** with `JWT_SECRET_KEY`. `Security::JwtService` verifies `iss`, `aud`, and `exp` on every decode (`verify_iss: true`, `verify_aud: true`).
+
+Signing keys rotate without invalidating outstanding tokens via `Security::JwtKeyStore.rotate!(grace_hours:)` (exposed through the admin security settings): previous public keys are retained as grace verification keys until the grace window ends, so tokens signed with the old key keep verifying.
 
 ### Token types
 
