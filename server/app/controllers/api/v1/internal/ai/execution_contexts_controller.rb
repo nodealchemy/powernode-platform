@@ -17,13 +17,6 @@ module Api
             context = params[:context]&.to_unsafe_h || {}
             memory_token_budget = params[:memory_token_budget] || 4000
 
-            # Hydrate working memory
-            begin
-              ::Ai::Memory::WorkingMemoryService.new(agent: agent, account: account).load_from_database
-            rescue StandardError => e
-              Rails.logger.warn "[ExecutionContexts] Working memory hydration failed: #{e.message}"
-            end
-
             # Build base context
             execution_context = {
               agent_id: agent.id,

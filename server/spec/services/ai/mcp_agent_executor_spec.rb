@@ -271,6 +271,15 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
 
       expect(context[:temperature]).to eq(0.5)
     end
+
+    it 'does not hydrate working memory (dead work — see IMP-573fbbd9a2b7)' do
+      expect(Ai::Memory::WorkingMemoryService).not_to receive(:new)
+
+      context = executor.send(:build_execution_context, { "input" => "test" })
+
+      expect(context[:agent_id]).to eq(agent.id)
+      expect(context[:input]).to eq("test")
+    end
   end
 
   describe 'build_prompt_from_context (private)' do

@@ -7,13 +7,6 @@ class Ai::McpAgentExecutor
     private
 
     def build_execution_context(input_parameters)
-      # Hydrate working memory from database before building context
-      begin
-        Ai::Memory::WorkingMemoryService.new(agent: @agent, account: @account).load_from_database
-      rescue StandardError => e
-        Rails.logger.warn "[ContextAndFormatting] Working memory hydration failed: #{e.message}"
-      end
-
       base_context = {
         agent_id: @agent.id,
         agent_name: @agent.name,
