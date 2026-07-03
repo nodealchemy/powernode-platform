@@ -137,6 +137,93 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(ralph_loop.ralph_tasks.in_progress.count).to eq(1)
     end
 
+    describe "per-holder concurrent claims" do
+      it "characterization: default config (no max_concurrent_claims) matches today's single-claim behavior" do
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "low", priority: 1)
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "high", priority: 20)
+
+        first = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "cc-lane-a" })
+        second = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "cc-lane-b" })
+
+        expect(first[:task][:task_key]).to eq("high")
+        # No opt-in (cap=1): lane-b is refused, not handed the colliding/other task,
+        # and it never reclaims lane-a's task either.
+        expect(second[:task]).to be_nil
+        expect(second[:halted]).to be true
+        expect(second[:reason]).to eq("max_concurrent_claims_reached")
+        expect(ralph_loop.ralph_tasks.in_progress.count).to eq(1)
+      end
+
+      it "lets two holders claim two file-disjoint pending tasks when max_concurrent_claims=2" do
+        ralph_loop.update!(configuration: { "max_concurrent_claims" => 2 })
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "t1", priority: 20,
+                               metadata: { "files" => ["a.rb"] })
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "t2", priority: 10,
+                               metadata: { "files" => ["b.rb"] })
+
+        first = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "cc-lane-a" })
+        second = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "cc-lane-b" })
+
+        expect(first[:task][:task_key]).to eq("t1")
+        expect(second[:task][:task_key]).to eq("t2")
+        expect(ralph_loop.ralph_tasks.in_progress.count).to eq(2)
+      end
+
+      it "refuses a second holder a file-overlapping task instead of handing it out" do
+        ralph_loop.update!(configuration: { "max_concurrent_claims" => 2 })
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "t1", priority: 20,
+                               metadata: { "files" => ["a.rb"] })
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "t2", priority: 10,
+                               metadata: { "files" => ["a.rb"] })
+
+        tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "cc-lane-a" })
+        second = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "cc-lane-b" })
+
+        expect(second[:task]).to be_nil
+        expect(second[:no_eligible_task]).to be true
+        expect(second[:reason]).to eq("file_collision")
+        expect(ralph_loop.ralph_tasks.in_progress.count).to eq(1)
+      end
+
+      it "never concurrently claims a task with missing/empty files (unknown blast radius)" do
+        ralph_loop.update!(configuration: { "max_concurrent_claims" => 2 })
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "t1", priority: 20,
+                               metadata: { "files" => ["a.rb"] })
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "t2", priority: 10)
+
+        tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "cc-lane-a" })
+        second = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "cc-lane-b" })
+
+        expect(second[:task]).to be_nil
+        expect(second[:no_eligible_task]).to be true
+      end
+
+      it "treats two tasks under the same extensions/private submodule as colliding" do
+        ralph_loop.update!(configuration: { "max_concurrent_claims" => 2 })
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "t1", priority: 20,
+                               metadata: { "files" => ["extensions/private/business/foo.rb"] })
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "t2", priority: 10,
+                               metadata: { "files" => ["extensions/private/business/bar.rb"] })
+
+        tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "cc-lane-a" })
+        second = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "cc-lane-b" })
+
+        expect(second[:task]).to be_nil
+        expect(second[:no_eligible_task]).to be true
+      end
+
+      it "re-claims a pre-fix in-progress task (no claimed_holder) for any holder of the same user" do
+        task = create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop, task_key: "legacy",
+                                       metadata: { "claimed_by" => "user:#{user.id}", "claimed_at" => Time.current.iso8601 })
+
+        result = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id, holder: "any-lane" })
+
+        expect(result[:reclaimed]).to be true
+        expect(result[:task][:task_key]).to eq("legacy")
+        expect(task.reload.status).to eq("in_progress")
+      end
+    end
+
     it "never hands out human-decision tasks" do
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "decision",
                              execution_type: "human", priority: 50)

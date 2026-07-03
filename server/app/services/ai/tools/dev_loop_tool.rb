@@ -130,7 +130,7 @@ module Ai
 
         result = nil
         loop_record.with_lock do
-          result = claim_under_lock(loop_record)
+          result = claim_under_lock(loop_record, params[:holder])
         end
         result
       rescue Ai::RalphTask::InvalidTransitionError, ActiveRecord::RecordInvalid => e
@@ -191,15 +191,42 @@ module Ai
         }
       end
 
-      def claim_under_lock(loop_record)
-        if (mine = own_in_progress_task(loop_record))
+      # Per-holder concurrent claims: a single user may run several driver lanes
+      # (e.g. cc-lane-a / cc-lane-b) against the same loop. The re-claim below is
+      # scoped to (user, holder) so lane B doesn't silently re-claim lane A's task;
+      # a legacy in-progress task with no stored holder (pre-fix) is a wildcard —
+      # reclaimable by any holder of the same user, so it never strands.
+      def claim_under_lock(loop_record, holder)
+        if (mine = own_in_progress_task(loop_record, holder))
           return task_payload(loop_record, mine, reclaimed: true)
         end
 
-        task = claimable_task(loop_record)
-        unless task
+        cap = max_concurrent_claims(loop_record)
+        if user_in_progress_count(loop_record) >= cap
+          return { success: true, task: nil, halted: true, reason: "max_concurrent_claims_reached",
+                   queue: queue_snapshot(loop_record) }
+        end
+
+        eligible = eligible_pending_tasks(loop_record)
+        if eligible.empty?
           return { success: true, task: nil, queue_empty: true,
                    queue: queue_snapshot(loop_record) }
+        end
+
+        # File-collision guard only engages once a loop opts into parallelism
+        # (cap > 1) — under the default cap of 1 the ordering is identical to the
+        # pre-fix single-claim behavior (see characterization spec).
+        task =
+          if cap > 1
+            others = other_in_progress_tasks(loop_record, holder)
+            eligible.detect { |t| !collides_with_any?(task_files(t), others) }
+          else
+            eligible.first
+          end
+
+        unless task
+          return { success: true, task: nil, queue_empty: false, no_eligible_task: true,
+                   reason: "file_collision", queue: queue_snapshot(loop_record) }
         end
 
         loop_record.start! if loop_record.can_start?
@@ -207,10 +234,68 @@ module Ai
         task.record_execution_attempt!
         task.update!(metadata: (task.metadata || {}).merge(
           "claimed_by" => claimant_ref,
+          "claimed_holder" => normalized_holder(holder),
           "claimed_at" => Time.current.iso8601
         ))
 
         task_payload(loop_record, task)
+      end
+
+      def max_concurrent_claims(loop_record)
+        config = loop_record.configuration || {}
+        raw = config["max_concurrent_claims"]
+        raw.present? ? [raw.to_i, 1].max : 1
+      end
+
+      def user_in_progress_count(loop_record)
+        loop_record.ralph_tasks.in_progress.to_a.count { |t| t.metadata&.dig("claimed_by") == claimant_ref }
+      end
+
+      def eligible_pending_tasks(loop_record)
+        loop_record.ralph_tasks.pending
+                   .where.not(execution_type: "human")
+                   .order(priority: :desc, position: :asc)
+                   .select(&:dependencies_satisfied?)
+      end
+
+      def normalized_holder(holder)
+        holder.presence || "default"
+      end
+
+      # True when `task` is the current claimant's own in-progress task under `holder`.
+      # A missing claimed_holder (pre-fix task) is a wildcard: matches any holder of
+      # the same user so an existing session's claim never strands.
+      def claimed_by_holder?(task, holder)
+        meta = task.metadata || {}
+        return false unless meta["claimed_by"] == claimant_ref
+
+        stored = meta["claimed_holder"]
+        stored.blank? || stored == normalized_holder(holder)
+      end
+
+      # G12/collision guard: files of an in-progress task, for intersection checks
+      # against newly-eligible pending tasks.
+      def task_files(task)
+        meta = task.metadata.is_a?(Hash) ? task.metadata : {}
+        Array(meta["files"]).compact.map(&:to_s)
+      end
+
+      # Missing/empty files = unknown blast radius = always colliding (not safe to
+      # parallelize). Two tasks touching the same extensions/private/<x> submodule
+      # collide even when their file sets don't intersect (shared submodule index).
+      def files_collide?(files_a, files_b)
+        return true if files_a.empty? || files_b.empty?
+        return true if (files_a & files_b).any?
+
+        (private_submodules(files_a) & private_submodules(files_b)).any?
+      end
+
+      def private_submodules(files)
+        files.filter_map { |f| f[%r{\Aextensions/private/([^/]+)/}, 1] }
+      end
+
+      def collides_with_any?(candidate_files, other_tasks)
+        other_tasks.any? { |t| files_collide?(candidate_files, task_files(t)) }
       end
 
       def complete_task(params)
@@ -489,19 +574,14 @@ module Ai
         loop_record.halt_reason
       end
 
-      def own_in_progress_task(loop_record)
-        loop_record.ralph_tasks.in_progress.detect do |t|
-          t.metadata&.dig("claimed_by") == claimant_ref
-        end
+      def own_in_progress_task(loop_record, holder)
+        loop_record.ralph_tasks.in_progress.detect { |t| claimed_by_holder?(t, holder) }
       end
 
-      # Mirrors RalphLoop#next_task ordering but excludes human-decision tasks —
-      # those surface for operators, never for loop executors.
-      def claimable_task(loop_record)
-        loop_record.ralph_tasks.pending
-                   .where.not(execution_type: "human")
-                   .order(priority: :desc, position: :asc)
-                   .detect(&:dependencies_satisfied?)
+      # In-progress tasks NOT claimed by this (user, holder) — the pool a new
+      # claim's files must not collide with.
+      def other_in_progress_tasks(loop_record, holder)
+        loop_record.ralph_tasks.in_progress.reject { |t| claimed_by_holder?(t, holder) }
       end
 
       def task_payload(loop_record, task, reclaimed: false)
