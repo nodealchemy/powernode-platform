@@ -97,13 +97,23 @@ exec 8>"$GLOBAL_IO_LOCK_FILE"
 db_io_lock() {
   if ! flock -n 8; then
     echo "[prepare-extension-test-db] waiting for another worktree's DB prep to finish (I/O-serializing lock)..." >&2
-    if ! flock -w 1800 8; then
-      echo "error: timed out after 30min waiting for the GLOBAL DB I/O lock" >&2
-      echo "       ($GLOBAL_IO_LOCK_FILE) — this is the cross-worktree I/O lock," >&2
-      echo "       distinct from the per-checkout lock above. Investigate which" >&2
-      echo "       worktree's prepare-extension-test-db.sh is stuck holding it." >&2
-      exit 1
-    fi
+    # Poll with a bounded wait per attempt instead of one 30min blocking call, so we can
+    # log a heartbeat while waiting — a silent multi-minute block is indistinguishable
+    # from a hang to anyone watching output.
+    local elapsed=0
+    local interval=60
+    local budget=1800
+    until flock -w "$interval" 8; do
+      elapsed=$((elapsed + interval))
+      if [ "$elapsed" -ge "$budget" ]; then
+        echo "error: timed out after 30min waiting for the GLOBAL DB I/O lock" >&2
+        echo "       ($GLOBAL_IO_LOCK_FILE) — this is the cross-worktree I/O lock," >&2
+        echo "       distinct from the per-checkout lock above. Investigate which" >&2
+        echo "       worktree's prepare-extension-test-db.sh is stuck holding it." >&2
+        exit 1
+      fi
+      echo "[prepare-extension-test-db] still waiting on global DB-IO lock, ${elapsed}s elapsed..." >&2
+    done
   fi
 }
 db_io_unlock() {
