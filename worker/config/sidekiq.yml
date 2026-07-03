@@ -395,6 +395,15 @@
       queue: maintenance
       description: 'Sync MCP knowledge stores to markdown docs for offline fallback'
 
+    # Daily summary generation — one Markdown metrics-snapshot Page per active
+    # account for yesterday, via the server admin API.
+    # Runbook: docs/operations/daily-summaries.md.
+    daily_summary_generation:
+      cron: '0 6 * * *'  # Every day at 6:00 AM UTC (after the 2-5 AM maintenance sweeps)
+      class: DailySummaryJob
+      queue: maintenance
+      description: 'Generate per-account daily summary Pages for yesterday'
+
     # Self-healing monitor - checks degraded providers, orphaned executions
     ai_self_healing_monitor:
       every: '10m'
