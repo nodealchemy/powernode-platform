@@ -17,6 +17,11 @@ module Ai
     DEFAULT_MAX_ITERATIONS = 10
     HARD_MAX_ITERATIONS = 25
 
+    # SiteSetting (json) mapping agent_type → default tool families, applied when
+    # an agent has neither allowed_tools nor its own tool_access.tool_families.
+    # e.g. { "data_analyst" => ["data_source", "search", "query", "list", "get"] }
+    FAMILY_DEFAULTS_SETTING = "ai_agent_tool_family_defaults"
+
     attr_reader :agent, :account
 
     def initialize(agent:, account: nil)
@@ -434,15 +439,69 @@ module Ai
     def build_tool_definitions
       # When allowed_tools is explicitly configured, use the full registry (agent: nil)
       # to skip per-tool permitted? checks — the whitelist IS the authorization gate.
-      # Without an explicit whitelist, use agent-scoped definitions for permission filtering.
+      # Without an explicit whitelist, use agent-scoped definitions for permission
+      # filtering, then narrow to the agent's tool families (prompt-size/cost measure;
+      # dispatch-side authorization is unchanged and remains the security boundary).
       if (allowed = allowed_tool_names)
         definitions = Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: nil)
         definitions = definitions.select { |d| allowed.include?(d[:name].to_s) }
       else
-        definitions = Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: agent)
+        definitions = scope_to_tool_families(
+          Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: agent)
+        )
       end
 
       definitions.map { |defn| convert_to_llm_tool(defn) }
+    end
+
+    # Narrow the registry to the agent's tool families (IMP-011ac658a671). Without
+    # scoping every whitelist-less agent received ALL registry tools (561, ~72k
+    # prompt tokens per call). A family entry matches a tool by exact name or by
+    # `<family>_` prefix, so a list doubles as a compact allowlist. Resolution:
+    #   1. tool_access["full_registry"] == true  → unscoped (broad/orchestrator agents)
+    #   2. tool_access["tool_families"]          → per-agent scope
+    #   3. SiteSetting FAMILY_DEFAULTS_SETTING   → per-agent-type default scope
+    #   4. nothing configured                    → unscoped (behavior-neutral default)
+    # A families list that matches NOTHING fails open to the full registry —
+    # misconfiguration must not silently disarm an agent.
+    def scope_to_tool_families(definitions)
+      return definitions if @tool_access_config["full_registry"] == true
+
+      families = tool_families
+      if families.blank?
+        Rails.logger.info "[AgentToolBridge] No tool-family scope for agent #{agent.id} " \
+                          "(#{agent.agent_type}) — serving full registry (#{definitions.size} tools)"
+        return definitions
+      end
+
+      scoped = definitions.select { |d| tool_in_families?(d[:name].to_s, families) }
+      if scoped.empty?
+        Rails.logger.warn "[AgentToolBridge] tool_families #{families.inspect} matched 0 of " \
+                          "#{definitions.size} tools for agent #{agent.id} — failing open to full registry"
+        return definitions
+      end
+
+      Rails.logger.info "[AgentToolBridge] Scoped agent #{agent.id} (#{agent.agent_type}) to " \
+                        "#{scoped.size}/#{definitions.size} tools via families #{families.inspect}"
+      scoped
+    end
+
+    def tool_families
+      configured = @tool_access_config["tool_families"]
+      return Array(configured).map(&:to_s) if configured.present?
+
+      defaults = SiteSetting.get(FAMILY_DEFAULTS_SETTING)
+      return nil unless defaults.is_a?(Hash)
+
+      family_list = defaults[agent.agent_type]
+      family_list.present? ? Array(family_list).map(&:to_s) : nil
+    rescue StandardError => e
+      Rails.logger.warn "[AgentToolBridge] Tool-family defaults lookup failed: #{e.message}"
+      nil
+    end
+
+    def tool_in_families?(name, families)
+      families.any? { |family| name == family || name.start_with?("#{family}_") }
     end
 
     def convert_to_llm_tool(definition)

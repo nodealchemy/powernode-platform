@@ -160,6 +160,69 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
         expect(tools.length).to eq(2)
       end
     end
+
+    # Tool-family scoping (IMP-011ac658a671): without an allowed_tools whitelist
+    # the bridge served the FULL registry (561 tools, ~72k prompt tokens) to every
+    # agent. tool_families scopes by exact name or `<family>_` prefix; defaults per
+    # agent_type come from SiteSetting; full_registry: true opts a broad agent out;
+    # a families list matching NOTHING fails open (availability beats scoping).
+    context 'with tool_families scoping' do
+      before do
+        allow(Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return([
+          { name: "search_knowledge", description: "Search", parameters: {} },
+          { name: "system_create_node", description: "Infra", parameters: {} },
+          { name: "system_list_nodes", description: "Infra", parameters: {} },
+          { name: "data_source_query", description: "Data", parameters: {} }
+        ])
+      end
+
+      it 'scopes to matching families (prefix match) and exact names' do
+        agent.mcp_metadata = { "tool_access" => { "tool_families" => ["data_source", "search_knowledge"] } }
+        tools = described_class.new(agent: agent).tool_definitions_for_llm
+
+        expect(tools.map { |t| t[:name] }).to contain_exactly("data_source_query", "search_knowledge")
+      end
+
+      it 'applies SiteSetting per-agent-type defaults when the agent has no tool_families' do
+        allow(SiteSetting).to receive(:get).and_call_original
+        allow(SiteSetting).to receive(:get).with(described_class::FAMILY_DEFAULTS_SETTING)
+                                           .and_return({ "assistant" => ["system"] })
+        tools = described_class.new(agent: agent).tool_definitions_for_llm
+
+        expect(tools.map { |t| t[:name] }).to contain_exactly("system_create_node", "system_list_nodes")
+      end
+
+      it 'full_registry: true opts out of scoping (broad agents) even with defaults configured' do
+        allow(SiteSetting).to receive(:get).and_call_original
+        allow(SiteSetting).to receive(:get).with(described_class::FAMILY_DEFAULTS_SETTING)
+                                           .and_return({ "assistant" => ["system"] })
+        agent.mcp_metadata = { "tool_access" => { "full_registry" => true } }
+        tools = described_class.new(agent: agent).tool_definitions_for_llm
+
+        expect(tools.length).to eq(4)
+      end
+
+      it 'serves the full registry unchanged when nothing is configured (behavior-neutral default)' do
+        tools = described_class.new(agent: agent).tool_definitions_for_llm
+
+        expect(tools.length).to eq(4)
+      end
+
+      it 'fails open to the full registry when the families list matches nothing' do
+        agent.mcp_metadata = { "tool_access" => { "tool_families" => ["nonexistent_family"] } }
+        tools = described_class.new(agent: agent).tool_definitions_for_llm
+
+        expect(tools.length).to eq(4)
+      end
+
+      it 'does not scope an explicit allowed_tools whitelist (whitelist wins)' do
+        agent.mcp_metadata = { "tool_access" => { "allowed_tools" => ["system_create_node"],
+                                                  "tool_families" => ["data_source"] } }
+        tools = described_class.new(agent: agent).tool_definitions_for_llm
+
+        expect(tools.map { |t| t[:name] }).to contain_exactly("system_create_node")
+      end
+    end
   end
 
   describe '#dispatch_tool_call' do
