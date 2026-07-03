@@ -294,6 +294,46 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
         allow(Ai::CompoundLearning).to receive(:active).and_raise(StandardError, "query error")
         expect(service.promote_cross_team).to eq(0)
       end
+
+      # find_similar returns a plain Array (its post-filter needs
+      # neighbor_distance materialized), not an ActiveRecord::Relation.
+      # promote_cross_team must not chain relation methods onto it.
+      it "promotes when find_similar returns a non-global Array match" do
+        candidate = create(:ai_compound_learning, account: account, scope: "team",
+                            status: "active", importance_score: 0.8, access_count: 2,
+                            embedding: Array.new(1536, 0.1))
+        team_scoped_match = create(:ai_compound_learning, account: account, scope: "team",
+                                    status: "active")
+
+        allow(Ai::CompoundLearning).to receive(:find_similar).and_return([team_scoped_match])
+
+        result = nil
+        expect { result = service.promote_cross_team }.not_to raise_error
+        expect(result).to eq(1)
+        expect(
+          Ai::CompoundLearning.global_scope.for_account(account.id)
+            .where("metadata->>'original_id' = ?", candidate.id.to_s)
+        ).to exist
+      end
+
+      it "skips promotion when find_similar returns a global-scope Array match" do
+        candidate = create(:ai_compound_learning, account: account, scope: "team",
+                            status: "active", importance_score: 0.8, access_count: 2,
+                            embedding: Array.new(1536, 0.1))
+        create(:ai_compound_learning, account: account, scope: "global", status: "active")
+
+        global_match = build(:ai_compound_learning, account: account, scope: "global",
+                              status: "active")
+        allow(Ai::CompoundLearning).to receive(:find_similar).and_return([global_match])
+
+        result = nil
+        expect { result = service.promote_cross_team }.not_to raise_error
+        expect(result).to eq(0)
+        expect(
+          Ai::CompoundLearning.global_scope.for_account(account.id)
+            .where("metadata->>'original_id' = ?", candidate.id.to_s)
+        ).not_to exist
+      end
     end
   end
 
@@ -412,6 +452,36 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       )
 
       expect(existing.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    # find_similar returns a plain Array; store_learning's contradiction-check
+    # path must not chain relation methods (e.g. .where) onto it.
+    it "detects a contradiction without raising when find_similar returns an Array" do
+      embedding = Array.new(1536, 0.1)
+      allow(embedding_service).to receive(:generate).and_return(embedding)
+
+      successful_conflict = create(:ai_compound_learning, account: account,
+                                    source_execution_successful: true, status: "active")
+
+      allow(Ai::CompoundLearning).to receive(:find_similar)
+        .with(embedding, account_id: account.id, threshold: described_class::DEDUP_THRESHOLD)
+        .and_return([])
+      allow(Ai::CompoundLearning).to receive(:find_similar)
+        .with(embedding, account_id: account.id, threshold: described_class::CONFLICT_THRESHOLD_LOW)
+        .and_return([successful_conflict])
+
+      result = nil
+      expect {
+        result = service.store_learning(
+          { content: "New failure learning content", category: "failure_mode",
+            title: "Failure", extraction_method: "auto_failure",
+            source_execution_successful: false }
+        )
+      }.not_to raise_error
+
+      expect(result).to be_truthy
+      expect(Rails.logger).to have_received(:info)
+        .with(a_string_matching(/Potential contradiction detected with learning #{successful_conflict.id}/))
     end
   end
 

@@ -263,7 +263,7 @@ module Ai
               entry.embedding,
               account_id: account.id,
               threshold: SIMILARITY_THRESHOLD
-            ).where.not(id: entry.id)
+            ).reject { |l| l.id == entry.id }
 
             similar.each do |duplicate|
               next if processed_ids.include?(duplicate.id)

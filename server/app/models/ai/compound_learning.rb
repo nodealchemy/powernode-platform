@@ -81,7 +81,11 @@ module Ai
         .select { |e| e.neighbor_distance <= 1.0 - threshold }
     end
 
-    # Find near-duplicates by embedding similarity
+    # Find near-duplicates by embedding similarity.
+    # Returns a plain Array (not an ActiveRecord::Relation) — the post-filter
+    # on neighbor_distance requires materializing the nearest_neighbors scope
+    # first. Callers must not chain relation methods (.where, .or, a scope,
+    # etc.) onto the result; use Array#select/#reject instead.
     def self.find_similar(embedding, account_id:, threshold: 0.92, limit: 5)
       return [] if embedding.blank?
 

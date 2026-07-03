@@ -215,13 +215,15 @@ module Ai
             .global_scope
             .where("content ILIKE ?", "%#{fragment}%")
 
+          # find_similar returns an Array, not a Relation — replicate the
+          # global_scope predicate with Array#any? instead of chaining .or().
           if learning.embedding.present?
             similar = Ai::CompoundLearning.find_similar(
               learning.embedding,
               account_id: @account.id,
               threshold: DEDUP_THRESHOLD
-            ).global_scope
-            existing_global = existing_global.or(similar) if similar.any?
+            )
+            next if similar.any? { |l| l.scope == "global" }
           end
 
           next if existing_global.exists?
@@ -472,7 +474,7 @@ module Ai
               embedding,
               account_id: @account.id,
               threshold: CONFLICT_THRESHOLD_LOW
-            ).where(source_execution_successful: true)
+            ).select { |l| l.source_execution_successful }
 
             if conflicts.any?
               Rails.logger.info("[CompoundLearning] Potential contradiction detected with learning #{conflicts.first.id}")
