@@ -457,6 +457,22 @@ RSpec.describe Ai::Tools::DevLoopTool do
       raised = tool.execute(params: { action: "dev_list_tasks", loop_id: ralph_loop.id, limit: 9999 })
       expect(raised[:count]).to eq(3)             # clamped down to 200; only 3 exist
     end
+
+    it "flags a stale claim and counts it in the queue snapshot" do
+      stub_const("Ai::RalphTask::STALE_CLAIM_THRESHOLD", 5.minutes)
+      create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop, task_key: "stale-1",
+             metadata: { "claimed_at" => 10.minutes.ago.iso8601 })
+      create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop, task_key: "fresh-1",
+             metadata: { "claimed_at" => 1.minute.ago.iso8601 })
+
+      result = tool.execute(params: { action: "dev_list_tasks", loop_id: ralph_loop.id, status: "in_progress" })
+
+      stale_task = result[:tasks].find { |t| t[:task_key] == "stale-1" }
+      fresh_task = result[:tasks].find { |t| t[:task_key] == "fresh-1" }
+      expect(stale_task[:stale]).to be true
+      expect(fresh_task[:stale]).to be false
+      expect(result[:queue][:stale_tasks]).to eq(1)
+    end
   end
 
   describe "dev_complete_task" do

@@ -251,4 +251,49 @@ RSpec.describe Ai::RalphTask, type: :model do
       expect(dependent.reload.status).to eq("blocked")
     end
   end
+
+  # ==========================================================================
+  # Staleness signal (read-only) — a claim sitting past the threshold with no
+  # reported outcome is surfaced on the task, never auto-released.
+  # ==========================================================================
+  describe "#stale?" do
+    before { stub_const("Ai::RalphTask::STALE_CLAIM_THRESHOLD", 5.minutes) }
+
+    it "is true for an in_progress task claimed past the threshold" do
+      task = create(:ai_ralph_task, :in_progress, ralph_loop: loop_record,
+                     metadata: { "claimed_at" => 10.minutes.ago.iso8601 })
+
+      expect(task.stale?).to be true
+      expect(task.claimed_duration_seconds).to be_within(2).of(600)
+    end
+
+    it "is false for a freshly claimed in_progress task" do
+      task = create(:ai_ralph_task, :in_progress, ralph_loop: loop_record,
+                     metadata: { "claimed_at" => 1.minute.ago.iso8601 })
+
+      expect(task.stale?).to be false
+    end
+
+    it "is false when the task has never been claimed" do
+      task = create(:ai_ralph_task, :in_progress, ralph_loop: loop_record, metadata: {})
+
+      expect(task.stale?).to be false
+      expect(task.claimed_duration_seconds).to be_nil
+    end
+
+    it "is false for non in_progress tasks even with an old claimed_at" do
+      task = create(:ai_ralph_task, :passed, ralph_loop: loop_record,
+                     metadata: { "claimed_at" => 1.hour.ago.iso8601 })
+
+      expect(task.stale?).to be false
+    end
+
+    it "is surfaced on task_details" do
+      task = create(:ai_ralph_task, :in_progress, ralph_loop: loop_record,
+                     metadata: { "claimed_at" => 10.minutes.ago.iso8601 })
+
+      expect(task.task_details[:stale]).to be true
+      expect(task.task_details[:claimed_duration_seconds]).to be_a(Integer)
+    end
+  end
 end

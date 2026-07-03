@@ -714,12 +714,16 @@ module Ai
 
       def queue_snapshot(loop_record)
         tasks = loop_record.ralph_tasks
+        in_progress_tasks = tasks.in_progress.to_a
         snapshot = {
           pending: tasks.pending.count,
-          in_progress: tasks.in_progress.count,
+          in_progress: in_progress_tasks.size,
           passed: tasks.passed.count,
           failed: tasks.failed.count,
           blocked: tasks.blocked.count,
+          # Read-only signal: claims sitting past Ai::RalphTask::STALE_CLAIM_THRESHOLD
+          # with no reported outcome — surfaced, never auto-released.
+          stale_tasks: in_progress_tasks.count(&:stale?),
           progress_percentage: loop_record.progress_percentage
         }
         # Report-only here (operators/executors read it); the goal-driven

@@ -21,6 +21,11 @@ module Ai
     KIND_VELOCITY_CAP = 20         # cap one kind's positive velocity contribution
     REVERT_THROTTLE_RATE = 0.3     # kinds reverting >= this fraction are flagged throttled
 
+    # A claim past this age with no progress signal is surfaced as `stale` to
+    # orchestrating sessions (dev_list_tasks / dev_next_task) so a stalled
+    # background driver isn't invisible until an operator stumbles on it.
+    STALE_CLAIM_THRESHOLD = (ENV["RALPH_TASK_STALE_CLAIM_MINUTES"].presence || "20").to_i.minutes
+
     # ==================== Associations ====================
     belongs_to :ralph_loop, class_name: "Ai::RalphLoop", foreign_key: "ralph_loop_id"
 
@@ -257,6 +262,38 @@ module Ai
       status == "in_progress"
     end
 
+    # ==================== Staleness (read-only signal) ====================
+
+    # Timestamp the task was claimed via dev_next_task, or nil if never claimed
+    # (or the claim predates this stamp being written).
+    def claimed_at
+      ts = metadata.is_a?(Hash) ? metadata["claimed_at"] : nil
+      return nil if ts.blank?
+
+      Time.zone.parse(ts.to_s)
+    rescue ArgumentError, TypeError
+      nil
+    end
+
+    def claimed_duration_seconds
+      return nil unless in_progress? && claimed_at
+
+      (Time.current - claimed_at).round
+    end
+
+    # A task has no mid-task progress signal today (iterations are only
+    # recorded on dev_complete_task), so "no progress since claim" reduces to
+    # "still in_progress past the staleness threshold" — a claim that has sat
+    # untouched long enough to warrant a look, not a guarantee it's stuck.
+    def stale?
+      return false unless in_progress?
+
+      ts = claimed_at
+      return false unless ts
+
+      ts <= STALE_CLAIM_THRESHOLD.ago
+    end
+
     # ==================== Dependency Management ====================
 
     def dependencies_satisfied?
@@ -383,7 +420,9 @@ module Ai
         executor_type: executor_type,
         executor_id: executor_id,
         execution_attempts: execution_attempts,
-        reverted: reverted?
+        reverted: reverted?,
+        stale: stale?,
+        claimed_duration_seconds: claimed_duration_seconds
       }
     end
 
