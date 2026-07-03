@@ -22,6 +22,18 @@ total_checks=0
 passed_checks=0
 failed_checks=0
 warnings=0
+# Names of security-critical checks that FAILed (IDOR/account-scoping, zero-authz
+# controllers, kill-switch compliance, private-schema/core-purity leaks). ANY entry
+# here hard-blocks the gate (exit 2) regardless of overall compliance rate — see the
+# exit-code policy at the bottom of this script.
+security_critical_failed_checks=()
+
+# Test seam: PATTERN_VALIDATION_SELFTEST lets scripts/checks/tests/pattern_validation_exit_test.sh
+# exercise the exit-code policy below in isolation, without running (or faking results for)
+# the full real audit. Fabricates counters/failure list, then falls straight through to the
+# summary/exit-code block — the real checks are skipped entirely (see the matching `else` at
+# the end of the real-audit body).
+if [[ -z "${PATTERN_VALIDATION_SELFTEST:-}" ]]; then
 
 # Function to check pattern compliance
 check_pattern() {
@@ -112,6 +124,7 @@ if bash scripts/check-account-scoping.sh >/dev/null 2>&1; then
 else
     echo -e "${RED}✗ FAIL${NC} (New unbaselined account-scoping hit(s); run: bash scripts/check-account-scoping.sh)"
     failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("No new cross-tenant IDOR (account-scoping guard)")
 fi
 
 # Missing-authorization guard: a user-facing api/v1 controller (excl internal/
@@ -129,6 +142,7 @@ if bash scripts/check-authz-coverage.sh >/dev/null 2>&1; then
 else
     echo -e "${RED}✗ FAIL${NC} (New zero-authz controller(s); run: bash scripts/check-authz-coverage.sh)"
     failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("No new zero-authz controllers (authorization-coverage guard)")
 fi
 
 # Inline-permission-check guard: require_permission* now raise + self-halt, but
@@ -347,6 +361,7 @@ if [ "$leak_count" -eq 0 ]; then
 else
     echo -e "${RED}✗ FAIL${NC} (Found $leak_count private-table refs in public schema.rb: $(grep -oE "\"(${priv_prefixes})_[a-z0-9_]*\"" server/db/schema.rb 2>/dev/null | sort -u | tr '\n' ' '))"
     failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("No private-extension table refs in public schema.rb (leak guard)")
 fi
 
 # Extension-isolation reference guard: model-agnostic mirror of the BLOCKING
@@ -383,6 +398,7 @@ if [ "$iso_hits" -eq 0 ]; then
 else
     echo -e "${RED}✗ FAIL${NC} (Found $iso_hits core file(s) naming a private extension: $(printf '%s\n' "$iso_files" | sort -u | grep -v '^$' | tr '\n' ' '))"
     failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("Core source references no private extension (core-purity mirror)")
 fi
 
 echo ""
@@ -428,6 +444,7 @@ else
     echo -e "${RED}✗ FAIL${NC}"
     echo "$ks_out" | sed 's/^/    /'
     failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("AI-execution worker jobs honor the kill switch (AiSuspensionCheckConcern)")
 fi
 
 echo ""
@@ -467,6 +484,22 @@ else
     failed_checks=$((failed_checks + 1))
 fi
 
+else
+    case "$PATTERN_VALIDATION_SELFTEST" in
+        security_critical_fail)
+            total_checks=1; passed_checks=0; failed_checks=1; warnings=0
+            security_critical_failed_checks+=("TEST: fabricated security-critical failure")
+            ;;
+        nonsecurity_fail)
+            total_checks=20; passed_checks=19; failed_checks=1; warnings=0
+            ;;
+        *)
+            echo "Unknown PATTERN_VALIDATION_SELFTEST value: $PATTERN_VALIDATION_SELFTEST (expected: security_critical_fail|nonsecurity_fail)" >&2
+            exit 64
+            ;;
+    esac
+fi
+
 echo ""
 echo -e "${BLUE}=== AUDIT SUMMARY ===${NC}"
 echo "Total Checks: $total_checks"
@@ -492,6 +525,25 @@ if [[ $total_checks -gt 0 ]]; then
 else
     echo -e "${RED}❌ ERROR: No checks were performed${NC}"
     exit_code=3
+fi
+
+# Exit-code policy: compliance percentage alone can dilute a hard FAIL into a
+# passing rate (a single failure among ~30 checks reads as ~97%). Two overrides
+# on top of the compliance-based exit_code above:
+#   - ANY security-critical check FAIL (IDOR/account-scoping, zero-authz
+#     controllers, kill-switch compliance, private-schema/core-purity leaks)
+#     hard-blocks with exit 2, regardless of compliance rate.
+#   - ANY other FAIL (failed_checks > 0) is never reported as exit 0 — it is
+#     bumped to at least exit 1 so scripts/validate.sh surfaces a WARN instead
+#     of silently passing.
+if [[ ${#security_critical_failed_checks[@]} -gt 0 ]]; then
+    echo -e "${RED}🚨 SECURITY-CRITICAL CHECK(S) FAILED — hard block regardless of compliance rate:${NC}"
+    for c in "${security_critical_failed_checks[@]}"; do
+        echo -e "  ${RED}✗${NC} $c"
+    done
+    exit_code=2
+elif [[ $failed_checks -gt 0 && $exit_code -eq 0 ]]; then
+    exit_code=1
 fi
 
 echo ""

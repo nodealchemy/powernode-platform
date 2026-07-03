@@ -130,7 +130,7 @@ if [[ "$SKIP_PATTERNS" == "false" ]]; then
   else
     PATTERN_EXIT=$?
     if [[ $PATTERN_EXIT -eq 1 ]]; then
-      RESULTS+=("${YELLOW}WARN${NC} Pattern validation (minor issues)")
+      RESULTS+=("${YELLOW}WARN${NC} Pattern validation (non-critical failures — see scripts/pattern-validation.sh)")
     else
       RESULTS+=("${RED}FAIL${NC} Pattern validation")
       OVERALL_EXIT=1
