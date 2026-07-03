@@ -16,6 +16,11 @@ require 'rails_helper'
 # worker-side because the worker received only a step_id / challenge_id. The server
 # now resolves the owning account_id at enqueue (from the step's goal plan / the
 # challenge record) and threads it into the job payload, so both are gated here.
+#
+# ai_team_execution_job had the same shape (IMP-414ae01a5682): the job gated on
+# params['account_id'] but enqueue_ai_team_execution never sent it, making the
+# gate vacuous. The server now resolves account_id from the team at enqueue;
+# the worker-side gate contract is pinned below.
 RSpec.describe 'Backend-dispatch AI job kill-switch compliance' do
   let(:account_id) { 'account-202' }
 
@@ -79,6 +84,28 @@ RSpec.describe 'Backend-dispatch AI job kill-switch compliance' do
       expect(job).not_to receive(:backend_api_post)
 
       job.execute('mission_id' => 'm-1', 'account_id' => account_id)
+    end
+  end
+
+  describe AiTeamExecutionJob do
+    it 'includes AiSuspensionCheckConcern' do
+      expect(described_class.include?(AiSuspensionCheckConcern)).to be true
+    end
+
+    it 'bails before creating the team execution when AI is suspended' do
+      job = described_class.new
+      allow(job).to receive(:ai_suspended?).with(account_id).and_return(true)
+      expect(job).not_to receive(:backend_api_post)
+
+      job.execute('team_id' => 't-1', 'user_id' => 'u-1', 'account_id' => account_id)
+    end
+
+    it 'proceeds to execution creation when AI is not suspended' do
+      job = described_class.new
+      allow(job).to receive(:ai_suspended?).with(account_id).and_return(false)
+      expect(job).to receive(:create_execution).and_return(nil)
+
+      job.execute('team_id' => 't-1', 'user_id' => 'u-1', 'account_id' => account_id)
     end
   end
 

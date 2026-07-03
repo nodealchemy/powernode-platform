@@ -49,6 +49,7 @@ REQUIRED_JOBS=(
   ai_reflexion_job
   ai_goal_plan_execution_job
   ai_self_challenge_job
+  ai_team_execution_job
   # ai_agent_execution_job_spec.rb
   ai_agent_execution_job
 )

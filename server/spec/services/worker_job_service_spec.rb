@@ -3,10 +3,11 @@
 require "rails_helper"
 
 # The per-account kill switch is enforced worker-side (AiSuspensionCheckConcern),
-# but the worker only honors it when the enqueue payload carries account_id. Two
-# jobs receive only a bare step_id / challenge_id, so WorkerJobService must resolve
-# the owning account from the record and thread it into "args". Regression spec for
-# IMP-7f395d55d15b (server side of the kill-switch completion).
+# but the worker only honors it when the enqueue payload carries account_id. These
+# enqueue paths receive only a bare step_id / challenge_id / team_id, so
+# WorkerJobService must resolve the owning account from the record and thread it
+# into "args". Regression spec for IMP-7f395d55d15b (goal plan step / self
+# challenge) and IMP-414ae01a5682 (team execution).
 RSpec.describe WorkerJobService do
   # Capture the payload sent to the worker without making a real HTTP request.
   def capture_payload
@@ -39,6 +40,35 @@ RSpec.describe WorkerJobService do
       payload = capture_payload { described_class.enqueue_ai_goal_plan_step_execution(step_id) }
 
       expect(payload["args"]).to eq([ step_id, nil ])
+    end
+  end
+
+  describe ".enqueue_ai_team_execution" do
+    let(:team_id) { "team-123" }
+    let(:account_id) { "account-def" }
+
+    it "resolves account_id from the team and threads it into the job payload" do
+      team = double("Ai::AgentTeam", account_id: account_id)
+      allow(Ai::AgentTeam).to receive(:find_by).with(id: team_id).and_return(team)
+
+      payload = capture_payload do
+        described_class.enqueue_ai_team_execution(team_id: team_id, user_id: "user-1", input: { "task" => "t" })
+      end
+
+      expect(payload["job_class"]).to eq("AiTeamExecutionJob")
+      expect(payload["args"].first).to include(
+        "team_id" => team_id, "user_id" => "user-1", "account_id" => account_id
+      )
+    end
+
+    it "passes nil account_id when the team cannot be resolved (fail-open)" do
+      allow(Ai::AgentTeam).to receive(:find_by).with(id: team_id).and_return(nil)
+
+      payload = capture_payload do
+        described_class.enqueue_ai_team_execution(team_id: team_id, user_id: "user-1")
+      end
+
+      expect(payload["args"].first).to include("account_id" => nil)
     end
   end
 

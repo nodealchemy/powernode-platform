@@ -147,11 +147,21 @@ class WorkerJobService
       })
     end
 
-    # Enqueue AI team execution job
+    # Enqueue AI team execution job.
+    # Resolve the owning account_id from the team record and thread it into the
+    # payload so the worker can honor the per-account kill switch. Falls back
+    # to nil when unresolvable (the worker bail no-ops on nil — fail-open).
     def enqueue_ai_team_execution(team_id:, user_id:, input: {}, context: {})
+      account_id = Ai::AgentTeam.find_by(id: team_id)&.account_id
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiTeamExecutionJob",
-        "args" => [ { "team_id" => team_id, "user_id" => user_id, "input" => input, "context" => context } ],
+        "args" => [ {
+          "team_id" => team_id,
+          "user_id" => user_id,
+          "input" => input,
+          "context" => context,
+          "account_id" => account_id
+        } ],
         "queue" => "ai_agents",
         "options" => { "retry" => 3 }
       })
