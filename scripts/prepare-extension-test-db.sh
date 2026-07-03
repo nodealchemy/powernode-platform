@@ -167,6 +167,42 @@ if [ "${#PRIVATE_VERSIONS[@]}" -eq 0 ]; then
   exit 0
 fi
 
+# ---------------------------------------------------------------------------------------------------
+# Golden-template fast path (throughput). Building a private-ext test DB from scratch
+# (drop/create/schema:load + un-assume + migrate) is the slow, fsync-heavy work that serializes
+# badly across worktrees under the global I/O lock. Instead, build ONE canonical "golden" DB with
+# the full schema, then each worktree's DB is a cheap `CREATE DATABASE ... TEMPLATE` clone (a
+# Postgres block-copy — seconds, not minutes). The golden is rebuilt only when the schema SHAPE
+# changes (fingerprint = core schema.rb + sorted private migration versions). Fallback to the full
+# build is automatic on any template error; force it with TEST_DB_NO_TEMPLATE=1.
+GOLDEN_DB="powernode_test_golden"
+# Authoritative target DB name from Rails config (matches database.yml; no connection required).
+TARGET_DB="$(bin/rails runner 'print ActiveRecord::Base.connection_db_config.database' 2>/dev/null || true)"
+FINGERPRINT="fp:$( { cat "$REPO/server/db/schema.rb"; printf '%s\n' "${PRIVATE_VERSIONS[@]}" | sort; } | sha1sum | cut -d' ' -f1)"
+# Read the fingerprint comment off the golden DB without connecting to it (empty if golden absent).
+golden_fp() { psql -tAX -d postgres -c "SELECT shobj_description(oid,'pg_database') FROM pg_database WHERE datname='${GOLDEN_DB}'" 2>/dev/null | tr -d '[:space:]'; }
+# SAFETY: the raw dropdb/createdb below bypass Rails' built-in test-env protection, so the golden
+# path is HARD-GATED to names starting with `powernode_test` — it can never drop/clone the live
+# development or production database even if RAILS_ENV or the resolved name were somehow wrong.
+template_ok() { [ -z "${TEST_DB_NO_TEMPLATE:-}" ] && [ -n "$TARGET_DB" ] && [ "$TARGET_DB" != "$GOLDEN_DB" ] && [[ "$TARGET_DB" == powernode_test* ]]; }
+clone_from_golden() { # drop TARGET_DB and recreate it as a template clone of golden; nonzero on failure
+  db_io_lock
+  psql -qX -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${TARGET_DB}' AND pid<>pg_backend_pid()" >/dev/null 2>&1 || true
+  dropdb --if-exists "$TARGET_DB" >/dev/null 2>&1
+  local rc=0; createdb "$TARGET_DB" --template="$GOLDEN_DB" >/dev/null 2>&1 || rc=$?
+  db_io_unlock
+  return $rc
+}
+
+if template_ok && [ "$(golden_fp)" = "$FINGERPRINT" ]; then
+  echo "[prepare-extension-test-db] golden template is fresh → cloning ${TARGET_DB} (fast path)…"
+  if clone_from_golden; then
+    echo "[prepare-extension-test-db] done — ${TARGET_DB} cloned from ${GOLDEN_DB} (private tables included)."
+    exit 0
+  fi
+  echo "[prepare-extension-test-db] WARNING: template clone failed — falling back to the full build." >&2
+fi
+
 echo "[prepare-extension-test-db] (re)creating TEST database and loading core schema…"
 db_io_lock
 bin/rails db:drop db:create db:schema:load
@@ -198,6 +234,23 @@ db_io_unlock
 if git -C "$REPO" ls-files --error-unmatch server/db/schema.rb >/dev/null 2>&1; then
   git -C "$REPO" checkout -- server/db/schema.rb && \
     echo "[prepare-extension-test-db] restored core-only server/db/schema.rb (discarded full-mode dump)"
+fi
+
+# Seed/refresh the golden template from the freshly-built target so the NEXT worktree clones instead
+# of rebuilding. Re-check freshness first: if another worktree already rebuilt golden while we
+# waited, don't redo it. Non-fatal — a failure here only means the next prep does a full build too.
+if template_ok && [ "$(golden_fp)" != "$FINGERPRINT" ]; then
+  echo "[prepare-extension-test-db] refreshing golden template ${GOLDEN_DB} from ${TARGET_DB}…"
+  db_io_lock
+  psql -qX -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${TARGET_DB}' AND pid<>pg_backend_pid()" >/dev/null 2>&1 || true
+  dropdb --if-exists "$GOLDEN_DB" >/dev/null 2>&1
+  if createdb "$GOLDEN_DB" --template="$TARGET_DB" >/dev/null 2>&1; then
+    psql -qX -d postgres -c "COMMENT ON DATABASE ${GOLDEN_DB} IS '${FINGERPRINT}'" >/dev/null 2>&1 \
+      && echo "[prepare-extension-test-db] golden template refreshed (fingerprint ${FINGERPRINT#fp:})."
+  else
+    echo "[prepare-extension-test-db] note: could not refresh golden template (non-fatal)." >&2
+  fi
+  db_io_unlock
 fi
 
 echo "[prepare-extension-test-db] done — test DB now includes private-extension tables."
