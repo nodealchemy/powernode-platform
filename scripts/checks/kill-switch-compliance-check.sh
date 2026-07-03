@@ -66,7 +66,24 @@ for job in "${REQUIRED_JOBS[@]}"; do
     violations+=("${job}.rb: missing 'include AiSuspensionCheckConcern'")
   fi
   if ! grep -q 'bail_if_ai_suspended!' "$file"; then
-    violations+=("${job}.rb: missing 'bail_if_ai_suspended!' call")
+    # Not in the job file directly — the call may live in a shared concern the
+    # job includes (e.g. AiResponseJobConcern#execute). Check each included
+    # concern's defining file before flagging a violation.
+    found_in_concern=""
+    while IFS= read -r concern_name; do
+      [[ -z "$concern_name" ]] && continue
+      concern_file="$(grep -lE "^\s*module\s+${concern_name}\b" "${JOBS_DIR}"/concerns/*.rb 2>/dev/null | head -n1 || true)"
+      # Require an actual CALL, not just the method's own `def` line or a
+      # comment mentioning it (a concern that only defines/documents
+      # bail_if_ai_suspended! doesn't itself enforce it).
+      if [[ -n "$concern_file" ]] && grep -vE '^\s*(#|def )' "$concern_file" | grep -q 'bail_if_ai_suspended!'; then
+        found_in_concern="$concern_file"
+        break
+      fi
+    done < <(grep -oE '^\s*include\s+\w+' "$file" | awk '{print $2}')
+    if [[ -z "$found_in_concern" ]]; then
+      violations+=("${job}.rb: missing 'bail_if_ai_suspended!' call")
+    fi
   fi
 done
 
