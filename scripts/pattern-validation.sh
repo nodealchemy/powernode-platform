@@ -71,11 +71,15 @@ check_pattern() {
             failed_checks=$((failed_checks + 1))
         fi
     else
-        if [[ "$result" -eq "$expected" ]]; then
-            echo -e "${GREEN}✓ PASS${NC} (Found: $result)"
+        # Bare-numeric expected = a MAXIMUM ("should be minimal" checks): at-most semantics,
+        # not exact equality — a count BELOW the ceiling is an improvement, not a warning
+        # (strict -eq made the two minimal checks WARN forever once the codebase got better,
+        # and would perversely re-green on a regression back to exactly the ceiling).
+        if [[ "$result" -le "$expected" ]]; then
+            echo -e "${GREEN}✓ PASS${NC} (Found: $result, Max: $expected)"
             passed_checks=$((passed_checks + 1))
         else
-            echo -e "${YELLOW}⚠ WARN${NC} (Found: $result, Expected: $expected)"
+            echo -e "${YELLOW}⚠ WARN${NC} (Found: $result, Expected: <=$expected)"
             warnings=$((warnings + 1))
         fi
     fi
