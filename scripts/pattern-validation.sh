@@ -329,9 +329,13 @@ check_pattern "Job service integration" \
     "grep -r 'WorkerJobService' server/app/ | wc -l" \
     "positive" "3"
 
-# Navigation Structure (should be flat, no children)
+# Navigation Structure (should be flat, no children). The nav tree is declared in
+# shared/utils/navigation.tsx (the old frontend/src/config/navigation.tsx is gone — this
+# check silently passed against the missing file for months). Anti-vacuous guard: if the
+# target file ever moves again, the check FAILS loudly (999) instead of passing on a
+# grep error, so a relocation can't quietly disarm the rule.
 check_pattern "Forbidden submenu navigation (should be empty)" \
-    "grep -c 'children:' frontend/src/config/navigation.tsx 2>/dev/null" \
+    "if [ -f frontend/src/shared/utils/navigation.tsx ]; then grep -c 'children:' frontend/src/shared/utils/navigation.tsx; else echo 999; fi" \
     "empty"
 
 echo ""
