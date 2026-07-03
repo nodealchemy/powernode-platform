@@ -526,6 +526,27 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       expect(Rails.logger).to have_received(:info)
         .with(a_string_matching(/Potential contradiction detected with learning #{successful_conflict.id}/))
     end
+
+    it "persists skill_node_ids metadata onto the created learning" do
+      service.store_learning(
+        { content: "Skill-attributed learning content", category: "pattern",
+          title: "Attributed", extraction_method: "auto_success",
+          metadata: { "skill_node_ids" => %w[skill-1 skill-2] } }
+      )
+
+      learning = Ai::CompoundLearning.for_account(account.id).last
+      expect(learning.metadata["skill_node_ids"]).to eq(%w[skill-1 skill-2])
+    end
+
+    it "defaults metadata to an empty hash when the caller does not pass one" do
+      service.store_learning(
+        { content: "Unattributed learning content", category: "pattern",
+          title: "Unattributed", extraction_method: "marker" }
+      )
+
+      learning = Ai::CompoundLearning.for_account(account.id).last
+      expect(learning.metadata).to eq({})
+    end
   end
 
   describe "#list_learnings" do

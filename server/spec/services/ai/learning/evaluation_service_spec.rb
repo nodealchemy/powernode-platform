@@ -179,4 +179,35 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
       expect(result).to eq({})
     end
   end
+
+  describe "#skill_performance_breakdown" do
+    let(:agent) { create(:ai_agent, account: account) }
+
+    it "returns per-skill entries when the evaluated execution's learnings carry skill_node_ids" do
+      team_execution = create(:ai_team_execution, account: account)
+      create(:ai_compound_learning, account: account,
+             source_execution_id: team_execution.id,
+             metadata: { "skill_node_ids" => %w[skill-a skill-b] })
+      create(:ai_evaluation_result, :good, account: account, agent: agent,
+             execution_id: team_execution.id)
+
+      result = service.skill_performance_breakdown(agent_id: agent.id)
+
+      expect(result.keys).to contain_exactly("skill-a", "skill-b")
+      expect(result["skill-a"]).to include(:average_score, :evaluation_count, :min_score, :max_score)
+      expect(result["skill-a"][:evaluation_count]).to eq(1)
+    end
+
+    it "does not raise and does not fabricate data for plain-string feedback with no attribution" do
+      create(:ai_evaluation_result, :good, account: account, agent: agent,
+             execution_id: SecureRandom.uuid)
+
+      result = nil
+      expect {
+        result = service.skill_performance_breakdown(agent_id: agent.id)
+      }.not_to raise_error
+
+      expect(result).to eq({})
+    end
+  end
 end

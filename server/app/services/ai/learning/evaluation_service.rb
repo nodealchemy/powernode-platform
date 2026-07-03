@@ -53,22 +53,35 @@ module Ai
         }
       end
 
-      # Aggregate evaluation scores per skill node for an agent
+      # Aggregate evaluation scores per skill node for an agent.
+      #
+      # ai_evaluation_results has no jsonb column suited to structured
+      # attribution (only `scores`, which holds the four dimension numbers,
+      # and `feedback`, which is free text) and `execution_id` carries no DB
+      # foreign key, so it isn't locked to one execution model. In the
+      # post_execution_extract flow, EvaluationResult#execution_id and
+      # CompoundLearning#source_execution_id are populated from the same
+      # team-execution id (see AutoExtractorService#extract_from_evaluations
+      # and CompoundLearningService#store_learning), so attribution is
+      # resolved by joining through that shared id rather than adding a
+      # migration.
       def skill_performance_breakdown(agent_id:, period: 30.days)
         results = Ai::EvaluationResult.for_agent(agent_id)
                                        .in_time_range(period.ago)
+                                       .to_a
+
+        skill_ids_by_execution = skill_node_ids_by_execution(results.map(&:execution_id).compact.uniq)
 
         breakdown = {}
 
-        results.find_each do |result|
-          skill_ids = result.feedback&.dig("skill_node_ids") ||
-                      result.feedback&.dig("metadata", "skill_node_ids") || []
+        results.each do |result|
+          skill_ids = skill_ids_by_execution[result.execution_id] || legacy_feedback_skill_ids(result.feedback)
           next if skill_ids.blank?
 
           avg = result.average_score
           next unless avg
 
-          Array(skill_ids).each do |skill_id|
+          skill_ids.uniq.each do |skill_id|
             breakdown[skill_id] ||= { scores: [], count: 0 }
             breakdown[skill_id][:scores] << avg
             breakdown[skill_id][:count] += 1
@@ -89,6 +102,35 @@ module Ai
       end
 
       private
+
+      def skill_node_ids_by_execution(execution_ids)
+        return {} if execution_ids.blank?
+
+        Ai::CompoundLearning
+          .for_account(@account.id)
+          .where(source_execution_id: execution_ids)
+          .each_with_object({}) do |learning, memo|
+            ids = Array(learning.metadata&.dig("skill_node_ids"))
+            next if ids.blank?
+
+            (memo[learning.source_execution_id] ||= []).concat(ids)
+          end
+      end
+
+      # Legacy fallback only: historical writers may have serialized
+      # structured feedback as a JSON string before attribution existed.
+      # Plain free-text feedback (the normal case) must not raise or be
+      # treated as an error.
+      def legacy_feedback_skill_ids(feedback)
+        return [] if feedback.blank?
+
+        parsed = JSON.parse(feedback)
+        return [] unless parsed.is_a?(Hash)
+
+        Array(parsed["skill_node_ids"] || parsed.dig("metadata", "skill_node_ids"))
+      rescue JSON::ParserError, TypeError
+        []
+      end
 
       def average_dimension(results, dimension)
         values = results.filter_map { |r| r.scores&.dig(dimension) }

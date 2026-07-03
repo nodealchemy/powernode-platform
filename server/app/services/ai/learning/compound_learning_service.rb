@@ -562,6 +562,7 @@ module Ai
           source_execution_successful: learning_data[:source_execution_successful],
           embedding: embedding,
           tags: learning_data[:tags] || [],
+          metadata: learning_data[:metadata] || learning_data["metadata"] || {},
           scope: "team"
         )
 
