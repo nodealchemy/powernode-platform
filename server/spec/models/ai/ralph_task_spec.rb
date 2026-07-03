@@ -187,4 +187,68 @@ RSpec.describe Ai::RalphTask, type: :model do
       expect { passed.pass! }.to raise_error(Ai::RalphTask::InvalidTransitionError)
     end
   end
+
+  # ==========================================================================
+  # #review_parked? — "blocked" is overloaded between "unmet dependency" and
+  # "parked for operator review" (scope-guardrail / human review). Only the
+  # latter is review_parked?, and only that flavor must resist auto-unblock.
+  # ==========================================================================
+  describe "#review_parked?" do
+    it "is false for a non-blocked task" do
+      pending_task = create(:ai_ralph_task, :pending, ralph_loop: loop_record)
+      expect(pending_task.review_parked?).to be false
+    end
+
+    it "is false for a dependency-blocked task (explicit blocked_for stamp)" do
+      task = create(:ai_ralph_task, :blocked, ralph_loop: loop_record,
+                    error_message: "Waiting for: task_1", metadata: { "blocked_for" => "dependency" })
+      expect(task.review_parked?).to be false
+    end
+
+    it "is true for a review-parked task (explicit blocked_for stamp)" do
+      task = create(:ai_ralph_task, :blocked, ralph_loop: loop_record,
+                    error_message: "some reason", metadata: { "blocked_for" => "review" })
+      expect(task.review_parked?).to be true
+    end
+
+    it "falls back to the scope-guardrail message marker for legacy rows with no blocked_for stamp" do
+      task = create(:ai_ralph_task, :blocked, ralph_loop: loop_record,
+                    error_message: "[scope-guardrail] touched payments/ — parked for human review")
+      expect(task.review_parked?).to be true
+    end
+
+    it "falls back to the 'Awaiting human review' message marker for legacy rows with no blocked_for stamp" do
+      task = create(:ai_ralph_task, :blocked, ralph_loop: loop_record, error_message: "Awaiting human review")
+      expect(task.review_parked?).to be true
+    end
+
+    it "is false for a legacy dependency-block message with no blocked_for stamp" do
+      task = create(:ai_ralph_task, :blocked, ralph_loop: loop_record, error_message: "Waiting for: task_1")
+      expect(task.review_parked?).to be false
+    end
+  end
+
+  # ==========================================================================
+  # #unblock_dependent_tasks (invoked via pass!/skip!) — a review-parked
+  # dependent task must NOT be swept back to pending just because its
+  # dependency passed; only a dependency-blocked dependent should be.
+  # ==========================================================================
+  describe "#unblock_dependent_tasks" do
+    let!(:upstream) { create(:ai_ralph_task, :in_progress, ralph_loop: loop_record, task_key: "up") }
+
+    it "unblocks a dependency-blocked dependent task once the dependency passes" do
+      dependent = create(:ai_ralph_task, :blocked, ralph_loop: loop_record, task_key: "down",
+                         dependencies: ["up"], metadata: { "blocked_for" => "dependency" })
+      upstream.pass!
+      expect(dependent.reload.status).to eq("pending")
+    end
+
+    it "does NOT unblock a review-parked dependent task even though the dependency passes" do
+      dependent = create(:ai_ralph_task, :blocked, ralph_loop: loop_record, task_key: "down",
+                         dependencies: ["up"], metadata: { "blocked_for" => "review" },
+                         error_message: "[scope-guardrail] touched auth/ — parked for human review")
+      upstream.pass!
+      expect(dependent.reload.status).to eq("blocked")
+    end
+  end
 end

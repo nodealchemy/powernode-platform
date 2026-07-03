@@ -96,13 +96,18 @@ module Ai
       )
     end
 
-    def block!(reason: nil)
+    # blocked_for distinguishes WHY the task is blocked, so downstream code (see
+    # #review_parked?) can tell an operator-review park apart from a routine
+    # unmet-dependency block. nil preserves the old behaviour for callers that
+    # don't care (legacy rows are still classified via #review_parked?'s
+    # message-marker fallback).
+    def block!(reason: nil, blocked_for: nil)
       raise InvalidTransitionError, "Cannot block task in #{status} status" unless can_block?
 
-      update!(
-        status: "blocked",
-        error_message: reason
-      )
+      attrs = { status: "blocked", error_message: reason }
+      attrs[:metadata] = (metadata || {}).merge("blocked_for" => blocked_for) if blocked_for.present?
+
+      update!(attrs)
     end
 
     def skip!(reason: nil)
@@ -278,10 +283,29 @@ module Ai
 
     def unblock_dependent_tasks
       dependent_tasks.each do |task|
-        next unless task.status == "blocked" && task.dependencies_satisfied?
+        next unless task.status == "blocked" && !task.review_parked? && task.dependencies_satisfied?
 
         task.update!(status: "pending")
       end
+    end
+
+    # "blocked" is overloaded: it means either (a) waiting on an unmet
+    # dependency — safe to auto-unblock once the dependency clears — or (b)
+    # parked for OPERATOR review (scope-guardrail violation, human execution
+    # type) — must never be silently auto-unblocked, since dependencies being
+    # satisfied is orthogonal to why it was parked.
+    #
+    # Prefers the explicit metadata["blocked_for"] stamp (set by block! going
+    # forward); falls back to the pre-existing error_message markers for rows
+    # blocked before that stamp existed.
+    def review_parked?
+      return false unless status == "blocked"
+
+      blocked_for = metadata.is_a?(Hash) ? metadata["blocked_for"] : nil
+      return blocked_for == "review" if blocked_for.present?
+
+      msg = error_message.to_s
+      msg.include?("[scope-guardrail]") || msg.include?("Awaiting human review")
     end
 
     # ==================== Executor Selection ====================

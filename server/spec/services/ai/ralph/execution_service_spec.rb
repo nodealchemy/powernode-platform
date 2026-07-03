@@ -273,6 +273,90 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
         expect(service.select_next_task).to be_nil
       end
     end
+
+    # "blocked" is overloaded: it also means "parked for operator/human
+    # review" (scope-guardrail block, human-review queue). update_blocked_tasks
+    # runs from select_next_task on every tick and must not silently un-park
+    # those tasks just because their dependencies happen to be satisfied.
+    context "when a task is blocked for scope-guardrail review (not a dependency block)" do
+      let!(:guardrail_blocked) do
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "task_1", status: "blocked",
+               metadata: { "blocked_for" => "review" },
+               error_message: "[scope-guardrail] touched payments/ — parked for human review")
+      end
+
+      it "does not unblock the task back to pending" do
+        service.select_next_task
+        expect(guardrail_blocked.reload.status).to eq("blocked")
+      end
+
+      it "is never returned as the next task" do
+        expect(service.select_next_task).to be_nil
+      end
+    end
+
+    context "when a task is blocked awaiting human review" do
+      let!(:human_review_blocked) do
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "task_1", status: "blocked",
+               metadata: { "blocked_for" => "review" }, error_message: "Awaiting human review")
+      end
+
+      it "does not unblock the task back to pending" do
+        service.select_next_task
+        expect(human_review_blocked.reload.status).to eq("blocked")
+      end
+    end
+
+    context "when a legacy review-parked task has no blocked_for stamp (pre-fix rows)" do
+      let!(:legacy_guardrail_blocked) do
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "task_1", status: "blocked",
+               error_message: "[scope-guardrail] touched auth/ — parked for human review")
+      end
+
+      it "still does not unblock the task back to pending" do
+        service.select_next_task
+        expect(legacy_guardrail_blocked.reload.status).to eq("blocked")
+      end
+    end
+
+    context "when a dependency-blocked task's dependency is satisfied" do
+      let!(:passed_dep) { create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "task_1", status: "passed") }
+      let!(:dependency_blocked) do
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "task_2", status: "blocked",
+               dependencies: ["task_1"], metadata: { "blocked_for" => "dependency" },
+               error_message: "Waiting for: task_1")
+      end
+
+      it "unblocks the task back to pending (existing behavior preserved)" do
+        expect(service.select_next_task).to eq(dependency_blocked)
+        expect(dependency_blocked.reload.status).to eq("pending")
+      end
+    end
+
+    context "when a pending task has execution_type human" do
+      let!(:human_task) do
+        create(:ai_ralph_task, :pending, ralph_loop: ralph_loop, task_key: "task_1",
+               execution_type: "human", priority: 10)
+      end
+      let!(:agent_task) do
+        create(:ai_ralph_task, :pending, ralph_loop: ralph_loop, task_key: "task_2",
+               execution_type: "agent", priority: 1)
+      end
+
+      it "never selects the human task, even at higher priority" do
+        expect(service.select_next_task).to eq(agent_task)
+      end
+    end
+
+    context "when only a human-execution-type task is available" do
+      let!(:human_task) do
+        create(:ai_ralph_task, :pending, ralph_loop: ralph_loop, task_key: "task_1", execution_type: "human")
+      end
+
+      it "returns nil rather than selecting the human task" do
+        expect(service.select_next_task).to be_nil
+      end
+    end
   end
 
   # ===========================================================================

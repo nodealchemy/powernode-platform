@@ -49,9 +49,12 @@ module Ai
           # Update blocked status for all tasks
           update_blocked_tasks
 
-          # Get next pending task by priority
+          # Get next pending task by priority. execution_type "human" is excluded —
+          # those surface for operators only, never for the autonomous executor
+          # (mirrors DevLoopTool#claimable_task).
           ralph_loop.ralph_tasks
                     .pending
+                    .where.not(execution_type: "human")
                     .by_priority
                     .find { |t| t.dependencies_satisfied? }
         end
@@ -300,7 +303,7 @@ module Ai
           ))
 
           reason = "[scope-guardrail] #{guardrail[:summary]} — parked for human review"
-          task.block!(reason: reason) if task.can_block?
+          task.block!(reason: reason, blocked_for: "review") if task.can_block?
 
           begin
             ralph_loop.campaign&.park_question!(
@@ -463,13 +466,21 @@ module Ai
 
         def update_blocked_tasks
           ralph_loop.ralph_tasks.blocked.find_each do |task|
+            # A task parked for operator review (scope-guardrail, human review)
+            # must never be silently un-parked just because its dependencies
+            # happen to be satisfied — that's orthogonal to why it was blocked.
+            next if task.review_parked?
+
             task.update!(status: "pending") if task.dependencies_satisfied?
           end
 
           ralph_loop.ralph_tasks.pending.find_each do |task|
             next if task.dependencies_satisfied?
 
-            task.update!(status: "blocked", error_message: "Waiting for: #{task.blocking_dependencies.join(', ')}")
+            task.block!(
+              reason: "Waiting for: #{task.blocking_dependencies.join(', ')}",
+              blocked_for: "dependency"
+            )
           end
         end
       end

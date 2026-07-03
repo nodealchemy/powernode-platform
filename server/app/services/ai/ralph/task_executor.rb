@@ -325,11 +325,14 @@ module Ai
           read: false
         )
 
-        # Update task status to indicate awaiting review
-        task.update!(
-          status: "blocked",
-          error_message: "Awaiting human review"
-        )
+        # Update task status to indicate awaiting review. Stamped blocked_for:
+        # "review" so RalphTask#review_parked? never lets the auto-unblock path
+        # (update_blocked_tasks) silently un-park it.
+        if task.can_block?
+          task.block!(reason: "Awaiting human review", blocked_for: "review")
+        else
+          task.update!(status: "blocked", error_message: "Awaiting human review")
+        end
 
         {
           success: true,

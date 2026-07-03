@@ -356,7 +356,7 @@ module Ai
           capture_learning(loop_record, task, iteration, params[:learning], files: params[:files_changed])
         when "blocked"
           iteration.fail!(error_message: summary, error_code: "blocked")
-          task.block!(reason: summary)
+          task.block!(reason: summary, blocked_for: "review")
           capture_learning(loop_record, task, iteration, params[:learning], files: params[:files_changed])
         when "skipped"
           iteration.skip!(reason: summary)
