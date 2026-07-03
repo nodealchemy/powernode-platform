@@ -76,4 +76,53 @@ RSpec.describe Ai::Llm::Adapters::AnthropicAdapter, "#build_messages_body" do
       expect(captured).not_to have_key(:temperature)
     end
   end
+
+  # Prompt caching: the stable prefix (tools + system) must carry ephemeral
+  # cache_control breakpoints BY DEFAULT (server mirror of the worker client;
+  # IMP-f702df4b0d61 — repeat agent calls were re-billing 114k uncached tokens).
+  describe "prompt caching (stable-prefix cache_control)" do
+    let(:system_messages) { [{ role: "system", content: "You are a helpful analyst." }, { role: "user", content: "hi" }] }
+
+    it "caches the system prompt by default (block form with cache_control)" do
+      body = adapter.send(:build_messages_body, system_messages, "claude-fable-5")
+      expect(body[:system]).to eq([{ type: "text", text: "You are a helpful analyst.",
+                                     cache_control: { type: "ephemeral" } }])
+    end
+
+    it "honors cache_system_prompt: false as an opt-out (plain string system)" do
+      body = adapter.send(:build_messages_body, system_messages, "claude-fable-5", cache_system_prompt: false)
+      expect(body[:system]).to eq("You are a helpful analyst.")
+    end
+
+    it "marks the LAST tool with cache_control in complete_with_tools (caches the whole tools block)" do
+      captured = nil
+      allow(adapter).to receive(:http_post) do |_path, body|
+        captured = body
+        [200, { "content" => [] }, {}]
+      end
+
+      tools = [
+        { name: "tool_a", description: "first", parameters: { type: "object" } },
+        { name: "tool_b", description: "second", parameters: { type: "object" } }
+      ]
+      adapter.complete_with_tools(messages: messages, tools: tools, model: "claude-fable-5")
+
+      expect(captured[:tools].first).not_to have_key(:cache_control)
+      expect(captured[:tools].last[:cache_control]).to eq(type: "ephemeral")
+    end
+
+    it "does not annotate tools when caching is opted out" do
+      captured = nil
+      allow(adapter).to receive(:http_post) do |_path, body|
+        captured = body
+        [200, { "content" => [] }, {}]
+      end
+
+      tools = [{ name: "tool_a", description: "only", parameters: { type: "object" } }]
+      adapter.complete_with_tools(messages: messages, tools: tools, model: "claude-fable-5",
+                                  cache_system_prompt: false)
+
+      expect(captured[:tools].last).not_to have_key(:cache_control)
+    end
+  end
 end

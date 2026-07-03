@@ -174,6 +174,10 @@ module Ai
 
           body = build_messages_body(messages, model, **opts)
           body[:tools] = anthropic_tools
+          # Cache the whole tools block (a breakpoint covers the prefix up to and
+          # including the annotated tool) — tool definitions are the bulk of an
+          # agent call's stable prompt and identical across tool-loop iterations.
+          body[:tools].last[:cache_control] = { type: "ephemeral" } if cache_prompt?(opts) && body[:tools].any?
           body[:tool_choice] = opts[:tool_choice] ? anthropic_tool_choice(opts[:tool_choice]) : { type: "auto" }
 
           status, parsed, _headers = http_post("/messages", body, model)
@@ -245,9 +249,17 @@ module Ai
           body
         end
 
+        # Prompt caching is ON by default (mirror of the worker client): the stable
+        # prefix (tools + system) gets ephemeral cache_control breakpoints so repeat
+        # agent calls re-bill ~10% instead of 100% of the static context. Below
+        # Anthropic's minimum cacheable size the annotation is ignored server-side.
+        # Opt out per call with cache_system_prompt: false.
+        def cache_prompt?(opts)
+          opts.fetch(:cache_system_prompt, true)
+        end
+
         def build_system_param(system_content, opts)
-          if opts[:cache_system_prompt]
-            # Use cache_control for prompt caching
+          if cache_prompt?(opts)
             [{ type: "text", text: system_content, cache_control: { type: "ephemeral" } }]
           else
             system_content

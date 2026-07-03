@@ -79,6 +79,10 @@ module Ai
           when :anthropic
             body = build_anthropic_body(messages, model, **opts)
             body[:tools] = tools.map { |t| { name: t[:name], description: t[:description], input_schema: t[:parameters] || t[:input_schema] } }
+            # Cache the whole tools block (a breakpoint covers the prefix up to and
+            # including the annotated tool) — tool definitions are the bulk of an
+            # agent call's stable prompt and identical across tool-loop iterations.
+            body[:tools].last[:cache_control] = { type: "ephemeral" } if anthropic_cache_prompt?(opts) && body[:tools].any?
             body[:tool_choice] = opts[:tool_choice] ? anthropic_tool_choice(opts[:tool_choice]) : { type: "auto" }
             s, p, _ = http_post(anthropic_url, body, model)
             s == 200 ? parse_anthropic_response(p, model) : anthropic_handle_error(s, p)
@@ -326,6 +330,15 @@ module Ai
 
       # -- Anthropic -------
 
+      # Prompt caching is ON by default: the stable prefix (tools + system) gets
+      # ephemeral cache_control breakpoints so repeat agent calls re-bill ~10%
+      # instead of 100% of the static context. Below Anthropic's minimum cacheable
+      # size the annotation is ignored server-side (no premium, no error). Opt out
+      # per call with cache_system_prompt: false.
+      def anthropic_cache_prompt?(opts)
+        opts.fetch(:cache_system_prompt, true)
+      end
+
       def build_anthropic_body(messages, model, **opts)
         sys_msgs = messages.select { |m| (m[:role] || m["role"]) == "system" }
         other = messages.reject { |m| (m[:role] || m["role"]) == "system" }
@@ -333,7 +346,7 @@ module Ai
         sys = [sys, opts[:system_prompt]].reject(&:blank?).join("\n") if opts[:system_prompt].present?
         body = { model: model, messages: other.map { |m| anthropic_normalize_message(m) }, max_tokens: opts[:max_tokens] || 4096 }
         if sys.present?
-          body[:system] = opts[:cache_system_prompt] ? [{ type: "text", text: sys, cache_control: { type: "ephemeral" } }] : sys
+          body[:system] = anthropic_cache_prompt?(opts) ? [{ type: "text", text: sys, cache_control: { type: "ephemeral" } }] : sys
         end
 
         body[:stop_sequences] = opts[:stop] if opts[:stop]
