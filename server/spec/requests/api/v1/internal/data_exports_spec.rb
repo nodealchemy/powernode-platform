@@ -12,15 +12,6 @@ RSpec.describe 'Api::V1::Internal::DataExports', type: :request do
 
     allow(Audit::LogIntegrityService).to receive(:apply_integrity).and_return(true)
     allow(AuditLog).to receive(:log_action).and_return(true)
-
-    # The controller's invoice_data method calls total_amount which doesn't exist on Invoice
-    # (Invoice has total_cents / monetized total, not total_amount).
-    # Define the method so the controller can serialize invoices without error.
-    Billing::Invoice.define_method(:total_amount) { total_cents } unless Billing::Invoice.method_defined?(:total_amount)
-
-    # The controller's subscription_data method calls started_at which doesn't exist on Subscription
-    # (Subscription has current_period_start, not started_at).
-    Billing::Subscription.define_method(:started_at) { current_period_start } unless Billing::Subscription.method_defined?(:started_at)
   end
 
   # Worker JWT authentication via InternalBaseController
@@ -179,14 +170,15 @@ RSpec.describe 'Api::V1::Internal::DataExports', type: :request do
         expect(data.length).to eq(3)
       end
 
-      it 'includes invoice details' do
+      it 'includes invoice details with a total_amount sourced from the money total' do
         get "/api/v1/internal/accounts/#{account.id}/export/invoices", headers: internal_headers, as: :json
 
         expect_success_response
         data = json_response_data
         first_invoice = data.first
 
-        expect(first_invoice).to include('id', 'invoice_number', 'status')
+        expect(first_invoice).to include('id', 'invoice_number', 'status', 'total_amount')
+        expect(first_invoice['total_amount']).not_to be_nil
       end
     end
   end
@@ -203,6 +195,7 @@ RSpec.describe 'Api::V1::Internal::DataExports', type: :request do
         data = json_response_data
         expect(data).to be_an(Array)
         expect(data.length).to be >= 1
+        expect(data.first).to include('id', 'plan_id', 'status', 'started_at')
       end
     end
   end
@@ -248,6 +241,16 @@ RSpec.describe 'Api::V1::Internal::DataExports (core-mode account exports)', typ
   describe 'GET /api/v1/internal/accounts/:account_id/export/invoices' do
     it 'returns an empty list instead of raising NameError when the business extension is absent' do
       get "/api/v1/internal/accounts/#{account.id}/export/invoices", headers: internal_headers, as: :json
+
+      expect_success_response
+      data = json_response['data']
+      expect(data).to be_nil.or be_an(Array)
+    end
+  end
+
+  describe 'GET /api/v1/internal/accounts/:account_id/export/subscriptions' do
+    it 'returns an empty list instead of raising NameError when the business extension is absent' do
+      get "/api/v1/internal/accounts/#{account.id}/export/subscriptions", headers: internal_headers, as: :json
 
       expect_success_response
       data = json_response['data']

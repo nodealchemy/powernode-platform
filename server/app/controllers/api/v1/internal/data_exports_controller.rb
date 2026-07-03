@@ -46,9 +46,8 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
   # GET /api/v1/internal/accounts/:account_id/export/payments
   def account_payments
     account = Account.find(params[:account_id])
-    payments = account.respond_to?(:payments) ? account.payments.limit(1000) : []
 
-    render_success(data: payments.map { |p| payment_data(p) })
+    render_success(data: account.respond_to?(:export_payments) ? account.export_payments : [])
   rescue ActiveRecord::RecordNotFound
     render_not_found("Account")
   end
@@ -56,9 +55,8 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
   # GET /api/v1/internal/accounts/:account_id/export/invoices
   def account_invoices
     account = Account.find(params[:account_id])
-    invoices = account.respond_to?(:invoices) ? account.invoices.limit(1000) : []
 
-    render_success(data: invoices.map { |i| invoice_data(i) })
+    render_success(data: account.respond_to?(:export_invoices) ? account.export_invoices : [])
   rescue ActiveRecord::RecordNotFound
     render_not_found("Account")
   end
@@ -66,9 +64,8 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
   # GET /api/v1/internal/accounts/:account_id/export/subscriptions
   def account_subscriptions
     account = Account.find(params[:account_id])
-    subscriptions = account.respond_to?(:subscriptions) ? account.subscriptions : [ account.subscription ].compact
 
-    render_success(data: subscriptions.map { |s| subscription_data(s) })
+    render_success(data: account.respond_to?(:export_subscriptions) ? account.export_subscriptions : [])
   rescue ActiveRecord::RecordNotFound
     render_not_found("Account")
   end
@@ -111,36 +108,6 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
       granted: consent.granted,
       granted_at: consent.granted_at,
       revoked_at: consent.revoked_at
-    }
-  end
-
-  def payment_data(payment)
-    {
-      id: payment.id,
-      amount: payment.amount,
-      currency: payment.currency,
-      status: payment.status,
-      created_at: payment.created_at
-    }
-  end
-
-  def invoice_data(invoice)
-    {
-      id: invoice.id,
-      invoice_number: invoice.invoice_number,
-      total_amount: invoice.total_amount,
-      status: invoice.status,
-      created_at: invoice.created_at
-    }
-  end
-
-  def subscription_data(subscription)
-    {
-      id: subscription.id,
-      plan_id: subscription.plan_id,
-      status: subscription.status,
-      started_at: subscription.started_at,
-      ended_at: subscription.ended_at
     }
   end
 
