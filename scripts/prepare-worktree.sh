@@ -124,6 +124,24 @@ info "main checkout: ${C_DIM}$MAIN${C_RST}"
 # ---------- create the worktree if asked ----------
 if [ "$MODE" = "create" ]; then
   [ -e "$TARGET_ARG" ] && die "path already exists: $TARGET_ARG"
+
+  # Concurrency guard (DB-contention backstop). Every worktree is an isolated test DB on the ONE
+  # shared Postgres instance; fanning out too many at once causes severe prep contention — a prep
+  # that normally takes under a minute took 15+ minutes with several concurrent worktrees (see
+  # docs/contributing/conventions/autonomous-campaigns.md, "Multi-agent worktree ownership
+  # protocol"). This is the mechanical backstop to the "stagger DB-heavy setup" discipline: cap the
+  # active-worktree count. Collapse finished worktrees (--remove) rather than raising it; override
+  # for a deliberate large fan-out with WORKTREE_MAX=N.
+  WORKTREE_MAX="${WORKTREE_MAX:-4}"
+  active_wts=$(( $(git -C "$MAIN" worktree list --porcelain | grep -c '^worktree ') - 1 ))  # minus main
+  if [ "$active_wts" -ge "$WORKTREE_MAX" ]; then
+    warn "already $active_wts active worktree(s) — cap is WORKTREE_MAX=$WORKTREE_MAX:"
+    git -C "$MAIN" worktree list | sed 's|^|      |' >&2
+    die "refusing to create another worktree (DB-contention backstop). Collapse finished ones first
+       (scripts/prepare-worktree.sh <path> --remove), or raise the cap deliberately:
+       WORKTREE_MAX=$((active_wts + 1)) $0 $TARGET_ARG --create ${BASE:-}"
+  fi
+
   base_ref="${BASE:-$(git -C "$MAIN" symbolic-ref --short HEAD)}"
   branch="$(basename "$TARGET_ARG")"
   info "creating worktree '$branch' off '$base_ref'"

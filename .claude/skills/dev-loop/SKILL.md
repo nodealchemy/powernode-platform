@@ -81,3 +81,21 @@ For significant discoveries also contribute `platform.create_learning` per the C
 - MCP code-intelligence before file reads; read sections, not whole files.
 - Targeted spec runs only — never the full suite mid-loop.
 - One task per iteration. Do not batch tasks, even small ones.
+
+## Orchestrating a multi-agent / overnight drain (read BEFORE fanning out)
+
+This skill is ONE iteration. When a top-level `/loop` — or an orchestrating session — fans it out
+across several worktrees in parallel, follow the **multi-agent worktree ownership protocol** in
+[autonomous-campaigns.md](../../../docs/contributing/conventions/autonomous-campaigns.md) (recall
+`guidance-autonomous-campaigns`). The failure mode it prevents: background workers stalling for
+hours undetected because monitoring was passive. Non-negotiables:
+
+- **Watch, don't wait.** Run an active watchdog cadence — a periodic `ScheduleWakeup` ground-truth
+  check (`ps` / `git log -1` / worktree mtimes, or `scripts/check-worktree-liveness.sh <path>`) —
+  not passive waiting on idle notifications. An idle notification means "not computing," which is
+  indistinguishable from "dead" without an independent check.
+- **Verify-dead before replacing**, and give any displaced worker a final, unambiguous stand-down —
+  one owner per worktree, ever.
+- **Cap the fan-out.** `scripts/prepare-worktree.sh` enforces `WORKTREE_MAX` (default 4) because
+  every worktree contends on the one shared Postgres. Collapse finished worktrees rather than
+  raising it; stagger DB-heavy setup across the ones you do run.
