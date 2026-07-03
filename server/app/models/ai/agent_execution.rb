@@ -267,8 +267,12 @@ module Ai
       # we don't double-count, and don't credit the refused Fable model a success.
       return if metrics["refused"] || metrics[:refused]
 
-      # Credit the model that ACTUALLY served: on a Fable→X fallback the success
-      # belongs to X (served_by), not the configured Fable model.
+      # Credit the model that ACTUALLY served, not just the configured pin —
+      # mirrors #calculate_cost's output_data/performance_metrics precedence so
+      # the empirical model-performance signal reflects what really ran:
+      #   served_by (refusal-recovery fallback) → performance_metrics['model'] →
+      #   output_data['model_used'] → agent's pinned model (last-resort fallback,
+      #   e.g. a run whose worker payload never reported which model served it).
       #
       # NOTE (deferred, cross-provider follow-up): the served-by success is still
       # credited under this execution's ai_provider_id, NOT the served model's own
@@ -276,7 +280,10 @@ module Ai
       # fallback within the Anthropic reasoning tier). When cross-provider fallback
       # lands, resolve the served model's provider here before recording.
       served_by  = (metrics["served_by"] || metrics[:served_by]).presence
-      model_name = served_by || agent&.model
+      model_name = served_by ||
+                   (metrics["model"] || metrics[:model]).presence ||
+                   output_data&.dig("model_used").presence ||
+                   agent&.model
       return unless ai_provider_id.present? && model_name.present? && agent&.agent_type.present?
 
       Ai::AgentModelPerformance.record!(
