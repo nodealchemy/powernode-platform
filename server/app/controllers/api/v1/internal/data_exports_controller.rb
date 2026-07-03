@@ -46,7 +46,7 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
   # GET /api/v1/internal/accounts/:account_id/export/payments
   def account_payments
     account = Account.find(params[:account_id])
-    payments = account.payments.limit(1000)
+    payments = account.respond_to?(:payments) ? account.payments.limit(1000) : []
 
     render_success(data: payments.map { |p| payment_data(p) })
   rescue ActiveRecord::RecordNotFound
@@ -56,7 +56,7 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
   # GET /api/v1/internal/accounts/:account_id/export/invoices
   def account_invoices
     account = Account.find(params[:account_id])
-    invoices = account.invoices.limit(1000)
+    invoices = account.respond_to?(:invoices) ? account.invoices.limit(1000) : []
 
     render_success(data: invoices.map { |i| invoice_data(i) })
   rescue ActiveRecord::RecordNotFound

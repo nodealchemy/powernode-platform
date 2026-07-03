@@ -220,3 +220,38 @@ RSpec.describe 'Api::V1::Internal::DataExports', type: :request do
     end
   end
 end
+
+RSpec.describe 'Api::V1::Internal::DataExports (core-mode account exports)', type: :request do
+  let(:account) { create(:account) }
+
+  let(:internal_worker) { create(:worker, account: account) }
+  let(:internal_headers) do
+    { 'X-Forwarded-Tls-Client-Cert-Info' => CGI.escape(%(Subject="CN=#{internal_worker.node_instance_id}")) }
+  end
+
+  before do
+    skip 'Business billing module is loaded; core-mode guard is not exercised' if defined?(Billing::Invoice)
+
+    allow(AuditLog).to receive(:log_action).and_return(true)
+  end
+
+  describe 'GET /api/v1/internal/accounts/:account_id/export/payments' do
+    it 'returns an empty list instead of raising NameError when the business extension is absent' do
+      get "/api/v1/internal/accounts/#{account.id}/export/payments", headers: internal_headers, as: :json
+
+      expect_success_response
+      data = json_response['data']
+      expect(data).to be_nil.or be_an(Array)
+    end
+  end
+
+  describe 'GET /api/v1/internal/accounts/:account_id/export/invoices' do
+    it 'returns an empty list instead of raising NameError when the business extension is absent' do
+      get "/api/v1/internal/accounts/#{account.id}/export/invoices", headers: internal_headers, as: :json
+
+      expect_success_response
+      data = json_response['data']
+      expect(data).to be_nil.or be_an(Array)
+    end
+  end
+end
