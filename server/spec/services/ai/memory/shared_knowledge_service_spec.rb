@@ -164,6 +164,44 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
       expect(result[:success]).to be true
       expect(result[:entries].size).to be <= 1
     end
+
+    context "with archived entries" do
+      let(:target) { Ai::SharedKnowledge.find_by!(title: "Ruby Best Practices") }
+
+      before do
+        # Pin the query embedding to exactly match the target entry so the
+        # assertions are about archived-filtering, not vector-similarity luck.
+        allow_any_instance_of(Ai::Memory::EmbeddingService)
+          .to receive(:generate).and_return(target.embedding)
+      end
+
+      it "excludes archived entries from results" do
+        service.archive(entry_id: target.id)
+
+        result = service.search(query: "Ruby programming best practices")
+
+        expect(result[:success]).to be true
+        expect(result[:entries].map { |e| e[:id] }).not_to include(target.id)
+      end
+
+      it "does not usage-boost an archived entry via search" do
+        service.archive(entry_id: target.id)
+        usage_before = target.reload.usage_count
+
+        service.search(query: "Ruby programming best practices")
+
+        expect(target.reload.usage_count).to eq(usage_before)
+      end
+
+      it "still returns entries with NULL provenance (not miscategorized as archived)" do
+        target.update_columns(provenance: nil)
+
+        result = service.search(query: "Ruby programming best practices")
+
+        expect(result[:success]).to be true
+        expect(result[:entries].map { |e| e[:id] }).to include(target.id)
+      end
+    end
   end
 
   # ===========================================================================

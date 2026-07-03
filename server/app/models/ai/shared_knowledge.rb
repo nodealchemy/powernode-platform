@@ -51,6 +51,10 @@ module Ai
     scope :by_source, ->(type) { where(source_type: type) }
     # Portability (Tier-2): account + repository scoped recall
     scope :for_account_and_repo, ->(account_id, repository_id) { where(account_id: account_id, git_repository_id: repository_id) }
+    # Excludes soft-archived entries (provenance->>'archived' = true). `provenance @>` on a
+    # NULL column evaluates to SQL NULL rather than false, so a plain `where.not(... @> ...)`
+    # would silently drop NULL-provenance rows too — guard with an explicit NULL check.
+    scope :not_archived, -> { where("provenance IS NULL OR NOT (provenance @> ?)", { archived: true }.to_json) }
 
     # ==========================================
     # Methods

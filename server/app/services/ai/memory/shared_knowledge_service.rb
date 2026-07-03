@@ -81,7 +81,7 @@ module Ai
                  tags: nil, limit: MAX_RESULTS)
         query_embedding = @embedding_service.generate(query)
 
-        scope = Ai::SharedKnowledge.where(account: @account)
+        scope = Ai::SharedKnowledge.where(account: @account).not_archived
 
         # Apply ACL filtering
         scope = scope.accessible_by(access_level) if access_level.present?
@@ -281,10 +281,7 @@ module Ai
 
       # Get knowledge statistics
       def stats(team: nil)
-        scope = Ai::SharedKnowledge.where(account: @account)
-
-        # Exclude archived entries from stats
-        scope = scope.where.not("provenance @> ?", { archived: true }.to_json)
+        scope = Ai::SharedKnowledge.where(account: @account).not_archived
 
         by_access_level = scope.group(:access_level).count
         by_content_type = scope.group(:content_type).count
@@ -329,13 +326,13 @@ module Ai
       # the caller can decide whether to chain follow-up invocations.
       def recalculate_all_quality(batch_size: 100, max_per_run: 200)
         scope = Ai::SharedKnowledge.where(account: @account)
-          .where.not("provenance @> ?", { archived: true }.to_json)
+          .not_archived
           .where("last_quality_recalc_at < ? OR last_quality_recalc_at IS NULL", 24.hours.ago)
           .where("last_event_processed_at IS NULL OR last_event_processed_at < ?", 24.hours.ago)
 
         recalculated = 0
         skipped = Ai::SharedKnowledge.where(account: @account)
-          .where.not("provenance @> ?", { archived: true }.to_json)
+          .not_archived
           .where("last_event_processed_at >= ?", 24.hours.ago)
           .count
 
@@ -376,7 +373,7 @@ module Ai
       def backfill_embeddings(batch_size: 50, max_per_run: 200)
         scope = Ai::SharedKnowledge.where(account: @account)
           .where(embedding: nil)
-          .where.not("provenance @> ?", { archived: true }.to_json)
+          .not_archived
 
         pending = scope.count
         return { success: true, embedded: 0, failed: 0, remaining: 0 } if pending.zero?
