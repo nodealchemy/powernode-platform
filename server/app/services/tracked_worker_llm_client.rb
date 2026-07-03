@@ -57,7 +57,9 @@ class TrackedWorkerLlmClient
   private
 
   def tracked_call(method, messages, **opts)
+    routing_decision_id = opts.delete(:routing_decision_id)
     execution = create_execution_record(method, messages, opts)
+    link_routing_decision(execution, routing_decision_id)
     started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
     response = @inner.public_send(method, messages: messages, **opts)
@@ -67,6 +69,20 @@ class TrackedWorkerLlmClient
   rescue => e
     record_failure(execution, e, started_at)
     raise
+  end
+
+  # inc: link a tier-routing decision (persisted before this call, since it has
+  # no AgentExecution of its own yet — see AgentBackedService#resolve_task_tier)
+  # to the execution this call just created, so
+  # Ai::AgentExecution#record_routing_decision_outcome can feed the outcome back
+  # onto it once this execution completes/fails.
+  def link_routing_decision(execution, routing_decision_id)
+    return unless execution && routing_decision_id
+
+    Ai::RoutingDecision.where(id: routing_decision_id, outcome: nil)
+                        .update_all(agent_execution_id: execution.id)
+  rescue => e
+    Rails.logger.warn "[TrackedWorkerLlmClient] Failed to link routing decision #{routing_decision_id}: #{e.message}"
   end
 
   def create_execution_record(method, messages, opts)

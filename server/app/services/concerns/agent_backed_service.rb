@@ -130,16 +130,35 @@ module AgentBackedService
   # Ai::TaskComplexityAssessment) for the given explicit task_type and returns
   # the Resolution, or nil on any resolver failure.
   def resolve_task_tier(agent:, task_type:, messages:, tools: [])
+    # Reset on every call — some callers (e.g. ExtractionService's multi-client
+    # fallback loop) invoke this repeatedly on the same instance, and a stale id
+    # from a prior successful call must never leak onto a later, unrelated
+    # TrackedWorkerLlmClient call when this call's own resolution is skipped or
+    # fails.
+    @routing_decision_id = nil
     return nil unless ::Ai::Routing::TaskTierResolver.enabled_for?(service_account)
 
     resolution = ::Ai::Routing::TaskTierResolver.resolve(
       account: service_account, agent: agent, task_type: task_type, messages: messages, tools: tools
     )
-    resolution&.persist!
+    # No Ai::AgentExecution exists yet at this point — callers resolve the tier
+    # BEFORE invoking the tracked client (the model/effort feed the LLM call
+    # itself). Stash the decision id so it can be handed to build_agent_client's
+    # TrackedWorkerLlmClient via routing_decision_id:, which links it to the
+    # execution it creates once that call happens (see #routing_decision_id).
+    @routing_decision_id = resolution&.persist!&.id
     resolution
   rescue StandardError => e
     Rails.logger.warn("[AgentBackedService] tier routing failed for task_type=#{task_type}: #{e.class}: #{e.message}")
     nil
+  end
+
+  # The Ai::RoutingDecision id from the most recent #resolve_task_tier call, for
+  # callers to pass as routing_decision_id: into a TrackedWorkerLlmClient call so
+  # the resulting Ai::AgentExecution gets linked and the decision's outcome can
+  # later be recorded (Ai::AgentExecution#record_routing_decision_outcome).
+  def routing_decision_id
+    @routing_decision_id
   end
 
   # --- Discovery internals ---

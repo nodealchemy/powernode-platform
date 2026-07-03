@@ -120,7 +120,7 @@ module Ai
           model: model,
           max_tokens: (content.length / (CHARS_PER_TOKEN * 2)),
           temperature: 0.1,
-          **({ effort: effort }.compact)
+          **({ effort: effort, routing_decision_id: routing_decision_id }.compact)
         )
 
         response.success? ? response.content : nil

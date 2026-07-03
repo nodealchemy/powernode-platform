@@ -233,7 +233,7 @@ module Ai
             messages: messages,
             schema: EXTRACTION_SCHEMA,
             model: call_model,
-            **({ effort: call_effort }.compact)
+            **({ effort: call_effort, routing_decision_id: routing_decision_id }.compact)
           )
 
           unless response.success?

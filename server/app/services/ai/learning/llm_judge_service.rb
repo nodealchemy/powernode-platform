@@ -100,7 +100,7 @@ module Ai
           model: model,
           temperature: agent_temperature(agent),
           max_tokens: agent_max_tokens(agent),
-          **({ effort: effort }.compact)
+          **({ effort: effort, routing_decision_id: routing_decision_id }.compact)
         )
 
         response.success? ? response.content : nil

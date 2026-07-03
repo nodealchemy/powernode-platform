@@ -202,6 +202,29 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
         expect(decision.rationale["decision"]).not_to eq("escalate")
         expect(decision.rationale.dig("complexity", "task_type")).to eq("analysis")
       end
+
+      it "links the persisted RoutingDecision to the AgentExecution TrackedWorkerLlmClient creates, so the outcome can be recorded" do
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+                                 usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+        )
+        allow_any_instance_of(Ai::Routing::TaskComplexityClassifierService)
+          .to receive(:classify_preview)
+          .and_return(
+            complexity_level: "moderate", complexity_score: 0.3, recommended_tier: "standard",
+            signals: { token_density: 0.3, tool_complexity: 0.0, conversation_depth: 0.0,
+                       content_complexity: 0.0, task_type_baseline: 0.5,
+                       raw: { token_count: 80, tool_count: 0, message_count: 1 } },
+            classifier_version: "1.0.0"
+          )
+
+        service.evaluate(agent_output: "Test output", task_description: "Write code")
+
+        decision = Ai::RoutingDecision.last
+        execution = Ai::AgentExecution.last
+        expect(execution).to be_present
+        expect(decision.agent_execution_id).to eq(execution.id)
+      end
     end
 
     context "gate ON but the caller explicitly pinned evaluator_model" do
