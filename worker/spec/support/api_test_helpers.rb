@@ -154,17 +154,26 @@ module ApiTestHelpers
     })
   end
 
-  # Request verification helpers
-  def expect_api_request(method, path, with_body: nil)
+  # Request verification helpers. A block receives each candidate request so
+  # callers can assert on the body (assertion failures propagate); the block
+  # must not be silently ignored — see spec/helpers_api_test_helpers_spec.rb.
+  def expect_api_request(method, path, with_body: nil, &block)
     url = build_api_url(path)
-    
+
     request_expectation = a_request(method, url)
       .with(headers: expected_request_headers)
-    
+
     if with_body
       request_expectation = request_expectation.with(body: with_body.is_a?(String) ? with_body : with_body.to_json)
     end
-    
+
+    if block
+      request_expectation = request_expectation.with do |request|
+        block.call(request)
+        true
+      end
+    end
+
     expect(request_expectation).to have_been_made
   end
 
