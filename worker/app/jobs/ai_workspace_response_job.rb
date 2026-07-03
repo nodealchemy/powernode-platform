@@ -11,122 +11,22 @@ class AiWorkspaceResponseJob < BaseJob
   include ChatStreamingConcern
   include ChatFallbackProvidersConcern
   include AiSuspensionCheckConcern
+  include AiResponseJobConcern
 
   sidekiq_options queue: 'ai_conversations', retry: 1
 
-  def execute(conversation_id, message_id, agent_id, account_id)
-    validate_required_params(
-      { 'conversation_id' => conversation_id, 'message_id' => message_id,
-        'agent_id' => agent_id, 'account_id' => account_id },
-      'conversation_id', 'message_id', 'agent_id', 'account_id'
-    )
-
-    # Kill switch check — bail if AI activity is suspended for the account
-    return if bail_if_ai_suspended!(account_id)
-
-    # Idempotency check — keyed per agent to allow parallel execution
-    idempotency_key = "workspace_response:#{message_id}:#{agent_id}"
-    if already_processed?(idempotency_key)
-      log_info("Workspace response already processed", message_id: message_id, agent_id: agent_id)
-      return
-    end
-
-    log_info("Starting workspace response generation",
-      conversation_id: conversation_id,
-      message_id: message_id,
-      agent_id: agent_id
-    )
-
-    @conversation_id = conversation_id
-    @message_id = message_id
-    @agent_id = agent_id
-    start_time = Time.current
-
-    begin
-      # Fetch conversation data from backend
-      conv_response = backend_api_get("/api/v1/ai/conversations/#{conversation_id}")
-      unless conv_response['success']
-        broadcast_error(conversation_id, "Failed to fetch conversation")
-        return
-      end
-
-      conversation_data = conv_response['data']['conversation']
-
-      # Fetch agent data
-      agent = fetch_agent(agent_id, account_id)
-      return unless agent
-
-      @agent_name = agent['name'] || 'AI Assistant'
-
-      provider = agent['ai_provider'] || agent['provider']
-      return broadcast_error(conversation_id, "Agent has no provider configured") unless provider
-
-      # Fetch credentials
-      credentials = fetch_credentials(provider['id'])
-      return broadcast_error(conversation_id, "No active credentials for provider") unless credentials
-
-      # Build workspace-aware messages with context injection
-      messages = build_workspace_messages(conversation_data, agent)
-
-      # Call AI provider with streaming
-      ai_result = call_provider_streaming(provider, credentials, agent, messages)
-
-      duration_ms = ((Time.current - start_time) * 1000).to_i
-
-      if ai_result[:success]
-        # Broadcast completion with agent_id for correct attribution
-        broadcast_workspace_complete(
-          conversation_id,
-          message_id,
-          ai_result[:content],
-          token_count: ai_result[:tokens_used] || 0,
-          cost_usd: ai_result[:cost] || 0.0,
-          model: ai_result[:model],
-          duration_ms: duration_ms
-        )
-
-        mark_processed(idempotency_key, ttl: 3600)
-
-        log_info("Workspace response completed",
-          conversation_id: conversation_id,
-          agent_id: agent_id,
-          agent_name: @agent_name,
-          duration_ms: duration_ms,
-          tokens: ai_result[:tokens_used],
-          cost: ai_result[:cost]
-        )
-      else
-        broadcast_error(conversation_id, ai_result[:error] || "AI provider error")
-
-        log_error("Workspace response failed",
-          conversation_id: conversation_id,
-          agent_id: agent_id,
-          error: ai_result[:error]
-        )
-      end
-    rescue StandardError => e
-      broadcast_error(conversation_id, "Internal error generating workspace response")
-      handle_ai_processing_error(e, {
-        conversation_id: conversation_id,
-        message_id: message_id,
-        agent_id: agent_id,
-        job_type: "workspace_response"
-      })
-    end
-  end
-
   private
 
-  def fetch_agent(agent_id, _account_id)
-    response = backend_api_get("/api/v1/ai/agents/#{agent_id}")
+  def response_idempotency_key(message_id, agent_id)
+    "workspace_response:#{message_id}:#{agent_id}"
+  end
 
-    if response['success']
-      response['data']['agent'] || response['data']
-    else
-      log_error("Failed to fetch agent", agent_id: agent_id)
-      broadcast_error(nil, "Agent not found")
-      nil
-    end
+  def response_log_label
+    "Workspace response"
+  end
+
+  def already_processed_log_fields(message_id, agent_id)
+    { message_id: message_id, agent_id: agent_id }
   end
 
   def fetch_credentials(provider_id)
@@ -149,7 +49,8 @@ class AiWorkspaceResponseJob < BaseJob
     detail_response['data']['credential'] || cred
   end
 
-  def build_workspace_messages(conversation_data, agent)
+  def build_response_messages(conv_response, _conversation_id, agent)
+    conversation_data = conv_response['data']['conversation']
     messages = []
 
     # Build workspace context injection
@@ -269,14 +170,22 @@ class AiWorkspaceResponseJob < BaseJob
     CONTEXT
   end
 
-  # Override broadcast_complete to include agent_id for correct message attribution
-  def broadcast_workspace_complete(conversation_id, message_id, content, token_count:, cost_usd:, model:, duration_ms:)
+  def resolve_provider_credentials(credentials, provider)
+    # Extract API key from credential detail (workers receive decrypted credentials)
+    cred_data = credentials['credentials'] || {}
+    api_key = cred_data['api_key'] || cred_data['key']
+    base_url = cred_data['base_url'] || provider['base_url']
+    [api_key, base_url]
+  end
+
+  # Broadcast completion with agent_id for correct message attribution
+  def broadcast_response_complete(conversation_id, message_id, ai_result, duration_ms)
     backend_api_post("/api/v1/ai/conversations/#{conversation_id}/worker_complete", {
       message_id: message_id,
-      content: content,
-      token_count: token_count,
-      cost_usd: cost_usd,
-      model: model,
+      content: ai_result[:content],
+      token_count: ai_result[:tokens_used] || 0,
+      cost_usd: ai_result[:cost] || 0.0,
+      model: ai_result[:model],
       duration_ms: duration_ms,
       agent_id: @agent_id
     })
@@ -284,26 +193,26 @@ class AiWorkspaceResponseJob < BaseJob
     log_error("Failed to broadcast workspace completion", error: e.message, agent_id: @agent_id)
   end
 
-  def call_provider_streaming(provider, credentials, agent, messages)
-    provider_type = provider['provider_type']&.downcase || 'openai'
-    model = agent['model'] || provider['default_model'] || 'gpt-4'
-    temperature = agent['temperature'] || 0.7
-    max_tokens = agent['max_tokens'] || 2048
+  def completion_log_fields(conversation_id, duration_ms, ai_result)
+    {
+      conversation_id: conversation_id,
+      agent_id: @agent_id,
+      agent_name: @agent_name,
+      duration_ms: duration_ms,
+      tokens: ai_result[:tokens_used],
+      cost: ai_result[:cost]
+    }
+  end
 
-    # Extract API key from credential detail (workers receive decrypted credentials)
-    cred_data = credentials['credentials'] || {}
-    api_key = cred_data['api_key'] || cred_data['key']
-    base_url = cred_data['base_url'] || provider['base_url']
+  def failure_log_fields(conversation_id, ai_result)
+    { conversation_id: conversation_id, agent_id: @agent_id, error: ai_result[:error] }
+  end
 
-    case provider_type
-    when 'openai', 'openai_compatible'
-      call_openai_streaming(api_key, base_url, model, messages, temperature, max_tokens)
-    when 'anthropic'
-      call_anthropic_streaming(api_key, base_url, model, messages, temperature, max_tokens)
-    when 'ollama'
-      call_ollama_streaming(base_url, model, messages, temperature, max_tokens)
-    else
-      call_generic(api_key, base_url, model, messages, temperature, max_tokens)
-    end
+  def rescue_broadcast_message
+    "Internal error generating workspace response"
+  end
+
+  def rescue_context(conversation_id, message_id, agent_id)
+    { conversation_id: conversation_id, message_id: message_id, agent_id: agent_id, job_type: "workspace_response" }
   end
 end
