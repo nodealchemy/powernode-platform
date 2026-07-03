@@ -86,6 +86,33 @@ measurable. The sweep changes only DISCOVERY exhaustiveness — approval stays p
 bulk-operation rule over auto-discovered changes is unchanged) — so a learned class is exhausted in
 one pass instead of resurfacing one instance per round.
 
+## Multi-agent worktree ownership protocol
+
+Campaigns and background dev-loops routinely fan out into dedicated worktrees
+(`scripts/prepare-worktree.sh`) for DB-bound or long-running work. Left unmanaged, a stalled
+worker in one of these worktrees is easy to misdiagnose, and a hasty replacement creates dual
+ownership of the same branch/DB — the confusion compounds rather than resolves. Four rules:
+
+- **Verify before replacing.** Before spawning a replacement for a suspected-stalled agent, confirm
+  the original is actually dead — trace its process ancestry (find the PID via its session/task
+  record, then `ps -o pid,ppid,etime,cmd --ppid <pid>` / walk `/proc/<pid>` to confirm the process
+  tree is gone rather than just quiet) — or, once landed, use `scripts/check-worktree-liveness.sh`.
+  An idle notification means "not currently computing," not "dead"; treat it as a prompt to check,
+  not as ground truth.
+- **One owner, ever.** Never leave two agents with ambiguous or unstated ownership of the same
+  worktree. The orchestrator explicitly designates a single owner and sends a final, unambiguous
+  stand-down message to any displaced agent — silence or an assumed handoff is not sufficient.
+- **Watch, don't just wait.** Long-running background work needs an active watchdog cadence —
+  periodic ground-truth checks (e.g. a `ScheduleWakeup` re-check in a `/loop` context, or an
+  explicit timer-driven status poll) — rather than relying solely on idle notifications, which
+  cannot distinguish a live agent doing slow work from a dead one.
+- **Stagger DB-heavy setup.** When fanning out several worktrees concurrently, stagger DB-bound
+  setup steps (test DB creation, migrations) rather than firing them all at once against the one
+  shared database instance. `scripts/prepare-extension-test-db.sh`'s global I/O lock (landed
+  2026-07-03) prevents corruption under concurrent access, but serializes contenders rather than
+  parallelizing them — staggering avoids the pileup in the first place, especially for large
+  fan-outs.
+
 ## Deploy notes
 
 The `ai.campaigns.read` / `ai.campaigns.manage` permissions are code-defined in the catalog — a
