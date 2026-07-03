@@ -108,10 +108,13 @@ ownership of the same branch/DB — the confusion compounds rather than resolves
   cannot distinguish a live agent doing slow work from a dead one.
 - **Stagger DB-heavy setup.** When fanning out several worktrees concurrently, stagger DB-bound
   setup steps (test DB creation, migrations) rather than firing them all at once against the one
-  shared database instance. `scripts/prepare-extension-test-db.sh`'s global I/O lock (landed
-  2026-07-03) prevents corruption under concurrent access, but serializes contenders rather than
-  parallelizing them — staggering avoids the pileup in the first place, especially for large
-  fan-outs.
+  shared database instance. `scripts/prepare-extension-test-db.sh` uses a per-checkout flock so
+  concurrent preps of the same worktree can't interleave (distinct worktrees use isolated
+  `TEST_ENV_NUMBER` databases, so they can't corrupt each other), plus a global I/O-serializing
+  lock so the actual disk-heavy drop/create/schema:load/migrate steps queue one-at-a-time across
+  ALL worktrees rather than contending for I/O on the single shared Postgres instance
+  simultaneously. Staggering large fan-outs is still worthwhile even with the lock, to avoid a
+  long queue building up all at once.
 
 ## Deploy notes
 
