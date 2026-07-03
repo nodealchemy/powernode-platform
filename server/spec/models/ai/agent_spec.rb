@@ -368,6 +368,23 @@ RSpec.describe Ai::Agent, type: :model do
     end
   end
 
+  describe '#build_system_prompt_with_profile' do
+    # Characterization pin, not a red-first spec: this passes on HEAD today.
+    # BASE_GUARDRAILS is a non-empty frozen constant unconditionally included
+    # in the joined output, so the result can never be blank even when the
+    # agent has no per-seed prompt, no skills, and no conversation profile.
+    # Call sites rely on this invariant to skip `.presence || ...` fallbacks
+    # onto mcp_metadata/mcp_tool_manifest system_prompt; if a future refactor
+    # drops BASE_GUARDRAILS from the join, this spec will go red and flag
+    # that those fallbacks need reinstating.
+    it 'is never blank even with no base prompt, skills, or conversation profile' do
+      agent = create(:ai_agent, mcp_metadata: {}, conversation_profile: {})
+
+      expect(agent.build_system_prompt_with_profile).to be_present
+      expect(agent.build_system_prompt_with_profile).to include(Ai::Agent::BASE_GUARDRAILS)
+    end
+  end
+
   describe '#resolved_model Fable candidacy gate (pinned path)' do
     let(:gate_account) { create(:account) }
     let(:gate_provider) do

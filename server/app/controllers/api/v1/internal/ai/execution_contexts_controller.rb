@@ -74,8 +74,7 @@ module Api
             provider   = agent.resolved_provider
             credential = agent.resolved_credential
 
-            system_prompt = agent.build_system_prompt_with_profile.presence ||
-                            agent.mcp_metadata&.dig("system_prompt")
+            system_prompt = agent.build_system_prompt_with_profile
 
             render_success(
               execution_context: execution_context,

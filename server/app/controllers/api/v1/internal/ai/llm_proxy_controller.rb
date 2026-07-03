@@ -128,8 +128,7 @@ module Api
             temperature = params[:temperature] || model_config["temperature"] || 0.7
 
             system_prompt = params[:system_prompt] ||
-                            @agent.build_system_prompt_with_profile.presence ||
-                            @agent.mcp_metadata&.dig("system_prompt")
+                            @agent.build_system_prompt_with_profile
 
             opts = { max_tokens: max_tokens.to_i, temperature: temperature.to_f,
                      system_prompt: system_prompt }.compact

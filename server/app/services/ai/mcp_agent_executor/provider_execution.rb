@@ -98,9 +98,7 @@ class Ai::McpAgentExecutor
       temperature = execution_context.dig(:context, "temperature") ||
                     model_config["temperature"] || 0.7
 
-      system_prompt = @agent.build_system_prompt_with_profile.presence ||
-                      @agent.mcp_metadata&.dig("system_prompt") ||
-                      @agent.mcp_tool_manifest&.dig("system_prompt")
+      system_prompt = @agent.build_system_prompt_with_profile
 
       opts = { max_tokens: max_tokens, temperature: temperature,
                system_prompt: system_prompt, effort: effort }.compact

@@ -96,8 +96,7 @@ module AgentBackedService
 
   # Agent's system prompt (with conversation profile merged in).
   def agent_system_prompt(agent)
-    agent.build_system_prompt_with_profile.presence ||
-      agent.mcp_metadata&.dig("system_prompt")
+    agent.build_system_prompt_with_profile
   end
 
   # Temperature from agent mcp_metadata model_config, defaults to 0.7
