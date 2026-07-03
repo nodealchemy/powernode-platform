@@ -152,6 +152,52 @@ module Devops
         def event_specific_data(event_type, payload)
           {}
         end
+
+        def normalize_pr_event(payload)
+          pr = payload["pull_request"] || {}
+          {
+            pull_request: {
+              id: pr["id"],
+              number: pr["number"],
+              title: pr["title"],
+              body: pr["body"],
+              state: pr["state"],
+              merged: pr["merged"],
+              draft: pr["draft"],
+              head: {
+                ref: pr.dig("head", "ref"),
+                sha: pr.dig("head", "sha")
+              },
+              base: {
+                ref: pr.dig("base", "ref"),
+                sha: pr.dig("base", "sha")
+              },
+              html_url: pr["html_url"],
+              user: {
+                login: pr.dig("user", "login")
+              }
+            }
+          }
+        end
+
+        def normalize_issue_event(payload)
+          issue = payload["issue"] || {}
+          {
+            issue: {
+              id: issue["id"],
+              number: issue["number"],
+              title: issue["title"],
+              body: issue["body"],
+              state: issue["state"],
+              html_url: issue["html_url"]
+            },
+            comment: payload["comment"] ? {
+              id: payload["comment"]["id"],
+              body: payload["comment"]["body"],
+              user: { login: payload.dig("comment", "user", "login") }
+            } : nil
+          }
+        end
       end
 
       # Gitea webhook normalizer
@@ -213,51 +259,6 @@ module Devops
           }
         end
 
-        def normalize_pr_event(payload)
-          pr = payload["pull_request"] || {}
-          {
-            pull_request: {
-              id: pr["id"],
-              number: pr["number"],
-              title: pr["title"],
-              body: pr["body"],
-              state: pr["state"],
-              merged: pr["merged"],
-              draft: pr["draft"],
-              head: {
-                ref: pr.dig("head", "ref"),
-                sha: pr.dig("head", "sha")
-              },
-              base: {
-                ref: pr.dig("base", "ref"),
-                sha: pr.dig("base", "sha")
-              },
-              html_url: pr["html_url"],
-              user: {
-                login: pr.dig("user", "login")
-              }
-            }
-          }
-        end
-
-        def normalize_issue_event(payload)
-          issue = payload["issue"] || {}
-          {
-            issue: {
-              id: issue["id"],
-              number: issue["number"],
-              title: issue["title"],
-              body: issue["body"],
-              state: issue["state"],
-              html_url: issue["html_url"]
-            },
-            comment: payload["comment"] ? {
-              id: payload["comment"]["id"],
-              body: payload["comment"]["body"],
-              user: { login: payload.dig("comment", "user", "login") }
-            } : nil
-          }
-        end
       end
 
       # GitLab webhook normalizer
@@ -448,52 +449,6 @@ module Devops
             pusher: {
               name: payload.dig("pusher", "name")
             }
-          }
-        end
-
-        def normalize_pr_event(payload)
-          pr = payload["pull_request"] || {}
-          {
-            pull_request: {
-              id: pr["id"],
-              number: pr["number"],
-              title: pr["title"],
-              body: pr["body"],
-              state: pr["state"],
-              merged: pr["merged"],
-              draft: pr["draft"],
-              head: {
-                ref: pr.dig("head", "ref"),
-                sha: pr.dig("head", "sha")
-              },
-              base: {
-                ref: pr.dig("base", "ref"),
-                sha: pr.dig("base", "sha")
-              },
-              html_url: pr["html_url"],
-              user: {
-                login: pr.dig("user", "login")
-              }
-            }
-          }
-        end
-
-        def normalize_issue_event(payload)
-          issue = payload["issue"] || {}
-          {
-            issue: {
-              id: issue["id"],
-              number: issue["number"],
-              title: issue["title"],
-              body: issue["body"],
-              state: issue["state"],
-              html_url: issue["html_url"]
-            },
-            comment: payload["comment"] ? {
-              id: payload["comment"]["id"],
-              body: payload["comment"]["body"],
-              user: { login: payload.dig("comment", "user", "login") }
-            } : nil
           }
         end
       end
