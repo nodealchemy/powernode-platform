@@ -161,8 +161,17 @@ module Ai
       touch_event_processed!
     end
 
+    # Deliberately NOT increment!(:access_count) — increment! goes through
+    # update_counters (raw SQL, no save, no dirty tracking), which silently
+    # defeats the after_commit :enqueue_promotion_check callback below (it
+    # depends on saved_change_to_access_count?). with_lock keeps the
+    # read-modify-write atomic (row-locked) while still routing through
+    # save!, so dirty tracking — and the promotion callback — actually fire.
     def record_access!
-      increment!(:access_count)
+      with_lock do
+        self.access_count += 1
+        save!
+      end
     end
 
     def touch_event_processed!

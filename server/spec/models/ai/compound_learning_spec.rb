@@ -302,6 +302,37 @@ RSpec.describe Ai::CompoundLearning, type: :model do
       end
     end
 
+    describe "#record_access! and promotion" do
+      let(:learning) do
+        create(:ai_compound_learning,
+          account: account,
+          ai_agent_team: team,
+          scope: "team",
+          access_count: 0
+        )
+      end
+
+      it "enqueues promotion when record_access! crosses the threshold" do
+        learning.record_access!
+        learning.record_access!
+
+        expect(WorkerJobService).to have_received(:enqueue_ai_promote_learning).with(learning.id)
+      end
+
+      it "does not enqueue promotion for a single record_access! call below threshold" do
+        learning.record_access!
+
+        expect(WorkerJobService).not_to have_received(:enqueue_ai_promote_learning)
+      end
+
+      it "increments access_count correctly across repeated record_access! calls" do
+        learning.record_access!
+        learning.record_access!
+
+        expect(learning.reload.access_count).to eq(2)
+      end
+    end
+
     describe ":enqueue_graph_update_on_status_change" do
       let(:learning) { create(:ai_compound_learning, account: account, ai_agent_team: team) }
 
