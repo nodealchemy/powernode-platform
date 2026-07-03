@@ -52,10 +52,25 @@
 #          psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity
 #                   WHERE datname = '<your powernode_test…>' AND pid <> pg_backend_pid();"
 #
-# Concurrent invocations for the SAME checkout are serialized with an flock so
-# two sessions can't interleave drop/create/migrate (the other cause of a
-# half-prepared DB). Different worktrees use different lock files (and different
-# TEST_ENV_NUMBER databases), so they proceed in parallel.
+# TWO LOCKS, two different concerns:
+#
+#   1. Per-checkout lock (fd 9, keyed by repo path): correctness. Serializes
+#      concurrent invocations for the SAME checkout so two sessions can't
+#      interleave drop/create/migrate (the other cause of a half-prepared
+#      DB). Different worktrees use different lock files here (and different
+#      TEST_ENV_NUMBER databases), so they are logically independent and
+#      would otherwise be free to run at the same time.
+#
+#   2. Global I/O lock (fd 8, one fixed path shared by every worktree):
+#      throughput. Logical isolation doesn't imply physical isolation — every
+#      worktree's Postgres connections land on the SAME running instance and
+#      the SAME disk. Several worktrees each running db:drop/create/schema:load
+#      or db:migrate at once causes severe fsync contention (observed: a
+#      prep that normally takes well under a minute took 15+ minutes with 3
+#      concurrent worktrees). This lock wraps only the heavy DB-mutating
+#      commands so those steps run one-at-a-time platform-wide, while
+#      unrelated work (bundling, migration-version scanning, etc.) still
+#      proceeds in parallel.
 #
 # Usage:
 #   scripts/prepare-extension-test-db.sh                 # prepare the test DB for THIS checkout/worktree
@@ -64,8 +79,8 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Serialize concurrent preps of the SAME checkout (see header). Keyed by repo
-# path so distinct worktrees (distinct test DBs) don't contend.
+# Serialize concurrent preps of the SAME checkout (see header, lock 1). Keyed
+# by repo path so distinct worktrees (distinct test DBs) don't contend.
 LOCK_FILE="${TMPDIR:-/tmp}/prepare-extension-test-db.$(printf '%s' "$REPO" | sha1sum | cut -d' ' -f1).lock"
 exec 9>"$LOCK_FILE"
 if ! flock -w 900 9; then
@@ -73,6 +88,27 @@ if ! flock -w 900 9; then
   echo "       $LOCK_FILE after 15min — investigate/kill it, then retry." >&2
   exit 1
 fi
+
+# Serialize heavy DB I/O ACROSS ALL worktrees (see header, lock 2). Fixed
+# path (not keyed by repo) so every worktree contends for the same lock.
+# Separate fd (8, not 9) since a single process holds both locks at once.
+GLOBAL_IO_LOCK_FILE="${TMPDIR:-/tmp}/prepare-extension-test-db.GLOBAL-db-io.lock"
+exec 8>"$GLOBAL_IO_LOCK_FILE"
+db_io_lock() {
+  if ! flock -n 8; then
+    echo "[prepare-extension-test-db] waiting for another worktree's DB prep to finish (I/O-serializing lock)..." >&2
+    if ! flock -w 1800 8; then
+      echo "error: timed out after 30min waiting for the GLOBAL DB I/O lock" >&2
+      echo "       ($GLOBAL_IO_LOCK_FILE) — this is the cross-worktree I/O lock," >&2
+      echo "       distinct from the per-checkout lock above. Investigate which" >&2
+      echo "       worktree's prepare-extension-test-db.sh is stuck holding it." >&2
+      exit 1
+    fi
+  fi
+}
+db_io_unlock() {
+  flock -u 8
+}
 SERVER="$REPO/server"
 [ -d "$SERVER" ] || { echo "error: $SERVER not found" >&2; exit 1; }
 
@@ -115,12 +151,16 @@ cd "$SERVER"
 
 if [ "${#PRIVATE_VERSIONS[@]}" -eq 0 ]; then
   echo "[prepare-extension-test-db] core mode (no private extensions) → plain db:prepare"
+  db_io_lock
   bin/rails db:prepare
+  db_io_unlock
   exit 0
 fi
 
 echo "[prepare-extension-test-db] (re)creating TEST database and loading core schema…"
+db_io_lock
 bin/rails db:drop db:create db:schema:load
+db_io_unlock
 
 echo "[prepare-extension-test-db] un-assuming ${#PRIVATE_VERSIONS[@]} private migration version(s) so they run for real…"
 # Delete via the app connection so the right (test) database and credentials are used. Versions
@@ -139,7 +179,9 @@ RUBY
 )"
 
 echo "[prepare-extension-test-db] running private engine migrations…"
+db_io_lock
 bin/rails db:migrate
+db_io_unlock
 
 # db:migrate just re-dumped schema.rb in FULL (private) mode. Restore the committed core-only file —
 # that full dump must never be kept or committed.
