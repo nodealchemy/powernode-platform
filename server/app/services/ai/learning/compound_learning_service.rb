@@ -309,6 +309,54 @@ module Ai
         0
       end
 
+      # Backfill vector embeddings for active CompoundLearning rows stored without
+      # one. `store_learning` generates the embedding synchronously via the
+      # worker; if the embedding service was unavailable at that moment the row
+      # is still persisted with embedding: nil (`content.blank?` is the only
+      # guard) and is then permanently invisible to `find_similar` /
+      # `semantic_search` (both require an embedding via `nearest_neighbors`),
+      # so dedup no-ops as `no_embedding` and cross-team promotion never sees
+      # it. Nothing else ever fixes it. Mirrors
+      # Ai::Memory::SharedKnowledgeService#backfill_embeddings: idempotent,
+      # batched, capped so the worker's HTTP timeout (120s) can't kill it
+      # mid-batch, invoked by the compound maintenance endpoint so coverage
+      # self-heals. Oldest rows recover first.
+      def backfill_embeddings(batch_size: 50, max_per_run: 200)
+        scope = Ai::CompoundLearning.active
+          .for_account(@account.id)
+          .where(embedding: nil)
+
+        pending = scope.count
+        return { success: true, embedded: 0, failed: 0, remaining: 0 } if pending.zero?
+
+        # `find_each` ignores .limit, so materialize the bounded batch.
+        batch = scope.order(:created_at).limit(max_per_run).to_a
+        embedded = 0
+        failed = 0
+
+        batch.each_slice(batch_size) do |slice|
+          texts = slice.map { |learning| [ learning.title, learning.content ].compact_blank.join("\n\n") }
+          vectors = @embedding_service.generate_batch(texts)
+
+          slice.each_with_index do |learning, i|
+            vector = vectors[i]
+            if vector
+              learning.update_columns(embedding: vector, last_event_processed_at: Time.current)
+              embedded += 1
+            else
+              failed += 1
+            end
+          end
+        end
+
+        remaining = [ pending - embedded, 0 ].max
+        Rails.logger.info("[CompoundLearning] Embedding backfill: #{embedded} embedded, #{failed} failed, #{remaining} remaining")
+        { success: true, embedded: embedded, failed: failed, remaining: remaining }
+      rescue StandardError => e
+        Rails.logger.error("[CompoundLearning] Embedding backfill failed: #{e.message}")
+        { success: false, error: e.message, embedded: 0, failed: 0, remaining: 0 }
+      end
+
       def reinforce_learning(learning_id)
         learning = Ai::CompoundLearning.find_by(id: learning_id, account: @account)
         return unless learning

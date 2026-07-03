@@ -345,10 +345,12 @@ module Api
 
           maintenance_result = service.decay_and_consolidate
           promotion_count = service.promote_cross_team
+          embedding_backfill = service.backfill_embeddings
 
           render_success(
             maintenance: maintenance_result,
-            promoted: promotion_count
+            promoted: promotion_count,
+            embedding_backfill: embedding_backfill
           )
         end
 

@@ -397,6 +397,49 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
     end
   end
 
+  describe "#backfill_embeddings" do
+    it "embeds active rows with a nil embedding" do
+      unembedded = create(:ai_compound_learning, account: account, status: "active", embedding: nil)
+      vector = Array.new(1536) { 0.1 }
+      allow(embedding_service).to receive(:generate_batch).and_return([ vector ])
+
+      result = service.backfill_embeddings
+
+      expect(result).to include(success: true, embedded: 1, failed: 0, remaining: 0)
+      expect(unembedded.reload.embedding).not_to be_nil
+    end
+
+    it "counts a per-row generate failure without aborting the run" do
+      create(:ai_compound_learning, account: account, status: "active", embedding: nil)
+      create(:ai_compound_learning, account: account, status: "active", embedding: nil)
+      allow(embedding_service).to receive(:generate_batch).and_return([ Array.new(1536) { 0.1 }, nil ])
+
+      result = service.backfill_embeddings
+
+      expect(result[:embedded]).to eq(1)
+      expect(result[:failed]).to eq(1)
+    end
+
+    it "respects max_per_run and reports the remaining backlog" do
+      3.times { create(:ai_compound_learning, account: account, status: "active", embedding: nil) }
+      allow(embedding_service).to receive(:generate_batch).and_return([ Array.new(1536) { 0.1 } ])
+
+      result = service.backfill_embeddings(max_per_run: 1)
+
+      expect(result[:embedded]).to eq(1)
+      expect(result[:remaining]).to eq(2)
+    end
+
+    it "excludes non-active rows from the backfill scope" do
+      create(:ai_compound_learning, account: account, status: "deprecated", embedding: nil)
+      expect(embedding_service).not_to receive(:generate_batch)
+
+      result = service.backfill_embeddings
+
+      expect(result).to eq(success: true, embedded: 0, failed: 0, remaining: 0)
+    end
+  end
+
   describe "#compound_metrics" do
     it "returns a metrics hash with expected keys" do
       metrics = service.compound_metrics

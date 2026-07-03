@@ -32,6 +32,7 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
     allow(compound_service).to receive(:reinforce_learning).and_return(nil)
     allow(compound_service).to receive(:promote_cross_team).and_return(0)
     allow(compound_service).to receive(:decay_and_consolidate).and_return({ decayed: 0, consolidated: 0 })
+    allow(compound_service).to receive(:backfill_embeddings).and_return({ success: true, embedded: 0, failed: 0, remaining: 0 })
 
     # Stub EvaluationService
     eval_service = instance_double(Ai::Learning::EvaluationService)
@@ -408,6 +409,19 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
       post path, headers: auth_headers_for(manage_user)
       expect(response).to have_http_status(:success)
       expect(json_response['success']).to eq(true)
+    end
+
+    it 'includes an embedding_backfill result driven by the compound learning service' do
+      service_double = instance_double(Ai::Learning::CompoundLearningService,
+                                        decay_and_consolidate: { decayed: 0, archived: 0, skipped_by_event: 0 },
+                                        promote_cross_team: 0,
+                                        backfill_embeddings: { success: true, embedded: 2, failed: 0, remaining: 0 })
+      allow(Ai::Learning::CompoundLearningService).to receive(:new).and_return(service_double)
+
+      post path, headers: auth_headers_for(manage_user)
+
+      expect(service_double).to have_received(:backfill_embeddings)
+      expect(json_response.dig('data', 'embedding_backfill', 'embedded')).to eq(2)
     end
   end
 end
