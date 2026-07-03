@@ -44,6 +44,28 @@ module Ai
       def compose(*specific)
         [*HEAD, *specific.flatten, *TAIL].freeze
       end
+
+      # Re-derive a loop's served guardrails from its PERSISTED snapshot at pull
+      # time, so a long-lived loop (dev-improve singleton, campaign loops) picks
+      # up HEAD/TAIL tuning without waiting for its config to be reseeded.
+      #
+      # persisted was built at create time as HEAD + loop-specific middle lines +
+      # TAIL. We can't recover exactly which persisted lines were "the middle"
+      # once HEAD/TAIL have since changed, so we approximate: strip any line that
+      # exactly matches a CURRENT HEAD/TAIL entry, and recompose with the
+      # CURRENT HEAD/TAIL around whatever remains.
+      #
+      # Documented limitation: this only catches lines that are unchanged from
+      # (or literally absent from) the persisted snapshot. A shared line whose
+      # TEXT was tuned (not just added/removed) still has its old wording linger
+      # in the served list as a stray "middle" line until the loop's config is
+      # reseeded — new/removed shared lines propagate correctly (the main drift
+      # class this guards against); text-edited shared lines do not fully
+      # self-heal without a reseed.
+      def refresh(persisted)
+        middle = Array(persisted) - HEAD - TAIL
+        compose(middle)
+      end
     end
   end
 end

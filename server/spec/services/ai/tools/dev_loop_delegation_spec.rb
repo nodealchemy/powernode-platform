@@ -28,6 +28,20 @@ RSpec.describe Ai::Tools::DevLoopTool, "#delegate_ralph_task" do
     expect(described_class.action_definitions.keys).to include("delegate_ralph_task")
   end
 
+  it "includes CURRENT (refreshed) guardrails in the delegation brief, not the stale persisted snapshot" do
+    ralph_loop.update!(configuration: { "guardrails" => ["specific: stale-only middle line"] })
+    expected_brief_guardrails = Ai::DevLoop::LoopGuardrails.refresh(["specific: stale-only middle line"])
+
+    expect(agent_tool).to receive(:execute) do |params:|
+      brief = params[:task]
+      expect(brief).to include("Guardrails:")
+      expected_brief_guardrails.each { |line| expect(brief).to include(line) }
+      spawn_ok
+    end
+
+    delegate
+  end
+
   it "delegates a pending task to a platform agent and records the A2A handle (no await)" do
     expect(agent_tool).to receive(:execute)
       .with(params: hash_including(action: "spawn_task", agent_id: "agent-9")).and_return(spawn_ok)

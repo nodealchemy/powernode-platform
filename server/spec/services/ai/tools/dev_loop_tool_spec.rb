@@ -257,14 +257,40 @@ RSpec.describe Ai::Tools::DevLoopTool do
     it "includes loop guardrails and spec path from configuration" do
       ralph_loop.update!(configuration: {
         "loop_spec_path" => ".claude/loops/dev-audit/PROMPT.md",
-        "guardrails" => ["one task per iteration"]
+        "guardrails" => ["specific: one task per iteration"]
       })
       create(:ai_ralph_task, ralph_loop: ralph_loop)
 
       result = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
 
       expect(result[:loop][:loop_spec_path]).to eq(".claude/loops/dev-audit/PROMPT.md")
-      expect(result[:loop][:guardrails]).to eq(["one task per iteration"])
+      expect(result[:loop][:guardrails]).to eq(
+        Ai::DevLoop::LoopGuardrails.refresh(["specific: one task per iteration"])
+      )
+      expect(result[:loop][:guardrails]).to include("specific: one task per iteration")
+    end
+
+    it "serves the CURRENT shared guardrails, not a stale persisted snapshot" do
+      # Simulate a persisted snapshot from before a HEAD/TAIL tuning: only the
+      # loop-specific middle line was persisted (no shared lines at all).
+      ralph_loop.update!(configuration: { "guardrails" => ["specific: stale-only middle line"] })
+      create(:ai_ralph_task, ralph_loop: ralph_loop)
+
+      result = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+      served = result[:loop][:guardrails]
+      expect(served.first(Ai::DevLoop::LoopGuardrails::HEAD.size)).to eq(Ai::DevLoop::LoopGuardrails::HEAD)
+      expect(served.last(Ai::DevLoop::LoopGuardrails::TAIL.size)).to eq(Ai::DevLoop::LoopGuardrails::TAIL)
+      expect(served).to include("specific: stale-only middle line")
+    end
+
+    it "serves plain compose when persisted guardrails are missing (no crash)" do
+      ralph_loop.update!(configuration: {})
+      create(:ai_ralph_task, ralph_loop: ralph_loop)
+
+      result = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+      expect(result[:loop][:guardrails]).to eq(Ai::DevLoop::LoopGuardrails.compose)
     end
 
     context "halt conditions" do

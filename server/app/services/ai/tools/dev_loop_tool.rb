@@ -561,7 +561,7 @@ module Ai
           "Task #{task.task_key}: #{task.description}",
           "Acceptance criteria: #{task.acceptance_criteria}",
           (meta["files"].present? ? "Files: #{Array(meta['files']).join(', ')}" : nil),
-          (config["guardrails"].present? ? "Guardrails: #{Array(config['guardrails']).join(' | ')}" : nil)
+          "Guardrails: #{Ai::DevLoop::LoopGuardrails.refresh(config['guardrails']).join(' | ')}"
         ].compact.join("\n")
       end
 
@@ -601,7 +601,7 @@ module Ai
             executor_vendor: loop_record.executor_vendor,
             repository_url: loop_record.repository_url,
             loop_spec_path: config["loop_spec_path"],
-            guardrails: config["guardrails"],
+            guardrails: Ai::DevLoop::LoopGuardrails.refresh(config["guardrails"]),
             current_iteration: loop_record.current_iteration,
             max_iterations: loop_record.max_iterations,
             queue: queue_snapshot(loop_record)
