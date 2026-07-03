@@ -86,6 +86,15 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
       expect(matches.size).to eq(1)
       expect(matches.first.id).to eq(override.id)
     end
+
+    it "excludes mcp_client agents (ephemeral CC-session identities, not executable platform agents — " \
+       "AgentToolBridgeService#tools_enabled? draws the same line)" do
+      mcp_client_agent = create(:ai_agent, :mcp_client, account: account)
+
+      slugs = service.send(:syncable_agents).map(&:slug)
+
+      expect(slugs).not_to include(mcp_client_agent.slug)
+    end
   end
 
   describe "frontmatter model mapping" do

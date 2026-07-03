@@ -85,7 +85,12 @@ module Ai
       end
 
       def syncable_agents
+        # mcp_client agents are ephemeral identities auto-created per external Claude Code MCP
+        # session (Ai::McpClientIdentityService) — not executable platform agents, so they have
+        # no system_prompt worth exporting. AgentToolBridgeService#tools_enabled? draws the same
+        # line (returns false for agent_type "mcp_client").
         scope = ::Ai::Agent.for_account(@account&.id).active.account_override_first
+                           .where.not(agent_type: "mcp_client")
         scope.group_by { |agent| sync_key(agent) }
              .transform_values(&:first)
              .values
