@@ -42,7 +42,8 @@ class Webhooks::WebhookDeliveryJob < BaseJob
     # SSRF guard: refuse outbound delivery to internal/metadata/private targets.
     # Record as a permanent failure and return WITHOUT scheduling a retry — the
     # destination is blocked by policy, so retrying would never succeed.
-    unless Security::WebhookUrlGuard.safe?(webhook_url)
+    vetted_target = Security::WebhookUrlGuard.vetted_target(webhook_url)
+    unless vetted_target
       log_error "[Webhook] blocked SSRF target #{webhook_url}"
       mark_delivery_status(delivery_id, 'failed', {
         error_message: "Blocked SSRF target (internal/private destination): #{webhook_url}",
@@ -59,7 +60,7 @@ class Webhooks::WebhookDeliveryJob < BaseJob
     merged_headers = headers.merge(custom_headers)
 
     # Make the HTTP request
-    result = deliver_webhook(webhook_url, payload, merged_headers)
+    result = deliver_webhook(vetted_target, payload, merged_headers)
 
     if result[:success]
       log_info "Webhook delivered successfully: #{delivery_id}"
@@ -105,14 +106,19 @@ class Webhooks::WebhookDeliveryJob < BaseJob
 
   private
 
-  def deliver_webhook(url, payload, headers)
+  def deliver_webhook(vetted_target, payload, headers)
     require 'net/http'
     require 'uri'
 
     start_time = Time.current
 
-    uri = URI.parse(url)
+    uri = vetted_target.uri
     http = Net::HTTP.new(uri.host, uri.port)
+    # Pin the socket to the IP the guard actually vetted (Host header + TLS SNI
+    # stay on uri.host) so a DNS rebind between check and connect cannot point
+    # this request at an internal address. ip is nil only for opted-in trusted
+    # hosts the guard couldn't pre-resolve — those fall back to normal resolution.
+    http.ipaddr = vetted_target.ip if vetted_target.ip
     http.use_ssl = uri.scheme == 'https'
     http.open_timeout = 5
     http.read_timeout = 30

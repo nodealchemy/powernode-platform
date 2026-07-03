@@ -28,6 +28,13 @@ module Security
   module WebhookUrlGuard
     class UnsafeUrlError < StandardError; end
 
+    # A vetted delivery target: the parsed URI plus the single IP that was
+    # actually resolved-and-checked. Callers MUST connect to +ip+ (pinning)
+    # while keeping the URI's host as the Host header / TLS SNI, so a DNS
+    # rebind between this check and connect time cannot redirect the socket to
+    # an internal address (TOCTOU / DNS-rebinding closure).
+    VettedTarget = Struct.new(:uri, :ip, keyword_init: true)
+
     ALLOWED_SCHEMES = %w[http https].freeze
 
     # Hostnames that, by definition, point at an internal/metadata target.
@@ -73,6 +80,33 @@ module Security
     # Validates +url+, returning the parsed URI when safe. Raises UnsafeUrlError
     # (a controlled, rescuable error) when the destination is internal/disallowed.
     def validate!(url)
+      vet!(url).uri
+    end
+
+    # Validates +url+ and returns the VettedTarget the caller MUST pin to (the
+    # parsed URI plus the exact IP that was checked). Raises UnsafeUrlError when
+    # the destination is internal/disallowed. Prefer this over +safe?+ on the
+    # outbound delivery path: pinning the connection to the returned IP is what
+    # actually closes the DNS-rebind TOCTOU window that +safe?+ alone leaves open.
+    def vetted_target!(url)
+      vet!(url)
+    end
+
+    # Non-raising wrapper around +vetted_target!+. Returns the VettedTarget when
+    # safe, or nil when the destination is internal/disallowed.
+    def vetted_target(url)
+      vetted_target!(url)
+    rescue UnsafeUrlError
+      nil
+    end
+
+    # --- internals -----------------------------------------------------------
+
+    # Resolves and validates +url+ exactly once, returning a VettedTarget whose
+    # +ip+ is the single resolved address the caller must connect to. This is the
+    # shared core behind +validate!+, +safe?+ and +vetted_target!+ so the
+    # classification logic never diverges.
+    def vet!(url)
       uri = parse(url)
 
       scheme = uri.scheme&.downcase
@@ -84,23 +118,32 @@ module Security
       raise UnsafeUrlError, 'missing host' if host.nil? || host.empty?
 
       normalized = normalize_host(host)
+      opted_in = allowed_internal_hosts.include?(normalized)
 
-      # Operator opt-in escape hatch for self-hosted internal delivery.
-      return uri if allowed_internal_hosts.include?(normalized)
-
-      raise UnsafeUrlError, "blocked hostname: #{host}" if blocked_hostname?(normalized)
+      # Operator opt-in escape hatch for self-hosted internal delivery skips the
+      # blocked-hostname and internal-range checks — but we still resolve so the
+      # connection can be pinned to a concrete vetted IP.
+      raise UnsafeUrlError, "blocked hostname: #{host}" if !opted_in && blocked_hostname?(normalized)
 
       addresses = resolve(normalized)
+
+      if opted_in
+        # Best-effort pin for the operator escape hatch: opted-in hosts are
+        # explicitly trusted, and some resolve only via NSS/mDNS mechanisms that
+        # Ruby's Resolv can't see. Keep the pre-pinning behavior (nil ip → the
+        # caller lets Net::HTTP resolve) rather than hard-blocking a trusted host
+        # we merely failed to pre-resolve here.
+        return VettedTarget.new(uri: uri, ip: addresses.first&.to_s)
+      end
+
       raise UnsafeUrlError, "unable to resolve host: #{host}" if addresses.empty?
 
       addresses.each do |addr|
         raise UnsafeUrlError, "resolves to internal address: #{addr}" if internal_ip?(addr)
       end
 
-      uri
+      VettedTarget.new(uri: uri, ip: addresses.first.to_s)
     end
-
-    # --- internals -----------------------------------------------------------
 
     def parse(url)
       URI.parse(url.to_s)

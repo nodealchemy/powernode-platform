@@ -38,14 +38,20 @@ class ExternalAgentCardFetchJob < BaseJob
   def fetch_card_body(agent_card_url)
     # SSRF guard: agent_card_url is user-supplied (external-agent registration),
     # so refuse internal/loopback/metadata targets before any socket work.
-    unless Security::WebhookUrlGuard.safe?(agent_card_url)
+    vetted_target = Security::WebhookUrlGuard.vetted_target(agent_card_url)
+    unless vetted_target
       log_warn("[A2A] blocked SSRF target #{agent_card_url}")
       return { 'error' => 'blocked: agent_card_url resolves to an internal address' }
     end
 
-    uri = URI.parse(agent_card_url)
+    uri = vetted_target.uri
 
     http = Net::HTTP.new(uri.host, uri.port)
+    # Pin the socket to the vetted IP (Host header + TLS SNI stay on uri.host)
+    # so a DNS rebind between check and connect cannot redirect to an internal
+    # address. ip is nil only for opted-in trusted hosts the guard couldn't
+    # pre-resolve — those fall back to normal resolution.
+    http.ipaddr = vetted_target.ip if vetted_target.ip
     http.use_ssl = (uri.scheme == 'https')
     http.open_timeout = FETCH_TIMEOUT
     http.read_timeout = FETCH_TIMEOUT

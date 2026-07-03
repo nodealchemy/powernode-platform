@@ -90,5 +90,41 @@ RSpec.describe Webhooks::WebhookDeliveryJob, type: :job do
         expect(a_request(:post, webhook_url)).to have_been_made.once
       end
     end
+
+    context 'DNS-rebind TOCTOU: pins the vetted IP instead of re-resolving at connect time' do
+      let(:webhook_url) { 'https://hooks.example.com/endpoint' }
+      let(:vetted_ip)   { '93.184.216.34' }
+      let(:rebind_ip)   { '169.254.169.254' } # cloud metadata — the rebind target
+
+      before do
+        allow(api_client_double).to receive(:get)
+          .with("/api/v1/internal/webhook_deliveries/#{delivery_id}")
+          .and_return(delivery_response(webhook_url))
+        stub_request(:post, webhook_url).to_return(status: 200, body: 'ok')
+        allow(job_instance).to receive(:mark_delivery_status)
+      end
+
+      it 'connects to the IP the guard vetted, not a value re-resolved after the check' do
+        # The guard resolves once and returns the public IP; a hypothetical
+        # second resolution (the rebind) would return the internal metadata IP.
+        # Because the job pins the vetted IP, the connection target must be the
+        # FIRST (vetted) value regardless of any later resolution.
+        allow(Resolv).to receive(:getaddresses).with('hooks.example.com')
+          .and_return([vetted_ip], [rebind_ip])
+
+        captured_ipaddr = nil
+        allow_any_instance_of(Net::HTTP).to receive(:ipaddr=).and_wrap_original do |orig, value|
+          captured_ipaddr = value
+          orig.call(value)
+        end
+
+        job_instance.execute(delivery_id)
+
+        expect(captured_ipaddr).to eq(vetted_ip)
+        # The host is only resolved by the guard — the delivery path never
+        # re-resolves, so the rebind IP is never even queried for.
+        expect(Resolv).to have_received(:getaddresses).once
+      end
+    end
   end
 end

@@ -109,4 +109,59 @@ RSpec.describe Security::WebhookUrlGuard do
       end
     end
   end
+
+  describe '.vetted_target! / .vetted_target (IP pinning for TOCTOU closure)' do
+    it 'returns the parsed URI and the exact resolved IP the caller must pin to' do
+      allow(Resolv).to receive(:getaddresses).with('hooks.example.com').and_return(['93.184.216.34'])
+
+      target = described_class.vetted_target!('https://hooks.example.com/endpoint')
+
+      expect(target.uri).to be_a(URI::HTTPS)
+      expect(target.uri.host).to eq('hooks.example.com')
+      expect(target.ip).to eq('93.184.216.34')
+    end
+
+    it 'resolves the host exactly once so the caller pins that single vetting (no re-resolve)' do
+      allow(Resolv).to receive(:getaddresses).with('hooks.example.com').and_return(['93.184.216.34'])
+
+      described_class.vetted_target!('https://hooks.example.com/endpoint')
+
+      expect(Resolv).to have_received(:getaddresses).once
+    end
+
+    it 'returns the literal itself for an IP-literal URL' do
+      target = described_class.vetted_target!('https://93.184.216.34/hook')
+      expect(target.ip).to eq('93.184.216.34')
+    end
+
+    it 'vetted_target (non-raising) returns nil for an internal destination' do
+      expect(described_class.vetted_target('http://169.254.169.254/latest/meta-data/')).to be_nil
+    end
+
+    it 'vetted_target! raises UnsafeUrlError for an internal destination' do
+      allow(Resolv).to receive(:getaddresses).with('rebind.example.test').and_return(['10.0.0.5'])
+      expect { described_class.vetted_target!('https://rebind.example.test/hook') }
+        .to raise_error(Security::WebhookUrlGuard::UnsafeUrlError, /internal address/)
+    end
+
+    context 'with an opted-in internal host that Ruby Resolv cannot resolve' do
+      around do |example|
+        original = ENV['WEBHOOK_ALLOWED_INTERNAL_HOSTS']
+        ENV['WEBHOOK_ALLOWED_INTERNAL_HOSTS'] = 'collector.local'
+        example.run
+      ensure
+        ENV['WEBHOOK_ALLOWED_INTERNAL_HOSTS'] = original
+      end
+
+      it 'stays safe with a nil ip (best-effort pin) so the escape hatch is not broken' do
+        allow(Resolv).to receive(:getaddresses).with('collector.local').and_return([])
+
+        target = described_class.vetted_target!('http://collector.local/hook')
+
+        expect(target).not_to be_nil
+        expect(target.uri.host).to eq('collector.local')
+        expect(target.ip).to be_nil
+      end
+    end
+  end
 end

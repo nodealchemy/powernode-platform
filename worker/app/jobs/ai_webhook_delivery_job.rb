@@ -70,7 +70,8 @@ class AiWebhookDeliveryJob < BaseJob
     # SSRF guard: refuse outbound delivery to internal/metadata/private targets.
     # This is an OUTBOUND call we are declining — record it as a failed delivery
     # and return (no raise) so a permanently-blocked URL is not retried.
-    unless Security::WebhookUrlGuard.safe?(webhook_url)
+    vetted_target = Security::WebhookUrlGuard.vetted_target(webhook_url)
+    unless vetted_target
       log_error "[Webhook] blocked SSRF target #{webhook_url}"
       return {
         success: false,
@@ -82,8 +83,13 @@ class AiWebhookDeliveryJob < BaseJob
 
     start_time = Time.current
 
-    uri = URI.parse(webhook_url)
+    uri = vetted_target.uri
     http = Net::HTTP.new(uri.host, uri.port)
+    # Pin the socket to the vetted IP (Host header + TLS SNI stay on uri.host)
+    # so a DNS rebind between check and connect cannot redirect to an internal
+    # address. ip is nil only for opted-in trusted hosts the guard couldn't
+    # pre-resolve — those fall back to normal resolution.
+    http.ipaddr = vetted_target.ip if vetted_target.ip
     http.use_ssl = uri.scheme == 'https'
     http.open_timeout = 5
     http.read_timeout = 15
