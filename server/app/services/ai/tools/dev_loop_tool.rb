@@ -435,6 +435,7 @@ module Ai
           # complete! appends the learning to the loop but doesn't embed it; do the
           # mid-run embed here so the passed path matches the others (G12).
           embed_learning_mid_run(loop_record, params[:learning], task: task, files: params[:files_changed])
+          apply_linked_recommendation!(task)
         when "failed"
           iteration.fail!(error_message: summary)
           task.fail!(error_message: summary)
@@ -448,6 +449,28 @@ module Ai
           task.skip!(reason: summary)
           capture_learning(loop_record, task, iteration, params[:learning], files: params[:files_changed])
         end
+      end
+
+      # IMP-a091565577cc: a passed dev-improve task is the ground-truth closure
+      # for the Ai::ImprovementRecommendation it was promoted from (see
+      # Ai::DevLoop::ImprovementPromotionService) — without this, approved
+      # offers never reach "applied" and the /improve scoreboard's applied
+      # funnel stays stuck at 0 no matter how many tasks land. Only acts on an
+      # "approved" recommendation so it's a no-op on replay/re-pass and never
+      # clobbers a dismissed/pending record.
+      def apply_linked_recommendation!(task)
+        rec_id = task.metadata.is_a?(Hash) ? task.metadata["recommendation_id"] : nil
+        return if rec_id.blank?
+
+        recommendation = account.ai_improvement_recommendations.find_by(id: rec_id)
+        return unless recommendation&.status == "approved"
+
+        # apply!(user) reassigns approved_by — an agent-driven pass has no `user`
+        # (BaseTool#user is nil for agent callers), so fall back to whoever
+        # already approved it rather than clobbering that attribution with nil.
+        recommendation.apply!(user || recommendation.approved_by)
+      rescue StandardError => e
+        Rails.logger.warn("[DevLoopTool] apply_linked_recommendation! failed for task #{task.task_key}: #{e.message}")
       end
 
       def capture_learning(loop_record, task, iteration, learning, files: nil)

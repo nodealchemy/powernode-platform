@@ -592,6 +592,58 @@ RSpec.describe Ai::Tools::DevLoopTool do
     end
   end
 
+  describe "dev_complete_task applying the linked improvement recommendation (IMP-a091565577cc)" do
+    let!(:recommendation) do
+      create(:ai_improvement_recommendation, :approved, account: account,
+                                                          recommendation_type: "code_lint")
+    end
+    let!(:task) do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "IMP-99",
+                             metadata: { "recommendation_id" => recommendation.id })
+    end
+
+    before do
+      ralph_loop.update!(status: "running", started_at: Time.current)
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+    end
+
+    it "transitions the linked recommendation to applied when the task passes" do
+      result = tool.execute(params: {
+        action: "dev_complete_task",
+        loop_id: ralph_loop.id,
+        task_key: "IMP-99",
+        outcome: "passed",
+        summary: "Fixed the lint finding"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:task_status]).to eq("passed")
+      expect(recommendation.reload.status).to eq("applied")
+      expect(recommendation.applied_at).to be_present
+    end
+
+    it "does not touch recommendations on a non-passing outcome" do
+      tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "IMP-99",
+        outcome: "failed", summary: "still red"
+      })
+
+      expect(recommendation.reload.status).to eq("approved")
+    end
+
+    it "is safe when a passed task has no recommendation_id" do
+      create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop, task_key: "PLAIN-1",
+                                            metadata: { "claimed_by" => "user:#{user.id}" })
+
+      result = tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "PLAIN-1",
+        outcome: "passed", summary: "no recommendation link here"
+      })
+
+      expect(result[:success]).to be true
+    end
+  end
+
   describe "dev_complete_task resolving a blocked task (operator disposition)" do
     let!(:blocked_task) do
       create(:ai_ralph_task, :blocked, ralph_loop: ralph_loop, task_key: "BLK-1")
