@@ -49,5 +49,20 @@ RSpec.describe Ai::Autonomy::DutyCycleService, type: :service do
       expect(exec.ai_agent_id).to eq(agent.id)
       expect(described_class.duty_cycle_action_count(agent)).to eq(1)
     end
+
+    # Bug: record_action recorded the agent's RAW ai_provider_id column instead
+    # of the RESOLVED provider that actually serves the call
+    # (Ai::Agent#resolved_provider). See
+    # app/models/concerns/ai/agent/execution.rb for the sibling bug/fix.
+    it "records the RESOLVED provider's id, not the raw ai_provider_id column" do
+      resolved_provider = create(:ai_provider, account: account, name: "actual-anthropic")
+      allow(agent).to receive(:resolved_provider).and_return(resolved_provider)
+
+      service.send(:record_action, "react_to_alert", observation)
+
+      exec = Ai::AgentExecution.order(:created_at).last
+      expect(exec.ai_provider_id).to eq(resolved_provider.id)
+      expect(exec.ai_provider_id).not_to eq(agent.ai_provider_id)
+    end
   end
 end

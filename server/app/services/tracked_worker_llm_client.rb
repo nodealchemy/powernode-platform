@@ -74,7 +74,7 @@ class TrackedWorkerLlmClient
       agent: @agent,
       account: @agent.account,
       user: resolve_user,
-      provider: @agent.provider,
+      provider: @agent.resolved_provider || @agent.provider,
       status: "running",
       started_at: Time.current,
       input_parameters: build_input_params(method, messages, opts),

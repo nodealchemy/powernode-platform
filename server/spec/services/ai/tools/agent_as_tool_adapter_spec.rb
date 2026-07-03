@@ -72,6 +72,21 @@ RSpec.describe Ai::Tools::AgentAsToolAdapter do
         expect(execution.execution_context["source"]).to eq("agent_as_tool")
         expect(execution.execution_context["calling_agent_id"]).to eq(calling_agent.id)
       end
+
+      # Bug: create_execution recorded the target agent's RAW `provider`
+      # association on the created AgentExecution instead of the RESOLVED
+      # provider that actually serves the call (Ai::Agent#resolved_provider).
+      # See app/models/concerns/ai/agent/execution.rb for the sibling bug/fix.
+      it "records the RESOLVED provider's id, not the raw association's" do
+        resolved_provider = create(:ai_provider, account: account, name: "actual-anthropic")
+        allow(target_agent).to receive(:resolved_provider).and_return(resolved_provider)
+
+        adapter.execute(params: { prompt: "Test prompt" })
+
+        execution = Ai::AgentExecution.last
+        expect(execution.ai_provider_id).to eq(resolved_provider.id)
+        expect(execution.ai_provider_id).not_to eq(target_agent.ai_provider_id)
+      end
     end
 
     context "with inactive target agent" do

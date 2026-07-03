@@ -252,6 +252,38 @@ RSpec.describe Ai::SandboxService, type: :service do
     end
   end
 
+  # Bug: execute_agent_in_sandbox recorded the target agent's RAW `provider`
+  # association on the created AgentExecution instead of the RESOLVED provider
+  # that actually serves the call (Ai::Agent#resolved_provider). See
+  # app/models/concerns/ai/agent/execution.rb for the sibling bug/fix.
+  describe '#execute_agent_in_sandbox' do
+    let(:sandbox) { create(:ai_sandbox, account: account, created_by: user, status: 'active') }
+    let(:raw_provider) { create(:ai_provider, account: account, name: 'stale-ollama') }
+    let(:resolved_provider) { create(:ai_provider, account: account, name: 'actual-anthropic') }
+    let(:target_agent) { create(:ai_agent, account: account, provider: raw_provider, status: 'active') }
+    let(:scenario) do
+      service.create_scenario(
+        sandbox: sandbox,
+        name: 'Agent Scenario',
+        scenario_type: 'unit',
+        target_agent: target_agent,
+        input_data: { 'query' => 'test' }
+      )
+    end
+
+    it "records the RESOLVED provider's id, not the raw association's" do
+      allow(target_agent).to receive(:resolved_provider).and_return(resolved_provider)
+      allow(scenario).to receive(:target_agent).and_return(target_agent)
+
+      result = service.send(:execute_agent_in_sandbox, sandbox, scenario)
+
+      expect(result[:executed]).to be true
+      execution = Ai::AgentExecution.find(result[:execution_id])
+      expect(execution.ai_provider_id).to eq(resolved_provider.id)
+      expect(execution.ai_provider_id).not_to eq(raw_provider.id)
+    end
+  end
+
   describe '#start_recording / #stop_recording' do
     let(:sandbox) { create(:ai_sandbox, account: account, created_by: user) }
 

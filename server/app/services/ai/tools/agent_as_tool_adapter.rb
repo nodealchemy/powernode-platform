@@ -93,7 +93,7 @@ module Ai
         Ai::AgentExecution.create!(
           agent: @target_agent,
           account: @account,
-          provider: @target_agent.provider,
+          provider: @target_agent.resolved_provider || @target_agent.provider,
           user: resolve_user,
           execution_id: UUID7.generate,
           status: "pending",

@@ -241,7 +241,7 @@ module Ai
           account: account,
           agent: agent,
           user: user || account.users.first,
-          provider: agent.provider,
+          provider: agent.using_account(account).resolved_provider || agent.provider,
           input_parameters: input_params,
           status: "pending",
           execution_id: SecureRandom.uuid,

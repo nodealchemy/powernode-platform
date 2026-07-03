@@ -327,7 +327,7 @@ module Ai
         Ai::AgentExecution.create!(
           account_id: account.id,
           ai_agent_id: agent.id,
-          ai_provider_id: agent.ai_provider_id,
+          ai_provider_id: agent.using_account(account).resolved_provider&.id || agent.ai_provider_id,
           user_id: agent.creator_id,
           execution_id: SecureRandom.uuid,
           status: "completed",

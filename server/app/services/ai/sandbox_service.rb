@@ -311,7 +311,7 @@ module Ai
         account: account,
         agent: scenario.target_agent,
         user: sandbox.created_by,
-        provider: scenario.target_agent.provider,
+        provider: scenario.target_agent.resolved_provider || scenario.target_agent.provider,
         input_parameters: scenario.input_data,
         status: "pending",
         tokens_used: 0,

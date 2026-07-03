@@ -89,6 +89,26 @@ RSpec.describe Ai::Tools::AgentManagementTool do
         expect(result[:success]).to be false
         expect(result[:error]).to match(/not found/i)
       end
+
+      # Bug: execute_agent recorded the agent's RAW `provider` association on the
+      # created AgentExecution instead of the RESOLVED provider that actually
+      # serves the call (Ai::Agent#resolved_provider). See
+      # app/models/concerns/ai/agent/execution.rb for the sibling bug/fix.
+      it "records the RESOLVED provider's id, not the raw association's" do
+        raw_provider = create(:ai_provider, account: account, name: "stale-ollama")
+        resolved_provider = create(:ai_provider, account: account, name: "actual-anthropic")
+        agent = create(:ai_agent, account: account, provider: raw_provider)
+        # resolve_agent re-queries the DB for the agent, so stub resolution on
+        # the class (any_instance) rather than the `agent` object created above.
+        allow_any_instance_of(Ai::Agent).to receive(:resolved_provider).and_return(resolved_provider)
+
+        result = tool.execute(params: { action: "execute_agent", agent_id: agent.id })
+
+        expect(result[:success]).to be true
+        execution = Ai::AgentExecution.find(result[:execution_id])
+        expect(execution.ai_provider_id).to eq(resolved_provider.id)
+        expect(execution.ai_provider_id).not_to eq(raw_provider.id)
+      end
     end
 
     context "with unknown action" do

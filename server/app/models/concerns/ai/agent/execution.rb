@@ -12,8 +12,11 @@ module Ai
           raise StandardError, "Agent '#{name}' is not active (status: #{status}). Cannot execute."
         end
 
-        # Use provided provider or the agent's default provider
-        effective_provider = provider || self.provider
+        # Use an explicit caller-specified provider (an intentional pin) when given;
+        # otherwise use the RESOLVED provider (the one that will actually serve the
+        # call per Ai::Agent#model_resolution), falling back to the raw association
+        # only if resolution comes back empty.
+        effective_provider = provider || resolved_provider || self.provider
 
         # Create an execution record
         execution = executions.create!(
